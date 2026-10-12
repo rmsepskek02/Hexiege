@@ -807,3 +807,11 @@ Build_BackUpThisFolder_ButDontShipItWithYourGame/Managed/UnityLinkerToEditorData
 # 소스에서 자동 생성되는 산출물이라 커밋하지 않는다.
 __pycache__/
 *.py[cod]
+
+# 검증된 archive 보관 대상 raw 본문만 제외한다. 문서/meta와 로컬 원본은 보존한다.
+/Assets/_Project/Docs/_Logs/_editor/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/RuntimeLog.txt
+/Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog.txt
+/Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_device.txt
+/Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_device_2.txt
+/Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_host.txt
+/Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_client.txt

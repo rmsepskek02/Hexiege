@@ -41679,12 +41679,15 @@ MonoBehaviour:
   - type: 0
     blue: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
     red: {fileID: 3775139385689606299, guid: 0fb1fc8960816a449a56977bd4ca2c78, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 3dc19d88c3a013c46af811597796c70a, type: 2}
   - type: 1
     blue: {fileID: 3614917809869233749, guid: 5234299cf2ee6e94e959c38f91c336a6, type: 3}
     red: {fileID: 318326584771880502, guid: 43bf1e1b432927d4ca1f9f9cbeff5884, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 5db36c06bba0cd24d97d1ad80bc7190a, type: 2}
   - type: 2
     blue: {fileID: 1177749537038205201, guid: ae58b031070a6c04f8f6cb4f20363118, type: 3}
     red: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 783d389748c4c7743a831612d7b1b5f5, type: 2}
   - type: 3
     blue: {fileID: 706557163707619843, guid: 3610a3acac634d542a0b010cf4f494cc, type: 3}
     red: {fileID: 2875750089628736822, guid: 256fe9d1d991f24479401c151dedb259, type: 3}
@@ -41734,6 +41737,7 @@ MonoBehaviour:
   - type: 18
     blue: {fileID: 3536031145536561663, guid: 4bbf44175a9e285488f1f9114ba304a6, type: 3}
     red: {fileID: 3536031145536561663, guid: d4deb64f4b4a8734db61eea3bc19334a, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 0396c9df8348dd04a99ba18bfb31485a, type: 2}
   _transcendencePrefabs:
   - type: 20
     blue: {fileID: 5478310507604524601, guid: 31b30650a4fe9034c8e0706bfe301d54, type: 3}
@@ -41762,6 +41766,7 @@ MonoBehaviour:
   - type: 27
     blue: {fileID: 9113406549177339274, guid: f9886e15c0cc9304495c2074a3fee051, type: 3}
     red: {fileID: 9113406549177339274, guid: e9897a020243c2341b01fde0a37b3db9, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: b934af543a2aa8f4dbc72962f233fa9f, type: 2}
   _unitParent: {fileID: 1885953708}
 --- !u!1 &1713131837
 GameObject:

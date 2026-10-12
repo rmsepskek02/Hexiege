@@ -259,6 +259,8 @@ Assets/Editor/Tools/   → 영구 보존 도구. 삭제 금지
 
 → `Assets/_Project/Docs/LogRules.md` **2. QA-Fix 로그** 섹션 참조
 
+현행 런타임 로그·보관 정책은 [LogRules.md](LogRules.md), 과거 개정·검증 원문은 [LogHistory.md](LogHistory.md)를 참조한다. 이력의 PASS는 새 실행 증거가 아니다.
+
 ### [6] 사용자 테스트
 - 구현 내용을 사용자가 직접 테스트하여 완료 여부 확인
 - 버그 발견 또는 부족한 구현의 경우 재작업

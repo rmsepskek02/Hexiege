@@ -41,6 +41,7 @@ using UnityEngine;
 using Hexiege.Application;
 using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Presentation;
+using UniRx;
 
 namespace Hexiege.Infrastructure
 {
@@ -188,6 +189,234 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private UnitView _unitView;
 
+        // 객체 수명 안의 현재 공격 표현 값이다. RPC와 늦은 init 모두 같은 적용 경계를 쓴다.
+        private NetworkVariable<AttackPhaseWire> _attackPhaseState = new NetworkVariable<AttackPhaseWire>(
+            default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private UnitAttackPhasePresentation _pendingAttackPhase;
+        private ulong _appliedAttackPhaseRevision, _closedAttackEpoch;
+        private ulong _closedAttackInstance, _closedAttackSequence;
+        private double _closedAttackEpochTime = double.NegativeInfinity;
+        private bool _attackPhaseEnded;
+        private static ulong _nextAttackPhaseLifetime;
+        private ulong _attackPhaseLifetime;
+#if UNITY_EDITOR
+        // 기존 production gate가 native Animator를 실행할 때만 쓰는 controlled clock seam.
+        // Player 빌드에는 존재하지 않으며 fresh NGO 경로를 바꾸지 않는다.
+        private System.Func<double> _attackPhaseFixtureClock;
+        // Existing production gate substitutes transport only, after the real local apply.
+        private System.Action<UnitAttackPhasePresentation> _attackPhaseFixturePublish;
+#endif
+
+        public bool TryReadAttackPresentationClock(out double server, out ulong generation)
+        {
+            generation = _attackPhaseLifetime; server = double.NaN;
+#if UNITY_EDITOR
+            if (_attackPhaseFixtureClock != null) { server = _attackPhaseFixtureClock(); return !double.IsNaN(server) && !double.IsInfinity(server); }
+#endif
+            if (!IsSpawned || NetworkManager == null || !NetworkManager.IsListening) return false;
+            server = NetworkManager.ServerTime.Time;
+            return !double.IsNaN(server) && !double.IsInfinity(server);
+        }
+
+        public bool PublishAttackPhase(UnitAttackPhasePresentation value)
+        {
+            bool transportReady = IsSpawned && IsServer;
+#if UNITY_EDITOR
+            transportReady |= _attackPhaseFixturePublish != null && NetworkContext.IsNetworkServer;
+#endif
+            if (!transportReady || _attackPhaseEnded) return false;
+            value.Lifetime = _attackPhaseLifetime;
+            if (!UnitAttackPresentationPolicy.IsValidPhasePayload(value)) return false;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            if (_unitView == null || !_unitView.CanUseNativeAttackPhase(_unitView.UnitData)) return false;
+            if (!_unitView.CanApplyHostNativeAttackPhase()
+                || !TryReadAttackPresentationClock(out _, out ulong generation) || generation != value.Lifetime) return false;
+            // OLD (pre-RED): wire/NV write -> ReceiveAttackPhase -> unconditional true.
+            // _attackPhaseState.Value = new AttackPhaseWire { Value = value };
+            // ReceiveAttackPhase(value); AttackPhaseClientRpc(...); return true;
+            // Publish/receipt must never outrun Host Root/priority/clock/native application.
+            ReceiveAttackPhase(value);
+            if (_appliedAttackPhaseRevision != value.PresentationRevision
+                || !_pendingAttackPhase.Active || _pendingAttackPhase.EpochId != value.EpochId
+                || !new AttackPhaseWire { Value = _pendingAttackPhase }.Equals(new AttackPhaseWire { Value = value })
+                || !_unitView.IsServerCombatPresentationSatisfied(value.TargetId,
+                    value.TargetIsUnit, value.PresentationRevision)) return false;
+#if UNITY_EDITOR
+            if (_attackPhaseFixturePublish != null) { _attackPhaseFixturePublish(value); return true; }
+#endif
+            var wire = new AttackPhaseWire { Value = value };
+            _attackPhaseState.Value = wire;
+            AttackPhaseClientRpc(wire);
+            return true;
+        }
+
+        public bool TryGetLiveNativeAttackEpoch(out double epoch)
+        {
+            epoch = _pendingAttackPhase.EpochServerTime;
+            return !_attackPhaseEnded && _pendingAttackPhase.Active && _unitView != null
+                && _unitView.HasNativeAttackEpoch(_pendingAttackPhase.Lifetime, _pendingAttackPhase.EpochId);
+        }
+
+        public void CloseLogicalAttackScope() => CloseAttackPhase("logical-combat-stop", false);
+
+        // Called on actual View Walk/priority/state exit; never reads Client progress
+        // back into gameplay scheduling and never reopens a retired sequence.
+        public void InvalidateNativeAttackEpoch(string reason)
+        {
+            if (_pendingAttackPhase.EpochId != 0)
+            {
+                _closedAttackEpoch = _pendingAttackPhase.EpochId;
+                _closedAttackEpochTime = System.Math.Max(_closedAttackEpochTime, _pendingAttackPhase.EpochServerTime);
+            }
+            RetirePendingAttackSequence();
+            _pendingAttackPhase = default;
+        }
+
+        private void RetirePendingAttackSequence()
+        {
+            if (!_pendingAttackPhase.Scope.IsValid) return;
+            if (_closedAttackInstance != _pendingAttackPhase.Scope.AttackerInstanceId.Value) _closedAttackSequence = 0;
+            _closedAttackInstance = _pendingAttackPhase.Scope.AttackerInstanceId.Value;
+            _closedAttackSequence = System.Math.Max(_closedAttackSequence, _pendingAttackPhase.Scope.SequenceId.Value);
+        }
+
+        [ClientRpc]
+        private void AttackPhaseClientRpc(AttackPhaseWire value)
+        {
+            if (!IsServer) ReceiveAttackPhase(value.Value);
+        }
+
+        private void OnAttackPhaseChanged(AttackPhaseWire previous, AttackPhaseWire current)
+        {
+            if (!IsServer) ReceiveAttackPhase(current.Value);
+        }
+
+        private void ReceiveAttackPhase(UnitAttackPhasePresentation value)
+        {
+            if (_attackPhaseEnded || !UnitAttackPresentationPolicy.IsValidPhasePayload(value)) return;
+            if (_attackPhaseLifetime != 0 && value.Lifetime != _attackPhaseLifetime) return;
+            if (value.PresentationRevision < _appliedAttackPhaseRevision
+                || value.PresentationRevision < _pendingAttackPhase.PresentationRevision) return;
+            if (!value.Active)
+            {
+                if (value.EpochId != _pendingAttackPhase.EpochId || value.Lifetime != _attackPhaseLifetime
+                    || value.UnitId != _pendingAttackPhase.UnitId
+                    || value.EpochServerTime != _pendingAttackPhase.EpochServerTime
+                    || value.Duration != _pendingAttackPhase.Duration) return;
+                _appliedAttackPhaseRevision = System.Math.Max(_appliedAttackPhaseRevision, value.PresentationRevision);
+                CloseAttackPhase("replicated-stop", false);
+                return;
+            }
+            if (value.EpochId == _closedAttackEpoch || value.EpochServerTime <= _closedAttackEpochTime
+                || value.PresentationRevision == _appliedAttackPhaseRevision) return;
+            if (value.Scope.IsValid && value.Scope.AttackerInstanceId.Value == _closedAttackInstance
+                && value.Scope.SequenceId.Value <= _closedAttackSequence) return;
+            // RPC와 현재값이 같은 revision이면 전체 원자 payload가 같아야 한다.
+            // 준비 전 재전송도 배열/target/scope를 갈아 끼울 수 없다.
+            if (_pendingAttackPhase.Active && value.PresentationRevision == _pendingAttackPhase.PresentationRevision
+                && !new AttackPhaseWire { Value = value }.Equals(new AttackPhaseWire { Value = _pendingAttackPhase })) return;
+            _attackPhaseLifetime = value.Lifetime;
+            _pendingAttackPhase = value;
+            if (value.Hits != null) _pendingAttackPhase.Hits = (AttackSourceOccurrence[])value.Hits.Clone();
+            ApplyCurrentAttackPhase();
+        }
+
+        private void ApplyCurrentAttackPhase()
+        {
+            if (_attackPhaseEnded || !_pendingAttackPhase.Active
+                || _pendingAttackPhase.PresentationRevision <= _appliedAttackPhaseRevision) return;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            // 준비되지 않은 View는 성공/소비 처리하지 않는다. Initialize의 reapply에서 재시도한다.
+            if (_unitView != null && _unitView.ApplyAttackPhasePresentation(_pendingAttackPhase))
+                _appliedAttackPhaseRevision = _pendingAttackPhase.PresentationRevision;
+            else if (_unitView != null && _unitView.AttackPhaseRejectionReason != null
+                && _unitView.AttackPhaseRejectionReason != "view-not-ready"
+                && _unitView.AttackPhaseRejectionReason != "priority-held"
+                && _unitView.AttackPhaseRejectionReason != "clock-not-ready")
+            {
+                // Metadata divergence is an explicit failed contract, not an endless readiness
+                // retry and not a Host-only runtime fallback. Excluded profiles must have chosen
+                // the old transport before publish. No acknowledgement of View success here.
+                CloseAttackPhase("native-contract-rejected", false);
+            }
+        }
+
+        public void RetryAttackPhaseViewBinding() => ApplyCurrentAttackPhase();
+
+        private void CloseAttackPhase(string reason, bool terminal)
+        {
+            bool keepEpoch = UnitAttackPresentationPolicy.KeepsNativeEpoch(reason, terminal);
+            // OLD: every scope close poisoned the still-continuous native epoch.
+            // if (_pendingAttackPhase.EpochId != 0) _closedAttackEpoch = _pendingAttackPhase.EpochId;
+            if (!keepEpoch && _pendingAttackPhase.EpochId != 0)
+            {
+                _closedAttackEpoch = _pendingAttackPhase.EpochId;
+                _closedAttackEpochTime = System.Math.Max(_closedAttackEpochTime, _pendingAttackPhase.EpochServerTime);
+            }
+            RetirePendingAttackSequence();
+            _appliedAttackPhaseRevision = System.Math.Max(_appliedAttackPhaseRevision, _pendingAttackPhase.PresentationRevision);
+            if (_pendingAttackPhase.Active && IsSpawned && IsServer)
+            {
+                var closed = _pendingAttackPhase; closed.Active = false;
+                _attackPhaseState.Value = new AttackPhaseWire { Value = closed };
+            }
+            if (keepEpoch)
+            {
+                _pendingAttackPhase.Mode = AttackPresentationImpactMode.Suppressed;
+                _pendingAttackPhase.Scope = default;
+                _pendingAttackPhase.Hits = null;
+            }
+            else _pendingAttackPhase = default;
+            _attackPhaseEnded |= terminal;
+            // Walk/server-state-exit is a real playback exit, not a logical stop.
+            if (_unitView != null) _unitView.CloseAttackPhasePresentation(reason, keepEpoch);
+        }
+
+        // 원자 wire: 배열 크기부터 검증하여 무한 할당을 막고, per-hit 값을 그대로 복사한다.
+        public struct AttackPhaseWire : INetworkSerializable, System.IEquatable<AttackPhaseWire>
+        {
+            public UnitAttackPhasePresentation Value;
+            public bool Equals(AttackPhaseWire other)
+            {
+                var a = Value; var b = other.Value;
+                if (a.Lifetime != b.Lifetime || a.EpochId != b.EpochId || a.PresentationRevision != b.PresentationRevision
+                    || a.ActionRevision != b.ActionRevision || a.Active != b.Active || a.UnitId != b.UnitId
+                    || a.TargetId != b.TargetId || a.TargetIsUnit != b.TargetIsUnit || a.EpochServerTime != b.EpochServerTime
+                    || a.Duration != b.Duration || a.CommitServerTime != b.CommitServerTime || a.Mode != b.Mode
+                    || !a.Scope.Equals(b.Scope) || (a.Hits?.Length ?? 0) != (b.Hits?.Length ?? 0)) return false;
+                for (int i = 0; i < (a.Hits?.Length ?? 0); i++)
+                {
+                    var x = a.Hits[i]; var y = b.Hits[i];
+                    if (x.HitIndex != y.HitIndex || x.Loop != y.Loop || x.MarkerOffset != y.MarkerOffset
+                        || x.MarkerServerTime != y.MarkerServerTime || x.ImpactServerTime != y.ImpactServerTime) return false;
+                }
+                return true;
+            }
+            public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+            {
+                s.SerializeValue(ref Value.Lifetime); s.SerializeValue(ref Value.EpochId);
+                s.SerializeValue(ref Value.PresentationRevision); s.SerializeValue(ref Value.ActionRevision);
+                s.SerializeValue(ref Value.UnitId); s.SerializeValue(ref Value.TargetId);
+                s.SerializeValue(ref Value.TargetIsUnit); s.SerializeValue(ref Value.Active);
+                s.SerializeValue(ref Value.EpochServerTime); s.SerializeValue(ref Value.Duration);
+                s.SerializeValue(ref Value.CommitServerTime);
+                byte mode = (byte)Value.Mode; s.SerializeValue(ref mode); Value.Mode = (AttackPresentationImpactMode)mode;
+                ulong instance = Value.Scope.AttackerInstanceId.Value, sequence = Value.Scope.SequenceId.Value;
+                int first = Value.Scope.HitIndex;
+                s.SerializeValue(ref instance); s.SerializeValue(ref sequence); s.SerializeValue(ref first);
+                Value.Scope = new AttackPresentationScope(new AttackerInstanceId(instance), new AttackSequenceId(sequence), first);
+                int count = Value.Hits?.Length ?? 0; s.SerializeValue(ref count);
+                if (count < 0 || count > 64) throw new System.InvalidOperationException("Attack occurrence wire count");
+                if (s.IsReader) Value.Hits = new AttackSourceOccurrence[count];
+                for (int i = 0; i < count; i++)
+                {
+                    s.SerializeValue(ref Value.Hits[i].HitIndex); s.SerializeValue(ref Value.Hits[i].Loop);
+                    s.SerializeValue(ref Value.Hits[i].MarkerOffset); s.SerializeValue(ref Value.Hits[i].MarkerServerTime);
+                    s.SerializeValue(ref Value.Hits[i].ImpactServerTime);
+                }
+            }
+        }
+
         /// <summary>
         /// 클라이언트에서 UnitView 초기화가 완료되었는지 여부.
         /// SpawnUnitClientRpc에서 중복 초기화를 방지하기 위해 사용.
@@ -200,6 +429,215 @@ namespace Hexiege.Infrastructure
         /// RegisterToFactory에서 반복 접근을 방지하기 위한 캐시.
         /// </summary>
         private IGameServices _services;
+
+        private NetworkVariable<NetworkUnitHealCastState> _healCastState =
+            new NetworkVariable<NetworkUnitHealCastState>(default,
+                NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        // Independent recipient snapshot. Caster animation state and HP sync cannot own this lifetime.
+        private readonly NetworkVariable<NetworkBloomHealEffectState> _bloomEffectState =
+            new NetworkVariable<NetworkBloomHealEffectState>(default,
+                NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private BloomHealEffectCursor _bloomCursor;
+        private BloomHealEffectChannel _bloomChannel;
+        private Hexiege.Domain.UnitData _bloomTarget;
+        private bool _bloomClosed;
+        private ulong _bloomAppliedRevision;
+        private bool _bloomReadyPending;
+        public BloomHealEffectPresentation BloomEffectState => _bloomEffectState.Value.Value;
+
+        public void PublishBloomEffect(BloomHealEffectPresentation value, Hexiege.Domain.UnitData target)
+        {
+            if (!IsSpawned || !IsServer || _bloomClosed || value.TargetId != UnitId) return;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            var view = _unitView;
+            if (view == null || view.Data == null) { _bloomReadyPending = true; return; }
+            if (!ReferenceEquals(view.Data, target))
+            { _bloomChannel?.RecordRejection(value, BloomHealAdmission.BindingRejected, "PublishViewBinding"); return; }
+            if (_bloomChannel != null && _bloomChannel.IsClosed
+                && value.MatchGeneration != _bloomCursor.Current.MatchGeneration)
+            { _bloomCursor = new BloomHealEffectCursor(); _bloomTarget = null; _bloomChannel = null; }
+            if (_bloomTarget != null && !ReferenceEquals(_bloomTarget, target))
+            { _bloomChannel?.RecordRejection(value, BloomHealAdmission.BindingRejected, "PublishTargetBinding"); return; }
+            if (!_bloomCursor.TryAccept(value))
+            { _bloomChannel?.RecordRejection(value, _bloomCursor.Classify(value), "PublishCursor"); return; }
+            _bloomTarget = target;
+            _bloomReadyPending = false;
+            _bloomChannel ??= GameServicesLocator.Current?.GetCombatUseCase()?.BloomHealEffects;
+            _bloomEffectState.Value = new NetworkBloomHealEffectState { Value = value };
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _bloomChannel?.Diagnostics.Record("Publish", value);
+#endif
+            // Host already consumes the Application channel through the sole presenter, not this callback.
+        }
+        private void OnBloomEffectChanged(NetworkBloomHealEffectState before, NetworkBloomHealEffectState after)
+        {
+            if (!after.Value.IsValid)
+                _bloomChannel?.RecordRejection(after.Value, BloomHealAdmission.Invalid, "NetworkChanged");
+            if (_bloomChannel != null && _bloomChannel.IsClosed
+                && after.Value.MatchGeneration != _bloomCursor.Current.MatchGeneration)
+            { _bloomCursor = new BloomHealEffectCursor(); _bloomTarget = null; _bloomChannel = null; _bloomAppliedRevision = 0; }
+            _bloomReadyPending = true; ApplyCurrentBloomEffect();
+        }
+        private void ApplyCurrentBloomEffect()
+        {
+            if (_bloomClosed || !IsSpawned || !_bloomReadyPending) return;
+            var current = BloomEffectState;
+            if (!IsServer && (!current.IsValid || current.Revision == _bloomAppliedRevision))
+            {
+                // 빈 current는 spawn 초기 상태다. 실제 valid 동일-revision 수신만 분류한다.
+                // 캐시만 사용하므로 이 fast path에 services/GetComponent 조회를 추가하지 않는다.
+                if (current.IsValid) _bloomChannel?.RecordRejection(current, _bloomCursor.Classify(current), "ApplyAlreadyRevision");
+                _bloomReadyPending = false; return;
+            }
+            if (_bloomChannel == null || _bloomChannel.IsClosed)
+                _bloomChannel = GameServicesLocator.Current?.GetCombatUseCase()?.BloomHealEffects;
+            var channel = _bloomChannel;
+            if (channel != null && channel.IsClosed) { _bloomReadyPending = false; return; }
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            var target = _unitView != null ? _unitView.Data : null;
+            if (channel == null || target == null || target.Id != UnitId) return;
+            _bloomChannel = channel;
+            if (_bloomTarget != null && !ReferenceEquals(_bloomTarget, target))
+            { _bloomChannel.RecordRejection(current, BloomHealAdmission.BindingRejected, "ApplyTargetBinding"); _bloomReadyPending = false; return; }
+            if (IsServer)
+            {
+                if (channel.TryGet(target, out var baseline) && baseline.Revision != BloomEffectState.Revision)
+                    PublishBloomEffect(baseline, target);
+                _bloomReadyPending = false;
+                return;
+            }
+            _bloomReadyPending = false; // Terminal rejection is not a readiness retry.
+            if (!current.IsValid || current.TargetId != UnitId)
+            { channel.RecordRejection(current, BloomHealAdmission.Invalid, "ApplyPayload"); return; }
+            if (!channel.BindRecipient(target, current.MatchGeneration, current.TargetLifetime))
+            { channel.RecordRejection(current, BloomHealAdmission.BindingRejected, "ApplyBind"); return; }
+            if (!_bloomCursor.TryAccept(current))
+            { channel.RecordRejection(current, _bloomCursor.Classify(current), "ApplyCursor"); return; }
+            // 새 channel의 baseline이 이미 같은 current를 갖는 경우도 준비 완료다.
+            // 그 외에는 실제 수락 뒤에만 applied/Receive를 기록하여 거부를 성공으로 꾸미지 않는다.
+            bool alreadyCurrent = channel.TryGet(target, out var accepted) && accepted.Equals(current);
+            if (!alreadyCurrent && !channel.Accept(current, target)) return;
+            _bloomTarget = target;
+            _bloomAppliedRevision = current.Revision;
+            _bloomReadyPending = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            channel.Diagnostics.Record("Receive", current);
+#endif
+        }
+        private readonly NetworkVariable<NetworkTimedDamageEffectState> _damageState =
+            new NetworkVariable<NetworkTimedDamageEffectState>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private TimedDamageEffectChannel _damageChannel;
+        private Hexiege.Domain.UnitData _damageTarget;
+        private bool _damageClosed;
+        private TimedDamageEffectPresentation _damageAttempt;
+        private IGameServices _damageServices;
+        private ulong _damageRetiredMatch;
+        private ulong _damageBoundMatch;
+        private void ApplyCurrentTimedDamage()
+        {
+            if (_damageClosed || !IsSpawned) return;
+            var services = GameServicesLocator.Current;
+            var channel = _damageChannel != null && !_damageChannel.Closed && ReferenceEquals(_damageServices, services)
+                ? _damageChannel : services?.GetCombatUseCase()?.TimedDamageEffects;
+            if (channel == null || channel.Closed) return;
+            if (!ReferenceEquals(_damageChannel, channel))
+            {
+                if (_damageChannel != null && _damageChannel.Closed) _damageRetiredMatch = _damageBoundMatch;
+                _damageChannel?.CloseAttachment(_damageTarget, "ServiceReinitialize");
+                _damageAttempt = default; _damageTarget = null; _damageChannel = channel; _damageServices = services;
+            }
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            var target = _unitView != null ? _unitView.Data : null;
+            if (target == null || target.Id != UnitId) return;
+            if (_damageTarget != null && !ReferenceEquals(_damageTarget, target))
+            { _damageChannel?.CloseAttachment(_damageTarget, "BindingReplaced"); _damageClosed = true; return; }
+            _damageTarget = target; _damageChannel = channel;
+            if (IsServer)
+            {
+                if (channel.TryGet(target, out var state) && !_damageState.Value.Value.Equals(state))
+                { _damageBoundMatch = state.Match; _damageState.Value = new NetworkTimedDamageEffectState { Value = state }; channel.Record("Publish", state, "CurrentValue"); }
+            }
+            else
+            {
+                var state = _damageState.Value.Value;
+                if (!state.IsValid || state.Match == _damageRetiredMatch) return;
+                if (channel.TryGet(target, out var current) && current.Equals(state)) return;
+                // current value가 바뀌거나 실제 service owner가 교체될 때만 다시 시도한다.
+                // 준비 이전에는 attempt를 저장하지 않으므로 late init은 현재값을 복원한다.
+                if (_damageAttempt.Equals(state)) return;
+                _damageAttempt = state;
+                if (channel.Receive(state, target)) _damageBoundMatch = state.Match;
+            }
+        }
+        private void LateUpdate()
+        {
+            try { ApplyCurrentTimedDamage(); }
+            catch (System.Exception ex) { _damageChannel?.Record("Fault", _damageState.Value.Value, ex.GetType().Name + ": " + ex.Message); }
+            // Readiness retry observes current state, never replays a missed historical begin.
+            try { ApplyCurrentBloomEffect(); }
+            catch (System.Exception e) { BloomHealEffectChannel.Fault(e, "RecipientReady"); }
+        }
+        private void CloseBloomAttachment(string reason)
+        {
+            if (_bloomClosed) return;
+            _bloomClosed = true;
+            _bloomReadyPending = false;
+            _bloomChannel?.CloseAttachment(_bloomTarget, reason);
+            _bloomTarget = null;
+            // No server stop or mutation of the actual HoT list on disconnect/despawn.
+        }
+
+        public UnitHealCastPresentation HealCastState => _healCastState.Value.Value;
+        private bool _healClosed;
+        private System.IDisposable _healEndSubscription;
+        public double HealServerTime => IsSpawned && NetworkManager != null
+            ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
+
+        /// <summary>서버 힐 시작/종료를 atomic 값으로 게시한다. 일반 적 공격 RPC는 호출하지 않는다.</summary>
+        public void PublishHealCast(UnitHealCastPresentation state)
+        {
+            if (!IsSpawned || !IsServer || _healClosed || !state.IsValid || state.UnitId != UnitId) return;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            if (_unitView == null || _unitView.Data == null || !_unitView.Data.IsHealer) return;
+            var previous = HealCastState;
+            if (previous.IsValid && (previous.Lifetime != state.Lifetime || state.Sequence < previous.Sequence
+                || (state.Sequence == previous.Sequence && !previous.Active && state.Active))) return;
+            state.Revision = previous.Revision + 1;
+            _healCastState.Value = new NetworkUnitHealCastState { Value = state };
+            UnitHealCastDiagnostics.Event("Publish", state, $"NetworkObjectId={NetworkObjectId}, Now={HealServerTime:G17}");
+            // Host 표현은 로컬 시작이 이미 수행했다. revision/priority만 같은 값으로 수렴한다.
+            _unitView.ApplyHealPresentation(state, HealServerTime);
+        }
+
+        private void OnHealCastChanged(NetworkUnitHealCastState previous, NetworkUnitHealCastState current)
+        {
+            UnitHealCastDiagnostics.Event("Receive", current.Value, $"NetworkObjectId={NetworkObjectId}, Now={HealServerTime:G17}");
+            ApplyCurrentHealCast();
+        }
+
+        private void ApplyCurrentHealCast()
+        {
+            if (_healClosed || !HealCastState.IsValid || HealCastState.UnitId != UnitId) return;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            _unitView?.ApplyHealPresentation(HealCastState, HealServerTime);
+        }
+
+        private void CloseHealCast(string reason)
+        {
+            if (_healClosed) return;
+            if (IsServer && IsSpawned && HealCastState.Active)
+            {
+                var state = HealCastState;
+                state.Active = false;
+                state.EndedAt = HealServerTime;
+                state.EndReason = reason == "game-end" ? (byte)5 : (byte)6;
+                PublishHealCast(state);
+            }
+            _healClosed = true;
+            if (_unitView == null) _unitView = GetComponent<UnitView>();
+            _unitView?.EndHealPresentation(reason, terminal: true);
+        }
 
         // ====================================================================
         // 서버 전용 API
@@ -230,7 +668,22 @@ namespace Hexiege.Infrastructure
             // 방어적 가드 — WritePermission=Server이므로 클라이언트에서 호출되면 무시.
             if (!IsServer) return;
 
+            if (state == UnitAnimState.Walk || state == UnitAnimState.None)
+                CloseAttackPhase("server-state-exit", false);
+
             _animState.Value = (byte)state;
+            if (HealCastState.IsValid)
+            {
+                var heal = HealCastState;
+                byte priority = state == UnitAnimState.Frozen || state == UnitAnimState.Held
+                    ? (byte)state : (byte)UnitAnimState.Walk;
+                if (heal.Priority != priority || (!heal.Active && heal.EndReason != 0))
+                {
+                    heal.Priority = priority;
+                    if (!heal.Active) heal.EndReason = 0;
+                    PublishHealCast(heal);
+                }
+            }
         }
 
         /// <summary>ReducerAuthoritative 서버가 수락한 이동 snapshot만 게시한다.</summary>
@@ -332,6 +785,9 @@ namespace Hexiege.Infrastructure
             if (state.TryToPresentationInput(_unitId.Value, out AttackResultPresentationInput input))
             {
                 _attackPresentationInstanceId = input.Key.AttackerInstanceId;
+                PistoleerTimingDiagnostics.Register(_unitView?.Data ?? GetComponent<UnitView>()?.Data, AttackPresentationScope.FromResultKey(input.Key), 0);
+                PistoleerTimingDiagnostics.Event(_unitView?.Data ?? GetComponent<UnitView>()?.Data, "Receive", AttackPresentationScope.FromResultKey(input.Key),
+                    NetworkManager.ServerTime.Time, $"outcome={input.Outcome} impact={PistoleerTimingDiagnostics.Number(input.ImpactServerTime)} revision={input.ActionRevision} amount={input.AppliedAmount} hp={input.ResultingHp} victim={input.Key.VictimId} kind={input.Key.VictimKind} effect={input.Key.EffectKind} ordinal={input.Key.ResultOrdinal}");
                 UnitAttackResultPresentationShadowBridge.ObserveResult(
                     input, NetworkManager.ServerTime.Time,
                     UnityEngine.Time.realtimeSinceStartupAsDouble);
@@ -356,6 +812,9 @@ namespace Hexiege.Infrastructure
                 && state.TryToPresentationInput(_unitId.Value, out AttackResultPresentationInput input))
             {
                 _attackPresentationInstanceId = input.Key.AttackerInstanceId;
+                PistoleerTimingDiagnostics.Register(_unitView?.Data ?? GetComponent<UnitView>()?.Data, AttackPresentationScope.FromResultKey(input.Key), 0);
+                PistoleerTimingDiagnostics.Event(_unitView?.Data ?? GetComponent<UnitView>()?.Data, "Receive", AttackPresentationScope.FromResultKey(input.Key),
+                    NetworkManager.ServerTime.Time, $"outcome={input.Outcome} impact={PistoleerTimingDiagnostics.Number(input.ImpactServerTime)} revision={input.ActionRevision} amount={input.AppliedAmount} hp={input.ResultingHp} victim={input.Key.VictimId} kind={input.Key.VictimKind} effect={input.Key.EffectKind} ordinal={input.Key.ResultOrdinal}");
                 UnitAttackResultPresentationShadowBridge.ObserveResult(
                     input, NetworkManager.ServerTime.Time,
                     UnityEngine.Time.realtimeSinceStartupAsDouble);
@@ -381,6 +840,24 @@ namespace Hexiege.Infrastructure
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
+            _damageClosed = false; _damageTarget = null; _damageChannel = null; _damageAttempt = default;
+            _damageServices = null; _damageRetiredMatch = _damageBoundMatch = 0;
+            if (IsServer) _damageState.Value = default;
+            _bloomClosed = false; _bloomAppliedRevision = 0; _bloomTarget = null; _bloomChannel = null;
+            _bloomCursor = new BloomHealEffectCursor();
+            _bloomReadyPending = true;
+            if (IsServer) _bloomEffectState.Value = default;
+            _bloomEffectState.OnValueChanged += OnBloomEffectChanged;
+            _attackPhaseEnded = false; _closedAttackEpoch = _appliedAttackPhaseRevision = 0;
+            _closedAttackEpochTime = double.NegativeInfinity;
+            _closedAttackInstance = _closedAttackSequence = 0;
+            _pendingAttackPhase = default;
+            _attackPhaseLifetime = IsServer ? ++_nextAttackPhaseLifetime : 0UL;
+            _attackPhaseState.OnValueChanged += OnAttackPhaseChanged;
+            _healClosed = false;
+            _healEndSubscription?.Dispose();
+            _healEndSubscription = GameEvents.OnGameEnd.Subscribe(e => { CloseHealCast("game-end"); CloseAttackPhase("game-end", true); });
+            if (IsServer) _healCastState.Value = default;
 
             _attackShadowPublicationClassifier =
                 new UnitAttackShadowReplicationClassifier();
@@ -403,10 +880,15 @@ namespace Hexiege.Infrastructure
             //   (이 코드는 클라이언트 경로에서만 실행된다 — 위에서 IsServer일 때 이미 return했다.)
             // ────────────────────────────────────────────────────────────────
             _animState.OnValueChanged += OnAnimStateChanged;
+            _healCastState.OnValueChanged += OnHealCastChanged;
             _movementSemanticRevision.OnValueChanged +=
                 OnMovementSemanticRevisionChanged;
             _attackShadowState.OnValueChanged += OnAttackShadowStateChanged;
             ApplySpawnAnimState();
+            ApplyCurrentHealCast();
+
+            ReceiveAttackPhase(_attackPhaseState.Value.Value);
+            ApplyCurrentAttackPhase();
 
             // 클라이언트: unitId가 이미 설정되었으면 즉시 딕셔너리에 등록
             if (_unitId.Value != -1)
@@ -436,6 +918,7 @@ namespace Hexiege.Infrastructure
 
             // 유효한 unitId 도착 → UnitFactory 딕셔너리에 등록
             RegisterToFactory(newValue);
+            ApplyCurrentHealCast();
 
             // 등록 완료 후 콜백 해제 — 1회만 실행하면 되므로 더 이상 구독할 필요 없음
             _unitId.OnValueChanged -= OnUnitIdReceived;
@@ -488,8 +971,11 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void ReapplyAnimStateToView()
         {
+            ApplyCurrentAttackPhase();
             // IsSpawned 먼저 검사(|| 단락 평가) — 싱글플레이(미스폰)에서는 IsServer를 건드리지 않고 반환.
             if (!IsSpawned || IsServer) return;
+
+            ApplyCurrentHealCast();
 
             byte current = _animState.Value;
             if (current == (byte)UnitAnimState.None) return;
@@ -569,6 +1055,14 @@ namespace Hexiege.Infrastructure
             if (_unitView == null) _unitView = GetComponent<UnitView>();
             if (_unitView == null) return;
 
+            // 활성 힐의 priority는 같은 atomic snapshot에 들어 있다. 늦게 도착한
+            // 독립 Walk/Frozen/Held scalar로 더 최신 힐 snapshot을 덮지 않는다.
+            if (HealCastState.IsValid && _unitView.Data != null && _unitView.Data.IsHealer)
+            {
+                ApplyCurrentHealCast();
+                return;
+            }
+
             switch ((UnitAnimState)state)
             {
                 case UnitAnimState.Walk:
@@ -604,6 +1098,17 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            _damageClosed = true;
+            _damageChannel?.CloseAttachment(_damageTarget, "RecipientDespawn");
+            _damageTarget = null; _damageChannel = null;
+            CloseBloomAttachment("RecipientDespawn");
+            _bloomEffectState.OnValueChanged -= OnBloomEffectChanged;
+            CloseAttackPhase("despawn", true);
+            _attackPhaseState.OnValueChanged -= OnAttackPhaseChanged;
+            CloseHealCast("despawn");
+            _healEndSubscription?.Dispose();
+            _healEndSubscription = null;
+            _healCastState.OnValueChanged -= OnHealCastChanged;
             // 공격한 적 없는 유닛은 표현 수명을 만들지 않았으므로 retire할 대상도 없다.
             // Coordinator도 None을 no-op으로 방어하지만 호출 경계에서 의미를 명시한다.
             if (_attackPresentationInstanceId.IsValid)

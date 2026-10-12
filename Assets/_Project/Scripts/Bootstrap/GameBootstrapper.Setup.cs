@@ -343,6 +343,7 @@ namespace Hexiege.Bootstrap
             float mistRadius = _specialAttackConfig != null ? _specialAttackConfig.MistRadius : 3f;
             float mistHealTextInterval = _specialAttackConfig != null ? _specialAttackConfig.MistHealTextInterval : 3f;
 
+            _unitCombat?.CloseTorrentLaunches("service-replaced");
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
@@ -351,6 +352,13 @@ namespace Hexiege.Bootstrap
                 blastRadius, blastDotPerSecond, blastDotDuration,
                 infernoDotPerSecond, infernoDotDuration,
                 quakeRadius, quakeSplashRatio);
+            _unitCombat.SetWaveDeliveryEnabled(true);
+            _unitCombat.SetWaveClock(() =>
+            {
+                var network = Unity.Netcode.NetworkManager.Singleton;
+                return NetworkContext.IsNetworkActive && network != null && network.IsListening
+                    ? network.ServerTime.Time : Time.timeAsDouble;
+            });
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,
@@ -371,6 +379,8 @@ namespace Hexiege.Bootstrap
             //   데미지(공격보너스·방어감쇄)·이동배율·힐 스케일·자연회복 조회를 전투/이동/타워가 참조하도록 주입.
             //   (B) 방식: 유닛 스냅샷은 그대로 두고 사용 지점에서 팀 레벨을 곱한다 → 소급 강화 자동 성립.
             // ────────────────────────────────────────────────────────────
+            _towerCombat.SetEffectClock(() => _unitCombat.WaveServerTime);
+            _unitCombat.TimedDamageEffects.Clock = () => _unitCombat.WaveServerTime;
             _unitUpgrade = new UnitUpgradeUseCase();
             _unitCombat.SetUpgradeUseCase(_unitUpgrade);
             _towerCombat.SetUpgradeUseCase(_unitUpgrade);

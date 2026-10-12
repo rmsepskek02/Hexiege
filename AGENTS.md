@@ -27,6 +27,7 @@
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 — 자원 시스템, 범위 공격 규칙, 유닛 강화(연구소) 시스템 스탯 포함 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
 | `Assets/_Project/Docs/LogRules.md` | 런타임 로그 + QA-Fix 로그(`Log.md`) 작성 규칙 (절 목록은 그 문서가 단일 소스) |
+| `Assets/_Project/Docs/LogHistory.md` | 로그 규칙의 과거 개정·구현·검증 이력 원문 — 현행 규범이 아님 |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 — **규칙 문서별 상세 요약의 단일 소스** (세부 규칙은 `GameSystemRules/` 하위 파일) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 유형별 생성·검증 규칙 |

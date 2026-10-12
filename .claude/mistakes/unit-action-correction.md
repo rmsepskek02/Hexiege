@@ -24,6 +24,9 @@
 - 2026-09-13  문서의 원자 target 전달을 production event seam 확인 없이 완료 처리
 - 2026-09-14  production marker와 config 불일치 상태에서 Supported 승격을 문서 상태만으로 판단할 위험
 - 2026-09-22  일반 Stop이 이미 커밋된 source marker까지 닫아 Client 공격 VFX를 누락
+- 2026-10-03  BloomFairy level-only heal signal was blocked while the asset gate missed Client playback
+- 2026-10-04  BloomFairy first-entry authority guard depended on a later lazy clock cache initializer
+- 2026-10-04  Pistoleer timing correction omitted production timing observability before rebuild
 
 ---
 
@@ -880,3 +883,141 @@ InfernoSpirit 공격 VFX가 Client에서 간헐적으로 보이지 않았다. �
 - **상태:** 문서 반영, 구현 담당자 결과 및 새 실기 대기/OPEN. 공통 Supported PASS를 Fox 표시 PASS로 읽지 않는다. 이번 생산 Fox+Boulder를 DustSpirit 실전 검증으로 오인하지 않는다.
 
 **2026-09-28 후속 결과(이전 상태 보존):** writer-owned immediate 표시 교정 구현 완료. 구현 담당자 Runtime/Editor 정적 컴파일 오류 0, 메인 세션 직접 실행·Editor.log 확인 인계에서 Unit Action Self Validation 02:46:05 PASS, Root Pose Cross Audit SelfValidate 02:49:34 PASS, Console error 0 / warning 20. 빌드 미시도, 사용자 Fox+DustSpirit 실기 OPEN. 12 writer 조합은 HP 1회 적용·이벤트 immediate/key 보존만 확인한다. 진단은 인스턴스당 최대 128줄 unscoped receive/emit·TryShowDamage 성공, 공격자 부재 생략이다. VFX 종료와 공격별 exact correlation은 미계측이며 전체 marker→queue→text runtime PASS로 확대하지 않는다. 메뉴 수치는 메인 세션 관측 인계로 문서 담당자 직접 측정이 아니다.
+
+---
+
+## 2026-10-03  BloomFairy level-only heal signal was blocked while the asset gate missed Client playback
+
+**What went wrong**
+
+The replicated Attack-level start path was blocked for ordinary combat safety, but the separate healer path still depended on that level-only signal to start Client animation. The initial BloomFairy correction added the 1.000-second marker, production clip binding and asset/config gate without checking the complete heal signal-to-Animator path. These were valid asset checks, not a runtime heal-motion gate. Their success did not establish that Client playback could start.
+
+**Why it happened**
+
+The ordinary attack path had a separate atomic `StartCombatClientRpc` payload, while the heal handler only published an Attack state value. The investigation stopped at marker/config/binding alignment instead of tracing production publication, subscription, replicated-state receipt and the final animation policy. The general Attack-level suppression was therefore retained without a corresponding healer-specific current-state playback path. This is a confirmed source incompatibility; it is not proof that every reported stationary Walk frame had this exact runtime cause.
+
+**How it was revealed — evidence and limits**
+
+- Main/user handoff: Editor Host / Android Client, session `9a2df951...3962e`, 2026-10-03 03:59–04:02, nine BloomFairy units with IDs `4, 9, 22, 27, 42, 47, 61, 66, 79`. Attack non-playback and stationary Walk were reported; motion remains **FAIL / OPEN**. This record does not reconstruct the full session key or claim an independent raw-log recount.
+- Source read during the task update: `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs`, `PlayHealCastAnimation`, plays locally on Host/solo and publishes `OnUnitHealCastStarted` with only the caster ID. `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs`, `OnUnitHealCastStartedHandler`, only calls `SetUnitAnimState(unitId, UnitAnimState.Attack)`.
+- `Assets/_Project/Scripts/Infrastructure/Network/NetworkUnit.cs`, `ApplyAnimState` Attack branch, requires `UnitAttackPresentationPolicy.ShouldStartAttackFromReplicatedLevelState()`. Its definition in `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitAttackPresentationPolicy.cs` returns **false unconditionally**. The healer handler does not provide the separate start payload used by ordinary attacks. The level-only heal signal cannot start the Client clip through this branch.
+- The earlier three-file correction and Unity automatic gate results remain historical evidence of marker/binding/config validation only. Client local ROOT PASS is not Animator motion acceptance; Client MOVE frames=0 provides no movement-observer denominator for proving the absence of stationary Walk.
+- No exact heal/HP correlation logs were supplied for this match. Complete runtime causal proof, per-cast timing, all Walk-writer races and HP/HoT correctness are **unverified**. Neither HP success nor HP failure follows from the reported animation failure.
+
+**Lessons and approved correction contract**
+
+1. Before declaring a presentation seam connected, inspect its production event payload, publisher, subscriber, replicated-state consumer and final Animator gate. An asset gate cannot substitute for this path.
+2. Preserve ordinary Attack-level suppression and its atomic combat start/continuous-playback contract. Do not set the common policy to true or fabricate an ordinary attack scope for a healer.
+3. Units rule22 requires current-state recovery, not edge-only RPC animation. The approved healer correction uses a separate **atomic heal snapshot NetworkVariable** containing sequence/lifetime identity, server time, authoritative direction and start/end state. Late spawn/init must restore current state.
+4. A new heal sequence plays that heal cast; reapplying the same sequence is idempotent and must not restart it. End state and dead cancellation prevent delayed starts from resurrecting a closed cast. Retired/despawned/reused object lifetimes must reject stale callbacks.
+5. Pure Client handling is motion-only. Preserve server/solo ownership of target selection, cast timing, HP and HoT. Client animation and Animation Events must not call `CastHeal`, create results or write Simulation Root/NetworkTransform.
+6. Prevent Walk from overwriting active heal presentation and restore the actual server movement/held/frozen state on exit. Do not force Walk on a stationary unit or move Client Root to hide the symptom.
+7. Keep all original values and Units rules32–37 policies unchanged: preparation1s + post-cast cooldown3s = cycle4s, HoT200/3s with existing research scaling, diff ticks, reset/no stacking and normal-end current-HP text once/death omission. Cast-motion end and HoT-effect end are separate lifetimes.
+
+**Required regression evidence — not executed by this record**
+
+- Production server start → snapshot receipt/current-state restoration → Client clip application, including repeated casts, late spawn and delayed View initialization.
+- New-sequence playback, same-sequence no restart, end-before-start ordering, stale sequence rejection, death/despawn/disable/game-end cancellation and object-lifetime reuse safety.
+- No Walk interruption during active heal, correct exit presentation, no Client gameplay/Root writer and unchanged ordinary combat start suppression.
+- Same-cast Host/Client motion evidence and separately keyed cast/HoT/HP/text timing evidence. Asset validation, ROOT consistency or aggregate delivery alone cannot close these gates.
+
+**Status and authority boundary**
+
+Recorded immediately under explicit user authorization. The task Research/Plan has been updated; final implementation handoff is still pending. No fix, new validation, build completion or runtime PASS is claimed here. Units rules22/32, synchronization SeparateHeal exception rationale and Bloom Stats/Matrix status are approved follow-up documentation scope, to be changed only when they match final implementation. This mistake record is not a gameplay-rule authority and does not alter those documents, code or memory.
+
+Task evidence: `Assets/_Project/Docs/_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/Research.md` §8 and `Plan.md` §8. Related prior failure shape: this file's 2026-09-13 production event seam incident.
+
+**Verified final handoff — 2026-10-03 (initial status above preserved as history)**
+
+The main session confirmed the frozen implementation inventory: nine code files, including the separate heal value/cursor, atomic NGO snapshot and development diagnostics, plus three new companion meta files. Server-owned current-state replication now reaches the Client View boundary; late initialization, sequence/revision/lifetime rejection, one-shot marker consumption, terminal closure, Frozen/Held precedence and Walk overwrite prevention are implemented. This is an implementation handoff, not proof that the previous device symptoms are resolved. Aim remains payload evidence only: no new Client Root/Visual offset rotation writer, and existing replicated server Root direction is preserved. Original HP/HoT amounts, durations, timing, writer and text policies remain unchanged.
+
+- Main-reported final static compilation: Runtime errors0/warnings20, Editor0/0, PlayerDevelopment0/20, Release0/24, each exit0. Fresh Unity ScriptAssemblies at 04:49:46 and post-reload Console errors0/warnings20.
+- Fresh Unit Action completed at **04:52:02**: full UAS-DIAG/Production/C2/C3 **automated PASS**, Console errors0/warnings25. Fresh Bloom timeline evidence is Editor.log **4873940**, full PASS **4873951**; old4143312 is not reused. Run() executes the new boundary fixture before PASS output, including actual serialization → NetworkUnit receive/current value → View and late-init recovery. This validates the automated adapter fixture, not a live network match.
+- Fresh Root Cross Audit **SelfValidate PASS** at **04:54:03**, Editor.log **4873995**. This is not formal real-game CrossAudit Analyze.
+- Main clicked File → Build And Run once and immediately observed **Checking prerequisites / Starting Android build**. Build completion, installation and successful execution were **not observed**. All UI/build polling stopped under user instruction.
+- Permanent Units22/32 and synchronization SeparateHeal exception classification, plus Bloom Stats/Matrix current-state documentation, are now reflected alongside task §9. These describe the separate healer path without weakening generic EnemyAttack/C3/SourceOnly or promoting the healer to Supported.
+
+**Latest verdict:** implementation confirmed and fresh automated gates PASS; build attempt/start observed only; **runtime retest OPEN**, previous motion failure not yet proven resolved. Exact live cast/HP/HoT/text correlation and visual acceptance remain unverified. The required regression list above remains a specification; automatic fixture coverage does not certify every live lifecycle, ordering or stationary-Walk case. No code or memory was changed by this record. Full implementation/meta and separate documentation inventories: existing BloomFairy Research/Plan §9.
+
+---
+
+## 2026-10-04  BloomFairy first-entry authority guard depended on a later lazy clock cache initializer
+
+**Symptom and mistaken assumption**
+
+The user reported no repeated healing and stationary Walk after the cooldown correction. The first-entry authority guard introduced by that correction assumed the heal-specific NetworkUnit cache was already initialized. Static compilation and existing asset/presentation self-validation PASS were insufficient: they did not exercise this production fresh-view entry seam. Main confirms ValidateBloomHealPresentationBoundary directly creates state then invokes ApplyBloomNetworkFixture/ApplyCurrentHealCast, without traversing EnterHealLoopV3/HasHealAuthority/HealNow at the real first cast. This is a specific validation scope gap, not a declaration that all validation is invalid.
+
+**Source-confirmed dependency-order defect**
+
+Main source review confirms UnitView entry5298 calls HasHealAuthority5245, which requires `_healNetworkUnit != null`, IsSpawned and IsServer. The only cache assignment is in the lazy HealNow getter72. Initialize caches movement/local NetworkUnit, not `_healNetworkUnit`. Update884 reads HealNow only when Current.Active; ObserveHealPose1018 rejects invalid state before reading it. Thus a fresh network healer can return before PlayHealCastAnimation/HealNow initializes the cache, and retries encounter the same guard. Movement-first3812, reentry4323 and stationary5532 use this entry seam. This is a source-level circular initialization dependency, not a reason to remove server authority.
+
+**Runtime evidence and limitations**
+
+Main raw recount: Android Host device13_02 has4552 lines, BLOOM-HEAL0 and six Blue Bloom productions IDs5/9/22/25/40/43. Latest Editor Client12:56–13:01 subset has6558 lines and BLOOM-HEAL0; recreated Bloom5 is anchored at daily22628/init22634. Shared key is `2d0898b24994462500f4a64df0f88f9078c820fc934ed98bf6207eaf3dbabc98`. Older00:30–00:35 heal records are history, not latest-session evidence. No private cache probe/breakpoint was executed; exact observed stopped-unit binding and every-instance causality remain unlogged. Zero heal diagnostics does not independently prove each instance's private cache state.
+
+**Proposed correction and required future regression boundary — not implemented/executed**
+
+Resolve the actual NetworkUnit independently before evaluating first-entry authority, preserving IsSpawned/IsServer, identity/lifetime, dispatch deadlines and stale-owner safeguards. A future authorized regression must exercise fresh Initialize→real first EnterHealLoopV3 before any HealNow priming, plus repeated entry/terminal ownership and pure-Client exclusion. Do not bypass authority or treat asset/clock helper fixtures as production entry coverage. These are prevention criteria, not new TC/QA execution or fix authorization.
+
+**Status**
+
+Latest user symptom FAIL/OPEN; source dependency-order defect confirmed, full per-instance runtime causal proof unavailable. Diagnosis documentation only: no source/assets/UI/build/Git or new task/TC changes. Prior cooldown/automatic-gate evidence is retained as history, not invalidated as an execution record or promoted to regression PASS. Details: existing BloomFairy task Research/Plan §19.
+
+**Approved implementation handoff — 2026-10-04 (diagnosis status above retained as history)**
+
+Sagan's final report matches main source review: UnitView now resolves the actual same-GameObject NetworkUnit through EnsureHealNetworkUnit, including destroyed-null lookup, during Initialize and before the first authority guard. The previous order is preserved in comments; authority predicates, cooldown deadlines and stale-owner protection remain unchanged. Lifetime-bounded accepted/rejected FirstEntry diagnostics run before cast allocation (CastAllocated=false); no fake cast is generated. Fresh static compilation has zero errors in all four paths. New menu results and build-attempt facts remain pending. This confirms source implementation only, not a private-cache runtime probe, coverage of every instance, or resolution of repeated-heal/stationary-Walk symptoms. Runtime acceptance remains OPEN. Full source/static/artifact evidence: existing task Research/Plan §20.3. No new TC/QA/validator was created.
+
+**Final native handoff — 2026-10-04 (pending notes above preserved)**
+
+Main actually clicked the fresh Unit Action self-validation and confirmed overall/Bloom/Production/C2/C3/AUTH-PRESENT PASS in the new bounded Editor.log. Main then clicked Unit Root Pose Cross Audit SelfValidate and confirmed fresh UI status/log PASS. Build And Run was clicked once; only Detect Java Development Kit(JDK)/Checking Java Development Kit(JDK)... was observed before all UI/build-log checking stopped. Completion, installation and runtime were not observed; no build-success claim. These existing automated gates did not execute a fresh production first-entry runtime fixture. Source implementation/static/gates are complete; runtime retest and symptom-resolution acceptance remain OPEN. Clip/values, authority and post-dispatch three-second policy are unchanged. Updated Temp artifacts16 and reused unchanged RSP4 are distinct. Evidence: existing task Research/Plan §20.4.
+
+**Two new runtime logs — 2026-10-04, focused first-entry/repeat-delivery observation accepted**
+
+Main's exact-key analysis separates the new Editor Host/Android Client runs from the older failure prefix in device15_29. All13 produced Red BloomFairy instances have accepted FirstEntry and Start; Host Start/Play and Client Play match83 casts without missing/extra/duplicate or payload conflicts. Every cast's latest published revision is received; six missing intermediate Active=False revisions are followed by a same-frame newer inactive publication/receipt, consistent with coalescing but without packet-trace causal proof. Marker-absent casts are separated as lifecycle endings. This supports focused fresh-entry and repeated-delivery regression acceptance, not retrospective proof of private cache values in the old failed match. Callback angles/self drift, undefined self/missing-target samples and local ROOT/MOVE evidence do not prove rendered facing, stationary-Walk visual closure, or formal CrossAudit. Timing/HoT final confirmation is pending; visual/VFX and overall BloomFairy remain OPEN. User prefers visual review after VFX creation, not approval to create VFX. Existing history/authority/values are preserved; no new implementation/QA/TC/build. Full counts, run identities and raw anchors stay in existing Research/Plan §21 rather than being duplicated here.
+
+**Final timing handoff — 2026-10-04 (pending note above retained)**
+
+Role coverage: the earlier §19 failure was Android Host/Editor Client; these two accepted observations are Editor Host/Android Client only. Shared entry source does not prove post-correction Android-Host first-entry runtime coverage, which remains unverified. No universal platform/all-role fix claim or new role-swap test request/execution follows.
+
+The specialist's read-only counts and main's same-clock/raw/source review confirm focused first-entry/due/post-dispatch cooldown observation acceptance. No movement-replaced re-entry coverage is claimed. Missing first-positive cases have unavailable/death-before-first-tick/same-frame supersession outcomes; server ActualHealed totals are not exhaustive Client HP/text proof. A separate shared-HoT duration residual remains OPEN: Expired records report accumulated Elapsed=Duration=3, while actual same-clock registration-to-end can be about70ms shorter. Existing global-dt accumulation can credit pre-registration time, but each instance's private tick-start phase is unlogged, so this is source consistency, not full per-instance causal proof or a network-lag attribution. Proposed follow-up is not an implemented fix or policy change. Overall BloomFairy/visual/VFX/Client HP-text acceptance remains OPEN; no new code/build/automatic validation/QA/TC was performed. Full evidence and boundaries: existing Research §21.5 and Plan §21.1. No session counts were copied to durable memory.
+
+---
+
+## 2026-10-04  Pistoleer timing correction omitted production timing observability before rebuild
+
+**2026-10-08 scene-scope correction (same Task, distinct automation accident):** Unrelated MistShrine scene setup ran and autosaved Game during validation automation. Previous whole-work scene0 reporting is corrected without deleting history; later user-confirmed Cancel is not disk recovery. The exact dispatch cause and serialized before/after diff remain unknown, and the inspected Temp backup was Login, not Game. Existing source/menu PASS stays independent; recovery OPEN/build blocked, no recovery/build performed. Details and prevention are in .claude/mistakes.md, “Unrelated MistShrine scene setup ran and autosaved Game during validation automation,” and Pistoleer Research §10.7 / Plan §12.14.
+
+
+**2026-10-07 correction follow-up (same incident, not a new gameplay bug):** Actual production Host re-entry RED→GREEN and existing Unity menu successes are recorded in Pistoleer Research §10.6 / Plan §12.13; runtime acceptance remains open. Main's broad Exception search matched stack signatures and caused excessive read-only output; Ctrl+C stopped that reader, not code or menu execution. Confirm results using bounded exact terminal patterns or actual Console UI. The reported editor-schema3.log was not generated: empty stdout did not establish a file, although actual Editor compilation exited successfully with no warnings. Verify file existence before linking; no substitute log exists. Exact execution evidence stays in the Task.
+
+
+**2026-10-07 new runtime follow-up (same incident; previous evidence retained):** Main's new role-swapped analysis separates accepted exact canonical damage-result delivery from suspicious normal Host HitApplied marker/VFX hook gaps and unknown timing. Parser non-finite Animator metadata and fresh-clock correction warnings are validity limitations, not permission to dismiss raw gaps or declare all gameplay healthy. Final source cause and normal pause duration remain OPEN; no correction or new QA/build was performed in this analysis turn. Prevention: inspect raw same-scope stage presence and retirement reasons independently of parser validity, and keep result delivery, expression completeness, timing and pixel acceptance as separate verdicts. Counts and anchors are held only in existing Pistoleer Research §10.5 / Plan §12.12.
+
+**무엇을 틀렸나**
+
+The Pistoleer timing correction aligned config, explicit production clip binding and a static asset guard but omitted the production marker/actual Impact diagnostics required to measure the requested timing. The user then had to request supplementation and another build/test. Positive result/presentation aggregates were not exact timing evidence.
+
+**왜 그랬나**
+
+The implementation scope treated static production alignment as sufficient preparation for the runtime timing test. It did not gate rebuilding on the actual event emission → formatted raw log → analysis parser chain with complete clock, identity and timing fields on both Host and Client.
+
+**어떻게 드러났나**
+
+Main-reviewed latest paired logs had positive result/presentation evidence but no marker/actual Impact detail from which to calculate the real 0.8-second offset or 2-second period. Existing Pistoleer Research §6 records the scoped evidence and limitations; this is an observability/preparation failure, not proof of damage loss or a gameplay timing defect.
+
+**교훈**
+
+Before the next authorized build, review every required production hook and parse fixtures produced by the real formatter, including both-role records, full immutable identity, clock domains/calibration, continuous animation anchor and absolute due/actual timing. Make missing fields, drops, overflow and unknown completeness explicit; do not substitute aggregate equality, synthetic fixture coverage or static/menu PASS for production coverage. Do not assume commit+0.8, subtract peer clocks without calibration, or invent a 0.2-second PASS tolerance. The existing task's bounded diagnostics proposal is documentation only until main review/code GO; parse gate/static/menu/build results are not yet available. No gameplay rule, asset, TC, new QA or memory change is authorized by this incident.
+
+
+**2026-10-05 implementation follow-up (original incident retained):** Main reviewed the existing task plan and sent code GO. Production diagnostics and the formatter/parser preparation gate are implemented; fresh four-target static compilation has zero errors and main's both-role 16-case CLI gate exits 0. New Unit Action menu/UI and Editor-log PASS and Root menu/UI PASS are recorded in the existing task; Root's additional raw-log read did not execute. One Build And Run reached BuildingPlayer/BuildPreProcess only, then monitoring stopped at the user's request. These results address the missing preparation gate, not live production execution coverage, exact timing, visual acceptance or gameplay PASS. The reusable design lessons are in the already-indexed programmer logging topic; current evidence and full manifest remain in Pistoleer Research §8 / Plan §10.
+
+**2026-10-05 production-semantic follow-up (same incident; history retained):** The formatter/16-case CLI gate passed but did not cover legal Miss hp=-1, distinct Host action versus Client presentation Register revision axes, or estimate/presentation-derived anchor rebasing. The parser's schema/unpaired/regression/unknown counters therefore cannot be treated as gameplay failures or raw-local/network delay proof. This is insufficient fixture/analysis coverage, not user fault. Main's raw review separately identified two live committed scopes armed after the current marker and retired before the next marker: strong scope-level presentation connection evidence, not proof of no on-screen VFX at all. Prior/provisional marker disposition and precise close cause remain unobserved; no fix was performed in this analysis turn. Evidence and boundaries remain in existing Pistoleer Research §9 / Plan §11.
+
+**2026-10-07 production-fixture setup failure (same incident; history retained):** Main observed actual Unity Unit Action FAILED at13:39:12 with `Ready retry must apply exactly once`. The fixture confused UnitData constructor HP/attack/range/detect arguments with cooldown configuration, leaving a one-second fallback against the two-second production clip. The eligibility guard correctly rejected that inconsistent setup; this failure alone is not proof of a production retry defect. The fixture was corrected to use the actual UnitFactory `ApplyAttackClipCooldown`, `GetAttackClipLength` and `GetHitFrameTimes` path, without relaxing the production guard or tolerance. Prevention: verify constructor semantics and production-derived fixture initialization before interpreting an assertion failure; exercise the real setup path rather than weakening admission to fit synthetic data.
+
+**Later evidence and remaining coverage gap (2026-10-07):** Main observed Unit Action13:57:02 A1/C2/C3 v12/production/Bloom PASS and Root self-validation13:58:29 PASS; Console errors0/warnings26 comprise compile20 plus negative-fixture6. Programmer reported Runtime13:56:49 0errors/20warnings, Development13:56:51 0/20, Release13:56:50 0/24, Editor13:57:13 0/0 and CLI21 PASS. These are pre-supplement source results. The specialist disclosed that approved Plan §12.8 native multihit/crossfade coverage was still incomplete, so main requested supplementation in the existing gate. Passing the current assertions does not establish the complete approved production coverage. Revalidate after supplementation rather than reusing these PASS results for changed source. Build has not been attempted; final gate and runtime acceptance remain OPEN. The pending statements below preserve the earlier handoff boundary.
+
+**Intermediate evidence only:** Main independently confirmed CLI21cases PASS on the same synthetic formatter-fixture basis, not runtime acceptance. At13:54:58 main observed Unity recompilation errors0/warnings20 and started a fresh Unit Action run whose result is still pending. Programmer reports the current11 source files frozen, with final four-target compilation report pending. No final gate/build/runtime acceptance is claimed here. Existing Pistoleer Research §10.3 / Plan §12.10 hold the current evidence boundary; final verification and build results require a later handoff. No new Task/TC/QA, source/assets, permanent status document or memory changes were made by this record.
+
+**2026-10-07 final supplemented gate (same incident; earlier boundaries retained):** The missing native multihit/crossfade coverage was supplemented and revalidated on final source. Actual production controller/relay/VFX callsite checks cover Lion baseline hit0→exact hit1, each marker once, same native clip/hash/loop, outgoing transition rejection and incoming consumption. Duplicate-time prepublish Legacy qualification remains; evicted known scopes report coverageUnknown and END numeric parsing is strict. Four-target compilation has zero errors; CLI23 passed programmer and main independently. Main observed final Unity compile14:05:14 errors0/warnings20, Unit Action14:06:49 PASS and Root14:07:44 PASS; Console errors0/warnings27 means compile20 plus7 added during validation, without claiming a full detailed classification. These address implementation/prebuild coverage, not particle-pixel or new multiplayer acceptance. One Build And Run showed Building Player / Backup & unload; all subsequent monitoring stopped, so completion/installation/runtime are unconfirmed. Old-log reparsing is not evidence that the two old live omissions are fixed. Prevention remains production-derived fixture setup plus native event metadata/transition coverage, final-source revalidation, strict unknown-completeness handling and separate evidence boundaries. Final manifest/evidence: existing Pistoleer Research §10.4 / Plan §12.11; overall exact timing/visual/full migration OPEN.

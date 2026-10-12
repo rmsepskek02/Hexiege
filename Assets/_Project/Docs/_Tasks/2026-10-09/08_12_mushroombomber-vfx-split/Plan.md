@@ -1,5 +1,144 @@
 # Plan — 버섯폭격기(MushroomBomber) 이펙트를 3개로 나누기 (attack → tracer · impact · poison)
 
+## 현재 source freeze 인계 — 2026-10-10
+
+서버가 적용한 공격·지속 피해와 화면 이펙트의 소유권을 연결하는 변경이 현재 소스 snapshot으로 인계됐다. 아래는 구현 보고·정적 검사까지의 결과이며 게임 화면과 실제 멀티플레이 수용은 아직 확인하지 않았다.
+
+**최신 판정 — 2026-10-10 09:53:38 정적 보고 / source freeze:** programmer 현재 snapshot44파일 freeze 인계 수신. Runtime/Editor/Development/Release 정적4경로 exit0 보고이며 native 실행 PASS가 아니다. Main SourceHash44 재확인 완료: Files44/Mismatches0/ChangedPaths=null(tool39f796), 현재 파일 SHA256 대조 불일치0. Main 보호6파일 baseline 일치 인계는 별도이며 Bloom clip baseline도 Main 확인됐다(원 JSON의 baseline unavailable 표기보다 후속 인계가 우선). **Action/ROOT 두 메뉴 미실행(UI activation2 timeout)·빌드 미시도·설치/실기/visual 수용 미확인·전체 OPEN.** 기존 메뉴 확장은 UnitAction 및 AuthoritativeAttackPresentation에 연결됐지만 fixture는 실행 전이고 Root 기존 gate 자체는 변경하지 않았다. 이전 승인·수정 중·static 대기 절은 당시 이력이다.
+
+### 구현 freeze 기술 내용 (programmer 보고, native 미검증)
+
+- Mushroom: single writer-owned immutable `AttackEffectPresentation`이 remaining-flight tracer와 due impact를 함께 소유한다. local marker의 기존 Legacy HP 신호를 유지하며 committedSchedule/Supported/observer-clock에 의존하지 않는다. tracer callback은 오브젝트 반환/표현 종료 only로 HP/impact queue를 생성·방출·지연하지 않는다. 동일 immutable attack identity와 due snapshot으로 impact 단일 재생, 기존 3초 clip/cycle·Stats 유지 및 marker1초다.
+- Recipient: 실제 `(target lifetime, Damage)` 단일 gameplay record가 sole owner. poison/burn provenance·attack identity를 current value로 복제, 동일 owner refresh noRestart·overwrite old emission 종료교체. NetworkUnit Host baseline·late Client 현재값 복원·service closure·fresh-match restoration을 연결했다. natural tail 반환과 forced teardown 분류를 분리한다.
+- Tower: 실제 writer에서 source/impact/time/race와 actual appliedDamage/resultHp를 capture하고 publication 예외를 HP/death/remove 흐름에서 격리했다. Human 별도 preset은 Tank prefab 재사용·Tank 값 불변, Spirit RuneSpire, Transcendence 미지정/no fallback. 서버 즉시 피해·주기·범위 불변.
+- Live-clock/실패 집계: Combat/Network 진단, recoverable faults Warn, bounded key cap은 add 전 검사. missing tracer/manager 및 clock deadline 실패도 counters에 포함, local queue aggregate END는 detail cap과 분리하고 failure/overflow/pending이면 unknown을 남긴다. attack detail budget은 local match 초기화 때 reset한다. 구현 보고일 뿐 실패 경계 fixture 전부 실행/통과를 뜻하지 않는다.
+
+### Asset tuning과 gameplay 분리
+
+impact 모든 PS는 nonlooping / StopAction None이다. 아래 duration+lifetimeMax는 초기 정상 tail 설정을 설명하며 최대 약0.8초다. native 입자 drain·실제 렌더 픽셀 종료시간 수용 증거가 아니다. 실제 서버 DoT3초·HP·틱·스탯·cycle·범위는 변경하지 않았다.
+
+| PS | duration (s) | lifetimeMax (s) |
+|---|---:|---:|
+| Poison_Ring | 0.2 | 0.45 |
+| Spore_Burst | 0.2 | 0.55 |
+| Poison_Cloud | 0.15 | 0.65 |
+| root | 0.15 | 0.55 |
+| Toxic_Bubbles | 0.2 | 0.55 |
+
+root emission=false. emission window<=0.5 및 초기 정상 tail<=약0.8 검증은 준비된 fixture 범위이며 실행 PASS 미확인이다. 과거 3초 독구름·지면 damage-zone 사양은 superseded다.
+
+### 검증 축 및 미완 범위
+
+정적 실행 보고 command: `Temp/expiry-clock-history/Validate.ps1`, Runtime/Editor/Development/Release 각각 exit0(09:53:38 programmer 보고). 읽은 script는 Unity Bee Runtime/Editor rsp 기반으로 source를 재수집하며 Development/Release는 UNITY_EDITOR/DEVELOPMENT_BUILD define 전환이다. 이 검사와 `Temp/expiry-clock-history/{Runtime,Editor,Development,Release}.{rsp,dll,pdb,log}`, `references.sha256`, `unity-version.txt`은 정적 compiler/dependency artefact이고 실제 Player/native build·NGO wire·입자/visual 증명은 아니다. 이 문서 담당이 컴파일을 재실행한 결과가 아니며 warnings0을 주장하지 않는다.
+
+**coveragePrepared — 코드에 연결·준비됨 / 미실행:**
+
+1. 기존 UnitAction·AuthoritativeAttackPresentation 확장(새 menu/validator 없음); Root gate 불변.
+2. race selector 및 Human 별도 preset/Tank 공유, nonloop impact emission/tail·StopAction None, canonical Mushroom marker1/cycle3·Stats agreement.
+3. same Damage refresh/overwrite, revision 증가 전 exact stale Stop, recipient duplicate/retired enum guards.
+4. Host current baseline, late Client current-value restore, service closure/fresh-match restore.
+5. recursive PS start·live-particle 조기 반환 거부, natural simulation particles0 뒤 test-only StopEmitting reassert 및 once-only return.
+6. actual Unresolved Mushroom writer event→tracer, callback HP/impact 방출 없음, immutable due impact·duplicate snapshot·actual attack identity→Damage record.
+7. Tower actual appliedDamage/resultHp correlation 및 presentation subscriber exception과 death/remove 격리.
+
+**coverageNotYetAsserted — 자동 assertion 미완 / 수용 미확인:**
+
+- dedupe/current/tombstone/identity 전체 capacity 경계.
+- future/deadline/NaN clock 실패의 terminal counting.
+- Legacy/Shadow/ResultPresentation mode별 fixture matrix.
+- forced Disable/Destroy teardown 분류.
+- 전체 wire serializer round-trip 및 실제 multiplayer delivery.
+
+따라서 static exit0 또는 fixture 코드 존재를 위 범위 완료/native PASS로 확대하지 않는다. 이전 Client C3 FAIL64의 fix도 이번 범위/완료 판정이 아니다.
+
+### 실제 변경 manifest44 — 추가24 / 수정20 (인계 원문 경로)
+
+programmer `Temp/vfx-connection-handoff/source-freeze.json` 전문을 읽어 아래 내용을 문서에 보존했다. hash는 programmer freeze snapshot 값이며 Main 현재파일 Get-FileHash SHA256 재검증도 완료됐다(Files44/Mismatches0/ChangedPaths=null, tool39f796). Temp 파일에만 의존하지 않는다. 신규6 source+meta6+presets6+meta6=추가24, 기존 source16+config2+clip1+impact1=수정20이다. 이는 이 문서 편집 파일 목록이 아니라 programmer 구현 write manifest다.
+
+#### 추가
+
+| 경로 | 구분 |
+|---|---|
+| `Assets/_Project/Scripts/Application/Combat/AttackEffectPresentation.cs` | 추가 |
+| `Assets/_Project/Scripts/Application/Combat/TimedDamageEffectPresentation.cs` | 추가 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkTimedDamageEffectState.cs` | 추가 |
+| `Assets/_Project/Scripts/Presentation/Effects/TimedDamageEffectPresenter.cs` | 추가 |
+| `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs` | 추가 |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.VfxConnections.cs` | 추가 |
+| `Assets/_Project/Scripts/Application/Combat/AttackEffectPresentation.cs.meta` | 추가 |
+| `Assets/_Project/Scripts/Application/Combat/TimedDamageEffectPresentation.cs.meta` | 추가 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkTimedDamageEffectState.cs.meta` | 추가 |
+| `Assets/_Project/Scripts/Presentation/Effects/TimedDamageEffectPresenter.cs.meta` | 추가 |
+| `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs.meta` | 추가 |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.VfxConnections.cs.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Tracer.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Tracer.asset.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Impact.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Impact.asset.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Poison.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_MushroomBomber_Poison.asset.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Burn.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Burn.asset.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_HumanAutoTower_Attack.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_HumanAutoTower_Attack.asset.meta` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_RuneSpire_Attack.asset` | 추가 |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_RuneSpire_Attack.asset.meta` | 추가 |
+
+#### 수정
+
+| 경로 | 구분 |
+|---|---|
+| `Assets/_Project/Scripts/Application/UseCases/UnitCombatUseCase.cs` | 수정 |
+| `Assets/_Project/Scripts/Application/UseCases/TowerCombatUseCase.cs` | 수정 |
+| `Assets/_Project/Scripts/Application/Events/GameEvents.cs` | 수정 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkUnit.cs` | 수정 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` | 수정 |
+| `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Map.cs` | 수정 |
+| `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/UnitEffectConfig.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/BuildingEffectConfig.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/EffectManager.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/TracerProjectile.cs` | 수정 |
+| `Assets/_Project/Scripts/Presentation/Effects/HitPresentationQueue.cs` | 수정 |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | 수정 |
+| `Assets/_Project/Scripts/Editor/Combat/RunAuthoritativeAttackPresentationValidation.cs` | 수정 |
+| `Assets/_Project/Resources/Config/UnitEffectConfig.asset` | 수정 |
+| `Assets/_Project/Resources/Config/BuildingEffectConfig.asset` | 수정 |
+| `Assets/_Project/Animations/Units/MushroomBomber/MushroomBomber_Attack.anim` | 수정 |
+| `Assets/_Project/Prefabs/VFX/Units/vfx_mushroombomber_impact.prefab` | 수정 |
+
+SHA25644 및 보호6 전체 경로/hash는 같은 Task의 [Research](Research.md)에 보존한다. Root gate·새 native 결과는 없으며 실행 결과를 받은 뒤 outcome을 추가한다.
+
+## 현재 구현 준비 Plan — 2026-10-10 Main 검토 통과 기술계약
+
+**재개 중간 근거 — 2026-10-10 Main 인계:** 사용량 초기화 후 submission `01a1233b-895e-7530-aade-f82827243652`로 재개했다. programmer 09:36 소스 수정 및 09:42 `RunUnitActionSelfValidation.cs` 수정 진행을 Main이 확인했다. 이는 최종 구현 freeze·전체 inventory·정적 결과 인계가 아니다. native UI는 `sky.list_apps/list_windows`에서 Unity window67396 확인, 최초 `activate_window` timeout 후 returned window 재선택·`get_window` 복구 및 재시도도 timeout이었다. Main은 computer-use 복구 규정에 따라 native 입력을 중단했다. **이번 두 메뉴 미실행 / 빌드 미시도 / 완료·설치·runtime 미확인**이며, 게임 소스 결함이나 native gate FAIL로 분류하지 않는다. 최종 구현·static 결과는 programmer freeze 회신 후 별도 기록한다.
+
+목록의 세 이펙트를 실제 공격과 독 효과에 연결하되, 피해 판정은 기존 서버가 그대로 담당한다. 착탄은 짧은 포자 burst로 보이고 독은 실제 독 효과를 받는 대상에게 붙는다. **아래 이전 문서 전용 Plan·3초 지면 독구름은 이력이며 이 절이 우선한다.** 기존 gameplay 로직 제거 계획 없음; 검증 전 Legacy 경로를 최종 삭제하지 않는다.
+
+### 확정 구현 계약 및 근거
+
+| 변경 | 구현 계약 | 근거 |
+|---|---|---|
+| source marker | 기존 3초 clip에 1초 `OnAttackHit` 1개만 추가. clip 길이·cycle·Stats/UnitStats 불변 | 사용자 승인·Main/programmer 인계; GameSystemRules_Units.md 규칙 17·18·20·27 |
+| tracer/impact | tracer callback 종료 only. 같은 attack exact identity의 impact 단일 재생; 로컬 도착/충돌로 피해 생성·지연 또는 피격 큐 방출 금지 | GameSystemRules_Units.md 규칙 19·20·26; GameSystemRules_UnitCombatSynchronization.md NET-AUTH-001/002·NET-PRESENT-003 |
+| impact prefab | 짧은 포자 확산 burst/fade, StopAction None. 3초 독구름·지면 damage zone 제거; 정확 burst 초 수는 임의 확정하지 않음 | 사용자 확정 사양; GameSystemRules_Units.md 규칙 38~40 |
+| recipient state | 실제 writer `(target lifetime, TimedEffectKind.Damage)` 단일 레코드의 effect identity/revision/poison-burn provenance. 같은 owner refresh noRestart; overwrite는 이전 표현 종료·교체, 독립 stack 금지 | GameSystemRules_Units.md 규칙 34·40·42; GameSystemRules_UnitCombatSynchronization.md NET-DELIVERY-TIMED |
+| 복제/표현 | network current value, late-init 현재값 복원, restoration/shutdown terminal 보호 → presenter 대상 추종. 취소·만료·사망 후 StopEmitting/drain/lease 반환과 강제 teardown 구별 | 위 효과/권위 규칙 및 Main 검토 통과 기술 인계 |
+| migration | Unresolved Legacy 유지, C3 Supported 승격 없음. 기존 HP·DoT 3초·주기·범위 및 30fps 타이밍 권위 불변 | 사용자 범위·NET-AUTH-001/002 |
+
+### Main/programmer 후보 파일과 단계
+
+공통 연결 후보(확정 인계 목록, 실제 변경 inventory는 구현 후 별도 기록): `GameEvents`, `UnitCombatUseCase`, `TowerCombatUseCase`, `NetworkCombatController`, `NetworkUnit`, `GameBootstrapper.Setup/Map`, `UnitView`, `UnitEffectConfig`, `BuildingEffectConfig`, `EffectManager`, `VfxPoolItem`, `TracerProjectile`, `HitPresentationQueue`. 신규 후보: `AttackEffectPresentation`, `TimedDamageEffectPresentation`, `NetworkTimedDamageEffectState`, `TimedDamageEffectPresenter`. config 2개·Mushroom clip·impact prefab·presets 연결 및 기존 `UnitAction`/`AuthoritativeAttackValidation` 확장을 Main/programmer가 담당한다. 이 문서 담당은 MD/meta만 편집한다.
+
+1. 기존 writer/정규 결과 identity와 표현 ownership을 보존해 provenance 및 전달을 보강한다.
+2. marker·tracer·burst·recipient state/preset을 연결하고 중복 emitter·ID 재사용·overwrite·late-ready·terminal 수명을 점검한다.
+3. 기존 자동 검증 확장 및 정적/native 결과를 별도로 인계한다. 신규 QA/TC/validator 작성은 이 문서 작업 범위가 아니다.
+4. Main 구현 허가 후 구현 진행. 빌드 시도는 승인돼 있으나 실행 여부/즉시 관찰만 인계받고 완료 감시는 하지 않는다. 사용자 실기·visual 수용은 별도 대기한다.
+
+**초안 상태:** 초기 기술 Plan Main 검토 통과 인계 반영 완료 / Main 구현 허가 전달·구현 진행 중(사용자/Main 인계). 구현 완료·새 자동 gate·이번 빌드 시도·runtime 수용 결과 없음. [Inferno·타워 Plan](../../2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md)과 공통 후보를 공유하되 기존 피해 정책을 바꾸지 않는다.
+
 ## 이 작업은 무엇이고 왜 하는가
 
 이펙트 목록 문서(`VFXSFXList.md`)에 버섯폭격기 공격 이펙트가 **한 줄**(「포자 투척 폭발」)로 적혀 있는데, 사용자가 Unity AI 로 만들고 있는 실제 이펙트는

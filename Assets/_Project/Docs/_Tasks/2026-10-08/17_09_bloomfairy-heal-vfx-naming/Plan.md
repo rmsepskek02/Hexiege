@@ -1,5 +1,252 @@
 # Plan — BloomFairy 힐 이펙트 이름 정리 (attack → heal)
 
+꽃요정의 치료가 실제로 적용된 아군에게 만든 힐 이펙트를 붙이고, 회복이 이어지는 동안 유지하다 끝나면 자연스럽게 사라지도록 연결하는 것이 목적이다. 치료량과 타이밍은 바꾸지 않고 서버의 실제 치료 상태를 기준으로 모든 화면에서 같은 대상을 표시한다. 현재는 연결 방법을 문서로 정리한 단계이며, 실제 연결 작업은 구현 승인을 기다린다.
+
+## 최종 구현·검증 인계 — native PASS / 실기 pending (2026-10-09 19:39 추가)
+
+**연동 구현 및 Main의 새 Unity Action·Root self-validation PASS. 실제 멀티/기기 visual은 미검증이며 Task 전체 완료·실기 PASS가 아니다. Main 빌드 시도1회, 준비 시작(JDK checking 관찰); 완료・성공・설치는 미확인이고 사용자 담당이다.** 아래 과거 “승인 대기/FAIL/수정 중/native pending/Root 미실행/빌드0”은 당시 이력으로 보존한다. 현재 상태는 이 요약만 우선한다.
+
+- **실제 native 증거(Main):** latest Editor DLL19:35:39, 최종 fixture SHA `8D020E86403F2DB7D6E4758CBD92149EBC98E0D82036668B270F7E638CFF3BD4`가 적용된 상태에서 19:36 Action 실행. stress 종료 뒤 전체 `UAS-DIAG` PASS line1678501, C3 PASS line1678534, Torrent production PASS line1678448. 새 Root selfValidate PASS line1678545. 이 번호는 Main 인계의 로그 line anchor로 보존하며 문서 담당의 독립 UI 실행/로그 재측정은 아니다. self-validation PASS는 실제 경기의 ROOT/C3·멀티/기기 visual 수용과 구분한다.
+- **구현 결과:** 서버 실제 recipient HoT 수락·갱신·종료 provenance를 latest NV 상태로 전달하고 sole presenter가 all5PS loop를 표현한다. 동일 HoT refresh는 restart 없이 유지하며 actual stop 후 natural drain·lease 회수, late-ready/current 복원·lifecycle 종료와 bounded diagnostics를 연결했다. 기존 치료량·타이밍·단일 gameplay writer를 바꾸지 않는 연동이다. 실제 게임 화면의 대상 추종·회복 종료 잔상·멀티 일치는 사용자 실기 확인 대기다.
+- **fixture 교정의 최종 순서:** 강제 Simulate가 paused state를 만든 것이 이번 drain fixture 실패 원인으로 확인됐다. 최종 fixture-only 수정은 Simulate 뒤 `StopEmitting`을 NoClear로 reassert하여 native stopped state를 복구하고, 그 후 count0 assertion을 수행한다. 아래 19:33의 “count0 검사 먼저”는 중간 설명 이력이며 이 최종 순서로 정정한다. production `VfxPoolItem` hash·기존 predicate는 그대로이며 production drain 원인/결함 수정으로 일반화하지 않는다.
+- **최종 integrity(Main 실측):** 구현 source18 hash match 및 보호6 hash unchanged. assertion 파일은 `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs`, SHA는 위 최종 값이다. 19:39 전후 정적 재실행 인계에서도 runtime/source 변경은 없다.
+- **정적 컴파일:** programmer 정적4 errors0 보고에 이어 **Main 직접 정적4 재실행 exit0** 확인(19:39 전후). Release에는 기존 CS0168 2건·CS0219 1건, 총 warnings3가 남았으며 CS0618/CS0414는 suppressed다. warnings0·무경고 검증으로 쓰지 않는다.
+- **검증 자료와 한계:** `Temp/Bloom.Runtime.rsp/.dll`, `Temp/Bloom.Editor.rsp/.dll`, `Temp/Bloom.Dev.rsp/.dll`, `Temp/Bloom.Release.rsp/.dll` 및 같은 stem의 `.pdb/.ref.dll`이 있다. 문서 담당은 파일명 존재를 확인했으며 실행 결과는 programmer/Main 인계다. Temp 자료는 임시 compile artifact이지 저장된 기기 경기 증거가 아니다. Dev/Release는 **57 Editor refs를 사용하는 define-switch 검사**로 real player/native build가 아니다. 순수 identity CLR 회귀 PASS도 particles·NGO·PlayerLoop·실제 게임 검증을 대신하지 않는다. native 메뉴 PASS는 위 별도 Main 실행 증거로만 인정한다.
+- **빌드 인계(이번 추가):** Main이 Unity `File → Build And Run` element212를 1회 클릭했다. immediate capture에서 JDK checking progress를 관찰했으며 build preparation started까지 확인됐다. 사용자 지시에 따라 그 뒤 UI/log/process/build 결과 polling은 하지 않았다. **시도1·준비 시작만 확인**, 완료·성공·설치·실기 결과는 미확인이고 사용자 담당이다. 이번 문서 담당도 결과를 추가 확인하지 않는다. Scene/assets/source 수정 없음, latest source/protected hash unchanged는 prebuild 시점의 Main 인계이며 빌드 후 재측정 주장으로 확장하지 않는다.
+- **UI PASS 시각 추가(Main):** 실제 Console Action/C3 PASS19:37:14, Root PASS19:38:13. 기존 로그 anchors1678501/1678534/1678448/1678545와 같은 검증 증거이며 추가 경기나 별도 재검증 횟수로 세지 않는다.
+- **빌드 전 이력 보존:** 이전 최신 요약은 “빌드 시도는 아직0이고 문서 검사 후 Main이 수행할 예정이다”, “문서/checker0 뒤 Main의 빌드 시도 예정이며 지금은 시도0·완료/설치/실기 결과 없음”이었다. 이번 클릭 인계로 시도 상태만 갱신하며 native self-validation PASS·실기 미검증 경계는 유지한다. 전역 완료·실기 PASS·메모리/Stats/규칙/AssetMatrix 변경은 하지 않는다.
+
+### 최종 구현 인벤토리 — 18파일
+
+Main 직접 검사출력의 실제 최종 manifest다. 각 경로는 아래 공통 절대 prefix를 붙여 해석한다: `D:/Projects/Hexiege/Hexiege/Assets/_Project/`. 10기존+4신규+4신규 meta 총18파일이며 문서3파일과 별도다. 문서 담당의 독립 hash 재측정이 아니라 사용자 제공 Main path/hash 원문 인계다.
+
+| 실제 파일 경로(prefix 아래) | 최종 SHA256 |
+|---|---|
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | `8A1540FDF65AFE55D67A4242D90954163129CA4ABFBEF53B5EFB9A784DCFFB5D` |
+| `Scripts/Infrastructure/Network/NetworkCombatController.cs` | `6058D4CE9105A3AFC5D59C435EB900C2F5D2F9DB481DE761FEFADC7D325A5DA6` |
+| `Scripts/Infrastructure/Network/NetworkUnit.cs` | `DCB3501E08DDE38049C9E17F69BFA752ED02D86A1430D45E2D87A81050D87417` |
+| `Scripts/Bootstrap/GameBootstrapper.Map.cs` | `BB9D6162524FFE75BB7D1D41CBF8058CF7FF4279854E584F141D92E9A8250880` |
+| `Scripts/Presentation/Effects/EffectManager.cs` | `061BF6054F73E8E757709785A26EB10D4A2B0AB31467D731F6C0B5F6ED0D9130` |
+| `Scripts/Presentation/Effects/VfxPoolItem.cs` | `8C1F6CE2FFE3352F48C910EDBB743816BE8345FEF057C7B2583376C91948AE98` |
+| `Scripts/Presentation/Effects/UnitEffectConfig.cs` | `6A62B3452D3A08C21689844691C45A6F0255793A9B8F398C241A4C5A06D8F4FC` |
+| `Resources/Config/UnitEffectConfig.asset` | `3F68AA8D31059E4C635A9C5937D6EE8B432124FA5BF57756E32DC373D81EF58E` |
+| `Scripts/Application/Combat/UnitHealCastDiagnostics.cs` | `04A574E309DF14015EFB7F208DACB283AE636B0D943C749A70B6021A3F6F5DD5` |
+| `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | `8D020E86403F2DB7D6E4758CBD92149EBC98E0D82036668B270F7E638CFF3BD4` |
+| `Scripts/Application/Combat/BloomHealEffectPresentation.cs` | `99888EA2C953590DF333C2DA304564BA2EFBED0B7D8DD91136B6ADD8166AF213` |
+| `Scripts/Infrastructure/Network/NetworkBloomHealEffectState.cs` | `28291C9C805829796CB820943683A365CA2BC0CCC8BD8C5740C3B0931A042F3A` |
+| `Scripts/Presentation/Effects/BloomHealEffectPresenter.cs` | `A2CC66E62310DAC8C5DB7BB6DB3BECF3EC0CA494CCADCB5254ACCF2C684CA4D8` |
+| `Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset` | `3C91D5A2BE027ADDEFA242A025CB0A4326196ED4299374FA4CC424E5D7FDFBF4` |
+| `Scripts/Application/Combat/BloomHealEffectPresentation.cs.meta` | `4ED8AE47A4F9E574B478132FD827885EA04786CF7AB1908EBB5B1EC4A5C3B4CC` |
+| `Scripts/Infrastructure/Network/NetworkBloomHealEffectState.cs.meta` | `F29D578A56407563CC7299EF9A827426EAD91C5E9B08DE69E0469EDA67EF76EA` |
+| `Scripts/Presentation/Effects/BloomHealEffectPresenter.cs.meta` | `FFEB3C2427DF1C94F5F840CDC14474880C17D2ECDB58B7BB925B55931F16DE3C` |
+| `Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset.meta` | `7987CF6C5E1769AB88B284B34536982754E0DA31CC73518DD42E19ED6C042F65` |
+
+### 정적 compiler 및 실제 artifact 경로
+
+Main 직접 재실행 compiler: `C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/Roslyn/csc.exe`.
+
+각 `v=Runtime,Editor,Dev,Release`에 대해 인계된 인수는 `@Temp/Bloom.{v}.rsp -out:Temp/Bloom.{v}.dll -refout:Temp/Bloom.{v}.ref.dll /nowarn:0618,0414`이며 Main은 각각 exit0을 확인했다. 경로는 repo root 기준이다. rsp/ref 및 define-switch 한계는 위 요약대로 유지하며 실행 exit0은 player 빌드나 실기 수용 증거가 아니다. Release 기존 warnings3를 보존한다.
+
+## 이전 진행 이력 — 원문 보존
+
+이하 시각별 “최신/현재/우선” 및 미확정 가설·pending 표기는 당시 기록이다. 현재 판정은 위 최종 요약을 읽으며, 이전 FAIL을 삭제하거나 소급 PASS로 바꾸지 않는다.
+
+## 최신 진행 요약 — 19:33 fixture-only 수정 / 새 native 검증 대기 (2026-10-09)
+
+**Main Refresh 후 native compile 진행 중. fixture-only 수정과 정적4 exit0은 보고됐지만, 수정 후 Action/Root·빌드 최종 증거는 아직 없다. native 전체 PASS·실기 수용·Task 완료가 아니며 최종 인계 대기다.** 아래 시각별 기록의 “최신/현재/우선”은 당시 기준으로 보존하고, 현재 상태는 이 요약이 우선한다.
+
+- **19:33 측정:** 5PS Before는 paused=false / stopped=false / playing=true / count1, AfterSimulate는 paused=true / stopped=false / playing=false / count0 / IsAlive=true였다. 강제 Simulate 뒤의 paused 상태 관찰이며 production 원인이나 자연 경과에서의 particle drain 결함을 확정하는 증거가 아니다.
+- **fixture-only 수정 보고:** Simulate 후 먼저 `count0 && !isEmitting`을 검사한 다음 `StopEmitting`을 NoClear로 다시 적용하여 native stopped state를 복구했다. 기존 predicate와 production `VfxPoolItem` hash는 이번 fixture 수정에서 불변이다. production predicate 완화·Clear 기반 성공 처리·게임 동작 수정으로 기록하지 않는다.
+- **정적 및 hash 인계:** Runtime/Editor × Dev/Release 정적4 exit0, source18 Main hash match, 보호6 hash unchanged 보고. assertion 파일 `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` 최종 SHA256은 `8D020E86403F2DB7D6E4758CBD92149EBC98E0D82036668B270F7E638CFF3BD4`다. 문서 담당의 독립 컴파일/hash 측정이 아니다.
+- **static artifact 한계:** 이번 인계에는 정적4 exit0 결과와 위 assertion SHA가 있으나 상세 compiler 명령·전체 출력·artifact 경로 및 나머지17개 개별 path/hash 쌍은 아직 제공되지 않았다. 순수 identity CLR PASS는 이전 인계 증거로 유지하되 이번 fixture 수정의 native 재검증을 대신하지 않는다. DLL 로드·Action/Root PASS·particle 화면·게임 runtime·빌드 성공을 정적 결과로 추론하지 않는다.
+- **실패 이력:** 19:06 최초 FAIL, 19:16 이전 assembly 재실행 FAIL, 19:24 최신 loaded source의 시작 조건 통과/drain·회수 fixture1357 FAIL, 19:30 반환0·Ended=false·Pending1·SnapshotEq=true는 그대로 보존한다. 19:33 fixture 수정 후 새 native 결과와 별도다. 빌드 시도0·Root 미실행·실기 미검증을 유지한다.
+
+### source18 인벤토리 인계 범위
+
+Main의 실제 source18 hash 일치 보고를 기록한다. 아래는 기존 계획의 10기존+4신규+4신규 meta를 경로별로 펼친 **18파일 대조 목록**이다(prefix `Assets/_Project/`). Main이 전달한 총수와 일치하지만, 전체 실제 변경 명세·18개 개별 path/hash 원문 인계 전에는 후보 목록을 독립 확인된 최종 manifest로 승격하지 않는다. 이번 fixture-only 수정 파일은 assertion 파일1개이며 production VfxPoolItem은 이번 수정에서 불변이다.
+
+1. `Scripts/Application/UseCases/UnitCombatUseCase.cs`
+2. `Scripts/Infrastructure/Network/NetworkCombatController.cs`
+3. `Scripts/Infrastructure/Network/NetworkUnit.cs`
+4. `Scripts/Bootstrap/GameBootstrapper.Map.cs`
+5. `Scripts/Presentation/Effects/EffectManager.cs`
+6. `Scripts/Presentation/Effects/VfxPoolItem.cs`
+7. `Scripts/Presentation/Effects/UnitEffectConfig.cs`
+8. `Resources/Config/UnitEffectConfig.asset`
+9. `Scripts/Application/Combat/UnitHealCastDiagnostics.cs`
+10. `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs`
+11. `Scripts/Application/Combat/BloomHealEffectPresentation.cs`
+12. `Scripts/Application/Combat/BloomHealEffectPresentation.cs.meta`
+13. `Scripts/Infrastructure/Network/NetworkBloomHealEffectState.cs`
+14. `Scripts/Infrastructure/Network/NetworkBloomHealEffectState.cs.meta`
+15. `Scripts/Presentation/Effects/BloomHealEffectPresenter.cs`
+16. `Scripts/Presentation/Effects/BloomHealEffectPresenter.cs.meta`
+17. `Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset`
+18. `Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset.meta`
+
+## 19:24 최신 loaded source 검증 · 시작 조건 통과 / drain·회수 FAIL (2026-10-09)
+
+**최신 상태: Refresh 후 새 source가 로드된 실제 Action 검증 FAIL, programmer 구현 수정 중, 최종 인계 대기.** 19:16의 이전 assembly 재실행과 구분한다. 아래 compile/새 검증 pending 문구는 당시 이력이며 현재는 이 절이 우선한다.
+
+- **Main 진행 증거:** Refresh 후 native Editor DLL 시각19:23:41, 실제 Action 실행19:24:50에서 새 source 로드 확인. 문서 담당의 독립 재측정이 아니라 Main 인계 증거다.
+- **조건별 결과:** `All5PS lease starts`는 통과했다. 이어 `All5PS drain/return once retains terminal key` fixture1357에서 새 FAIL이 발생했다. 시작 조건의 통과는 이 조건 한정이며 전체 Action/native PASS가 아니다.
+- **실패의 세대 구분:** 이번은 최신 loaded source의 실제 실패다. 19:16 stack1310/disk1333·이전 Editor DLL18:56:38에 근거한 이전 assembly FAIL과 혼동하거나 이번 FAIL까지 stale assembly로 제외하지 않는다. 19:06·19:16 실패 기록도 그대로 보존한다.
+- Main이 programmer에게 재위임했고 구현 수정 중이다. drain/회수·terminal key 조건 실패의 상세 원인이나 교정 완료는 아직 인계되지 않았다. 시작 조건 통과만으로 이전 `Awake`/`_ps` 초기화 가설의 원인을 확정하지 않는다.
+- native 전체 PASS 없음, Root 미실행, 빌드 시도0, 실기 미검증, Task 미완료다. 최종 소스 hash·compile artifacts·수정 후 최신 loaded source 재검증 결과의 추가 인계를 기다린다. 정적/CLR PASS와 게임 particle·runtime 수용은 계속 별개다.
+
+### 19:30 latest probe 추가 — terminal 키 일치 / 반환 집계 pending
+
+Main의 19:30 추가 인계상 **반환0, Ended=false, Pending=1, SnapshotEq=true**다. terminal 키는 일치하지만 반환·종료 집계는 아직 pending이라는 근거이며, 전체 drain/return 검증 통과나 효과 종료 완료로 승격하지 않는다.
+
+- 5PS stop 후 `emit=false, count=1`; 강제 `Simulate(30)` 후 `count=0`이지만 `IsAlive=true`였다. 이 count를 PS 개수로 해석하지 않으며, particle count0을 drain 완료·회수 성공과 동일시하지 않는다.
+- 이 관찰은 probe/fixture 경계의 증거다. 강제 Simulate 영향과 production 동작을 구별하는 중이며 **production 원인 확정은 아니다**. terminal 키 오류가 확인된 것으로도 쓰지 않는다.
+- Main이 programmer에게 재위임했다. 원인·수정 결과·최종 검증 증거는 추가 인계 대기이며, native 전체 PASS 없음·Root 미실행·빌드 시도0·실기 미검증·Task 미완료를 유지한다. 기존 실패 이력과 미확정 초기화 가설의 경계도 보존한다.
+
+## 19:16 두 번째 Action FAIL · 이전 assembly 재실행 / 새 native 검증 대기 (2026-10-09)
+
+**[19:24 후속 정정 — 원문 보존]** 아래 “최신 상태”와 pending/우선 표기는 19:16 기준이다. 현재는 위 19:24 최신 loaded source의 drain·회수 FAIL / 구현 수정 중 기록이 우선한다.
+
+**최신 상태: Main Assets Refresh 실행 후 native compile 진행 중, 새 assembly의 Action 검증 결과 pending. native PASS·빌드 시도·Task 완료 증거는 아직 없다.** 아래 19:06 실패와 수정 중 기록은 보존하며, 진행 상태는 이 절이 우선한다.
+
+- Main 인계상 19:16 두 번째 Action 실행도 FAIL했으나 **이전 assembly 재실행**이었다. 근거는 실행 stack assertion 위치1310과 disk의 현재 assertion 위치1333 차이, Editor DLL 시각18:56:38이다. 문서 담당의 독립 UI/DLL 재측정이 아니라 Main의 확인 인계를 기록한다.
+- 두 번째 FAIL을 숨기거나 PASS로 바꾸지 않는다. 다만 수정된 disk 소스가 새 assembly로 로드된 뒤 재검증에 실패했다는 증거로 사용하지 않는다. 19:06 최초 FAIL, 19:16 이전 assembly FAIL, Refresh 후 새 compile 진행을 서로 다른 단계로 구분한다.
+- Main이 Assets Refresh를 실행했고 native compile이 진행 중이다. Refresh 실행·컴파일 진행은 컴파일 완료/로드 완료/새 gate PASS가 아니다. 최종 소스 hash·상세 compile artifacts와 새 assembly 검증 증거의 추가 인계를 기다린다.
+- `Awake` 미호출 / `_ps` counter0 초기화 가설의 확정 여부는 여전히 별개다. 이전 assembly 재실행 확인만으로 최초 실패 원인이나 실제 게임 particle 재생 결함을 확정하지 않는다.
+- native PASS 없음, 빌드 시도0, Root 미실행, 실기 미검증을 유지한다. 이번은 기존 Research/Plan/VFXSFXList 3문서 진행·실패 기록만이며 코드·씬·UI·build·Git·메모리·전역상태 변경은 없다.
+
+## 구현 중간 인계 · 실제 Unity FAIL / 수정 중 (2026-10-09 19:06)
+
+**[19:16 후속 정정 — 원문 보존]** 아래 “현재 상태”와 “이 절이 우선”은 19:06 기준이다. 최신 진행 상태는 위 19:16 절의 Refresh 후 native compile/새 검증 pending이 우선한다.
+
+**현재 상태: 연동코드·설정 구현 보고 수신, 실제 Unity native 검증 FAIL, programmer 수정 중. Task 완료·native PASS·실기 수용은 아니다.** 아래 승인 대기·구현 보고 대기·게임 미연결 문구는 해당 단계의 이력이며, 현재 상태는 이 절이 우선한다.
+
+- **Programmer 보고:** 소스 구현, Runtime/Editor × Dev/Release 정적 컴파일 4종 errors0, 순수 identity CLR 회귀 PASS, 보호 hash 6개 일치. 이는 programmer 인계 결과이며 문서 담당의 독립 재실행 결과가 아니다. 정적 컴파일·순수 CLR PASS는 실제 ParticleSystem 재생이나 게임 runtime PASS를 뜻하지 않는다. 최종 소스 hash와 자세한 compile artifacts는 추가 인계 대기다.
+- **현재 설정 연결 확인:** `UnitEffectConfig.asset`의 `healPreset` GUID `e248f616d9334275a75e6a08405219ac` → `EffectPreset_BloomFairy_Heal.asset`의 `_vfxPrefab` GUID `ff068a5e9b80f3043a0517ebb1cfb00f`. 이 연결을 근거로 목록의 최신 상태를 “연동코드·설정 구현됨, 자동 검증 보완 중, 실기 미검증”으로 갱신한다. 설정 연결 자체는 화면 재생·수명·네트워크 수용 증거가 아니다.
+- **Main 실제 Unity 관찰:** 19:06:03/04 `Hexiege → Combat → RunUnitActionSelfValidation` 실행에서 새 `ValidateBloomHoTEffectBoundary`의 `All5PS lease starts` 조건이 FAIL했다(인계 위치 1310). `PSPlayRecursive PS5/lease1` 로그는 있었으나 require 조건은 실패했다. 이 로그만으로 5PS/lease native 검증 PASS를 주장하지 않는다.
+- **원인 미확정:** Main의 `Awake` 미호출 / `_ps` counter0 초기화 가설은 아직 가설이다. 확정 원인이나 교정 완료로 쓰지 않으며, 이 추정만으로 mistakes 새 사건을 기록하지 않는다. Main이 programmer에게 수정 재위임했고 수정 결과·새 native 재검증 인계를 기다린다. 최초 FAIL은 이후 결과와 별도로 보존한다.
+- **남은 경계:** 빌드 시도0, Root 검증 아직 미실행, native PASS 없음, 실기 미검증. 빌드 시도는 Main만, 빌드 결과·기기 확인은 사용자 담당이다. 승인과 구현 보고를 검증/빌드 완료로 승격하지 않는다.
+- **이번 문서 변경 범위:** 기존 Research.md·Plan.md·VFXSFXList.md 3파일이다. 이전 기술 보완/승인 상태 기록2파일과 초기 방법B 실제 변경3파일은 각 단계의 범위로 보존한다. 이번 문서 담당은 source/씬/UI/build/Git/TC/QA 작업을 하지 않고 전역상태·ROADMAP·MEMORY·AssetMatrix·Stats·규칙·mistakes·baseline을 변경하지 않는다.
+
+## 현재 승인 및 진행 상태 (2026-10-09 추가)
+
+**[19:06 후속 정정 — 원문 보존]** 이 절은 구현 중간 보고 수신 전 단계의 기록이다. 이 절의 “우선” 및 보고 전 목록 유지 지시는 당시 기준이며, 현재는 위 “구현 중간 인계 · 실제 Unity FAIL / 수정 중” 절이 우선한다.
+
+사용자가 Main이 검토·공유한 Plan 9절에 **“좋아 작업 진행하고 빌드시도까지 해줘”**라고 명시 승인했다. Main 인계상 기존 programmer가 승인된 계획의 실제 구현을 진행 중이다. **현재 상태는 승인 후 구현 중이며, 구현 보고·검증 인계 대기**다.
+
+- 위 목적 설명의 “구현 승인을 기다린다”와 아래 구현 승인 대기/승인 전 구현 금지 문구는 승인 전 단계의 이력으로 보존한다. 현재 구현 승인 상태는 이 절이 우선한다. 계획의 치료량·타이밍·서버 권위 및 보호 범위는 그대로 유지한다.
+- 빌드 시도는 **Main만 수행**, 빌드 결과·기기 확인은 **사용자 담당**이다. 승인 사실을 빌드 실행·성공·설치·실기 관찰 증거로 바꾸지 않는다. 현재 이 문서에 인계된 빌드 시도/완료 결과는 없다.
+- 실제 구현 파일·구현 결과·컴파일/기존 gate 증거는 추가 인계를 받은 뒤 기록한다. 인계 전 연동 완료·검증 PASS·실기 수용·Task 완료를 표기하지 않는다.
+- VFXSFXList의 “제작됨·게임 미연결”은 실제 구현 보고 전에는 변경하지 않는다. 초기 방법B 전체 변경3파일과 이번 승인/구현 중 상태 기록2파일을 구분한다.
+- 이번 문서 담당 수정은 기존 Research.md/Plan.md만이다. 문서 담당의 source/에셋/씬/Git/UI/build/TC/QA 작업은 없으며 새 문서·전역상태·메모리·Stats·규칙·baseline도 변경하지 않는다. 이는 programmer의 별도 구현 진행을 부정하는 source0 주장과 구분한다.
+
+
+
+## 9. HoT VFX 구체 기술 계획 — 구현 승인 대기 (2026-10-09)
+
+**Programmer 읽기 전용 조사·후속 권고 반영본 — Main 기술계획 검토 수용, 사용자 source 구현 승인 대기.** 기존 절의 범위 밖/인계 대기 문구는 당시 이력으로 보존한다. 현재는 기존 Task에 연동 계획이 포함되지만 **사용자 source 승인 전 구현 금지**다. 초기 방법B 목록 정리와 범위 확장에서 Research.md·Plan.md·`Assets/_Project/Docs/Assets/VFXSFXList.md` 총3파일을 실제 변경했다. 그 이후 현재 기술 보완·최종 문구 보정 단계는 Research/Plan 두 문서만 변경하며 앞선 목록 변경도 전체 변경 범위에 포함한다. 소스·에셋·씬·규칙·Stats·전역상태·메모리·baseline 변경0, Git/UI/build/실기0, 신규 Task/TC/QA/validator 없음.
+
+### 9-1. 권위 writer와 표현 수명 연결 후보
+
+실제 서버/싱글 HoT 수락 → Bloom 전용 Application 표현 상태 → NetworkCombatController → recipient NetworkUnit 독립 atomic NetworkVariable current state → BloomHealEffectPresenter sole emitter → EffectManager/VfxPoolItem.
+
+- `AddOrRefreshTimedEffect/TickTimedEffects`의 **실제 수락·갱신·제거 결과**를 관찰한다. HP/ShowText와 caster HealCastState는 recipient HoT 수명의 대용이 아니다. HP/HoT list/수학/amount/duration/reset·단일 writer와 틱 순서를 바꾸지 않는다.
+- 효과 키는 `MatchGeneration+TargetLifetime+EffectInstanceId`; atomic 값에 `monotonicRevision+Active+BloomHealKind`를 포함한다. instance는 시전 sequence와 독립이다. 종료된 같은 instance를 재활성화하지 않고 종료 후 새 grant는 새 instance다. 낮은 revision·다른 lifetime·중복·역순·ID 재사용 입력을 구별해 차단한다.
+- 동일 owner refresh는 no Play/Clear/restart로 연속성을 유지한다. 이는 **해당 recipient HoT VFX owner 한정**이며 새 시전 sequence 애니메이션·기존 힐러 승인 정책은 독립·불변이다.
+- 다른 Heal이 generic 동일종류 슬롯을 overwrite하여 Bloom 효과가 끝나는 경우 Bloom visual만 종료한다. 기존 generic overwrite 수학은 변경하지 않는다. non-Bloom Heal/regen/Torrent/DoT가 Bloom VFX를 만들지 않도록 provenance를 분리한다.
+- 실제 writer FullHP/Expiry/target death/unavailable 종료에서 Active=false를 게시한다. caster death가 이미 적용된 HoT를 취소하지 않는 기존 writer를 보존한다.
+- Host도 동일 presenter만 emitter가 되게 하고 server hook/수신/ready 경로에서 중복 Play를 만들지 않는다. late join/view ready는 latest current를 복구하되 과거 begin burst/sound를 재생하지 않는다. stop-before-ready는 이후 spawn을 차단한다. 같은 프레임 begin/end NetworkVariable coalescing은 current convergence이며 시작 loss로 단정하지 않는다.
+- Bootstrap의 PresentationPoseProvider를 재사용해 manager container에서 recipientVisualRoot 표현 pose를 따라간다. SimulationRoot writer 추가·Red 좌표 재변환·씬 저장/수정 금지. NetworkHealthSync/GameEvents/UnitView/EffectPreset는 그대로 유지 가능한 후보다.
+
+### 9-2. Pause / disconnect / target remove — 후속으로 구체화한 표현 경계
+
+추가 게임플레이 결정을 요구하지 않는 programmer 권고다. 아래를 구현 후보 계약으로 반영하되 구현/실기 수용으로 표시하지 않는다.
+
+1. **Pause:** writer scaled `Time.timeAsDouble`가 정지한 동안 HoT active 유지. NGO clock/로컬 timer로 임의 expire 금지. pause 전용 early-return으로 기존 FullHP/death 종료를 가로막지 않는다. 권위 Active/Stop가 수명을 소유한다. NGO와 scaled writer clock을 혼합 비교하지 않고 publish 시각/남은 시간은 clock-domain 명시 metadata에 한정한다.
+2. **Actual disconnect/map end:** local visual/pending/subscription만 멱등 정리하고 HP/HoTlist 수정 또는 서버 종료 역발행 금지. packet delay는 actual disconnect가 아니다. container가 남아 있으면 방출 정지 후 자연소멸을 기다린다.
+3. **Target remove:** attachment를 닫고 마지막 유효 presentation world position/rotation/scale을 manager container에 동결한다. 이후 대상 재조회/재사용 target 추종 금지. 처음부터 valid pose가 없으면 원점 spawn하지 않고 `NotStarted/TargetPoseUnavailable`를 기록한다.
+4. **입자 회수:** poolLeaseGeneration으로 늦은 callback을 격리한다. stop된 같은 lease의 5PS 모두 StopEmitting→drain→Return1회. AnyAlive는 stop된 lease에서만 자연소멸 회수를 판정하며 active 중 입자 gap으로 회수하지 않는다. tail2/3초 고정·임의 timeout clear 금지.
+5. **Scaled drain / teardown:** prefab5PS `useUnscaledTime=0` 유지. pause 중 drain 정지는 정상이며 unscaled로 수정하지 않는다. scene/container teardown에서는 Clear→`TeardownClear`로 기록하고 자연소멸/성공 완료로 세지 않는다. teardown은 visual/subscription만 정리한다.
+6. **증거 분리:** Renderer 비활성/화면 밖/particle0은 server stop 증거가 아니다. death/disable/despawn의 local attachment 종료와 server effect 종료를 별도 로그/사유로 기록한다.
+
+읽기 전용 source anchors(prefix `Assets/_Project/Scripts/`): `Application/UseCases/UnitCombatUseCase.cs:2449`, `Infrastructure/Network/NetworkCombatController.cs:2534`, `Infrastructure/Network/NetworkUnit.cs:940`, `Presentation/Effects/EffectManager.cs:487`, `Presentation/Effects/VfxPoolItem.cs:298`. 이들은 기존 writer/teardown/container/AnyAlive 근거이며 Bloom 구현 완료 증거가 아니다.
+
+### 9-3. 수정 후보 인벤토리 — 승인 후만 적용
+
+모든 경로 prefix는 `Assets/_Project/`다. 아래 10기존+4신규는 programmer 기술 권고 후보이며 이번에 만들거나 수정하지 않았다.
+
+| 기존 수정 후보 | 책임 | 규칙 근거 |
+|---|---|---|
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | 수락/refresh/실제 제거 관찰, Bloom provenance 전달; 기존 수학 불변 | Units34, NET-AUTH-001/002, NET-DELIVERY-TIMED |
+| `Scripts/Infrastructure/Network/NetworkCombatController.cs` | server publication/종료 연결과 Application 구독 정리 | Units34, NET-AUTH-001, NET-TIME-001 |
+| `Scripts/Infrastructure/Network/NetworkUnit.cs` | recipient atomic current state/ready/late join/terminal·lifetime 경계 | NET-TIME-004/005, NET-DELIVERY-TIMED |
+| `Scripts/Bootstrap/GameBootstrapper.Map.cs` | 싱글/멀티 배선 및 기존 pose provider 주입 | Units34 단일 틱, NET-ROOT-001~003 |
+| `Scripts/Presentation/Effects/EffectManager.cs` | manager container 대상 추종/정지 lease API 후보 | Units31/34, NET-ROOT-002 |
+| `Scripts/Presentation/Effects/VfxPoolItem.cs` | all5PS/stop lease/drain/Return once/lease generation | Units31/34, NET-ROOT-002 |
+| `Scripts/Presentation/Effects/UnitEffectConfig.cs` | 별도 heal preset 참조 후보, attackPreset 유지 | Units31/34, Sound15 |
+| `Resources/Config/UnitEffectConfig.asset` | authored heal GUID를 새 heal slot에 연결할 후보 | Units31/34; attackPreset null 불변 |
+| `Scripts/Application/Combat/UnitHealCastDiagnostics.cs` | bounded 대상 효과 proof 후보, caster 회차와 구분 | LogRules1.4/1.7/1.14, NET-DELIVERY-TIMED |
+| `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | 기존 gate만 확장 | Units31/34/36, NET-AUTH/ROOT/TIME, Sound15 |
+
+| 신규 후보 — 사용자 source 승인 후만 생성, 각각 meta 동반 | 책임/근거 |
+|---|---|
+| `Scripts/Application/Combat/BloomHealEffectPresentation.cs` | NGO 비의존 Bloom 상태/identity 계약; Units34·NET-DELIVERY-TIMED |
+| `Scripts/Infrastructure/Network/NetworkBloomHealEffectState.cs` | atomic network payload; NET-TIME-004/005·NET-DELIVERY-TIMED |
+| `Scripts/Presentation/Effects/BloomHealEffectPresenter.cs` | sole emitter/current convergence/attachment·lease; NET-AUTH/ROOT/TIME |
+| `Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset` | authored prefab 참조만; Units31/34·Sound15 |
+
+Application→Infrastructure/Netcode 역참조 없이 계약을 Application에 두고 Bootstrap에서 조합한다. authored VFX·Attack clip·controller·prefab·Stats는 수정하지 않는다. SFX 미제작은 Sound15 허용에 따라 호출점에 부재 주석을 남기는 후보이며 1회/loop 결정·제작은 선행조건이 아니다.
+
+### 9-4. Bounded proof / 예외 비간섭 계획
+
+- run별 details2048+BEGIN/END2, diagnostic owner256을 후보 예산으로 둔다. cap은 **진단만 제한**하며 실제 heal/VFX 횟수를 제한하지 않는다. suppressed counter와 unknown을 남겨 quota 밖을 성공0건으로 오인하지 않는다.
+- 전이 사건 Grant/Refresh/Stop/Publish/Receive/Play/StopEmitting/Drain/Return에 exact key/revision/pool lease/reason을 기록한다. stale/duplicate/pending/missingasset/fault/drop/overflow를 각각 구별하며 local attachment close/server stop/TeardownClear/NotStarted도 분리한다.
+- formatted 전체 GameLog envelope UTF-8 **1000B 미만**을 preflight하며 fallback도 key를 보존한다. platform prefix/stack/separator는 이 envelope budget 밖이다. 이 숫자는 구현 후보 예산이지 기존 규칙의 고정 숫자나 실제 런타임 측정이 아니다.
+- 기존 GameLog Dev 경로·Conditional/compile guards로 Release 진단 문자열 및 진단 state를 제거한다. gameplay identity/state는 진단 state가 아니므로 제거하지 않는다. per-frame 문자열 로그 금지. 각 단계는 서로 다른 사건이지 같은 사건의 중복 기록이 되지 않게 한다.
+- 표현/observer exception은 writer/tick에 전파하지 않는다. fault를 bounded failure로 분류하고 무조건 silent catch 금지. 실제 예외의 운영/개발 심각도 분류·최종 catch 기록은 LogRules1.9/1.14를 따르며 운영 예외를 Dev budget/stripping으로 숨기지 않는다.
+- 기존 ParticleSystemCount=root1과 recursive5PS 계측을 분리해 all5PS 시작/정지/소멸 증거를 수집한다. 로그 hook 성공은 particle/pixel·성능·멀티 수용 PASS가 아니다.
+
+### 9-5. 기존 self-validation 확장 후보와 남은 승인 gate
+
+새 validator/TC/QA 없이 기존 RunUnitActionSelfValidation에만 다음 후보를 추가한다.
+
+- GUID/preset/config 정합성, Bloom attackPreset null, authored5PS/loop/local/stopActionNone/useUnscaledTime0 불변.
+- 동일 refresh noRestart, all5PS stop/drain/Return once, active particle gap 비회수, pause active/drain 유지, FullHP/death 기존 종료 비차단, 마지막 pose 동결·없는 pose NotStarted, teardown 별도 Clear.
+- ordering/closed-reactivation/target ID reuse/old pool lease 차단; Host sole emitter·Client late join/view ready/latest current·stop-before-ready·동일 frame current coalescing.
+- non-Bloom Heal/regen/Torrent/DoT noBloom; caster death의 이미 부여된 HoT 비취소.
+- clip4s/marker1s/발동 후 cooldown3 및 N/A/SeparateHeal 기존 gates 유지; SimulationRoot/HP/HoT math 비간섭.
+
+규칙 원문 확인 범위: Units34·31·36, combatSync NET-AUTH-001/002·NET-ROOT-001~003·NET-TIME-001/003~005·NET-DELIVERY-TIMED 및 SeparateHeal, Sound15, LogRules1.4/1.7/1.9/1.14. 이는 기존 계약 적용 근거이며 새 gameplay 정책을 정한 것이 아니다.
+
+후속 pause/disconnect/targetremove 권고로 이전 기술 미확정3항목을 구체화했다. 남은 것은 **Main 구체 Plan review→사용자 source 구현 승인**이다. 이후 구현·컴파일·기존 gate·사용자 실기/시각 수용은 각각 별도 증거가 필요하다. 이번 문서 checker0은 소스 구현·연동 완료·실기 PASS를 의미하지 않는다.
+
+
+## 현재 확장 범위 · 승인 이력 (2026-10-09)
+
+사용자 “그 문서에 vfx연동 작업을 반영하여 작업을 진행하면 좋겠어”에 따라 **기존 naming Task에 BloomFairy 대상 부착 HoT VFX 연동을 포함**한다. 아래 “연결은 이번 범위 밖”/“문서1개뿐”은 당시 단계의 이력으로 보존하며 현재 범위는 이 절이 우선한다. 방법B B-1~B-5 목록 정리는 이번에 실제 반영한다. **아직 VFX 연결 구현/검증·실기 수용 PASS는 아니다.**
+
+지금 변경 허용 파일은 이 Task Research.md/Plan.md와 `Assets/_Project/Docs/Assets/VFXSFXList.md` 정확3개다. programmer는 read-only 구체 연결 조사 중이며, 기술 인계→구체 Plan 보강→Main plan review/사용자 source 승인 전에는 source·에셋·씬을 변경하지 않는다. 새 Task/TC/QA, Git/UI/build, 규칙/Stats/상태/메모리/baseline 변경 없음.
+
+### 과거 클립 조사 정정 — 기존 기록 유지
+
+**[2026-10-09 정정 — 원문 보존]** 아래 과거 “클립 이벤트0건/OnAttackHit이 불리지 않는다” 조사와 현재 disk/source는 다르다. 현재 `Assets/_Project/Animations/Units/BloomFairy/BloomFairy_Attack.anim` tail은 `m_Events` 1개, `time: 1`, `functionName: OnAttackHit`이다. `UnitFactory.GetHitFrameTimes`는 이벤트 함수/시간을 읽고, `UnitView.OnAttackHit`는 `IsHealer`→`_healPresentation.ConsumeMarker()`의 별도 힐 marker 경로를 가진다. 이벤트 존재가 곧 대상 부착 loop VFX 연결이나 실제 재생/수용 증거는 아니다. 이번에 이벤트를 추가·교정한 것이 아니며 과거 미주입 상태를 현재 실패로 재사용하지 않는다.
+
+Main 현disk 확인 SHA256: Attack clip `EBD6EC7A908BE84181482B5BDCF5FFAF9CA3CFECC791EBAA28E07666290A7DF4`, authored heal prefab `982033E7B2E82627F2BBDA6B38AFF91249AAE35C1A91758FC56B67E5EF8F6B66`. Game/Login/Stats baseline unchanged도 Main 인계 증거다. 이 단계의 새 에셋 저장/변경 주장으로 바꾸지 않는다.
+
+### 승인된 연동 원칙 — 구체 코드 선택은 인계 후 확정
+
+- 서버 HoT의 **실제 시작·갱신·종료 lifecycle**을 표현의 근거로 삼는다. 클립 marker마다 대상 loop를 만들거나 독립3초 타이머로 서버 상태를 대신하지 않는다. 대상별 동종1개, 갱신=reset, 만료/풀피/사망 종료 계약 유지(`GameSystemRules_Units.md` 규칙34).
+- 치료받는 대상 추종 loop를 사용하고, **HoT refresh에서는 해당 힐 VFX owner와 입자 재생의 연속성을 유지하며 이 VFX를 재시작하지 않는다.** 이는 기존 시전의 새로운 sequence에 따른 애니메이션 재생이나 힐러 승인 정책을 제한하지 않는다 — 두 정책은 독립·불변이다. 정상 완료는 StopEmitting→남은 입자 drain→pool return; 대상 death/disable/despawn/gameend 및 pooled target 재사용에서도 오래된 owner/callback이 새 대상을 건드리지 않아야 한다.
+- exact single-owner 및 멀티 late initialization·중복·역순 안전, session/lifetime/key/revision 경계와 종료 뒤 재활성화 방지의 구체 방식은 programmer 조사 보고로 확정한다. 기존 VFX pool의 루트+자식5시스템 재생/정지·drain/회수 경로도 검토한다(`GameSystemRules_Units.md` 규칙31). attackPreset에 loop를 연결하지 않는다.
+- HP single writer, 실제 HoT timer/amount/duration·갱신 정책, 회전/Attack clip·marker/cooldown/Stats/기존 데이터 정책은 불변이다. 힐러 예외·힐 텍스트 계약도 유지(`GameSystemRules_Units.md` 규칙32·34·36·37). 다른 유닛/자연회복/다른 Heal 효과를 Bloom VFX로 오인하지 않는다.
+- SFX는 현재 미제작. `GameSystemRules_Sound.md` 규칙15의 “한쪽만 재생 시 나머지를 주석으로 명시” 허용에 따라 SFX 없음 주석을 기술 계획에 포함하고 보류한다. 1회/루프 선택은 이 단계 선행조건이 아니며 임의 결정/제작하지 않는다.
+- 판독 가능한 bounded proof logs를 기존 GameLog Dev 경로로 계획한다: exact owner/lifetime/key, start/refresh/stop 사유, duplicate/stale/late-init 판단, drain/pool return, overflow/drop/unknown을 구별하고 총량·문자열 byte budget·Release 제거/비간섭을 구체 Plan에서 정한다. per-frame 문자열 로그나 조용한 누락을 정상0건으로 해석하지 않는다. 로그 hook 성공과 실제 입자/pixel·멀티 수용은 별개다.
+
+### 이번 실제 문서 반영 및 다음 gate
+
+VFX/SFX 공격 표에서 Bloom 행 각1개를 특수 효과 절로 이동해 각각24행으로 정리하고, 사망 표는 그대로 유지한다. heal 명칭과 VFX “프리팹 제작됨·게임 미연결”, SFX “미제작·1회/루프 미정(현재 결정 불필요)”를 기록한다. 기존 절/결정 순서와 조사 이력은 삭제하지 않는다. 후속은 **programmer 기술 인계 대기**이며, source 후보/연결점·pool/네트워크 소유권·검증 예산은 아직 미확정이다.
+
+---
+
 ## 이 작업은 무엇이고 왜 하는가
 
 꽃요정(BloomFairy)의 치료 이펙트를 Unity AI 로 만들기 전에, 이펙트 목록 문서(`VFXSFXList.md`)에 적힌 꽃요정 이펙트 이름을

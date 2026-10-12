@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42d2b12a396127a48a807b6549418404, type: 3}
   m_Name: EffectPreset_Cannon_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
-  _vfxPrefab: {fileID: 5594113295059828660, guid: 383384c7e8fc8a34299bb744441a89f9, type: 3}
+  _vfxPrefab: {fileID: 8563060922612488559, guid: 0a9fb5876c31b9b4493bccb1c54e4cfa, type: 3}

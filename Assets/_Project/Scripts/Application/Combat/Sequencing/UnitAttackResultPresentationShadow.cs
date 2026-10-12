@@ -791,6 +791,31 @@ namespace Hexiege.Application.Combat.Sequencing
         ChannelEmissionFailed = 3
     }
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+    /// <summary>시간 조회나 writer 없이 기존 처리 경계를 구별하는 개발용 숫자 표식이다.</summary>
+    public enum AttackClockHistoryStage : byte
+    {
+        Begin = 1, ResultBefore = 2, ResultAfter = 3, BundleBefore = 4,
+        BundleAfter = 5, TickEnter = 6, TickExit = 7, Decision = 8,
+        EndEnter = 9, EndExit = 10, RpcEntry = 11, AcceptedKey = 12, Frame = 13
+    }
+
+    /// <summary>
+    /// Application 소유 값만 복사한다. 실제 fresh NGO/local/frame 조회와 저장소 수명은
+    /// 외부 subscriber 책임이며 이 값이 gameplay clock 입력으로 되돌아오는 경로는 없다.
+    /// </summary>
+    public struct AttackClockHistorySample
+    {
+        public AttackClockHistoryStage Stage;
+        public AttackResultKey Key;
+        public int UnitId, AnchorRevision, AnchorSource, Status;
+        public ulong ActionRevision;
+        public bool HasAnchor;
+        public double ArgumentServer, ArgumentLocal, AnchorServer, AnchorLocal;
+        public double CurrentTime, Impact, Intended, Observed;
+    }
+#endif
+
     public static class UnitAttackResultPresentationShadowBridge
     {
         // Comparison-only migration stage. This object has no gameplay or visual emitter callback.
@@ -802,6 +827,16 @@ namespace Hexiege.Application.Combat.Sequencing
             && (eligibility == AttackPresentationAuditEligibility.Required
                 || eligibility == AttackPresentationAuditEligibility.RequiredButMissing);
         public static double CurrentServerTime => _lastCoordinatorTime;
+        public static bool CanonicalTickInProgress { get; private set; }
+        public static int CanonicalTickCount { get; private set; }
+        public static int CanonicalClockInvalid { get; private set; }
+        public static int CanonicalClockFaults { get; private set; }
+        public static int CanonicalAnchorDeltaSamples { get; private set; }
+        public static double CanonicalAnchorDeltaMin { get; private set; }
+        public static double CanonicalAnchorDeltaMax { get; private set; }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        public static event Action<string, string> CanonicalClockFailure;
+#endif
         public static int PresentationEmits { get; private set; }
         public static int PresentationViewUnavailable { get; private set; }
         public static int PresentationSnapshotInvalid { get; private set; }
@@ -835,6 +870,46 @@ namespace Hexiege.Application.Combat.Sequencing
         // 관측 전용: 다른 Result가 시계 기준점을 바꿨는지 실패 시점에 확인한다.
         private static int _clockAnchorRevision;
         private static string _clockAnchorSource;
+        public static event Action<AttackClockHistorySample> ClockHistory;
+        public static int ClockHistoryFaults { get; private set; }
+        public static void ReportCanonicalDiagnosticFault()
+        {
+            if (ClockHistoryFaults < int.MaxValue) ClockHistoryFaults++;
+        }
+
+        /// <summary>구독자가 없으면 값 복사도 생략한다. 별도 시각 조회는 전혀 하지 않는다.</summary>
+        private static void TraceClock(AttackClockHistoryStage stage,
+            AttackResultPresentationInput input = default,
+            double server = double.NaN, double local = double.NaN)
+        {
+            var subscriber = ClockHistory;
+            if (subscriber == null) return;
+            var sample = new AttackClockHistorySample
+            {
+                Stage = stage, Key = input.Key, UnitId = input.Key.IsValid ? input.AttackerUnitId : -1,
+                ActionRevision = input.ActionRevision, Impact = input.Key.IsValid ? input.ImpactServerTime : double.NaN,
+                Intended = double.NaN, Observed = double.NaN,
+                ArgumentServer = server, ArgumentLocal = local,
+                HasAnchor = _hasClockAnchor, AnchorServer = _clockAnchorServerTime,
+                AnchorLocal = _clockAnchorLocalTime, AnchorRevision = _clockAnchorRevision,
+                AnchorSource = _clockAnchorSource == "begin-match" ? 1
+                    : _clockAnchorSource == "result" ? 2
+                    : _clockAnchorSource == "completed-bundle" ? 3 : 0,
+                CurrentTime = _lastCoordinatorTime
+            };
+            // 진단 subscriber 실패가 실제 clock assignment/결정/표현을 취소하지 않게
+            // 숫자만 남긴다. 예외 문자열이나 매 프레임 실패 로그는 생성하지 않는다.
+            try { subscriber(sample); }
+            catch (Exception) { if (ClockHistoryFaults < int.MaxValue) ClockHistoryFaults++; }
+        }
+
+        private static void TraceBundle(AttackClockHistoryStage stage,
+            AttackResultPresentationInput[] results, double server, double local)
+        {
+            if (ClockHistory == null) return;
+            if (results == null || results.Length == 0) TraceClock(stage, default, server, local);
+            else for (int i = 0; i < results.Length; i++) TraceClock(stage, results[i], server, local);
+        }
         public static void ReadClockAnchorDiagnostic(out double serverTime,
             out double localTime, out int revision, out string source)
         {
@@ -852,6 +927,9 @@ namespace Hexiege.Application.Combat.Sequencing
         {
             Scheduler.Clear();
             Coordinator.Clear();
+            CanonicalTickInProgress = false;
+            CanonicalTickCount = CanonicalClockInvalid = CanonicalClockFaults = CanonicalAnchorDeltaSamples = 0;
+            CanonicalAnchorDeltaMin = CanonicalAnchorDeltaMax = double.NaN;
             PresentationEmits = PresentationViewUnavailable = 0;
             PresentationSnapshotInvalid = PresentationPresenterUnavailable = 0;
             PresentationChannelFailures = PresentationOptionalViewSkipped = 0;
@@ -882,6 +960,8 @@ namespace Hexiege.Application.Combat.Sequencing
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             _clockAnchorRevision = _hasClockAnchor ? 1 : 0;
             _clockAnchorSource = _hasClockAnchor ? "begin-match" : "none";
+            ClockHistoryFaults = 0;
+            TraceClock(AttackClockHistoryStage.Begin, server: synchronizedServerTime, local: localMonotonicTime);
 #endif
         }
 
@@ -889,11 +969,17 @@ namespace Hexiege.Application.Combat.Sequencing
         {
             if (IsActive)
             {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                TraceClock(AttackClockHistoryStage.EndEnter);
+#endif
                 Coordinator.Complete(_lastCoordinatorTime);
                 Scheduler.FlushPendingAsUnmatched();
                 while (Scheduler.TryDequeueClassification(
                     out PresentationShadowClassification pending))
                     Classified?.Invoke(pending);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                TraceClock(AttackClockHistoryStage.EndExit);
+#endif
             }
             IsActive = false;
             _hasClockAnchor = false;
@@ -923,6 +1009,9 @@ namespace Hexiege.Application.Combat.Sequencing
             if (!IsActive) return;
             if (!ShouldAudit(input.AttackerUnitId, out bool requiredButMissing))
                 return;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceClock(AttackClockHistoryStage.ResultBefore, input, synchronizedServerTime, localMonotonicTime);
+#endif
             if (requiredButMissing)
             {
                 Classified?.Invoke(new PresentationShadowClassification(
@@ -932,6 +1021,9 @@ namespace Hexiege.Application.Combat.Sequencing
                     0,
                     double.NaN,
                     double.NaN));
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                TraceClock(AttackClockHistoryStage.ResultAfter, input, synchronizedServerTime, localMonotonicTime);
+#endif
                 return;
             }
             if (!ContractNumber.IsFinite(synchronizedServerTime)
@@ -939,22 +1031,34 @@ namespace Hexiege.Application.Combat.Sequencing
                 || synchronizedServerTime < 0d || localMonotonicTime < 0d)
             {
                 Publish(Scheduler.ObserveResult(input, double.NaN));
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                TraceClock(AttackClockHistoryStage.ResultAfter, input, synchronizedServerTime, localMonotonicTime);
+#endif
                 return;
             }
-            _clockAnchorServerTime = synchronizedServerTime;
-            _clockAnchorLocalTime = localMonotonicTime;
-            _hasClockAnchor = true;
+            // ResultPresentation의 개별 C2 호출은 비교 진단일 뿐이다. Dev에서만
+            // 호출되는 진단이 완료 묶음의 live clock을 재설정하면 Release와 표현
+            // 만료 판정이 달라진다. 비교 모드의 기존 기준점 갱신은 그대로 둔다.
+            if (!UsesAuthoritativeEmitter)
+            {
+                _clockAnchorServerTime = synchronizedServerTime;
+                _clockAnchorLocalTime = localMonotonicTime;
+                _hasClockAnchor = true;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            _clockAnchorRevision++;
-            _clockAnchorSource = "result";
+                _clockAnchorRevision++;
+                _clockAnchorSource = "result";
 #endif
-            _lastCoordinatorTime = synchronizedServerTime;
+                _lastCoordinatorTime = synchronizedServerTime;
+            }
             // ResultPresentation 경기는 self-contained 완료 묶음이 Coordinator의 유일한
             // 표현 입력이다. 개별 C2 shadow 결과는 피해 수렴 관측에만 사용하며, 타입·팀
             // 스냅샷이 없는 값을 먼저 넣어 완료 묶음과 충돌시키지 않는다.
             if (!UsesAuthoritativeEmitter)
                 Coordinator.ObserveResult(input, synchronizedServerTime);
             Publish(Scheduler.ObserveResult(input, synchronizedServerTime));
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceClock(AttackClockHistoryStage.ResultAfter, input, synchronizedServerTime, localMonotonicTime);
+#endif
         }
 
         public static void ObserveSchedule(AttackPresentationSchedule schedule)
@@ -967,6 +1071,9 @@ namespace Hexiege.Application.Combat.Sequencing
             double synchronizedServerTime, double localMonotonicTime)
         {
             if (!IsActive) return;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceBundle(AttackClockHistoryStage.BundleBefore, results, synchronizedServerTime, localMonotonicTime);
+#endif
             if (ContractNumber.IsFinite(synchronizedServerTime) && synchronizedServerTime >= 0
                 && ContractNumber.IsFinite(localMonotonicTime) && localMonotonicTime >= 0)
             {
@@ -980,6 +1087,9 @@ namespace Hexiege.Application.Combat.Sequencing
 #endif
             }
             Coordinator.ObserveCompletedBundle(results, synchronizedServerTime);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceBundle(AttackClockHistoryStage.BundleAfter, results, synchronizedServerTime, localMonotonicTime);
+#endif
         }
 
         public static void RecordPresentationDispatch(AttackResultPresentationInput result, bool displayed)
@@ -1125,11 +1235,71 @@ namespace Hexiege.Application.Combat.Sequencing
             return published;
         }
 
-        public static void TickCoordinator(double localMonotonicTime)
+        public static bool IsValidCanonicalClock(double serverTime, double localTime)
+            => ContractNumber.IsFinite(serverTime) && ContractNumber.IsFinite(localTime)
+                && serverTime >= 0d && localTime >= 0d;
+
+        public static void ReportCanonicalClockFailure(string reason, string detail)
+        {
+            if (!IsActive) return;
+            if (CanonicalClockInvalid < int.MaxValue) CanonicalClockInvalid++;
+            if (reason == "ProviderFault" && CanonicalClockFaults < int.MaxValue) CanonicalClockFaults++;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            try { CanonicalClockFailure?.Invoke(reason, detail); }
+            catch (Exception) { if (ClockHistoryFaults < int.MaxValue) ClockHistoryFaults++; }
+#endif
+        }
+
+        /// <summary>Production은 공급받은 canonical 서버 시각 표본 하나로 판단한다.
+        /// Bundle anchor는 진단 증거로만 유지하며 이 판단 시각으로 외삽하지 않는다.</summary>
+        public static bool TickCoordinator(double synchronizedServerTime, double localMonotonicTime)
+        {
+            if (!IsActive) return false;
+            if (!IsValidCanonicalClock(synchronizedServerTime, localMonotonicTime))
+            {
+                ReportCanonicalClockFailure("InvalidClock", "Invalid explicit canonical Tick argument.");
+                return false;
+            }
+            if (CanonicalTickCount < int.MaxValue) CanonicalTickCount++;
+            if (_hasClockAnchor)
+            {
+                double delta = _clockAnchorServerTime + localMonotonicTime - _clockAnchorLocalTime - synchronizedServerTime;
+                if (ContractNumber.IsFinite(delta))
+                {
+                    if (CanonicalAnchorDeltaSamples == 0) CanonicalAnchorDeltaMin = CanonicalAnchorDeltaMax = delta;
+                    else { CanonicalAnchorDeltaMin = Math.Min(CanonicalAnchorDeltaMin, delta); CanonicalAnchorDeltaMax = Math.Max(CanonicalAnchorDeltaMax, delta); }
+                    if (CanonicalAnchorDeltaSamples < int.MaxValue) CanonicalAnchorDeltaSamples++;
+                }
+            }
+            CanonicalTickInProgress = true;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceClock(AttackClockHistoryStage.TickEnter, server: synchronizedServerTime, local: localMonotonicTime);
+#endif
+            _lastCoordinatorTime = synchronizedServerTime;
+            try { Coordinator.Tick(synchronizedServerTime); }
+            finally
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                TraceClock(AttackClockHistoryStage.TickExit, server: synchronizedServerTime, local: localMonotonicTime);
+#endif
+                CanonicalTickInProgress = false;
+            }
+            return true;
+        }
+
+        /// <summary>과거 anchor 재현 fixture 전용이다. Production 호출은 금지한다.
+        /// 교정 전 captured 판단을 비교하기 위해 명시적인 별도 이름으로 보존한다.</summary>
+        public static void TickCoordinatorFromAnchorForValidation(double localMonotonicTime)
         {
             if (!IsActive || !_hasClockAnchor) return;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceClock(AttackClockHistoryStage.TickEnter, local: localMonotonicTime);
+#endif
             _lastCoordinatorTime = _clockAnchorServerTime + localMonotonicTime - _clockAnchorLocalTime;
             Coordinator.Tick(_lastCoordinatorTime);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            TraceClock(AttackClockHistoryStage.TickExit, local: localMonotonicTime);
+#endif
         }
 
         public static void ObserveLegacy(LegacyPresentationObservation observation)

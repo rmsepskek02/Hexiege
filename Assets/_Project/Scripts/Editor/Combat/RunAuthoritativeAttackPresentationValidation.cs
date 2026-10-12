@@ -37,6 +37,7 @@ namespace Hexiege.Editor.Combat
             ValidateStrictMissingCompletion();
             ValidateStrictAtomicRejection();
             ValidateTransportLongMatchRetention();
+            RunUnitActionSelfValidation.ValidateVfxConnections();
             Debug.Log("[UAS-AUTH-PRESENT] self-validation PASS: comparison and strict complete-bundle coordinator, "
                 + "schedule/result reorder, exact-key dedupe/conflict, multi-hit/ordinal/instance isolation, "
                 + "commit-versus-impact direction/revision, confirmed result after retire, "
@@ -315,8 +316,105 @@ namespace Hexiege.Editor.Combat
             }
         }
 
+        // Existing production-adapter gate; no new menu or validator is introduced.
+        private static void ValidateClockHistoryBounds()
+        {
+            var history = new ExpiryClockHistory();
+            var frame = new AttackClockHistorySample { Stage = AttackClockHistoryStage.Frame };
+            var enter = new AttackClockHistorySample { Stage = AttackClockHistoryStage.TickEnter };
+            var exit = new AttackClockHistorySample { Stage = AttackClockHistoryStage.TickExit };
+            var expired = new AttackClockHistorySample { Stage = AttackClockHistoryStage.Decision,
+                Status = (int)AuthoritativePresentationStatus.Expired };
+            Require(history.Add(frame, 1, 1, 1) == 0 && !history.Enabled,
+                "Disabled history must not allocate or collect.");
+            history.Reset(true);
+            ulong generation = history.Generation;
+            history.Add(enter, 1, 1, 1);
+            for (int i = 0; i < 4; i++) history.Add(expired, 1, 1, 1);
+            Require(history.WindowCount == 0, "Decision must not freeze before TickExit.");
+            history.Add(exit, 1, 1, 1);
+            Require(history.WindowCount == 1 && history.WindowRecordCount(0) == 6
+                && !history.WindowCoverageUnknown(0), "Same Tick four failures must share complete window.");
+            for (int rows = 128; rows <= 129; rows++)
+            {
+                history.Reset(true);
+                for (int i = 0; i < rows - 3; i++) history.Add(frame, 1, 1, 1);
+                history.Add(enter, 1, 1, 1); history.Add(expired, 1, 1, 1); history.Add(exit, 1, 1, 1);
+                Require(history.WindowFirstSequence(0) == (ulong)(rows - 127)
+                    && history.WindowLastSequence(0) == (ulong)rows
+                    && history.WindowTruncated(0) == (rows == 129)
+                    && history.WindowCoverageUnknown(0) == (rows == 129),
+                    "128/129 prior-window truncation must be explicit even when trigger is retained.");
+            }
+            history.Reset(true);
+            for (int i = 0; i < 1025; i++) history.Add(frame, 1, 1, 1);
+            Require(history.Count == 1024 && history.Overwritten == 1
+                && history.ReadForValidation(0).Sequence == 2, "1024 ring must overwrite exactly oldest row.");
+            for (int w = 0; w < 5; w++)
+            { history.Add(enter, 1, 1, 1); history.Add(expired, 1, 1, 1); history.Add(exit, 1, 1, 1); }
+            Require(history.WindowCount == 4 && history.Suppressed == 1
+                && history.WindowOverwrittenAtFreeze(0) == 4 && history.WindowCoverageUnknown(0),
+                "Four frozen windows and fifth suppression must retain overwrite evidence.");
+            var lines = new List<string>();
+            const string identity = "runId=01234567890123456789012345678901, sharedSessionKey=0123456789012345, startedAt=100.123456, ";
+            history.WriteAtEnd(lines.Add, identity);
+            Require(lines.Count == 1033 && history.OutputBytes <= ExpiryClockHistory.MaximumSessionBytes,
+                "Four full windows must use exactly 1033 bounded logical lines.");
+            foreach (string line in lines) Require(ExpiryClockHistory.IsLineSafe(line)
+                && line.StartsWith(identity), "Every emitted full envelope must preserve identity and byte preflight.");
+            history.WriteAtEnd(lines.Add, identity);
+            Require(lines.Count == 1033, "EndSession output must be idempotent.");
+            history.Reset(true);
+            Require(history.Generation > generation && history.Count == 0,
+                "Begin reset needs distinct generation with empty numeric store.");
+            var rpc = new AttackClockHistorySample { Stage = AttackClockHistoryStage.RpcEntry, UnitId = 10 };
+            ulong ticket = history.Add(rpc, double.NaN, double.PositiveInfinity, 1);
+            Require(history.HasRpcTicket(ticket, 10) && !history.HasRpcTicket(ticket, 11)
+                && !history.HasRpcTicket(0, 10) && (history.ReadForValidation(0).Flags & 262U) == 256U,
+                "Unknown association and nonfinite clocks must not become fabricated valid samples.");
+            history.Add(enter, 1, 1, 1); history.Add(expired, 1, 1, 1);
+            for (int i = 0; i < 129; i++) history.Add(frame, 1, 1, 1);
+            history.Add(exit, 1, 1, 1);
+            Require(history.WindowFirstSequence(0) > ticket + 2 && history.WindowCoverageUnknown(0),
+                "First trigger outside 128 rows is unknown.");
+            history.Reset(true);
+            history.Add(new AttackClockHistorySample { Stage = AttackClockHistoryStage.EndEnter }, 1, 1, 1);
+            history.Add(expired, 1, 1, 1);
+            history.Add(new AttackClockHistorySample { Stage = AttackClockHistoryStage.EndExit }, 1, 1, 1);
+            Require(history.WindowCoverageUnknown(0), "Complete callbacks are terminal, not invented TickExit coverage.");
+            // Exercise real formatter fallback rather than a separate test formatter.
+            lines.Clear(); history.WriteAtEnd(lines.Add, identity + new string('x', 650));
+            Require(history.FormatFailures > 0 && lines.Count > 0, "Oversized record must take production fallback.");
+            foreach (string line in lines) Require(line.StartsWith(identity) && ExpiryClockHistory.IsLineSafe(line),
+                "Fallback keeps run/session identity and is itself full-bytepreflighted.");
+            history.Reset(true); history.WriteAtEnd(_ => throw new InvalidOperationException(), identity);
+            Require(history.DiagnosticFaults == 1, "Diagnostic sink throw must remain bounded and not escape.");
+            history.Reset(false);
+            Require(!history.Enabled && history.Count == 0 && history.WindowCount == 0,
+                "Release/reset must drop all numeric storage.");
+            history.Reset(true);
+            typeof(ExpiryClockHistory).GetField("_next", System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance).SetValue(history, ulong.MaxValue);
+            Require(history.Add(frame, 1, 1, 1) == 0 && history.Saturated && history.Count == 0,
+                "Event sequence saturation must stop diagnostic collection without wrapping.");
+            history.Reset(true);
+            typeof(ExpiryClockHistory).GetField("_operation", System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance).SetValue(history, ulong.MaxValue);
+            Require(history.Add(enter, 1, 1, 1) == 0 && history.Saturated,
+                "Tick ticket saturation must not wrap into another operation.");
+            history.Reset(true);
+            typeof(ExpiryClockHistory).GetField("<DiagnosticFaults>k__BackingField", System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance).SetValue(history, int.MaxValue);
+            history.RecordDiagnosticFault();
+            Require(history.DiagnosticFaults == int.MaxValue && history.CounterSaturated,
+                "Bounded failure counter saturation must be explicit, never wrap.");
+            history.Reset(false);
+        }
+
         private static void ValidateProductionAdapter()
         {
+            ValidateClockHistoryBounds();
+            ValidateCanonicalTickClock();
             GameObject owner = null;
             GameObject liveVictimView = null;
             GameObject transientVictimView = null;
@@ -352,17 +450,17 @@ namespace Hexiege.Editor.Combat
                 UnitAttackResultPresentationShadowBridge.ObserveSchedule(Schedule());
                 UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(new[] { result }, 10d, 10d);
                 UnitAttackResultPresentationShadowBridge.Retire(new AttackerInstanceId(1));
-                // 동기 clock은 anchorServer + (local - anchorLocal)로 재구성된다. 정확히
-                // 10.1을 넣으면 이진 부동소수점에서 due보다 극미세하게 작아질 수 있으므로,
+                // canonical 서버 시각을 명시적으로 공급한다. 정확히 10.1을 넣으면
+                // 이진 부동소수점에서 due보다 극미세하게 작아질 수 있으므로,
                 // 허용 오차 변경 없이 실제 다음 프레임에 해당하는 1ms 뒤를 사용한다.
-                UnitAttackResultPresentationShadowBridge.TickCoordinator(10.101d);
+                UnitAttackResultPresentationShadowBridge.TickCoordinator(10.101d, 10.101d);
                 Require(queue.AuthoritativeEmits == 1 && victim.Hp == 100,
                     "Production adapter must emit the confirmed result once after retire without writing HP. "
                     + $"queueEmits={queue.AuthoritativeEmits}, bridgeEmits="
                     + $"{UnitAttackResultPresentationShadowBridge.PresentationEmits}, "
                     + $"vfxCalls={actualVfxCalls}, victimHp={victim.Hp}.");
                 GameEvents.OnLocalAttackHit.OnNext(new LocalAttackHitPresentationEvent(10, Scope()));
-                UnitAttackResultPresentationShadowBridge.TickCoordinator(10.9d);
+                UnitAttackResultPresentationShadowBridge.TickCoordinator(10.9d, 10.9d);
                 Require(queue.AuthoritativeEmits == 1 && UnitAttackResultPresentationShadowBridge.PresentationEmits == 1,
                     "Late tracer/marker must not replay the consumed production result.");
 
@@ -387,7 +485,7 @@ namespace Hexiege.Editor.Combat
                     Schedule(impact: 11d, scope: Scope(sequence: 2)));
                 UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
                     new[] { readyCompanion, transientResult }, 11d, 11d);
-                UnitAttackResultPresentationShadowBridge.TickCoordinator(11.101d);
+                UnitAttackResultPresentationShadowBridge.TickCoordinator(11.101d, 11.101d);
                 Require(queue.AuthoritativeEmits == 3 && queue.AuthoritativeViewUnavailable == 0,
                     "An unavailable AoE victim View must not block self-contained bundle presentation.");
                 queue.RetryAuthoritativePresentationForValidation(
@@ -407,7 +505,7 @@ namespace Hexiege.Editor.Combat
                     Schedule(impact: 12d, scope: Scope(sequence: 3)));
                 UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
                     new[] { deadResult }, 12d, 12d);
-                UnitAttackResultPresentationShadowBridge.TickCoordinator(12.101d);
+                UnitAttackResultPresentationShadowBridge.TickCoordinator(12.101d, 12.101d);
                 Require(queue.AuthoritativeEmits == 4 && actualVfxCalls >= 3
                     && lastVfxPosition == new Vector3(3f, 0f, 4f),
                     "A cached dead/despawned victim must use the authoritative Impact position and a real VFX call.");
@@ -427,7 +525,7 @@ namespace Hexiege.Editor.Combat
                     Schedule(impact: 13d, scope: Scope(sequence: 4)));
                 UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
                     new[] { cachelessResult }, 13d, 13d);
-                UnitAttackResultPresentationShadowBridge.TickCoordinator(13.101d);
+                UnitAttackResultPresentationShadowBridge.TickCoordinator(13.101d, 13.101d);
                 Vector3 expectedFlippedPosition = new Vector3(15f, 0f, 34f);
                 Require(queue.AuthoritativeEmits == 5
                     && lastVfxPosition == expectedFlippedPosition,
@@ -445,6 +543,128 @@ namespace Hexiege.Editor.Combat
                         && UnitAttackResultPresentationShadowBridge.PresentationViewUnavailable
                             == viewUnavailable,
                     "A missing optional hit-VFX asset must be SkippedNoAsset, not a presentation failure.");
+
+                // 동일한 production queue에 C2 진단 on/off를 각각 통과시킨다. 진단용
+                // 개별 결과의 시계가 앞으로 뛰어도 완료 묶음의 표현 기준점은 불변이다.
+                // 진짜 늦은 Tick은 여전히 Expired이며, 허용 시간 확대는 하지 않는다.
+                double baselineNow = double.NaN;
+                for (int historyEnabled = 0; historyEnabled < 2; historyEnabled++)
+                for (int late = 0; late < 2; late++)
+                for (int diagnostic = 0; diagnostic < 2; diagnostic++)
+                {
+                    var history = new ExpiryClockHistory();
+                    history.Reset(historyEnabled == 1);
+                    Action<AttackClockHistorySample> collectClock = sample =>
+                        history.Add(sample, 1000d, 100d, 1);
+                    Action<AuthoritativePresentationDecision> collectHistoryDecision = decision =>
+                        history.Add(new AttackClockHistorySample { Stage = AttackClockHistoryStage.Decision,
+                            Status = (int)decision.Status, Key = decision.Result.Key }, 1000d, 100d, 1);
+                    if (historyEnabled == 1)
+                    {
+                        UnitAttackResultPresentationShadowBridge.ClockHistory += collectClock;
+                        UnitAttackResultPresentationShadowBridge.Coordinator.Decided += collectHistoryDecision;
+                    }
+                    try
+                    {
+                    UnitAttackResultPresentationShadowBridge.BeginMatch(true, 100d, 1000d);
+                    UnitAttackResultPresentationShadowBridge.RegisterAuditEligibility(10,
+                        AttackPresentationAuditEligibility.Required);
+                    ulong sequence = (ulong)(10 + late * 2 + diagnostic);
+                    var isolatedResult = Result(sequence: sequence, impact: 100d,
+                        hasPosition: true, impactX: 5f, impactZ: 6f);
+                    UnitAttackResultPresentationShadowBridge.ObserveSchedule(
+                        Schedule(impact: 100d, scope: Scope(sequence: sequence)));
+                    UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
+                        new[] { isolatedResult }, 100d, 1000d);
+                    UnitAttackResultPresentationShadowBridge.ReadClockAnchorDiagnostic(
+                        out double anchorServer, out double anchorLocal,
+                        out int anchorRevision, out string anchorSource);
+                    double beforeNow = UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+                    if (diagnostic == 1)
+                    {
+                        var classifications = new List<PresentationShadowClassification>();
+                        Action<PresentationShadowClassification> collectClassification = classifications.Add;
+                        UnitAttackResultPresentationShadowBridge.Classified += collectClassification;
+                        try
+                        {
+                            UnitAttackResultPresentationShadowBridge.ObserveResult(
+                                Result(sequence: 100 + sequence, impact: 200d), 100.7d, 1000.1d);
+                        }
+                        finally
+                        {
+                            UnitAttackResultPresentationShadowBridge.Classified -= collectClassification;
+                        }
+                        Require(classifications.Count == 1
+                                && classifications[0].Status == PresentationShadowResultStatus.Scheduled,
+                            "Required C2 input must still reach the comparison scheduler and its unchanged classification.");
+                        UnitAttackResultPresentationShadowBridge.ReadClockAnchorDiagnostic(
+                            out double afterServer, out double afterLocal,
+                            out int afterRevision, out string afterSource);
+                        Require(anchorServer == afterServer && anchorLocal == afterLocal
+                                && anchorRevision == afterRevision && anchorSource == afterSource
+                                && beforeNow == UnitAttackResultPresentationShadowBridge.CurrentServerTime,
+                            "C2 comparison diagnostics must not mutate the live presentation clock or its anchor identity.");
+                    }
+                    Require(anchorSource == "completed-bundle" && anchorRevision == 2,
+                        "Normal completed bundles must still update the diagnostic clock anchor.");
+                    int beforeEmits = queue.AuthoritativeEmits;
+                    int beforeVfx = actualVfxCalls;
+                    var decisions = new List<AuthoritativePresentationDecision>();
+                    Action<AuthoritativePresentationDecision> collectDecision = decisions.Add;
+                    UnitAttackResultPresentationShadowBridge.Coordinator.Decided += collectDecision;
+                    try
+                    {
+                        UnitAttackResultPresentationShadowBridge.TickCoordinator(
+                            late == 0 ? 100.101d : 100.601d, late == 0 ? 1000.101d : 1000.601d);
+                    }
+                    finally
+                    {
+                        UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= collectDecision;
+                    }
+                    double now = UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+                    if (diagnostic == 0) baselineNow = now;
+                    Require(now == baselineNow,
+                        "C2 diagnostic on/off must reconstruct the identical coordinator time.");
+                    Require(decisions.Count == 1
+                            && decisions[0].Status == (late == 0
+                                ? AuthoritativePresentationStatus.Ready : AuthoritativePresentationStatus.Expired)
+                            && UnitAttackResultPresentationShadowBridge.Coordinator.ReadyCount == (late == 0 ? 1 : 0)
+                            && UnitAttackResultPresentationShadowBridge.Coordinator.FailureCount == (late == 0 ? 0 : 1)
+                            && queue.AuthoritativeEmits - beforeEmits == (late == 0 ? 1 : 0)
+                            && actualVfxCalls - beforeVfx == (late == 0 ? 1 : 0)
+                            && (late != 0 || lastVfxPosition == expectedFlippedPosition)
+                            && victim.Hp == 100,
+                        "C2 on/off must retain the same exactly-once real emitter; genuine late expiry and HP authority remain unchanged.");
+                    UnitAttackResultPresentationShadowBridge.TickCoordinator(100.9d, 1000.9d);
+                    Require(queue.AuthoritativeEmits - beforeEmits == (late == 0 ? 1 : 0),
+                        "Diagnostic isolation must not replay a consumed or expired bundle.");
+                    Require(history.WindowCount == (historyEnabled == 1 && late == 1 ? 1 : 0),
+                        "History on/off must observe genuine expiry without creating another decision.");
+                    }
+                    finally
+                    {
+                        UnitAttackResultPresentationShadowBridge.ClockHistory -= collectClock;
+                        UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= collectHistoryDecision;
+                        history.Reset(false);
+                    }
+                }
+
+                // 비교 전용 모드에서는 기존처럼 개별 C2가 clock anchor를 갱신한다.
+                NetworkContext.Reset();
+                Require(NetworkContext.TryBeginCombatPipelineMatch(
+                        CombatPipelineMode.PresentationShadow, 1, "fixture-shadow"),
+                    "Shadow comparison mode must latch independently.");
+                UnitAttackResultPresentationShadowBridge.BeginMatch(true, 100d, 1000d);
+                UnitAttackResultPresentationShadowBridge.RegisterAuditEligibility(10,
+                    AttackPresentationAuditEligibility.Required);
+                UnitAttackResultPresentationShadowBridge.ObserveResult(Result(impact: 100d), 100.7d, 1000.1d);
+                UnitAttackResultPresentationShadowBridge.ReadClockAnchorDiagnostic(
+                    out double shadowServer, out double shadowLocal,
+                    out int shadowRevision, out string shadowSource);
+                Require(shadowServer == 100.7d && shadowLocal == 1000.1d
+                        && shadowRevision == 2 && shadowSource == "result"
+                        && UnitAttackResultPresentationShadowBridge.CurrentServerTime == 100.7d,
+                    "PresentationShadow must retain its existing individual-result clock behavior.");
             }
             finally
             {
@@ -639,6 +859,177 @@ namespace Hexiege.Editor.Combat
             Require(classifier.Classify(10, firstPayload)
                     == NetworkAttackPresentationBundleStatus.Accepted,
                 "Match reset must release transport tombstones for the next match.");
+        }
+
+        private static void ValidateCanonicalTickClock()
+        {
+            ValidateReceiptPhaseClock();
+            // Captured window 1에서 Bundle anchor와 canonical Tick의 시각축이 달랐다.
+            // 기존 Bridge/실제 Presenter 경로를 통과하지만 누락된 원본 RPC 체인을
+            // 재구성하지는 않는다. 실제 exact-key 14건 대비는 별도 기존 trace replay에 있다.
+            var decisions = new List<AuthoritativePresentationDecision>();
+            Action<AuthoritativePresentationDecision> collect = decisions.Add;
+            UnitAttackResultPresentationShadowBridge.Coordinator.Decided += collect;
+            try
+            {
+                NetworkContext.Reset(); NetworkContext.Set(true, false);
+                Require(NetworkContext.TryBeginCombatPipelineMatch(CombatPipelineMode.ResultPresentation, 1, "canonical-clock"), "Clock fixture mode.");
+                UnitAttackResultPresentationShadowBridge.BeginMatch(true, 151d, 2564d);
+                UnitAttackResultPresentationShadowBridge.RegisterAuditEligibility(10, AttackPresentationAuditEligibility.Required);
+                const double impact = 151.78150362100453d;
+                for (ulong i = 1; i <= 14; i++)
+                {
+                    var result = Result(sequence: i, impact: impact);
+                    UnitAttackResultPresentationShadowBridge.ObserveSchedule(Schedule(impact, AttackPresentationScope.FromResultKey(result.Key)));
+                    UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(new[] { result },
+                        152.51657693978399d, 2564.548330513891d);
+                }
+                var clock = new UnitAttackResultPresentationShadow.CanonicalTickClock();
+                int queries = 0;
+                clock.Bind(() => { queries++; return 151.98334474861622d; });
+                Require(clock.Tick(2564.5520280528867d) && queries == 1, "Production Tick reads the canonical provider once.");
+                Require(decisions.Count == 14 && decisions.TrueForAll(d => d.Status == AuthoritativePresentationStatus.Ready),
+                    "Captured stale Bundle epoch must not expire the 14 seeded results; canonical Tick=151.98334474861622.");
+                Require(Math.Abs(UnitAttackResultPresentationShadowBridge.CurrentServerTime - 151.98334474861622d) < 1e-9,
+                    "Bundle epoch is diagnostic only.");
+                Require(UnitAttackResultPresentationShadowBridge.CanonicalAnchorDeltaSamples == 1
+                    && UnitAttackResultPresentationShadowBridge.CanonicalAnchorDeltaMax > 0.536d, "Retain old-anchor versus Tick delta.");
+                decisions.Clear();
+                var pending = Result(sequence: 30, impact: impact);
+                UnitAttackResultPresentationShadowBridge.ObserveSchedule(Schedule(impact, AttackPresentationScope.FromResultKey(pending.Key)));
+                UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(new[] { pending }, 200d, 2564d);
+                double prior = UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+                int count = UnitAttackResultPresentationShadowBridge.Coordinator.PendingCount;
+                foreach (double invalid in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity, -1d })
+                {
+                    queries = 0; clock.Bind(() => { queries++; return invalid; });
+                    Require(!clock.Tick(2564.6d) && queries == 1, "Invalid provider fails closed with one query.");
+                }
+                clock.Bind(() => throw new InvalidOperationException("fixture supplier fault"));
+                Require(!clock.Tick(2564.6d) && UnitAttackResultPresentationShadowBridge.CanonicalClockFaults == 1, "Supplier fault counted separately.");
+                clock.Close(); Require(!clock.Tick(2564.6d), "Closed provider cannot Tick.");
+                Require(decisions.Count == 0 && UnitAttackResultPresentationShadowBridge.Coordinator.PendingCount == count
+                    && UnitAttackResultPresentationShadowBridge.CurrentServerTime == prior, "Invalid/closed clock preserves pending state, with no old-anchor fallback.");
+                int oldQueries = 0, newQueries = 0;
+                clock.Bind(() => { oldQueries++; return 152d; }); clock.Close();
+                clock.Bind(() => { newQueries++; return 152.6d; });
+                Require(clock.Tick(2564.7d) && oldQueries == 0 && newQueries == 1, "Explicit rebind cannot query retired supplier.");
+                Require(decisions.Count == 1 && decisions[0].Status == AuthoritativePresentationStatus.Expired, "Genuinely late still expires.");
+                UnitAttackResultPresentationShadowBridge.EndMatch();
+                Require(!clock.Tick(2564.8d) && newQueries == 1, "Inactive bridge performs zero queries."); clock.Close();
+                foreach (var mode in new[] { CombatPipelineMode.PresentationShadow, CombatPipelineMode.ResultPresentation })
+                {
+                    NetworkContext.Reset(); NetworkContext.Set(true, false);
+                    Require(NetworkContext.TryBeginCombatPipelineMatch(mode, 1, "clock-mode"), "Clock mode latch.");
+                    UnitAttackResultPresentationShadowBridge.BeginMatch(true);
+                    queries = 0; clock.Bind(() => { queries++; return 100d; });
+                    Action<AttackClockHistorySample> badObserver = _ => throw new InvalidOperationException("diagnostic fixture");
+                    UnitAttackResultPresentationShadowBridge.ClockHistory += badObserver;
+                    try
+                    {
+                        Require(clock.Tick(1000d, (_, __) => throw new InvalidOperationException("frame diagnostic fixture"))
+                            && queries == 1 && UnitAttackResultPresentationShadowBridge.CurrentServerTime == 100d,
+                            "Canonical Tick works before Bundle anchor; throwing diagnostics cannot interfere or requery.");
+                        Require(UnitAttackResultPresentationShadowBridge.ClockHistoryFaults == 3, "Frame/Enter/Exit diagnostic failures remain observable.");
+                    }
+                    finally { UnitAttackResultPresentationShadowBridge.ClockHistory -= badObserver; }
+                    UnitAttackResultPresentationShadowBridge.EndMatch(); clock.Close();
+                }
+                NetworkContext.Reset(); UnitAttackResultPresentationShadowBridge.BeginMatch(false);
+                queries = 0; clock.Bind(() => { queries++; return 100d; });
+                Require(!clock.Tick(1000d) && queries == 0, "Legacy/solo inactive path has no canonical query.");
+                clock.Close();
+                // 실제 END formatter와 원래 UTF-8 preflight를 그대로 사용한다.
+                // 모든 숫자를 double 최대 문자열로 부풀려 int 집계 상한보다 보수적으로 검사한다.
+                var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+                string terminal = (string)typeof(UnitAttackShadowObserver).GetMethod("BuildCanonicalClockTerminalData", flags).Invoke(null, null);
+                string worst = System.Text.RegularExpressions.Regex.Replace(terminal,
+                    @"(?<==)(?:NaN|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(?=,|$)",
+                    double.MaxValue.ToString("G17", System.Globalization.CultureInfo.InvariantCulture));
+                string identity = "runId=" + new string('a', 32) + ", sharedSessionKey=" + new string('b', 64) + ", startedAt=2147483647.123456, ";
+                Require((bool)typeof(UnitAttackShadowObserver).GetMethod("IsFullLineUtf8Safe", flags)
+                    .Invoke(null, new object[] { "coordinator-clock-END", identity + worst }), "Canonical END stays inside actual production byte preflight.");
+                var ring = new ExpiryClockHistory(); ring.Reset(true);
+                ring.Add(new AttackClockHistorySample { Stage = AttackClockHistoryStage.TickEnter, ArgumentServer = 100d }, 1000d, 100d, 1);
+                Require((ring.ReadForValidation(0).Flags & 4096U) != 0, "Supplied canonical evidence is distinguishable from fresh NGO queries.");
+                ring.Reset(false);
+            }
+            finally
+            {
+                UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= collect;
+                UnitAttackResultPresentationShadowBridge.EndMatch(); NetworkContext.Reset();
+            }
+        }
+
+        // 실제 canonical 공급자를 통과한다. 수신 값이 이전 표본이어도 현재 Tick을
+        // 과거로 돌리지 않으며, 100ms 지연과 0.50초 catch-up 경계는 그대로 유지한다.
+        public static void ValidateReceiptPhaseClock()
+        {
+            var decisions = new List<AuthoritativePresentationDecision>();
+            Action<AuthoritativePresentationDecision> collect = decisions.Add;
+            UnitAttackResultPresentationShadowBridge.Coordinator.Decided += collect;
+            var clock = new UnitAttackResultPresentationShadow.CanonicalTickClock();
+            try
+            {
+                foreach (double impact in new[] { 190.127219d, 190.2d })
+                {
+                    decisions.Clear();
+                    NetworkContext.Reset(); NetworkContext.Set(true, false);
+                    Require(NetworkContext.TryBeginCombatPipelineMatch(CombatPipelineMode.ResultPresentation, 1, "receipt-phase"), "Receipt phase mode.");
+                    UnitAttackResultPresentationShadowBridge.BeginMatch(true, 189.62629d, 348d);
+                    UnitAttackResultPresentationShadowBridge.RegisterAuditEligibility(10, AttackPresentationAuditEligibility.Required);
+                    var result = Result(impact: impact);
+                    UnitAttackResultPresentationShadowBridge.ObserveSchedule(Schedule(impact, AttackPresentationScope.FromResultKey(result.Key)));
+                    UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(new[] { result }, 189.62629d, 348d);
+                    int queries = 0;
+                    clock.Bind(() => { queries++; return 190.736736d; });
+                    Require(clock.Tick(348.4d) && queries == 1, "Actual canonical provider queried exactly once.");
+                    Require(decisions.Count == 1 && decisions[0].Status == (impact == 190.127219d
+                        ? AuthoritativePresentationStatus.Expired : AuthoritativePresentationStatus.Ready),
+                        "Previous receipt sample cannot rescue genuine expiry; legitimate catch-up remains Ready.");
+                    Require(UnitAttackResultPresentationShadowBridge.CurrentServerTime == 190.736736d,
+                        "Diagnostics cannot replace canonical decision time.");
+                    UnitAttackResultPresentationShadowBridge.EndMatch(); clock.Close();
+                }
+                string sample = UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189.62629d, 348d, 32876, 190.736736d, 348.4d, 32876, true);
+                Require(sample.Contains("sameFrame=True") && sample.Contains("sampleDeltaKnown=True")
+                    && sample.Contains("networkLateness=unproven"), "Phase diagnostic preserves uncertainty.");
+                Require(UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(double.NaN, 0, 1, 1, 1, 2, true)
+                    .Contains("sampleAdvanceResidual=unknown"), "Invalid diagnostic samples cannot become evidence.");
+                string lifecycle = UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 348d, 1, 190d, 349d, 1);
+                Require(lifecycle.Contains("decisionClockDomain=lifecycle-or-validation")
+                    && lifecycle.Contains("sampleDeltaKnown=False") && !lifecycle.Contains("canonical-decision-sample"),
+                    "Lifecycle/validation cannot claim a fresh canonical decision sample.");
+                foreach (double invalid in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity, -1d })
+                {
+                    foreach (string invalidSample in new[] {
+                        UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(invalid, 348d, 1, 190d, 349d, 1, true),
+                        UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, invalid, 1, 190d, 349d, 1, true),
+                        UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 348d, 1, invalid, 349d, 1, true),
+                        UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 348d, 1, 190d, invalid, 1, true) })
+                        Require(invalidSample.Contains("sampleDeltaKnown=False") && !invalidSample.Contains("NaN")
+                            && !invalidSample.Contains("Infinity"), "Invalid times must format as unknown, never numeric evidence.");
+                }
+                foreach (string invalidFrame in new[] {
+                    UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 348d, -1, 190d, 349d, 1, true),
+                    UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 348d, 2, 190d, 349d, 1, true),
+                    UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(189d, 349d, 1, 190d, 348d, 1, true) })
+                    Require(invalidFrame.Contains("sampleDeltaKnown=False"), "Invalid frame/local order is unknown.");
+                var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+                string identity = "runId=" + new string('a', 32) + ", sharedSessionKey=" + new string('b', 64)
+                    + ", startedAt=2147483647.123456, ";
+                string keyData = "role=client, keyUnit=2147483647, instance=18446744073709551615, sequence=18446744073709551615, hit=2147483647, victimKind=2147483647, victimId=2147483647, effectKind=2147483647, ordinal=2147483647, ";
+                foreach (string bounded in new[] { sample, lifecycle,
+                    UnitAttackShadowObserver.FormatExpiryPhaseClockDiagnostic(0, 0, 0, double.MaxValue, 1e-200, int.MaxValue, true) })
+                    Require((bool)typeof(UnitAttackShadowObserver).GetMethod("IsFullLineUtf8Safe", flags)
+                        .Invoke(null, new object[] { "coordinator-expiry-timing-D", identity + keyData + bounded }),
+                        "D retains actual full-line UTF-8 preflight budget under the existing 16-detail guard.");
+            }
+            finally
+            {
+                clock.Close(); UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= collect;
+                UnitAttackResultPresentationShadowBridge.EndMatch(); NetworkContext.Reset();
+            }
         }
 
         private static AuthoritativeAttackPresentationCoordinator New(

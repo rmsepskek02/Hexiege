@@ -1,5 +1,9 @@
 # Game System Rules — 유닛
 
+> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
+
+> **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변. 전투 연출 규칙17~21·피해 권위·타격 시점 계약은 불변이다.
+
 유닛 이동(건물로 경로가 막혔을 때의 동작 포함), 방향 정렬, 타겟, 공격, 피해·회복, 전투 연출·애니메이션 상태 동기화, 특수 공격 시스템 및 방어력 데미지 감쇄에 관한 게임플레이 불변 규칙이다.
 
 이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
@@ -241,6 +245,8 @@ LockedPoint 공격은 서버 `Launch` 시점의 권위 목표 위치와 발사 �
 
 `Homing`과 `TravelingArea`는 회차가 생성한 뒤 서버가 별도의 권위 생명주기로 진행한다.
 
+TorrentSpirit의 생성 전 서버 승인 발사 예약에 한해서는 규칙 29의 primary 상실 예외를 따른다. 이는 다른 전달체의 일반 취소·Impact 적중 검사까지 완화하지 않으며, 발사 전 공격자 사망·게임 종료 취소와 같은 원래 타깃 identity를 유지한다. 예약 발사와 대상별 contact 결과는 서로 다른 사건이다.
+
 - Homing은 서버가 추적 대상, 목표 갱신과 착탄을 관리하며 클라이언트 추적으로 판정을 대신하지 않는다.
 - TravelingArea는 서버가 판정 영역을 이동시키고 대상별 첫 접촉을 독립 HitIndex 또는 명시적 접촉 인덱스로 기록한다.
 - 공격자 사망 후 이미 발사·생성된 전달체를 계속 진행할지는 공격 프로필의 `PersistsAfterSourceDeath` 값으로 결정한다. Windup 중 아직 생성되지 않은 전달체는 공격자 사망 시 취소한다.
@@ -321,6 +327,8 @@ Periodic 효과는 최초 부여 Impact의 회차와 별도의 효과 인스턴�
 유닛 생성 시 클립 이벤트에서 자동 추출하며, 수동 입력값은 클립에 이벤트가 없을 때 폴백으로 사용한다.
 다중 히트 유닛은 클립의 여러 `OnAttackHit` 이벤트 시간을 오름차순으로 모두 수집한다.
 
+Assault의 2026-10-08 설정 정합화는 사용자 지정 30fps `0:05`(5/30초)를 기본 타격값과 명시 `attackTimelineClip` 연결에 반영한다. 실제 클립 이벤트는 이미 해당 값이며 수정하지 않았다. 서버 피해는 기존 권위 타이머를 유지한다. 정상 Factory 주기는 클립 길이 `0:10`(10/30초), 클립 미사용 기본 주기는 0.2초로 보존한다. 이전 스탯 `0:33`의 주기 의미는 미확정이며 임의로 소수 초 또는 다른 프레임 표기로 해석하지 않는다. 설정 검증과 실기 수용은 분리한다.
+
 DustSpirit과 RabbitTrickster는 `UnitFactory` 등록의 `attackTimelineClip`에 실제 `Base Layer/Attack` motion을 명시한다. 서버/싱글·Client 생성 모두 선택한 같은 클립에서 공격 주기와 타격 이벤트를 읽는다. 양 팀 production controller의 실제 motion과 명시 참조가 일치하는지 자동 검증한다. `Attack2`·`Attack3` 등 유사 이름 클립의 열거 순서가 이 유닛들의 타임라인을 바꾸지 않는다. RabbitTrickster의 생산 Attack은 2초/30fps이고, 사용자가 피해가 애니메이션보다 약간 빠르다고 본 이전 0.18초 실기 뒤 `OnAttackHit`을 0:20(저장값 0.6666667초)으로 옮겼다. type 25 `hitFrameTimes`와 영구 production 검증 기대값도 0.6666667초로 일치시켰으며 서버는 이 offset으로 권위 피해 타이머를 예약한다(규칙 18, `U-ATK-TIMELINE`). 이전 Unity 자동 검증 PASS·사용자 확인 빌드/실기는 0.18초 버전 이력이다. 새 0:20 빌드의 Editor Host/Android Client 동일 경기 `3fc75ef4…b7beded`에서 Rabbit 각 15기와 LittleKnight 각 13기가 생산됐고, 경기 전체 결과 Host 129/실패 0 ↔ Client 129 수락/거부 0, 양쪽 필수 표현 122/122·실패/중복/전송 실패 0이었다. 사용자가 Rabbit 타격을 “알맞게 나오는 것 같다”고 육안 수용하여 **Rabbit 명시 연결·타이밍 focused PASS/CLOSED**로 판정한다. 이 집계는 Rabbit만의 타격 수가 아니며 정확한 animation→권위 피해 offset은 로그에서 직접 계측되지 않았다. 공식 Root Pose CrossAudit과 25종 전체·역할교대·Legacy rollback/C3 전체 migration은 완료되지 않았고 Supported 상태는 유지한다.
 
 **FoxMagician 예외(2026-09-27):** 해당 Attack clip의 유일한 `OnAttackHit @ 1.00초`는 charge VFX를 시작하는 표현 marker다. 실제 피해는 서버가 `UnitStatsConfig.hitFrameTimes=[2.25초]`로 예약한다. 유닛 생성 시 FoxMagician만 클립 이벤트로 이 설정을 덮어쓰지 않는다. 이 예외는 사용자 실기에서 요청된 VFX 후반부 피해 설계에 따른 것이며, 서버 피해가 로컬 Animation Event에 종속되지 않는 규칙 18을 유지한다. 2.25초는 실기 튜닝 전의 복원 기준값이다.
@@ -363,6 +371,12 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 상태가 바뀌는 순간에만 쏘는 1회성 RPC(엣지 트리거)에 애니메이션 상태를 의존시키지 않는다 — 스폰 레이스(신규 유닛이 구독을 완료하기 전에 첫 신호가 도착)나 신호 유실 시 클라이언트가 틀린 상태에 갇히는 것을 구조적으로 방지하기 위함이다. 호스트/싱글플레이는 기존 로컬 Animator 직접 제어를 유지한다.
 
 **적용 시점 봉합:** 애니메이션 상태 적용이 `UnitView.Initialize`(애니메이터 준비 완료)보다 이르면 무음 실패할 수 있으므로, `UnitView.Initialize` 말미에서 현재 상태 값을 **멱등하게 재적용**한다(`NetworkUnit.ReapplyAnimStateToView`). 재적용은 값 기반이라 몇 번 호출되어도 안전하다.
+
+**Attack 표현의 경로 구분 (2026-10-03):** 일반 적 공격은 독립 Attack 레벨 값만으로 클립을 시작하지 않는다. 타겟·revision·표현 허가를 함께 전달하는 기존 정규 공격 경계를 유지하며 공통 레벨 시작 차단을 해제하지 않는다. 힐러는 규칙32의 **SeparateHeal 예외**로, 서버 쓰기/모든 Client 읽기의 별도 atomic snapshot NetworkVariable에 객체 수명·힐 회차·revision·시전자/대상·시작/종료 시각·Aim·marker offset·clip duration·active·Frozen/Held 우선순위·종료 사유를 함께 담는다. 일회성 시작/종료 RPC만으로 대체하지 않는다.
+
+힐 snapshot은 스폰·unitId 바인딩·View 초기화 이후 현재값으로 복구한다. 준비 전 수신을 재생 성공으로 소비하지 않는다. 새 힐 회차는 해당 시전 모션을 재생하고 같은 회차/중복 revision은 restart하지 않는다. Frozen/Held 갱신 뒤 복귀는 같은 회차의 서버 경과시간으로 이어가며, 낮은 sequence/revision·닫힌 회차의 재활성화·다른 객체 수명은 거부한다. priority는 힐 snapshot과 원자적으로 소비하여 늦은 독립 Walk/Frozen/Held scalar가 최신 힐 표현을 덮지 못하게 한다. Client는 Animator 표현만 적용하고 Aim은 증거용으로 보존한다. Client Root/Visual offset 회전 writer를 새로 만들지 않으며 방향은 기존 서버 Root 복제를 따른다.
+
+**후속 승인 교정:** future-start는 IsDue까지 기다리며 priority cache는 실제 적용 성공 후 갱신한다. 연속 유효 힐의 다음 sequence에는 중간 inactive Walk/Held를 넣지 않는다. 실제 Frozen/Held와 terminal/current-state 복원은 유지하며 클립/표현 정책 및 native 에셋 적용/검증 경계는 규칙32를 따른다.
 
 데미지 판정은 규칙 18에 따라 서버 타이머로만 적용하며 애니메이션 상태 값과 분리한다. 조준 회전(타겟 방향 추적)은 애니메이션 상태와 별개의 타겟 참조로 처리한다(규칙 12·15). Attack 루프 안정화와 규칙 19의 결과 표현 방출은 독립 책임이다. marker가 없거나 늦어도 유효한 확정 결과를 다음 루프까지 보류하지 않는다. (규칙 21의 재전송 가드 해제는 본 규칙의 값 기반 동기화로 대체된다.)
 
@@ -422,6 +436,11 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 
 **규칙 29. 이동 파도형 AoE(서버 권위 전선 시뮬레이션)**
 전방으로 이동하는 파도(TorrentSpirit)는 서버가 전선을 진행시키며 닿는 대상에 효과를 적용한다(규칙 18 준수 — 클라 파티클 위치에 종속 금지).
+
+**2026-10-02 승인 — TorrentSpirit 전용 발사 예약 예외:** 일반 TargetLocked 추적과 원래 타깃 identity는 유지한다. 서버가 승인한 Torrent 공격은 예정 발사 시각 전에 원래 primary가 사망·소멸하거나 사거리에서 이탈해도 예약을 취소하지 않는다. 원래 primary가 살아 있고 조회 가능하면 발사 시 그 대상의 현재 서버 방향을 사용하고, 잃은 경우에는 **같은 원래 대상에 대해 마지막으로 유효했던 서버 aim**을 사용한다. 공격 시작 방향을 고정하는 LockedPoint 전환이나 새 타깃 대체는 아니다. provisional 애니메이션만으로 예약·파도를 생성하지 않으며 발사 전 공격자 사망·게임 종료·despawn/shutdown은 취소한다. 승인 예약은 StopCombat·표시 타깃 교체로 취소하지 않지만 원래 객체 identity를 유지하고 ID 재사용을 다른 대상으로 허용하지 않는다.
+
+예약은 정확히 한 번 서버 파도를 생성하며, 이후 살아 있는 적 유닛·적 건물 피해와 아군 유닛 회복은 아래의 현재 contact 판정으로 적용한다. 죽은 primary의 피해를 위조하거나 Client VFX만 발사하는 우회는 금지한다. 기존 생성 파도의 수명 정책은 유지한다. 이 예외는 `U-TARGET-COMMIT`의 다른 타깃 이전 금지를 지키는 Torrent 전용 계약이지, 모든 TravelingArea/Homing 또는 MeleeContact/Hitscan의 안전 검사를 우회하는 규칙이 아니다. **규칙 승인은 구현·실기 완료나 Supported 승격을 뜻하지 않는다.** 현행 Legacy 월드 aim과 공통 SimulationFacingAim의 차이를 완전 정합으로 주장하지 않는다.
+
 - 핸들러(`TorrentAttackBehavior`)는 파도 모양·방향(공격자→주 타깃, 월드 XZ)만 계산해 `SpawnWave`로 요청하고, 실제 전선 전진·판정·효과는 `UnitCombatUseCase.SpawnWave`/`TickWaves`(`ActiveWave`)가 담당한다.
 - 판정 = **월드 좌표 직사각형**(폭 `waveWidth` × 전방 `waveLength`, 타겟 방향). 전선이 `waveTravelTime` 동안 전방 전진하며, 전방 성분 `p ≤ FrontDistance`(전선이 지남) AND `0 ≤ p ≤ Length` AND `|좌우| ≤ HalfWidth`인 대상을 닿음으로 본다.
 - **각 대상 1회만**(유닛·건물 각각 별도 hit-set — 유닛 Id와 건물 Id는 카운터가 달라 값 충돌 가능하므로 분리).
@@ -438,9 +457,21 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 - 연출: `FloatingHpTextSpawner`가 치유 색상(`_healColor`)으로 표시. 피격 텍스트와 풀·배치 로직 공유. (⚠️ 예외: HoT 누적 회복의 힐 텍스트는 틱마다가 아니라 효과 종료 시 1회만 표시하며 표시값은 즉발 힐과 동일한 현재 HP 형식 — 규칙 37. 즉발 힐은 종전대로 즉시 표시.)
 
 **규칙 31. 다중 파티클 시스템 VFX 재생**
+
+> **2026-10-02 이동 최종 분석 추가(교정 미구현):** 1차 Editor Host Pistoleer7개×최초/cleanup Fatal2=14, 2차 Android Host LittleKnight2+Pistoleer13개×2=30. 서버 공간 상태 불일치→Fatal→종료 거부→후속 이동 취소는 확정; 건물 랠리 종점 TerminalContact의 Root/domain commit 계약 충돌은 유력 근본 원인이나 직전 성공 프레임 미기록·재현 미수행이다. 사용자 멈춤 유닛은 미확인, ROOT PASS는 pose 정합이지 목표 진행 보장이 아니다. EmptySameTile0거리 거부와 wave18 소비 지연은 별개. 건물 목표/실제 walkable 종점 분리·Root/domain 일관성·안전 종료 상태는 권장 검토 방향일 뿐 구현 승인 아님. 전체 OPEN/C3 Unresolved·MOVE FAIL 유지; 아래 원인 추적 중 표기는 이전 인계 상태, 상세는 기존 Research/Plan 최신 이동 최종 분석 절.
+
+> **2026-10-02 역할교대 최신 참고(규칙 변경 없음):** 1차 Editor Host/Android Client wave147·publish291, 2차 Android Host/Editor Client wave176·publish292의 Client 수신·양쪽text 및 Client VFX exact-key 누락/초과0(접촉 충돌0). noDelta60/118은 모두 만피 회복 정상. 2차 Client 수락 후 소비 지연2건의 추가 잔차349.511ms·249.849ms(기존100ms 제외), 나머지290건 최대21.834ms; 미수신/누락으로 분류하지 않고 적시성·원인 미확정 유지. 육안 어느 정도 일치하나 정확 확인 어려움, 전체 OPEN/C3 Unresolved. 서버 MOVE 양 경기 FAIL·원인 추적 중이며 ROOT PASS는 정상 목표 진행 보장이 아니다. 상세 세션/역할/로그와 수치는 기존 TorrentSpirit Research/Plan 최신 역할교대 절, 아래 경기 기록은 이력이다.
+
+> **2026-10-02 최신 실기 참고(규칙 변경 없음):** 메인 최종 epoch463c2fb49e473595 분석에서 wave53 수신/VFX 재생 성공 및 publish144 양쪽text exact key 누락·초과·충돌0, noDelta32 전량 만피 회복 정상. 옆 경계 outside→collected는 규칙 29의 전선 지난 직사각 영역 진입 사례이며 thin-front/swept 변경 근거가 아니다. 원본 VFX/clip·서버 판정 불변, raw particle 접촉 좌표·정확 윤곽/접촉 시각·성능은 미확정, 전체 OPEN/C3 Unresolved 유지. 기존 Task Research/Plan 최신 테스트 절을 따르며 아래 실기 전 상태는 이력이다.
 VFX 프리팹이 "빈 루트 + 여러 형제 파티클 시스템"으로 구성된 경우(예: TorrentSpirit 파도 — Main_Water_Surge / Ground_Impact_Ripples / Front_Foam_Crest), `ParticleSystem.Play()`는 형제를 재생하지 않으므로 풀 아이템(`VfxPoolItem`)이 **직속 자식 시스템 전부를 각각 재생**해야 한다(하나만 재생하면 일부만 보인다). 루트에 파티클이 있는 프리팹은 기존대로 루트 하나만 `Play(true)`로 하위까지 재생한다. 유닛 공격 VFX는 `EffectPreset`(vfx 프리팹을 감싸는 ScriptableObject)을 만들어 `UnitEffectConfig`의 해당 UnitType `attackPreset`에 연결한다.
 
-> **참고 (미완/후속)**: 파도 VFX는 현재 시전자 위치에서 1회 재생되며 서버 전선처럼 전방 이동하지는 않는다(시각적 이동감은 파티클 프리팹 튜닝 또는 별도 이동 로직으로 보강 가능). 규칙 29의 **데미지/힐 판정은 서버 전선**이 권위이며 VFX와 독립적이다.
+> **이전 구현 참고 — 2026-10-01 갱신 전 이력:** 파도 VFX는 현재 시전자 위치에서 1회 재생되며 서버 전선처럼 전방 이동하지는 않는다(시각적 이동감은 파티클 프리팹 튜닝 또는 별도 이동 로직으로 보강 가능). 규칙 29의 **데미지/힐 판정은 서버 전선**이 권위이며 VFX와 독립적이다.
+>
+> **현행 구현 상태 (2026-10-01):** TorrentSpirit은 `MatchEpoch + WaveDeliveryId` 전용 adapter로 서버 실제 spawn 위치·방향·시각과 확정 contact를 전달하고, `WavePresentationPresenter`가 파도 및 확정 접촉 HP 텍스트를 같은 시계로 소비한다. 로컬 marker source VFX/SFX 및 legacy text는 새 owner 활성 시에만 전용 중복 방출을 억제한다. 권위 HP는 즉시 적용하며, 서버 전선은 실제 spawn 이후 경과 시간으로 진행한다. 원본 VFX 프리팹·발사 클립과 서버 폭/길이/이동 시간은 유지한다. 표현 보정값과 한정 방향 측정은 `StatsReference.md` 「TorrentSpirit 표현 교정 상태」를 따른다. 기하 경계는 alpha 윤곽이 아니며 서버 stall 중 접촉 표본 지연·렉 해결·완전 접촉 동시성을 보장하지 않는다. Unresolved/LegacyFallback 및 C3 migration은 유지한다. 18:15의 최종 측정 뒤 두 필수 메뉴·빌드 미실행은 당시 관찰로 보존한다. 현재는 **두 경기 실기 근거 확보 / 정확 시각 수용 OPEN**이며, Codex 최종 메뉴·빌드 확인 완료나 판정 교정 확정은 주장하지 않는다. 최신 32 cap 이후는 미관측·noHpDelta 11 원인 미확정이며 ERROR/contract 0으로 wave/text 누락 0을 확정하지 않는다. 이력·범위: `_Tasks/2026-10-01/01_00_torrentspirit-wave-contact-diagnosis/`.
+>
+> **2026-10-02 후속 현행 — 위 32 cap 설명은 이전 실기 이력:** 전 경기 사건 Dev 로그 구현이 인계되어 32 관측 cap을 제거하고 causal 사건을 무샘플링으로 기록한다. 관측 state 상한 overflow는 명시하며 누적 파도 cap/gameplay 변경이 아니다. Client normal/snapshot 직접 구분과 single fallback server-owner final 연결은 미완이다. Unity 메뉴·빌드·새 실기 및 정확 시각 수용 전으로 전체 OPEN/C3 Unresolved 유지. 서버 판정·hit-set·HP·원본 VFX/clip 수치는 불변이며 로그 구현/컴파일 오류0을 게임 PASS로 확대하지 않는다. 상세는 기존 Task Research/Plan의 2026-10-02 절 및 StatsReference 현행 상태를 따른다.
+>
+> **2026-10-02 최종 로그 확정:** G17·900byte 초과 keyed format-incomplete guard 및 clock domain 표기 교정 구현, 최종 4종 byte-format 정적 컴파일 error0 인계 완료. 658 메인 계산과 별도699/400 fixture는 다른 정적 조건이며 실제 Unity/device 검증이 아니다. build 미시도·전체 OPEN/C3 Unresolved 및 기존 미완 경계 유지, 게임 규칙·HP·VFX/clip 수치 무변경. 기존 Task 최종 절을 따른다.
 
 ---
 
@@ -449,10 +480,28 @@ VFX 프리팹이 "빈 루트 + 여러 형제 파티클 시스템"으로 구성�
 BloomFairy는 지금까지의 특수 유닛과 근본적으로 다른 **힐러**다. 적을 때리지 않고 부상당한 아군을 회복시킨다. 기존 전투 흐름(적 감지 → 공격)에 얹을 수 없어 **힐러 전용 경로**를 신설했고, 그 과정에서 만든 시간 지속 효과 시스템(HoT/DoT)은 이후 지속 피해(DoT) 유닛(InfernoSpirit·MushroomBomber 등)이 공용으로 재사용한다. 규칙 28~31(TorrentSpirit 파도·힐 서브시스템)을 전제로 한다.
 
 **규칙 32. 힐러 전용 경로 (적 공격 흐름과 분리)**
+
+> **BloomFairy §18 최종 후속(2026-10-04):** UnitView 한 파일 교정·최종 정적4경로 errors0 뒤 메인이 새 기존 Unit Action/Root Pose Cross Audit SelfValidate **PASS**를 확인했다. 이어 Build And Run1회 클릭 직후 Importing/Settings/Mobile_RPAsset.asset만 관측하고 모든 UI/build log polling을 중단했다. **완료·설치·runtime 미관찰/빌드 성공 추정 없음, 실기·전체 OPEN.** 기존 자동 gate는 새 coroutine runtime fixture/이전 경기 Analyze가 아니다. 정책/스탯·에셋·다른 타입 불변. 최종 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 실기는 §17; 아래 gate/build 대기는 당시 이력이다.
+
+> **BloomFairy §18 최종 정적 후속(2026-10-04):** 코드 담당 인계상 UnitView 한 파일의 최종 정적4경로 errors0이며 메인 source review/추가 owner cleanup 확인까지다. 경고 수는 정적 카운트로만 해석한다. **새 기존 두 메뉴·이번 빌드 시도는 실행 대기, runtime/전체 OPEN.** 정책/스탯·에셋·공통 ticker/다른 타입 불변. 상세 코드·정적·보조 artefact는 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 runtime은 §17; 아래 정적 대기/미승인·미구현 문구는 당시 이력이다.
+
+> **§18 코드 후속(2026-10-04, 규칙 변경 아님):** 메인 source review 인계상 UnitView의 실제 dispatch+configured cooldown deadline/Remaining 양 조건·entry/lifecycle owner 보호가 반영됐다. 규칙36의 수치·공통 ticker/다른 타입·권위/HP/HoT·표현 정책은 불변이다. 최종 정적/gate/빌드 결과 대기·전체 OPEN. 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18; §17/아래 미승인·미구현 문구는 당시 이력이다.
+> **최신 증거 상태(2026-10-04, 규칙 변경 아님):** §16 due 교정은 새 두 run에서 focused 관측 수용했으나 BloomFairy 전체 OPEN이다. callback Root 각도는 pixel facing 수용이 아니며 발동 후 cooldown 잔여·시각 방향/연속성·사용자 최종 visual acceptance는 미완이다. first-positive 부재 outcome·raw anchors와 정확한 범위는 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §17 참조. 아래 교정 전/실기 전 상태는 당시 이력으로 보존하고 기존 계약·정책·스탯은 유지한다.
+
 힐러(BloomFairy)는 적 주 타깃이 없어 `ExecuteAttack`/`ISpecialAttackBehavior`(적 공격 흐름)·`SpecialAttackRegistry`에 **등록하지 않는다**. 대신 상태머신이 "이 유닛은 힐러"임을 데이터로 인식하고 힐 루프를 타는 **독립 경로**로 처리한다.
 - special-only(단일 대상 공격 없음)이지만 TorrentSpirit(규칙 28, special-only이나 적을 때림)과 달리 **대상이 아군**이라 적 공격 파이프라인과 완전히 분리된다.
 - 힐러 식별은 UnitType 하드코딩이 아니라 데이터(역할/힐러 플래그)로 분기하여 향후 지원 유닛이 재사용할 수 있게 한다.
 - 힐 발동은 애니 이벤트 `OnAttackHit`이 아니라 상태머신의 `HitFrameTimes` 타이머로 구동한다(데미지와 동일 관례 — `OnAttackHit()`은 이 코드베이스에서 데미지를 발동하지 않고 VFX/SFX·피격 연출만 담당하며, 실제 데미지도 서버 권위로 `HitFrameTimes` 타이밍에 적용된다). `OnAttackHit`을 힐 발동에 쓰면 데미지와 메커니즘이 갈리고 클립에 이벤트 미주입 시 회복이 영영 발동 안 되는 취약점이 생기므로, `OnAttackHit`은 힐 연출용으로만 남긴다.
+- **SeparateHeal 표현 계약 (2026-10-03):** 힐 시작/종료는 서버/싱글 힐 루프만 발급하며 규칙22의 atomic current-state 복제로 전달한다. 일반 EnemyAttack/C3 공격 회차·lease와 별도의 lifetime/sequence/revision cursor를 사용한다. 새 힐 sequence의 시전 재생은 일반 공격의 연속 재생·커밋 시 되감기 금지에 대한 **힐러 전용 분류**이며 다른 타입의 restart 허가가 아니다. `NotApplicableAttack / SeparateHealPipeline`을 유지하고 가짜 정규 공격 scope/결과를 만들지 않는다.
+- **이전 3초 clip/pose hold 정책(이력 보존, 아래 승인 정책으로 대체):** Client는 늦게 준비되면 서버 경과시간으로 catch-up하되 이미 지난 source marker를 재방출하지 않는다. 힐 source marker는 회차당 최대1회만 소비한다. 저장된 3초 loop 클립은 한 번 재생한 끝 자세를 유지하여 4초 힐 주기 중 반복 marker를 막는다. Frozen/Held가 일반 힐 재생보다 우선하고 활성 힐을 Walk가 덮지 않는다. 경로 끝 유휴 감시는 정지 Held를 유지하며 힐 루프에 서버 Action 회전 소유권을 넘기고, 이동 복귀 시 기존 소유권 경계로 반환한다. 이 표현 정책은 서버 준비/쿨다운/HoT 시간이나 HP writer를 바꾸지 않는다.
+- **현재 승인 힐 표현 정책:** marker1초(30fps `1:00`)는 유지하고 저장 clip4초(`4:00`, native 적용)로 한다. 원본0~1초 보존, 후반1~3초→1~4초 시간1.5배/tangent 역수 보정·1초 curve 경계 검증을 native AnimationUtility로 수행한다. 일반 힐 endpoint 강제 Play/speed0 hold는 검증 전 삭제 없이 비활성화·주석 보존하고 speed1을 사용한다. 다음 유효 힐 target이 있으면 중간 inactive Walk/Held 없이 새 sequence로 연결하며 힐-only0.15초 blend는 시험값이다. 실제 Frozen/Held/target 없는 대기·사망·경기 종료는 유지한다. 서버 Action 소유권과 활성 priority1 아래 공통 RotateActionTowards를 재사용하고 Client Root/Visual offset writer는 금지한다(NET-AUTH/NET-ROOT). future-start는 IsDue 전 재생하지 않고 late-init catch-up·one-shot marker·sequence/revision/lifetime 멱등·terminal 차단을 유지한다. priority cache는 실제 적용 후 갱신한다. 양 peer 힐러는 config cooldown3을 보존하여 clip4 덮어쓰기의5초 회귀를 차단하며 일반 유닛 clip-derived cooldown은 유지한다. 준비1+발동 후3=cycle4·HoT200/3·서버 writer는 불변이다.
+- **2026-10-03 승인 교정 코드 인계:** 기존 source4파일과 새 Setup.cs/.meta 작성 및 마지막 수정 뒤 정적 컴파일 Runtime0/20·Editor0/0·Dev0/20·Release0/24(errors/warnings) 확인. 서버 Action/priority1의 공통 RotateActionTowards, 연속 유효 target의 inactive 없는 다음 sequence, future-start IsDue 대기·실제 적용 뒤 priority cache 갱신, speed1/기존 snap·endpoint hold 주석 보존, 양 생성 경로 sharedApplyAttackClipCooldown의 힐러 config3 보존 및 future-start/priority-pending/terminal/current-value/cooldown/native-retime-helper fixture 보강이 코드에 반영됐다. native Setup은17:42:31 `[BloomHealSetup] native retime PASS`(changed=True, curves=130, front/tail samples preserved, clip=4s, marker=1s, both heal blends=0.15s)로 완료됐다. 디스크 양 prefab `_healCastBlend: 0.15` 및 OnAttackHit time1 확인. 클립/prefab3파일은 실제 변경이다. 이는 에셋/retime 검증이지 visual PASS가 아니다. **새 코드/에셋 자동 검증 완료:** Unit Action17:43:56의 BLOOM-HEAL-TIMELINE·UAS overall·production·C2·C3 PASS, Root Cross Audit SelfValidate17:44:41 PASS. Console errors0/warnings25(기존 compile20+fixture5)이며 Android warnings0·시각 실기 PASS를 뜻하지 않는다. native 디스크 m_StopTime4/m_SampleRate30/단일 OnAttackHit time1 및 양 prefab blend0.15 확인. **빌드 시도 완료:** File→Build And Run1회 실제 클릭 직후 Importing(iteration2)–Finishing import Settings/Mobile_RPAsset.asset 관찰까지만 확인했다. 이후 Unity UI/Editor/build log polling 및 완료·설치·게임 실행 확인은 하지 않았다. 빌드 성공 추정 없음. Setup·자동 메뉴·빌드 시도는 완료이며, 남은 시각 실기 검증은 OPEN이다. 신규 실기 OPEN, §9~§10은 이전 검증/경기 이력이며 §11은 승인 계획이다.
+- **이전 실기 분석 — 2026-10-03 18_34 세 observer run(Research/Plan §13):** run별 exact 힐 전달·future-start 실제 재생 대기 seam은 확인됐으나 **facing FAIL(사용자 보고) / 원인 OPEN**이다. B/C는 같은 shared key라도 새 runId/BEGIN/startedAt으로 분리한다. local ROOT PASS·MOVE 실패0·서버 completed HoT 결과는 실제 target-facing/model-pose 또는 Client HP/text 전수 검증이 아니다. payload Aim은 caster 현재 forward이며 target 방향이 아니고 Client 회전 writer도 아니다. target cache 시작1회/회차 중 재조회 없음은 source 제약일 뿐 이번 cache/guard 누락 발생·원인은 미확정이다. 다음 exact 각도/ownership/cache/rendered-forward trace는 별도 승인 필요한 제안·미구현이며 expected yaw는 실제 서버 caster→target 벡터로 계산해야 한다. 모델 offset/Client Root writer fix 금지, 정책·수치 불변. §12 구현/자동 gate/빌드 시도는 보존된 이력이다.
+- **교정 전 두 테스트 분석(2026-10-03 22_48/23_04; Bloom Research/Plan §15):** 두 번째 device 파일의 첫 테스트 전체 prefix는 capture 중복이므로 두 run만 집계한다. exact 전달과 제한된 callback Root 수렴/self drift는 확인됐지만 pixel 방향 PASS는 아니다. 같은 Host clock·exact 회차에서 실제 첫 positive HP 적용이 accepted marker보다 먼저인2사례로 **TIMING EARLY HP FAIL**을 확인했다. 사용자 시각 방향 증상·최종 원인·exact Client HP/pixel timing은 OPEN이다. delta 누적/첫 frame 이전 delta 구조는 강한 원인 의심이며 absolute server dueTime=StartedAt+MarkerOffset은 다음 승인 대상 제안·미구현이다. §14 진단4파일/정적 errors0과 §12 에셋/자동 gate/빌드 시도는 이력으로 보존한다. 정책·스탯·native4초/marker1초(30fps4:00/1:00)·blend0.15초·준비1+post3·HoT200/3 불변. 상세 수치·raw/video 관측 범위는 §15 참조.
+- **§16 승인 교정 구현 인계:** UnitView 한 파일에서 accepted StartedAt+MarkerOffset(1초/30fps1:00) absolute due를 같은 HealNow로 기다리고 yield 뒤 재조회하며 caster/authority/동일 active 회차·finite time guard 후 기존 CastHeal을 단일 실행하도록 교정했다. 이전 dt wait는 사용자 수용 전 주석 비활성화 보존, 기존 diagnostics Due/Now/Elapsed·DispatchRejected 반영. 최종 정적 Runtime0/22·Editor0/0·Development0/22·Release0/26(errors/warnings), 기존 Unit Action overall/Bloom/Production/C2/C3 및 Root Pose Cross Audit SelfValidate 새 실행 PASS는 자동 prebuild gate이지 새 heal coroutine runtime fixture/실기 수용이 아니다. **이번 빌드 시작 시도 확인:** 메인이 Unity File→Build And Run1회 클릭 직후 modal 제목 `Detect Java Development Kit (JDK)`/본문 `Checking Java Development Kit (JDK)...`를 관측했다. 완료·설치·runtime은 미관찰이며 사용자 지시로 이후 모든 UI/build log polling을 중단했다. 빌드 성공 추정 없음. §15 early HP FAIL은 교정 전 이력으로 유지하며 재시험/시각 방향·최종 원인 OPEN이다. 회전·HP/HoT·native clip/marker·정책/스탯 무변경, global cooldown ticker/post3 deadline은 미교정·별도 OPEN이다. 상세 actual source/gate/빌드 경계는 기존 Bloom Research/Plan §16 참조.
+- 회차 종료는 active=false와 종료 시각/사유로 복제하며 종료된 같은 회차를 되살리지 않는다. 사망·게임 종료·disable/despawn의 terminal close는 지연 callback을 차단한다. **모션 종료와 이미 부여된 HoT 효과 종료는 다른 수명**이다. Client marker/Animator/종료 신호가 `CastHeal`, HP, HoT 틱 또는 효과 결과를 만들거나 기존 효과를 취소하지 않는다. Aim payload는 방향 증거이고 Client Simulation Root/NetworkTransform·Visual offset 회전을 쓰지 않는다.
+- **구현·검증 경계 (2026-10-03):** 별도 힐 snapshot/Client cursor·one-shot 표현·개발용 상관 로그 구현 및 메인 최종 인계 확인. 새 Unit Action production/boundary fixture 04:52:02 및 Root Cross Audit SelfValidate 04:54:03은 **자동 PASS**다. 실제 경기 Analyze나 사용자 실기 재검증 PASS가 아니며 runtime은 **OPEN**, 이전 모션 FAIL 해결은 미입증이다. Build And Run1회 클릭 후 Checking prerequisites/Starting Android build만 관찰했고 완료·설치·실행은 미관찰, 사용자 지시로 UI/build polling을 중단했다. 규칙33~37의 대상·원수치·HoT/텍스트 정책은 불변이다. 상세 파일·검증 이력은 BloomFairy task Research/Plan §9를 따른다.
+- **이전 경기 당시 분석 경계(2026-10-03 12:36~12:39, 6239bf47…9faf1; 아래 제안·미구현은 당시 상태이며17시 코드/에셋 적용 전 이력):** Bloom8기의 HostStart/HostPlay/ClientPlay50회 exact 회차 일치(missing/extra/conflict/duplicate0), Marker49/MotionEnd45 각각. 서버 Cast49/Applied43, ActualHealed 합4110은 Client HP/text exact 검증이 아니다. Client future-start32/50 offset0 즉시 재생과 실제 Walk-Held-Walk 수신이 확인됐으나 render pose/facing 증거는 부족하다. **힐 전달 성공 / 방향·모션 연결 미해결 — OPEN**. local ROOT PASS·MOVE 실패0은 heal continuity/facing PASS가 아니다. 점진 heal-facing/future-start wait/stationary handoff는 제안·미구현이며 규칙·원수치 변경 없음. 최신 근거는 Bloom task Research/Plan §10, 이전 §9는 이력이다.
 
 **규칙 33. 부상 아군 탐색 (팀 필터 반대)**
 힐 대상은 기존 적 탐색(`unit.Team == self.Team || !IsAlive → 제외`)의 **팀 필터를 반대로** 한 아군 탐색으로 찾는다(기존 적 탐색 메서드는 무변경 — 회귀 방지, 아군 탐색은 별도 메서드로 신설).
@@ -463,6 +512,8 @@ BloomFairy는 지금까지의 특수 유닛과 근본적으로 다른 **힐러**
 - 우선순위: **잃은 체력 비율 `(MaxHp − Hp) / MaxHp` 최대** 우선, **동률이면 거리 최소**.
 
 **규칙 34. HoT/DoT 공용 시간 지속 효과 시스템 (서버 권위 diff 틱)**
+> **구현 상태 추가(2026-10-09, 정책 변경 없음):** Bloom HoT는 서버의 실제 recipient 효과 레코드에서 provenance/current-state를 쓰고 `NetworkBloomHealEffectState`가 현재값을 복제한다. `BloomHealEffectPresenter` 단일 presenter가 실제 대상의 all5PS loop를 소유하며 동일 owner refresh는 restart 없이 유지한다. 실제 종료 후 StopEmitting → tail natural drain → lease 반환을 구분하고 late-ready/lifecycle 및 bounded diagnostics가 연결됐다. 기존 HP writer·동종 효과 갱신/종료·수치와 다른 유닛의 규칙은 불변이다. native self-validation PASS와 실제 양 peer 로그 확보는 구현/관측 근거이며 전체·visual 수용은 OPEN이다. 강제 teardown cleanup은 자연 종료 PASS가 아니고 Client C3 failures64 FAIL은 별도 원인 분석 중이다. 상세 집계·신규 에셋 연결 상태는 [VFXSFXList](../Assets/VFXSFXList.md#bloom-hot-최신-관측-근거)를 따른다. 아래 공용 정책과 과거 참고를 변경하지 않는다.
+
 "유닛에 붙는 시간 지속 효과"(회복 HoT / 피해 DoT)를 서버 권위로 관리하는 공용 시스템. BloomFairy(HoT) + 후속 DoT 유닛이 공용으로 재사용한다.
 - 배치 레이어: `Application`(규칙 29 파도 틱과 대칭). 파도(`ActiveWave`/`TickWaves`)와 동일한 소유·틱 패턴을 따른다.
 - 효과 레코드(대상별): 대상 UnitId, 종류(Heal/Damage), 남은 시간, 총량/지속, 누적 적용량. **대상별 동종 효과 1개만** 유지한다.
@@ -518,6 +569,10 @@ MushroomBomber의 두 피해는 **별개 경로**로 적용되어, 대상 종류
   - **아군**: 직접·DoT 모두 무피해(규칙 16).
 
 **규칙 40. DoT "초 단위 틱" 모드 (HoT/DoT 공용 시스템 규칙 34 확장)**
+
+> **2026-10-10 현재 source freeze 후속(Main hash 재대조 완료):** programmer44파일 snapshot의 현재 SHA256을 Main이 재확인해 Files44/Mismatches0/ChangedPaths=null(tool39f796), 보호6 baseline 모두 일치를 확인했다. 정적4 exit0(09:53:38 programmer 보고)과 기존 UnitAction/AuthoritativeAttackPresentation fixture 코드 연결까지다. Root gate 자체 변경없음·native Action/ROOT 미실행(UI activation2 timeout), build미시도·visual/runtime OPEN. capacity/mode/deadline/NaN/forced/wire 자동 assertion 범위는 미완이다. HP·actual DoT3초·주기·범위·Stats 권위는 유지하며 기존 C3 FAIL64 fix/PASS로 확대하지 않는다. [현재 기술·tuning·검증 경계](../Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계). 아래 승인/구현 중·인계 대기는 당시 이력이다.
+> **2026-10-10 사용자 확정 VFX 사양 / 구현 승인·진행 중 / native·build·runtime 대기:** Mushroom 착탄 표현은 짧은 포자 확산 burst다. 3초 남는 독구름·지면 damage-zone 표현은 사용하지 않는다. 실제 서버 DoT 3초, 착탄 때 한 번 수집한 대상, 기존 피해/HP writer·틱·범위·갱신 정책은 유지한다. 대상 poison은 실제 효과 지속기간을 따라 대상에 붙고, 갱신 시 끊거나 재시작하지 않으며 취소·만료·사망 시 방출 정지 후 잔여 입자 drain과 lease 반환을 구분한다. VFX 종료가 서버 DoT를 종료하거나 새 피해 판정을 만들지 않는다. 아래 과거 수치·제작 참고는 이력으로 보존하며 새 사양의 구현 완료를 뜻하지 않는다. Main 기술 Plan 검토·programmer 구현 허가 인계 완료. 기존 3초 clip/cycle·Stats 유지, 1초 OnAttackHit 1개 추가; tracer 종료 only·동일 attack exact identity impact 단일 재생 계약이며 적용 검증은 대기다.
+
 규칙 34의 시간 지속 효과 시스템에, 힐(HoT)의 "프레임마다 부드럽게 diff" 방식과 **분기되는** DoT용 "1초 간격 discrete 틱" 모드를 추가한다. 힐 연속 경로는 **무변경**(회귀 없음)이며, `ActiveTimedEffect.TickInterval` 값으로 두 모드를 가른다(`0` = 연속 HoT / 양수 = discrete DoT).
 - **1초 간격 discrete 적용**: 누적 시간이 틱 간격(MushroomBomber = `BlastDotTickInterval` 1.0s)을 넘을 때마다 그 틱의 피해를 한 번에 적용한다(매 프레임 조금씩이 아니라 뚝뚝). 서버 틱 진입점은 규칙 34와 동일(`TickTimedEffects` — 싱글=`GameBootstrapper.Update` `!IsNetworkMode` / 멀티=`NetworkCombatController` IsServer, **이중 틱 금지**).
 - **틱당 피해 = 초당 피해 × 틱 간격을 올림(`Mathf.CeilToInt`)**, 최소 1 보장. 예: `ceil(2×1)=2`.
@@ -549,6 +604,10 @@ InfernoSpirit의 두 피해는 MushroomBomber(규칙 39)와 같은 **역할 분�
 - **DoT 수치·거동 = 규칙 40 초 단위 틱 재사용**: 5/초 × 3초(총 15), **1초 간격 discrete**·틱당 올림(`CeilToInt`, 최소 1)·총량 15 클램프·매초 `OnEntityDamaged`로 **남은 체력(현재 HP) 데미지 텍스트 표시**(힐과 반대로 억제 안 함)·서버 권위·이중 틱 금지·**갱신 = 리셋(중첩 없음)**. 틱 간격은 MushroomBomber와 동일한 `BlastDotTickInterval`(1.0s)을 쓴다.
 
 **규칙 42. 유닛별 DoT 값 분리 (별도 필드·델리게이트·진입점)**
+
+> **2026-10-10 source freeze 후속 / 정적 보고까지:** recipient poison/burn provenance는 기존 Damage 단일 writer 레코드에 연결됐다는 구현 인계이며 같은 owner refresh noRestart·overwrite 이전 표현 종료교체를 따른다. 값 분리/HP 정책은 불변이다. Main44 hash 불일치0·보호6 일치, static4 exit0과 별개로 native 두 메뉴·빌드 미실행 및 capacity/mode/deadline/forced/wire assertion·visual 수용은 OPEN이다. 최신 전체 경계는 위 규칙40의 source freeze 후속과 VFXSFXList를 따른다.
+> **2026-10-10 연결 사양 확정 / 구현 승인·진행 중 / native·build·runtime 대기:** Inferno burn은 기존 source attack VFX와 별도의 실제 DoT recipient 표현이다. 실제 효과 부여·갱신·취소·만료·대상 사망을 따라 붙어 재생하고 종료 후 방출 정지/drain/lease 반환을 분리한다. 기존 단일 적 유닛 대상과 피해/HP writer·기간·틱·수치 및 Mushroom과의 값 분리 계약은 변경하지 않는다. 이전 source 공격 VFX focused PASS를 새 burn 연결·visual PASS로 재사용하지 않는다. Main 기술 Plan 검토·programmer 구현 허가 인계 완료. 기존 3초 clip/cycle·Stats 유지, 1초 OnAttackHit 1개 추가; tracer 종료 only·동일 attack exact identity impact 단일 재생 계약이며 적용 검증은 대기다.
+
 같은 규칙 40 초 단위 틱 시스템을 쓰지만 InfernoSpirit(5/3)과 MushroomBomber(2/3)는 **초당 피해·지속이 다르므로 서로의 값에 영향을 주지 않도록 진입점을 분리**한다.
 - 진입점 분리: MushroomBomber = `ApplyBlastDot`(`SpecialAttackContext.ApplyDot` 델리게이트), InfernoSpirit = `ApplyInfernoDot`(`SpecialAttackContext.ApplyInfernoDot` 델리게이트). `UnitCombatUseCase`가 각자 자기 필드(`_blastDot*` / `_infernoDot*`)로 `ApplyDamageOverTime`을 호출한다. 한 유닛의 값 변경이 다른 유닛으로 새지 않는다(**MushroomBomber 회귀 없음**).
 - 튜닝값(규칙 25): `SpecialAttackConfig`의 `_infernoDotPerSecond`(기본 5) / `_infernoDotDuration`(기본 3)을 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 5/3 — "에셋 생성 ≠ 씬 배선" 교훈). 반경 튜닝값은 없다(AoE 아님).

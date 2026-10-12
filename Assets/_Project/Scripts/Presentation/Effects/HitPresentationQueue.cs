@@ -111,6 +111,9 @@ namespace Hexiege.Presentation
 
         /// <summary> HP 텍스트 표시를 위임할 스포너. 방출 시점에 ShowDamage()를 호출. </summary>
         private FloatingHpTextSpawner _hpTextSpawner;
+        private Func<bool> _waveOwnerReady;
+        /// <summary>조합 루트에서 로컬 wave 소비자 준비 조건을 전달한다.</summary>
+        public void SetWaveOwnerReady(Func<bool> ready) => _waveOwnerReady = ready;
 
         /// <summary> 유닛 GameObject 조회용(VFX 위치 + 스케일 펀치 대상). </summary>
         private UnitFactory _unitFactory;
@@ -166,6 +169,83 @@ namespace Hexiege.Presentation
         // 픽스처를 반복 생성/파괴하는 검증에서는 해제 시점이 Unity 생명주기에 의존한다.
         // 이 컴포넌트가 구독을 직접 소유해 재초기화와 파괴 모두에서 동기적으로 끊는다.
         private readonly CompositeDisposable _subscriptions = new();
+        private readonly HashSet<(ulong Match, ulong Lifetime, ulong Sequence)> _attackEffectKeys = new();
+        private readonly List<AttackEffectPresentation> _attackEffectPending = new();
+        private readonly Dictionary<(ulong, ulong, ulong), double> _attackEffectReceivedAt = new();
+        private System.Func<double> _attackEffectClock = () => Time.timeAsDouble;
+        private bool _attackEffectsClosed;
+        private int _attackEffectFailures, _attackEffectOverflow;
+        private bool _attackClockFaultReported;
+        private double ReadAttackEffectClock()
+        {
+            try { return _attackEffectClock(); }
+            catch (Exception ex)
+            {
+                if (!_attackClockFaultReported) { _attackClockFaultReported = true; _attackEffectFailures++; AttackEffectIdentity.Record("Fault", default, "CanonicalClock:" + ex.Message); }
+                return double.NaN;
+            }
+        }
+        private void CloseAttackEffects(string reason)
+        {
+            if (_attackEffectsClosed) return;
+            _attackEffectsClosed = true;
+            foreach (var s in _attackEffectPending) AttackEffectIdentity.Record("Skip", s, reason + "; NotStarted=True");
+            AttackEffectIdentity.End(_attackEffectPending.Count, _attackEffectFailures, _attackEffectOverflow, reason, _attackEffectKeys.Count);
+            _attackEffectPending.Clear(); _attackEffectReceivedAt.Clear();
+        }
+        public void SetAttackEffectClock(System.Func<double> clock) => _attackEffectClock = clock ?? throw new System.ArgumentNullException(nameof(clock));
+        private void ReceiveAttackEffect(AttackEffectPresentation s)
+        {
+            if (_attackEffectsClosed || !s.IsValid) { AttackEffectIdentity.Record("Skip", s, "ClosedOrInvalidSnapshot"); return; }
+            var key = (s.Match, s.Lifetime, s.Sequence);
+            if (_attackEffectKeys.Contains(key)) { AttackEffectIdentity.Record("Skip", s, "Duplicate"); return; }
+            if (_attackEffectKeys.Count >= 8192 || _attackEffectPending.Count >= 256)
+            { _attackEffectOverflow++; AttackEffectIdentity.Record("Fault", s, "CapacityFailure; Completeness=Unknown"); return; }
+            _attackEffectKeys.Add(key);
+            if (s.Visual == AttackEffectVisual.MushroomImpact)
+            {
+                Vector3 source = s.Source, impact = s.Impact;
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped)
+                { source = ViewConverter.ToView(source); impact = ViewConverter.ToView(impact); }
+                double remaining = s.ImpactTime + AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds - ReadAttackEffectClock();
+                try
+                {
+                    bool started = EffectManager.Instance != null && EffectManager.Instance.PlayConfirmedMushroomTracer(source, impact, remaining);
+                    if (!started && !(remaining <= 0d)) _attackEffectFailures++;
+                    AttackEffectIdentity.Record(started ? "TracerPlay" : "TracerSkip", s, remaining <= 0d ? "LateResultNoFlight" : started ? "WriterSnapshot; Callback=ObjectOnly" : "MissingTracerOrManager", ReadAttackEffectClock());
+                }
+                catch (Exception ex) { _attackEffectFailures++; AttackEffectIdentity.Record("Fault", s, "Tracer:" + ex.Message); }
+            }
+            _attackEffectReceivedAt[key] = Time.realtimeSinceStartupAsDouble;
+            _attackEffectPending.Add(s);
+        }
+        private void EmitAttackEffects()
+        {
+            double now = ReadAttackEffectClock();
+            for (int i = _attackEffectPending.Count - 1; i >= 0; i--)
+            {
+                var s = _attackEffectPending[i];
+                var key = (s.Match, s.Lifetime, s.Sequence);
+                if (Time.realtimeSinceStartupAsDouble - _attackEffectReceivedAt[key] >= AuthoritativeAttackPresentationCoordinator.MissingScheduleDeadlineSeconds)
+                { _attackEffectFailures++; AttackEffectIdentity.Record("Skip", s, "PresentationClockWaitExpired; Completeness=Unknown", now); _attackEffectPending.RemoveAt(i); _attackEffectReceivedAt.Remove(key); continue; }
+                double due = s.ImpactTime + (s.Visual == AttackEffectVisual.MushroomImpact
+                    ? AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds : 0d);
+                if (double.IsNaN(now) || double.IsInfinity(now) || (s.Visual == AttackEffectVisual.MushroomImpact && now < due)) continue;
+                Vector3 source = s.Source, impact = s.Impact;
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped)
+                { source = ViewConverter.ToView(source); impact = ViewConverter.ToView(impact); }
+                string outcome = "ManagerUnavailable";
+                try
+                {
+                    bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome);
+                    if (!played && outcome != "UnspecifiedTranscendence") _attackEffectFailures++;
+                    AttackEffectIdentity.Record(played ? "Play" : "Skip", s, outcome, now);
+                }
+                catch (Exception ex) { _attackEffectFailures++; AttackEffectIdentity.Record("Fault", s, "Impact:" + ex.Message, now); }
+                _attackEffectPending.RemoveAt(i);
+                _attackEffectReceivedAt.Remove(key);
+            }
+        }
         public int AuthoritativeEmits { get; private set; }
         public int AuthoritativeViewUnavailable { get; private set; }
 #if UNITY_EDITOR
@@ -202,6 +282,15 @@ namespace Hexiege.Presentation
             IPresentationPoseProvider presentationPoseProvider)
         {
             _subscriptions.Clear();
+            if (_attackEffectPending.Count != 0) CloseAttackEffects("Reinitialize");
+            _attackEffectKeys.Clear(); _attackEffectPending.Clear(); _attackEffectReceivedAt.Clear(); _attackEffectsClosed = false;
+            _attackEffectFailures = _attackEffectOverflow = 0;
+            _attackClockFaultReported = false;
+            AttackEffectIdentity.BeginLocalMatch();
+            GameEvents.OnGameEnd.Subscribe(_ => CloseAttackEffects("GameEnd")).AddTo(_subscriptions);
+            GameEvents.OnAttackEffectConfirmed.Subscribe(s =>
+            { if (!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer) ReceiveAttackEffect(s); }).AddTo(_subscriptions);
+            GameEvents.OnAttackEffectReceived.Subscribe(ReceiveAttackEffect).AddTo(_subscriptions);
             _hpTextSpawner = hpTextSpawner;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
@@ -274,6 +363,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnEntityDamaged(EntityDamagedEvent evt)
         {
+            // 공격자 조회 없이 writer/RPC가 전달한 파도 표현 소유권만 따른다. HP 적용은 이미 끝났다.
+            if (evt.WavePresentationKey.IsValid && _waveOwnerReady?.Invoke() == true) return;
             if (evt.Entity == null) return;
             ObserveFoxLegacyPresentation(evt, "received", "not-dispatched");
             if (evt.AttackerIsUnit && UnitAttackResultPresentationShadowBridge.OwnsAttacker(evt.AttackerId))
@@ -304,7 +395,7 @@ namespace Hexiege.Presentation
                 //   발사 VFX(총구 화염 등)를 재생한다. 데미지 흐름은 그대로 두고 연출만 얹는다.
                 //   (이 OnEntityDamaged는 호스트=UseCase 발행 1회, 클라=NetworkHealthSync 재발행 1회로
                 //    각 머신에서 정확히 1번씩만 도달하므로 이중 재생이 없다.)
-                PlayTowerAttackVfx(evt);
+                // Tower VFX has a sole emitter from the confirmed authority snapshot, not this HP event.
 
                 ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
                 Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
@@ -477,6 +568,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+            EmitAttackEffects();
             RetryAuthoritativePresentations(Time.realtimeSinceStartupAsDouble);
             _releasedExact.Clear();
             _exactRendezvous.CollectExpired(
@@ -805,6 +897,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Dispose()
         {
+            CloseAttackEffects("Dispose"); _attackEffectKeys.Clear();
             UnitAttackResultPresentationShadowBridge.Coordinator.BundleReady -= OnAuthoritativeBundle;
             _subscriptions.Dispose();
         }

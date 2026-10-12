@@ -165,6 +165,33 @@ namespace Hexiege.Bootstrap
             if (_effectManager != null)
                 _effectManager.Initialize(_unitEffectConfig, _buildingEffectConfig, _uiEffectConfig);
 
+            var wavePresenter = GetComponent<WavePresentationPresenter>();
+            if (wavePresenter == null) wavePresenter = gameObject.AddComponent<WavePresentationPresenter>();
+            wavePresenter.Initialize(_unitCombat, _floatingHpTextSpawner);
+            var bloomPresenter = GetComponent<BloomHealEffectPresenter>();
+            if (bloomPresenter == null) bloomPresenter = gameObject.AddComponent<BloomHealEffectPresenter>();
+            // 공통 pose provider만 사용한다. Root 쓰기/Red 재변환/target reparent 없음.
+            var bloomFactory = _unitFactory;
+            var bloomPoseProvider = _presentationPoseProvider;
+            bloomPresenter.Initialize(_unitCombat.BloomHealEffects, _effectManager, target =>
+            {
+                var go = bloomFactory.GetUnitObject(target.Id);
+                var view = go != null ? go.GetComponent<UnitView>() : null;
+                return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
+                    ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
+            });
+            var waveOwnerCombat = _unitCombat;
+            var damagePresenter = GetComponent<TimedDamageEffectPresenter>();
+            if (damagePresenter == null) damagePresenter = gameObject.AddComponent<TimedDamageEffectPresenter>();
+            damagePresenter.Initialize(_unitCombat.TimedDamageEffects, _effectManager, target =>
+            {
+                var go = bloomFactory.GetUnitObject(target.Id);
+                var view = go != null ? go.GetComponent<UnitView>() : null;
+                return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
+                    ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
+            });
+            _floatingHpTextSpawner?.SetWaveOwnerReady(() => waveOwnerCombat.WavePresentationOwned);
+
             // 10-4. 피격 표현 큐 초기화 (Phase 2 — 축 3).
             //   피격 연출(HP 텍스트·피격 VFX·타격 반응)을 공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출.
             //   씬에 수동 배치하지 않고 조합 루트인 이 GameObject에 AddComponent하여 Inspector 작업을 없앤다.
@@ -172,6 +199,9 @@ namespace Hexiege.Bootstrap
             //   EffectManager.Initialize 이후에 두어야 GetHit(피격 프리셋 조회)가 정상 동작한다.
             if (_hitPresentationQueue == null)
                 _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
+            _hitPresentationQueue.SetAttackEffectClock(() => _unitCombat.WaveServerTime);
+            if (_effectManager != null) _effectManager.AttackEffectClock = () => _unitCombat.WaveServerTime;
+            _hitPresentationQueue.SetWaveOwnerReady(() => waveOwnerCombat.WavePresentationOwned);
             _hitPresentationQueue.Initialize(
                 _floatingHpTextSpawner,
                 _unitFactory,
@@ -185,7 +215,19 @@ namespace Hexiege.Bootstrap
             if (_unitAttackResultPresentationShadow == null)
                 _unitAttackResultPresentationShadow =
                     gameObject.AddComponent<UnitAttackResultPresentationShadow>();
-            _unitAttackResultPresentationShadow.Initialize();
+            // 이번 맵의 서비스를 캡처한다. 맵 재생성 뒤의 _unitCombat을 이전 공급자가
+            // 읽으면 안 된다. WaveServerTime의 싱글용 fallback은 멀티 C3 시각으로 쓰지
+            // 않도록 NGO 활성/Listening/shutdown을 먼저 검사하고 같은 서비스에서만 조회한다.
+            var tickOwnerCombat = _unitCombat;
+            _unitAttackResultPresentationShadow.Initialize(() =>
+            {
+                var network = Unity.Netcode.NetworkManager.Singleton;
+                if (!ReferenceEquals(_unitCombat, tickOwnerCombat) || tickOwnerCombat == null
+                    || !NetworkContext.IsNetworkActive || network == null
+                    || !network.IsListening || network.ShutdownInProgress)
+                    return double.NaN;
+                return tickOwnerCombat.WaveServerTime;
+            });
 
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
@@ -221,6 +263,8 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void ClearAll()
         {
+            _unitAttackResultPresentationShadow?.CloseClock();
+            _unitCombat?.CloseTorrentLaunches("map-clear");
             if (_unitFactory != null)
                 _unitFactory.DestroyAllUnits();
 

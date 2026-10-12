@@ -16,7 +16,15 @@ namespace Hexiege.Infrastructure
     /// </summary>
     public static class UnitAttackShadowProfileResolver
     {
-        public const int PresentationContractSchemaRevision = 1;
+        public const int PresentationContractSchemaRevision = 3;
+        // Native timed target-locked attacks only. Independent waves, charge damage,
+        // unresolved projectile policies and the separate heal pipeline stay Legacy.
+        public static bool CanUseNativeAttackPhase(UnitType type) =>
+            type != UnitType.FoxMagician && type != UnitType.TorrentSpirit
+            && type != UnitType.BloomFairy
+            && TryResolve(type, out var profile) && profile.CanRunSequencer
+            && (profile.LegacyExecution == LegacyAttackExecutionKind.TimerImpact
+                || profile.LegacyExecution == LegacyAttackExecutionKind.TimerImpactWithSecondaryEffect);
         private static readonly UnitType[] ManifestTypes =
         {
             UnitType.Pistoleer, UnitType.Assault, UnitType.Sniper,

@@ -36,6 +36,26 @@ using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Application
 {
+    /// <summary>Gameplay 예약을 변경하지 않는 원자 공격 표현 값. Provisional에는 Hits/scope가 없다.</summary>
+    public struct UnitAttackPhasePresentation
+    {
+        public ulong Lifetime, EpochId, PresentationRevision, ActionRevision;
+        public int UnitId, TargetId;
+        public bool TargetIsUnit, Active;
+        public double EpochServerTime, Duration, CommitServerTime;
+        public AttackPresentationImpactMode Mode;
+        public AttackPresentationScope Scope;
+        // 발행자가 생성한 배열만 보관하고 wire/View 경계에서는 복사한다.
+        public AttackSourceOccurrence[] Hits;
+    }
+
+    public struct AttackSourceOccurrence
+    {
+        public int HitIndex;
+        public long Loop;
+        public double MarkerOffset, MarkerServerTime, ImpactServerTime;
+    }
+
     /// <summary>
     /// 타일 선택 이벤트 데이터.
     /// </summary>
@@ -234,6 +254,8 @@ namespace Hexiege.Application
         /// 유효하지 않으면 기존 특수/타워/싱글 경로이며 피해와 표현 동작은 그대로 유지된다.
         /// </summary>
         public readonly AttackResultKey PresentationResultKey;
+        /// <summary>writer가 소유하는 독립 파도 표현 키. 유효할 때만 Legacy 텍스트를 억제한다.</summary>
+        public readonly WaveDeliveryKey WavePresentationKey;
 
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit)
@@ -250,7 +272,7 @@ namespace Hexiege.Application
 
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
-            AttackResultKey presentationResultKey)
+            AttackResultKey presentationResultKey, WaveDeliveryKey wavePresentationKey = default)
         {
             Entity = entity;
             CurrentHp = currentHp;
@@ -259,6 +281,7 @@ namespace Hexiege.Application
             AttackerIsUnit = attackerIsUnit;
             ImmediatePresentation = immediatePresentation;
             PresentationResultKey = presentationResultKey;
+            WavePresentationKey = wavePresentationKey;
         }
     }
 
@@ -328,6 +351,8 @@ namespace Hexiege.Application
     /// </summary>
     public readonly struct EntityHealedEvent
     {
+        /// <summary>서버 writer가 확정한 파도 전용 표현 소유권이다.</summary>
+        public readonly WaveDeliveryKey WavePresentationKey;
         /// <summary> 회복된 엔티티(유닛 또는 건물). 건물은 MistShrine 물안개 힐에서 사용한다. </summary>
         public readonly IDamageable Entity;
 
@@ -370,7 +395,7 @@ namespace Hexiege.Application
         /// 표시 문자열은 모두 CurrentHp로 통일한다(사용자 결정 B — 형식 통일).
         /// </summary>
         public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
-            int healerId, bool healerIsUnit, bool showText)
+            int healerId, bool healerIsUnit, bool showText, WaveDeliveryKey wavePresentationKey = default)
         {
             Entity = entity;
             CurrentHp = currentHp;
@@ -378,6 +403,7 @@ namespace Hexiege.Application
             HealerId = healerId;
             HealerIsUnit = healerIsUnit;
             ShowText = showText;
+            WavePresentationKey = wavePresentationKey;
         }
     }
 
@@ -825,6 +851,8 @@ namespace Hexiege.Application
     /// </summary>
     public static class GameEvents
     {
+        public static readonly Subject<AttackEffectPresentation> OnAttackEffectConfirmed = new Subject<AttackEffectPresentation>();
+        public static readonly Subject<AttackEffectPresentation> OnAttackEffectReceived = new Subject<AttackEffectPresentation>();
         // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================
@@ -1060,12 +1088,17 @@ namespace Hexiege.Application
             new Subject<UnitEnteredCombatEvent>();
 
         /// <summary>
-        /// 힐러(BloomFairy)가 힐 시전을 시작했을 때 서버 UnitView가 발행. 유닛 Id를 전달.
-        /// NetworkCombatController(서버)가 구독하여 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화한다.
+        /// 힐러가 시전을 시작할 때 서버 UnitView가 발행하는 회차·시각·aim의 불변 값이다.
+        /// NetworkCombatController가 힐 전용 atomic NetworkVariable로 게시한다.
         /// OnUnitEnteredCombat과 달리 데미지(ExecuteAttack)는 유발하지 않는다 — 순수 힐 애니메이션 동기화용.
         /// (싱글플레이에서는 UnitView가 Animator를 직접 CrossFade하므로 이 이벤트를 구독하지 않는다.)
         /// </summary>
-        public static readonly Subject<int> OnUnitHealCastStarted = new Subject<int>();
+        public static readonly Subject<UnitHealCastPresentation> OnUnitHealCastStarted =
+            new Subject<UnitHealCastPresentation>();
+
+        /// <summary>같은 힐 회차의 표현 종료다. 부여된 HoT 효과를 취소하지 않는다.</summary>
+        public static readonly Subject<UnitHealCastPresentation> OnUnitHealCastEnded =
+            new Subject<UnitHealCastPresentation>();
 
         /// <summary>
         /// 유닛이 전투 상태에 진입했을 때 발행.

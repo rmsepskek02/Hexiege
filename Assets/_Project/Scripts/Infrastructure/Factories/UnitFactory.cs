@@ -274,8 +274,10 @@ namespace Hexiege.Infrastructure
                 var animator = unitObj.GetComponentInChildren<Animator>();
                 AnimationClip attackClip = GetAttackTimelineClip(unitData, animator);
                 float attackClipLength = GetAttackClipLength(attackClip);
-                if (attackClipLength > 0f)
-                    unitData.AttackCooldown = attackClipLength;
+                float timelineFallbackHit = unitData.HitFrameTimes != null && unitData.HitFrameTimes.Length > 0
+                    ? unitData.HitFrameTimes[0] : float.NaN;
+                float timelineFallbackCooldown = unitData.AttackCooldown;
+                ApplyAttackClipCooldown(unitData, attackClipLength);
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
                 // 이벤트가 1개 이상이면 클립 값을 사용한다. FoxMagician은 1.00초가
@@ -285,6 +287,9 @@ namespace Hexiege.Infrastructure
                 float[] hitFrameTimes = GetHitFrameTimes(attackClip);
                 if (ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length))
                     unitData.HitFrameTimes = hitFrameTimes;
+
+                ObserveAssaultTimeline(unitData, attackClip, hitFrameTimes.Length,
+                    timelineFallbackHit, timelineFallbackCooldown, "server-or-solo");
 
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
                 if (_hasDependencies)
@@ -379,8 +384,10 @@ namespace Hexiege.Infrastructure
                 var animator = unitObj.GetComponentInChildren<Animator>();
                 AnimationClip attackClip = GetAttackTimelineClip(unitData, animator);
                 float attackClipLength = GetAttackClipLength(attackClip);
-                if (attackClipLength > 0f)
-                    unitData.AttackCooldown = attackClipLength;
+                float timelineFallbackHit = unitData.HitFrameTimes != null && unitData.HitFrameTimes.Length > 0
+                    ? unitData.HitFrameTimes[0] : float.NaN;
+                float timelineFallbackCooldown = unitData.AttackCooldown;
+                ApplyAttackClipCooldown(unitData, attackClipLength);
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
                 // (멀티플레이 클라이언트 경로 — 서버와 동일한 프리팹/클립을 쓰므로 결과값도 서버와 일치.)
@@ -390,6 +397,9 @@ namespace Hexiege.Infrastructure
                 float[] hitFrameTimes = GetHitFrameTimes(attackClip);
                 if (ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length))
                     unitData.HitFrameTimes = hitFrameTimes;
+
+                ObserveAssaultTimeline(unitData, attackClip, hitFrameTimes.Length,
+                    timelineFallbackHit, timelineFallbackCooldown, "client-bind");
 
                 // 런타임 의존성 자동 주입
                 if (_hasDependencies)
@@ -505,10 +515,40 @@ namespace Hexiege.Infrastructure
         public static float GetAttackClipLength(AnimationClip attackClip)
             => attackClip != null ? attackClip.length : 0f;
 
+        /// <summary>양 생성 경로에서 힐러의 발동 후 쿨다운은 데이터 원본을 보존한다.</summary>
+        public static void ApplyAttackClipCooldown(UnitData unitData, float clipLength)
+        {
+            if (unitData != null && !unitData.IsHealer && clipLength > 0f)
+                unitData.AttackCooldown = clipLength;
+        }
+
         // FoxMagician의 OnAttackHit은 charge VFX 시작(1.00초)이고 설정의 피해 시각은
         // 그 연출 후반(2.25초)이다. 다른 유닛은 기존 clip marker 추출 계약을 유지한다.
         public static bool ShouldUseAttackClipHitFrameTimes(UnitType unitType, int markerCount)
             => markerCount > 0 && unitType != UnitType.FoxMagician;
+
+        /// <summary>
+        /// 생성 직후 실제로 선택된 타임라인을 한 번 기록한다. 기본값과 clip-derived 값을
+        /// 분리하므로 설정 0.2초를 실제 공격 주기로 오해하지 않는다. 진단은 값을 쓰지 않는다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ObserveAssaultTimeline(UnitData unit, AnimationClip clip, int markers,
+            float fallbackHit, float fallbackCooldown, string path)
+        {
+            if (unit.Type != UnitType.Assault && unit.Type != UnitType.Sniper) return;
+            string tag = unit.Type == UnitType.Sniper ? "SNIPER" : "ASSAULT";
+            string binding = "";
+            if (unit.Type == UnitType.Sniper)
+            {
+                RaceId race = unit.Team == TeamId.Blue ? GameRaceContext.BlueRace : GameRaceContext.RedRace;
+                TryGetPrefabEntry(race, unit.Type, out UnitPrefabEntry entry);
+                binding = $" binding={(entry.attackTimelineClip != null ? "explicit" : "controller")} explicitMatch={(entry.attackTimelineClip == clip && clip != null ? 1 : 0)}";
+            }
+            string role = !NetworkContext.IsNetworkActive ? "Solo" : NetworkContext.IsNetworkServer ? "Host" : "Client";
+            float finalHit = unit.HitFrameTimes != null && unit.HitFrameTimes.Length > 0 ? unit.HitFrameTimes[0] : float.NaN;
+            GameLog.Dev.Info("Combat", nameof(UnitFactory),
+                $"[{tag}-TIMELINE] type={(int)unit.Type} unit={unit.Id} team={(int)unit.Team} role={role} path={path} clip={(clip != null ? clip.name : "none")} fps={PistoleerTimingDiagnostics.Number(clip != null ? clip.frameRate : 0)} duration={PistoleerTimingDiagnostics.Number(GetAttackClipLength(clip))} markers={markers} source={(markers > 0 ? "clip" : "fallback")} fallbackHit={PistoleerTimingDiagnostics.Number(fallbackHit)} finalHit={PistoleerTimingDiagnostics.Number(finalHit)} fallbackCooldown={PistoleerTimingDiagnostics.Number(fallbackCooldown)} finalCooldown={PistoleerTimingDiagnostics.Number(unit.AttackCooldown)}{binding} end=1", "");
+        }
 
         /// <summary>
         /// 이미 선택된 공격 클립의 타격 프레임 시간(초)들을 오름차순으로 반환.

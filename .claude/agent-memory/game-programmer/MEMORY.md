@@ -1,5 +1,23 @@
 # game-programmer 메모리 — 인덱스
 
+## Assault 30fps timing alignment (2026-10-08)
+
+- **2026-10-11 19_07 superseding saved-match boundary (Main/programmer handoff):** New Editor Host/Android Client matches show Coordinator/C2 zero failures and normal retry initialization, but both overall ENDs FAIL through invalid LegacyObservation attacker=-1/default-key admission into the Shadow diagnostic aggregate. Separate ResultPresentation EVIDENCE does not override overall FAIL or prove gameplay HP/text/VFX malfunction; exact per-tick originating unit/lookup failure remains unknown, not proven Inferno. Diagnostic scope/aggregation review is proposal-only OPEN. Prior00_46 had opposite roles, so new expiry/D0 cannot reproduce or prove resolution of the original Editor Client63 expiries; second Client suppressedNormal63 is not Expired63. No actual dead-abort/timeout retry case reproduced; local ROOT is not formal CrossAudit, counts are not exact payload/HP equality. Detailed evidence: `Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md`, “2026-10-11 19_07”. Preserve earlier history; no new implementation/build/Task/TC.
+
+- **2026-10-11 final scoped follow-up:** Four-source implementation/Main review, static4 errors0 and CLR3 PASS (retry18) are complete; native/gameplay/build NOT RUN, original63 expiry cause/fix OPEN. Durable ownership/phase lessons: [combat-fixes.md](combat-fixes.md#canonical-live-tick-versus-retained-bundle-epoch), [logging.md](logging.md#bounded-numeric-clock-histories-capture-and-output-boundaries). Exact evidence/hashes: existing Assault10_55 Research; older pending/native blocker entries are dated history.
+
+- Canonical live Tick clock correction and assumption-bounded replay lesson: [combat-fixes.md](combat-fixes.md), “Canonical live Tick versus retained Bundle epoch”. Five-source freeze/static/CLR success is not native/runtime acceptance; latest separate VFX native failure remains blocking, no build attempt.
+
+- Saved marker 0:05 means 5/30 seconds, not 0.05. Fallback hit and explicit production clip binding are aligned; normal Factory already used that marker. Clip-derived cycle 10/30 and fallback 0.2 are preserved; historical Stats 0:33 cycle remains unresolved. See [logging.md](logging.md) for type-aware observation; runtime acceptance remains OPEN in the Assault 10_55 task.
+
+## Common recovery analysis pointer (2026-10-02)
+
+- **Latest runtime boundary:**415 launch/VFX exact matches and MOVE failure0 support this-match subset, not universal regression. Client text1 loss/HP intact is separate clock/time-guard defect OPEN; proposal only, no new implementation. See [combat-fixes.md](combat-fixes.md), latest tested-match note;23_45 Research/Plan §9.
+
+- **2026-10-03 superseding implementation:** Central Torrent reservations and shared recovery correction are implemented, integration menus passed, build attempt reached JDK preflight only; runtime OPEN. Details: [combat-fixes.md](combat-fixes.md), latest common recovery follow-up. Prior unimplemented proposal below is history.
+
+- Common recovery17_05 evidence boundaries and unimplemented launch-policy proposal: see [combat-fixes.md](combat-fixes.md), Common post-combat recovery evidence boundary. Emitted dump completeness is not cause/fix PASS; preserve old wave calibration.
+
 ## BearGuard production timing and focused runtime boundary (2026-09-30)
 
 - Production BearGuard `OnAttackHit` and type 20 fallback are aligned at 30fps frame `0:13` (`0.43333334s`); Game UnitFactory explicitly binds the Attack clip and the permanent production gate passes Unit Action self-validation. Root Pose Cross Audit self-validation also passed. Runtime cooldown remains `1.2s`, while StatsReference design cycle `1:20` is unresolved.

@@ -113,7 +113,7 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). Launch 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
-        public void Launch(Vector3 start, Vector3 target, Action onArrive, float authoritativeDuration = -1f)
+        public void Launch(Vector3 start, Vector3 target, Action onArrive, float authoritativeDuration = -1f, bool recursiveParticles = false)
         {
             _start = start;
             _target = target;
@@ -135,6 +135,8 @@ namespace Hexiege.Presentation
                 transform.rotation = Quaternion.LookRotation(dir);
 
             gameObject.SetActive(true);
+            if (recursiveParticles) foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
+            { ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear); ps.Play(false); }
             _flying = true;
 
             // 거리가 0에 가까우면(발사=타겟) 비행 없이 즉시 착탄.

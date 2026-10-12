@@ -1,5 +1,19 @@
 # QA Tester Memory — Hexiege
 
+## Assault retry/receipt-phase evidence boundary (2026-10-11)
+
+- **2026-10-11 19_07 superseding saved-match boundary (Main/programmer handoff):** New Editor Host/Android Client matches show Coordinator/C2 zero failures and normal retry initialization, but both overall ENDs FAIL through invalid LegacyObservation attacker=-1/default-key admission into the Shadow diagnostic aggregate. Separate ResultPresentation EVIDENCE does not override overall FAIL or prove gameplay HP/text/VFX malfunction; exact per-tick originating unit/lookup failure remains unknown, not proven Inferno. Diagnostic scope/aggregation review is proposal-only OPEN. Prior00_46 had opposite roles, so new expiry/D0 cannot reproduce or prove resolution of the original Editor Client63 expiries; second Client suppressedNormal63 is not Expired63. No actual dead-abort/timeout retry case reproduced; local ROOT is not formal CrossAudit, counts are not exact payload/HP equality. Detailed evidence: `Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md`, “2026-10-11 19_07”. Preserve earlier history; no new implementation/build/Task/TC.
+
+- Main/programmer final static4 errors0 and CLR3 PASS include actual retry18 scenarios; this is received evidence, not a new QA/native/gameplay run. Native callbacks/NGO PlayerLoop/fresh UnitAction/ROOT/multiplayer HP/build NOT RUN; original63 cause/fix OPEN. Reusable gates: [patterns.md](patterns.md#bounded-clock-history-evidence-gates). Exact results/hashes remain in existing Assault10_55 Research; no new Task/TC/validator.
+
+## Common recovery analysis pointer (2026-10-02)
+
+- **2026-10-03 latest user test:**415 exactwave/VFX and MOVE failure0/Blocked0 support this-match movement/launch subset; prior366.5s trigger did not recur, no universalfix proof. Server/client contact320 but text320/319 exact missing wave1/impact2/unit4;32.959ms clock regression, HPdamage200/300 preserved. Separate clock/textOPEN, overallOPEN/UnresolvedLegacy; localROOTPASS not formalCrossAudit. Evidence/warning categories:23_45 Research/Plan §9. No new QA/TC/validator/code.
+
+- **2026-10-03 integration follow-up:** Shared recovery/Torrent approved launch correction is implemented; static4 errors0 and changed Unity Unit Action00:19:46/Root Pose00:20:28 menus PASS. Console errors0/compile warnings20/post-validation total25; attempted Build And Run reached JDK preflight only, not completion. Runtime fix/other-type equivalence remains OPEN; no new QA/TC/validator. Full boundaries/inventory:23_45 Research/Plan; prior diagnosis-only notes below are history.
+
+- Latest common recovery17_05 analysis:62 complete dumps/incomplete0 is recorder output completeness, not full causal coverage or fix PASS. Torrent24 resumed after ~366.5s;499 stationary-position samples are a separate population from spatial records.61 corridor episodes recovered; non-Torrent identical failure is not runtime-proven. Source/limits: `Assets/_Project/Docs/_Tasks/2026-10-02/15_25_common-post-combat-recovery-diagnosis/{Research,Plan}.md`. No new QA execution or TC.
+
 ## 2026-09-30 LionKnight Client C3 Expired boundary
 
 - Shared Android Host/Editor Client match `a2d9c80e…c622225` covered LionKnight and LittleKnight only (2/25). Host C2 224 results/0 failures and C3 ready 224/0, required visuals 199/199. Client C2 224 accepted/0 rejected, but C3 had 7 Expired, ready/released 217/224, required visuals 192/192 within the ready subset. Both local ROOT summaries PASS; no formal CrossAudit Analyze result follows from that.

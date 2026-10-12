@@ -1,5 +1,45 @@
 # document-manager 누적 지식
 
+- **Private archive receipt boundary:** Keep source-of-truth policy in LogRules §1.10 and operational names/hashes/gates in the current archive Task. [doc-conventions.md](doc-conventions.md#normative-history-separation-and-archive-custody) distinguishes verified custody/index state from commit/main publication and immutable initial manifests.
+
+- **Delivery versus pending recovery:** A successful full-key receive/text join can pass that match's scoped delivery while a zero-pending natural recovery branch stays unexecuted/OPEN. Keep anomaly recovery and normal teardown separate; current wave Research owns the figures. Durable boundary: [doc-conventions.md](doc-conventions.md#preventive-exception-isolation-and-staged-validation-evidence).
+
+- **Normative/history custody:** [doc-conventions.md](doc-conventions.md#normative-history-separation-and-archive-custody) records immutable block comparison and policy-versus-execution boundaries. Live authority: `Assets/_Project/Docs/LogRules.md`; dated originals: `Assets/_Project/Docs/LogHistory.md`.
+
+- **Wave saved-match precision:** Exact keyed rounded log fields are not binary/full-snapshot/replica-HP equality; equal totals are not key-set equality. Server HP completion, Client clock drops and native injection/natural runtime recovery remain independent. Current21_50 Research23_16 is the numeric/raw source; durable guidance: [doc-conventions.md](doc-conventions.md#preventive-exception-isolation-and-staged-validation-evidence). No whole-wave PASS or log-policy change.
+
+- **Wave native/build-attempt handoff:** Latest actual Main native PASS and one build click supersede prior pending stages, not runtime/visual acceptance or build completion. Preserve Release NOT RUN/blocked CLR and warnings50 as distinct axes. Current exact times and Editor.log anchor live in the21_50 wave Research; durable guidance: [doc-conventions.md](doc-conventions.md#preventive-exception-isolation-and-staged-validation-evidence). No completion monitoring or log-policy edits.
+
+- **Preventive isolation / staged validation:** Applied source and independent hashes plus actual static checks do not prove prepared fixture execution or runtime closure. Preserve prior acceptance, USER STOP/later retry authorization, and explicit Release/blocked-CLR/native/build boundaries. Durable guidance: [doc-conventions.md](doc-conventions.md#preventive-exception-isolation-and-staged-validation-evidence); complete manifest: `Assets/_Project/Docs/_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md`. No log archival/policy change.
+
+- **Timed-recipient versus keyed delivery evidence:** Preserve recorded End, dt/exhaustion stop, natural Drain/Return and forced Teardown as separate axes. A closed post-GameEnd snapshot Skip is not an ordinary missing attack, and LateResultNoFlight with ImpactPlay is not lost impact. Death Drop/NotStarted Unknown is not cast/heal-loss proof. Explicit payload comparisons apply only to their keyed population; first-positive HP aggregates are not total healing or all Client HP. Latest numeric handoff: `Assets/_Project/Docs/WORK_HISTORY.md`, “2026-10-11 20_28”; visual acceptance and overall diagnostic verdict remain separate.
+
+- **Final audited roster evidence (2026-10-11):** The programmer/Main handoff resolves the implementation hold: five prior corrections confirmed; EagleArcher existing hookup/testing confirmed, latest dedicated attack correction/Supported promotion not confirmed. LittleKnight common-task evidence counts as actual work without a dedicated Task. Keep historical implementation evidence separate from saved presence and human acceptance; no automatic retest/global promotion. Six-row source and Task anchors: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, “6종 실제 구현 감사 최종 근거”.
+
+- **Acceptance is not implementation verification (earlier audit-hold stage; superseded above):** Explicit human test completion can correct a roster immediately, while final source/config/clip implementation verdict remains pending a separate read-only programmer audit. Keep that hold explicit in current status; do not manufacture implementation completion from acceptance.
+
+
+- **Individual acceptance versus migration backlog (2026-10-11):** Do not classify tested units as untested from stale MigrationRequired/conditional rows. Compare explicit human acceptance and latest connection handoffs first; keep new-VFX visual checks, restoration regressions, shared issues and global migration separate. The six-unit acceptance and retracted LittleKnight recommendation are indexed by `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, “현행 개별 테스트·후속 목록”; incident: `.claude/mistakes.md`. Preserve old evidence without claiming precision or all-25 closure.
+
+
+- **Shadow diagnostic scope versus presentation evidence (2026-10-11):** An invalid legacy attacker/default key can fail the overall Shadow aggregate while the independent ResultPresentation axis has zero failures. Do not infer gameplay HP/text/VFX malfunction, a specific originating unit, exact payload equality from count agreement, or prior-expiry resolution from a clean role-reversed match. Stage/peer duplicates are not independent damage errors; suppressedNormal is not Expired. Current handoff and raw/source anchors: `Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md`, “2026-10-11 19_07”. Preserve old history and keep scope/aggregation review proposal-only OPEN.
+
+- **Source-freeze handoff:** Preserve complete path/hash inventory and static artefact limitations in the current Task; prepared menu fixtures are not native PASS and incomplete capacity/mode/deadline/forced/wire assertions remain OPEN. Current evidence: `Assets/_Project/Docs/Assets/VFXSFXList.md`, “2026-10-10 현재 source freeze — 정적/native/수용 경계”; durable guidance: [doc-conventions.md](doc-conventions.md#recipient-effect-lifecycle-and-frozen-task-history-2026-10-09). Main hash-match is a separate evidence axis from particle/visual acceptance.
+
+- **Scoped Task override / approval-stage synchronization:** The 2026-10-10 user approval lifts the prior freeze only for Mushroom and the new Inferno/tower Task. Approval/dispatched implementation is not verified source completion, native gate or runtime acceptance. Current specifications live in `Assets/_Project/Docs/Assets/VFXSFXList.md`; durable guidance: [doc-conventions.md](doc-conventions.md#recipient-effect-lifecycle-and-frozen-task-history-2026-10-09). The older freeze entry below is dated history, not the current scope.
+
+- **Recipient-effect evidence / frozen Task override:** For this follow-up, old Task files remain immutable and no new Task is created. Keep the live evidence in important documents with one detailed inventory/count source, separating prefab existence, binding, native automation, observed playback, natural drain, forced teardown and visual acceptance. See [doc-conventions.md](doc-conventions.md#recipient-effect-lifecycle-and-frozen-task-history-2026-10-09); existing memory/history is preserved.
+
+## Common recovery analysis pointer (2026-10-02)
+
+- **Latest tested match (2026-10-03):**23_45 Research/Plan §9 separates415 complete launch/VFX and this-match movement acceptance from Clienttext319/320 clock defect with HP intact. Preserve old history; no overallPASS/universal fix/C3 promotion. Earlier runtime-pending prose is dated history; user-built artifact does not retroactively prove observed Codex build completion.
+
+- **2026-10-03 current integration boundary:**23_45 Research/Plan records implementation/static errors0, changed Unity menus PASS00:19:46/00:20:28, Console compile warnings20/post-validation total25 and attempted JDK preflight, not build completion or runtime fix PASS. Earlier proposal/GUI-pending notes are history. Full code/meta/document inventory is in Research; preserve permanent notify-before-rule-change preference.
+
+- **Permanent user preference:** Read full relevant rules before proposing changes; other units retain existing contracts. Inform the user of rule problems/conflicts BEFORE changing them, and never generalize a narrow safety exception. The23_45 Torrent policy approval supersedes the earlier proposal boundary as design only, not implementation/PASS.
+
+- Existing common recovery Research/Plan latest17_05 analysis separates complete emitted dumps from absent fallback/later-capture evidence, shared-code findings from non-Torrent runtime proof, and launch-aim proposals from approved permanent rules. Preserve prior match/build history and wave-calibration verdicts; see `Assets/_Project/Docs/_Tasks/2026-10-02/15_25_common-post-combat-recovery-diagnosis/{Research,Plan}.md`.
+
 ## 2026-09-30 LionKnight evidence boundary
 
 - Current user verdict supersedes the historical FAIL/OPEN instruction below: the later `a8134504…c3aacb5b` focused LionKnight 0:18/1:13 test is **PASS/CLOSED** after visual acceptance and zero C3 failure in that match. Keep the first match's seven Client `Expired` as a **separate unresolved C3 defect**, tracked by `12_37_attack-presentation-expiry-diagnosis`; only diagnostics were added, so root cause and fix remain unproved. Preserve prior evidence as dated history; do not erase it or mark full migration/formal CrossAudit complete.
@@ -50,6 +90,7 @@
 ### 원문 보존 방침
 - 기존 서술을 **지우지 않는다.** `~~취소선~~` + `> **[이전 기록 — YYYY-MM-DD 갱신 전]**` 인용 블록으로 남기고 현행을 덧붙인다.
 - `LogRules.md` 는 문서 상단에 **개정 이력 표**를 두고 **시간 오름차순**으로 행을 추가한다(맨 아래가 최신). 순서 주의.
+- **[2026-10-12 correction — original kept]** The dated revision table now lives in LogHistory. LogRules holds current obligations; preserve original historical claims without treating them as new execution evidence.
 
 ### 상시 참조 3문서의 갱신 형태
 | 문서 | 형태 |
@@ -81,6 +122,7 @@
 ## 도구
 - `python3 Tools/check_docs.py` — 리포지토리 루트에서 실행. 읽기 전용. **0건 확인 후 보고.**
   ⚠️ **`_Tasks/`·`_Logs/` 는 검사 범위 밖**이므로 방금 쓴 Task 문서는 이 0건이 검증한 대상이 아니다 — 보고에 그렇게 적을 것 → [doc-conventions.md](doc-conventions.md) §11.
+- Keyed heal delivery versus visual continuity: observer-run identity despite shared keys, cross-clock/revision boundaries, server-only completed subsets, sparse ROOT/MOVE versus facing, payload Aim versus expected yaw, and source limitation versus observed cause → [doc-conventions.md](doc-conventions.md) §11, “Keyed heal delivery versus visual continuity”. Match details remain in the existing task.
 - **git 명령 금지**(규칙 5). 변경 파일 목록은 `grep`/코드 실측으로 재구성한다.
 
 ## 자주 쓰는 실측 명령 (숫자를 문서에 적기 전 반드시 재확인)
@@ -391,3 +433,18 @@ tr -cd '{' < <파일> | wc -c ; tr -cd '}' < <파일> | wc -c                   
 ### `CLAUDE.md` 는 문서 작업 대상이 아니다 (2026-08-21 사용자 확정)
 *"`CLAUDE.md` 는 사용자와 메인 세션이 소통하기 위한 문서, 에이전트 지식은 메모리 파일에 기록한다."*
 → 에이전트 운영 규칙을 명문화할 자리는 **`.claude/MEMORY.md`**(공용, 모든 에이전트가 작업 전 읽음)이고 `AGENTS.md` 는 **참조만** 건다.
+
+## 2026-10-01 TorrentSpirit current evidence boundary
+
+- **2026-10-02 final movement superseding boundary:** Spatial mismatch→Fatal→rejected closure→cancelled follow-up movement is confirmed; building-rally TerminalContact Root/domain contract conflict is probable, not complete runtime causal proof without the prior successful frame/reproduction. Both server MOVE FAIL14/30; ROOT PASS does not certify progress. Recommendations are not implementation approval. Cause-pending notes below are history. Details: [doc-conventions.md](doc-conventions.md), TorrentSpirit implementation handoff note, and existing Research/Plan latest final movement analysis.
+
+- **2026-10-02 role-swapped superseding summary:** Two latest matches establish exact-key wave/contact delivery without loss, not complete timeliness or exact visual acceptance. Second Client residual delays349.511ms/249.849ms exclude the existing100ms delay; other290 max21.834ms. Both server MOVE terminals FAIL14/30; local ROOT PASS is pose consistency, not movement progress. Preserve previous match records and defer cause prose until main's final approval. Details: [doc-conventions.md](doc-conventions.md), TorrentSpirit implementation handoff note, and existing TorrentSpirit Research/Plan latest role-swapped section.
+
+- Production X=.78, FrontAnchor=.928406, Hierarchy=true passed the limited Blue/Red × five yaw directions (0/90/+45/-45/180), eight-seed geometric measurement at 17:59:49 KST. This is baked geometry, not alpha silhouette or arbitrary-direction/network role-swap/device acceptance. Source: `Library/TorrentWaveMeasurements/directions-20261001-085949-284.csv`; existing `Assets/_Project/Docs/_Tasks/2026-10-01/01_00_torrentspirit-wave-contact-diagnosis/{Research,Plan}.md`.
+- Preserve launch `2:10@30fps=70/30 seconds` and cycle 4 seconds. Original source assets remain unchanged (all four hashes confirmed by main). Final two Unity menu reruns and build attempt are approved remaining work but were not executed because Unity was busy; overall OPEN and Unresolved/LegacyFallback retained. Preserve earlier history; do not substitute prior menu PASS for final-value validation.
+
+- **2026-10-01 follow-up (original kept):** Two device matches now have evidence, not exact visual acceptance/C3 closure. Earlier busy/menu/build observations are history. Latest 32 is a cap; 11 noHpDelta cases are not confirmed errors or full-HP contacts. See [doc-conventions.md](doc-conventions.md), bounded evidence note.
+
+- **2026-10-02 implementation handoff (original kept):** The 32 diagnostic cap was removed, not the limitations of old captured matches. Overall/exact visual acceptance remain OPEN/C3 Unresolved; new Unity/build/device validation was not performed. Explicit preference: detailed logs every test, evidence-based iteration, retain Dev diagnostics until task closure. See [doc-conventions.md](doc-conventions.md), implementation handoff note.
+
+- **2026-10-02 final handoff:** Byte-format implementation/static compilation is complete, not Unity/device/gameplay acceptance. Keep main658 separate from conservative static fixture max699/fallback400 and preserve 944 correction history. Details: [doc-conventions.md](doc-conventions.md).

@@ -78,6 +78,7 @@
 - A* 이동, AlignToMove, 공유 타일 상태, 경로 재계산, 유닛 겹침 허용
 - Acquire/Align/Windup/Impact/Recovery 상태와 결정적 타겟 선택
 - MeleeContact / Hitscan / ProjectileImpact / TravelingArea
+- TorrentSpirit 전용 서버 승인 발사 예약의 primary 상실 예외 — `GameSystemRules_Units.md` 규칙 29·`U-IMPACT-INDEPENDENT` 및 동기화 문서 `NET-DELIVERY-TRAVELING`·`NET-CANCEL-004`·`NET-PRESENT-003` 참조. 다른 유닛의 일반 안전 계약으로 확대하지 않는다.
 - 전투 연출 동기화 (타격 프레임 단일 소스, 피격 표현 큐, 원거리 트레이서, 애니메이션 상태 값 기반 동기화)
 - 특수 공격 시스템 (전략 핸들러 구조, 휩쓸기 월드 부채꼴 판정, SpecialAttackConfig 튜닝, AoE 연출 동시 방출)
 - 🔴 같은 「특수 공격 시스템 규칙」 섹션에 **힐과 지속 효과 규칙이 함께 들어 있다** — 힐(회복) 서브시스템, 힐러 전용 경로, 부상 아군 탐색, HoT/DoT 공용 시간 지속 효과, 힐러 유휴 감시, 힐러 쿨다운 예외, HoT 힐 텍스트 집계, 착탄형·단일 대상 DoT 확장 (`GameSystemRules_Units.md` 규칙 30~37 · 40~42)

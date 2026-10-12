@@ -179,6 +179,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
+  _healCastBlend: 0.08
   _attackToWalkBlend: 0.1
   _vfxSpawnPoint: {fileID: 1326278167848223812}
   _rotationSpeed: 270
@@ -194,7 +195,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1388810823
+  GlobalObjectIdHash: 3746771362
   InScenePlacedSourceGlobalObjectIdHash: 1388810823
   DeferredDespawnTick: 0
   Ownership: 1

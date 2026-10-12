@@ -44,6 +44,16 @@ namespace Hexiege.Presentation
     [CreateAssetMenu(fileName = "BuildingEffectConfig", menuName = "Hexiege/Effects/BuildingEffectConfig")]
     public class BuildingEffectConfig : ScriptableObject
     {
+        [System.Serializable]
+        public struct RaceAttack { public RaceId race; public EffectPreset preset; }
+        [SerializeField] private List<RaceAttack> _autoTowerAttacks = new List<RaceAttack>();
+        public EffectPreset GetAttack(BuildingType type, RaceId race)
+        {
+            if (type != BuildingType.AutoTower) return GetAttack(type);
+            if (race == RaceId.Transcendence) return null;
+            foreach (var entry in _autoTowerAttacks) if (entry.race == race) return entry.preset;
+            return null;
+        }
         [Tooltip("각 건물 타입별 파괴/업그레이드 이펙트 프리셋. Inspector에서 편집")]
         [SerializeField] private List<BuildingEffectEntry> _entries = new List<BuildingEffectEntry>();
 

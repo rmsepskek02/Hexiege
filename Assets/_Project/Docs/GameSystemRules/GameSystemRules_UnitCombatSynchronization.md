@@ -271,13 +271,43 @@ ProjectileImpact는 서버가 발사 시각, 착탄 시각, 목표 처리 방식
 
 TravelingArea는 서버가 판정 영역을 진행시키고 대상별 첫 접촉을 기록한다. 대상별 결과는 같은 공격 회차 안에서 독립 HitIndex 또는 명시적 접촉 인덱스로 식별한다.
 
+TorrentSpirit만의 생성 전 승인 발사 예약은 `GameSystemRules_Units.md` 규칙 29를 따른다. primary 상실/사거리 이탈에도 같은 원래 대상의 현재 또는 마지막 유효 서버 aim으로 예정 발사를 정확히 한 번 수행하며 새 타깃으로 이전하지 않는다. 예약·서버 생성·contact 결과를 분리하고 기존 contact HP/힐 writer를 유지한다. 이 계약을 다른 TravelingArea 전체에 확대하거나 Client marker로 권위 생성·피해를 대신하지 않는다. 현행 Unresolved/LegacyFallback의 로컬 단조 예약 identity는 정규 C3 sequence를 위조하거나 Supported 승격을 뜻하지 않는다.
+
 ### NET-DELIVERY-TIMED
 
+> **2026-10-10 현재 source freeze 후속(Main hash 재대조 완료):** programmer44파일 snapshot의 현재 SHA256을 Main이 재확인해 Files44/Mismatches0/ChangedPaths=null(tool39f796), 보호6 baseline 모두 일치를 확인했다. 정적4 exit0(09:53:38 programmer 보고)과 기존 UnitAction/AuthoritativeAttackPresentation fixture 코드 연결까지다. Root gate 자체 변경없음·native Action/ROOT 미실행(UI activation2 timeout), build미시도·visual/runtime OPEN. capacity/mode/deadline/NaN/forced/wire 자동 assertion 범위는 미완이다. HP·actual DoT3초·주기·범위·Stats 권위는 유지하며 기존 C3 FAIL64 fix/PASS로 확대하지 않는다. [현재 기술·tuning·검증 경계](../Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계). 아래 승인/구현 중·인계 대기는 당시 이력이다.
+
 Periodic 효과는 최초 부여 타격의 회차 ID와 별도의 효과 인스턴스 ID를 가진다. 각 틱은 서버 시간과 틱 번호로 멱등 처리한다. 갱신·덮어쓰기·종료 정책은 `GameSystemRules_Units.md`의 효과 규칙을 따른다.
+
+**2026-10-10 확정 표현 확장 / 구현 승인·진행 중, native·build·runtime 대기:** Main 기술 Plan 검토와 programmer 구현 허가 인계 완료. 실제 writer의 `(target lifetime, TimedEffectKind.Damage)` 단일 레코드에 effect identity/revision/poison-burn provenance를 연결한다. 동일 owner refresh는 noRestart이며 poison↔burn/다른 Damage overwrite는 기존 정책대로 이전 표현 종료·교체하고 독립 stack을 만들지 않는다. network current value와 late-init/restoration/shutdown 보호를 거쳐 single presenter가 대상 수명을 따른다. 취소·만료·사망 후 StopEmitting/natural drain/lease 반환은 강제 teardown과 구별한다. Mushroom 짧은 burst는 3초 지면 damage zone이 아니다. TowerCombatUseCase의 확정 공격 결과 identity·Impact 위치/시각·Race snapshot을 GameEvents/NetworkCombatController에서 표현용으로 전달 보강한다. current target lookup이나 tracer 도착으로 피해를 새로 판정·지연하지 않는다. 기존 HP writer·주기·범위·Stats 권위 및 Unresolved/Legacy 분류는 유지하고 C3 Supported 승격은 하지 않는다. 실제 변경 inventory와 새 정적/native/build/runtime 결과는 최종 인계 후 기록한다.
 
 ---
 
 ## 8. Animation Event와 표현
+
+### SeparateHeal — 힐러 전용 값 동기화 분류 (2026-10-03)
+
+> **BloomFairy §18 최종 후속(2026-10-04):** UnitView 한 파일 교정·최종 정적4경로 errors0 뒤 메인이 새 기존 Unit Action/Root Pose Cross Audit SelfValidate **PASS**를 확인했다. 이어 Build And Run1회 클릭 직후 Importing/Settings/Mobile_RPAsset.asset만 관측하고 모든 UI/build log polling을 중단했다. **완료·설치·runtime 미관찰/빌드 성공 추정 없음, 실기·전체 OPEN.** 기존 자동 gate는 새 coroutine runtime fixture/이전 경기 Analyze가 아니다. 정책/스탯·에셋·다른 타입 불변. 최종 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 실기는 §17; 아래 gate/build 대기는 당시 이력이다.
+
+> **BloomFairy §18 최종 정적 후속(2026-10-04):** 코드 담당 인계상 UnitView 한 파일의 최종 정적4경로 errors0이며 메인 source review/추가 owner cleanup 확인까지다. 경고 수는 정적 카운트로만 해석한다. **새 기존 두 메뉴·이번 빌드 시도는 실행 대기, runtime/전체 OPEN.** 정책/스탯·에셋·공통 ticker/다른 타입 불변. 상세 코드·정적·보조 artefact는 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 runtime은 §17; 아래 정적 대기/미승인·미구현 문구는 당시 이력이다.
+
+> **§18 코드 후속(2026-10-04, 계약 변경 아님):** 메인 source review 인계상 UnitView cooldown deadline/재진입·owner 정리 보호가 반영됐다. 서버 단일 writer·SeparateHeal·모션 종료와 효과/쿨다운 수명 구분·다른 타입 정책은 유지한다. 최종 정적/새 gate/빌드 결과 대기·runtime/visual 전체 OPEN. 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18; §17/아래는 이전 단계 증거다.
+
+> **최신 증거 상태(2026-10-04, 계약 변경 아님):** §16 due 교정은 새 두 run에서 focused 관측 수용했지만 전체 OPEN이다. first-positive 부재 outcome은 설명됐으며 callback 각도·영상 표본은 exact Client HP onset/pixel facing/모션 연속성 PASS가 아니다. cooldown residual·사용자 최종 visual acceptance는 미완, SeparateHeal/서버 권위·정책/스탯은 유지한다. 상세 단일 근거는 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §17이고 아래 교정 전/실기 전 문구는 이력이다.
+
+`GameSystemRules_Units.md` 규칙22·32의 힐러는 적 공격이 아닌 별도 회복 루프다. `NotApplicableAttack / SeparateHealPipeline`의 힐 표현 회차를 정규 AttackSequence/C3 scope로 포장하지 않는다. 다음 힐 전용 계약은 아래 일반 공격의 연속 재생·커밋 시 restart 금지와 구분하며, 다른 유닛의 공통 안전 계약을 완화하지 않는다.
+
+- 서버만 별도 atomic snapshot NetworkVariable을 게시한다. lifetime/sequence/revision, 시전자/대상, 시작/종료 서버 시각, active, 종료 사유, Aim, marker offset/clip duration 및 Frozen/Held priority를 같은 값으로 전송한다. late spawn/init는 현재값을 복구하며 edge-only RPC에 의존하지 않는다.
+- 새 힐 sequence는 시전 모션을 재생한다. 같은 sequence의 중복은 restart하지 않고 priority 해제는 서버 경과시간으로 이어간다. 낮은 sequence/revision, 다른 객체 수명, 종료된 같은 회차의 재활성화 및 terminal close 뒤 입력은 거부한다. 수신과 실제 Animator 적용 성공은 구분한다.
+- Client는 모션만 재생한다. Aim은 증거용이며 새 Client Root/Visual offset 회전 입력이 아니다. 기존 서버 Root 방향 복제와 `NET-AUTH-001/002`, `NET-ROOT-001~003` 경계를 유지한다. Client가 아군을 재탐색하거나 HP/HoT/적 공격 결과를 생성하지 않는다.
+- **이전 pose hold 정책(이력 보존, 아래 승인 정책으로 대체):** source marker는 힐 회차당 최대1회이고 이미 지난 marker는 catch-up 시 재방출하지 않는다. loop 클립의 끝 자세 유지와 Walk 덮어쓰기 방지, Frozen/Held 우선순위는 표현 책임이다. 표현 종료·사망/disable/despawn/경기 종료의 terminal close는 늦은 시작을 막지만 이미 부여된 HoT의 서버 효과 수명을 대신하지 않는다.
+- **현재 승인 힐 표현 정책:** marker1초(30fps `1:00`)는 유지하고 저장 clip4초(`4:00`, native 적용)로 한다. 원본0~1초 보존, 후반1~3초→1~4초 시간1.5배/tangent 역수 보정·1초 curve 경계 검증을 native AnimationUtility로 수행한다. 일반 힐 endpoint 강제 Play/speed0 hold는 검증 전 삭제 없이 비활성화·주석 보존하고 speed1을 사용한다. 다음 유효 힐 target이 있으면 중간 inactive Walk/Held 없이 새 sequence로 연결하며 힐-only0.15초 blend는 시험값이다. 실제 Frozen/Held/target 없는 대기·사망·경기 종료는 유지한다. 서버 Action 소유권과 활성 priority1 아래 공통 RotateActionTowards를 재사용하고 Client Root/Visual offset writer는 금지한다(NET-AUTH/NET-ROOT). future-start는 IsDue 전 재생하지 않고 late-init catch-up·one-shot marker·sequence/revision/lifetime 멱등·terminal 차단을 유지한다. priority cache는 실제 적용 후 갱신한다. 양 peer 힐러는 config cooldown3을 보존하여 clip4 덮어쓰기의5초 회귀를 차단하며 일반 유닛 clip-derived cooldown은 유지한다. 준비1+발동 후3=cycle4·HoT200/3·서버 writer는 불변이다.
+- **2026-10-03 승인 교정 코드 인계:** 기존 source4파일과 새 Setup.cs/.meta 작성 및 마지막 수정 뒤 정적 컴파일 Runtime0/20·Editor0/0·Dev0/20·Release0/24(errors/warnings) 확인. 서버 Action/priority1의 공통 RotateActionTowards, 연속 유효 target의 inactive 없는 다음 sequence, future-start IsDue 대기·실제 적용 뒤 priority cache 갱신, speed1/기존 snap·endpoint hold 주석 보존, 양 생성 경로 sharedApplyAttackClipCooldown의 힐러 config3 보존 및 future-start/priority-pending/terminal/current-value/cooldown/native-retime-helper fixture 보강이 코드에 반영됐다. native Setup은17:42:31 `[BloomHealSetup] native retime PASS`(changed=True, curves=130, front/tail samples preserved, clip=4s, marker=1s, both heal blends=0.15s)로 완료됐다. 디스크 양 prefab `_healCastBlend: 0.15` 및 OnAttackHit time1 확인. 클립/prefab3파일은 실제 변경이다. 이는 에셋/retime 검증이지 visual PASS가 아니다. **새 코드/에셋 자동 검증 완료:** Unit Action17:43:56의 BLOOM-HEAL-TIMELINE·UAS overall·production·C2·C3 PASS, Root Cross Audit SelfValidate17:44:41 PASS. Console errors0/warnings25(기존 compile20+fixture5)이며 Android warnings0·시각 실기 PASS를 뜻하지 않는다. native 디스크 m_StopTime4/m_SampleRate30/단일 OnAttackHit time1 및 양 prefab blend0.15 확인. **빌드 시도 완료:** File→Build And Run1회 실제 클릭 직후 Importing(iteration2)–Finishing import Settings/Mobile_RPAsset.asset 관찰까지만 확인했다. 이후 Unity UI/Editor/build log polling 및 완료·설치·게임 실행 확인은 하지 않았다. 빌드 성공 추정 없음. Setup·자동 메뉴·빌드 시도는 완료이며, 남은 시각 실기 검증은 OPEN이다. 신규 실기 OPEN, §9~§10은 이전 검증/경기 이력이며 §11은 승인 계획이다.
+- **이전 실기 분석 — 2026-10-03 18_34 세 observer run(Research/Plan §13):** run별 exact 힐 전달·future-start 실제 재생 대기 seam은 확인됐으나 **facing FAIL(사용자 보고) / 원인 OPEN**이다. B/C는 같은 shared key라도 새 runId/BEGIN/startedAt으로 분리한다. local ROOT PASS·MOVE 실패0·서버 completed HoT 결과는 실제 target-facing/model-pose 또는 Client HP/text 전수 검증이 아니다. payload Aim은 caster 현재 forward이며 target 방향이 아니고 Client 회전 writer도 아니다. target cache 시작1회/회차 중 재조회 없음은 source 제약일 뿐 이번 cache/guard 누락 발생·원인은 미확정이다. 다음 exact 각도/ownership/cache/rendered-forward trace는 별도 승인 필요한 제안·미구현이며 expected yaw는 실제 서버 caster→target 벡터로 계산해야 한다. 모델 offset/Client Root writer fix 금지, 정책·수치 불변. §12 구현/자동 gate/빌드 시도는 보존된 이력이다.
+- **교정 전 두 테스트 분석(2026-10-03 22_48/23_04; Bloom Research/Plan §15):** 두 번째 device 파일의 첫 테스트 전체 prefix는 capture 중복이므로 두 run만 집계한다. exact 전달과 제한된 callback Root 수렴/self drift는 확인됐지만 pixel 방향 PASS는 아니다. 같은 Host clock·exact 회차에서 실제 첫 positive HP 적용이 accepted marker보다 먼저인2사례로 **TIMING EARLY HP FAIL**을 확인했다. 사용자 시각 방향 증상·최종 원인·exact Client HP/pixel timing은 OPEN이다. delta 누적/첫 frame 이전 delta 구조는 강한 원인 의심이며 absolute server dueTime=StartedAt+MarkerOffset은 다음 승인 대상 제안·미구현이다. §14 진단4파일/정적 errors0과 §12 에셋/자동 gate/빌드 시도는 이력으로 보존한다. 정책·스탯·native4초/marker1초(30fps4:00/1:00)·blend0.15초·준비1+post3·HoT200/3 불변. 상세 수치·raw/video 관측 범위는 §15 참조.
+- **§16 승인 교정 구현 인계:** UnitView 한 파일에서 accepted StartedAt+MarkerOffset(1초/30fps1:00) absolute due를 같은 HealNow로 기다리고 yield 뒤 재조회하며 caster/authority/동일 active 회차·finite time guard 후 기존 CastHeal을 단일 실행하도록 교정했다. 이전 dt wait는 사용자 수용 전 주석 비활성화 보존, 기존 diagnostics Due/Now/Elapsed·DispatchRejected 반영. 최종 정적 Runtime0/22·Editor0/0·Development0/22·Release0/26(errors/warnings), 기존 Unit Action overall/Bloom/Production/C2/C3 및 Root Pose Cross Audit SelfValidate 새 실행 PASS는 자동 prebuild gate이지 새 heal coroutine runtime fixture/실기 수용이 아니다. **이번 빌드 시작 시도 확인:** 메인이 Unity File→Build And Run1회 클릭 직후 modal 제목 `Detect Java Development Kit (JDK)`/본문 `Checking Java Development Kit (JDK)...`를 관측했다. 완료·설치·runtime은 미관찰이며 사용자 지시로 이후 모든 UI/build log polling을 중단했다. 빌드 성공 추정 없음. §15 early HP FAIL은 교정 전 이력으로 유지하며 재시험/시각 방향·최종 원인 OPEN이다. 회전·HP/HoT·native clip/marker·정책/스탯 무변경, global cooldown ticker/post3 deadline은 미교정·별도 OPEN이다. 상세 actual source/gate/빌드 경계는 기존 Bloom Research/Plan §16 참조.
+- 이 예외는 일반 Attack 레벨 시작 차단·EnemyAttack/C3·SourceOnly lease 정책의 변경이나 Supported 승격이 아니다. 규칙33~37의 준비·발동 후 쿨다운·회복량/지속·diff 틱·완료 텍스트는 불변이다. 2026-10-03 구현 인계 및 새 Unit Action 04:52:02/Root Cross Audit SelfValidate 04:54:03 자동 PASS는 사용자 실기 PASS나 실제 경기 Analyze가 아니며 runtime 재검증은 OPEN이다. 빌드는 Build And Run1회 클릭 후 Checking prerequisites/Starting Android build만 관찰했으며 완료·설치·실행은 미관찰, UI/build polling은 사용자 지시로 중단했다. 최종 구현·검증·별도 파일 목록은 BloomFairy task Research/Plan §9를 따른다.
+- **이전 경기 당시 분석 경계(2026-10-03 12:36~12:39, 6239bf47…9faf1; 아래 제안·미구현은 당시 상태이며17시 코드/에셋 적용 전 이력):** Bloom8기의 HostStart/HostPlay/ClientPlay50회 exact 회차 일치(missing/extra/conflict/duplicate0), Marker49/MotionEnd45 각각. 서버 Cast49/Applied43, ActualHealed 합4110은 Client HP/text exact 검증이 아니다. Client future-start32/50 offset0 즉시 재생과 실제 Walk-Held-Walk 수신이 확인됐으나 render pose/facing 증거는 부족하다. **힐 전달 성공 / 방향·모션 연결 미해결 — OPEN**. local ROOT PASS·MOVE 실패0은 heal continuity/facing PASS가 아니다. 점진 heal-facing/future-start wait/stationary handoff는 제안·미구현이며 규칙·원수치 변경 없음. 최신 근거는 Bloom task Research/Plan §10, 이전 §9는 이력이다.
 
 ### NET-PRESENT-001. Animation Event 역할
 
@@ -319,6 +349,8 @@ AoE 원자 표현에는 서버가 타격 처리를 마친 뒤 발행한 완결 �
 
 타겟 사망·교체·StopCombat은 미래 marker 허가와 미확정 예상 표현을 닫는다. 이미 확정된 결과는 이후 종료 알림으로 폐기하지 않고 Result와 같은 키로 보존한다. 표시는 기존 age/baseline 및 대상 View 수명 정책으로 결정하고, 피해·HP 사실을 취소하거나 사망 시 일괄 flush하지 않는다.
 
+**좁은 Torrent 예외:** `GameSystemRules_Units.md` 규칙 29의 서버 승인 발사 예약은 primary 상실·target switch·StopCombat만으로 취소하지 않는다. 이는 닫힌 공통 marker나 provisional 표현을 다시 허가하는 것이 아니다. 실제 서버 파도 생성과 contact 결과에 연결해 표현하고, 죽은 primary에 가짜 결과를 만들지 않는다. 발사 전 공격자 사망·게임 종료·despawn/shutdown은 예약을 취소하며 다른 타입의 위 공통 표현 종료 규칙은 유지한다.
+
 확정된 시각 결과는 피해자 종류·팀·Impact 위치·적용량·결과 HP처럼 필수 표현에 필요한 불변 스냅샷을 포함해야 한다. C3 정상 표현기는 별도 `OnEntityDamaged` 도착, HP 동기화 재발행 또는 현재 Domain/Factory/View 조회를 필수 조건으로 삼지 않는다. 피해자 View가 이미 사라져도 age/baseline 안의 확정 결과는 저장된 위치에서 HP 텍스트와 설정된 피격 VFX를 최대 한 번 표시한다. 살아 있는 View의 펀치 같은 객체 반응은 동일 객체 수명이 확인될 때만 추가하며, 확인할 수 없거나 ID가 재사용됐으면 그 선택 반응만 생략한다.
 
 타입별 피격 VFX 프리셋은 선택 에셋 채널이다. 프리셋이 아직 없는 현재 상태는 `SkippedNoAsset` 정상 생략이며 C3 실패가 아니다. 그러나 향후 프리셋을 연결했을 때 같은 확정 결과만으로 즉시 재생할 수 있도록 피해자 종류·팀·Impact 위치는 에셋 유무와 무관하게 항상 전송한다. 설정된 프리셋의 실제 재생 실패는 `ChannelFailure`로 분리해 fail-closed하고, 에셋 미설정·전역 presenter 미준비·스냅샷 손상과 하나의 `viewUnavailable` 합계로 섞지 않는다. 피격 VFX와 유닛 제거 시 사망 VFX는 별도 표현 채널이며 서로를 대신하거나 중복 호출하지 않는다.
@@ -356,6 +388,8 @@ Marker·Tracer·Enqueue·Emit은 서로 다른 표현 단계이며 동일 exact 
 ### NET-CANCEL-004. 타겟 사망
 
 타겟 사망이 기존 회차를 다른 타겟으로 자동 이전시키지 않는다. 새 타겟은 새 공격 회차에서만 사용한다.
+
+TorrentSpirit의 서버 승인 발사 예약만 `GameSystemRules_Units.md` 규칙 29의 예외를 적용한다. 원래 primary 사망·소멸·사거리 이탈은 이 예약을 취소하지 않지만 새 타깃으로 대체하지도 않는다. 공격자 사망·게임 종료·despawn/shutdown의 발사 전 취소 및 provisional 미발사는 유지한다. 다른 타입의 타깃 유효성 검사와 취소 정책은 바꾸지 않는다.
 
 ### NET-CANCEL-005. 취소와 결과 순서 역전
 

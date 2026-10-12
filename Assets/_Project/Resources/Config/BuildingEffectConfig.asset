@@ -12,6 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a8700e624a683d4b8dc93b49a56dcff, type: 3}
   m_Name: BuildingEffectConfig
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingEffectConfig
+  _autoTowerAttacks:
+  - race: 0
+    preset: {fileID: 11400000, guid: 1ddf58caf0af4ccdb04822bcb0fc7935, type: 2}
+  - race: 1
+    preset: {fileID: 11400000, guid: a01e8a0e35619b02dcd055e935a715d7, type: 2}
   _entries:
   - buildingType: 0
     destroyPreset: {fileID: 0}

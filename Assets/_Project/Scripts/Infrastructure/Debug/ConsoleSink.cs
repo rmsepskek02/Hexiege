@@ -51,7 +51,13 @@ namespace Hexiege.Infrastructure
             // 심각도에 맞는 메서드로 출력한다.
             // 이렇게 해야 에디터 콘솔의 필터(Info/Warning/Error 탭)가 제대로 동작하고,
             // Logcat 에서도 우선순위(I/W/E)가 구분된다.
-            switch (level)
+            // 이 진단의 일상 사건만 스택 생략. 운영/오류/예외 및 다른 로그는 기존 경로를 유지한다.
+            if (exception == null && level == Hexiege.Application.LogLevel.Info
+                && className == Hexiege.Application.WavePresentationDiagnostics.LogClass
+                && message == Hexiege.Application.WavePresentationDiagnostics.Prefix)
+                UnityEngine.Debug.LogFormat(UnityEngine.LogType.Log,
+                    UnityEngine.LogOption.NoStacktrace, null, "{0}", line);
+            else switch (level)
             {
                 case Hexiege.Application.LogLevel.Warn:
                     UnityEngine.Debug.LogWarning(line);

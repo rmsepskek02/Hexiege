@@ -1,5 +1,11 @@
 # Game Design Lead Memory — Hexiege
 
+## Torrent-only approved launch policy and runtime boundary (2026-10-03)
+
+- **Latest tested subset:**415 waves/VFX matched;200 lost-primary launches included37 unit damage/1 building damage/5 heals, confirming real contacts in this match. Client text1 loss does not revoke observed launch/movement acceptance or HPauthority. Clock/text defect and overallmigration remainOPEN; no new design/rule approval.23_45 Research/Plan §9 records evidence; earlier runtime-pending notes are history.
+
+- Server-approved Torrent scheduled launches survive original primary loss/range exit: live original target uses current server aim, lost original uses last-valid aim, never fixed-start direction/new retarget. Provisional is not approval; prelaunch attacker death/gameend/despawn/shutdown cancels. Exactly-one server wave retains real enemy unit/building damage and ally-unit heal. Implemented/integration menus PASS, build attempted/JDK preflight only, runtime OPEN/Unresolved/LegacyFallback. Other units retain existing rules; notify the user BEFORE changing conflicts. Policy source: `GameSystemRules_Units.md` rule29; implementation/limitations:23_45 Research/Plan. No balance/assets changes or rally Fatal/performance fix.
+
 ## 2026-09-30 BearGuard strike timing versus cycle decision
 
 - The user accepted BearGuard's corrected 30fps `0:13` strike visually in a focused mixed match, so the strike-timing task is PASS/CLOSED. This does not settle attack-cycle balance: StatsReference still shows design `1:20` (`1.666666…s`) while `UnitStatsConfig.attackCooldown` remains `1.2s`; keep that discrepancy OPEN and do not infer authorization to change cooldown. BearGuard-only marker-to-damage offset and full v2 migration were not established. Source: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.

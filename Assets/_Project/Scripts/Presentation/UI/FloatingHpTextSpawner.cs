@@ -94,6 +94,9 @@ namespace Hexiege.Presentation
 
         /// <summary>OnEntityHealed 구독 해제용 Disposable. 재초기화/파괴 시 정리.</summary>
         private System.IDisposable _healedSubscription;
+        private System.Func<bool> _waveOwnerReady;
+        /// <summary>조합 루트에서 로컬 wave 소비자 준비 조건을 전달한다.</summary>
+        public void SetWaveOwnerReady(System.Func<bool> ready) => _waveOwnerReady = ready;
 
         /// <summary>
         /// 확정 결과 표현기가 실제 HP 텍스트를 만들 수 있는지 사전에 확인하는 읽기 전용 상태다.
@@ -252,6 +255,7 @@ namespace Hexiege.Presentation
         /// <param name="evt">회복 이벤트 데이터. Entity(회복 대상), CurrentHp 포함.</param>
         public void ShowHeal(EntityHealedEvent evt)
         {
+            if (evt.WavePresentationKey.IsValid && _waveOwnerReady?.Invoke() == true) return;
             if (_presentationPoseProvider == null || _container == null) return;
             if (evt.Entity == null) return;
 
@@ -284,6 +288,16 @@ namespace Hexiege.Presentation
                 label,
                 spawnPos,
                 color: _healColor);
+        }
+
+        /// <summary>사라진 피해자/공격자 조회 없이 확정 파도 스냅샷에서 치유 텍스트를 표시한다.</summary>
+        public bool TryShowHealAt(int hp, Vector3 position)
+        {
+            if (hp < 0 || !IsReadyForDamagePresentation || !WavePresentationSpawn.Finite(position)) return false;
+            var text = GetFromPool();
+            text.transform.SetParent(_container, false);
+            text.Play($"{hp}", position + Vector3.up * _yOffset, color: _healColor);
+            return true;
         }
 
         // ====================================================================

@@ -250,6 +250,59 @@ namespace Hexiege.Presentation
             return new UnitAttackVfxPlaybackResult(status, particleSystemCount, playbackActive);
         }
 
+        /// <summary>서버에서 실제 생성된 파도만 재생한다. 기존 marker 공격 API와 소유권을 섞지 않는다.</summary>
+        public bool WavePresentationReady => _unitConfig?.GetAttack(UnitType.TorrentSpirit)?.VfxPrefab != null;
+
+        public bool BloomPresentationReady => _unitConfig?.GetHeal(UnitType.BloomFairy)?.VfxPrefab != null;
+        public VfxPoolItem StartTimedDamageEffect(Hexiege.Application.TimedDamageEffectPresentation state, Transform pose,
+            Hexiege.Application.TimedDamageEffectChannel channel)
+        {
+            if (!state.IsValid || !state.Active || (state.Visual != Hexiege.Application.TimedDamageVisual.Burn
+                && state.Visual != Hexiege.Application.TimedDamageVisual.Poison)) return null;
+            var type = state.Visual == Hexiege.Application.TimedDamageVisual.Burn ? UnitType.InfernoSpirit : UnitType.MushroomBomber;
+            var preset = _unitConfig?.GetTimedDamage(type);
+            if (pose == null || preset?.VfxPrefab == null) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            try { item.PlayTimedDamage(state, pose, preset, channel); }
+            catch { item.RejectTimedDamageAcquire(); throw; }
+            // Sound15: recipient poison/burn SFX is not authored; no invented sound fallback.
+            return item;
+        }
+
+        public VfxPoolItem StartBloomEffect(Hexiege.Application.BloomHealEffectPresentation state, Transform pose
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
+#endif
+            )
+        {
+            var preset = _unitConfig?.GetHeal(UnitType.BloomFairy);
+            if (pose == null || preset?.VfxPrefab == null) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            try
+            {
+                if (!item.BeginBloomAcquire()) throw new System.InvalidOperationException("Bloom pool checkout already owned");
+                if (item.PlayBloomLoop(state, pose, preset
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                , diagnostics
+#endif
+                    ) == 0) { item.RejectBloomAcquire(); return null; }
+            }
+            catch { item.RejectBloomAcquire(); throw; } // 최종 운영 예외 기록은 presenter 경계에서 수행한다.
+            // Sound15: Bloom heal SFX는 미제작이다. current/refresh 복구에서 임의 사운드를 만들지 않는다.
+            return item;
+        }
+
+        public VfxPoolItem PlayWave(Hexiege.Application.WavePresentationSpawn spawn, System.Func<double> clock)
+        {
+            var preset = _unitConfig?.GetAttack(UnitType.TorrentSpirit);
+            if (preset == null || preset.VfxPrefab == null || !spawn.IsValid) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            if (item == null) return null;
+            item.PlayWave(spawn, clock, preset.LocalPositionOffset, preset.EulerRotationOffset,
+                preset.ScaleMultiplier, WaveVisualCalibration.Production);
+            return item;
+        }
+
         /// <summary>
         /// 유닛 사망 이펙트 재생. UnitView의 OnUnitDied 처리에서 호출.
         /// </summary>
@@ -336,6 +389,39 @@ namespace Hexiege.Presentation
             //   이번 작업에서 추가하지 않는다. 추후 발사 효과음 에셋 확보 시, 이 줄 바로 아래에
             //   AudioManager.Instance?.PlayBuildingAttackSfx(type) 짝을 추가한다
             //   (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
+        }
+        public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
+        public bool PlayConfirmedMushroomTracer(Vector3 source, Vector3 impact, double remaining)
+        {
+            if (double.IsNaN(remaining) || double.IsInfinity(remaining) || remaining <= 0d) return false;
+            var prefab = _unitConfig?.GetTracer(UnitType.MushroomBomber)?.VfxPrefab;
+            if (prefab == null) return false;
+            var tracer = GetOrCreateTracer(prefab);
+            tracer.Launch(source, impact, null, (float)remaining, true); // callback has no HP/result authority.
+            bool started = false;
+            foreach (var ps in tracer.GetComponentsInChildren<ParticleSystem>(true)) started |= ps.isPlaying;
+            return tracer.gameObject.activeInHierarchy && started;
+        }
+        public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome)
+        {
+            outcome = "InvalidSnapshotOrVisual";
+            if (!s.IsValid || (s.Visual != Hexiege.Application.AttackEffectVisual.Tower && s.Visual != Hexiege.Application.AttackEffectVisual.MushroomImpact)) return false;
+            if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Transcendence) { outcome = "UnspecifiedTranscendence"; return false; }
+            EffectPreset preset = s.Visual == Hexiege.Application.AttackEffectVisual.Tower
+                ? _buildingConfig?.GetAttack(BuildingType.AutoTower, s.Race) : _unitConfig?.GetImpact(UnitType.MushroomBomber);
+            if (preset?.VfxPrefab == null) { outcome = "MissingConfiguredPreset"; return false; }
+            Vector3 direction = impact - source; direction.y = 0f;
+            var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            var systems = item.GetComponentsInChildren<ParticleSystem>(true);
+            if (systems.Length == 0) { outcome = "ParticleSystemUnavailable"; item.RejectTimedDamageAcquire(); return false; }
+            foreach (var ps in systems) { var main = ps.main; main.stopAction = ParticleSystemStopAction.None; }
+            item.Play(s.Visual == Hexiege.Application.AttackEffectVisual.Tower ? source : impact, rotation,
+                preset.LocalPositionOffset, preset.EulerRotationOffset, preset.ScaleMultiplier, preset.ForwardTravelDistance, preset.ForwardTravelDuration);
+            bool started = false; foreach (var ps in systems) started |= ps.isPlaying;
+            outcome = started ? "AuthoritySnapshotStarted" : "PlaybackInactive";
+            // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
+            return started;
         }
 
         /// <summary>

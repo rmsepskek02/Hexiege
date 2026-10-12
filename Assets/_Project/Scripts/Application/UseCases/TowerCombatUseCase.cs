@@ -61,6 +61,9 @@ namespace Hexiege.Application
         // [Phase 2] 연구소 강화 UseCase(생성 후 주입). 타워→유닛 방어 감쇄를 "피격 유닛 팀"의
         //   방어 연구 레벨로 조회하기 위해 사용한다. 미주입 시 스냅샷 필드(target.Defense)로 폴백(하위호환).
         private UnitUpgradeUseCase _upgrade;
+        private readonly AttackEffectIdentity _effectIdentity = new AttackEffectIdentity();
+        private Func<double> _effectClock = () => Time.timeAsDouble;
+        public void SetEffectClock(Func<double> clock) { _effectClock = clock ?? throw new ArgumentNullException(nameof(clock)); }
 
         /// <summary>
         /// TowerCombatUseCase 생성. 모든 의존성을 생성자 주입으로 받는다.
@@ -212,6 +215,18 @@ namespace Hexiege.Application
         /// <param name="target">피격당하는 적 유닛.</param>
         private void ExecuteTowerAttack(BuildingData tower, UnitData target)
         {
+            Vector3 effectSource = default, effectImpact = default;
+            double effectTime = double.NaN;
+            // 표현 좌표/시계의 실패도 기존 피해 및 사망 workflow를 막아서는 안 된다.
+            try
+            {
+                effectSource = _positionProvider != null ? _positionProvider.GetBuildingWorldPosition(tower.Id) : Vector3.zero;
+                effectImpact = _positionProvider != null ? _positionProvider.GetUnitWorldPosition(target.Id) : Vector3.zero;
+                if (effectSource == Vector3.zero) effectSource = _mapper.HexToWorld(tower.Position);
+                if (effectImpact == Vector3.zero) effectImpact = _mapper.HexToWorld(target.Position);
+                effectTime = _effectClock();
+            }
+            catch (Exception ex) { AttackEffectIdentity.Record("Fault", default, "TowerSnapshot:" + ex.Message); }
             RaceId race = ResolveRace(tower.Team);
             int rawDamage = BuildingStats.GetAttackPower(tower.Type, race);
 
@@ -222,7 +237,17 @@ namespace Hexiege.Application
                 ? _upgrade.GetDefense(target.Team, target.Type)
                 : target.Defense;
             int damage = DamageCalculator.ApplyDefense(rawDamage, defense);
+            int effectHpBefore = target.Hp;
             target.TakeDamage(damage);
+            // Sound15: tower fire SFX is unspecified. This snapshot has no damage authority.
+            try
+            {
+                var visual = _effectIdentity.Create(tower, target, AttackEffectVisual.Tower, race, effectSource, effectImpact, effectTime);
+                visual.AppliedDamage = Mathf.Max(0, effectHpBefore - target.Hp); visual.ResultHp = target.Hp;
+                if (visual.IsValid)
+                { AttackEffectIdentity.Record("ServerConfirm", visual, now: effectTime); GameEvents.OnAttackEffectConfirmed.OnNext(visual); }
+            }
+            catch (Exception ex) { AttackEffectIdentity.Record("Fault", default, "TowerPublish:" + ex.Message); }
 
             // 공격 이벤트 발행 (공격자=타워, 타겟=유닛).
             // EntityAttackedEvent는 IDamageable 기반이라 건물도 공격자가 될 수 있다.

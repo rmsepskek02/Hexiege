@@ -40,7 +40,7 @@ namespace Hexiege.Infrastructure
     /// 전투 네트워크 컨트롤러.
     /// 서버에서 전투를 처리하고 사망 이벤트를 모든 클라이언트에 전파.
     /// </summary>
-    public class NetworkCombatController : NetworkBehaviour
+    public partial class NetworkCombatController : NetworkBehaviour
     {
         // ====================================================================
         // Inspector 설정
@@ -56,7 +56,42 @@ namespace Hexiege.Infrastructure
 
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
-
+        private System.IDisposable _attackEffectSubscription;
+        private void PublishAttackEffect(AttackEffectPresentation s)
+        {
+            if (!IsServer || !IsSpawned || _combatStopped || !s.IsValid) return;
+            AttackEffectClientRpc(s.Match, s.Lifetime, s.Sequence, s.AttackerId, s.TargetId, (byte)s.Visual,
+                (int)s.Race, s.Source, s.Impact, s.ImpactTime, s.AppliedDamage, s.ResultHp,
+                s.ResultKey.AttackerInstanceId.Value, s.ResultKey.SequenceId.Value, s.ResultKey.HitIndex,
+                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal);
+            AttackEffectIdentity.Record("Publish", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+        }
+        [ClientRpc]
+        private void AttackEffectClientRpc(ulong match, ulong lifetime, ulong sequence, int attacker, int target,
+            byte visual, int race, Vector3 source, Vector3 impact, double time, int applied, int hp,
+            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal)
+        {
+            if (IsServer || _combatStopped) return;
+            var s = new AttackEffectPresentation { Match = match, Lifetime = lifetime, Sequence = sequence,
+                AttackerId = attacker, TargetId = target, Visual = (AttackEffectVisual)visual,
+                Race = (Hexiege.Domain.RaceId)race, Source = source, Impact = impact, ImpactTime = time, AppliedDamage = applied, ResultHp = hp,
+                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal) };
+            if (s.IsValid)
+            {
+                AttackEffectIdentity.Record("Receive", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                try { GameEvents.OnAttackEffectReceived.OnNext(s); }
+                catch (System.Exception ex) { AttackEffectIdentity.Record("Fault", s, "ReceiveSubscriber:" + ex.Message); }
+            }
+            else AttackEffectIdentity.Record("Fault", s, "InvalidWireSnapshot");
+        }
+        private BloomHealEffectChannel _bloomEffectChannel;
+        private void OnBloomEffectChanged(BloomHealEffectPresentation value, Hexiege.Domain.UnitData target)
+        {
+            if (!IsSpawned || !IsServer || _combatStopped) return;
+            var go = _services?.GetUnitFactory()?.GetUnitObject(value.TargetId);
+            var recipient = go != null ? go.GetComponent<NetworkUnit>() : null;
+            recipient?.PublishBloomEffect(value, target);
+        }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
         /// <summary>
         /// Read-only multiplayer pose observer. It exists only in development/editor builds,
@@ -79,6 +114,7 @@ namespace Hexiege.Infrastructure
 
         /// <summary>OnUnitHealCastStarted 구독 해제용 Disposable. 서버 전용(힐러 힐 애니메이션 동기화).</summary>
         private System.IDisposable _healCastSubscription;
+        private System.IDisposable _healCastEndedSubscription;
 
         /// <summary>[스킬 - 빙결] OnUnitFreezeChanged 구독 해제용 Disposable. 서버 전용(빙결 걷기 정지 동기화).</summary>
         private System.IDisposable _freezeChangedSubscription;
@@ -128,6 +164,8 @@ namespace Hexiege.Infrastructure
             = new System.Collections.Generic.Dictionary<int, ulong>();
         private readonly System.Collections.Generic.Dictionary<int, double> _attackPresentationEpochServerTimes
             = new System.Collections.Generic.Dictionary<int, double>();
+        private readonly System.Collections.Generic.Dictionary<int, UnitAttackPhasePresentation> _committedAttackPhases
+            = new System.Collections.Generic.Dictionary<int, UnitAttackPhasePresentation>();
 
         private sealed class CompletedAttackEntryReceipt
         {
@@ -268,6 +306,12 @@ namespace Hexiege.Infrastructure
             base.OnNetworkSpawn();
 
             _services = GameServicesLocator.Current;
+            if (IsServer) _attackEffectSubscription = GameEvents.OnAttackEffectConfirmed.Subscribe(PublishAttackEffect);
+            if (IsServer)
+            {
+                _bloomEffectChannel = _services?.GetCombatUseCase()?.BloomHealEffects;
+                if (_bloomEffectChannel != null) _bloomEffectChannel.Changed += OnBloomEffectChanged;
+            }
             if (_services == null)
             {
                 // [운영] 스폰은 계속되고 아직 요청 전이라 기능이 죽지는 않았다 → 축 A Warn.
@@ -376,9 +420,11 @@ namespace Hexiege.Infrastructure
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
                     .Subscribe(OnUnitEnteredCombatHandler);
 
-                // 힐러(BloomFairy) 힐 시전 → 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화.
+                // 힐 시전 시작/종료 → 별도 회차 atomic snapshot으로 값 복제.
                 // 데미지 유발 없이 클라이언트에 힐 애니메이션만 보여주기 위한 별도 경로.
                 _healCastSubscription = GameEvents.OnUnitHealCastStarted
+                    .Subscribe(OnUnitHealCastStartedHandler);
+                _healCastEndedSubscription = GameEvents.OnUnitHealCastEnded
                     .Subscribe(OnUnitHealCastStartedHandler);
 
                 // [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제 시 발행하는 이벤트를 받아
@@ -414,6 +460,14 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            _attackEffectSubscription?.Dispose(); _attackEffectSubscription = null;
+            _services?.GetCombatUseCase()?.TimedDamageEffects.CloseVisuals("ActualNetworkDisconnect");
+            if (_bloomEffectChannel != null) _bloomEffectChannel.Changed -= OnBloomEffectChanged;
+            _bloomEffectChannel?.CloseVisuals("ActualNetworkDisconnect");
+            _bloomEffectChannel = null;
+            _committedAttackPhases.Clear();
+            if (IsServer) _services?.GetCombatUseCase()?.CloseTorrentLaunches("network-despawn");
+            DisposeWaveTransport();
             base.OnNetworkDespawn();
 
             // 사망 이벤트 구독을 모두 해제 (Unit/Building 두 종류 모두).
@@ -436,6 +490,8 @@ namespace Hexiege.Infrastructure
             // HealCast 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _healCastSubscription?.Dispose();
             _healCastSubscription = null;
+            _healCastEndedSubscription?.Dispose();
+            _healCastEndedSubscription = null;
 
             // [스킬 - 빙결] FreezeChanged 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _freezeChangedSubscription?.Dispose();
@@ -525,6 +581,21 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void Update()
         {
+            if (IsSpawned && IsServer && !_combatStopped && (_bloomEffectChannel == null || _bloomEffectChannel.IsClosed))
+            {
+                // 서비스 초기화 지연/맵 교체시에만 재조회. 준비 후 상시 factory/target scan 없음.
+                _services = GameServicesLocator.Current;
+                var next = _services?.GetCombatUseCase()?.BloomHealEffects;
+                if (next != null && !next.IsClosed && !ReferenceEquals(next, _bloomEffectChannel))
+                {
+                    if (_bloomEffectChannel != null) _bloomEffectChannel.Changed -= OnBloomEffectChanged;
+                    _bloomEffectChannel = next; next.Changed += OnBloomEffectChanged;
+                    var baseline = new System.Collections.Generic.List<BloomHealEffectChannel.Recipient>();
+                    next.CopyCurrent(baseline);
+                    foreach (var entry in baseline) OnBloomEffectChanged(entry.Cursor.Current, entry.Target);
+                }
+            }
+            UpdateWaveTransport();
             // 멀티플레이 서버만 실행 + **이 오브젝트가 아직 네트워크에 살아 있을 때만** 실행
             //
             // ── 왜 IsSpawned 를 함께 보는가 (초급 개발자용 설명) ──────────────────
@@ -559,6 +630,9 @@ namespace Hexiege.Infrastructure
             //   (멀티 순수 클라이언트의 쿨다운/상태 미러는 GameBootstrapper.Update 가 따로 감소시키므로
             //    이 변경의 영향을 받지 않는다. 여기서 멈추는 것은 서버 쪽 틱뿐이다.)
             if (!IsSpawned || !IsServer || _combatStopped) return;
+            // 전투 ticker 간격과 무관하게 매 서버 frame에 원래 primary aim을 갱신한다.
+            _services?.GetCombatUseCase()?.TickTorrentLaunches(GetAuthoritativeServerTime());
+            if (_combatStopped) return;
 
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
@@ -882,6 +956,12 @@ namespace Hexiege.Infrastructure
                             overshoot = window.OvershootSeconds;
                         }
 
+                        // 용량은 cooldown/공격 커밋 전에 확보하며 C3 scope를 위조하지 않는다.
+                        if (unit.Type == UnitType.TorrentSpirit
+                            && !combat.TryReserveTorrentLaunch(unit, damageTargetId,
+                                damageTargetIsUnit, GetAuthoritativeServerTime(), overshoot))
+                            continue;
+
                         // 정지+5도와 표현 marker 창이 모두 확인된 경계에서만 gameplay를 시작한다.
                         // 이미 재생 중인 Attack은 commit RPC에서도 절대 restart하지 않는다.
                         _attackPresentationRestartPending.Remove(id);
@@ -930,7 +1010,11 @@ namespace Hexiege.Infrastructure
                                 impactMode == AttackPresentationImpactMode.Scoped
                                     ? committedPresentationScope
                                     : default;
-                            bool hostApplied = TryApplyHostCombatPresentation(
+                            bool nativePublished = TryPublishAttackPhase(unit, damageTargetId, damageTargetIsUnit,
+                                presentationRevision, impactMode, presentationScope, out bool nativeQualified);
+                            // OLD native order (RED): TryApplyHostCombatPresentation -> phase publish.
+                            // Legacy is selected before publication, never after native failure.
+                            bool hostApplied = nativeQualified ? nativePublished : TryApplyHostCombatPresentation(
                                 id,
                                 damageTargetId,
                                 damageTargetIsUnit,
@@ -944,7 +1028,7 @@ namespace Hexiege.Infrastructure
                                     id,
                                     "commit");
 #endif
-                            StartCombatClientRpc(
+                            if (!nativeQualified) StartCombatClientRpc(
                                 id,
                                 damageTargetId,
                                 damageTargetIsUnit,
@@ -981,11 +1065,7 @@ namespace Hexiege.Infrastructure
             }
             foreach (int id in toRemove)
             {
-                _unitCombatTargets.Remove(id);
-                _combatAnimationSent.Remove(id); // RPC 전송 추적도 함께 정리
-                _attackPresentationRestartPending.Remove(id);
-                _attackPresentationEpochServerTimes.Remove(id);
-                _completedAttackEntryReceipts.Remove(id);
+                RetireLogicalCombatPresentation(id);
                 ResetAttackAlignmentSample(id);
                 if (AttackShadowCoordinatorEnabled
                     && unitSpawn.Units.TryGetValue(id, out UnitData stoppedUnit)
@@ -1058,13 +1138,19 @@ namespace Hexiege.Infrastructure
             if (attackShadowToken.IsValid
                 && _attackShadowCoordinator.TryConsumeLegacyImpactCancellation(
                     attackShadowToken, shadowHitIndex))
+            {
+                PistoleerTimingDiagnostics.TokenEvent(attacker, "Cancel", attackShadowToken.Value, shadowHitIndex,
+                    GetAuthoritativeServerTime(), "reason=coordinator-cancel-consumed");
                 yield break;
+            }
 
             // 딜레이 후 UseCase를 다시 가져와서 데미지 적용
             // _services가 파괴되었을 수 있으므로 null 체크
             UnitCombatUseCase combat = _services?.GetCombatUseCase();
             if (combat == null)
             {
+                PistoleerTimingDiagnostics.TokenEvent(attacker, "Unavailable", attackShadowToken.Value, shadowHitIndex,
+                    GetAuthoritativeServerTime(), "reason=combat-use-case-missing");
                 TryAbandonPoseObservation(poseObservationKey, "combat-use-case-missing");
                 yield break;
             }
@@ -1116,6 +1202,8 @@ namespace Hexiege.Infrastructure
                 && attackShadowDispatch.Authorization.IsValid
                     ? attackShadowDispatch.Authorization.Key
                     : default;
+            PistoleerTimingDiagnostics.TokenEvent(attacker, "Dispatch", attackShadowToken.Value, shadowHitIndex,
+                GetAuthoritativeServerTime(), $"due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)} authorization={writerAuthorization}");
             AttackDamagePresentationBundleObservation presentationBundleObservation =
                 presentationResultKey.IsValid
                     ? combat.ApplyAttackDamageObservedWithPresentationBundle(
@@ -1126,6 +1214,8 @@ namespace Hexiege.Infrastructure
                             attacker, targetId, targetIsUnit, writerAuthorization),
                         System.Array.Empty<AppliedAttackPresentationFact>(),
                         AttackDamagePresentationBundleStatus.InvalidScope);
+            PistoleerTimingDiagnostics.TokenEvent(attacker, "WriterResult", attackShadowToken.Value, shadowHitIndex,
+                GetAuthoritativeServerTime(), $"status={presentationBundleObservation.PrimaryObservation.Status} due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)}");
             AttackDamageObservation legacyObservation =
                 presentationBundleObservation.PrimaryObservation;
             AttackDamageApplyStatus legacyResult = legacyObservation.Status;
@@ -1163,6 +1253,8 @@ namespace Hexiege.Infrastructure
                     PublishAttackShadowPublication(attacker.Id, attackShadowResult.Publication);
                 if (attackShadowResult.HasResult)
                 {
+                    PistoleerTimingDiagnostics.TokenEvent(attacker, "Result", attackShadowToken.Value, shadowHitIndex,
+                        GetAuthoritativeServerTime(), $"outcome={attackShadowResult.Result.Outcome} impact={PistoleerTimingDiagnostics.Number(attackShadowResult.Result.ImpactServerTime)} revision={attackShadowResult.Result.ActionRevision} victim={attackShadowResult.Result.Key.VictimId} kind={attackShadowResult.Result.Key.VictimKind} effect={attackShadowResult.Result.Key.EffectKind} ordinal={attackShadowResult.Result.Key.ResultOrdinal} amount={attackShadowResult.Result.AppliedAmount} hp={attackShadowResult.Result.ResultingHp}");
                     PublishAttackShadowImpactResult(attacker.Id, attackShadowResult);
                     UnitAttackResultPresentationShadowBridge.ObserveCompletedBundleTransportResult(
                         PublishCompletedAttackPresentationBundle(
@@ -1240,6 +1332,10 @@ namespace Hexiege.Infrastructure
             unit.AttackCooldownRemaining = Mathf.Max(
                 0f,
                 unit.AttackCooldown - (float)overshoot);
+
+            // Torrent만 사전 확보한 gameplay 예약 owner가 dispatch한다.
+            // 기본 scope는 기존 Unresolved 의미이며 일반 피해 writer에는 진입하지 않는다.
+            if (unit.Type == UnitType.TorrentSpirit) return default;
 
             // 신규 coordinator 활성 중에는 기존 SpearMan 일회성 A2를 휴면시킨다.
             // 기존 코드는 사용자 멀티 검증 전까지 보존하지만 두 allocator가 동시에 발급하지 않는다.
@@ -1348,6 +1444,32 @@ namespace Hexiege.Infrastructure
                 {
                     attackShadowDueServerTime = attackShadowSnapshot.CommitServerTime
                         + attackShadowSnapshot.Timeline.GetImpactOffset(hitIndex);
+                    var timingScope = new AttackPresentationScope(attackShadowSnapshot.AttackerInstanceId,
+                        attackShadowSnapshot.SequenceId, hitIndex);
+                    // 予約 완료 값의 due를 복사한다. commit + nominal을 재계산하지 않는다.
+                    if (_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double phaseEpoch)
+                        && unit.AttackCooldown > 0 && !unit.IsHealer)
+                    {
+                        if (hitIndex == 0)
+                            _committedAttackPhases[unit.Id] = new UnitAttackPhasePresentation
+                            {
+                                UnitId = unit.Id, Active = true, EpochServerTime = phaseEpoch,
+                                EpochId = unchecked((ulong)System.BitConverter.DoubleToInt64Bits(phaseEpoch)),
+                                Duration = unit.AttackCooldown, CommitServerTime = attackShadowSnapshot.CommitServerTime,
+                                ActionRevision = attackShadowSnapshot.Revision, Scope = timingScope,
+                                Hits = new AttackSourceOccurrence[unit.HitFrameTimes.Length]
+                            };
+                        if (_committedAttackPhases.TryGetValue(unit.Id, out var phase))
+                        {
+                            long occurrence = (long)System.Math.Floor((attackShadowDueServerTime - phaseEpoch) / unit.AttackCooldown);
+                            phase.Hits[hitIndex] = new AttackSourceOccurrence { HitIndex = hitIndex, Loop = occurrence,
+                                MarkerOffset = hitTime, MarkerServerTime = attackShadowDueServerTime,
+                                ImpactServerTime = attackShadowDueServerTime };
+                        }
+                    }
+                    PistoleerTimingDiagnostics.Register(unit, timingScope, attackShadowSnapshot.Revision, attackShadowToken.Value);
+                    PistoleerTimingDiagnostics.Event(unit, "Schedule", timingScope, GetAuthoritativeServerTime(),
+                        $"commit={PistoleerTimingDiagnostics.Number(attackShadowSnapshot.CommitServerTime)} due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)} nominal={PistoleerTimingDiagnostics.Number(hitTime)} effective={PistoleerTimingDiagnostics.Number(attackShadowSnapshot.Timeline.GetImpactOffset(hitIndex))} overshoot={PistoleerTimingDiagnostics.Number(overshoot)} anchor={PistoleerTimingDiagnostics.Number(_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double timingAnchor) ? timingAnchor : double.NaN)} cooldown={PistoleerTimingDiagnostics.Number(unit.AttackCooldown)}");
                     // Reliable per-hit intent prevents fast Commit -> Impact transitions from being
                     // lost when NGO coalesces the current-state NetworkVariable. This comparison
                     // input cannot change the existing damage coroutine or its authoritative clock.
@@ -1790,6 +1912,10 @@ namespace Hexiege.Infrastructure
             double receiveLocalTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
             double receiveServerTime = NetworkManager.ServerTime.Time;
             int receiveFrame = UnityEngine.Time.frameCount;
+            // 이 RPC 호출 자체의 entry ticket이다. accepted decode 뒤에만 실제 key와
+            // 연결하며 이전/현재 공격 context로 누락된 identity를 추측하지 않는다.
+            ulong clockRpcTicket = UnitAttackShadowObserver.RecordClockRpcEntry(
+                attackerUnitId, receiveLocalTime, receiveServerTime, receiveFrame);
 #endif
             NetworkAttackPresentationBundleStatus status =
                 _attackPresentationBundleClassifier.Classify(attackerUnitId, payload);
@@ -1810,7 +1936,7 @@ namespace Hexiege.Infrastructure
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitAttackShadowObserver.RecordCompletedBundleArrival(results,
                 publishServerTime, publishLocalTime,
-                receiveServerTime, receiveLocalTime, receiveFrame);
+                receiveServerTime, receiveLocalTime, receiveFrame, clockRpcTicket);
             UnitAttackShadowObserver.RecordCompletedBundleBridgeEntry(results,
                 UnityEngine.Time.realtimeSinceStartupAsDouble);
 #endif
@@ -2268,9 +2394,49 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private double GetAuthoritativeServerTime()
         {
+#if UNITY_EDITOR
+            if (_attackPresentationFixtureClock != null) return _attackPresentationFixtureClock();
+#endif
             return NetworkManager != null && NetworkManager.IsListening
                 ? NetworkManager.ServerTime.Time
                 : Time.timeAsDouble;
+        }
+
+#if UNITY_EDITOR
+        private System.Func<double> _attackPresentationFixtureClock;
+#endif
+
+        private void ObservePresentationEpoch(int id, string reason, string action, double epoch)
+        {
+            PistoleerTimingDiagnostics.Event(GetUnitView(id)?.UnitData, "EpochLifetime", default,
+                GetAuthoritativeServerTime(), $"reason={reason} action={action} epoch={unchecked((ulong)System.BitConverter.DoubleToInt64Bits(epoch))} epochTime={PistoleerTimingDiagnostics.Number(epoch)}");
+        }
+
+        private void RemovePresentationEpoch(int id, string reason)
+        {
+            if (_attackPresentationEpochServerTimes.TryGetValue(id, out double epoch))
+                ObservePresentationEpoch(id, reason, "remove", epoch);
+            _attackPresentationEpochServerTimes.Remove(id);
+        }
+
+        private void CloseLogicalPresentationEpoch(int id, string reason)
+        {
+            var view = GetUnitView(id);
+            var network = view != null ? view.GetComponent<NetworkUnit>() : null;
+            network?.CloseLogicalAttackScope();
+            if (network != null && network.TryGetLiveNativeAttackEpoch(out double epoch))
+                ObservePresentationEpoch(id, reason, "keep-native", epoch);
+            else RemovePresentationEpoch(id, reason);
+        }
+
+        private void RetireLogicalCombatPresentation(int id)
+        {
+            _committedAttackPhases.Remove(id);
+            _unitCombatTargets.Remove(id);
+            _combatAnimationSent.Remove(id);
+            _attackPresentationRestartPending.Remove(id);
+            CloseLogicalPresentationEpoch(id, "tick-no-active-target");
+            _completedAttackEntryReceipts.Remove(id);
         }
 
         // ====================================================================
@@ -2339,14 +2505,22 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 힐러(BloomFairy) 힐 시전 시작 이벤트 핸들러(서버 전용).
-        /// 애니메이션 상태만 Attack(=힐 클립)으로 레벨 동기화하여 클라이언트가 힐 모션을 재생하게 한다.
+        /// 힐 전용 회차·시각·active snapshot을 복제한다. 일반 Attack scalar 정책은 유지한다.
         /// 데미지/타겟 RPC는 전송하지 않는다(힐러는 적 공격 흐름과 분리 — 규칙 28 확장).
         /// 회복 자체는 서버 TickTimedEffects가 처리하고 HP는 NetworkHealthSync가 동기화한다.
         /// </summary>
         /// <param name="unitId">힐 시전을 시작한 힐러 유닛의 Id.</param>
-        private void OnUnitHealCastStartedHandler(int unitId)
+        private void OnUnitHealCastStartedHandler(UnitHealCastPresentation state)
         {
-            SetUnitAnimState(unitId, UnitAnimState.Attack);
+            if (!IsSpawned || !IsServer || _combatStopped || _services == null) return;
+            GameObject obj = _services.GetUnitFactory()?.GetUnitObject(state.UnitId);
+            if (obj == null) return;
+            UnitView view = obj.GetComponent<UnitView>();
+            if (view == null || view.Data == null || !view.Data.IsHealer
+                || view.HealPresentation.Lifetime != state.Lifetime) return;
+            state.Priority = _frozenAnimationUnits.Contains(state.UnitId) ? (byte)3
+                : _heldMovementUnits.Contains(state.UnitId) ? (byte)4 : (byte)1;
+            obj.GetComponent<NetworkUnit>()?.PublishHealCast(state);
         }
 
         /// <summary>
@@ -2420,6 +2594,7 @@ namespace Hexiege.Infrastructure
         private void OnGameEndHandler(GameEndEvent e)
         {
             _combatStopped = true;
+            _services?.GetCombatUseCase()?.CloseTorrentLaunches("game-end");
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitMovementAuthorityObserver.MarkGameplayEnded();
 #endif
@@ -2580,6 +2755,7 @@ namespace Hexiege.Infrastructure
             if (e.Unit == null) return;
 
             int unitId = e.Unit.Id;
+            _committedAttackPhases.Remove(unitId);
 
             // 사망한 유닛의 전투 상태를 Dictionary에서 제거.
             // StopCombatClientRpc는 전송하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
@@ -2590,7 +2766,7 @@ namespace Hexiege.Infrastructure
             _combatAnimationSent.Remove(unitId);
             _attackPresentationRestartPending.Remove(unitId);
             _attackPresentationRevisions.Remove(unitId);
-            _attackPresentationEpochServerTimes.Remove(unitId);
+            RemovePresentationEpoch(unitId, "attacker-death");
             _completedAttackEntryReceipts.Remove(unitId);
             ResetAttackAlignmentSample(unitId);
             _frozenAnimationUnits.Remove(unitId);
@@ -2926,7 +3102,26 @@ namespace Hexiege.Infrastructure
             }
 
             ulong presentationRevision = NextAttackPresentationRevision(unitId);
-            if (!TryApplyHostCombatPresentation(
+            var nativeOwner = serverView.GetComponent<NetworkUnit>();
+            bool nativeQualified = nativeOwner != null && serverView.CanUseNativeAttackPhase(serverView.UnitData);
+            bool createdEpoch = false;
+            bool nativeApplied = false;
+            if (nativeQualified)
+            {
+                if (nativeOwner.TryGetLiveNativeAttackEpoch(out double continuousEpoch))
+                    _attackPresentationEpochServerTimes[unitId] = continuousEpoch;
+                else
+                {
+                    RemovePresentationEpoch(unitId, "native-reentry");
+                    _attackPresentationEpochServerTimes[unitId] = GetAuthoritativeServerTime();
+                    createdEpoch = true;
+                }
+                nativeApplied = TryPublishAttackPhase(serverView.UnitData, targetId, targetIsUnit,
+                    presentationRevision, AttackPresentationImpactMode.Suppressed, default, out _);
+                if (!nativeApplied && createdEpoch) RemovePresentationEpoch(unitId, "native-entry-not-applied");
+            }
+            // OLD native order: Host Start before E; retained only on prequalified Legacy.
+            if (nativeQualified ? !nativeApplied : !TryApplyHostCombatPresentation(
                     unitId,
                     targetId,
                     targetIsUnit,
@@ -2950,8 +3145,10 @@ namespace Hexiege.Infrastructure
             _attackPresentationRestartPending.Add(unitId);
             if (!_attackPresentationEpochServerTimes.ContainsKey(unitId))
                 _attackPresentationEpochServerTimes[unitId] = GetAuthoritativeServerTime();
+            ObservePresentationEpoch(unitId, "provisional-success", createdEpoch ? "create" : "keep",
+                _attackPresentationEpochServerTimes[unitId]);
             SetUnitAnimState(unitId, UnitAnimState.Attack);
-            StartCombatClientRpc(
+            if (!nativeQualified) StartCombatClientRpc(
                 unitId,
                 targetId,
                 targetIsUnit,
@@ -2993,6 +3190,32 @@ namespace Hexiege.Infrastructure
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
+        private bool TryPublishAttackPhase(UnitData unit, int targetId, bool targetIsUnit,
+            ulong revision, AttackPresentationImpactMode mode, AttackPresentationScope scope, out bool qualified)
+        {
+            qualified = false;
+            if (unit == null || unit.IsHealer || mode == AttackPresentationImpactMode.LegacyFallback
+                || !_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double epoch)) return false;
+            var owner = _services.GetUnitFactory()?.GetUnitObject(unit.Id);
+            var network = owner != null ? owner.GetComponent<NetworkUnit>() : null;
+            var view = owner != null ? owner.GetComponent<UnitView>() : null;
+            // Decide transport eligibility before replacing StartCombatClientRpc.
+            // A queued payload is not evidence of View application success.
+            if (network == null || view == null || !view.CanUseNativeAttackPhase(unit)) return false;
+            qualified = true;
+            UnitAttackPhasePresentation value;
+            if (mode == AttackPresentationImpactMode.Scoped)
+            {
+                if (!_committedAttackPhases.TryGetValue(unit.Id, out value) || !value.Scope.Equals(scope)) return false;
+            }
+            else value = new UnitAttackPhasePresentation { UnitId = unit.Id, Active = true,
+                EpochServerTime = epoch, EpochId = unchecked((ulong)System.BitConverter.DoubleToInt64Bits(epoch)),
+                Duration = unit.AttackCooldown };
+            value.TargetId = targetId; value.TargetIsUnit = targetIsUnit;
+            value.PresentationRevision = revision; value.Mode = mode;
+            return network.PublishAttackPhase(value);
+        }
+
         [ClientRpc]
         private void StartCombatClientRpc(
             int unitId,

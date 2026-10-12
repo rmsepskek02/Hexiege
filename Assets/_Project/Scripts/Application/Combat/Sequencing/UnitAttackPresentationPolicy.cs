@@ -10,6 +10,58 @@ namespace Hexiege.Application.Combat.Sequencing
     /// </summary>
     public static class UnitAttackPresentationPolicy
     {
+        /// <summary>실제 취소가 아닌 동일 native 재생 수명의 단조 증가 회차 교체만 허용한다.</summary>
+        public static bool CanRetainNativeOccurrence(UnitAttackPhasePresentation oldOwner,
+            UnitAttackPhasePresentation nextOwner, bool sameClip)
+        {
+            return sameClip && oldOwner.Active && nextOwner.Active
+                && oldOwner.Mode == AttackPresentationImpactMode.Scoped
+                && nextOwner.Mode == AttackPresentationImpactMode.Scoped
+                && oldOwner.Scope.IsValid && nextOwner.Scope.IsValid
+                && oldOwner.UnitId == nextOwner.UnitId && oldOwner.Lifetime == nextOwner.Lifetime
+                && oldOwner.EpochId == nextOwner.EpochId && oldOwner.EpochServerTime == nextOwner.EpochServerTime
+                && oldOwner.Duration == nextOwner.Duration && oldOwner.TargetId == nextOwner.TargetId
+                && oldOwner.TargetIsUnit == nextOwner.TargetIsUnit
+                && oldOwner.Scope.AttackerInstanceId.Equals(nextOwner.Scope.AttackerInstanceId)
+                && nextOwner.Scope.SequenceId.Value > oldOwner.Scope.SequenceId.Value
+                && nextOwner.PresentationRevision > oldOwner.PresentationRevision;
+        }
+        // Logical result/scope close is not native playback close. Only these two
+        // transport reasons may keep an epoch; priority, Walk and terminals never do.
+        public static bool KeepsNativeEpoch(string reason, bool terminal)
+            => !terminal && (reason == "logical-combat-stop" || reason == "replicated-stop");
+
+        // dt는 Animator updateMode에 맞는 실제 간격이다. state speed는 호출자가 분리한다.
+        // 지연 보정은 forward-only이며 허용 오차/피해 스케줄을 만들지 않는다.
+        public static double FollowPhaseAdvance(double target, double actual, double dt)
+        {
+            if (!IsFinite(target) || !IsFinite(actual) || !IsFinite(dt) || dt <= 0d) return 0d;
+            return Math.Min(Math.Max(target - actual, 0d), 2d * dt);
+        }
+
+        public static bool IsValidPhasePayload(UnitAttackPhasePresentation value)
+        {
+            if (value.Lifetime == 0 || value.EpochId == 0 || value.PresentationRevision == 0
+                || value.UnitId < 0 || value.TargetId < 0 || !IsFinite(value.EpochServerTime)
+                || !IsFinite(value.Duration) || value.Duration <= 0 || !IsFinite(value.CommitServerTime)
+                || (value.Mode != AttackPresentationImpactMode.Suppressed && value.Mode != AttackPresentationImpactMode.Scoped)) return false;
+            int count = value.Hits?.Length ?? 0;
+            if (value.Mode == AttackPresentationImpactMode.Suppressed) return count == 0 && !value.Scope.IsValid;
+            if (!value.Scope.IsValid || value.ActionRevision == 0 || count < 1 || count > 64) return false;
+            double previous = double.NegativeInfinity;
+            for (int i = 0; i < count; i++)
+            {
+                var hit = value.Hits[i];
+                if (hit.HitIndex != value.Scope.HitIndex + i || hit.Loop < 0 || !IsFinite(hit.MarkerOffset)
+                    || hit.MarkerOffset < 0 || hit.MarkerOffset >= value.Duration
+                    || !IsFinite(hit.MarkerServerTime) || !IsFinite(hit.ImpactServerTime)
+                    || hit.MarkerServerTime < value.CommitServerTime || hit.ImpactServerTime < value.CommitServerTime
+                    || hit.MarkerServerTime <= previous
+                    || hit.Loop != (long)Math.Floor((hit.MarkerServerTime - value.EpochServerTime) / value.Duration)) return false;
+                previous = hit.MarkerServerTime;
+            }
+            return true;
+        }
         /// <summary>
         /// provisional Attack이 시작된 서버 시각을 기준으로 현재 보이는 애니메이션 주기 안에서
         /// gameplay 회차를 시작해도 되는지를 계산한다. 첫 marker가 아직 남아 있으면 이미
@@ -273,6 +325,90 @@ namespace Hexiege.Application.Combat.Sequencing
     /// Animator의 Attack 상태와 별개로 생존하며, 프로필의 유효 HitIndex만 한 번씩
     /// 소비하게 하여 계속 루프하는 Attack 클립이 추가 VFX/SFX를 만들지 못하게 한다.
     /// </summary>
+    // count cursor 앞의 독립 occurrence gate다. 거절은 cursor를 소비하지 않는다.
+    // 이미 지난 source는 next-loop로 이동시키지 않고 terminal skip으로 기록한다.
+    public sealed class AttackSourceOccurrenceLease
+    {
+        private UnitAttackPhasePresentation _value;
+        private ulong _consumed;
+        public bool IsBound { get; private set; }
+        public bool SourceOnly { get; private set; }
+        public int Remaining { get; private set; }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Read-only evidence; never advances the lease or exposes its mutable hits array.
+        public UnitAttackPhasePresentation DiagnosticOwner => new UnitAttackPhasePresentation {
+            Scope = _value.Scope, EpochId = _value.EpochId, Lifetime = _value.Lifetime };
+        public int DiagnosticHitCount => _value.Hits?.Length ?? 0;
+        public bool ReadDiagnosticHit(int index, out AttackSourceOccurrence hit, out bool consumed)
+        {
+            hit = default; consumed = false;
+            if (_value.Hits == null || index < 0 || index >= _value.Hits.Length) return false;
+            hit = _value.Hits[index]; consumed = (_consumed & (1UL << index)) != 0; return true;
+        }
+#endif
+        public void Close() { IsBound = SourceOnly = false; Remaining = 0; _value = default; _consumed = 0; }
+        public void PreserveSourceOnly() { if (IsBound) SourceOnly = true; }
+        public bool Bind(UnitAttackPhasePresentation value, double presentationTime, int baseline, out int skipped)
+        {
+            Close(); skipped = 0;
+            if (!value.Active || !value.Scope.IsValid || value.Hits == null || value.Hits.Length < 1 || value.Hits.Length > 64)
+                return false;
+            _value = value; _value.Hits = (AttackSourceOccurrence[])value.Hits.Clone();
+            for (int i = 0; i < value.Hits.Length; i++)
+            {
+                var hit = value.Hits[i];
+                if (hit.HitIndex != value.Scope.HitIndex + i || hit.Loop < 0
+                    || double.IsNaN(hit.MarkerServerTime) || double.IsInfinity(hit.MarkerServerTime)
+                    || hit.MarkerServerTime < value.CommitServerTime)
+                { Close(); return false; }
+                if (hit.HitIndex <= baseline || hit.MarkerServerTime <= presentationTime)
+                { _consumed |= 1UL << i; skipped++; }
+                else Remaining++;
+            }
+            IsBound = true; return true;
+        }
+        public bool TryConsume(long loop, float nativeMarkerTime, out AttackPresentationScope scope, out string reason)
+        {
+            scope = default; reason = "unbound-occurrence";
+            if (!IsBound) return false;
+            for (int i = 0; i < _value.Hits.Length; i++)
+            {
+                var hit = _value.Hits[i];
+                // Unity event time은 float다. 직렬화된 원본 float와 정확히 비교한다.
+                if (hit.Loop != loop || (float)hit.MarkerOffset != nativeMarkerTime) continue;
+                if ((_consumed & (1UL << i)) != 0) { reason = "duplicate-or-skipped"; return false; }
+                _consumed |= 1UL << i; Remaining--;
+                scope = new AttackPresentationScope(_value.Scope.AttackerInstanceId, _value.Scope.SequenceId, hit.HitIndex);
+                reason = SourceOnly ? "source-only" : "admitted"; return true;
+            }
+            reason = "wrong-absolute-occurrence"; return false;
+        }
+
+        /// <summary>소모 여부와 무관하게 callback의 정확한 occurrence가 이 owner에 속하는지 조회한다.</summary>
+        public bool MatchesOccurrence(long loop, float marker)
+        {
+            if (!IsBound) return false;
+            foreach (var hit in _value.Hits)
+                if (hit.Loop == loop && (float)hit.MarkerOffset == marker) return true;
+            return false;
+        }
+
+        /// <summary>동일 native callback에서 이미 통과한 occurrence만 닫는다. 시계나 TTL을 사용하지 않는다.</summary>
+        public int RetireBeforeOccurrence(long loop, float marker)
+        {
+            int retired = 0;
+            if (!IsBound) return retired;
+            for (int i = 0; i < _value.Hits.Length; i++)
+            {
+                var hit = _value.Hits[i];
+                if ((_consumed & (1UL << i)) != 0 || hit.Loop > loop
+                    || hit.Loop == loop && (float)hit.MarkerOffset >= marker) continue;
+                _consumed |= 1UL << i; Remaining--; retired++;
+            }
+            return retired;
+        }
+    }
+
     public struct AttackPresentationImpactLease
     {
         private AttackerInstanceId _attackerInstanceId;

@@ -115,6 +115,217 @@ namespace Hexiege.Infrastructure
     /// 모든 일반 로그는 상한 뒤 드롭하고 종료용 줄은 별도 예약하여 Android Logcat에서도
     /// BEGIN/manifest/END 증거가 상세 로그에 밀리지 않게 한다.
     /// </summary>
+    /// <summary>
+    /// 숫자만 저장하는 개발 전용 유한 이력이다. 실제 시각 공급/구독은 Observer가 맡고,
+    /// 이 타입은 clock/HP/Coordinator를 조회하거나 변경하지 않아 CLR 대조에도 사용한다.
+    /// </summary>
+    public sealed class ExpiryClockHistory
+    {
+        public const int Capacity = 1024, WindowCapacity = 128, MaximumWindows = 4;
+        public const int MaximumDumpLines = 258, MaximumSessionLines = 1033;
+        public const int MaximumSessionBytes = 1033000;
+        public struct Record
+        {
+            public ulong Generation, Sequence, Ticket, Operation;
+            public int Frame;
+            public uint Flags;
+            public double Local, Ngo;
+            public AttackClockHistorySample Sample;
+        }
+        private Record[] _ring, _frozen;
+        private int[] _counts;
+        private bool[] _unknown;
+        private ulong[] _triggers;
+        private ulong[] _first, _last;
+        private int[] _overwrittenAtFreeze;
+        private bool[] _truncated;
+        private int _write, _count;
+        private ulong _next, _operation, _openOperation, _trigger, _triggerOperation;
+        private bool _endOperation;
+        private bool _outputAttempted;
+        public bool Enabled => _ring != null;
+        public int Count => _count;
+        public int WindowCount { get; private set; }
+        public int Overwritten { get; private set; }
+        public int Suppressed { get; private set; }
+        public bool Saturated { get; private set; }
+        public bool CounterSaturated { get; private set; }
+        public int FormatFailures { get; private set; }
+        public int OutputLines { get; private set; }
+        public int OutputBytes { get; private set; }
+        public ulong Generation { get; private set; }
+        public int DiagnosticFaults { get; private set; }
+
+        /// <summary>비활성은 배열을 만들지 않으며 이전 session의 숫자 참조도 모두 해제한다.</summary>
+        public void Reset(bool enabled)
+        {
+            if (enabled && Generation == ulong.MaxValue) { Reset(false); Saturated = true; return; }
+            if (enabled) Generation++;
+            _ring = enabled ? new Record[Capacity] : null;
+            _frozen = enabled ? new Record[WindowCapacity * MaximumWindows] : null;
+            _counts = enabled ? new int[MaximumWindows] : null;
+            _unknown = enabled ? new bool[MaximumWindows] : null;
+            _triggers = enabled ? new ulong[MaximumWindows] : null;
+            _first = enabled ? new ulong[MaximumWindows] : null;
+            _last = enabled ? new ulong[MaximumWindows] : null;
+            _overwrittenAtFreeze = enabled ? new int[MaximumWindows] : null;
+            _truncated = enabled ? new bool[MaximumWindows] : null;
+            _write = _count = WindowCount = Overwritten = Suppressed = 0;
+            _next = _operation = _openOperation = _trigger = _triggerOperation = 0;
+            _overwrittenBacking = 0;
+            _endOperation = Saturated = CounterSaturated = false;
+            FormatFailures = OutputLines = OutputBytes = 0;
+            DiagnosticFaults = 0;
+            _outputAttempted = false;
+        }
+
+        /// <summary>overflow를 wrap하지 않고 수집만 멈춘다. gameplay 판단에는 관여하지 않는다.</summary>
+        public ulong Add(AttackClockHistorySample sample, double local, double ngo, int frame,
+            ulong ticket = 0, bool associationKnown = false)
+        {
+            if (!Enabled || Saturated) return 0;
+            if (_next == ulong.MaxValue || _operation == ulong.MaxValue)
+            { Saturated = true; return 0; }
+            if (sample.Stage == AttackClockHistoryStage.TickEnter || sample.Stage == AttackClockHistoryStage.EndEnter)
+            {
+                // 빠진 이전 Exit가 있으면 현재 context에 재결합하지 않는다.
+                if (_trigger != 0) Freeze(true);
+                _openOperation = ++_operation;
+                _endOperation = sample.Stage == AttackClockHistoryStage.EndEnter;
+            }
+            var record = new Record { Generation = Generation, Sequence = ++_next, Ticket = ticket,
+                Operation = _openOperation, Frame = frame, Local = local, Ngo = ngo, Sample = sample };
+            record.Flags = (sample.Key.IsValid ? 1U : 0U) | (TimeValid(local) ? 2U : 0U)
+                | (TimeValid(ngo) ? 4U : 0U) | (TimeValid(sample.ArgumentServer) ? 8U : 0U)
+                | (TimeValid(sample.ArgumentLocal) ? 16U : 0U)
+                | (sample.HasAnchor && TimeValid(sample.AnchorServer) && TimeValid(sample.AnchorLocal) ? 32U : 0U)
+                | (TimeValid(sample.CurrentTime) ? 64U : 0U) | (sample.HasAnchor ? 128U : 0U)
+                | (associationKnown ? 0U : 256U)
+                | (TimeValid(sample.Impact) ? 512U : 0U)
+                | (TimeValid(sample.Intended) ? 1024U : 0U)
+                | (TimeValid(sample.Observed) ? 2048U : 0U)
+                // 4096이면 Ngo 필드는 별도 fresh 조회가 아니라 실제 Tick 공급 표본이다.
+                | ((sample.Stage == AttackClockHistoryStage.TickEnter || sample.Stage == AttackClockHistoryStage.TickExit
+                    || sample.Stage == AttackClockHistoryStage.Frame || sample.Stage == AttackClockHistoryStage.Decision)
+                    && TimeValid(sample.ArgumentServer) ? 4096U : 0U);
+            if (_count == Capacity) Increment(ref _overwrittenBacking); else _count++;
+            Overwritten = _overwrittenBacking;
+            _ring[_write] = record; _write = (_write + 1) % Capacity;
+            if (sample.Stage == AttackClockHistoryStage.Decision
+                && sample.Status == (int)AuthoritativePresentationStatus.Expired && _trigger == 0)
+            {
+                _trigger = record.Sequence; _triggerOperation = _openOperation;
+            }
+            if (sample.Stage == AttackClockHistoryStage.TickExit || sample.Stage == AttackClockHistoryStage.EndExit)
+            {
+                if (_trigger != 0) Freeze(_triggerOperation == 0 || _triggerOperation != _openOperation
+                    || _endOperation || sample.Stage != AttackClockHistoryStage.TickExit);
+                _openOperation = 0; _endOperation = false;
+            }
+            return record.Sequence;
+        }
+        private int _overwrittenBacking;
+        private void Increment(ref int counter) { if (counter < int.MaxValue) counter++; else CounterSaturated = true; }
+        private static bool TimeValid(double value) => !double.IsNaN(value) && !double.IsInfinity(value) && value >= 0;
+
+        /// <summary>RPC entry 숫자가 같은 저장소에 실제로 남아 있어야만 key를 연결한다.</summary>
+        public bool HasRpcTicket(ulong ticket, int unit)
+        {
+            if (!Enabled || ticket == 0) return false;
+            for (int i = 0; i < _count; i++)
+            {
+                var row = Read(i);
+                if (row.Sequence == ticket) return row.Sample.Stage == AttackClockHistoryStage.RpcEntry
+                    && row.Sample.UnitId == unit;
+            }
+            return false;
+        }
+
+        /// <summary>EndSession만 호출한다. 정상 Tick 이외 종료에서는 coverage unknown을 강제한다.</summary>
+        public void FinishPending() { if (_trigger != 0) Freeze(true); }
+        private void Freeze(bool unknown)
+        {
+            if (WindowCount >= MaximumWindows) { int n = Suppressed; Increment(ref n); Suppressed = n; }
+            else
+            {
+                int count = Math.Min(_count, WindowCapacity), start = _count - count;
+                for (int i = 0; i < count; i++) _frozen[WindowCount * WindowCapacity + i] = Read(start + i);
+                _counts[WindowCount] = count; _triggers[WindowCount] = _trigger;
+                _first[WindowCount] = count > 0 ? Read(start).Sequence : 0;
+                _last[WindowCount] = count > 0 ? Read(_count - 1).Sequence : 0;
+                _overwrittenAtFreeze[WindowCount] = Overwritten;
+                _truncated[WindowCount] = start > 0 || Overwritten > 0;
+                _unknown[WindowCount] = unknown || count == 0 || _first[WindowCount] > _trigger
+                    || _truncated[WindowCount] || Saturated || DiagnosticFaults > 0
+                    || UnitAttackResultPresentationShadowBridge.ClockHistoryFaults > 0;
+                WindowCount++;
+            }
+            _trigger = _triggerOperation = 0;
+        }
+        private Record Read(int index) => _ring[(_write - _count + index + Capacity) % Capacity];
+        /// <summary>검증은 저장한 값을 읽기만 하고 writer나 순서를 바꾸지 않는다.</summary>
+        public Record ReadForValidation(int index) => Read(index);
+        public bool WindowCoverageUnknown(int window) => _unknown[window];
+        public int WindowRecordCount(int window) => _counts[window];
+        public ulong WindowFirstSequence(int window) => _first[window];
+        public ulong WindowLastSequence(int window) => _last[window];
+        public bool WindowTruncated(int window) => _truncated[window];
+        public int WindowOverwrittenAtFreeze(int window) => _overwrittenAtFreeze[window];
+        /// <summary>진단 예외는 bounded 숫자로만 표시하고 gameplay 예외로 전파하지 않는다.</summary>
+        public void RecordDiagnosticFault() { int n = DiagnosticFaults; Increment(ref n); DiagnosticFaults = n; }
+
+        private static string N(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
+        /// <summary>실제 sink가 사용하는 공통 formatter이며 prefix를 별도로 추정하지 않는다.</summary>
+        public static string FullLine(string data) => GameLog.Compose(
+            Hexiege.Application.LogLevel.Warn, "Network", nameof(UnitAttackShadowObserver), "[UAS-EXPIRY-CLOCK]", data);
+        /// <summary>실제 logger envelope까지 검사하며 초과 문자열을 잘라내지 않는다.</summary>
+        public static bool IsLineSafe(string data) => Encoding.UTF8.GetByteCount(FullLine(data)) < 1000;
+        /// <summary>최악 숫자 폭도 같은 production formatter로 검증할 수 있는 표시다.</summary>
+        public static string FormatRecord(Record row, int part)
+        {
+            var s = row.Sample; var k = s.Key;
+            string head = $"generation={row.Generation}, seq={row.Sequence}, ticket={row.Ticket}, op={row.Operation}, part={part}, frame={row.Frame}, stage={(int)s.Stage}, flags={row.Flags}";
+            return part == 0 ? head + $", unit={s.UnitId}, instance={k.AttackerInstanceId.Value}, sequence={k.SequenceId.Value}, hit={k.HitIndex}, kind={k.VictimKind}, victim={k.VictimId}, effect={k.EffectKind}, ordinal={k.ResultOrdinal}, rev={s.ActionRevision}, local={N(row.Local)}, ngoEstimate={N(row.Ngo)}, argServer={N(s.ArgumentServer)}, argLocal={N(s.ArgumentLocal)}"
+                : head + $", anchorSource={s.AnchorSource}, anchorRev={s.AnchorRevision}, anchorServer={N(s.AnchorServer)}, anchorLocal={N(s.AnchorLocal)}, current={N(s.CurrentTime)}, impact={N(s.Impact)}, intended={N(s.Intended)}, observed={N(s.Observed)}, status={s.Status}";
+        }
+        private string Preflight(string identity, string data)
+        {
+            if (IsLineSafe(identity + data)) return identity + data;
+            int failures = FormatFailures; Increment(ref failures); FormatFailures = failures;
+            string fallback = identity + $"generation={Generation}, formatIncomplete=true, coverageUnknown=true";
+            // identity 자체가 잘못된 경우도 줄을 잘라내거나 다른 run으로 위장하지 않는다.
+            // 실제 identity는 고정 길이 hash/run 값이므로 이 경로는 손상/fixture 입력이다.
+            if (!IsLineSafe(fallback)) { RecordDiagnosticFault(); return null; }
+            return fallback;
+        }
+        private void Emit(Action<string> sink, string identity, string data)
+        {
+            string line = Preflight(identity, data);
+            if (line == null) return;
+            int bytes = Encoding.UTF8.GetByteCount(FullLine(line));
+            if (OutputLines >= MaximumSessionLines || OutputBytes + bytes > MaximumSessionBytes) return;
+            OutputLines++; OutputBytes += bytes;
+            try { sink(line); } catch (Exception) { RecordDiagnosticFault(); }
+        }
+        /// <summary>session 종료 때 한 번만 문자열을 만들고 기존 terminal 예산을 소비하지 않는다.</summary>
+        public void WriteAtEnd(Action<string> sink, string identity)
+        {
+            if (!Enabled || _outputAttempted) return;
+            _outputAttempted = true;
+            FinishPending();
+            bool coverageUnknown = false;
+            for (int w = 0; w < WindowCount; w++)
+            {
+                coverageUnknown |= _unknown[w];
+                Emit(sink, identity, $"generation={Generation}, dump={w}, boundary=begin, trigger={_triggers[w]}, rows={_counts[w]}, first={_first[w]}, last={_last[w]}, windowTruncated={_truncated[w]}, overwrittenAtFreeze={_overwrittenAtFreeze[w]}, coverageUnknown={_unknown[w]}");
+                for (int i = 0; i < _counts[w]; i++)
+                    for (int p = 0; p < 2; p++) Emit(sink, identity, FormatRecord(_frozen[w * WindowCapacity + i], p));
+                Emit(sink, identity, $"generation={Generation}, dump={w}, boundary=end, coverageUnknown={_unknown[w]}");
+            }
+            Emit(sink, identity, $"generation={Generation}, boundary=session-end, windows={WindowCount}, overwritten={Overwritten}, suppressed={Suppressed}, saturated={Saturated}, counterSaturated={CounterSaturated}, formatFailures={FormatFailures}, diagnosticFaults={DiagnosticFaults}, bridgeFaults={UnitAttackResultPresentationShadowBridge.ClockHistoryFaults}, pendingOperation={_openOperation}, coverageUnknown={coverageUnknown || Saturated || CounterSaturated || _openOperation != 0 || Suppressed > 0 || DiagnosticFaults > 0 || UnitAttackResultPresentationShadowBridge.ClockHistoryFaults > 0 || FormatFailures > 0 || Overwritten > 0}, gameplayWrites=0");
+        }
+    }
+
     public static class UnitAttackShadowObserver
     {
         public const string ProductionSchema = "c3-authoritative-result-presentation-shadow-v12";
@@ -326,6 +537,7 @@ namespace Hexiege.Infrastructure
         private const int ExpiryFrameWindow = 128;
         private struct ExpiryArrival
         {
+            public ulong Ticket, TicketGeneration;
             public double PublishServer, PublishLocal, ReceiveServer, ReceiveLocal, BridgeLocal;
             public double ReceiveAnchorServer, ReceiveAnchorLocal;
             public int ReceiveFrame, ReceiveAnchorRevision;
@@ -341,14 +553,98 @@ namespace Hexiege.Infrastructure
         private static int _expiryArrivalRecorded;
         private static int _expiryGapWrite;
         private static double _expiryPreviousFrameTime = double.NaN;
+        private static ExpiryClockHistory _clockHistory;
+        private static int _canonicalFaultDetails;
+
+        // Tick/Frame은 실제 공급 표본을 그대로 복사한다. 그 외 기존 경계만 fresh NGO
+        // 조회를 유지한다. 실제 Tick 관측 때문에 서버 시각을 두 번 조회하지 않는다.
+        private static double ClockEvidenceServer(AttackClockHistorySample sample)
+        {
+            if (sample.Stage == AttackClockHistoryStage.TickEnter || sample.Stage == AttackClockHistoryStage.TickExit
+                || sample.Stage == AttackClockHistoryStage.Frame)
+                return sample.ArgumentServer;
+            if (sample.Stage == AttackClockHistoryStage.Decision
+                && UnitAttackResultPresentationShadowBridge.CanonicalTickInProgress)
+                return UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+            return ReadServerTime();
+        }
+
+        private static void ObserveCanonicalClockFailure(string reason, string detail)
+        {
+            if (!_active || _canonicalFaultDetails >= 16) return;
+            _canonicalFaultDetails++;
+            detail = (detail ?? "").Replace('\r', ' ').Replace('\n', ' ');
+            if (detail.Length > 180) detail = detail.Substring(0, 180);
+            // 재시도 가능한 표현 보류이므로 Warn이다. HP/gameplay 실패와 구분한다.
+            // 상세 16건이 억제되어도 전체 집계는 END까지 유지한다.
+            Log(LogLevel.Warn, "coordinator-clock-hold", $"role={(_isServer ? "host" : "client")}, clockSource=canonical-wave-server, reason={reason}, detail={detail}, pending={UnitAttackResultPresentationShadowBridge.Coordinator.PendingCount}");
+        }
+
+        private static AttackClockHistorySample ClockSample(AttackClockHistoryStage stage)
+        {
+            UnitAttackResultPresentationShadowBridge.ReadClockAnchorDiagnostic(
+                out double server, out double local, out int revision, out string source);
+            return new AttackClockHistorySample { Stage = stage,
+                UnitId = -1, Impact = double.NaN, Intended = double.NaN, Observed = double.NaN,
+                ArgumentServer = double.NaN, ArgumentLocal = double.NaN,
+                AnchorServer = server, AnchorLocal = local, AnchorRevision = revision,
+                HasAnchor = !double.IsNaN(server), AnchorSource = source == "begin-match" ? 1
+                    : source == "result" ? 2 : source == "completed-bundle" ? 3 : 0,
+                CurrentTime = UnitAttackResultPresentationShadowBridge.CurrentServerTime };
+        }
+
+        private static void ObserveClockHistory(AttackClockHistorySample sample)
+        {
+            if (!_active || _isServer || _clockHistory == null) return;
+            if (sample.Stage == AttackClockHistoryStage.Begin)
+                _clockHistory.Reset(UnitAttackResultPresentationShadowBridge.IsActive);
+            if (!_clockHistory.Enabled) return;
+            ulong ticket = 0;
+            bool known = (sample.Stage == AttackClockHistoryStage.BundleBefore
+                || sample.Stage == AttackClockHistoryStage.BundleAfter)
+                && ExpiryArrivals.TryGetValue(sample.Key, out var arrival)
+                && arrival.Ticket != 0 && arrival.TicketGeneration == _clockHistory.Generation;
+            if (known) ticket = ExpiryArrivals[sample.Key].Ticket;
+            _clockHistory.Add(sample, UnityEngine.Time.realtimeSinceStartupAsDouble,
+                ClockEvidenceServer(sample), UnityEngine.Time.frameCount, ticket, known);
+        }
+
+        /// <summary>RPC 가드 뒤 실제 entry 표본에만 ticket을 발급한다. 비활성은 조회도 하지 않는다.</summary>
+        public static ulong RecordClockRpcEntry(int unit, double local, double server, int frame)
+        {
+            if (!_active || _isServer || _clockHistory == null || !_clockHistory.Enabled) return 0;
+            try
+            {
+            var sample = ClockSample(AttackClockHistoryStage.RpcEntry);
+            sample.UnitId = unit; sample.ArgumentLocal = local; sample.ArgumentServer = server;
+            return _clockHistory.Add(sample, UnityEngine.Time.realtimeSinceStartupAsDouble,
+                ReadServerTime(), frame);
+            }
+            catch (Exception) { _clockHistory.RecordDiagnosticFault(); return 0; }
+        }
+
+        private static void WriteClockHistoryLine(string data)
+        {
+            GameLog.Dev.Warn("Network", nameof(UnitAttackShadowObserver), "[UAS-EXPIRY-CLOCK]", data);
+        }
 
         /// <summary>
         /// 매 프레임에는 숫자 두 개만 보관한다. 실패가 발생한 경우에만 최근 구간을
         /// 훑어 수신 이후의 가장 긴 프레임 간격을 찾는다. 로그 문자열은 만들지 않는다.
         /// </summary>
-        public static void RecordPresentationFrame(double localTime)
+        public static void RecordPresentationFrame(double localTime, double canonicalServerTime)
         {
             if (!_active || _isServer || double.IsNaN(localTime) || double.IsInfinity(localTime)) return;
+            if (_clockHistory != null && _clockHistory.Enabled)
+            {
+                try
+                {
+                var sample = ClockSample(AttackClockHistoryStage.Frame);
+                sample.ArgumentServer = canonicalServerTime; sample.ArgumentLocal = localTime;
+                _clockHistory.Add(sample, localTime, canonicalServerTime, UnityEngine.Time.frameCount);
+                }
+                catch (Exception) { _clockHistory.RecordDiagnosticFault(); }
+            }
             if (!double.IsNaN(_expiryPreviousFrameTime) && localTime >= _expiryPreviousFrameTime)
             {
                 ExpiryFrameGaps[_expiryGapWrite] = new ExpiryFrameGap
@@ -360,7 +656,7 @@ namespace Hexiege.Infrastructure
 
         public static void RecordCompletedBundleArrival(AttackResultPresentationInput[] results,
             double publishServer, double publishLocal, double receiveServer,
-            double receiveLocal, int receiveFrame)
+            double receiveLocal, int receiveFrame, ulong rpcTicket = 0)
         {
             if (!_active || _isServer || results == null) return;
             UnitAttackResultPresentationShadowBridge.ReadClockAnchorDiagnostic(
@@ -368,6 +664,24 @@ namespace Hexiege.Infrastructure
                 out int anchorRevision, out string anchorSource);
             foreach (var result in results)
             {
+                bool associationKnown = false;
+                try
+                {
+                associationKnown = result.Key.IsValid && _clockHistory != null
+                    && _clockHistory.HasRpcTicket(rpcTicket, result.AttackerUnitId)
+                    && !ExpiryArrivals.ContainsKey(result.Key);
+                if (_clockHistory != null && _clockHistory.Enabled)
+                {
+                    var sample = ClockSample(AttackClockHistoryStage.AcceptedKey);
+                    sample.Key = result.Key; sample.UnitId = result.AttackerUnitId;
+                    sample.ActionRevision = result.ActionRevision; sample.Impact = result.ImpactServerTime;
+                    sample.ArgumentLocal = receiveLocal; sample.ArgumentServer = receiveServer;
+                    _clockHistory.Add(sample, UnityEngine.Time.realtimeSinceStartupAsDouble,
+                        ReadServerTime(), UnityEngine.Time.frameCount,
+                        associationKnown ? rpcTicket : 0, associationKnown);
+                }
+                }
+                catch (Exception) { _clockHistory?.RecordDiagnosticFault(); associationKnown = false; }
                 if (ExpiryArrivals.ContainsKey(result.Key)) continue;
                 if (ExpiryArrivals.Count >= MaximumExpiryArrivalRecords)
                 {
@@ -376,6 +690,8 @@ namespace Hexiege.Infrastructure
                 }
                 ExpiryArrivals.Add(result.Key, new ExpiryArrival
                 {
+                    Ticket = associationKnown ? rpcTicket : 0,
+                    TicketGeneration = associationKnown ? _clockHistory.Generation : 0,
                     PublishServer = publishServer, PublishLocal = publishLocal,
                     ReceiveServer = receiveServer, ReceiveLocal = receiveLocal,
                     ReceiveFrame = receiveFrame, ReceiveAnchorServer = anchorServer,
@@ -420,9 +736,18 @@ namespace Hexiege.Infrastructure
             _networkManager = networkManager;
             _isServer = isServer;
             _active = networkManager != null && networkManager.IsListening;
+            if (_active)
+                UnitAttackResultPresentationShadowBridge.CanonicalClockFailure += ObserveCanonicalClockFailure;
+            if (_active && !isServer)
+            {
+                _clockHistory = new ExpiryClockHistory();
+                _clockHistory.Reset(UnitAttackResultPresentationShadowBridge.IsActive);
+                UnitAttackResultPresentationShadowBridge.ClockHistory += ObserveClockHistory;
+            }
             _runId = Guid.NewGuid().ToString("N");
             _sessionKey = CreateSharedSessionKey();
             _startedAt = ReadServerTime();
+            PistoleerTimingDiagnostics.Begin(_sessionKey, _runId, isServer, _startedAt);
             UnitAttackResultPresentationShadowBridge.Classified -= ObservePresentationClassification;
             UnitAttackResultPresentationShadowBridge.Classified += ObservePresentationClassification;
             UnitAttackResultPresentationShadowBridge.Coordinator.Decided += ObserveCoordinatorDecision;
@@ -433,6 +758,28 @@ namespace Hexiege.Infrastructure
         private static void ObserveCoordinatorDecision(AuthoritativePresentationDecision decision)
         {
             if (!_active) return;
+            if (_clockHistory != null && _clockHistory.Enabled)
+            {
+                try
+                {
+                var sample = ClockSample(AttackClockHistoryStage.Decision);
+                sample.Key = decision.Result.Key; sample.UnitId = decision.Result.AttackerUnitId;
+                sample.ActionRevision = decision.Result.ActionRevision; sample.Impact = decision.Result.ImpactServerTime;
+                sample.Intended = decision.IntendedServerTime; sample.Observed = decision.ObservedServerTime;
+                sample.Status = (int)decision.Status;
+                if (UnitAttackResultPresentationShadowBridge.CanonicalTickInProgress)
+                    sample.ArgumentServer = UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+                bool known = ExpiryArrivals.TryGetValue(sample.Key, out var receipt) && receipt.Ticket != 0
+                    && receipt.TicketGeneration == _clockHistory.Generation;
+                _clockHistory.Add(sample, UnityEngine.Time.realtimeSinceStartupAsDouble,
+                    ClockEvidenceServer(sample), UnityEngine.Time.frameCount, known ? receipt.Ticket : 0, known);
+                }
+                catch (Exception) { _clockHistory.RecordDiagnosticFault(); }
+            }
+            // Coordinator time may have been re-anchored by an accepted result. It is not
+            // the fresh NetworkUnit phase clock and cannot certify a raw NGO regression.
+            PistoleerTimingDiagnostics.Scoped("Decision", AttackPresentationScope.FromResultKey(decision.Result.Key),
+                UnitAttackResultPresentationShadowBridge.CurrentServerTime, $"status={decision.Status} impact={PistoleerTimingDiagnostics.Number(decision.Result.ImpactServerTime)} delay={PistoleerTimingDiagnostics.Number(AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds)} revision={decision.Result.ActionRevision} victim={decision.Result.Key.VictimId} kind={decision.Result.Key.VictimKind} effect={decision.Result.Key.EffectKind} ordinal={decision.Result.Key.ResultOrdinal}");
             bool hasArrival = ExpiryArrivals.TryGetValue(decision.Result.Key, out ExpiryArrival arrival);
             ExpiryArrivals.Remove(decision.Result.Key);
             if (decision.Status == AuthoritativePresentationStatus.Ready
@@ -487,13 +834,70 @@ namespace Hexiege.Infrastructure
                     $"gapWindowCoversReceive={earliestGapStart <= arrival.ReceiveLocal}, " +
                     $"receiveAnchor={arrival.ReceiveAnchorSource}:{arrival.ReceiveAnchorRevision}:{arrival.ReceiveAnchorServer:F6}:{arrival.ReceiveAnchorLocal:F6}, " +
                     $"decisionAnchor={anchorSource}:{anchorRevision}:{anchorServer:F6}:{anchorLocal:F6}, " +
-                    $"anchorAgeLocal={decisionLocal - anchorLocal:F6}, observedServer={decision.ObservedServerTime:F6}");
+                    $"anchorAgeLocal={decisionLocal - anchorLocal:F6}, observedServer={decision.ObservedServerTime:F6}, clockSource={(UnitAttackResultPresentationShadowBridge.CanonicalTickInProgress ? "canonical-wave-server" : "lifecycle-or-validation")}");
+                // A/B already carry anchors and frame gaps. C adds only missing, same-peer
+                // estimates; it is not an exact network delay or a fresh NGO regression.
+                Log(LogLevel.Warn, "coordinator-expiry-timing-C", keyData + ", " +
+                    FormatExpiryEstimateDiagnostic(hasArrival
+                        && !string.IsNullOrEmpty(arrival.ReceiveAnchorSource)
+                        && arrival.ReceiveAnchorSource != "unavailable",
+                        arrival.BridgeLocal, decisionLocal, arrival.ReceiveAnchorServer,
+                        arrival.ReceiveAnchorLocal, decision.ObservedServerTime));
+                // RPC 수신과 Tick은 NGO 시간 갱신의 서로 다른 쪽일 수 있다.
+                // 이미 기록한 값만 비교한다. 새 시각 조회나 만료 정책 변경은 없다.
+                Log(LogLevel.Warn, "coordinator-expiry-timing-D", keyData + ", " +
+                    FormatExpiryPhaseClockDiagnostic(hasArrival ? arrival.ReceiveServer : double.NaN, arrival.ReceiveLocal,
+                        arrival.ReceiveFrame, decision.ObservedServerTime, decisionLocal, UnityEngine.Time.frameCount,
+                        UnitAttackResultPresentationShadowBridge.CanonicalTickInProgress));
             }
             Log(LogLevel.Warn, "coordinator-failure",
                 $"coordinatorSchema=c3-coordinator-comparison-v1, status={decision.Status}, " +
                 $"instance={key.AttackerInstanceId.Value}, sequence={key.SequenceId.Value}, hit={key.HitIndex}, " +
                 $"victimKind={key.VictimKind}, victimId={key.VictimId}, resultOrdinal={key.ResultOrdinal}, " +
                 $"intended={decision.IntendedServerTime:F6}, observed={decision.ObservedServerTime:F6}");
+        }
+
+        public static string FormatExpiryPhaseClockDiagnostic(double receiveServer, double receiveLocal,
+            int receiveFrame, double decisionServer, double decisionLocal, int decisionFrame,
+            bool canonicalTick = false)
+        {
+            // lifecycle/검증 결정의 observed 값은 fresh canonical Tick 표본이 아니다.
+            // 호출자가 실제 Tick 경계를 확인한 경우에만 두 표본의 차이를 근거로 낸다.
+            bool known = canonicalTick && receiveFrame >= 0 && decisionFrame >= receiveFrame
+                && receiveServer >= 0 && receiveLocal >= 0 && decisionServer >= 0
+                && decisionLocal >= receiveLocal && !double.IsInfinity(receiveServer)
+                && !double.IsInfinity(receiveLocal) && !double.IsInfinity(decisionServer)
+                && !double.IsInfinity(decisionLocal);
+            double serverAdvance = decisionServer - receiveServer;
+            double localAdvance = decisionLocal - receiveLocal;
+            double residual = serverAdvance - localAdvance;
+            known &= !double.IsNaN(residual) && !double.IsInfinity(residual);
+            return "receiveClockDomain=rpc-entry-sample, decisionClockDomain="
+                + (canonicalTick ? "canonical-decision-sample" : "lifecycle-or-validation")
+                + ", phaseBoundary=" + (canonicalTick ? "ngo-time-update-possible" : "unproven")
+                + ", frameOrderKnown=" + (receiveFrame >= 0 && decisionFrame >= receiveFrame)
+                + ", sameFrame=" + (receiveFrame >= 0 && receiveFrame == decisionFrame)
+                + ", sampleDeltaKnown=" + known
+                + ", serverAdvance=" + (known ? serverAdvance.ToString("G17", CultureInfo.InvariantCulture) : "unknown")
+                + ", localAdvance=" + (known ? localAdvance.ToString("G17", CultureInfo.InvariantCulture) : "unknown")
+                + ", sampleAdvanceResidual=" + (known ? residual.ToString("G17", CultureInfo.InvariantCulture) : "unknown")
+                + ", networkLateness=unproven";
+        }
+
+        public static string FormatExpiryEstimateDiagnostic(bool anchorAvailable, double bridgeLocal,
+            double decisionLocal, double receiveAnchorServer, double receiveAnchorLocal, double observedServer)
+        {
+            bool known = anchorAvailable && !double.IsNaN(receiveAnchorServer) && !double.IsInfinity(receiveAnchorServer)
+                && !double.IsNaN(receiveAnchorLocal) && !double.IsInfinity(receiveAnchorLocal)
+                && !double.IsNaN(decisionLocal) && !double.IsInfinity(decisionLocal)
+                && !double.IsNaN(observedServer) && !double.IsInfinity(observedServer)
+                && receiveAnchorLocal >= 0 && decisionLocal >= receiveAnchorLocal;
+            double advance = decisionLocal - receiveAnchorLocal;
+            bool bridgeKnown = bridgeLocal > 0 && bridgeLocal <= decisionLocal && !double.IsInfinity(bridgeLocal);
+            return "estimateDomain=receive-anchor-local-extrapolation, estimateKnown=" + known
+                + ", bridgeToDecisionLocal=" + (bridgeKnown ? (decisionLocal - bridgeLocal).ToString("G17", CultureInfo.InvariantCulture) : "unknown")
+                + ", receiveAnchorAdvanceEstimate=" + (known ? advance.ToString("G17", CultureInfo.InvariantCulture) : "unknown")
+                + ", anchoredJumpEstimate=" + (known ? (observedServer - (receiveAnchorServer + advance)).ToString("G17", CultureInfo.InvariantCulture) : "unknown");
         }
 
         internal static void RecordCombatContractLatched()
@@ -2772,9 +3176,20 @@ namespace Hexiege.Infrastructure
                 $"delta={delta:F3}, flipped={viewFlipped}");
         }
 
+        private static string BuildCanonicalClockTerminalData()
+            => $"role={(_isServer ? "host" : "client")}, clockSource=canonical-wave-server, ticks={UnitAttackResultPresentationShadowBridge.CanonicalTickCount}, invalid={UnitAttackResultPresentationShadowBridge.CanonicalClockInvalid}, providerFaults={UnitAttackResultPresentationShadowBridge.CanonicalClockFaults}, " +
+                $"anchorDeltaSamples={UnitAttackResultPresentationShadowBridge.CanonicalAnchorDeltaSamples}, anchorMinusCanonicalMin={UnitAttackResultPresentationShadowBridge.CanonicalAnchorDeltaMin.ToString("G17", CultureInfo.InvariantCulture)}, anchorMinusCanonicalMax={UnitAttackResultPresentationShadowBridge.CanonicalAnchorDeltaMax.ToString("G17", CultureInfo.InvariantCulture)}, " +
+                $"faultDetails={_canonicalFaultDetails}, suppressed={Math.Max(0, UnitAttackResultPresentationShadowBridge.CanonicalClockInvalid - _canonicalFaultDetails)}, coverageUnknown={UnitAttackResultPresentationShadowBridge.CanonicalClockInvalid > 0}, historySuppliedCanonicalFlag=4096";
+
         internal static void EndSession(string reason)
         {
             if (!_active) return;
+            LogTerminal(LogLevel.Info, "coordinator-clock-END", BuildCanonicalClockTerminalData());
+            try { _clockHistory?.WriteAtEnd(WriteClockHistoryLine,
+                $"runId={_runId}, sharedSessionKey={_sessionKey}, startedAt={_startedAt:F6}, ");
+            }
+            catch (Exception) { _clockHistory?.RecordDiagnosticFault(); }
+            PistoleerTimingDiagnostics.End(ReadServerTime(), reason);
             if (!_isServer)
                 Log(LogLevel.Info, "expiry-diagnostic-summary",
                     $"role=client, recorded={_expiryArrivalRecorded}, overflow={_expiryArrivalOverflow}, " +
@@ -2865,6 +3280,11 @@ namespace Hexiege.Infrastructure
                 "END",
                 data);
             _active = false;
+            UnitAttackResultPresentationShadowBridge.ClockHistory -= ObserveClockHistory;
+            UnitAttackResultPresentationShadowBridge.CanonicalClockFailure -= ObserveCanonicalClockFailure;
+            UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= ObserveCoordinatorDecision;
+            _clockHistory?.Reset(false);
+            _clockHistory = null;
         }
 
         internal static string ValidateTerminalPreflightForValidation()
@@ -3587,6 +4007,11 @@ namespace Hexiege.Infrastructure
 
         private static void Reset()
         {
+            UnitAttackResultPresentationShadowBridge.ClockHistory -= ObserveClockHistory;
+            UnitAttackResultPresentationShadowBridge.CanonicalClockFailure -= ObserveCanonicalClockFailure;
+            _canonicalFaultDetails = 0;
+            _clockHistory?.Reset(false);
+            _clockHistory = null;
             UnitAttackResultPresentationShadowBridge.Coordinator.Decided -= ObserveCoordinatorDecision;
             _coordinatorFailureDetails = 0;
             ExpiryArrivals.Clear();

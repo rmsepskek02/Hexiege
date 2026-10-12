@@ -564,7 +564,8 @@ namespace Hexiege.Application
             UnitData unit,
             Vector3 unitWorldPosDomain,
             HexCoord finalTarget,
-            out HexCoord rejoinTile)
+            out HexCoord rejoinTile,
+            IReadOnlyList<HexCoord> authoritativeRoute = null)
         {
             rejoinTile = default;
             if (unit == null || !unit.IsAlive || _grid == null || _mapper == null)
@@ -589,6 +590,25 @@ namespace Hexiege.Application
                     return true;
                 }
                 return false;
+            }
+
+            // 기존 A*의 전방 hop은 목표 거리가 동률이어도 유효한 우회다.
+            // 여기서는 중심 후보만 제공하며 실제 이동은 기존 corridor writer가 검증한다.
+            if (authoritativeRoute != null && nearestTile == unit.Position)
+            {
+                for (int index = 0; index + 1 < authoritativeRoute.Count; index++)
+                {
+                    if (authoritativeRoute[index] != unit.Position) continue;
+                    HexCoord next = authoritativeRoute[index + 1];
+                    HexTile nextTile = _grid.GetTile(next);
+                    if (HexCoord.Distance(unit.Position, next) == 1
+                        && nextTile != null && nextTile.IsWalkable)
+                    {
+                        rejoinTile = next;
+                        return true;
+                    }
+                    break;
+                }
             }
 
             int currentDistanceToGoal = HexCoord.Distance(nearestTile, finalTarget);

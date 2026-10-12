@@ -23,7 +23,7 @@ namespace Hexiege.Application
     /// NetworkManager에 직접 의존하지 않고 NetworkContext 정적 홀더를 통해
     /// 멀티플레이 서버 전용 분기를 처리 (Application → Infrastructure 역방향 의존 방지).
     /// </summary>
-    public class UnitCombatUseCase
+    public partial class UnitCombatUseCase
     {
         // 근접 유닛(AttackRange < 1.0) 전용 판정 거리 상수.
         // 유닛 타겟: 두 유닛 메시가 시각적으로 닿아 보이는 최소 거리.
@@ -539,6 +539,12 @@ namespace Hexiege.Application
             int targetId = target.Id;
             bool targetIsUnit = target is UnitData;
 
+            // 싱글도 표시 시작/cooldown 전에 실제 파도 예약을 확보한다.
+            bool torrentReserved = attacker.Type == UnitType.TorrentSpirit;
+            if (torrentReserved && !TryReserveTorrentLaunch(
+                    attacker, targetId, targetIsUnit, Time.timeAsDouble, 0d))
+                return null;
+
             // --- 싱글플레이 전투 상태 변화 감지 및 이벤트 발행 ---
             // 멀티플레이에서는 NetworkCombatController가 _unitCombatTargets Dictionary와
             // StartCombat/ChangeTarget/StopCombat ClientRpc로 이 역할을 수행.
@@ -571,7 +577,12 @@ namespace Hexiege.Application
             // HitFrameTimes가 null이거나 비어 있으면 안전망으로 즉시 1회 데미지를 적용한다
             // (Inspector 미설정 대비).
             float[] hitTimes = attacker.HitFrameTimes;
-            if (hitTimes == null || hitTimes.Length == 0)
+            if (torrentReserved)
+            {
+                // Torrent는 공통 예약 owner가 실제 wave를 발사한다.
+                // 일반 solo PendingHit의 타겟 생존 gate는 유지한다.
+            }
+            else if (hitTimes == null || hitTimes.Length == 0)
             {
                 // 기존 동작 유지(즉시 1회 데미지)
                 ExecuteAttack(attacker, target);
@@ -1527,6 +1538,20 @@ namespace Hexiege.Application
             bool updateLegacyDomainFacing = true,
             AttackResultKey presentationResultKey = default)
         {
+            AttackEffectPresentation mushroomVisual = default;
+            AttackEffectPresentation damageOrigin = default;
+            int visualHpBefore = target.Hp;
+            if (attacker.Type == UnitType.MushroomBomber || attacker.Type == UnitType.InfernoSpirit)
+            {
+                try
+                {
+                    damageOrigin = _attackEffects.Create(attacker, target, AttackEffectVisual.MushroomImpact,
+                        default, ResolveWorldPosition(attacker), ResolveWorldPosition(target), WaveServerTime);
+                    damageOrigin.ResultKey = presentationResultKey;
+                    if (attacker.Type == UnitType.MushroomBomber) mushroomVisual = damageOrigin;
+                }
+                catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactSnapshot:" + ex.Message); }
+            }
             // 공격 방향의 권위 원본은 서버 Simulation Root다. 피해 시점에 타일 좌표 기반
             // 6방향 Facing을 다시 쓰면 연속 Root 방향과 별도 writer가 생긴다. 특수 공격의
             // 전방 판정은 아래 handler가 공격자→주 타겟 월드 벡터를 직접 사용하므로 유지된다.
@@ -1569,9 +1594,16 @@ namespace Hexiege.Application
                     ApplyDamageToVictim, ResolveWorldPosition, SpawnWave,
                     _sweepReach, _sweepArcHalfAngle,
                     _waveWidth, _waveLength, _waveTravelTime, _waveHeal,
-                    ApplyBlastDot, _blastRadius, ApplyInfernoDot,
+                    (source, victim) => ApplyDamageOverTime(source, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval, TimedDamageVisual.Poison, damageOrigin), _blastRadius,
+                    (source, victim) => ApplyDamageOverTime(source, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval, TimedDamageVisual.Burn, damageOrigin),
                     _buildingPlacement.Buildings, _quakeRadius, ApplyQuakeSplash);
                 special.Apply(ctx);
+            }
+            if (mushroomVisual.IsValid)
+            {
+                mushroomVisual.AppliedDamage = Mathf.Max(0, visualHpBefore - target.Hp); mushroomVisual.ResultHp = target.Hp;
+                try { AttackEffectIdentity.Record("ServerConfirm", mushroomVisual, now: mushroomVisual.ImpactTime); GameEvents.OnAttackEffectConfirmed.OnNext(mushroomVisual); }
+                catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactPublish:" + ex.Message); }
             }
         }
 
@@ -1678,7 +1710,8 @@ namespace Hexiege.Application
             UnitData attacker,
             IDamageable target,
             bool immediatePresentation,
-            AttackResultKey presentationResultKey)
+            AttackResultKey presentationResultKey,
+            ActiveWave presentationWave = null)
         {
             if (attacker == null || target == null) return;
 
@@ -1687,7 +1720,17 @@ namespace Hexiege.Application
             // [Phase 2] raw = 공격자 팀 공격 연구가 반영된 "유효 공격력"(직격 대상).
             //   이후 ComputeFinalDamage가 ① Tank/CannonCart 건물 2배, ② 피격 대상 팀 방어 감쇄를 적용한다.
             //   연구 미적용(Lv0)이면 EffectiveAttack=기본 공격력 → 기존과 정확히 동일(하위호환).
-            target.TakeDamage(ComputeFinalDamage(attacker, target, EffectiveAttack(attacker)));
+            int rawDamage = EffectiveAttack(attacker);
+            int finalDamage = ComputeFinalDamage(attacker, target, rawDamage);
+            PistoleerTimingDiagnostics.Event(attacker, "WriterBefore", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
+                $"hp={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
+            target.TakeDamage(finalDamage);
+            PistoleerTimingDiagnostics.Event(attacker, "WriterAfter", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
+                $"hp={target.Hp} before={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (presentationWave != null)
+                WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, rawDamage, finalDamage, false, "writer-applied");
+#endif
 
             Vector3 impactWorld = ResolveWorldPosition(target);
             bool hasImpactPosition = WorldPointXZ.TryCreate(
@@ -1707,7 +1750,15 @@ namespace Hexiege.Application
                 new EntityDamagedEvent(target, target.Hp, targetIsUnit,
                     attackerId: attacker.Id, attackerIsUnit: true,
                     immediatePresentation: immediatePresentation,
-                    presentationResultKey: presentationResultKey));
+                    presentationResultKey: presentationResultKey,
+                    wavePresentationKey: presentationWave != null ? presentationWave.Key : default));
+
+            // 사망/게임 종료 이벤트 전에 확정 스냅샷을 발행한다. 사라진 View를 재조회하지 않는다.
+            if (presentationWave != null)
+            {
+                WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, rawDamage, finalDamage, false, "writer-event-after");
+                PublishWaveContact(presentationWave, target, impactWorld, hpBefore, target.Hp, false);
+            }
 
             // 타겟 사망 처리
             if (!target.IsAlive)
@@ -1768,12 +1819,28 @@ namespace Hexiege.Application
         /// 부유 힐 텍스트를 띄울지 여부. 기본 true(즉발/파도 힐은 종전대로 텍스트 표시).
         /// HoT(지속 회복) 틱은 false로 호출하여 매 틱 텍스트가 뜨는 것을 막는다(HP 적용/동기화는 그대로 진행).
         /// </summary>
-        private void ApplyHealToUnit(UnitData healer, UnitData target, int amount, bool showText = true)
+        private void ApplyHealToUnit(UnitData healer, UnitData target, int amount, bool showText = true,
+            ActiveWave presentationWave = null)
         {
-            if (target == null || amount <= 0) return;
-            if (!target.IsAlive) return; // 죽은 유닛은 회복 대상 아님(Heal 내부에서도 재확인).
+            if (target == null || amount <= 0)
+            {
+                if (presentationWave != null) WaveWriterDiagnostic(presentationWave, target, target != null ? target.Hp : -1,
+                    target != null ? target.Hp : -1, amount, amount, true, "writer-skipped");
+                return;
+            }
+            if (!target.IsAlive)
+            {
+                if (presentationWave != null) WaveWriterDiagnostic(presentationWave, target, target.Hp, target.Hp,
+                    amount, amount, true, "writer-skipped");
+                return;
+            }
 
+            int hpBefore = target.Hp;
             target.Heal(amount);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (presentationWave != null)
+                WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, amount, amount, true, "writer-applied");
+#endif
 
             int healerId = healer != null ? healer.Id : -1;
             // showText=false여도 이벤트는 발행한다 — NetworkHealthSync가 이 이벤트로 HP를 클라에 동기화하기 때문.
@@ -1781,7 +1848,13 @@ namespace Hexiege.Application
             GameEvents.OnEntityHealed.OnNext(
                 new EntityHealedEvent(target, target.Hp, isUnit: true,
                     healerId: healerId, healerIsUnit: true,
-                    showText: showText));
+                    showText: showText,
+                    wavePresentationKey: presentationWave != null ? presentationWave.Key : default));
+            if (presentationWave != null)
+            {
+                WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, amount, amount, true, "writer-event-after");
+                PublishWaveContact(presentationWave, target, ResolveWorldPosition(target), hpBefore, target.Hp, true);
+            }
         }
 
         // ====================================================================
@@ -1811,6 +1884,8 @@ namespace Hexiege.Application
         /// 채워지고 TickTimedEffects()가 소비한다. 파도(_activeWaves)와 동일한 소유 패턴.
         /// </summary>
         private readonly List<ActiveTimedEffect> _activeTimedEffects = new List<ActiveTimedEffect>(8);
+        // This channel owns only presentation identity. The existing list remains the sole HP writer.
+        public BloomHealEffectChannel BloomHealEffects { get; } = new BloomHealEffectChannel();
 
         /// <summary>
         /// BloomFairy 힐 시전 진입점. 상태머신(UnitView.EnterHealLoopV3)이 힐 타격 타이밍에 호출한다.
@@ -1821,11 +1896,14 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="healer">힐을 시전한 힐러 유닛(연출/이벤트에 healerId로 실림).</param>
         /// <param name="targetId">회복 대상 아군 유닛의 Id.</param>
-        public void CastHeal(UnitData healer, int targetId)
+        public void CastHeal(UnitData healer, int targetId, UnitHealCastPresentation diagnostic = default)
         {
             if (healer == null) return;
-            if (!_unitSpawn.Units.TryGetValue(targetId, out UnitData target)) return;
-            if (target == null || !target.IsAlive) return;
+            if (!_unitSpawn.Units.TryGetValue(targetId, out UnitData target) || target == null || !target.IsAlive)
+            {
+                UnitHealCastDiagnostics.Event("CastOutcome", diagnostic, "Outcome=TargetUnavailable");
+                return;
+            }
 
             // [이슈 3 수정 — 2026-07-18] 캐스트 대기(HitFrameTimes ≒ 1초) 사이에 대상이 이미
             //   풀피가 됐다면 HoT를 부여하지 않고 조용히 반환한다.
@@ -1836,7 +1914,11 @@ namespace Hexiege.Application
             //     (데이터가 깨지지는 않지만 힐이 헛돌게 된다.) 여기서 미리 걸러 두면 상태머신이
             //     다음 재탐색에서 실제로 부상당한 다른 아군을 고르게 된다.
             //   (대상 사망/제거 시 무시하는 기존 동작은 위 IsAlive 가드가 그대로 담당한다.)
-            if (target.Hp >= target.MaxHp) return;
+            if (target.Hp >= target.MaxHp)
+            {
+                UnitHealCastDiagnostics.Event("CastOutcome", diagnostic, "Outcome=FullHP");
+                return;
+            }
 
             // [Phase 2] BloomFairy 힐량은 초월 "식물" 그룹의 공격력 트랙 레벨을 따라 스케일한다(규칙 6).
             //   BloomFairy는 순수 힐러(AttackPower 없음)라 AttackPower 경로가 없으므로, 그룹 공격 레벨을 직접 조회한다.
@@ -1845,7 +1927,12 @@ namespace Hexiege.Application
                 ? _upgrade.ScaleByGroupAttack(healer.Team, UpgradeGroup.TransPlant, _bloomHealAmount)
                 : _bloomHealAmount;
 
-            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, healAmount, _bloomHealDuration);
+            // 진단 key만 기존 upsert에 붙인다. 총량·지속·diff 틱·HP writer는 동일하다.
+            AddOrRefreshTimedEffect(healer, target, TimedEffectKind.Heal, healAmount,
+                _bloomHealDuration, tickInterval: 0f, tickAmount: 0, diagnostic: diagnostic,
+                bloomProvenance: healer.Type == UnitType.BloomFairy);
+            UnitHealCastDiagnostics.Event("CastOutcome", diagnostic,
+                $"Outcome=Applied, Total={healAmount}, Duration={_bloomHealDuration}, HP={target.Hp}");
         }
 
         /// <summary>
@@ -1888,7 +1975,8 @@ namespace Hexiege.Application
         /// <param name="duration">지속시간(초, 양수).</param>
         /// <param name="tickInterval">틱 간격(초, 양수). 이 간격마다 한 번씩 피해가 들어간다.</param>
         public void ApplyDamageOverTime(UnitData source, UnitData target,
-            float perSecond, float duration, float tickInterval)
+            float perSecond, float duration, float tickInterval,
+            TimedDamageVisual visual = TimedDamageVisual.None, AttackEffectPresentation origin = default)
         {
             if (target == null || !target.IsAlive) return;
             if (perSecond <= 0f || duration <= 0f) return;
@@ -1904,7 +1992,7 @@ namespace Hexiege.Application
             int tickAmount = Mathf.Max(1, Mathf.CeilToInt(perSecond * interval));
 
             AddOrRefreshTimedEffect(source, target, TimedEffectKind.Damage, totalAmount, duration,
-                tickInterval: interval, tickAmount: tickAmount);
+                tickInterval: interval, tickAmount: tickAmount, damageVisual: visual, damageOrigin: origin);
         }
 
         /// <summary>
@@ -1916,7 +2004,7 @@ namespace Hexiege.Application
         /// <param name="victim">DoT를 받을 적 유닛.</param>
         private void ApplyBlastDot(UnitData attacker, UnitData victim)
         {
-            ApplyDamageOverTime(attacker, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval);
+            ApplyDamageOverTime(attacker, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval, TimedDamageVisual.Poison);
         }
 
         /// <summary>
@@ -1930,7 +2018,7 @@ namespace Hexiege.Application
         /// <param name="victim">DoT를 받을 적 유닛(주 타깃).</param>
         private void ApplyInfernoDot(UnitData attacker, UnitData victim)
         {
-            ApplyDamageOverTime(attacker, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval);
+            ApplyDamageOverTime(attacker, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval, TimedDamageVisual.Burn);
         }
 
         /// <summary>
@@ -2267,12 +2355,19 @@ namespace Hexiege.Application
         /// <param name="tickInterval">틱 간격(초). 0 이하면 연속(프레임 diff) 모드, 양수면 discrete 틱 모드.</param>
         /// <param name="tickAmount">discrete 틱 모드에서 틱당 적용량(올림값). 연속 모드에서는 0.</param>
         private void AddOrRefreshTimedEffect(UnitData source, UnitData target,
-            TimedEffectKind kind, int totalAmount, float duration, float tickInterval, int tickAmount)
+            TimedEffectKind kind, int totalAmount, float duration, float tickInterval, int tickAmount,
+            UnitHealCastPresentation diagnostic = default, bool bloomProvenance = false,
+            TimedDamageVisual damageVisual = TimedDamageVisual.None, AttackEffectPresentation damageOrigin = default)
         {
             if (target == null || !target.IsAlive) return;
             if (totalAmount <= 0) return;
 
             int sourceId = source != null ? source.Id : -1;
+
+            // 연속 Heal은 등록 전 global 틱 시간을 받지 않는다. 등록/재부여가 같은
+            // scaled clock 표본을 소유하므로 싱글 일시정지 중에는 진행하지 않는다.
+            double registeredLocal = kind == TimedEffectKind.Heal
+                ? UnityEngine.Time.timeAsDouble : 0d;
 
             // 같은 대상 + 같은 종류 효과가 이미 있으면 리셋(중첩 방지).
             for (int i = 0; i < _activeTimedEffects.Count; i++)
@@ -2280,6 +2375,15 @@ namespace Hexiege.Application
                 ActiveTimedEffect e = _activeTimedEffects[i];
                 if (e.TargetId == target.Id && e.Kind == kind)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitHealCastDiagnostics.Event("HoTResult", e.HealDiagnostic,
+                        $"Outcome=Superseded, Elapsed={e.Elapsed:G9}, Duration={e.Duration:G9}, ActualHealed={e.ActualHealed}, HP={target.Hp}, FirstAttempt={e.HealProbeFirstAttempt}, FirstPositive={e.HealProbeFirstGain}");
+                    e.HealDiagnostic = diagnostic;
+                    e.HealProbeFirstAttempt = false;
+                    e.HealProbeFirstGain = false;
+                    // 기존: e.HealProbeRegisteredLocal = UnityEngine.Time.timeAsDouble;
+                    e.HealProbeRegisteredLocal = registeredLocal;
+#endif
                     e.SourceId = sourceId;
                     e.TotalAmount = totalAmount;
                     e.Duration = duration;
@@ -2289,6 +2393,11 @@ namespace Hexiege.Application
                     e.TickInterval = tickInterval;
                     e.TickAmount = tickAmount;
                     e.TickAccumulator = 0f;
+                    e.HealRegisteredAt = registeredLocal;
+                    e.HealDeadline = registeredLocal + duration;
+                    e.HealLastClock = registeredLocal;
+                    ObserveBloomUpsert(e, target, bloomProvenance);
+                    ObserveDamageUpsert(e, target, damageVisual, damageOrigin);
                     return;
                 }
             }
@@ -2306,12 +2415,71 @@ namespace Hexiege.Application
                 ActualHealed = 0,
                 TickInterval = tickInterval,
                 TickAmount = tickAmount,
-                TickAccumulator = 0f
+                TickAccumulator = 0f,
+                HealRegisteredAt = registeredLocal,
+                HealDeadline = registeredLocal + duration,
+                HealLastClock = registeredLocal
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                , HealDiagnostic = diagnostic,
+                // 기존: HealProbeRegisteredLocal = UnityEngine.Time.timeAsDouble
+                HealProbeRegisteredLocal = registeredLocal
+#endif
             });
+            ObserveBloomUpsert(_activeTimedEffects[_activeTimedEffects.Count - 1], target, bloomProvenance);
+            ObserveDamageUpsert(_activeTimedEffects[_activeTimedEffects.Count - 1], target, damageVisual, damageOrigin);
+        }
+
+        public TimedDamageEffectChannel TimedDamageEffects { get; } = new TimedDamageEffectChannel();
+        private readonly AttackEffectIdentity _attackEffects = new AttackEffectIdentity();
+        private void ObserveDamageUpsert(ActiveTimedEffect effect, UnitData target, TimedDamageVisual visual, AttackEffectPresentation origin)
+        {
+            if (effect.Kind != TimedEffectKind.Damage) return;
+            try
+            {
+                if (effect.DamageTarget != null && !ReferenceEquals(effect.DamageTarget, target))
+                {
+                    TimedDamageEffects.Stop(ref effect.DamageState, effect.DamageTarget, "LifetimeReplaced");
+                    TimedDamageEffects.CloseAttachment(effect.DamageTarget, "LifetimeReplaced");
+                }
+                effect.DamageTarget = target;
+                effect.DamageState = TimedDamageEffects.Upsert(target, effect.SourceId, visual, effect.Duration, origin);
+            }
+            catch (System.Exception ex) { TimedDamageEffects.Record("Fault", effect.DamageState, ex.GetType().Name + ": " + ex.Message); }
+        }
+        private void ObserveDamageStop(ActiveTimedEffect effect, string reason)
+        {
+            try { TimedDamageEffects.Stop(ref effect.DamageState, effect.DamageTarget, reason); effect.DamageTarget = null; }
+            catch (System.Exception ex) { TimedDamageEffects.Record("Fault", effect.DamageState, ex.GetType().Name + ": " + ex.Message); }
+        }
+
+        private void ObserveBloomUpsert(ActiveTimedEffect effect, UnitData target, bool bloom)
+        {
+            try
+            {
+                if (effect.BloomState.Active && (!bloom || !ReferenceEquals(effect.BloomTarget, target)))
+                    BloomHealEffects.Stop(ref effect.BloomState, effect.BloomTarget,
+                        bloom ? BloomHealStopReason.TargetLifetimeChanged : BloomHealStopReason.NonBloomOverwrite);
+                if (!bloom) return;
+                if (effect.BloomState.Active) BloomHealEffects.Refresh(ref effect.BloomState, target);
+                else { effect.BloomTarget = target; effect.BloomState = BloomHealEffects.Grant(target); }
+            }
+            catch (System.Exception e) { BloomHealEffectChannel.Fault(e, "HoTUpsert"); }
+        }
+        private void ObserveBloomStop(ActiveTimedEffect effect, BloomHealStopReason reason)
+        {
+            try
+            {
+                BloomHealEffects.Stop(ref effect.BloomState, effect.BloomTarget, reason);
+                if (reason == BloomHealStopReason.TargetUnavailable || reason == BloomHealStopReason.TargetDead
+                    || reason == BloomHealStopReason.TargetLifetimeChanged)
+                    BloomHealEffects.CloseAttachment(effect.BloomTarget, reason.ToString());
+                if (!effect.BloomState.Active) effect.BloomTarget = null;
+            }
+            catch (System.Exception e) { BloomHealEffectChannel.Fault(e, "HoTRemoval"); }
         }
 
         /// <summary>
-        /// 진행 중인 모든 시간 지속 효과(HoT/DoT)를 dt만큼 진행시키고 이번 틱 적용분을 반영한다.
+        /// 연속 HoT는 등록 이후 scaled 시간으로, DoT는 dt로 이번 틱 적용분을 반영한다.
         /// 완료/무효(대상 사망·풀피(HoT)·만료)된 레코드는 목록에서 제거한다.
         ///
         /// 호출 위치(서버 전용, 이중 틱 금지):
@@ -2323,6 +2491,8 @@ namespace Hexiege.Application
         {
             if (_activeTimedEffects.Count == 0) return;
 
+            double healNow = UnityEngine.Time.timeAsDouble; // 모든 HoT에 같은 틱 표본 사용.
+
             // 역순 순회 — 만료/무효 레코드를 그 자리에서 제거해도 인덱스가 흔들리지 않음.
             for (int i = _activeTimedEffects.Count - 1; i >= 0; i--)
             {
@@ -2332,11 +2502,25 @@ namespace Hexiege.Application
                 if (!_unitSpawn.Units.TryGetValue(effect.TargetId, out UnitData target)
                     || target == null || !target.IsAlive)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitHealCastDiagnostics.Event("HoTResult", effect.HealDiagnostic,
+                        $"Outcome=TargetUnavailable, Elapsed={effect.Elapsed:G9}, Duration={effect.Duration:G9}, ActualHealed={effect.ActualHealed}, FirstAttempt={effect.HealProbeFirstAttempt}, FirstPositive={effect.HealProbeFirstGain}");
+#endif
                     _activeTimedEffects.RemoveAt(i);
+                    ObserveBloomStop(effect, BloomHealStopReason.TargetUnavailable);
+                    ObserveDamageStop(effect, "TargetUnavailable");
                     continue;
                 }
 
                 // ── DoT "초 단위 discrete 틱" 모드 분기 ──────────────────────────
+                if (effect.BloomState.Active && !ReferenceEquals(effect.BloomTarget, target))
+                    ObserveBloomStop(effect, BloomHealStopReason.TargetLifetimeChanged);
+                if (effect.DamageState.Active && !ReferenceEquals(effect.DamageTarget, target))
+                {
+                    var oldVisualTarget = effect.DamageTarget;
+                    ObserveDamageStop(effect, "TargetLifetimeChanged");
+                    TimedDamageEffects.CloseAttachment(oldVisualTarget, "TargetLifetimeChanged");
+                }
                 //   TickInterval > 0 이면(ApplyDamageOverTime로 부여된 DoT) 힐의 프레임 diff와 완전히 다른
                 //   경로를 탄다: 누적 시간이 틱 간격을 넘길 때마다 그 틱 피해를 "한 번에" 적용하고,
                 //   매 틱 OnEntityDamaged가 발행되어 남은 체력이 데미지 텍스트로 뜬다(억제하지 않음 — 요구 7).
@@ -2344,13 +2528,38 @@ namespace Hexiege.Application
                 if (effect.TickInterval > 0.0001f)
                 {
                     if (TickDiscreteDamageEffect(effect, target, dt))
+                    {
                         _activeTimedEffects.RemoveAt(i);
+                        ObserveDamageStop(effect, target.IsAlive ? "Expired" : "TargetDead");
+                    }
                     continue;
                 }
 
-                // ── 연속(프레임 diff) 모드 — HoT 전용(무변경) ───────────────────
-                // 경과 시간 진행(지속시간 상한). Duration이 비정상(0 이하)이면 즉시 완료로 처리.
-                effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
+                // ── 연속(프레임 diff) 모드 ────────────────────────────────────
+                // 기존 공통 진행식은 사용자 실기 수용 전까지 보존한다:
+                // effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
+                bool healClockValid = true;
+                if (effect.Kind == TimedEffectKind.Heal && !(effect.Duration <= 0f))
+                {
+                    // float Elapsed는 누적 반올림 계산용이다. 만료 판단에는 사용하지 않는다.
+                    // 비유한 표본/역행은 기존 진행을 보류하며 global dt로 대체하지 않는다.
+                    healClockValid = !double.IsNaN(healNow) && !double.IsInfinity(healNow)
+                        && !double.IsNaN(effect.HealRegisteredAt) && !double.IsInfinity(effect.HealRegisteredAt)
+                        && !double.IsNaN(effect.HealDeadline) && !double.IsInfinity(effect.HealDeadline)
+                        && healNow >= effect.HealLastClock;
+                    if (healClockValid)
+                    {
+                        effect.HealLastClock = healNow;
+                        effect.Elapsed = healNow >= effect.HealDeadline ? effect.Duration
+                            : (float)System.Math.Min((double)effect.Duration,
+                                System.Math.Max(0d, healNow - effect.HealRegisteredAt));
+                    }
+                }
+                else
+                {
+                    // continuous Damage 및 duration<=0의 기존 즉시 처리 정책은 유지한다.
+                    effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
+                }
                 float ratio = effect.Duration > 0.0001f
                     ? effect.Elapsed / effect.Duration
                     : 1f;
@@ -2359,6 +2568,7 @@ namespace Hexiege.Application
                 // 지속시간 종료 시 ratio=1 → 누적 목표=TotalAmount → 정확히 총량 도달.
                 int cumulativeTarget = Mathf.RoundToInt(effect.TotalAmount * ratio);
                 int diff = cumulativeTarget - effect.AppliedAmount;
+                if (!healClockValid) diff = 0; // fullHP/대상 종료는 아래 기존 경로가 계속 소유.
 
                 if (diff > 0)
                 {
@@ -2373,6 +2583,19 @@ namespace Hexiege.Application
                         int hpBefore = target.Hp;
                         ApplyHealToUnit(healer, target, diff, showText: false);
                         effect.ActualHealed += target.Hp - hpBefore;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        // 실제 writer 뒤 관찰만 한다. 다른 HoT의 default key는 기록하지 않는다.
+                        if (effect.HealDiagnostic.IsValid)
+                        {
+                            int gained = target.Hp - hpBefore;
+                            if (!effect.HealProbeFirstAttempt || (!effect.HealProbeFirstGain && gained > 0))
+                                UnitHealCastDiagnostics.Event(gained > 0 ? "HoTFirstPositive" : "HoTFirstAttempt",
+                                    effect.HealDiagnostic, System.FormattableString.Invariant(
+                                        $"RegisteredLocal={effect.HealProbeRegisteredLocal:G17}, SinceRegisteredLocal={healNow - effect.HealProbeRegisteredLocal:F6}, DeadlineLocal={effect.HealDeadline:G17}, EffectElapsed={effect.Elapsed:F6}, Duration={effect.Duration:F6}, Requested={diff}, BeforeHP={hpBefore}, AfterHP={target.Hp}, Gained={gained}, ActualHealed={effect.ActualHealed}"));
+                            effect.HealProbeFirstAttempt = true;
+                            effect.HealProbeFirstGain |= gained > 0;
+                        }
+#endif
                     }
                     else
                     {
@@ -2384,12 +2607,21 @@ namespace Hexiege.Application
                 }
 
                 // 종료 판정 — 만료(총량 적용 완료) / 대상 풀피(HoT는 더 회복할 것 없음) / 대상 사망.
-                bool expired = effect.Elapsed >= effect.Duration;
+                // 기존: bool expired = effect.Elapsed >= effect.Duration;
+                // deadline 직전 double→float 반올림만으로 조기 만료/완료 텍스트가 나가지 않는다.
+                bool expired = effect.Kind == TimedEffectKind.Heal && !(effect.Duration <= 0f)
+                    ? healClockValid && healNow >= effect.HealDeadline
+                    : effect.Elapsed >= effect.Duration;
                 bool fullyHealed = effect.Kind == TimedEffectKind.Heal && target.Hp >= target.MaxHp;
                 bool targetDead = !target.IsAlive; // DoT가 대상을 죽였을 수 있음
 
                 if (expired || fullyHealed || targetDead)
                 {
+                    ObserveDamageStop(effect, targetDead ? "TargetDead" : "Expired");
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitHealCastDiagnostics.Event("HoTResult", effect.HealDiagnostic,
+                        $"Outcome={(targetDead ? "TargetDead" : fullyHealed ? "FullHP" : "Expired")}, Elapsed={effect.Elapsed:G9}, Duration={effect.Duration:G9}, ActualHealed={effect.ActualHealed}, HP={target.Hp}, FirstAttempt={effect.HealProbeFirstAttempt}, FirstPositive={effect.HealProbeFirstGain}, RegisteredLocal={effect.HealRegisteredAt:G17}, DeadlineLocal={effect.HealDeadline:G17}, SinceRegisteredLocal={healNow - effect.HealRegisteredAt:F6}");
+#endif
                     // [힐 텍스트 정리] HoT가 "정상 종료"(만료 또는 완전 회복)되고 실제로 회복시킨 양이 있으면
                     //   그 효과의 총 회복량으로 부유 힐 텍스트를 딱 1회 표시한다.
                     //   ⚠️ 회복 도중 대상이 사망(targetDead)한 경우에는 텍스트를 생략한다(요구사항 3).
@@ -2401,6 +2633,8 @@ namespace Hexiege.Application
                     }
 
                     _activeTimedEffects.RemoveAt(i);
+                    ObserveBloomStop(effect, targetDead ? BloomHealStopReason.TargetDead
+                        : fullyHealed ? BloomHealStopReason.FullHP : BloomHealStopReason.Expired);
                 }
             }
         }
@@ -2539,6 +2773,15 @@ namespace Hexiege.Application
         /// </summary>
         private sealed class ActiveTimedEffect
         {
+            public UnitData DamageTarget;
+            public TimedDamageEffectPresentation DamageState;
+            public UnitData BloomTarget;
+            public BloomHealEffectPresentation BloomState;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            public UnitHealCastPresentation HealDiagnostic;
+            public bool HealProbeFirstAttempt, HealProbeFirstGain;
+            public double HealProbeRegisteredLocal;
+#endif
             /// <summary> 효과가 붙은 대상 유닛 Id. </summary>
             public int TargetId;
             /// <summary> 효과를 건 원인 유닛 Id(연출 attribution용, 없으면 -1). </summary>
@@ -2551,6 +2794,8 @@ namespace Hexiege.Application
             public float Duration;
             /// <summary> 부여 후 누적 경과 시간(초, 상한=Duration). </summary>
             public float Elapsed;
+            /// <summary>연속 HoT의 production scaled 등록 시각·만료 경계·최근 유효 표본. 재부여 시 함께 리셋.</summary>
+            public double HealRegisteredAt, HealDeadline, HealLastClock;
             /// <summary> 지금까지 실제로 적용한 누적량(HP). diff 계산 기준. </summary>
             public int AppliedAmount;
             /// <summary>
@@ -2590,7 +2835,13 @@ namespace Hexiege.Application
         /// <param name="req">파도 모양/방향/파라미터.</param>
         private void SpawnWave(WaveSpawnRequest req)
         {
-            if (req.Caster == null) return;
+            if (req.Caster == null)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                _waveDiagnostics.Record("spawn-rejected", new WaveDeliveryKey(WaveEpoch, 0), WaveServerTime, detail: $"reason=caster-null");
+#endif
+                return;
+            }
 
             // 전선 진행 속도 = 전방 길이 / 이동 시간. travelTime이 0 이하(오설정)면 0 나눗셈을 막고 즉시 완주.
             float travelTime = req.TravelTime > 0.0001f ? req.TravelTime : 0.0001f;
@@ -2606,8 +2857,10 @@ namespace Hexiege.Application
                 ? Mathf.RoundToInt(EffectiveAttack(req.Caster) * 0.5f)
                 : Mathf.RoundToInt(req.Heal);
 
-            _activeWaves.Add(new ActiveWave
+            var wave = new ActiveWave
             {
+                Key = CanIssueWaveDelivery ? new WaveDeliveryKey(WaveEpoch, ++_nextWaveDeliveryId) : default,
+                SpawnTime = WaveServerTime,
                 Caster = req.Caster,
                 AttackerTeam = req.Caster.Team,
                 CasterId = req.Caster.Id,
@@ -2621,7 +2874,20 @@ namespace Hexiege.Application
                 Heal = waveHeal,
                 FrontDistance = 0f,
                 Elapsed = 0f
-            });
+            };
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            wave.DiagnosticLocalId = ++_waveDiagnosticNextId;
+            if (req.DiagnosticLaunchReservation != 0)
+                GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[TORRENT-LAUNCH] wave-link",
+                    System.FormattableString.Invariant($"reservation={req.DiagnosticLaunchReservation}, epoch={wave.Key.Epoch:x16}, wave={wave.Key.Id}, localWave={wave.DiagnosticLocalId}, caster={wave.CasterId}, primary={req.DiagnosticPrimaryTargetId}, spawn={wave.SpawnTime:G17}, fx={wave.Forward.x:F6}, fz={wave.Forward.z:F6}"));
+            if (_waveDiagnosticsEpoch != WaveEpoch) { _waveDiagnostics.Begin(WaveEpoch, wave.SpawnTime); _waveDiagnosticsEpoch = WaveEpoch; }
+            _waveDiagnostics.Record("spawn", wave.Key, wave.SpawnTime, detail:
+                $"caster={wave.CasterId};team={wave.AttackerTeam};primary={req.DiagnosticPrimaryTargetId};primaryUnit={req.DiagnosticPrimaryTargetIsUnit};spawn={wave.SpawnTime:F6};x={wave.Origin.x:F3};y={wave.Origin.y:F3};z={wave.Origin.z:F3};fx={wave.Forward.x:F3};fz={wave.Forward.z:F3};width={req.Width:F3};length={wave.Length:F3};duration={wave.TravelTime:F3};healRequested={req.Heal};healEffective={wave.Heal};validKey={wave.Key.IsValid}", localWave: wave.DiagnosticLocalId);
+#endif
+            _activeWaves.Add(wave);
+            if (wave.Key.IsValid)
+                WaveSpawned?.Invoke(new WavePresentationSpawn(wave.Key, wave.CasterId, wave.Origin,
+                    wave.Forward, req.Width, wave.Length, wave.TravelTime, wave.SpawnTime));
         }
 
         /// <summary>
@@ -2649,9 +2915,9 @@ namespace Hexiege.Application
             {
                 ActiveWave wave = _activeWaves[w];
 
-                wave.Elapsed += dt;
+                wave.Elapsed = (float)System.Math.Max(0d, WaveServerTime - wave.SpawnTime);
                 // 전선 전진(전방 길이를 넘지 않도록 상한).
-                wave.FrontDistance = Mathf.Min(wave.Length, wave.FrontDistance + wave.Speed * dt);
+                wave.FrontDistance = Mathf.Min(wave.Length, wave.Speed * wave.Elapsed);
 
                 // 1) 닿은 유닛 선수집(피해로 사망 시 Dictionary 변경 예외 방지 — 수집/적용 2단계 분리).
                 _waveDamageBuffer.Clear();
@@ -2660,21 +2926,52 @@ namespace Hexiege.Application
 
                 foreach (var unit in _unitSpawn.Units.Values)
                 {
-                    if (unit == null || !unit.IsAlive) continue;
-                    if (unit.Id == wave.CasterId) continue;          // 시전자 자신 제외(D-7)
-                    if (wave.Hit.Contains(unit.Id)) continue;        // 이미 맞음 → 제외(D-5)
+                    if (unit == null || !unit.IsAlive)
+                    {
+                        WaveDiagnostic(wave, 0, "Unit", unit, false, default, 0f, 0f);
+                        continue;
+                    }
+                    if (unit.Id == wave.CasterId)
+                    {
+                        WaveDiagnostic(wave, 1, "Unit", unit, false, default, 0f, 0f);
+                        continue;
+                    }
+                    if (wave.Hit.Contains(unit.Id))
+                    {
+                        WaveDiagnostic(wave, 2, "Unit", unit, false, default, 0f, 0f);
+                        continue;
+                    }
 
                     // 공격자 기준 상대 위치를 XZ 평면에서 전방/좌우 성분으로 분해.
-                    Vector3 rel = Flatten(ResolveWorldPosition(unit)) - wave.Origin;
+                    Vector3 unitWorld = Flatten(ResolveWorldPosition(unit));
+                    Vector3 rel = unitWorld - wave.Origin;
                     float p = Vector3.Dot(rel, wave.Forward);        // 전방 성분(진행 방향 거리)
-                    if (p < 0f || p > wave.Length) continue;         // 직사각형 전후 범위 밖
-                    if (p > wave.FrontDistance) continue;            // 아직 전선이 도달하지 않음(다음 틱)
+                    if (p < 0f)
+                    {
+                        WaveDiagnostic(wave, 3, "Unit", unit, true, unitWorld, p, 0f);
+                        continue;
+                    }
+                    if (p > wave.Length)
+                    {
+                        WaveDiagnostic(wave, 4, "Unit", unit, true, unitWorld, p, 0f);
+                        continue;
+                    }
+                    if (p > wave.FrontDistance)
+                    {
+                        WaveDiagnostic(wave, 5, "Unit", unit, true, unitWorld, p, 0f);
+                        continue;
+                    }
 
                     float lateral = Vector3.Dot(rel, wave.Right);    // 좌우 성분
-                    if (Mathf.Abs(lateral) > wave.HalfWidth) continue; // 폭 밖
+                    if (Mathf.Abs(lateral) > wave.HalfWidth)
+                    {
+                        WaveDiagnostic(wave, 6, "Unit", unit, true, unitWorld, p, lateral);
+                        continue;
+                    }
 
                     // 닿음 확정 → 1회만 적용되도록 hit-set에 기록하고 팀에 따라 버퍼 분류.
                     wave.Hit.Add(unit.Id);
+                    WaveDiagnostic(wave, 7, "Unit", unit, true, unitWorld, p, lateral);
                     if (unit.Team == wave.AttackerTeam)
                         _waveHealBuffer.Add(unit);   // 아군 → 힐
                     else
@@ -2685,19 +2982,50 @@ namespace Hexiege.Application
                 // 건물은 정적이라 유닛과 동일한 직사각형/전선 판정을 적용한다. 단 힐 대상은 아니다(적 건물만 피해).
                 foreach (var building in _buildingPlacement.Buildings.Values)
                 {
-                    if (building == null || !building.IsAlive) continue;
-                    if (building.Team == wave.AttackerTeam) continue;        // 아군 건물 제외(적 건물만)
-                    if (wave.HitBuildings.Contains(building.Id)) continue;   // 이미 맞음 → 제외(각 건물 1회)
+                    if (building == null || !building.IsAlive)
+                    {
+                        WaveDiagnostic(wave, 0, "Building", building, false, default, 0f, 0f);
+                        continue;
+                    }
+                    if (building.Team == wave.AttackerTeam)
+                    {
+                        WaveDiagnostic(wave, 8, "Building", building, false, default, 0f, 0f);
+                        continue;
+                    }
+                    if (wave.HitBuildings.Contains(building.Id))
+                    {
+                        WaveDiagnostic(wave, 2, "Building", building, false, default, 0f, 0f);
+                        continue;
+                    }
 
-                    Vector3 relB = Flatten(ResolveWorldPosition(building)) - wave.Origin;
+                    Vector3 buildingWorld = Flatten(ResolveWorldPosition(building));
+                    Vector3 relB = buildingWorld - wave.Origin;
                     float pB = Vector3.Dot(relB, wave.Forward);             // 전방 성분
-                    if (pB < 0f || pB > wave.Length) continue;              // 직사각형 전후 범위 밖
-                    if (pB > wave.FrontDistance) continue;                  // 아직 전선이 도달하지 않음(다음 틱)
+                    if (pB < 0f)
+                    {
+                        WaveDiagnostic(wave, 3, "Building", building, true, buildingWorld, pB, 0f);
+                        continue;
+                    }
+                    if (pB > wave.Length)
+                    {
+                        WaveDiagnostic(wave, 4, "Building", building, true, buildingWorld, pB, 0f);
+                        continue;
+                    }
+                    if (pB > wave.FrontDistance)
+                    {
+                        WaveDiagnostic(wave, 5, "Building", building, true, buildingWorld, pB, 0f);
+                        continue;
+                    }
 
                     float lateralB = Vector3.Dot(relB, wave.Right);         // 좌우 성분
-                    if (Mathf.Abs(lateralB) > wave.HalfWidth) continue;     // 폭 밖
+                    if (Mathf.Abs(lateralB) > wave.HalfWidth)
+                    {
+                        WaveDiagnostic(wave, 6, "Building", building, true, buildingWorld, pB, lateralB);
+                        continue;
+                    }
 
                     wave.HitBuildings.Add(building.Id);
+                    WaveDiagnostic(wave, 7, "Building", building, true, buildingWorld, pB, lateralB);
                     _waveBuildingBuffer.Add(building);
                 }
 
@@ -2706,31 +3034,111 @@ namespace Hexiege.Application
                 for (int i = 0; i < _waveDamageBuffer.Count; i++)
                 {
                     UnitData victim = _waveDamageBuffer[i];
-                    if (victim == null || !victim.IsAlive) continue;
-                    ApplyDamageToVictim(wave.Caster, victim, immediatePresentation: true);
+                    if (victim == null || !victim.IsAlive)
+                    {
+                        WaveDiagnostic(wave, 9, "Unit", victim, false, default, 0f, 0f);
+                        continue;
+                    }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    int before = victim.Hp;
+#endif
+                    ApplyDamageToVictim(wave.Caster, victim, true, default, wave);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    WaveDiagnosticApplied(wave, "Unit", victim.Id, before, victim.Hp, "damage");
+#endif
                 }
                 for (int i = 0; i < _waveHealBuffer.Count; i++)
                 {
                     UnitData ally = _waveHealBuffer[i];
-                    if (ally == null || !ally.IsAlive) continue;
-                    ApplyHealToUnit(wave.Caster, ally, wave.Heal);
+                    if (ally == null || !ally.IsAlive)
+                    {
+                        WaveDiagnostic(wave, 9, "Unit", ally, false, default, 0f, 0f);
+                        continue;
+                    }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    int before = ally.Hp;
+#endif
+                    ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    WaveDiagnosticApplied(wave, "Unit", ally.Id, before, ally.Hp, "heal");
+#endif
                 }
                 // 적 건물 피해 — 유닛 피해와 동일하게 즉시 연출(immediatePresentation=true)로 방출.
                 for (int i = 0; i < _waveBuildingBuffer.Count; i++)
                 {
                     BuildingData bVictim = _waveBuildingBuffer[i];
-                    if (bVictim == null || !bVictim.IsAlive) continue;
-                    ApplyDamageToVictim(wave.Caster, bVictim, immediatePresentation: true);
+                    if (bVictim == null || !bVictim.IsAlive)
+                    {
+                        WaveDiagnostic(wave, 9, "Building", bVictim, false, default, 0f, 0f);
+                        continue;
+                    }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    int before = bVictim.Hp;
+#endif
+                    ApplyDamageToVictim(wave.Caster, bVictim, true, default, wave);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    WaveDiagnosticApplied(wave, "Building", bVictim.Id, before, bVictim.Hp, "damage");
+#endif
                 }
 
                 // 3) 완주 판정 — 전선이 끝까지 갔고 이동 시간도 지났으면 제거.
                 //    (FrontDistance가 Length에 도달하면 p ≤ Length 유닛은 모두 커버됨.)
                 if (wave.FrontDistance >= wave.Length && wave.Elapsed >= wave.TravelTime)
                 {
+                    WaveDiagnosticEnd(wave);
                     _activeWaves.RemoveAt(w);
                 }
             }
         }
+
+        // 개발 전용 사건 관측. 동일 제외 이유는 대상별 상태 전이에서만 기록한다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void WaveDiagnostic(ActiveWave wave, int reason, string kind,
+            IDamageable target, bool hasPosition, Vector3 position, float p, float lateral)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _waveDiagnostics.Transition(wave.Key, wave.DiagnosticLocalId, WaveDiagnosticClock, target != null ? target.Id : -1,
+                kind == "Unit", reason, _waveDiagnosticReasonNames[reason], target != null && target.IsAlive,
+                target != null ? (int)target.Team : -1, target != null ? target.Hp : -1,
+                hasPosition, position, p, lateral, wave.FrontDistance, wave.HalfWidth, wave.Length);
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void WaveDiagnosticApplied(ActiveWave wave, string kind, int id,
+            int before, int after, string effect)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _waveDiagnostics.Record("apply-return", wave.Key, WaveDiagnosticClock, target: id,
+                kind: kind == "Unit" ? "unit" : "building",
+                detail: $"effect={effect};outerBefore={before};eventAfter={after};delta={after - before};noDelta={before == after};front={wave.FrontDistance:F3}", localWave: wave.DiagnosticLocalId);
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void WaveDiagnosticEnd(ActiveWave wave)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _waveDiagnostics.Record("server-end", wave.Key, WaveDiagnosticClock,
+                detail: $"reason=travel-complete;elapsed={wave.Elapsed:F6};front={wave.FrontDistance:F3};length={wave.Length:F3};hitUnits={wave.Hit.Count};hitBuildings={wave.HitBuildings.Count};publishedOrdinals={wave.ContactOrdinal}", localWave: wave.DiagnosticLocalId);
+            _waveDiagnostics.Retire(wave.Key, WaveDiagnosticClock, localWave: wave.DiagnosticLocalId);
+#endif
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private static long _waveDiagnosticNextId;
+        private ulong _waveDiagnosticsEpoch;
+        private WavePresentationDiagnostics _waveDiagnostics = new WavePresentationDiagnostics("server");
+        private static readonly string[] _waveDiagnosticReasonNames =
+        {
+            "null-or-dead", "caster", "already-hit", "behind", "beyond-length",
+            "not-yet-front", "outside-width", "collected", "ally-building",
+            "dead-before-apply", "applied", "no-hp-delta"
+        };
+#endif
 
         /// <summary>
         /// 벡터의 Y 성분을 0으로 눌러 XZ 평면 벡터로 만든다(높이 무시). 파도 판정 공용.
@@ -2746,6 +3154,12 @@ namespace Hexiege.Application
         /// </summary>
         private sealed class ActiveWave
         {
+            public WaveDeliveryKey Key;
+            public double SpawnTime;
+            public int ContactOrdinal;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            public long DiagnosticLocalId;
+#endif
             /// <summary> 시전자(피해 공격자/힐 시전자). 사망해도 AttackPower/Id는 유효. </summary>
             public UnitData Caster;
             /// <summary> 시전자 팀(적/아군 구분 기준). </summary>

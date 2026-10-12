@@ -21,11 +21,941 @@ namespace Hexiege.Editor.Combat
     /// 각도 히스테리시스, 결과 중복 제거와 역순 정렬이 계약대로 동작하는지 확인한다.
     /// 메뉴에서 Hexiege/Combat/Run Unit Action Self Validation을 선택해 실행한다.
     /// </summary>
-    public static class RunUnitActionSelfValidation
+    public static partial class RunUnitActionSelfValidation
     {
+        // Service wiring only: production controller still owns revision/E/receipt and
+        // production View/NetworkUnit own actual animation/application. No fabricated success.
+        private sealed class NativeHostServices : IGameServices, IUnitFactory
+        {
+            public GameObject Unit;
+            public UnitCombatUseCase Combat;
+            public int CombatReads, UnitReads;
+            public UnitSpawnUseCase RetrySpawn;
+            public IUnitFactory RetryFactory;
+            public GameObject GetUnitObject(int id) { UnitReads++; return Unit; }
+            public void RegisterUnitObject(int id, GameObject obj) => Unit = obj;
+            public bool InitializeUnitView(UnitData data) { Unit.GetComponent<Hexiege.Presentation.UnitView>().Initialize(data); return true; }
+            public IUnitFactory GetUnitFactory() => RetryFactory ?? this;
+            public HexGrid GetGrid() => null;
+            public ResourceUseCase GetResource() => null;
+            public BuildingPlacementUseCase GetBuildingPlacement() => null;
+            public UnitProductionUseCase GetUnitProduction() => null;
+            public UnitSpawnUseCase GetUnitSpawn() => RetrySpawn;
+            public PopulationUseCase GetPopulation() => null;
+            public UnitMovementUseCase GetMovement() => null;
+            public UnitCombatUseCase GetCombatUseCase() { CombatReads++; return Combat; }
+            public TowerCombatUseCase GetTowerCombat() => null;
+            public UnitUpgradeUseCase GetUpgradeUseCase() => null;
+            public SkillActivationUseCase GetSkillActivationUseCase() => null;
+            public StatusEffectSystem GetStatusEffectSystem() => null;
+            public MistShrineUseCase GetMistShrineUseCase() => null;
+            public void StartNetworkGame(TeamId team) { }
+            public bool IsNetworkGameStarted => true;
+        }
+
+        public static void ValidatePistoleerHostPublicationChain()
+        {
+            bool active = NetworkContext.IsNetworkActive, server = NetworkContext.IsNetworkServer;
+            GameObject root = null, owner = null;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            try
+            {
+                NetworkContext.Set(true, true);
+                root = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Project/Prefabs/Units/Human/Unit_Pistoleer_Blue.prefab"));
+                root.hideFlags = HideFlags.HideAndDontSave;
+                var services = new NativeHostServices { Unit = root };
+                var view = root.GetComponent<Hexiege.Presentation.UnitView>();
+                var network = root.GetComponent<NetworkUnit>();
+                var animator = root.GetComponentInChildren<Animator>();
+                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/Units/Pistoleer/Pistoleer_Attack.anim");
+                var data = new UnitData(905, UnitType.Pistoleer, TeamId.Blue, new HexCoord(0, 0), 100, 10, 4, 2);
+                UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(clip));
+                data.HitFrameTimes = UnitFactory.GetHitFrameTimes(clip);
+                services.InitializeUnitView(data); animator.Rebind(); animator.Update(0);
+                typeof(Hexiege.Presentation.UnitView).GetMethod("BeginServerActionRotation", flags)
+                    .Invoke(view, new object[] { 906, true });
+                double clock = 73.010231;
+                typeof(NetworkUnit).GetField("_attackPhaseFixtureClock", flags).SetValue(network, (Func<double>)(() => clock));
+                typeof(NetworkUnit).GetField("_attackPhaseLifetime", flags).SetValue(network, 1UL);
+                owner = new GameObject("NativeHostPublicationChain") { hideFlags = HideFlags.HideAndDontSave };
+                owner.AddComponent<Unity.Netcode.NetworkObject>();
+                var controller = owner.AddComponent<NetworkCombatController>();
+                typeof(NetworkCombatController).GetField("_services", flags).SetValue(controller, services);
+                typeof(NetworkCombatController).GetField("_attackPresentationFixtureClock", flags).SetValue(controller, (Func<double>)(() => clock));
+                int published = 0;
+                UnitAttackPhasePresentation wire = default;
+                typeof(NetworkUnit).GetField("_attackPhaseFixturePublish", flags).SetValue(network,
+                    (Action<UnitAttackPhasePresentation>)(value => {
+                        Require(view.HasNativeAttackEpoch(value.Lifetime, value.EpochId)
+                            && view.IsServerCombatPresentationSatisfied(value.TargetId, value.TargetIsUnit, value.PresentationRevision),
+                            "Transport cannot precede actual Host native application.");
+                        wire = value; published++;
+                    }));
+                var begin = typeof(NetworkCombatController).GetMethod("BeginProvisionalAttackPresentation", flags);
+                var retire = typeof(NetworkCombatController).GetMethod("RetireLogicalCombatPresentation", flags);
+                var follow = typeof(Hexiege.Presentation.UnitView).GetMethod("FollowAttackPhase", flags);
+                Action enter = () => begin.Invoke(controller, new object[] { 905, 906, true, true });
+                Action<double, int> pump = (start, count) => {
+                    for (int i = 0; i < count; i++) { clock = start + i * .02; follow.Invoke(view, new object[] { .02d }); animator.Update(.02f); }
+                };
+                enter(); animator.Update(0);
+                Require(published == 1 && view.ConfirmServerAttackEntryHandoff(wire.PresentationRevision), "NCC first entry must publish/ACK after actual application.");
+                double epoch = wire.EpochServerTime; ulong epochId = wire.EpochId;
+                pump(73.15, 95);
+                Require(animator.GetCurrentAnimatorStateInfo(0).normalizedTime * data.AttackCooldown > 1.8, "Controller must really reach the trace's old native phase.");
+                retire.Invoke(controller, new object[] { 905 });
+                float normalized = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                clock = 75.042976; enter(); animator.Update(0);
+                Require(published == 2 && wire.EpochId == epochId && wire.EpochServerTime == epoch
+                    && animator.GetCurrentAnimatorStateInfo(0).normalizedTime == normalized && !animator.IsInTransition(0),
+                    "Logical normal reentry keeps E/native progress, without the 19-gap new-E/old-phase mismatch.");
+                var approved = wire; approved.Mode = AttackPresentationImpactMode.Scoped;
+                approved.PresentationRevision = (ulong)typeof(NetworkCombatController).GetMethod("NextAttackPresentationRevision", flags)
+                    .Invoke(controller, new object[] { 905 });
+                approved.ActionRevision = 1; approved.CommitServerTime = clock;
+                approved.Scope = new AttackPresentationScope(new AttackerInstanceId(44), new AttackSequenceId(2), 0);
+                approved.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 1, MarkerOffset = data.HitFrameTimes[0],
+                    MarkerServerTime = epoch + 2 + data.HitFrameTimes[0], ImpactServerTime = epoch + 2 + data.HitFrameTimes[0] } };
+                Require(network.PublishAttackPhase(approved), "Next actual Host scope must bind on the same native epoch.");
+                var conflict = approved; conflict.ActionRevision++;
+                Require(!network.PublishAttackPhase(conflict), "Same revision conflicting ActionRevision must not publish.");
+                conflict = approved; conflict.Hits = (AttackSourceOccurrence[])approved.Hits.Clone();
+                conflict.Hits[0].ImpactServerTime += .01;
+                Require(!network.PublishAttackPhase(conflict), "Same revision conflicting occurrence must not publish.");
+                int accepted = published;
+                Require(network.PublishAttackPhase(approved) && published == accepted + 1, "Exact retransmission is immutable/idempotent locally.");
+                int emits = view.AttackPhaseNativeEmissions;
+                pump(75.15, 65);
+                Require(view.AttackPhaseNativeEmissions == emits + 1, "NCC reentry's approved native source emits exactly once, not zero or a later scope.");
+                view.HoldMovementAnimation();
+                Require(!network.TryGetLiveNativeAttackEpoch(out _), "Held direct close invalidates native epoch.");
+                var stale = approved; stale.PresentationRevision++; stale.EpochId++;
+                Require(!network.PublishAttackPhase(stale), "Held close also retires old exact sequence.");
+                view.StartWalkAnimation(); animator.Update(0);
+                retire.Invoke(controller, new object[] { 905 });
+                clock = 80; enter(); animator.Update(0);
+                Require(wire.EpochServerTime == 80 && wire.EpochId != epochId, "True Walk reentry creates a fresh first-applied epoch.");
+                var current = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                Require(current.normalizedTime * data.AttackCooldown < .001, "Fresh reentry is aligned before remote publication.");
+                var receipt = (System.Collections.IDictionary)typeof(NetworkCombatController).GetField("_completedAttackEntryReceipts", flags).GetValue(controller);
+                Require(receipt.Contains(905), "NCC records receipt only after successful application/publication.");
+            }
+            finally
+            {
+                if (owner != null) UnityEngine.Object.DestroyImmediate(owner);
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                NetworkContext.Set(server, active);
+            }
+        }
+
+        // Execute the same IEnumerator used by SpawnUnitClientRpc. Fake services supply
+        // dependencies only; all lifetime and exact-object checks are production code.
+        public static void ValidateUnitViewInitializationRetry()
+        {
+            Require(NetworkProductionController.CanResumeUnitViewRetry(false, true, true)
+                && !NetworkProductionController.CanResumeUnitViewRetry(true, true, true)
+                && !NetworkProductionController.CanResumeUnitViewRetry(false, false, true)
+                && !NetworkProductionController.CanResumeUnitViewRetry(false, true, false),
+                "Enable resumes only a spawned, live match; GameEnd stays closed.");
+            foreach (string scenario in new[] { "dead", "retired", "identity", "generation", "controller", "session",
+                "services", "spawn", "factory", "success", "timeout", "dispose", "initial-dead", "same-service-rematch", "invalid-clock", "reenable", "timeout-dead", "timeout-replaced" })
+            {
+                var factory = new RetryFixtureFactory();
+                var unit = new UnitData(UnitType.Sniper, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1, 1);
+                var spawn = new UnitSpawnUseCase(null);
+                var units = (Dictionary<int, UnitData>)typeof(UnitSpawnUseCase)
+                    .GetField("_units", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(spawn);
+                units.Add(unit.Id, unit);
+                var services = new NativeHostServices { RetrySpawn = spawn, RetryFactory = factory };
+                IGameServices current = services;
+                long generation = 1; bool controllerAlive = true, session = true;
+                string terminal = null; int terminals = 0;
+                var owner = new NetworkProductionController.UnitViewRetryOwner(1, services, spawn, factory, unit,
+                    () => generation, () => controllerAlive, () => session, () => current,
+                    (reason, elapsed) => { terminal = reason; terminals++; });
+                var iterator = NetworkProductionController.RunUnitViewInitializationRetry(owner,
+                    () => scenario == "invalid-clock" ? float.NaN : 1f);
+                // 마지막 실패 시도 중 객체가 닫히는 경우에도 timeout 직전 exact owner
+                // 검사가 적용되는지 실제 IEnumerator에서 확인한다.
+                factory.AfterAttempt = () =>
+                {
+                    if (factory.Calls != 4) return;
+                    if (scenario == "timeout-dead") unit.TakeDamage(100);
+                    if (scenario == "timeout-replaced") units[unit.Id] = new UnitData(
+                        UnitType.Sniper, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1, 1);
+                };
+                if (scenario == "initial-dead") unit.TakeDamage(100);
+                bool first = iterator.MoveNext();
+                if (scenario == "initial-dead")
+                    Require(!first && factory.Calls == 0 && terminal == "unit-dead", "Dead initial owner never initializes.");
+                else
+                {
+                    Require(first && factory.Calls == 1, "Live initial attempt precedes the first yield.");
+                    switch (scenario)
+                    {
+                        case "dead": unit.TakeDamage(100); break;
+                        case "retired": units.Remove(unit.Id); break;
+                        case "identity": units[unit.Id] = new UnitData(UnitType.Sniper, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1, 1); break;
+                        case "generation": generation++; break;
+                        case "reenable": controllerAlive = false; generation++; controllerAlive = true; break;
+                        case "controller": controllerAlive = false; break;
+                        case "session": session = false; break;
+                        case "services": current = new NativeHostServices(); break;
+                        case "spawn": services.RetrySpawn = new UnitSpawnUseCase(null); break;
+                        case "factory": services.RetryFactory = new RetryFixtureFactory(); break;
+                        case "same-service-rematch": owner.Finish("game-end"); generation++; session = true; break;
+                        case "success": factory.Success = true; break;
+                    }
+                    if (scenario == "dispose") ((IDisposable)iterator).Dispose();
+                    else if (scenario.StartsWith("timeout", StringComparison.Ordinal)) { while (iterator.MoveNext()) { } }
+                    else Require(!iterator.MoveNext(), "Ended owner cannot keep waiting.");
+                    string expected = scenario == "dead" || scenario == "timeout-dead" ? "unit-dead" : scenario == "retired" ? "unit-retired"
+                        : scenario == "identity" || scenario == "timeout-replaced" ? "unit-identity-replaced" : scenario == "generation" || scenario == "reenable" ? "owner-generation-replaced"
+                        : scenario == "controller" ? "controller-retired" : scenario == "session" ? "session-ended"
+                        : scenario == "services" ? "services-replaced" : scenario == "spawn" ? "spawn-service-replaced"
+                        : scenario == "factory" ? "factory-replaced" : scenario == "success" ? "initialized"
+                        : scenario == "dispose" ? "coroutine-disposed" : scenario == "same-service-rematch" ? "game-end"
+                        : scenario == "invalid-clock" ? "invalid-wait-clock" : "timeout";
+                    Require(terminal == expected && factory.Calls == (scenario == "success" ? 2 : scenario.StartsWith("timeout", StringComparison.Ordinal) ? 4 : 1),
+                        "Production retry reason/call count mismatch: " + scenario);
+                }
+                ((IDisposable)iterator).Dispose(); owner.Finish("stale-cleanup");
+                Require(terminals == 1 && owner.Finished, "Terminal is exactly once, including stale cleanup.");
+                if (scenario == "reenable" || scenario == "same-service-rematch")
+                {
+                    int nextTerminals = 0;
+                    var nextOwner = new NetworkProductionController.UnitViewRetryOwner(generation,
+                        services, spawn, factory, unit, () => generation, () => controllerAlive,
+                        () => session, () => current, (reason, elapsed) =>
+                        { Require(reason == "initialized", "New owner must initialize normally."); nextTerminals++; });
+                    factory.Success = true;
+                    var nextIterator = NetworkProductionController.RunUnitViewInitializationRetry(nextOwner, () => 1f);
+                    owner.Finish("old-cleanup-after-new-owner");
+                    Require(!nextIterator.MoveNext() && nextTerminals == 1 && terminals == 1,
+                        "Re-enable/rematch new owner survives stale old cleanup with reused services.");
+                    ((IDisposable)nextIterator).Dispose();
+                }
+            }
+        }
+
+        private sealed class RetryFixtureFactory : IUnitFactory
+        {
+            public int Calls;
+            public bool Success;
+            public Action AfterAttempt;
+            public bool InitializeUnitView(UnitData data) { Calls++; AfterAttempt?.Invoke(); return Success; }
+            public GameObject GetUnitObject(int id) => null;
+            public void RegisterUnitObject(int id, GameObject obj) { }
+        }
+
+        // Regression prerequisite: exercise the Host Start -> native receive boundary with
+        // the real prefab/controller/relay. No Animator.Play, normalized-time assignment or
+        // private phase/lease substitution is used to manufacture the 1.9s old playback.
+        public static void ValidatePistoleerHostReentryBoundary()
+        {
+            bool active = NetworkContext.IsNetworkActive, server = NetworkContext.IsNetworkServer;
+            GameObject root = null;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            try
+            {
+                NetworkContext.Set(true, true);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/_Project/Prefabs/Units/Human/Unit_Pistoleer_Blue.prefab");
+                Require(prefab != null, "Host reentry requires the production prefab.");
+                root = UnityEngine.Object.Instantiate(prefab);
+                root.hideFlags = HideFlags.HideAndDontSave;
+                var view = root.GetComponent<Hexiege.Presentation.UnitView>();
+                var network = root.GetComponent<NetworkUnit>();
+                var animator = root.GetComponentInChildren<Animator>();
+                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    "Assets/_Project/Animations/Units/Pistoleer/Pistoleer_Attack.anim");
+                Require(view != null && network != null && animator != null && clip != null,
+                    "Host reentry must retain production components.");
+                var data = new UnitData(903, UnitType.Pistoleer, TeamId.Blue,
+                    new HexCoord(0, 0), 100, 10, 4, 2);
+                UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(clip));
+                data.HitFrameTimes = UnitFactory.GetHitFrameTimes(clip);
+                view.Initialize(data);
+                animator.Rebind(); animator.Update(0);
+                // Invoke the real action-ownership transition, never substitute its field.
+                typeof(Hexiege.Presentation.UnitView).GetMethod("BeginServerActionRotation", flags)
+                    .Invoke(view, new object[] { 904, true });
+                Require(view.IsServerCombatActionReady(), "Host fixture must own Action Root.");
+                double clock = 73.143528;
+                typeof(NetworkUnit).GetField("_attackPhaseFixtureClock", flags)
+                    .SetValue(network, (Func<double>)(() => clock));
+                typeof(NetworkUnit).GetField("_attackPhaseLifetime", flags).SetValue(network, 1UL);
+                var receive = typeof(NetworkUnit).GetMethod("ReceiveAttackPhase", flags);
+                var follow = typeof(Hexiege.Presentation.UnitView).GetMethod("FollowAttackPhase", flags);
+                var phase = new UnitAttackPhasePresentation {
+                    Lifetime = 1, EpochId = unchecked((ulong)BitConverter.DoubleToInt64Bits(73.010231)),
+                    Active = true, UnitId = 903, TargetId = 904, TargetIsUnit = true,
+                    PresentationRevision = 1, EpochServerTime = 73.010231,
+                    Duration = data.AttackCooldown, Mode = AttackPresentationImpactMode.Suppressed };
+                receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                for (int step = 0; step < 95; step++)
+                {
+                    clock = 73.15 + step * 0.02;
+                    follow.Invoke(view, new object[] { 0.02d }); animator.Update(0.02f);
+                }
+                var state = animator.GetCurrentAnimatorStateInfo(0);
+                Require(state.fullPathHash == Animator.StringToHash("Base Layer.Attack")
+                    && state.normalizedTime * data.AttackCooldown > 1.8,
+                    "Old playback must actually advance through the production controller.");
+                // Logical normal stop can leave native Attack on screen. This is not a
+                // forced Walk or a terminal close; the exact old owner is closed by NetworkUnit.
+                typeof(NetworkUnit).GetMethod("CloseAttackPhase", flags)
+                    .Invoke(network, new object[] { "server-state-exit", false });
+                clock = 75.042976;
+                Require(view.TryApplyHostCombatPresentation(904, true, false, 2,
+                    AttackPresentationImpactMode.Suppressed, default),
+                    "Old Host preapply must succeed at the real Root-owned boundary.");
+                phase.EpochServerTime = clock;
+                phase.EpochId = unchecked((ulong)BitConverter.DoubleToInt64Bits(clock));
+                phase.PresentationRevision = 2;
+                clock = 75.143235;
+                receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                state = animator.IsInTransition(0)
+                    ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                double target = clock - AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds
+                    - phase.EpochServerTime;
+                Require(Math.Abs(state.normalizedTime * phase.Duration - target) < 0.001,
+                    "Host reentry RED: new epoch first apply must align old native playback; same-revision preapply currently skips it.");
+                int before = view.AttackPhaseNativeEmissions;
+                phase.PresentationRevision = 3; phase.ActionRevision = 3;
+                phase.Mode = AttackPresentationImpactMode.Scoped; phase.CommitServerTime = clock;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(43), new AttackSequenceId(2), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0,
+                    MarkerOffset = data.HitFrameTimes[0],
+                    MarkerServerTime = phase.EpochServerTime + data.HitFrameTimes[0],
+                    ImpactServerTime = phase.EpochServerTime + data.HitFrameTimes[0] } };
+                receive.Invoke(network, new object[] { phase });
+                for (int step = 0; step < 65; step++)
+                {
+                    clock = 75.15 + step * 0.02;
+                    follow.Invoke(view, new object[] { 0.02d }); animator.Update(0.02f);
+                }
+                Require(view.AttackPhaseNativeEmissions == before + 1,
+                    "Host reentry must emit the approved source once through the native relay/VFX callsite.");
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                NetworkContext.Set(server, active);
+            }
+        }
+
+        // 실제 native callback이 이미 지난 marker의 허가를 다음 loop로 옮기는지 확인한다.
+        // 이 fixture는 수학 helper가 아니라 production controller/relay/View를 실행한다.
+        public static void ValidatePistoleerNativeOccurrenceBoundary()
+        {
+            bool active = NetworkContext.IsNetworkActive, server = NetworkContext.IsNetworkServer;
+            var root = new GameObject("PistoleerNativeOccurrence") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                NetworkContext.Set(false, true);
+                var view = root.AddComponent<Hexiege.Presentation.UnitView>();
+                var visual = new GameObject("VisualRoot"); visual.transform.SetParent(root.transform, false);
+                var animator = visual.AddComponent<Animator>();
+                visual.AddComponent<Hexiege.Presentation.AnimationEventRelay>();
+                animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                    "Assets/_Project/Animations/Units/Pistoleer/Pistoleer.controller");
+                animator.applyRootMotion = false; animator.Rebind();
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var data = new UnitData(901, UnitType.Pistoleer, TeamId.Blue, new HexCoord(0, 0), 100, 10, 4, 2);
+                // UnitData alone has the uninitialized UnitStats fallback (1s). Production
+                // UnitFactory replaces it with the native Attack clip length. Reproduce that
+                // metadata mapping here; do not mutate the clip or relax the eligibility gate.
+                var nativeClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    "Assets/_Project/Animations/Units/Pistoleer/Pistoleer_Attack.anim");
+                Require(nativeClip != null && nativeClip.length == 2f && nativeClip.events.Length == 1
+                    && nativeClip.events[0].functionName == "OnAttackHit" && nativeClip.events[0].time == 0.8f,
+                    "Production Pistoleer native asset metadata changed.");
+                UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(nativeClip));
+                data.HitFrameTimes = UnitFactory.GetHitFrameTimes(nativeClip);
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", flags).SetValue(view, data);
+                typeof(Hexiege.Presentation.UnitView).GetField("_animator", flags).SetValue(view, animator);
+                typeof(Hexiege.Presentation.UnitView).GetField("_currentAnimStateHash", flags).SetValue(view, Animator.StringToHash("Attack"));
+                animator.Play("Attack", 0, 0.45f); animator.Update(0);
+                view.StartCombatAnimation(902, true, false, 1, AttackPresentationImpactMode.Scoped,
+                    new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(7), 0));
+                animator.Update(2f);
+                var lease = (AttackPresentationImpactLease)typeof(Hexiege.Presentation.UnitView)
+                    .GetField("_attackPresentationImpactLease", flags).GetValue(view);
+                Require(lease.Status == AttackPresentationImpactLeaseStatus.Consumed,
+                    "Trace-shaped RED control: legacy count permission should reproduce next-loop consumption.");
+                int oldEmits = view.AttackPhaseNativeEmissions;
+                root.AddComponent<Unity.Netcode.NetworkObject>();
+                var network = root.AddComponent<NetworkUnit>();
+                double clock = 1.05;
+                typeof(NetworkUnit).GetField("_attackPhaseFixtureClock", flags).SetValue(network, (Func<double>)(() => clock));
+                typeof(NetworkUnit).GetField("_attackPhaseLifetime", flags).SetValue(network, 1UL);
+                var receive = typeof(NetworkUnit).GetMethod("ReceiveAttackPhase", flags);
+                var scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(8), 0);
+                var phase = new UnitAttackPhasePresentation { Lifetime = 1, EpochId = 1, Active = true,
+                    UnitId = 901, TargetId = 902, TargetIsUnit = true, PresentationRevision = 2, ActionRevision = 2,
+                    EpochServerTime = 0, Duration = data.AttackCooldown, CommitServerTime = 0.2,
+                    Mode = AttackPresentationImpactMode.Scoped, Scope = scope,
+                    Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = 0.8f,
+                        MarkerServerTime = 0.8, ImpactServerTime = 0.8 } } };
+                // Actual receive-before-ready seam: pending is not consumed until View succeeds.
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", flags).SetValue(view, null);
+                receive.Invoke(network, new object[] { phase });
+                Require((ulong)typeof(NetworkUnit).GetField("_appliedAttackPhaseRevision", flags).GetValue(network) == 0,
+                    "Receive-before-ready must remain pending.");
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", flags).SetValue(view, data);
+                Require(view.CanUseNativeAttackPhase(data), "Production native metadata must qualify before pending retry.");
+                network.RetryAttackPhaseViewBinding();
+                Require((ulong)typeof(NetworkUnit).GetField("_appliedAttackPhaseRevision", flags).GetValue(network) == 2,
+                    "Ready retry must apply exactly once.");
+                network.RetryAttackPhaseViewBinding();
+                animator.Update(2f);
+                Require(view.AttackPhaseNativeEmissions == oldEmits, "GREEN: past source occurrence must not become next-loop VFX.");
+                var stale = phase; stale.Active = false; stale.Lifetime = 99;
+                receive.Invoke(network, new object[] { stale });
+                Require(((UnitAttackPhasePresentation)typeof(NetworkUnit).GetField("_pendingAttackPhase", flags).GetValue(network)).Active,
+                    "Wrong-lifetime inactive cannot mutate current pending.");
+                stale = phase; stale.Active = false; stale.PresentationRevision = 1;
+                receive.Invoke(network, new object[] { stale });
+                Require(((UnitAttackPhasePresentation)typeof(NetworkUnit).GetField("_pendingAttackPhase", flags).GetValue(network)).Active,
+                    "Stale-revision inactive cannot close current epoch.");
+                phase.Active = false; receive.Invoke(network, new object[] { phase });
+                phase.Active = true; phase.EpochId = 2; phase.EpochServerTime = 10;
+                phase.PresentationRevision = 3; phase.CommitServerTime = 10.2;
+                phase.Hits[0].MarkerServerTime = phase.Hits[0].ImpactServerTime = 10.8;
+                clock = 10.3; receive.Invoke(network, new object[] { phase });
+                // Logical scope closure retains native playback, not permission for seq8.
+                // OLD: !pending.Active conflated the native owner with scoped admission.
+                var closedPending = (UnitAttackPhasePresentation)typeof(NetworkUnit).GetField("_pendingAttackPhase", flags).GetValue(network);
+                Require(closedPending.Active && !closedPending.Scope.IsValid
+                    && closedPending.Mode == AttackPresentationImpactMode.Suppressed
+                    && closedPending.Hits == null && closedPending.EpochId == 1
+                    && closedPending.PresentationRevision == 2
+                    && (ulong)typeof(NetworkUnit).GetField("_appliedAttackPhaseRevision", flags).GetValue(network) == 2
+                    && (ulong)typeof(NetworkUnit).GetField("_closedAttackInstance", flags).GetValue(network) == 41
+                    && (ulong)typeof(NetworkUnit).GetField("_closedAttackSequence", flags).GetValue(network) == 8,
+                    "Closed seq8 must not reopen with a new epoch/revision.");
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(9), 0);
+                clock = 10.3; receive.Invoke(network, new object[] { phase });
+                Require((ulong)typeof(NetworkUnit).GetField("_appliedAttackPhaseRevision", flags).GetValue(network) == 3,
+                    "New epoch after valid close must bind; old closed epoch must not reopen.");
+                animator.Update(0);
+                var follow = typeof(Hexiege.Presentation.UnitView).GetMethod("FollowAttackPhase", flags);
+                var state = animator.IsInTransition(0) ? animator.GetNextAnimatorStateInfo(0) : animator.GetCurrentAnimatorStateInfo(0);
+                Require(Math.Abs(state.normalizedTime * phase.Duration - 0.2) < 0.001,
+                    "First entry offset is seconds, not normalized time.");
+                clock = 10.8;
+                follow.Invoke(view, new object[] { 0.02d });
+                Require(animator.speed >= 0 && animator.speed <= 2.001f, "Active native advance must remain forward and bounded.");
+                clock = 10.7; follow.Invoke(view, new object[] { 0.02d });
+                Require(animator.speed == 0, "Fresh raw backward clock must hold without rewind.");
+                // 실제 Follow 경계가 매 native step을 소유한다. 임의 speed=1로 우회하지 않는다.
+                for (int step = 0; step < 40; step++)
+                {
+                    clock = 10.81 + step * 0.02;
+                    follow.Invoke(view, new object[] { 0.02d });
+                    animator.Update(0.02f);
+                }
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 1,
+                    "Native relay must reach the production VFX emission callsite exactly once for a future occurrence.");
+                animator.Update(2f);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 1, "Duplicate native loop must not emit again.");
+                // Leave the duplicate probe's deliberately advanced native loop before the
+                // continuous-owner case. A new epoch starts from the production seconds offset.
+                view.CloseAttackPhasePresentation("fixture-probe-close");
+                phase.EpochId = 3; phase.EpochServerTime = 20; phase.PresentationRevision = 4;
+                phase.CommitServerTime = 20.2; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(10), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = 0.8f, MarkerServerTime = 20.8, ImpactServerTime = 20.8 } };
+                Action<double, int> pump = (start, count) =>
+                {
+                    for (int step = 0; step < count; step++)
+                    { clock = start + step * 0.02; follow.Invoke(view, new object[] { 0.02d }); animator.Update(0.02f); }
+                };
+                var provisional = phase; provisional.Mode = AttackPresentationImpactMode.Suppressed;
+                provisional.Scope = default; provisional.Hits = null;
+                clock = 20.3; receive.Invoke(network, new object[] { provisional }); animator.Update(0);
+                pump(20.31, 10);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 1, "Initial provisional follows phase without source permission.");
+                float provisionalTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                phase.PresentationRevision = 5; clock = 20.51; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(animator.GetCurrentAnimatorStateInfo(0).normalizedTime == provisionalTime && !animator.IsInTransition(0),
+                    "Provisional-to-commit on the same epoch must not restart native Attack.");
+                pump(20.52, 65);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 2, "Continuous owner first cycle emits once.");
+                phase.PresentationRevision = 6; phase.CommitServerTime = 22.2;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(11), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 1, MarkerOffset = 0.8f, MarkerServerTime = 22.8, ImpactServerTime = 22.8 } };
+                state = animator.GetCurrentAnimatorStateInfo(0);
+                float beforeCommit = state.normalizedTime;
+                clock = 22.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(animator.GetCurrentAnimatorStateInfo(0).normalizedTime == beforeCommit && !animator.IsInTransition(0),
+                    "Same-epoch commit must not restart, crossfade or rewind native Attack.");
+                pump(22.31, 65);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 3, "Same owner next approved loop emits once.");
+                phase.PresentationRevision = 7; phase.CommitServerTime = 24.2;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(12), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 2, MarkerOffset = 0.8f, MarkerServerTime = 24.8, ImpactServerTime = 24.8 } };
+                clock = 24.3; receive.Invoke(network, new object[] { phase });
+                var close = phase; close.Active = false; receive.Invoke(network, new object[] { close });
+                var occurrence = (AttackSourceOccurrenceLease)typeof(Hexiege.Presentation.UnitView).GetField("_attackOccurrenceLease", flags).GetValue(view);
+                Require(occurrence.SourceOnly && occurrence.Remaining == 1, "Normal close preserves only the already-approved occurrence.");
+                pump(24.31, 65);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 4 && occurrence.Remaining == 0,
+                    "SourceOnly native relay emits once, without moving permission to a later loop.");
+                phase.EpochId = 4; phase.EpochServerTime = 30; phase.PresentationRevision = 8; phase.CommitServerTime = 30.2;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(13), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = 0.8f, MarkerServerTime = 30.8, ImpactServerTime = 30.8 } };
+                var shadow = (Unity.Netcode.NetworkVariable<NetworkUnitActionShadowState>)typeof(NetworkUnit)
+                    .GetField("_attackShadowState", flags).GetValue(network);
+                shadow.Value = new NetworkUnitActionShadowState { AttackerInstanceId = 41, SequenceId = 13, Revision = 8, LastImpactHitIndex = 0 };
+                clock = 30.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(occurrence.Remaining == 0, "Last confirmed baseline must skip exactly the confirmed native occurrence.");
+                pump(30.31, 65);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 4, "Baseline cannot replay a confirmed source on a later loop.");
+                phase.EpochId = 5; phase.EpochServerTime = 32; phase.PresentationRevision = 9; phase.CommitServerTime = 32.2;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(14), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = 0.8f, MarkerServerTime = 32.8, ImpactServerTime = 32.8 } };
+                clock = 32.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(occurrence.Remaining == 1, "A newer sequence does not inherit the previous sequence baseline.");
+                // 실제 UnitView Retire→Start/Bind→Animator relay→OnAttackHit→VFX callsite 회귀.
+                // RED는 교정 전의 무조건 Close를 같은 production 경계에서 재현한다.
+                // manager 없는 fixture이므로 emitter 도달/문맥 증거이며 particle pixel PASS는 아니다.
+                int turnoverEmits = view.AttackPhaseNativeEmissions;
+                typeof(Hexiege.Presentation.UnitView).GetMethod("RetireAndCloseAttackPresentationScope", flags)
+                    .Invoke(view, new object[] { "turnover-red-original-close" });
+                phase.PresentationRevision = 10; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(15), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 1, MarkerOffset = .8f,
+                    MarkerServerTime = 34.8, ImpactServerTime = 34.8 } };
+                clock = 32.4; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                pump(32.41, 40);
+                Require(view.AttackPhaseNativeEmissions == turnoverEmits,
+                    "RED actual native relay: original full close loses old occurrence before the new loop.");
+                view.CloseAttackPhasePresentation("turnover-red-end");
+                phase.EpochId = 6; phase.EpochServerTime = 36; phase.CommitServerTime = 36.2;
+                phase.PresentationRevision = 11; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(16), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = .8f,
+                    MarkerServerTime = 36.8, ImpactServerTime = 36.8 } };
+                clock = 36.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                var frozenContext = typeof(Hexiege.Presentation.UnitView).GetField("_nativeOccurrenceContext", flags).GetValue(view);
+                var frozenRotation = (Quaternion)frozenContext.GetType().GetField("Rotation").GetValue(frozenContext);
+                var frozenTargetPosition = new Vector3(11, 0, 13);
+                frozenContext.GetType().GetField("TargetPosition").SetValue(frozenContext, frozenTargetPosition);
+                float turnoverNativeTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                var retainedScope = phase.Scope;
+                phase.PresentationRevision = 12; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(17), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 1, MarkerOffset = .8f,
+                    MarkerServerTime = 38.8, ImpactServerTime = 38.8 } };
+                clock = 36.4; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(animator.GetCurrentAnimatorStateInfo(0).normalizedTime == turnoverNativeTime,
+                    "Actual same-epoch handoff must not restart/rewind native playback.");
+                // 새 mutable target cache를 오염시켜도 실제 emitter는 bind 당시 old 문맥을 쓴다.
+                typeof(Hexiege.Presentation.UnitView).GetField("_combatTargetId", flags).SetValue(view, 999);
+                root.transform.rotation = Quaternion.Euler(0, 90, 0);
+                pump(36.41, 40);
+                Require(view.AttackPhaseNativeEmissions == turnoverEmits + 1
+                    && view.AttackPhaseLastEmissionScope.Equals(retainedScope)
+                    && view.AttackPhaseLastEmissionTarget == 902
+                    && view.AttackPhaseLastEmissionTargetPosition == frozenTargetPosition
+                    && Quaternion.Angle(view.AttackPhaseLastEmissionRotation, frozenRotation) < .001f,
+                    "GREEN actual VFX callsite must emit the pending old exact scope and immutable target, not latest cache.");
+                occurrence = (AttackSourceOccurrenceLease)typeof(Hexiege.Presentation.UnitView).GetField("_attackOccurrenceLease", flags).GetValue(view);
+                Require(occurrence.Remaining == 1, "Old marker cannot consume the new occurrence/count cursor.");
+                pump(37.21, 100);
+                Require(view.AttackPhaseNativeEmissions == turnoverEmits + 2
+                    && view.AttackPhaseLastEmissionScope.Equals(phase.Scope),
+                    "New owner still emits its own exact native loop after pending-old routing.");
+                animator.Update(2f);
+                Require(view.AttackPhaseNativeEmissions == turnoverEmits + 2, "No old/new next-loop reuse after one-shot emission.");
+                view.CloseAttackPhasePresentation("turnover-green-end");
+                phase.EpochId = 7; phase.EpochServerTime = 42; phase.CommitServerTime = 42.2;
+                for (int pending = 0; pending <= 9; pending++)
+                {
+                    phase.PresentationRevision = (ulong)(13 + pending);
+                    phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId((ulong)(18 + pending)), 0);
+                    phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = pending, MarkerOffset = .8f,
+                        MarkerServerTime = 42.8 + pending * 2, ImpactServerTime = 42.8 + pending * 2 } };
+                    clock = 42.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                    var pendingOwners = (System.Collections.ICollection)typeof(Hexiege.Presentation.UnitView)
+                        .GetField("_pendingNativeOwners", flags).GetValue(view);
+                    Require(pendingOwners.Count == (pending <= 8 ? pending : 0),
+                        "Actual UnitView handoff accepts cap8 and closes old permissions fail-closed on ninth overflow.");
+                }
+                view.CloseAttackPhasePresentation("combat-target-change");
+                pump(42.31, 70);
+                Require(view.AttackPhaseNativeEmissions == turnoverEmits + 2,
+                    "Overflow/semantic cancel cannot revive a closed old scope on a native callback.");
+                oldEmits += 2;
+                // Re-arm a genuinely unconsumed permission; do not test death against an already consumed lease.
+                phase.PresentationRevision = 23; phase.EpochId = 8; phase.EpochServerTime = 46;
+                phase.CommitServerTime = 46.2;
+                phase.Scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(28), 0);
+                phase.Hits = new[] { new AttackSourceOccurrence { HitIndex = 0, Loop = 0, MarkerOffset = .8f,
+                    MarkerServerTime = 46.8, ImpactServerTime = 46.8 } };
+                clock = 46.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                occurrence = (AttackSourceOccurrenceLease)typeof(Hexiege.Presentation.UnitView)
+                    .GetField("_attackOccurrenceLease", flags).GetValue(view);
+                Require(occurrence.Remaining == 1, "Actual death regression starts with an unconsumed native permission.");
+                data.TakeDamage(100);
+                view.CloseAttackPhasePresentation("attacker-death", true);
+                Require(occurrence.Remaining == 0 && !occurrence.SourceOnly, "Death closes source ownership even when preservation is requested.");
+                animator.Update(2f);
+                Require(view.AttackPhaseNativeEmissions == oldEmits + 4, "Dead attacker cannot emit its pending native source.");
+                typeof(NetworkUnit).GetMethod("CloseAttackPhase", flags).Invoke(network, new object[] { "game-end", true });
+                phase.PresentationRevision = 24; phase.EpochId = 9; receive.Invoke(network, new object[] { phase });
+                Require(!((UnitAttackPhasePresentation)typeof(NetworkUnit).GetField("_pendingAttackPhase", flags).GetValue(network)).Active,
+                    "Game-end cannot reopen a late active payload.");
+                Require(!UnitAttackShadowProfileResolver.CanUseNativeAttackPhase(UnitType.FoxMagician)
+                    && !UnitAttackShadowProfileResolver.CanUseNativeAttackPhase(UnitType.TorrentSpirit)
+                    && !UnitAttackShadowProfileResolver.CanUseNativeAttackPhase(UnitType.BloomFairy), "Excluded policies remain Legacy.");
+                view.CloseAttackPhasePresentation("fixture-end");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); NetworkContext.Set(server, active); }
+            // 같은 기존 메뉴에서 실제 production multihit/controller/relay를 추가 실행한다.
+            bool wasActive = NetworkContext.IsNetworkActive, wasServer = NetworkContext.IsNetworkServer;
+            var multiRoot = new GameObject("LionKnightNativeOccurrence") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                NetworkContext.Set(false, true);
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var view = multiRoot.AddComponent<Hexiege.Presentation.UnitView>();
+                var visual = new GameObject("VisualRoot"); visual.transform.SetParent(multiRoot.transform, false);
+                var animator = visual.AddComponent<Animator>();
+                visual.AddComponent<Hexiege.Presentation.AnimationEventRelay>();
+                animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                    "Assets/_Project/Animations/Units/LionKnight/LionKnight.controller");
+                animator.applyRootMotion = false; animator.Rebind();
+                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/Units/LionKnight/LionKnight_Attack.anim");
+                var data = new UnitData(903, UnitType.LionKnight, TeamId.Blue, new HexCoord(0, 0), 100, 10, 4, 2);
+                UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(clip));
+                data.HitFrameTimes = UnitFactory.GetHitFrameTimes(clip);
+                Require(data.AttackCooldown == 2f && data.HitFrameTimes.Length == 2
+                    && data.HitFrameTimes[0] == 0.6f && data.HitFrameTimes[1] == 1.4333333f,
+                    "Production LionKnight multihit metadata changed.");
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", flags).SetValue(view, data);
+                typeof(Hexiege.Presentation.UnitView).GetField("_animator", flags).SetValue(view, animator);
+                multiRoot.AddComponent<Unity.Netcode.NetworkObject>();
+                var network = multiRoot.AddComponent<NetworkUnit>();
+                double clock = 40.3;
+                typeof(NetworkUnit).GetField("_attackPhaseFixtureClock", flags).SetValue(network, (Func<double>)(() => clock));
+                typeof(NetworkUnit).GetField("_attackPhaseLifetime", flags).SetValue(network, 1UL);
+                Require(view.CanUseNativeAttackPhase(data), "Production multihit metadata must qualify.");
+                var productionTimes = data.HitFrameTimes;
+                data.HitFrameTimes = new[] { 0f, 0f };
+                Require(!view.CanUseNativeAttackPhase(data), "Same-zero metadata stays on the existing Legacy route before publish.");
+                data.HitFrameTimes = new[] { productionTimes[0], productionTimes[0] };
+                Require(!view.CanUseNativeAttackPhase(data), "Same-time metadata is not promoted to unique native occurrences.");
+                data.HitFrameTimes = productionTimes;
+                Require(view.CanUseNativeAttackPhase(data), "Restore actual Factory metadata without changing the asset.");
+                var receive = typeof(NetworkUnit).GetMethod("ReceiveAttackPhase", flags);
+                var follow = typeof(Hexiege.Presentation.UnitView).GetMethod("FollowAttackPhase", flags);
+                var shadow = (Unity.Netcode.NetworkVariable<NetworkUnitActionShadowState>)typeof(NetworkUnit).GetField("_attackShadowState", flags).GetValue(network);
+                var phase = new UnitAttackPhasePresentation { Lifetime = 1, EpochId = 1, Active = true,
+                    UnitId = 903, TargetId = 904, TargetIsUnit = true, PresentationRevision = 1, ActionRevision = 1,
+                    EpochServerTime = 40, Duration = data.AttackCooldown, CommitServerTime = 40.2,
+                    Mode = AttackPresentationImpactMode.Scoped,
+                    Scope = new AttackPresentationScope(new AttackerInstanceId(42), new AttackSequenceId(1), 0) };
+                Action bindHits = () =>
+                {
+                    phase.Hits = new AttackSourceOccurrence[2];
+                    for (int hit = 0; hit < 2; hit++) phase.Hits[hit] = new AttackSourceOccurrence {
+                        HitIndex = hit, Loop = 0, MarkerOffset = data.HitFrameTimes[hit],
+                        MarkerServerTime = phase.EpochServerTime + data.HitFrameTimes[hit],
+                        ImpactServerTime = phase.EpochServerTime + data.HitFrameTimes[hit] };
+                };
+                Action<double, int> pump = (start, count) => {
+                    for (int step = 0; step < count; step++) {
+                        clock = start + step * 0.02; follow.Invoke(view, new object[] { 0.02d }); animator.Update(0.02f);
+                    }
+                };
+                bindHits();
+                shadow.Value = new NetworkUnitActionShadowState { AttackerInstanceId = 42, SequenceId = 1, Revision = 1, LastImpactHitIndex = 0 };
+                receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                pump(40.31, 70);
+                var exactScope = (AttackPresentationScope)typeof(Hexiege.Presentation.UnitView).GetField("_pistoleerTimingScope", flags).GetValue(view);
+                Require(view.AttackPhaseNativeEmissions == 1 && exactScope.HitIndex == 1,
+                    "Native baseline skips hit0 and emits exact hit1, not the old count cursor.");
+                view.CloseAttackPhasePresentation("multihit-baseline-end");
+                phase.EpochId = 2; phase.PresentationRevision = phase.ActionRevision = 2; phase.EpochServerTime = 44;
+                phase.CommitServerTime = 44.2; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(42), new AttackSequenceId(2), 0);
+                bindHits(); clock = 44.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                pump(44.31, 25);
+                exactScope = (AttackPresentationScope)typeof(Hexiege.Presentation.UnitView).GetField("_pistoleerTimingScope", flags).GetValue(view);
+                Require(view.AttackPhaseNativeEmissions == 2 && exactScope.HitIndex == 0, "First native marker emits hit0 once.");
+                pump(44.81, 45);
+                exactScope = (AttackPresentationScope)typeof(Hexiege.Presentation.UnitView).GetField("_pistoleerTimingScope", flags).GetValue(view);
+                Require(view.AttackPhaseNativeEmissions == 3 && exactScope.HitIndex == 1, "Second native marker emits hit1 once.");
+                animator.Update(2f);
+                Require(view.AttackPhaseNativeEmissions == 3, "Multihit duplicate loop cannot reuse either marker.");
+                view.CloseAttackPhasePresentation("multihit-duplicate-end");
+                // 실제 같은 clip/hash/loop outgoing marker를 새 epoch hit0와 충돌시킨다.
+                // Play는 이전 native state의 재현 초기값뿐이며, 새 전환은 production Apply가 소유한다.
+                animator.speed = 1; animator.Play("Attack", 0, 0.275f); animator.Update(0);
+                phase.EpochId = 3; phase.PresentationRevision = phase.ActionRevision = 3; phase.EpochServerTime = 48;
+                phase.CommitServerTime = 48.2; phase.Scope = new AttackPresentationScope(new AttackerInstanceId(42), new AttackSequenceId(3), 0);
+                bindHits(); clock = 48.3; receive.Invoke(network, new object[] { phase }); animator.Update(0);
+                Require(animator.IsInTransition(0), "Production new epoch must create a real native self-crossfade.");
+                int rejected = view.AttackPhaseNativeRejections;
+                pump(48.31, 4);
+                var occurrence = (AttackSourceOccurrenceLease)typeof(Hexiege.Presentation.UnitView).GetField("_attackOccurrenceLease", flags).GetValue(view);
+                Require(view.AttackPhaseNativeRejections > rejected && view.AttackPhaseNativeEmissions == 3 && occurrence.Remaining == 2,
+                    "Actual same-clip/hash/loop outgoing callback rejects before consuming new epoch permission.");
+                pump(48.39, 70);
+                Require(view.AttackPhaseNativeEmissions == 5 && occurrence.Remaining == 0,
+                    "Incoming native state still emits each approved marker exactly once after outgoing rejection.");
+                view.CloseAttackPhasePresentation("multihit-fixture-end");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(multiRoot); NetworkContext.Set(wasServer, wasActive); }
+        }
+
+        public static void ValidatePistoleerTimingDiagnostics()
+        {
+            var evidenceKey = new WaveDeliveryKey(ulong.MaxValue, ulong.MaxValue);
+            var futureSpawn = new WavePresentationSpawn(evidenceKey, int.MaxValue, Vector3.zero, Vector3.forward, 1, 1, 1, 20.3);
+            string spawnProbe = FormattableString.Invariant(WavePresentationCoordinator.SpawnRejectionDetail(futureSpawn, 20));
+            Require(spawnProbe.Contains("firstFailed=future") && spawnProbe.Contains("invalidMask=0"),
+                "Actual wave rejection detail must distinguish a valid future spawn from payload corruption.");
+            var badSpawn = new WavePresentationSpawn(evidenceKey, -1, Vector3.zero, Vector3.forward, 1, 1, 3, 20.3);
+            Require(FormattableString.Invariant(WavePresentationCoordinator.SpawnRejectionDetail(badSpawn, 20)).Contains("firstFailed=payload"),
+                "Diagnostic first predicate must preserve production short-circuit priority.");
+            var futureContact = new WavePresentationContact(evidenceKey, 256, int.MaxValue, true, false, TeamId.Blue, Vector3.zero, 10, 1, 20.3);
+            Require(FormattableString.Invariant(WavePresentationCoordinator.ContactRejectionDetail(futureContact, 20)).Contains("firstFailed=future"),
+                "Actual contact detail must separate payload validity and future-time rejection.");
+            string expiryProbe = UnitAttackShadowObserver.FormatExpiryEstimateDiagnostic(true, 10.1, 11, 20, 10, 21.25);
+            Require(expiryProbe.Contains("receiveAnchorAdvanceEstimate=1") && expiryProbe.Contains("anchoredJumpEstimate=0.25")
+                && UnitAttackShadowObserver.FormatExpiryEstimateDiagnostic(false, 0, 11, double.NaN, 0, 21).Contains("anchoredJumpEstimate=unknown"),
+                "Actual expiry formatter must keep local extrapolation estimates and missing evidence distinct.");
+            const BindingFlags diagnosticFlags = BindingFlags.Static | BindingFlags.NonPublic;
+            Func<string, object> diagnosticState = name => typeof(PistoleerTimingDiagnostics).GetField(name, diagnosticFlags).GetValue(null);
+            var diagnosticUnit = new UnitData(901, UnitType.Pistoleer, TeamId.Blue, new HexCoord(0, 0), 100, 10, 4, 2);
+            PistoleerTimingDiagnostics.Begin("quota-fixture", "closed-scopes", true, 0);
+            for (ulong sequence = 1; sequence <= 1100; sequence++)
+            {
+                var scope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(sequence), 0);
+                PistoleerTimingDiagnostics.Register(diagnosticUnit, scope, sequence);
+                PistoleerTimingDiagnostics.Event(diagnosticUnit, "Retire", scope, sequence,
+                    "reason=missing-source-fixture remaining=1 sourceOnly=0");
+            }
+            Require(((System.Collections.IDictionary)diagnosticState("Rows")).Count == 0
+                && (long)diagnosticState("activeOverflow") == 0,
+                "Missing-source retire must reclaim ACTIVE beyond cumulative quota/capacity.");
+            Require((int)diagnosticState("blue") == 32
+                && ((System.Collections.IDictionary)diagnosticState("Tombstones")).Count == PistoleerTimingDiagnostics.ActiveLimit
+                && (long)diagnosticState("tombstoneEvictions") == 76,
+                "Historical quota and bounded retired evidence are separate populations.");
+            PistoleerTimingDiagnostics.Event(diagnosticUnit, "Decision",
+                new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(1), 0), 1100,
+                "status=Ready impact=1 delay=0.1 revision=1 victim=2 kind=1 effect=0 ordinal=0");
+            Require((long)diagnosticState("omitted") == 1 && (long)diagnosticState("sampleExcluded") == 0,
+                "Evicted known-Pistoleer late event is coverage unknown, never quota-excluded.");
+            PistoleerTimingDiagnostics.End(1100, "closed-quota-fixture");
+            PistoleerTimingDiagnostics.Begin("quota-fixture", "active-scopes", true, 0);
+            for (ulong sequence = 1; sequence <= PistoleerTimingDiagnostics.ActiveLimit + 1UL; sequence++)
+                PistoleerTimingDiagnostics.Register(diagnosticUnit,
+                    new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(sequence), 0), sequence);
+            Require(((System.Collections.IDictionary)diagnosticState("Rows")).Count == PistoleerTimingDiagnostics.ActiveLimit
+                && (long)diagnosticState("activeOverflow") == 1,
+                "ActiveLimit must report overflow, never evict an unclosed active scope.");
+            var repeatScope = new AttackPresentationScope(new AttackerInstanceId(41), new AttackSequenceId(1), 0);
+            for (int repeat = 0; repeat < 100; repeat++)
+                PistoleerTimingDiagnostics.Event(diagnosticUnit, "RawMarker", repeatScope, repeat,
+                    "normalized=0.1 continuity=1 renderedAnchor=0");
+            PistoleerTimingDiagnostics.Event(diagnosticUnit, "PhaseClockRegression", repeatScope, 100, "reason=fresh-ngo-backward");
+            Require((long)diagnosticState("sampleOmissions") == 99 && (long)diagnosticState("omitted") == 0,
+                "Repeated sampled marker omission is not a critical evidence drop.");
+            PistoleerTimingDiagnostics.End(1100, "missing-retire-fixture");
+            Require(((System.Collections.IDictionary)diagnosticState("Rows")).Count == 0,
+                "END records missing-retire state and reclaims active ownership.");
+            string source = File.ReadAllText("Assets/_Project/Scripts/Application/UseCases/UnitCombatUseCase.cs");
+            int before = source.IndexOf("\"WriterBefore\"", StringComparison.Ordinal);
+            int take = source.IndexOf("target.TakeDamage(finalDamage)", before, StringComparison.Ordinal);
+            int after = source.IndexOf("\"WriterAfter\"", before, StringComparison.Ordinal);
+            if (before < 0 || take < before || after < take) throw new InvalidOperationException("Actual writer hook ordering");
+            foreach (var item in new[] {
+                "Infrastructure/Network/NetworkCombatController.cs|Schedule|Dispatch|WriterResult|Result|Cancel|Unavailable",
+                "Presentation/Unit/UnitView.cs|Command|RenderedStart|RawMarker|MarkerSuppressed|VfxAttempt|VfxResult|SourceStop|TracerDecision",
+                "Infrastructure/Network/NetworkUnit.cs|Receive", "Infrastructure/Network/UnitAttackShadowObserver.cs|Decision" })
+            {
+                string[] fields = item.Split('|'); source = File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
+                for (int i = 1; i < fields.Length; i++)
+                    if (!source.Contains("\"" + fields[i] + "\"")) throw new InvalidOperationException("Missing production hook " + fields[i]);
+            }
+            string directory = Path.GetFullPath("Temp/pistoleer-timing-fixtures");
+            GeneratePistoleerTimingFixtures(directory);
+            string python = Environment.GetEnvironmentVariable("HEXIEGE_PYTHON") ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe");
+            var start = new System.Diagnostics.ProcessStartInfo(python,
+                "\"" + Path.GetFullPath("Tools/analyze_pistoleer_timing.py") + "\" --fixtures \"" + directory + "\"")
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using (var process = System.Diagnostics.Process.Start(start))
+            {
+                if (!process.WaitForExit(30000)) { process.Kill(); throw new InvalidOperationException("Timing CLI timeout"); }
+                string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+                File.WriteAllText(Path.Combine(directory, "parser-report.json"), output);
+                if (process.ExitCode != 0) throw new InvalidOperationException("Actual CLI gate failed: " + output);
+            }
+        }
+
+        // Synthetic inputs through the production serializer. This is NOT a network/runtime test.
+        public static void GeneratePistoleerTimingFixtures(string directory)
+        {
+            Directory.CreateDirectory(directory);
+            foreach (string scenario in new[] { "normal", "assault", "sniper", "snipermissingnative", "late", "cancel", "missing", "duplicates", "truncated", "regression", "arrival", "drop", "schema", "terminal", "format", "quota", "mixed", "miss", "sourceonly", "axes", "payload", "victim", "rebased", "phaseclock", "endnumeric", "evicted", "paused", "badinf", "reentry", "episode", "exactcoverage", "lease", "leaseinvalid", "leaseoverflow", "route", "routeinvalid", "routeoverflow" })
+            foreach (string role in new[] { "Host", "Client" })
+            {
+                var lines = new List<string>(); double now = 10;
+                Action<string, string> add = (stage, detail) =>
+                {
+                    double clock = now; now += 0.001;
+                    // Same production serializer, now exercising the short 5/30s Assault
+                    // timeline as well as the historical Pistoleer cases. Synthetic, not live timing.
+                    if (scenario == "assault")
+                        detail = detail.Replace("due=20.8", "due=20.166666666666668")
+                            .Replace("impact=20.8", "impact=20.166666666666668")
+                            .Replace("nominal=0.8", "nominal=0.16666666666666666")
+                            .Replace("effective=0.8", "effective=0.16666666666666666")
+                            .Replace("cooldown=2", "cooldown=0.3333333333333333")
+                            .Replace("anchorLength=2", "anchorLength=0.3333333333333333")
+                            .Replace("length=2", "length=0.3333333333333333")
+                            .Replace("normalized=0.4", "normalized=0.5");
+                    if (scenario.StartsWith("sniper", StringComparison.Ordinal))
+                        detail = detail.Replace("due=20.8", "due=21.733333333333334")
+                            .Replace("impact=20.8", "impact=21.733333333333334")
+                            .Replace("nominal=0.8", "nominal=1.7333333333333334")
+                            .Replace("effective=0.8", "effective=1.7333333333333334")
+                            .Replace("cooldown=2", "cooldown=3")
+                            .Replace("anchorLength=2", "anchorLength=3")
+                            .Replace("length=2", "length=3")
+                            .Replace("normalized=0.4", "normalized=0.5777777777777777");
+                    string raw = PistoleerTimingDiagnostics.Format("fixture-session", role + "-fixture", role,
+                        stage, stage == "Begin" || stage == "End" ? 0UL : 41UL, 7UL,
+                        scenario == "arrival" && stage == "Receive" ? 0UL : scenario == "axes" ? (role == "Host" ? 3UL : 2UL) : 9UL, 0, 17, 1, clock,
+                        stage == "WriterBefore" || stage == "WriterAfter" ? double.NaN : clock + 10, detail,
+                        scenario == "assault" ? (int)UnitType.Assault : scenario.StartsWith("sniper", StringComparison.Ordinal) ? (int)UnitType.Sniper : -1);
+                    if (Encoding.UTF8.GetByteCount(raw) > 780) throw new InvalidOperationException("Formatter cap");
+                    lines.Add(raw);
+                };
+                add("Begin", "limit=64");
+                if (scenario.StartsWith("route", StringComparison.Ordinal))
+                {
+                    var routeOwner = new UnitAttackPhasePresentation { EpochId = ulong.MaxValue, Lifetime = ulong.MaxValue,
+                        TargetId = int.MaxValue, TargetIsUnit = true };
+                    var latest = new AttackPresentationScope(new AttackerInstanceId(ulong.MaxValue), new AttackSequenceId(ulong.MaxValue), 0);
+                    string route = PistoleerTimingDiagnostics.NativeRouteDetail(routeOwner, "handoff", "none", -1, float.NaN,
+                        true, 8, 64, false, latest);
+                    add("NativeRoute", scenario == "routeinvalid" ? route.Replace("remaining=64", "missingRemaining=64")
+                        : scenario == "routeoverflow" ? route + " oversized=" + new string('x', 900) : route);
+                    add("NativeRoute", PistoleerTimingDiagnostics.NativeRouteDetail(routeOwner, "consumed", "none", long.MaxValue,
+                        .16666667f, true, 8, 0, false, latest));
+                }
+                if (scenario.StartsWith("lease", StringComparison.Ordinal))
+                {
+                    var owner = new UnitAttackPhasePresentation { Active = true, EpochId = ulong.MaxValue, Lifetime = ulong.MaxValue,
+                        Scope = new AttackPresentationScope(new AttackerInstanceId(ulong.MaxValue), new AttackSequenceId(ulong.MaxValue), 0),
+                        CommitServerTime = 20, Hits = new AttackSourceOccurrence[64] };
+                    for (int i = 0; i < owner.Hits.Length; i++) owner.Hits[i] = new AttackSourceOccurrence {
+                        HitIndex = i, Loop = long.MaxValue, MarkerOffset = 0.16666667f, MarkerServerTime = 20.3 + i };
+                    var lease = new AttackSourceOccurrenceLease();
+                    Require(lease.Bind(owner, 20.1, 0, out int skipped) && skipped == 1 && lease.Remaining == 63,
+                        "Production lease must retain exactly 64 occurrences and baseline skip without diagnostic writes.");
+                    string detail = PistoleerTimingDiagnostics.NativeLeaseDetail("bind-after", "bind-after", "bind-raw",
+                        lease.DiagnosticOwner, lease.IsBound, lease.SourceOnly, lease.Remaining, lease.DiagnosticHitCount);
+                    add("NativeLease", scenario == "leaseinvalid" ? detail.Replace("remaining=63", "remaining=oops")
+                        : scenario == "leaseoverflow" ? detail + " oversized=" + new string('x', 900) : detail);
+                    for (int i = 0; i < 64; i++)
+                    {
+                        Require(lease.ReadDiagnosticHit(i, out var hit, out bool consumed), "Snapshot getter must expose all valid hit indexes.");
+                        add("NativeLeaseHit", PistoleerTimingDiagnostics.NativeLeaseHitDetail("bind-after:" + i, true, hit, consumed, -1, float.NaN));
+                    }
+                    Require(lease.Remaining == 63, "Snapshot formatting must not consume the production lease.");
+                    lease.Close();
+                    add("NativeLeaseHit", PistoleerTimingDiagnostics.NativeLeaseHitDetail("unbound:0", false, default, false, -1, float.NaN));
+                }
+                if (scenario == "arrival") add("Receive", "outcome=HitApplied impact=20.8 amount=10 hp=90 victim=3 kind=1 effect=0 ordinal=0 revision=9");
+                add("Command", "crossFade=0 continuity=1 renderedAnchor=" + (scenario == "normal" ? "NaN" : "9.8")
+                    + " anchorNormalized=0 anchorLength=2 anchorSpeed=1 normalized=0.1 length=2 speed="
+                    + (scenario == "paused" ? "0 stateLength=Infinity paused=1 stateRate=1" : scenario == "badinf" ? "1 stateLength=Infinity paused=0 stateRate=1" : "1") + " delay=0.1");
+                if (scenario == "paused") add("RenderedStart", "continuity=1 normalized=0.1 length=2 speed=0 stateLength=Infinity paused=1 stateRate=1");
+                if (scenario == "reentry")
+                {
+                    add("EpochLifetime", "reason=native-reentry action=create epoch=1 epochTime=20");
+                    add("NativeEpochApply", "epoch=1 generation=1 epochTime=20 offset=0 first=1");
+                }
+                if (scenario == "episode")
+                    for (int episode = 1; episode <= 2; episode++)
+                    {
+                        add("PhaseHold", $"episode={episode} epoch=1 reason=phase-ahead-or-rate actual=1.9 target=0 dt=0.02 rate=1");
+                        add("PhaseResume", $"episode={episode} epoch=1 reason=phase-ahead-or-rate actual=1.9 target=2 dt=0.02");
+                    }
+                if (scenario == "normal") add("RenderedStart", "continuity=1 normalized=0.1 length=2 speed=1");
+                if (role == "Host") add("Schedule", "commit=20 due=20.8 nominal=0.8 effective=0.8 anchor=19.8 overshoot=0 cooldown=2");
+                if (scenario == "format") add("Schedule", new string('x', 900));
+                if (scenario == "cancel") add(role == "Host" ? "Cancel" : "SourceStop", "reason=cancel sourceOnly=1");
+                else
+                {
+                    now = scenario == "assault" ? 10d + 5d / 30d : scenario.StartsWith("sniper", StringComparison.Ordinal) ? 10d + 52d / 30d : scenario == "late" ? 11.05 : 10.8;
+                    if (scenario != "missing" && scenario != "exactcoverage")
+                    {
+                        if (scenario == "sourceonly") add("SourceStop", "sourceOnly=1 noTracer=1");
+                        if (scenario != "snipermissingnative") add("RawMarker", "normalized=0.4 continuity=1 renderedAnchor=9.8");
+                        add("Marker", "sourceOnly=" + (scenario == "sourceonly" ? "1" : "0"));
+                        if (scenario == "truncated") lines[lines.Count - 1] = lines[lines.Count - 1].Replace(" end=1", " end=");
+                        add("VfxAttempt", "coldPool=unknown"); add("VfxResult", "status=Started systems=1 active=1 manager=1");
+                        if (scenario == "duplicates") add("VfxResult", "status=Started systems=1 active=1 manager=1");
+                    }
+                    if (role == "Host")
+                    {
+                        add("Dispatch", "due=20.8 authorization=Applied");
+                        if (scenario != "miss")
+                        {
+                            add("WriterBefore", "hp=100 damage=10 victim=3 kind=1 effect=0 ordinal=0 clock=local-only");
+                            add("WriterAfter", "hp=90 before=100 damage=10 victim=3 kind=1 effect=0 ordinal=0 clock=local-only");
+                        }
+                        add("WriterResult", "status=" + (scenario == "miss" ? "TargetUnavailable" : "Applied") + " due=20.8");
+                        add("Result", "outcome=HitApplied impact=20.8 victim=3 kind=1 effect=0 ordinal=0 revision=9 amount=10 hp=90");
+                    }
+                    if (scenario != "arrival") add("Receive", "outcome=HitApplied impact=20.8 amount=10 hp=90 victim=3 kind=1 effect=0 ordinal=0 revision=9");
+                    add("Decision", "status=Ready impact=20.8 delay=0.1 revision=9 victim=3 kind=1 effect=0 ordinal=0");
+                }
+                if (scenario == "regression") now -= 0.1;
+                if (scenario == "phaseclock") add("PhaseClockRegression", "reason=fresh-ngo-backward");
+                if (scenario == "evicted") add("Unregistered", "coverageUnknown=1 reason=retired-evidence-evicted event=Decision");
+                if (scenario == "rebased")
+                    lines.Add(PistoleerTimingDiagnostics.Format("fixture-session", role + "-fixture", role,
+                        "PhaseBind", 41, 7, 9, 0, 17, 1, now, 1, "reason=rebased-estimate"));
+                add("End", "sampled=1 omitted=" + (scenario == "drop" ? "1" : "0") + " sampleExcluded=" + (scenario == "quota" ? "100" : "0")
+                    + " unclassifiedScoped=" + (scenario == "mixed" ? "100" : "0") + " formatFailures=0 coverage=sample-only");
+                if (scenario == "schema")
+                    for (int i = 0; i < lines.Count; i++) lines[i] = lines[i].Replace(" due=20.8", "").Replace(" impact=20.8", "");
+                if (scenario == "terminal") lines[lines.Count - 1] = lines[lines.Count - 1].Replace("omitted=0", "omitted=not-a-number");
+                if (scenario == "endnumeric") lines[lines.Count - 1] = lines[lines.Count - 1].Replace("coverage=sample-only", "activeOverflow=not-a-number peak=-1 sampleOmissions=NaN coverage=sample-only");
+                if (scenario == "miss")
+                    for (int i = 0; i < lines.Count; i++) lines[i] = lines[i].Replace("outcome=HitApplied", "outcome=Miss").Replace("amount=10", "amount=0").Replace("hp=90", "hp=-1");
+                if (role == "Client" && (scenario == "payload" || scenario == "victim"))
+                    for (int i = 0; i < lines.Count; i++)
+                        if (lines[i].Contains("stage=Receive")) lines[i] = scenario == "payload"
+                            ? lines[i].Replace("hp=90", "hp=89") : lines[i].Replace("victim=3", "victim=4");
+                File.WriteAllLines(Path.Combine(directory, scenario + "-" + role + ".txt"), lines);
+            }
+            string fallback = PistoleerTimingDiagnostics.Format(new string('s', 64), new string('r', 32), "Host", "Schedule",
+                ulong.MaxValue, ulong.MaxValue, ulong.MaxValue, 0, int.MaxValue, 1, double.MaxValue, double.MaxValue, new string('x', 900));
+            if (!fallback.Contains("formatIncomplete=1") || Encoding.UTF8.GetByteCount(fallback) > 780)
+                throw new InvalidOperationException("Unsafe fallback");
+            foreach (string prefix in new[] { new string('s', 4096), new string('\uD55C', 4096) })
+            {
+                string oversized = PistoleerTimingDiagnostics.Format(prefix, prefix, "Client", "Schedule",
+                    ulong.MaxValue, ulong.MaxValue, ulong.MaxValue, int.MaxValue, int.MaxValue, 1,
+                    double.MaxValue, double.MaxValue, new string('\uD55C', 4096));
+                // RuntimeLogger envelope 예산 120 byte를 포함한 실제 UTF-8 길이다.
+                if (!oversized.Contains("formatIncomplete=1") || Encoding.UTF8.GetByteCount(oversized) + 120 > 900)
+                    throw new InvalidOperationException("Unsafe fallback plus envelope");
+            }
+        }
+
         [MenuItem("Hexiege/Combat/Run Unit Action Self Validation")]
         public static void Run()
         {
+            ValidateUnitViewInitializationRetry();
             ValidatePhaseVocabularyAndOrdinals();
             ValidateMonotonicSequences();
             ValidateMovementHysteresis();
@@ -63,11 +993,24 @@ namespace Hexiege.Editor.Combat
             ValidateBoulderSpiritProductionTimeline();
             ValidateTideSpiritProductionTimeline();
             ValidateBearGuardProductionTimeline();
+            ValidatePistoleerProductionTimeline();
+            ValidateAssaultProductionTimeline();
+            ValidateSniperProductionTimeline();
+            ValidatePistoleerHostReentryBoundary();
+            ValidatePistoleerHostPublicationChain();
+            ValidatePistoleerNativeOccurrenceBoundary();
+            ValidatePistoleerTimingDiagnostics();
+            ValidateBloomFairyProductionTimeline();
+            ValidateBloomHealPresentationBoundary();
+            ValidateBloomHoTEffectBoundary();
+            ValidateVfxConnections();
             ValidateLionKnightProductionTimeline();
             ValidateSpearManProductionTimeline();
             ValidateEmberSpiritProductionTimeline();
             ValidateDustSpiritProductionTimeline();
             ValidateRabbitTricksterProductionTimeline();
+            ValidateTorrentSpiritProductionTimeline();
+            Hexiege.EditorTools.TorrentWaveProductionValidation.Run();
             ValidateStreamSpiritProductionTimeline();
             ValidateStreamSpiritProductionTimelineDiagnostics();
             ValidateFoxMagicianProductionTimeline();
@@ -84,9 +1027,10 @@ namespace Hexiege.Editor.Combat
             ValidateC3ContinuousAuthoritativeTimeline();
             ValidateC3AuthoritativeResultPresentationShadow();
             RunAuthoritativeAttackPresentationValidation.Run();
+            Debug.Log("[UAS-DIAG][BLOOM-HEAL-TIMELINE] self-validation PASS: BloomFairy exact production clip/controller/Blue-Red/scene binding, single 30fps 1:00 marker, 1s preparation plus 3s post-cast cooldown, SeparateHealPipeline/N/A; server heal policy unchanged.");
 
             Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, blocked authoritative-start deterministic FlowField egress, center-reached checkpoint consumption, building-safe combat approach and Unit64-shaped same-walkable-tile center rejoin, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded v13 pre-Action target staging, Root-stop-before-Start prevention and pure-Client rendered attack-entry ordering, bounded center checkpoint error and Chase direct-safe/path evidence, bounded UnitView adapter failure evidence with post-GameEnd suppression, bounded server-checkpoint/client-final-root rotation replication evidence and compact ROOT terminal with full-line UTF-8 preflight, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, Unit30-shaped unchanged spatial recovery blocking/stale duplicate suppression/death retire, reduced/stationary/repath fallback and fatal separation, no same-frame retry, center-to-center 60-degree outgoing turn/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, C1 atomic Host-local provisional Attack handoff before remote RPC with precommit impact suppression and continuous marker-window commit without clip restart, staged candidate/provisional Start/active Change target publication separation, production stationary/5-degree attack-start gate, bounded source-marker Stop-before-marker preservation without target transfer or loop replay, exhaustive 25-type attack manifest, production-boundary sequence allocation, per-Legacy-cycle target scope including overlapping impacts, pending-reservation StopCombat isolation, sequence-first per-cycle revision reset classification shared by server/client, reservation-bound dispatch consistency independent of display-target lifecycle, fail-closed correlation, target lock/multi-hit lifecycle and atomic latest-scope replication classification, C2 single-source Legacy overshoot cooldown/impact offsets including same-zero multi-hit order, exact attacker/target unavailable authorization-result binding and both-unavailable rejection, writer-owned damage observation, dispatch/completion reservation lifecycle, attacker-death future non-persistent hit cancellation before dispatch/result/observer with authorized completion preservation, reliable full-key ImpactResult shadow and bounded duplicate/conflict/retire classification, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
-            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; StreamSpirit bounded read-only production flow diagnostics.");
+            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, TorrentSpirit launch, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; StreamSpirit bounded read-only production flow diagnostics.");
             Debug.Log("[UAS-DIAG][C2-AUTHORITY] self-validation PASS: absolute server-time due gate, authorization-gated single Legacy damage writer, authoritative combat-condition Miss, and canonical result classification.");
             Debug.Log("[UAS-DIAG][C3-PRESENTATION-SHADOW] self-validation PASS: match-fixed mode/schema/hash, v12 Host/Client contract gate, marker-time immutable replication evidence, normal timing/recovery timing separation with timeout-zero gate, atomic commit presentation scope independent of replicated-state arrival, continuous every-commit scope publication without Attack clip restart, one-shot production marker lease with exact old-sequence retire and late-result suppression, bounded source-only completion when Stop precedes a committed marker, all-manifest Supported scoped fail-closed versus Unresolved Legacy VFX preservation without fabricated scope, immutable ranged scope capture, bounded InfernoSpirit rendered-Hips start/impact/end evidence with exact-key dedupe, signed-yaw invalid rejection, and forbidden Animator body member source gate, bounded read-only InfernoSpirit rendered-anchor motion-jump allowance/classification with rotation-arc prediction, residual boundary, compact Android-safe full-line preflight, initialization no-event, first severe Walk/Attack transition reservation, exact-key/overflow/lifecycle reset, peer-gated client-only replication classification, production renderer/rootBone/Hips fail-closed contract, per-attacker-sequence 64-entry reorder isolation, named 8-degree direction boundary with exact-revision classification, bounded structural failure evidence, one causal Error plus one axis terminal Error aggregation, independent C2 result/C3 presentation/overall verdicts, exact-key scheduling, duplicate/conflict, both arrival orders, catch-up/expiry, retire, damage-writer-owned victim presentation snapshot, optional hit-VFX asset classification, victim presentation spatial proof, and read-only writer/emitter boundary. Android warning-zero remains a runtime device gate and is not claimed here.");
         }
@@ -421,6 +1365,892 @@ namespace Hexiege.Editor.Combat
                     && UnitFactory.SelectAttackTimelineClip(clip, new AnimationClip[0]) == clip
                     && UnitFactory.SelectAttackTimelineClip(clip, null) == clip,
                 "TideSpirit explicit Attack clip must win controller enumeration and empty-list cases.");
+        }
+
+        /// <summary>
+        /// BloomFairy의 생산 클립과 30fps 1:00 힐 연출 표식을 확인한다.
+        /// 실제 회복은 서버 타이머가 담당하며 준비 1초 뒤 쿨다운 3초인 힐러 예외를 보존한다.
+        /// </summary>
+        /// <summary>기존 메뉴의 production channel/presenter/pool 회귀. 저장/asset 수정은 하지 않는다.</summary>
+        public static void ValidateBloomHoTEffectBoundary()
+        {
+            Require(!UnityEngine.Application.isPlaying, "Bloom HoT fixture must run outside a live match.");
+            const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic;
+            var config = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>("Assets/_Project/Resources/Config/UnitEffectConfig.asset");
+            config.Initialize();
+            var preset = config.GetHeal(UnitType.BloomFairy);
+            Require(preset != null && config.GetAttack(UnitType.BloomFairy) == null, "Bloom heal slot is independent; attack remains null.");
+            Require(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(preset.VfxPrefab)) == "ff068a5e9b80f3043a0517ebb1cfb00f", "Authored Bloom GUID must match.");
+            var authored = preset.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true);
+            Require(authored.Length == 5 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null, "Recursive5/root1 are separate metrics.");
+            foreach (var ps in authored)
+                Require(ps.main.loop && !ps.main.useUnscaledTime && ps.main.stopAction == ParticleSystemStopAction.None
+                    && ps.main.simulationSpace == ParticleSystemSimulationSpace.Local && ps.emission.burstCount == 0,
+                    "Authored5PS loop/local/scaled/None/burst0 contract must remain unchanged.");
+            Func<UnitData> targetFactory = () => new UnitData(9901, UnitType.LittleKnight, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1);
+            var target = targetFactory();
+            var channel = new BloomHealEffectChannel();
+            var state = channel.Grant(target);
+            Require(state.IsValid && state.Active, "Grant must create a valid recipient owner.");
+            var old = state;
+            channel.Refresh(ref state, target);
+            Require(state.SameOwner(old) && state.Revision > old.Revision, "Refresh retains owner, increases revision.");
+            var cursor = new BloomHealEffectCursor();
+            Require(cursor.TryAccept(state) && !cursor.TryAccept(state) && !cursor.TryAccept(old), "Cursor rejects duplicate/reverse order.");
+            var conflict = state; conflict.Active = !state.Active;
+            Require(cursor.Classify(state) == BloomHealAdmission.Duplicate
+                && cursor.Classify(old) == BloomHealAdmission.Stale
+                && cursor.Classify(conflict) == BloomHealAdmission.Conflict
+                && !cursor.TryAccept(conflict) && cursor.Current.Equals(state),
+                "Equal revision altered payload is conflict, not duplicate; rejected state is unchanged.");
+            channel.Stop(ref state, target, BloomHealStopReason.Expired);
+            Require(cursor.TryAccept(state), "Terminal current is accepted.");
+            var resurrect = state; resurrect.Active = true; resurrect.Revision++;
+            Require(!cursor.TryAccept(resurrect), "Closed instance cannot reactivate.");
+            var replacement = targetFactory();
+            Require(!channel.Accept(old, replacement) && !channel.BindRecipient(replacement, old.MatchGeneration, old.TargetLifetime), "ID alone cannot rebind an old lifetime.");
+            channel.CloseAttachment(target, "FixtureDespawn");
+            var entries = new List<BloomHealEffectChannel.Recipient>(); channel.CopyCurrent(entries);
+            Require(entries.Count == 0 && !channel.TryGet(target, out _), "Retire removes UnitData references, not just emits a visual event.");
+            Require(!channel.BindRecipient(replacement, old.MatchGeneration, old.TargetLifetime), "Retired lifetime tombstone protects ID reuse.");
+            var next = channel.Grant(replacement);
+            Require(next.TargetLifetime > old.TargetLifetime && next.EffectInstanceId > old.EffectInstanceId, "New local object gets a new lifetime/instance.");
+
+            GameObject root = null, pose = null, itemGo = null;
+            var previousManager = Hexiege.Presentation.EffectManager.Instance;
+            try
+            {
+                var rejection = new BloomHealEffectChannel(); var rejectedState = rejection.Grant(target);
+                Require(!rejection.Accept(rejectedState, target), "Duplicate channel input rejects.");
+                var changedPayload = rejectedState; changedPayload.Active = false;
+                Require(!rejection.Accept(changedPayload, target), "Same revision conflicting channel input rejects.");
+                rejection.Refresh(ref rejectedState, target);
+                Require(!rejection.Accept(changedPayload, target), "Older conflicting payload is stale.");
+                Require(!rejection.Accept(default, target), "Invalid payload rejects visibly.");
+                Require(rejection.Diagnostics.Count("Duplicate") == 1 && rejection.Diagnostics.Count("Conflict") == 1
+                    && rejection.Diagnostics.Count("Stale") == 1 && rejection.Diagnostics.Count("Drop") == 1,
+                    "Production reject counters distinguish duplicate/conflict/stale/invalid drop.");
+                rejection.CloseVisuals("FixtureRejections");
+                pose = new GameObject("BloomFixturePose") { hideFlags = HideFlags.HideAndDontSave };
+                pose.transform.SetPositionAndRotation(new Vector3(7, 2, -3), Quaternion.Euler(0, 110, 0));
+                itemGo = UnityEngine.Object.Instantiate(preset.VfxPrefab); itemGo.hideFlags = HideFlags.HideAndDontSave;
+                var item = itemGo.AddComponent<Hexiege.Presentation.VfxPoolItem>();
+                Vector3 authoredScale = itemGo.transform.localScale;
+                int returns = 0; item.Setup(preset.VfxPrefab, _ => returns++);
+                // Edit Mode는 Awake 호출을 보장하지 않는다. production Setup이 Awake와
+                // 같은 초기화 경로를 사용한 뒤 실제 root1/원본 scale 캐시를 먼저 검증한다.
+                Require(itemGo.GetComponent<ParticleSystem>() != null && item.ParticleSystemCount == 1
+                    && (Vector3)typeof(Hexiege.Presentation.VfxPoolItem).GetField("_originalLocalScale", f).GetValue(item) == authoredScale,
+                    "Production setup initializes the actual root PS and authored scale in Edit Mode.");
+                var proof = new BloomHealEffectDiagnostics();
+                Require(item.BeginBloomAcquire(), "Pool checkout can begin.");
+                ulong lease = item.PlayBloomLoop(next, pose.transform, preset, proof);
+                Require(lease != 0 && item.BloomRecursiveSystemCount == 5 && item.ParticleSystemCount == 1, "All5PS lease starts.");
+                var systems = itemGo.GetComponentsInChildren<ParticleSystem>(true);
+                foreach (var ps in systems) ps.Simulate(.25f, false, false, false);
+                float time = systems[0].time;
+                var refresh = next; refresh.Revision++;
+                Require(item.RefreshBloom(lease, refresh) && item.BloomLease == lease && systems[0].time == time, "Refresh noRestart/noClear.");
+                foreach (var ps in systems) ps.Clear(false);
+                var update = typeof(Hexiege.Presentation.VfxPoolItem).GetMethod("Update", f);
+                update.Invoke(item, null);
+                Require(item.BloomLoopActive && returns == 0, "Active particle gap/pause cannot return a loop.");
+                foreach (var ps in systems) ps.Emit(1);
+                var terminal = refresh; terminal.Active = false; terminal.Revision++; terminal.StopReason = BloomHealStopReason.FullHP;
+                Require(item.StopBloom(lease, terminal) && item.BloomSnapshot.Equals(terminal), "Pool stop captures exact terminal revision.");
+                Vector3 frozen = item.transform.position; Quaternion frozenRotation = item.transform.rotation; Vector3 frozenScale = item.transform.lossyScale;
+                pose.transform.position += Vector3.one * 20; item.FollowBloomPose(lease, pose.transform);
+                Require(item.transform.position == frozen && item.transform.rotation == frozenRotation && item.transform.lossyScale == frozenScale, "Stop freezes last valid world pose.");
+                proof.Finish("FixtureEnd");
+                Require(!proof.Ended && proof.PendingTails == 1, "END waits for scaled tails, pending is not success.");
+                item.Return();
+                Require(returns == 0, "External Return cannot truncate living stopped particles.");
+                update.Invoke(item, null);
+                Require(returns == 0, "No elapsed simulation means paused drain remains pending.");
+                foreach (var ps in systems) ps.Simulate(30f, false, false, false);
+                // Simulate ends paused, unlike the runtime's continuing StopEmitting tail.
+                // Prove natural particle expiry BEFORE restoring the stopped native state; never Clear.
+                foreach (var ps in systems)
+                    Require(ps.particleCount == 0 && !ps.isEmitting, "All5PS simulation expires particles before StopEmitting reassertion.");
+                foreach (var ps in systems) ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+                foreach (var ps in systems)
+                    Require(ps.particleCount == 0 && ps.isStopped && !ps.IsAlive(false), "All5PS NoClear reassertion retains zero particles and closes native state.");
+                update.Invoke(item, null); update.Invoke(item, null);
+                Require(returns == 1 && proof.Ended && proof.PendingTails == 0 && item.BloomSnapshot.Equals(terminal), "All5PS drain/return once retains terminal key.");
+                Require(item.BeginBloomAcquire(), "Returned item can be checked out again.");
+                ulong lease2 = item.PlayBloomLoop(next, pose.transform, preset, new BloomHealEffectDiagnostics());
+                Require(lease2 > lease && !item.StopBloom(lease, "StaleCallback"), "Stale old lease cannot stop a reused item.");
+                item.StopBloom(lease2, "LocalAttachmentClose");
+                Require(item.BloomSnapshot.Active, "Local attachment close does not fake server Active=false.");
+                foreach (var ps in systems) ps.Simulate(30f, false, false, false);
+                foreach (var ps in systems)
+                    Require(ps.particleCount == 0 && !ps.isEmitting, "Reused lease simulation expires particles before StopEmitting reassertion.");
+                foreach (var ps in systems) ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+                update.Invoke(item, null);
+                var bad = systems[0].main; bad.loop = false; // instance only, never authored asset.
+                Require(item.BeginBloomAcquire() && item.PlayBloomLoop(next, pose.transform, preset, proof) == 0, "Malformed5PS contract fails before Play.");
+                int beforeReject = returns; item.RejectBloomAcquire(); item.RejectBloomAcquire();
+                Require(returns == beforeReject + 1 && !item.gameObject.activeSelf && !item.BloomLoopActive, "Failed acquire clears/deactivates/returns exactly once.");
+                foreach (var ps in systems) Require(!ps.IsAlive(false), "Failed acquire leaves no visible/orphan loop.");
+
+                root = new GameObject("BloomFixturePresenter") { hideFlags = HideFlags.HideAndDontSave };
+                var presenter = root.AddComponent<Hexiege.Presentation.BloomHealEffectPresenter>();
+                var manager = root.AddComponent<Hexiege.Presentation.EffectManager>();
+                typeof(Hexiege.Presentation.EffectManager).GetField("_vfxContainer", f).SetValue(manager, root.transform);
+                manager.Initialize(config, null, null);
+                // 기존 manager의 실제 checkout -> Play 실패 -> 풀 반환 경로도 통과한다.
+                // malformed인 것은 임시 인스턴스뿐이며 원본 prefab/config를 변경하지 않는다.
+                var pools = (Dictionary<GameObject, Queue<Hexiege.Presentation.VfxPoolItem>>)
+                    typeof(Hexiege.Presentation.EffectManager).GetField("_vfxPools", f).GetValue(manager);
+                var returnToManager = typeof(Hexiege.Presentation.EffectManager).GetMethod("OnVfxReturn", f);
+                item.Setup(preset.VfxPrefab, returned => returnToManager.Invoke(manager, new object[] { returned }));
+                var failedQueue = new Queue<Hexiege.Presentation.VfxPoolItem>(); failedQueue.Enqueue(item);
+                pools.Add(preset.VfxPrefab, failedQueue);
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    Require(manager.StartBloomEffect(next, pose.transform, new BloomHealEffectDiagnostics()) == null
+                        && failedQueue.Count == 1 && ReferenceEquals(failedQueue.Peek(), item)
+                        && !item.gameObject.activeSelf && !item.BloomLoopActive,
+                        "Production malformed checkout returns once without a successful/orphan lease.");
+                    foreach (var ps in systems) Require(!ps.IsAlive(false), "Production failed checkout clears every PS.");
+                }
+                pools.Remove(preset.VfxPrefab); // 나머지 fixture는 정상 authored prefab으로 새 checkout한다.
+                var present = typeof(Hexiege.Presentation.BloomHealEffectPresenter).GetMethod("LateUpdate", f);
+                var local = new BloomHealEffectChannel(); Transform ready = null;
+                presenter.Initialize(local, manager, _ => ready);
+                var single = local.Grant(target);
+                present.Invoke(presenter, null);
+                local.Stop(ref single, target, BloomHealStopReason.FullHP);
+                ready = pose.transform; present.Invoke(presenter, null);
+                Require(root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true).Length == 0, "Stop before pose ready never Plays.");
+                single = local.Grant(target); local.Stop(ref single, target, BloomHealStopReason.Expired); present.Invoke(presenter, null);
+                Require(root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true).Length == 0, "Same-frame grant-stop current coalesces without Play.");
+                single = local.Grant(target); present.Invoke(presenter, null);
+                var emitted = root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true);
+                Require(emitted.Length == 1 && emitted[0].BloomLoopActive, "Sole presenter emits one current owner.");
+                ulong hostLease = emitted[0].BloomLease;
+                local.Refresh(ref single, target); present.Invoke(presenter, null);
+                Require(emitted[0].BloomLease == hostLease && root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true).Length == 1, "Host refresh retains one emitter/lease.");
+                local.CloseAttachment(target, "Despawn"); pose.transform.position += Vector3.one * 40;
+                present.Invoke(presenter, null); local.CopyCurrent(entries);
+                Require(entries.Count == 0 && !emitted[0].BloomLoopActive, "Local retire closes pending/follow and removes dead reference.");
+                var map = new BloomHealEffectChannel(); var mapState = map.Grant(replacement);
+                presenter.Initialize(map, manager, _ => pose.transform); present.Invoke(presenter, null);
+                Require(local.IsClosed && root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true).Length == 2, "New map current restores after old channel closes; old tail stays independent.");
+                Require(!local.Accept(single, target), "Closed map never accepts obsolete current.");
+                var formatted = BloomHealEffectDiagnostics.Format("Return", terminal, lease, new string('한', 1500));
+                Require(formatted.Contains("Peer=") && formatted.Contains("Frame=") && formatted.Contains("FormatIncomplete=true")
+                    && Encoding.UTF8.GetByteCount(GameLog.Compose(Hexiege.Application.LogLevel.Info, "Combat", nameof(BloomHealEffectDiagnostics), "[BLOOM-EFFECT]", formatted)) < 1000,
+                    "Fallback full envelope preserves exact peer/key under budget.");
+                map.CloseVisuals("FixtureTeardown");
+            }
+            finally
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                if (itemGo != null) UnityEngine.Object.DestroyImmediate(itemGo);
+                if (pose != null) UnityEngine.Object.DestroyImmediate(pose);
+                channel.CloseVisuals("FixtureEnd");
+                typeof(Hexiege.Presentation.EffectManager).GetProperty("Instance").SetValue(null, previousManager);
+            }
+            ValidateBloomHoTWriterAndNetwork();
+        }
+
+        private static void ValidateBloomHoTWriterAndNetwork()
+        {
+            const BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic;
+            var spawn = new UnitSpawnUseCase(null);
+            var units = (Dictionary<int, UnitData>)typeof(UnitSpawnUseCase).GetField("_units", f).GetValue(spawn);
+            var target = new UnitData(9902, UnitType.LittleKnight, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1);
+            target.TakeDamage(50); units[target.Id] = target;
+            var healer = new UnitData(9903, UnitType.BloomFairy, TeamId.Blue, new HexCoord(0, 0), 100, 0, 4, 4);
+            var other = new UnitData(9904, UnitType.TorrentSpirit, TeamId.Blue, new HexCoord(0, 0), 100, 0, 4, 4);
+            var combat = new UnitCombatUseCase(null, spawn, null, null, new HexMetricsCoordinateMapper());
+            var upsert = typeof(UnitCombatUseCase).GetMethod("AddOrRefreshTimedEffect", f);
+            Action<bool, UnitCombatUseCase.TimedEffectKind> grant = (bloom, kind) => upsert.Invoke(combat,
+                new object[] { healer, target, kind, 20, 3f, 0f, 0, default(UnitHealCastPresentation), bloom, TimedDamageVisual.None, default(AttackEffectPresentation) });
+            combat.CastHeal(other, target.Id);
+            Require(!combat.BloomHealEffects.TryGet(target, out _), "Non-Bloom actual CastHeal never grants Bloom VFX.");
+            combat.CastHeal(healer, target.Id);
+            Require(combat.BloomHealEffects.TryGet(target, out var current) && current.Active, "Actual Bloom CastHeal upsert grants recipient effect.");
+            var initial = current;
+            combat.CastHeal(healer, target.Id);
+            Require(combat.BloomHealEffects.TryGet(target, out current) && current.SameOwner(initial) && current.Revision > initial.Revision, "Actual writer refresh retains visual instance.");
+            grant(false, UnitCombatUseCase.TimedEffectKind.Heal);
+            Require(combat.BloomHealEffects.TryGet(target, out current) && !current.Active && current.StopReason == BloomHealStopReason.NonBloomOverwrite, "Generic Heal overwrite closes Bloom visual only.");
+            grant(false, UnitCombatUseCase.TimedEffectKind.Damage);
+            Require(combat.BloomHealEffects.TryGet(target, out current) && !current.Active, "DoT provenance does not create Bloom.");
+            // Remove only fixture DoT so this independent test does not publish fake damage/death events.
+            var timed = (System.Collections.IList)typeof(UnitCombatUseCase).GetField("_activeTimedEffects", f).GetValue(combat);
+            timed.Clear();
+            grant(true, UnitCombatUseCase.TimedEffectKind.Heal);
+            healer.TakeDamage(1000);
+            int hp = target.Hp; combat.TickTimedEffects(0);
+            Require(combat.BloomHealEffects.TryGet(target, out current) && current.Active && target.Hp == hp, "Caster death and zero scaled progress do not cancel granted HoT.");
+            target.Heal(1000); combat.TickTimedEffects(0);
+            Require(combat.BloomHealEffects.TryGet(target, out current) && !current.Active && current.StopReason == BloomHealStopReason.FullHP, "Paused/zero-dt tick still removes FullHP.");
+            target.TakeDamage(30); grant(true, UnitCombatUseCase.TimedEffectKind.Heal);
+            units.Remove(target.Id); combat.TickTimedEffects(0);
+            Require(!combat.BloomHealEffects.TryGet(target, out _), "Unavailable actual writer removal retires strong recipient reference.");
+            units[target.Id] = target; grant(true, UnitCombatUseCase.TimedEffectKind.Heal);
+
+            GameObject root = null;
+            var previousServices = GameServicesLocator.Current;
+            bool netActive = NetworkContext.IsNetworkActive, netServer = NetworkContext.IsNetworkServer;
+            try
+            {
+                root = new GameObject("BloomNetworkReadyFixture") { hideFlags = HideFlags.HideAndDontSave };
+                var view = root.AddComponent<Hexiege.Presentation.UnitView>();
+                var network = root.AddComponent<NetworkUnit>();
+                var services = new NativeHostServices { Combat = combat, Unit = root };
+                GameServicesLocator.Register(services);
+                NetworkContext.Set(true, true);
+                // Only NGO envelope readiness is substituted; real NetworkUnit baseline/recipient code runs.
+                typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(network, true);
+                typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsServer").SetValue(network, true);
+                var id = (Unity.Netcode.NetworkVariable<int>)typeof(NetworkUnit).GetField("_unitId", f).GetValue(network);
+                id.Value = target.Id;
+                typeof(NetworkUnit).GetField("_bloomCursor", f).SetValue(network, new BloomHealEffectCursor());
+                typeof(NetworkUnit).GetField("_bloomReadyPending", f).SetValue(network, true);
+                var apply = typeof(NetworkUnit).GetMethod("ApplyCurrentBloomEffect", f);
+                apply.Invoke(network, null);
+                Require(!network.BloomEffectState.IsValid, "Host cannot publish a baseline before UnitView recipient binding.");
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", f).SetValue(view, target);
+                apply.Invoke(network, null);
+                Require(combat.BloomHealEffects.TryGet(target, out current) && network.BloomEffectState.Equals(current), "Host view-ready retries and publishes existing current baseline.");
+                int reads = services.CombatReads;
+                for (int i = 0; i < 64; i++) apply.Invoke(network, null);
+                Require(services.CombatReads == reads && services.UnitReads == 0, "Applied readiness has zero repeated services/factory lookup.");
+                var client = new BloomHealEffectChannel();
+                typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsServer").SetValue(network, false);
+                NetworkContext.Set(true, false);
+                typeof(NetworkUnit).GetField("_bloomCursor", f).SetValue(network, new BloomHealEffectCursor());
+                typeof(NetworkUnit).GetField("_bloomTarget", f).SetValue(network, null);
+                typeof(NetworkUnit).GetField("_bloomChannel", f).SetValue(network, client);
+                typeof(NetworkUnit).GetField("_bloomReadyPending", f).SetValue(network, true);
+                apply.Invoke(network, null);
+                Require(client.TryGet(target, out var received) && received.Equals(current), "Client current binds cursor and Application expected lifetime.");
+                var impostor = new UnitData(target.Id, target.Type, target.Team, target.Position, 100, 10, 1, 1);
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", f).SetValue(view, impostor);
+                typeof(NetworkUnit).GetField("_bloomReadyPending", f).SetValue(network, true);
+                typeof(NetworkUnit).GetField("_bloomAppliedRevision", f).SetValue(network, 0UL);
+                apply.Invoke(network, null);
+                Require(!client.TryGet(impostor, out _), "Same spawned cursor cannot apply old payload to a new UnitData with same ID.");
+                client.CloseVisuals("MapClosed");
+                var nextCombat = new UnitCombatUseCase(null, spawn, null, null, new HexMetricsCoordinateMapper());
+                var nextCurrent = nextCombat.BloomHealEffects.Grant(impostor);
+                services.Combat = nextCombat;
+                var wire = (Unity.Netcode.NetworkVariable<NetworkBloomHealEffectState>)typeof(NetworkUnit).GetField("_bloomEffectState", f).GetValue(network);
+                wire.Value = new NetworkBloomHealEffectState { Value = nextCurrent };
+                typeof(NetworkUnit).GetMethod("OnBloomEffectChanged", f).Invoke(network,
+                    new object[] { new NetworkBloomHealEffectState { Value = current }, new NetworkBloomHealEffectState { Value = nextCurrent } });
+                Require(nextCombat.BloomHealEffects.TryGet(impostor, out received) && received.Equals(nextCurrent)
+                    && ReferenceEquals(typeof(NetworkUnit).GetField("_bloomTarget", f).GetValue(network), impostor),
+                    "New revision/new match rebinds after old channel closes; no old lifetime is restored.");
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    var network = root.GetComponent<NetworkUnit>();
+                    typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(network, false);
+                    UnityEngine.Object.DestroyImmediate(root);
+                }
+                GameServicesLocator.Register(previousServices); NetworkContext.Set(netActive, netServer);
+                combat.BloomHealEffects.CloseVisuals("FixtureEnd");
+            }
+        }
+
+        private static void ValidateBloomHealPresentationBoundary()
+        {
+            var root = new GameObject("BloomHealBoundary") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var child = new GameObject("VisualRoot");
+                child.transform.SetParent(root.transform, false);
+                var animator = child.AddComponent<Animator>();
+                animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                    "Assets/_Project/Animations/Units/BloomFairy/BloomFairy.controller");
+                animator.applyRootMotion = false;
+                animator.Rebind();
+                animator.Update(0);
+                var view = root.AddComponent<Hexiege.Presentation.UnitView>();
+                var network = root.AddComponent<NetworkUnit>();
+                const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+                var data = new UnitData(901, UnitType.BloomFairy, TeamId.Blue,
+                    new HexCoord(0, 0), 100, 0, 4, 4);
+                typeof(UnitData).GetField("<IsHealer>k__BackingField", fields).SetValue(data, true);
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", fields).SetValue(view, data);
+                typeof(Hexiege.Presentation.UnitView).GetField("_animator", fields).SetValue(view, animator);
+                var hash = typeof(Hexiege.Presentation.UnitView).GetField("_currentAnimStateHash", fields);
+                var cursorField = typeof(Hexiege.Presentation.UnitView).GetField("_healPresentation", fields);
+                var liveCursor = (UnitHealCastPresentationCursor)cursorField.GetValue(view);
+                view.StartWalkAnimation();
+                // 실제 old production Client 경계: replicated Attack만 주면 policy=false라 Walk다.
+                typeof(NetworkUnit).GetMethod("ApplyAnimState", fields).Invoke(network, new object[] { (byte)2 });
+                Require((int)hash.GetValue(view) == Animator.StringToHash("Walk"),
+                    "Old healer Attack scalar must reproduce the missing-start seam without weakening generic policy.");
+                var state = new UnitHealCastPresentation
+                {
+                    Lifetime = 91, Sequence = 1, Revision = 1, UnitId = 901, TargetId = 902,
+                    StartedAt = network.HealServerTime - 0.05, AimX = 1, MarkerOffset = 1,
+                    ClipDuration = 4, Active = true, Priority = 1
+                };
+                double anchor = state.StartedAt;
+                Vector3 position = root.transform.position;
+                Quaternion rotation = root.transform.rotation;
+                // 실제 atomic 직렬화와 Client current-value 경계를 통과한다. 준비 전 호출은
+                // 재생 성공으로 처리하지 않아야 하며 같은 현재 값 재적용이 성공해야 한다.
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", fields).SetValue(view, null);
+                ApplyBloomNetworkFixture(network, state);
+                Require(view.HealPresentation.Sequence == 0, "Uninitialized View must not consume a heal start.");
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", fields).SetValue(view, data);
+                typeof(NetworkUnit).GetMethod("ApplyCurrentHealCast", fields).Invoke(network, null);
+                Require(view.HealPresentation.Sequence == state.Sequence
+                    && (int)hash.GetValue(view) == Animator.StringToHash("Attack"),
+                    "Actual NetworkUnit current-value adapter must recover a start after late View initialization.");
+                // Update가 호출하는 실제 힐 facing 경계: 소유권 없음은 무변경,
+                // Action 인계 뒤 0.1초는 27도만 회전하며 새 target 방향도 점진 추적한다.
+                var facingTarget = new GameObject("HealFacingTarget");
+                facingTarget.transform.SetParent(root.transform, false);
+                facingTarget.transform.position = root.transform.position + Vector3.right * 4;
+                var targetView = facingTarget.AddComponent<Hexiege.Presentation.UnitView>();
+                var targetData = new UnitData(902, UnitType.LittleKnight, TeamId.Blue,
+                    new HexCoord(0, 0), 100, 0, 4, 4);
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", fields).SetValue(targetView, targetData);
+                typeof(Hexiege.Presentation.UnitView).GetField("_healFacingTarget", fields).SetValue(view, facingTarget.transform);
+                typeof(Hexiege.Presentation.UnitView).GetField("_healFacingTargetView", fields).SetValue(view, targetView);
+                var facing = typeof(Hexiege.Presentation.UnitView).GetMethod("UpdateHealFacing", fields);
+                var ownership = (UnitRootRotationOwnership)typeof(Hexiege.Presentation.UnitView)
+                    .GetField("_rootRotationOwnership", fields).GetValue(view);
+                facing.Invoke(view, new object[] { 0.1f });
+                Require(root.transform.rotation == rotation, "No Action ownership must suppress the heal Root writer.");
+                ownership.TransferToAction();
+                facing.Invoke(view, new object[] { 0.1f });
+                Require(Mathf.Abs(Quaternion.Angle(rotation, root.transform.rotation) - 27) < 0.001f,
+                    "Actual heal facing must advance 270 degrees/sec, not snap to the 90-degree target.");
+                facingTarget.transform.position = root.transform.position + Vector3.forward * 4;
+                facing.Invoke(view, new object[] { 0.1f });
+                Require(Quaternion.Angle(rotation, root.transform.rotation) < 0.001f,
+                    "Actual heal facing must keep following a changed target direction.");
+                ownership.ReleaseAction(false);
+                root.transform.rotation = rotation;
+                Require(!view.ApplyHealPresentation(state, anchor + 0.5), "Duplicate heal must not restart.");
+                view.StartWalkAnimation();
+                Require((int)hash.GetValue(view) == Animator.StringToHash("Attack"), "Walk must not overwrite active heal.");
+                state.Priority = 4; state.Revision++;
+                Require(view.ApplyHealPresentation(state, anchor + 0.6) && animator.speed == 0, "Held priority must survive heal.");
+                state.Priority = 3; state.Revision++;
+                Require(view.ApplyHealPresentation(state, anchor + 0.7) && animator.speed == 0, "Frozen takes priority.");
+                state.Priority = 1; state.Revision++;
+                Require(view.ApplyHealPresentation(state, anchor - 0.1) && animator.speed == 0,
+                    "Priority release before due must stay pending, not consume resume.");
+                typeof(Hexiege.Presentation.UnitView).GetMethod("MaintainHealPresentation", fields)
+                    .Invoke(view, new object[] { anchor + 0.8 });
+                Require(animator.speed == 1, "Pending same-sequence resume must apply once due.");
+
+                state.Sequence++; state.Revision++;
+                state.StartedAt = network.HealServerTime + 100;
+                ulong playedBeforeFuture = liveCursor.PlayedSequence;
+                ApplyBloomNetworkFixture(network, state);
+                Require(view.HealPresentation.Active && liveCursor.PlayedSequence == playedBeforeFuture,
+                    "Actual NetworkUnit receive must store a future sequence without immediate playback.");
+                typeof(Hexiege.Presentation.UnitView).GetMethod("MaintainHealPresentation", fields)
+                    .Invoke(view, new object[] { state.StartedAt });
+                Require(liveCursor.PlayedSequence == state.Sequence && animator.speed == 1
+                    && (int)hash.GetValue(view) == Animator.StringToHash("Attack"),
+                    "Continuous new sequence starts when due without intermediate Walk/Held.");
+                typeof(Hexiege.Presentation.UnitView).GetMethod("MaintainHealPresentation", fields)
+                    .Invoke(view, new object[] { state.StartedAt + 4.1 });
+                Require(animator.speed == 1, "Ordinary 4s motion end must not force speed zero.");
+                state.Active = false; state.Revision++;
+                state.Priority = 4;
+                ApplyBloomNetworkFixture(network, state);
+                Require(!view.HealPresentation.Active && animator.speed == 0,
+                    "Network end restores actual stationary Held.");
+                state.Active = true; state.Revision++;
+                Require(!view.ApplyHealPresentation(state, 104), "Ended same sequence must never resurrect.");
+                state.Sequence++; state.Revision++;
+                state.StartedAt = network.HealServerTime - 0.05;
+                state.Priority = 1;
+                state.EndReason = 0; state.EndedAt = 0;
+                ApplyBloomNetworkFixture(network, state);
+                Require(liveCursor.PlayedSequence == state.Sequence,
+                    "Actual receive restarts a fresh due sequence even in Attack state.");
+                state.Sequence++; state.Revision++;
+                state.StartedAt = network.HealServerTime + 100;
+                ApplyBloomNetworkFixture(network, state);
+                ulong beforeDeath = liveCursor.PlayedSequence;
+                view.EndHealPresentation("validation-death", terminal: true);
+                typeof(Hexiege.Presentation.UnitView).GetMethod("MaintainHealPresentation", fields)
+                    .Invoke(view, new object[] { state.StartedAt + 1 });
+                Require(liveCursor.PlayedSequence == beforeDeath, "Terminal close cancels a pending future start.");
+                state.Sequence++; state.Revision++;
+                Require(!view.ApplyHealPresentation(state, 105), "Terminal lifecycle rejects all future starts.");
+                Require(root.transform.position == position && root.transform.rotation == rotation,
+                    "Client heal adapter must never write Simulation Root.");
+                var cursor = new UnitHealCastPresentationCursor();
+                state.StartedAt = 100;
+                Require(cursor.Accept(state) && cursor.PlayedSequence == 0, "Receive is not successful playback.");
+                cursor.MarkPlayed(100.4);
+                Require(cursor.ConsumeMarker() && !cursor.ConsumeMarker(), "One source marker per heal cycle.");
+                state.Sequence++; state.Revision++;
+                Require(cursor.Accept(state), "Fresh sequence must be accepted.");
+                cursor.MarkPlayed(102);
+                Require(!cursor.ConsumeMarker() && Math.Abs(cursor.Offset(102) - 2) < 0.0001,
+                    "Late initialization catches up without replaying an elapsed marker.");
+
+                data.AttackCooldown = 3;
+                for (int peer = 0; peer < 2; peer++) UnitFactory.ApplyAttackClipCooldown(data, 4);
+                Require(data.AttackCooldown == 3 && data.AttackCooldown + 1 == 4,
+                    "Both factory paths preserve healer post-cast 3s, not clip-derived 4s.");
+                var ordinary = new UnitData(903, UnitType.LittleKnight, TeamId.Blue,
+                    new HexCoord(0, 0), 100, 0, 4, 4);
+                UnitFactory.ApplyAttackClipCooldown(ordinary, 2);
+                Require(ordinary.AttackCooldown == 2, "Ordinary clip-derived cooldown must remain unchanged.");
+                var curve = new AnimationCurve(new Keyframe(0, 0, 0, 2),
+                    new Keyframe(0.7f, 1, -1, 0.5f), new Keyframe(1.7f, 2, 1, -2), new Keyframe(3, 0, 0, 0));
+                var retimed = Hexiege.EditorTools.RetimingBloomFairyHealPresentation.RetimeCurve(curve);
+                Require(Mathf.Abs(retimed.keys[retimed.length - 1].time - 4) < 0.0001f,
+                    "Native retime helper must move the tail, not merely extend the last pose.");
+                for (int sample = 0; sample <= 120; sample++)
+                    Require(Mathf.Abs(curve.Evaluate(sample / 120f) - retimed.Evaluate(sample / 120f)) < 0.00002f,
+                        "Split-boundary retime must preserve the entire first second.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        private static void ApplyBloomNetworkFixture(NetworkUnit network, UnitHealCastPresentation state)
+        {
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            using var writer = new Unity.Netcode.FastBufferWriter(256, Unity.Collections.Allocator.Temp);
+            writer.WriteNetworkSerializable(new NetworkUnitHealCastState { Value = state });
+            using var reader = new Unity.Netcode.FastBufferReader(writer, Unity.Collections.Allocator.Temp);
+            reader.ReadNetworkSerializable(out NetworkUnitHealCastState decoded);
+            Require(decoded.Value.Equals(state), "Heal snapshot atomic serialization must preserve every field.");
+            typeof(NetworkUnit).GetField("_unitId", fields).SetValue(network,
+                new Unity.Netcode.NetworkVariable<int>(state.UnitId));
+            typeof(NetworkUnit).GetField("_healCastState", fields).SetValue(network,
+                new Unity.Netcode.NetworkVariable<NetworkUnitHealCastState>(decoded));
+            typeof(NetworkUnit).GetMethod("OnHealCastChanged", fields).Invoke(network,
+                new object[] { default(NetworkUnitHealCastState), decoded });
+        }
+
+        private static void ValidateBloomFairyProductionTimeline()
+        {
+            const string root = "Assets/_Project/";
+            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                root + "Animations/Units/BloomFairy/BloomFairy_Attack.anim");
+            AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
+                root + "Animations/Units/BloomFairy/BloomFairy.controller");
+            GameObject blue = AssetDatabase.LoadAssetAtPath<GameObject>(
+                root + "Prefabs/Units/Transcendence/Unit_BloomFairy_Blue.prefab");
+            GameObject red = AssetDatabase.LoadAssetAtPath<GameObject>(
+                root + "Prefabs/Units/Transcendence/Unit_BloomFairy_Red.prefab");
+            Require(clip != null && controller != null && blue != null && red != null,
+                "BloomFairy production clip, controller and both prefabs must exist.");
+            int attackStates = 0;
+            foreach (AnimatorControllerLayer layer in controller.layers)
+            {
+                if (layer.name != "Base Layer") continue;
+                foreach (ChildAnimatorState child in layer.stateMachine.states)
+                {
+                    if (child.state.name != "Attack") continue;
+                    attackStates++;
+                    Require(child.state.motion == clip && Mathf.Approximately(child.state.speed, 1f)
+                            && !child.state.speedParameterActive,
+                        "BloomFairy Base Layer/Attack must play the production clip at speed 1.");
+                }
+            }
+            Require(attackStates == 1, "BloomFairy must have exactly one Base Layer/Attack state.");
+            float[] markers = UnitFactory.GetHitFrameTimes(clip);
+            Require(Mathf.Abs(clip.frameRate - 30f) < 0.0001f
+                    && Mathf.Abs(clip.length - 4f) < 0.0001f && clip.isLooping
+                    && markers.Length == 1 && Mathf.Abs(markers[0] - 1f) < 0.0001f,
+                "BloomFairy must use a looping 30fps/4s clip with one OnAttackHit at 1s.");
+            UnitStatsConfig config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(
+                root + "Resources/Config/UnitStatsConfig.asset");
+            Require(config != null, "BloomFairy production stats must exist.");
+            int statRows = 0;
+            foreach (UnitStatEntry entry in config.Stats)
+            {
+                if (entry.unitType != UnitType.BloomFairy) continue;
+                statRows++;
+                Require(entry.isHealer && Mathf.Abs(entry.attackCooldown - 3f) < 0.0001f
+                        && entry.hitFrameTimes != null && entry.hitFrameTimes.Length == 1
+                        && Mathf.Abs(entry.hitFrameTimes[0] - 1f) < 0.0001f,
+                    "BloomFairy must retain healer=true, 1s preparation and 3s post-cast cooldown.");
+            }
+            Require(statRows == 1, "BloomFairy must have exactly one production stats row.");
+            Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.BloomFairy, out var profile)
+                    && profile.Support == UnitAttackShadowSupport.NotApplicableAttack
+                    && profile.LegacyExecution == LegacyAttackExecutionKind.SeparateHealPipeline,
+                "BloomFairy must remain N/A with a separate server heal pipeline.");
+            foreach (GameObject prefab in new[] { blue, red })
+            {
+                var viewProperties = new SerializedObject(prefab.GetComponent<Hexiege.Presentation.UnitView>());
+                Require(Mathf.Abs(viewProperties.FindProperty("_healCastBlend").floatValue - 0.15f) < 0.0001f
+                    && Mathf.Abs(viewProperties.FindProperty("_toAttackBlend").floatValue - 0.08f) < 0.0001f,
+                    "Both Bloom prefabs must store heal-only 0.15s blend; ordinary Attack blend stays 0.08s.");
+                Animator[] animators = prefab.GetComponentsInChildren<Animator>(true);
+                Require(animators.Length == 1 && animators[0].runtimeAnimatorController == controller
+                        && !animators[0].applyRootMotion
+                        && animators[0].GetComponent<Hexiege.Presentation.AnimationEventRelay>() != null,
+                    "Both BloomFairy prefabs need the production controller and same-object relay without root motion.");
+            }
+            // 미리보기로 저장된 생산 등록만 읽고 현재 편집 중인 씬은 바꾸지 않는다.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(root + "Scenes/Game.unity");
+            try
+            {
+                int factories = 0;
+                int entries = 0;
+                foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+                foreach (UnitFactory factory in sceneRoot.GetComponentsInChildren<UnitFactory>(true))
+                {
+                    factories++;
+                    var serialized = new SerializedObject(factory);
+                    SerializedProperty rows = serialized.FindProperty("_transcendencePrefabs");
+                    Require(rows != null && rows.isArray, "Game UnitFactory needs Transcendence registrations.");
+                    for (int index = 0; index < rows.arraySize; index++)
+                    {
+                        SerializedProperty row = rows.GetArrayElementAtIndex(index);
+                        // 희소 enum은 목록 순서가 아니라 실제 저장 숫자 27로 비교한다.
+                        if (row.FindPropertyRelative("type").intValue != (int)UnitType.BloomFairy) continue;
+                        entries++;
+                        Require(row.FindPropertyRelative("attackTimelineClip").objectReferenceValue == clip
+                                && row.FindPropertyRelative("blue").objectReferenceValue == blue
+                                && row.FindPropertyRelative("red").objectReferenceValue == red,
+                            "Game UnitFactory BloomFairy must bind the exact Attack clip and both prefabs.");
+                    }
+                }
+                Require(factories == 1 && entries == 1, "Game needs one UnitFactory and one BloomFairy registration.");
+            }
+            finally
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        /// <summary>
+        /// Pistoleer의 실제 생산 연결과 30fps 0:24(0.8초) 표식 및 2초 주기를 확인한다.
+        /// 로컬 Animation Event는 표현 표식이며 기존 서버 피해 권한을 바꾸지 않는다.
+        /// </summary>
+        private static void ValidatePistoleerProductionTimeline()
+        {
+            const string root = "Assets/_Project/";
+            const string clipPath = root + "Animations/Units/Pistoleer/Pistoleer_Attack.anim";
+            const string controllerPath = root + "Animations/Units/Pistoleer/Pistoleer.controller";
+            const string bluePath = root + "Prefabs/Units/Human/Unit_Pistoleer_Blue.prefab";
+            const string redPath = root + "Prefabs/Units/Human/Unit_Pistoleer_Red.prefab";
+            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+            AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
+            GameObject blue = AssetDatabase.LoadAssetAtPath<GameObject>(bluePath);
+            GameObject red = AssetDatabase.LoadAssetAtPath<GameObject>(redPath);
+            Require(clip != null && controller != null && blue != null && red != null
+                    && AssetDatabase.AssetPathToGUID(clipPath) == "3dc19d88c3a013c46af811597796c70a"
+                    && AssetDatabase.AssetPathToGUID(controllerPath) == "f65c79390b6c2734fae59aa4d0a48098"
+                    && AssetDatabase.AssetPathToGUID(bluePath) == "7bb22226c2f892a4b861224ca882519a"
+                    && AssetDatabase.AssetPathToGUID(redPath) == "0fb1fc8960816a449a56977bd4ca2c78",
+                "Pistoleer production clip, controller, and Blue/Red prefabs must retain their verified identities.");
+
+            int attackStates = 0;
+            foreach (AnimatorControllerLayer layer in controller.layers)
+            {
+                if (layer.name != "Base Layer") continue;
+                foreach (ChildAnimatorState child in layer.stateMachine.states)
+                {
+                    if (child.state.name != "Attack") continue;
+                    attackStates++;
+                    Require(child.state.motion == clip && Mathf.Approximately(child.state.speed, 1f)
+                            && !child.state.speedParameterActive,
+                        "Pistoleer Base Layer/Attack must play the bound clip at speed 1.");
+                }
+            }
+            Require(attackStates == 1, "Pistoleer must have exactly one Base Layer/Attack state.");
+            float[] markers = UnitFactory.GetHitFrameTimes(clip);
+            Require(Mathf.Abs(clip.frameRate - 30f) < 0.0001f
+                    && Mathf.Abs(UnitFactory.GetAttackClipLength(clip) - 2f) < 0.0001f
+                    && clip.isLooping && clip.events.Length == 1 && markers.Length == 1
+                    && Mathf.Abs(markers[0] - 24f / 30f) < 0.0001f,
+                "Pistoleer Attack must remain a looping 30fps/2s clip with one OnAttackHit at 24/30s.");
+
+            UnitStatsConfig config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(
+                root + "Resources/Config/UnitStatsConfig.asset");
+            Require(config != null, "Pistoleer production stats must exist.");
+            int statRows = 0;
+            foreach (UnitStatEntry entry in config.Stats)
+            {
+                if (entry.unitType != UnitType.Pistoleer) continue;
+                statRows++;
+                Require(Mathf.Abs(entry.attackCooldown - 2f) < 0.0001f
+                        && entry.hitFrameTimes != null && entry.hitFrameTimes.Length == 1
+                        && Mathf.Abs(entry.hitFrameTimes[0] - 24f / 30f) < 0.0001f,
+                    "Pistoleer config must retain cooldown 2s and one fallback impact at 24/30s.");
+            }
+            Require(statRows == 1, "Pistoleer must have exactly one production stats row.");
+            foreach (GameObject prefab in new[] { blue, red })
+            {
+                Animator[] animators = prefab.GetComponentsInChildren<Animator>(true);
+                Require(animators.Length == 1 && animators[0].runtimeAnimatorController == controller
+                        && !animators[0].applyRootMotion
+                        && animators[0].GetComponent<Hexiege.Presentation.AnimationEventRelay>() != null,
+                    "Both Pistoleer prefabs need the verified controller and same-object event relay without root motion.");
+            }
+
+            // Inspect production registrations without modifying or saving the user's open scene.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(root + "Scenes/Game.unity");
+            try
+            {
+                int factories = 0;
+                int entries = 0;
+                foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+                foreach (UnitFactory factory in sceneRoot.GetComponentsInChildren<UnitFactory>(true))
+                {
+                    factories++;
+                    var serialized = new SerializedObject(factory);
+                    SerializedProperty rows = serialized.FindProperty("_humanPrefabs");
+                    Require(rows != null && rows.isArray, "Game UnitFactory must serialize Human registrations.");
+                    for (int index = 0; index < rows.arraySize; index++)
+                    {
+                        SerializedProperty row = rows.GetArrayElementAtIndex(index);
+                        if (row.FindPropertyRelative("type").intValue != (int)UnitType.Pistoleer) continue;
+                        entries++;
+                        Require(row.FindPropertyRelative("attackTimelineClip").objectReferenceValue == clip
+                                && row.FindPropertyRelative("blue").objectReferenceValue == blue
+                                && row.FindPropertyRelative("red").objectReferenceValue == red,
+                            "Game UnitFactory Pistoleer entry must bind the Attack clip and both production prefabs.");
+                    }
+                }
+                Require(factories == 1 && entries == 1,
+                    "Game scene must contain exactly one UnitFactory and one Pistoleer Human registration.");
+            }
+            finally
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene);
+            }
+            Require(UnitFactory.SelectAttackTimelineClip(clip, controller.animationClips) == clip
+                    && UnitFactory.SelectAttackTimelineClip(clip, new AnimationClip[0]) == clip
+                    && UnitFactory.SelectAttackTimelineClip(clip, null) == clip,
+                "Pistoleer explicit Attack clip must win controller enumeration and empty-list cases.");
+        }
+
+        /// <summary>
+        /// Assault의 사용자 기준 30fps 0:05를 실제 생산 자산과 두 생성 경로의 공통 helper에서
+        /// 검사한다. 설정 주기 0.2초와 clip-derived 0:10을 구분하고 주기를 임의 변경하지 않는다.
+        /// </summary>
+        private static void ValidateSniperProductionTimeline()
+        {
+            const string root = "Assets/_Project/";
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(root + "Animations/Units/Sniper/Sniper_Attack.anim");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(root + "Animations/Units/Sniper/Sniper.controller");
+            var blue = AssetDatabase.LoadAssetAtPath<GameObject>(root + "Prefabs/Units/Human/Unit_Sniper_Blue.prefab");
+            var red = AssetDatabase.LoadAssetAtPath<GameObject>(root + "Prefabs/Units/Human/Unit_Sniper_Red.prefab");
+            Require(clip != null && controller != null && blue != null && red != null,
+                "Sniper production assets must exist.");
+            int attackStates = 0;
+            foreach (var layer in controller.layers)
+            {
+                if (layer.name != "Base Layer") continue;
+                foreach (var child in layer.stateMachine.states)
+                {
+                    if (child.state.name != "Attack") continue;
+                    attackStates++;
+                    Require(child.state.motion == clip && Mathf.Approximately(child.state.speed, 1f)
+                        && !child.state.speedParameterActive, "Sniper exact Attack motion must play at speed 1.");
+                }
+            }
+            var hits = UnitFactory.GetHitFrameTimes(clip);
+            Require(attackStates == 1 && clip.isLooping && Mathf.Abs(clip.frameRate - 30f) < 0.0001f
+                && Mathf.Abs(clip.length - 3f) < 0.0001f
+                && clip.events.Length == 1 && hits.Length == 1 && Mathf.Abs(hits[0] - 52f / 30f) < 0.0001f,
+                "Sniper must retain 30fps/3:00 duration and one 1:22 impact marker.");
+            var config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(root + "Resources/Config/UnitStatsConfig.asset");
+            Require(config != null, "Sniper stats must exist.");
+            int statRows = 0;
+            foreach (var entry in config.Stats)
+            {
+                if (entry.unitType != UnitType.Sniper) continue;
+                statRows++;
+                Require(Mathf.Abs(entry.attackCooldown - 3f) < 0.0001f && entry.hitFrameTimes != null
+                    && entry.hitFrameTimes.Length == 1 && Mathf.Abs(entry.hitFrameTimes[0] - 52f / 30f) < 0.0001f,
+                    "Sniper fallback hit must be 1:22; existing fallback cooldown must remain unchanged.");
+            }
+            Require(statRows == 1, "Sniper must have exactly one stats row.");
+            foreach (var prefab in new[] { blue, red })
+            {
+                var animators = prefab.GetComponentsInChildren<Animator>(true);
+                Require(animators.Length == 1 && animators[0].runtimeAnimatorController == controller
+                    && !animators[0].applyRootMotion
+                    && animators[0].GetComponent<Hexiege.Presentation.AnimationEventRelay>() != null,
+                    "Sniper Blue/Red must share the verified controller and same-object relay without root motion.");
+            }
+            // Preview is read-only. Never run unrelated setup, normalize, or save an open user scene.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(root + "Scenes/Game.unity");
+            try
+            {
+                int factories = 0, entries = 0;
+                foreach (var sceneRoot in scene.GetRootGameObjects())
+                foreach (var factory in sceneRoot.GetComponentsInChildren<UnitFactory>(true))
+                {
+                    factories++;
+                    var rows = new SerializedObject(factory).FindProperty("_humanPrefabs");
+                    Require(rows != null && rows.isArray, "Human registrations must exist.");
+                    for (int i = 0; i < rows.arraySize; i++)
+                    {
+                        var row = rows.GetArrayElementAtIndex(i);
+                        if (row.FindPropertyRelative("type").intValue != (int)UnitType.Sniper) continue;
+                        entries++;
+                        Require(row.FindPropertyRelative("attackTimelineClip").objectReferenceValue == clip
+                            && row.FindPropertyRelative("blue").objectReferenceValue == blue
+                            && row.FindPropertyRelative("red").objectReferenceValue == red,
+                            "Sniper production registration must explicitly bind the exact clip and Blue/Red prefabs.");
+                    }
+                }
+                Require(factories == 1 && entries == 1, "Exactly one production Sniper registration is required.");
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene); }
+            Require(UnitFactory.SelectAttackTimelineClip(clip, controller.animationClips) == clip
+                && UnitFactory.SelectAttackTimelineClip(clip, null) == clip
+                && UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.Sniper, hits.Length),
+                "Sniper must use its explicit timeline independent of controller enumeration.");
+            var data = new UnitData(907, UnitType.Sniper, TeamId.Blue, new HexCoord(0, 0), 400, 10, 2, 2);
+            data.AttackCooldown = 3f;
+            UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(clip));
+            Require(Mathf.Abs(data.AttackCooldown - 3f) < 0.0001f,
+                "Sniper runtime and fallback cooldown both remain 3 seconds.");
+            Require(PistoleerTimingDiagnostics.Observes(UnitType.Sniper)
+                && PistoleerTimingDiagnostics.Observes(UnitType.Pistoleer)
+                && !PistoleerTimingDiagnostics.Observes(UnitType.TorrentSpirit)
+                && !PistoleerTimingDiagnostics.Observes(UnitType.BloomFairy),
+                "Timing observation extension must not change other type policies.");
+            // Production Register/Event/Scoped paths, not just a handwritten log string.
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+            var scope = new AttackPresentationScope(new AttackerInstanceId(42), new AttackSequenceId(8), 0);
+            PistoleerTimingDiagnostics.Begin("sniper-fixture", "typed-observation", true, 0);
+            PistoleerTimingDiagnostics.Register(data, scope, 9, 17);
+            PistoleerTimingDiagnostics.Event(data, "Schedule", scope, 0, "nominal=1.7333333");
+            PistoleerTimingDiagnostics.Scoped("Receive", scope, 1.8, "outcome=HitApplied");
+            var rowsField = (System.Collections.IDictionary)typeof(PistoleerTimingDiagnostics).GetField("Rows", flags).GetValue(null);
+            object observation = rowsField[scope];
+            Require(observation != null && (int)observation.GetType().GetField("Type").GetValue(observation) == 2,
+                "Sniper hooks must retain exact type identity through scoped observations.");
+            // Exercise production retention after the sample quota, without requiring new
+            // native playback on every logical commit in a continuous epoch.
+            observation.GetType().GetField("Sampled").SetValue(observation, false);
+            PistoleerTimingDiagnostics.Event(data, "RenderedStart", scope, 0, "normalized=0 length=3 speed=1");
+            PistoleerTimingDiagnostics.Event(data, "RawMarker", scope, 1.8, "normalized=0.5777778 continuity=1 renderedAnchor=0");
+            var retained = (HashSet<string>)observation.GetType().GetField("Critical").GetValue(observation);
+            Require(retained.Contains("RenderedStart") && retained.Contains("RawMarker"),
+                "Sniper native timing stages must survive sample exclusion once per scope.");
+            string raw = PistoleerTimingDiagnostics.Format("fixture", "run", "Host", "Schedule", 42, 8, 9, 0,
+                data.Id, (int)data.Team, 0, 0, "nominal=1.7333333", (int)data.Type);
+            Require(raw.Contains(" type=2 ") && Encoding.UTF8.GetByteCount(raw) <= 780,
+                "Sniper production formatter must emit type identity within the existing byte budget.");
+            PistoleerTimingDiagnostics.End(1.8, "sniper-fixture");
+            Debug.Log("[UAS-DIAG][SNIPER-TIMELINE] PASS: 30fps 1:22, explicit production clip, 3s cycle, typed diagnostic hooks and native retention.");
+        }
+
+        private static void ValidateAssaultProductionTimeline()
+        {
+            const string root = "Assets/_Project/";
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(root + "Animations/Units/Assault/Assault_Attack.anim");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(root + "Animations/Units/Assault/Assault.controller");
+            var blue = AssetDatabase.LoadAssetAtPath<GameObject>(root + "Prefabs/Units/Human/Unit_Assault_Blue.prefab");
+            var red = AssetDatabase.LoadAssetAtPath<GameObject>(root + "Prefabs/Units/Human/Unit_Assault_Red.prefab");
+            Require(clip != null && controller != null && blue != null && red != null,
+                "Assault production assets must exist.");
+            int attackStates = 0;
+            foreach (var layer in controller.layers)
+            {
+                if (layer.name != "Base Layer") continue;
+                foreach (var child in layer.stateMachine.states)
+                {
+                    if (child.state.name != "Attack") continue;
+                    attackStates++;
+                    Require(child.state.motion == clip && Mathf.Approximately(child.state.speed, 1f)
+                        && !child.state.speedParameterActive, "Assault exact Attack motion must play at speed 1.");
+                }
+            }
+            var hits = UnitFactory.GetHitFrameTimes(clip);
+            Require(attackStates == 1 && clip.isLooping && Mathf.Abs(clip.frameRate - 30f) < 0.0001f
+                && Mathf.Abs(clip.length - 10f / 30f) < 0.0001f
+                && clip.events.Length == 1 && hits.Length == 1 && Mathf.Abs(hits[0] - 5f / 30f) < 0.0001f,
+                "Assault must retain 30fps/0:10 duration and one 0:05 impact marker.");
+            var config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(root + "Resources/Config/UnitStatsConfig.asset");
+            Require(config != null, "Assault stats must exist.");
+            int statRows = 0;
+            foreach (var entry in config.Stats)
+            {
+                if (entry.unitType != UnitType.Assault) continue;
+                statRows++;
+                Require(Mathf.Abs(entry.attackCooldown - 0.2f) < 0.0001f && entry.hitFrameTimes != null
+                    && entry.hitFrameTimes.Length == 1 && Mathf.Abs(entry.hitFrameTimes[0] - 5f / 30f) < 0.0001f,
+                    "Assault fallback hit must be 0:05; existing fallback cooldown must remain unchanged.");
+            }
+            Require(statRows == 1, "Assault must have exactly one stats row.");
+            foreach (var prefab in new[] { blue, red })
+            {
+                var animators = prefab.GetComponentsInChildren<Animator>(true);
+                Require(animators.Length == 1 && animators[0].runtimeAnimatorController == controller
+                    && !animators[0].applyRootMotion
+                    && animators[0].GetComponent<Hexiege.Presentation.AnimationEventRelay>() != null,
+                    "Assault Blue/Red must share the verified controller and same-object relay without root motion.");
+            }
+            // Preview is read-only. Never run unrelated setup, normalize, or save an open user scene.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(root + "Scenes/Game.unity");
+            try
+            {
+                int factories = 0, entries = 0;
+                foreach (var sceneRoot in scene.GetRootGameObjects())
+                foreach (var factory in sceneRoot.GetComponentsInChildren<UnitFactory>(true))
+                {
+                    factories++;
+                    var rows = new SerializedObject(factory).FindProperty("_humanPrefabs");
+                    Require(rows != null && rows.isArray, "Human registrations must exist.");
+                    for (int i = 0; i < rows.arraySize; i++)
+                    {
+                        var row = rows.GetArrayElementAtIndex(i);
+                        if (row.FindPropertyRelative("type").intValue != (int)UnitType.Assault) continue;
+                        entries++;
+                        Require(row.FindPropertyRelative("attackTimelineClip").objectReferenceValue == clip
+                            && row.FindPropertyRelative("blue").objectReferenceValue == blue
+                            && row.FindPropertyRelative("red").objectReferenceValue == red,
+                            "Assault production registration must explicitly bind the exact clip and Blue/Red prefabs.");
+                    }
+                }
+                Require(factories == 1 && entries == 1, "Exactly one production Assault registration is required.");
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene); }
+            Require(UnitFactory.SelectAttackTimelineClip(clip, controller.animationClips) == clip
+                && UnitFactory.SelectAttackTimelineClip(clip, null) == clip
+                && UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.Assault, hits.Length),
+                "Assault must use its explicit timeline independent of controller enumeration.");
+            var data = new UnitData(907, UnitType.Assault, TeamId.Blue, new HexCoord(0, 0), 400, 10, 2, 2);
+            data.AttackCooldown = 0.2f;
+            UnitFactory.ApplyAttackClipCooldown(data, UnitFactory.GetAttackClipLength(clip));
+            Require(Mathf.Abs(data.AttackCooldown - 10f / 30f) < 0.0001f,
+                "Assault normal runtime cooldown remains clip-derived 0:10, not fallback 0.2s.");
+            Require(PistoleerTimingDiagnostics.Observes(UnitType.Assault)
+                && PistoleerTimingDiagnostics.Observes(UnitType.Pistoleer)
+                && !PistoleerTimingDiagnostics.Observes(UnitType.TorrentSpirit)
+                && !PistoleerTimingDiagnostics.Observes(UnitType.BloomFairy),
+                "Timing observation extension must not change other type policies.");
+            // Production Register/Event/Scoped paths, not just a handwritten log string.
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+            var scope = new AttackPresentationScope(new AttackerInstanceId(42), new AttackSequenceId(8), 0);
+            PistoleerTimingDiagnostics.Begin("assault-fixture", "typed-observation", true, 0);
+            PistoleerTimingDiagnostics.Register(data, scope, 9, 17);
+            PistoleerTimingDiagnostics.Event(data, "Schedule", scope, 0, "nominal=0.16666667");
+            PistoleerTimingDiagnostics.Scoped("Receive", scope, 0.2, "outcome=HitApplied");
+            var rowsField = (System.Collections.IDictionary)typeof(PistoleerTimingDiagnostics).GetField("Rows", flags).GetValue(null);
+            object observation = rowsField[scope];
+            Require(observation != null && (int)observation.GetType().GetField("Type").GetValue(observation) == 1,
+                "Assault hooks must retain exact type identity through scoped observations.");
+            string raw = PistoleerTimingDiagnostics.Format("fixture", "run", "Host", "Schedule", 42, 8, 9, 0,
+                data.Id, (int)data.Team, 0, 0, "nominal=0.16666667", (int)data.Type);
+            Require(raw.Contains(" type=1 ") && Encoding.UTF8.GetByteCount(raw) <= 780,
+                "Assault production formatter must emit type identity within the existing byte budget.");
+            PistoleerTimingDiagnostics.End(0.2, "assault-fixture");
+            Debug.Log("[UAS-DIAG][ASSAULT-TIMELINE] PASS: 30fps 0:05, explicit production clip, fallback/runtime separation, typed diagnostic hooks.");
         }
 
         /// <summary>
@@ -5073,6 +6903,140 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
+        /// TorrentSpirit의 2:10 표식은 피해 시각이 아니라 파도 발사 시각이다.
+        /// 사용자가 저장한 클립은 수정하지 않고, 실제 생산 경로가 그 표식과 동일한
+        /// 70/30초 서버 예약을 쓰는지만 확인한다. 접촉별 피해/힐과 이동 시간은 별개다.
+        /// </summary>
+        private static void ValidateTorrentSpiritProductionTimeline()
+        {
+            const string root = "Assets/_Project/";
+            const string clipPath = root + "Animations/Units/TorrentSpirit/TorrentSpirit_Attack.anim";
+            const string controllerPath = root + "Animations/Units/TorrentSpirit/TorrentSpirit.controller";
+            const string bluePath = root + "Prefabs/Units/Spirit/Unit_TorrentSpirit_Blue.prefab";
+            const string redPath = root + "Prefabs/Units/Spirit/Unit_TorrentSpirit_Red.prefab";
+            const float launchTime = 70f / 30f;
+            const float tolerance = 0.0001f;
+
+            Require(AssetDatabase.AssetPathToGUID(clipPath) == "0396c9df8348dd04a99ba18bfb31485a"
+                    && AssetDatabase.AssetPathToGUID(controllerPath) == "f5935335d7dd91640bf4215bc5f16611"
+                    && AssetDatabase.AssetPathToGUID(bluePath) == "4bbf44175a9e285488f1f9114ba304a6"
+                    && AssetDatabase.AssetPathToGUID(redPath) == "d4deb64f4b4a8734db61eea3bc19334a",
+                "TorrentSpirit production clip, controller, and both team prefabs must retain their identities.");
+            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+            AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
+            GameObject blue = AssetDatabase.LoadAssetAtPath<GameObject>(bluePath);
+            GameObject red = AssetDatabase.LoadAssetAtPath<GameObject>(redPath);
+            Require(clip != null && controller != null && blue != null && red != null,
+                "TorrentSpirit production assets must all exist.");
+
+            int baseLayers = 0;
+            int attackStates = 0;
+            foreach (AnimatorControllerLayer layer in controller.layers)
+            {
+                if (layer.name != "Base Layer") continue;
+                baseLayers++;
+                Require(layer.stateMachine != null,
+                    "TorrentSpirit Base Layer must retain its Attack state machine.");
+                foreach (ChildAnimatorState child in layer.stateMachine.states)
+                {
+                    if (child.state == null || child.state.name != "Attack") continue;
+                    attackStates++;
+                    Require(child.state.motion == clip
+                            && Mathf.Abs(child.state.speed - 1f) < tolerance
+                            && !child.state.speedParameterActive,
+                        "TorrentSpirit Base Layer/Attack must play the production clip at speed 1.");
+                }
+            }
+            Require(baseLayers == 1 && attackStates == 1,
+                "TorrentSpirit controller must have exactly one Base Layer/Attack state.");
+
+            // 이벤트는 연출 발사 표식이다. 서버는 같은 오프셋에 파도를 생성하지만
+            // 대상별 HP 변경은 이후 서버 전선이 닿을 때 발생한다.
+            float[] markers = UnitFactory.GetHitFrameTimes(clip);
+            Require(Mathf.Abs(clip.frameRate - 30f) < tolerance
+                    && clip.length > launchTime
+                    && markers.Length == 1
+                    && Mathf.Abs(markers[0] - launchTime) < tolerance,
+                "TorrentSpirit Attack needs one OnAttackHit launch marker at 2:10 (70/30s, 30fps).");
+
+            UnitStatsConfig config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(
+                root + "Resources/Config/UnitStatsConfig.asset");
+            Require(config != null, "TorrentSpirit production UnitStatsConfig must exist.");
+            int statRows = 0;
+            foreach (UnitStatEntry entry in config.Stats)
+            {
+                if (entry.unitType != UnitType.TorrentSpirit) continue;
+                statRows++;
+                Require(Mathf.Abs(entry.attackCooldown - 4f) < tolerance
+                        && entry.hitFrameTimes != null
+                        && entry.hitFrameTimes.Length == 1
+                        && Mathf.Abs(entry.hitFrameTimes[0] - launchTime) < tolerance
+                        && Mathf.Abs(entry.hitFrameTimes[0] - markers[0]) < tolerance,
+                    "TorrentSpirit config must retain its 4s cycle and match the 2:10 launch marker.");
+            }
+            Require(statRows == 1, "TorrentSpirit must have exactly one production stats row.");
+
+            foreach (GameObject prefab in new[] { blue, red })
+            {
+                Animator[] animators = prefab.GetComponentsInChildren<Animator>(true);
+                Require(animators.Length == 1
+                        && animators[0].runtimeAnimatorController == controller
+                        && !animators[0].applyRootMotion
+                        && animators[0].GetComponent<Hexiege.Presentation.AnimationEventRelay>() != null,
+                    "Both TorrentSpirit prefabs must use the production controller and receive Attack events.");
+            }
+
+            // PreviewScene만 열어 사용자가 편집 중인 씬을 바꾸거나 저장하지 않는다.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenPreviewScene(root + "Scenes/Game.unity");
+            try
+            {
+                int factories = 0;
+                int entries = 0;
+                foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+                foreach (UnitFactory factory in sceneRoot.GetComponentsInChildren<UnitFactory>(true))
+                {
+                    factories++;
+                    var serialized = new SerializedObject(factory);
+                    SerializedProperty rows = serialized.FindProperty("_spiritPrefabs");
+                    Require(rows != null && rows.isArray,
+                        "Game UnitFactory must serialize Spirit prefab registrations.");
+                    for (int index = 0; index < rows.arraySize; index++)
+                    {
+                        SerializedProperty row = rows.GetArrayElementAtIndex(index);
+                        // UnitType의 선언 순서가 아니라 실제 직렬화 ID를 비교한다.
+                        if (row.FindPropertyRelative("type").intValue != (int)UnitType.TorrentSpirit)
+                            continue;
+                        entries++;
+                        Require(row.FindPropertyRelative("attackTimelineClip").objectReferenceValue == clip
+                                && row.FindPropertyRelative("blue").objectReferenceValue == blue
+                                && row.FindPropertyRelative("red").objectReferenceValue == red,
+                            "Game TorrentSpirit registration must bind the exact clip and both team prefabs.");
+                    }
+                }
+                Require(factories == 1 && entries == 1,
+                    "Game must have exactly one UnitFactory and one TorrentSpirit registration.");
+            }
+            finally
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene);
+            }
+
+            Require(UnitFactory.SelectAttackTimelineClip(clip, controller.animationClips) == clip
+                    && UnitFactory.SelectAttackTimelineClip(clip, null) == clip
+                    && UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.TorrentSpirit, markers.Length),
+                "TorrentSpirit production must select the explicit clip for server and Client timelines.");
+            Require(UnitAttackShadowProfileResolver.TryResolve(
+                    UnitType.TorrentSpirit, out UnitAttackShadowProfile profile)
+                    && profile.Support == UnitAttackShadowSupport.Unresolved
+                    && profile.Delivery == AttackDeliveryKind.TravelingArea
+                    && profile.LegacyExecution == LegacyAttackExecutionKind.ActiveTravelingArea
+                    && profile.ExpectedImpactCount == 1
+                    && profile.HasSecondaryResults
+                    && profile.Reason == "traveling-area-sequence-unresolved",
+                "TorrentSpirit must remain Unresolved TravelingArea with its Legacy wave path.");
+        }
+
+        /// <summary>
         /// StreamSpirit의 현행 production은 권위 발사체가 아니라 TimerImpact 폴백이다.
         /// 서버 타격 시각과 실제 Attack marker를 0.50초로 맞추되, 발사체가 없는 상태를
         /// Supported로 가장하거나 과거처럼 Unresolved Legacy VFX를 차단하지 않도록 전체
@@ -5641,8 +7605,8 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// InfernoSpirit의 현재 production은 별도 tracer 없이 0.50초 marker에서 공격 VFX와
-        /// 피격 표현을 함께 시작한다. 서버 설정만 다시 1.15초로 돌아가거나, 실제 투사체가
+        /// InfernoSpirit의 현재 production은 별도 tracer 없이 30fps 1:15(1.50초) marker에서 공격 VFX와
+        /// 피격 표현을 함께 시작한다. 서버 fallback 설정과 marker가 다시 어긋나거나, 실제 투사체가
         /// 없는 상태를 Supported로 가장하면 즉시 실패하도록 production 연결 전체를 확인한다.
         /// </summary>
         private static void ValidateInfernoSpiritProductionTimeline()
@@ -5657,7 +7621,7 @@ namespace Hexiege.Editor.Combat
             const string specialConfigPath = "Assets/_Project/Resources/Config/SpecialAttackConfig.asset";
             const string controllerGuid = "a683311d0333a3a4b8ec6aca335e1e2f";
             const string clipGuid = "aa08d04a7746a8c47a25e9ad6f9b7993";
-            const float impactTime = 0.50f;
+            const float impactTime = 1.50f;
             const float tolerance = 0.0001f;
 
             UnitStatsConfig config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(configPath);
@@ -5675,7 +7639,7 @@ namespace Hexiege.Editor.Combat
                 && infernoEntry.hitFrameTimes != null
                 && infernoEntry.hitFrameTimes.Length == 1
                 && Mathf.Abs(infernoEntry.hitFrameTimes[0] - impactTime) <= tolerance,
-                "InfernoSpirit runtime hitFrameTimes must contain only the verified 0.50-second impact.");
+                "InfernoSpirit runtime hitFrameTimes must contain only the approved 1.50-second (30fps 1:15) impact.");
 
             Require(AssetDatabase.AssetPathToGUID(controllerPath) == controllerGuid,
                 "InfernoSpirit production controller GUID must remain exact.");
@@ -5729,7 +7693,7 @@ namespace Hexiege.Editor.Combat
                 if (events[index].functionName != "OnAttackHit") continue;
                 hitEventCount++;
                 Require(Mathf.Abs(events[index].time - impactTime) <= tolerance,
-                    "InfernoSpirit OnAttackHit must remain at the verified 0.50-second impact.");
+                    "InfernoSpirit OnAttackHit must remain at the approved 1.50-second (30fps 1:15) impact.");
             }
             Require(hitEventCount == 1,
                 "InfernoSpirit Attack clip must contain exactly one OnAttackHit event.");
@@ -5739,7 +7703,7 @@ namespace Hexiege.Editor.Combat
                 redPrefabPath, controller, controllerGuid, expectedVfxRelativeX: -0.00859513f);
 
             // 현재 production에는 공격 VFX는 있지만 tracer가 없다. 이 사실을 명시적으로
-            // 검증해야 0.50초 즉시 피격 폴백과 향후 실제 projectile 추가를 혼동하지 않는다.
+            // 검증해야 1.50초 즉시 피격 폴백과 향후 실제 projectile 추가를 혼동하지 않는다.
             var effectConfig = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>(effectConfigPath);
             var expectedAttackPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(attackPresetPath);
             Require(effectConfig != null && expectedAttackPreset != null,
