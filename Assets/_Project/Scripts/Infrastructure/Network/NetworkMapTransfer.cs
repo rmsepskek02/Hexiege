@@ -788,27 +788,36 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             // 🔴 [에디터 전용 개발 도구] 강제 실패 플래그
             //
-            //   무엇인가: 「다음 재경기의 맵 준비·전송을 무조건 실패시킨다」는 1회용 토글이다.
+            //   무엇인가: 「다음 맵 준비·전송을 무조건 실패시킨다」는 1회용 토글이다.
             //             켜는 곳은 상단 메뉴 Hexiege/Debug/... 이고, 저장은 EditorPrefs 다.
+            //             예약할 때 사유와 함께 「최초 경기 / 재경기 중 어느 회차를 실패시킬지」를 고른다.
             //             상세한 근거는 ForcedMapTransferFailure.cs 의 파일 머리말에 있다.
             //
             //   🔴 릴리스 빌드에는 **이 블록이 존재하지 않는다** — 바로 위 에디터 전용 가드로 감쌌고
             //      ForcedMapTransferFailure 자체도 같은 가드 안에만 있다. 즉 컴파일 단계에서
             //      통째로 사라지므로, 출시본에 실패를 만들어 내는 코드가 남을 수 없다.
             //
-            //   🔴 **최초 경기(First)와 프로브(Probe)에는 적용하지 않는다.**
-            //      · 최초 경기를 실패시키면 로비에서 게임 자체가 시작되지 않아
-            //        재경기 실패 화면을 볼 기회가 아예 사라진다.
-            //      · 프로브는 게임 흐름이 아니다(한도 실측용 더미 전송).
+            //   🔴 **최초 경기(First)와 재경기(Rematch) 둘 다 대상이 될 수 있다.**
+            //      · 종전에는 재경기만 대상이었다. 최초 경기를 실패시키면 로비에서 게임 자체가 시작되지
+            //        않아 재경기 실패 화면을 볼 기회가 사라진다는 이유였다.
+            //      · 이제는 최초 경기 실패 화면(로비의 모달 팝업 — 공통 UI 규칙 M-2)을 눈으로 보는 것이
+            //        목적인 경우가 생겨 그 전제가 바뀌었다. 최초 경기를 보고 싶을 때는 최초 경기를
+            //        대상으로 예약하고, 재경기를 보고 싶을 때는 **정상으로 한 판을 시작한 뒤**
+            //        재경기를 대상으로 예약한다. 둘은 별개의 예약이라 서로 막지 않는다.
+            //      · 그렇다고 게이트를 「회차를 가리지 않는다」로 넓히지 않았다. 그러면 재경기를 테스트하려고
+            //        예약해 둔 것을 로비의 최초 경기가 먼저 소비해 재경기 테스트가 막힌다.
+            //        그래서 예약에 대상 회차를 저장하고, 아래 소비 호출이 **자기 회차를 넘겨** 대상이
+            //        아니면 예약을 건드리지 않고 지나가게 했다.
+            //      · 프로브는 게임 흐름이 아니다(한도 실측용 더미 전송) — 어느 쪽 대상도 아니다.
             //
             //   ⚠️ 실패 처리는 **기존 실패 경로를 그대로 탄다** — 아래 FailHostRound 는
             //      진짜 실패가 쓰는 바로 그 결말 자리다. 강제 실패용 경로를 따로 만들면
             //      「테스트에서 본 화면」과 「실제로 나는 화면」이 다를 수 있어 의미가 없어진다.
             // ────────────────────────────────────────────────────────────────
-            if (!isProbe && roundKind == MapTransferRoundKind.Rematch)
+            if (!isProbe)
             {
                 MapTransferErrorCode forcedCode;
-                if (ForcedMapTransferFailure.TryConsume(out forcedCode))
+                if (ForcedMapTransferFailure.TryConsume(roundKind, out forcedCode))
                 {
                     if (forcedCode == MapTransferErrorCode.ResponseTimeout)
                     {
@@ -820,7 +829,7 @@ namespace Hexiege.Infrastructure
                         // [개발/Warn] 🔴 로그를 보는 사람이 「진짜 실패」와 「강제 실패」를
                         //   반드시 구분할 수 있어야 한다. 그래서 Forced=... 를 남긴다.
                         GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
-                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차의 응답을 " +
+                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 회차의 응답을 " +
                                          "일부러 무시한다 — 진짜 timeout·재전송 경로를 태운다",
                                          $"Nonce={_activeNonce}, Round={roundKind}, " +
                                          $"Forced={forcedCode}, " +
@@ -831,7 +840,7 @@ namespace Hexiege.Infrastructure
                     {
                         // [개발/Warn] 즉시 실패 사유(Disconnected · HashMismatch).
                         GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
-                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차를 " +
+                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 회차를 " +
                                          "즉시 실패로 끝낸다(전송하지 않는다)",
                                          $"Nonce={_activeNonce}, Round={roundKind}, Forced={forcedCode}");
 

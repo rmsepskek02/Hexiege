@@ -2,15 +2,19 @@
 // ForceRematchMapFailureMenu.cs  (에디터 전용 · 개발용 강제 실패 토글 메뉴)
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
-// │  1) 상단 메뉴  Hexiege > Debug > 강제 실패 — 다음 재경기  에서            │
-// │     실패시킬 것 하나를 고른다                                             │
-// │     (① 연결 끊김 / ② 해시 불일치 / ③ 응답 없음 / ④ 수락 전송 예외).      │
-// │  2) 그대로 멀티플레이를 시작해 경기를 끝내고 **재경기**를 누른다.         │
-// │     → ①②③ 은 그 회차의 맵 준비·전송이 고른 사유로 반드시 실패한다.       │
-// │     → ④ 는 **맵 단계에 가기도 전에** 수락 전송이 예외로 끝난다.          │
-// │  3) 🔴 **한 번 쓰이면 자동으로 꺼진다.** 다시 실패시키려면 또 고른다.     │
-// │  4) 지금 켜져 있는지 궁금하면  Hexiege > Debug > 강제 실패 — 현재 설정    │
-// │     확인  을 누른다. 끄고 싶으면 그 아래 「해제」를 누른다.               │
+// │  1) 상단 메뉴  Hexiege > Debug  에서 **어느 회차를 실패시킬지** 먼저 고른다:  │
+// │       · 강제 실패 — 다음 재경기   (결과 화면의 재경기)                      │
+// │       · 강제 실패 — 다음 최초 경기 (로비에서 두 명이 모인 직후)              │
+// │     두 묶음 모두 ① 연결 끊김 / ② 해시 불일치 / ③ 응답 없음 을 고를 수 있다.  │
+// │     (④ 수락 전송 예외는 재경기 묶음에만 있다.)                              │
+// │  2) 재경기 묶음: 멀티플레이를 시작해 경기를 끝내고 **재경기**를 누른다.       │
+// │     → ①②③ 은 그 회차의 맵 준비·전송이 고른 사유로 반드시 실패한다.          │
+// │     → ④ 는 **맵 단계에 가기도 전에** 수락 전송이 예외로 끝난다.             │
+// │     최초 경기 묶음: 방을 만들고 상대가 접속하면 곧바로 실패한다.             │
+// │  3) 🔴 **한 번 쓰이면 자동으로 꺼진다.** 다시 실패시키려면 또 고른다.        │
+// │     예약 칸은 하나라 다른 회차로 다시 고르면 앞의 예약을 덮어쓴다.           │
+// │  4) 지금 켜져 있는지 궁금하면  Hexiege > Debug > 강제 실패 — 현재 설정       │
+// │     확인  을 누른다. 끄고 싶으면 그 아래 「해제」를 누른다.                  │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // 🔴 **저장소가 둘이라는 것을 사용자가 알 필요는 없다.**
@@ -21,7 +25,7 @@
 
 // 🔴 **[2026-09-28 추가] 저장소가 셋이 됐다 — 위 문단의 「둘」은 더 이상 사실이 아니다.**
 //   세 번째는 **싱글플레이 맵 준비**를 강제 실패시키는 토글(ForcedMapPreparationFailure)이다.
-//   ⚠️ 위 ①~④ 는 전부 **멀티플레이 재경기**용이라 싱글 경로에 닿지 않는다.
+//   ⚠️ 위 ①~④ 는 전부 **멀티플레이**용이라 싱글 경로에 닿지 않는다.
 //   ┌─ 싱글 항목 사용법 ─────────────────────────────────────────────────────┐
 //   │  1) 상단 메뉴  Hexiege > Debug > 강제 실패 — 싱글 맵 준비 (다음 1회)     │
 //   │  2) 그 뒤에 **먼저 오는 쪽**이 실패한다.                                │
@@ -51,10 +55,28 @@
 //   왜 이 도구가 필요한지의 단일 소스는
 //   Assets/_Project/Scripts/Bootstrap/Debug/ForcedMapProjectionFailure.cs 머리말이다.
 //
+// 🔴 **[2026-10-12 추가] 「다음 최초 경기」 묶음이 생겼다 — 같은 저장소(맵 전송 사유)에 대상 회차만 더했다.**
+//   무엇을 위한 것인가: 멀티플레이 **최초 경기** 맵 준비가 실패했을 때 방장(호스트) 화면에 뜨는
+//   **모달 팝업**(공통 UI 규칙 M-2 · 재시도 / 로비)을 눈으로 확인하기 위해서다. 종전의 강제 실패는
+//   재경기 전용이라 이 화면을 한 번도 볼 수 없었다.
+//   ┌─ 최초 경기 묶음 사용법 (초급자용) ─────────────────────────────────────┐
+//   │  1) **에디터가 호스트(방을 만드는 쪽)** 여야 한다 — 예약은 이 PC 의 에디터에만 저장되고,  │
+//   │     맵 준비는 호스트에서만 일어나기 때문이다.                                         │
+//   │  2) 메뉴에서 「강제 실패 — 다음 최초 경기」 아래 항목 하나를 고른다.                  │
+//   │  3) 에디터에서 방을 만들고 다른 기기(또는 다른 에디터)로 그 방에 접속한다.            │
+//   │     → 두 명이 모인 직후 호스트 화면에 확인/취소 모달이 떠야 한다.                     │
+//   │  4) ③ 응답 없음만 즉시 실패가 아니라 약 20초 뒤에 뜬다(그동안 로딩 화면이 유지된다).  │
+//   └──────────────────────────────────────────────────────────────────────────┘
+//   🔴 **재경기 묶음과 최초 경기 묶음은 서로를 막지 않는다.** 예약에 대상 회차가 함께 저장되고,
+//      대상이 아닌 회차는 예약을 건드리지 않고 지나가기 때문이다. 재경기를 보려면 최초 경기를
+//      **정상으로** 한 판 시작해야 하므로 그때는 재경기 묶음을 고른다.
+//   ⚠️ 저장소는 늘지 않았다(여전히 넷). 그래서 「현재 설정 확인」·「해제」는 코드 변경 없이 새 예약도
+//      함께 다루고, 확인 메뉴는 대상 회차를 추가로 보여 준다.
+//
 // 무엇을 위한 것인가:
-//   재경기 맵 준비가 **실패했을 때의 결과 화면**(공통 UI 규칙 M-3 · D-7 · 규칙 18)을
-//   실제로 눈으로 확인하기 위한 도구다. 정상 경로에서는 실패가 나지 않으므로
-//   이 토글이 없으면 그 화면을 한 번도 볼 수 없다.
+//   맵 준비가 **실패했을 때의 화면**을 실제로 눈으로 확인하기 위한 도구다 — 재경기는 결과 화면
+//   (공통 UI 규칙 M-3 · D-7 · 규칙 18), 최초 경기는 로비의 모달 팝업(규칙 M-2). 정상 경로에서는
+//   실패가 나지 않으므로 이 토글이 없으면 그 화면을 한 번도 볼 수 없다.
 //   근거 문서: Assets/_Project/Docs/_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md §8
 //
 // 🔴 왜 「네트워크를 끊는 테스트 버튼」이 아닌가:
@@ -100,15 +122,16 @@ using Hexiege.Bootstrap;
 namespace Hexiege.EditorTools
 {
     /// <summary>
-    /// 🔴 <b>[에디터 전용]</b> 「다음 재경기를 강제로 실패시킨다」는 1회용 토글 메뉴.
+    /// 🔴 <b>[에디터 전용]</b> 「다음 맵 준비를 강제로 실패시킨다」는 1회용 토글 메뉴.
     ///
     /// <para>
     /// 상태를 들고 있는 것은 <b>네 클래스</b>이고, 이 클래스는 그것들을 켜고·끄고·보여 주기만 한다 —
-    /// ①②③ 맵 준비·전송은 <see cref="ForcedMapTransferFailure"/>,
+    /// ①②③ 맵 준비·전송(사유와 대상 회차)은 <see cref="ForcedMapTransferFailure"/>,
     /// ④ 수락 전송은 <see cref="ForcedAcceptSendFailure"/>,
     /// 싱글 맵 준비는 <see cref="ForcedMapPreparationFailure"/>,
     /// 싱글 맵 투영은 <see cref="ForcedMapProjectionFailure"/>.
-    /// ⚠️ <b>[2026-09-29] 앞의 넷은 멀티플레이 재경기용이고, 뒤의 둘만 싱글플레이용이다.</b>
+    /// ⚠️ <b>[2026-09-29] 앞의 둘은 멀티플레이용이고(①②③ 은 최초 경기·재경기 중 예약 때 고른 회차,
+    /// ④ 는 재경기), 뒤의 둘만 싱글플레이용이다.</b>
     /// 🔴 사용자가 보는 메뉴는 <b>같은 묶음 하나</b>이며, 「현재 설정 확인」·「해제」도
     /// 넷을 함께 다룬다(따로 켜지고 따로 꺼지면 무엇이 걸려 있는지 알 수 없으므로).
     /// </para>
@@ -119,7 +142,7 @@ namespace Hexiege.EditorTools
         private const string LogPrefix = "[Debug/강제 실패] ";
 
         // ────────────────────────────────────────────────────────────────────
-        // 예약 (맵 준비·전송 사유 — 셋 중 하나)
+        // 예약 (재경기 — 맵 준비·전송 사유 셋 중 하나)
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -129,7 +152,7 @@ namespace Hexiege.EditorTools
         [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/① 연결 끊김 (Disconnected)")]
         private static void ArmDisconnected()
         {
-            Arm(MapTransferErrorCode.Disconnected,
+            Arm(MapTransferErrorCode.Disconnected, MapTransferRoundKind.Rematch,
                 "결과 화면 상태 줄이 「상대가 나갔다」는 뜻의 실패 문구로 바뀌어야 한다 " +
                 "(GameEndUI 의 RematchFailedByOpponentLeftCountdownFormat)");
         }
@@ -140,7 +163,7 @@ namespace Hexiege.EditorTools
         [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/② 해시 불일치 (HashMismatch)")]
         private static void ArmHashMismatch()
         {
-            Arm(MapTransferErrorCode.HashMismatch,
+            Arm(MapTransferErrorCode.HashMismatch, MapTransferRoundKind.Rematch,
                 "결과 화면 상태 줄이 **기본** 실패 문구로 바뀌어야 한다 " +
                 "(GameEndUI 의 RematchFailedCountdownFormat — 「상대가 나갔다」 쪽이 아니어야 한다)");
         }
@@ -153,9 +176,49 @@ namespace Hexiege.EditorTools
         [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
         private static void ArmResponseTimeout()
         {
-            Arm(MapTransferErrorCode.ResponseTimeout,
+            Arm(MapTransferErrorCode.ResponseTimeout, MapTransferRoundKind.Rematch,
                 "약 20초 뒤(10초 + 재전송 + 10초)에 **기본** 실패 문구가 떠야 한다. " +
                 "그 20초 동안은 상태 줄이 「재경기 준비 중」 표시를 유지해야 한다");
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 예약 (최초 경기 — 맵 준비·전송 사유 셋 중 하나)  [2026-10-12 추가]
+        // ────────────────────────────────────────────────────────────────────
+        // 🔴 위 재경기 항목과 **같은 저장소**(맵 전송 사유)를 쓰고 대상 회차만 최초 경기로 지정한다.
+        //    메뉴 경로의 폴더 이름이 다르므로 한 폴더에서 두 회차를 섞어 고를 수 없다.
+        //    확인할 화면은 사유와 무관하게 같다 — 규칙 M-2 가 사유로 문구를 가르지 않는다.
+
+        /// <summary>
+        /// 다음 <b>최초 경기</b>(로비에서 두 명이 모인 직후)를 <b>연결 끊김</b> 사유로 실패시킨다.
+        /// ⚠️ 화면에서는 다른 사유와 구별되지 않는다 — 로그의 사유 표식으로만 구별된다.
+        /// </summary>
+        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/① 연결 끊김 (Disconnected)")]
+        private static void ArmFirstDisconnected()
+        {
+            Arm(MapTransferErrorCode.Disconnected, MapTransferRoundKind.First, FirstRoundExpectation);
+        }
+
+        /// <summary>
+        /// 다음 <b>최초 경기</b>를 <b>해시 불일치</b> 사유로 실패시킨다(즉시 실패).
+        /// 최초 경기 실패 모달을 가장 빨리 보는 항목이다.
+        /// </summary>
+        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/② 해시 불일치 (HashMismatch)")]
+        private static void ArmFirstHashMismatch()
+        {
+            Arm(MapTransferErrorCode.HashMismatch, MapTransferRoundKind.First, FirstRoundExpectation);
+        }
+
+        /// <summary>
+        /// 다음 <b>최초 경기</b>를 <b>응답 없음</b> 사유로 실패시킨다.
+        /// 🔴 이 사유만 즉시 실패가 아니다 — 실제 timeout 10초 → 재전송 1회 → 다시 10초를 거치므로
+        /// 모달이 뜨기까지 약 20초 동안 <b>로딩 화면이 유지되는 것이 정상</b>이다.
+        /// </summary>
+        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
+        private static void ArmFirstResponseTimeout()
+        {
+            Arm(MapTransferErrorCode.ResponseTimeout, MapTransferRoundKind.First,
+                FirstRoundExpectation + "\n  · 🔴 이 사유만 약 20초(10초 + 재전송 + 10초) 뒤에 모달이 뜬다. " +
+                "그 20초 동안은 로딩 화면(게임에 접속하는 중)이 유지되어야 한다.");
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -309,7 +372,14 @@ namespace Hexiege.EditorTools
 
             if (code != MapTransferErrorCode.None)
             {
-                report += "\n  · ①②③ 맵 준비·전송: 다음 **재경기** 회차가 " + code + " 로 실패한다.";
+                // 🔴 대상 회차를 함께 보여 준다 — 사유만 보이면 「왜 재경기가 실패하지 않지」로 헤맨다
+                //    (예약이 최초 경기용이면 재경기는 정상으로 진행된다).
+                MapTransferRoundKind targetRound = ForcedMapTransferFailure.PeekTargetRound();
+                string roundText = targetRound == MapTransferRoundKind.First
+                    ? "다음 **최초 경기**(로비에서 두 명이 모인 직후)"
+                    : "다음 **재경기**";
+                report += "\n  · ①②③ 맵 준비·전송: " + roundText + " 회차가 " + code + " 로 실패한다. " +
+                          "(대상이 아닌 회차는 정상으로 진행되고 예약은 남는다)";
             }
 
             if (acceptSendArmed)
@@ -339,9 +409,11 @@ namespace Hexiege.EditorTools
                           "투영 예약은 소비되지 않고 남으므로 다음 싱글 경기에서 발동한다.";
             }
 
-            // ⚠️ 「최초 경기에는 적용되지 않는다」는 위 ①~④(멀티 재경기)에만 해당한다.
-            //    싱글 항목은 최초 경기에도 적용되므로 그 단서를 함께 적는다.
-            report += "\n  (①~④ 는 최초 경기에 적용되지 않는다 · 싱글 항목 둘은 최초 경기에도 적용된다 " +
+            // ⚠️ 적용 범위가 항목마다 다르므로 단서를 함께 적는다 —
+            //    ①②③ 은 예약 때 고른 한 회차에만, ④ 는 재경기에만, 싱글 항목은 최초 경기와 다시하기
+            //    중 먼저 오는 쪽에 적용된다.
+            report += "\n  (①②③ 은 예약한 대상 회차 하나에만 적용된다 · ④ 는 재경기에만 적용된다 " +
+                      "· 싱글 항목 둘은 최초 경기와 다시하기 중 먼저 오는 쪽에 적용된다 " +
                       "· 모두 한 번 쓰이면 자동 해제된다)";
 
             Debug.Log(report);
@@ -360,6 +432,7 @@ namespace Hexiege.EditorTools
         [MenuItem("Hexiege/Debug/강제 실패 — 해제")]
         private static void DisarmMenu()
         {
+            // 🔴 맵 전송 예약은 사유와 대상 회차가 한 덩어리라 Disarm 한 번이 둘을 함께 지운다.
             bool mapWasArmed = ForcedMapTransferFailure.IsArmed;
             bool acceptSendWasArmed = ForcedAcceptSendFailure.IsArmed;
             bool singleMapWasArmed = ForcedMapPreparationFailure.IsArmed;
@@ -385,23 +458,50 @@ namespace Hexiege.EditorTools
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// 예약 처리 + 콘솔 안내를 한곳에 모은다(세 메뉴 항목이 같은 문장 틀을 쓴다).
+        /// 최초 경기 묶음 세 항목이 함께 쓰는 「확인할 것」 안내문.
+        /// 🔴 사유와 무관하게 같은 화면이 떠야 한다(규칙 M-2 가 사유로 문구를 가르지 않는다).
+        /// </summary>
+        private const string FirstRoundExpectation =
+            "방장(호스트) 화면에 로딩이 내려가고 **확인/취소 모달**이 떠야 한다 " +
+            "(확정=재시도 · 취소=로비). 모달 밖(배경)을 눌러도 닫히지 않아야 한다.\n" +
+            "  · 확인할 것(재시도): 맵 준비·전송을 새 시드로 처음부터 다시 한다 " +
+            "— 예약은 이미 소비됐으므로 이번엔 정상으로 전투 씬까지 가야 한다.\n" +
+            "  · 확인할 것(로비): 방 만들기 화면에서 메인 화면으로 돌아가고 연결이 끊긴다.\n" +
+            "  · ⚠️ 상대방(접속한 쪽) 화면은 바뀌지 않는 것이 현재 사양이다(호스트→상대 실패 통보 경로 없음).";
+
+        /// <summary>
+        /// 예약 처리 + 콘솔 안내를 한곳에 모은다(맵 전송 사유 여섯 항목이 같은 문장 틀을 쓴다).
         /// </summary>
         /// <param name="code">실패시킬 사유</param>
+        /// <param name="round">실패시킬 회차(최초 경기 / 재경기)</param>
         /// <param name="expectation">그 사유로 실패했을 때 화면에서 무엇을 확인해야 하는가</param>
-        private static void Arm(MapTransferErrorCode code, string expectation)
+        private static void Arm(MapTransferErrorCode code, MapTransferRoundKind round, string expectation)
         {
-            if (!ForcedMapTransferFailure.Arm(code))
+            // 예약 칸은 하나라 새 예약이 앞의 예약을 덮어쓴다. 덮어쓰는 경우 조용히 바뀌면 헷갈리므로
+            // 앞의 내용을 먼저 읽어 두었다가 콘솔에 알린다.
+            MapTransferErrorCode previousCode = ForcedMapTransferFailure.PeekCode();
+            MapTransferRoundKind previousRound = ForcedMapTransferFailure.PeekTargetRound();
+
+            if (!ForcedMapTransferFailure.Arm(code, round))
             {
-                // 여기 오는 것은 코드 실수뿐이다(지원 목록에 없는 사유를 넘긴 경우).
-                Debug.LogError(LogPrefix + "예약하지 못했다 — 지원하지 않는 사유다: " + code);
+                // 여기 오는 것은 코드 실수뿐이다(지원 목록에 없는 사유나 회차를 넘긴 경우).
+                Debug.LogError(LogPrefix + "예약하지 못했다 — 지원하지 않는 사유 또는 회차다: " + code + " / " + round);
                 return;
             }
 
-            Debug.Log(LogPrefix + "예약 완료 → 다음 **재경기** 회차가 " + code + " 로 실패한다.\n" +
+            string roundText = round == MapTransferRoundKind.First ? "최초 경기" : "재경기";
+            string overwriteNote = previousCode != MapTransferErrorCode.None
+                ? "\n  · ⚠️ 앞의 예약(" + previousCode + " / " +
+                  (previousRound == MapTransferRoundKind.First ? "최초 경기" : "재경기") +
+                  ")을 덮어썼다 — 예약 칸은 하나다."
+                : "";
+
+            Debug.Log(LogPrefix + "예약 완료 → 다음 **" + roundText + "** 회차가 " + code + " 로 실패한다.\n" +
                       "  · 확인할 것: " + expectation + "\n" +
-                      "  · 최초 경기에는 적용되지 않는다(로비에서 게임이 시작되지 않으면 테스트 자체가 불가능하므로).\n" +
-                      "  · 🔴 한 번 쓰이면 자동으로 해제된다 — 연속으로 실패시키려면 다시 고를 것.");
+                      "  · 대상이 아닌 회차는 정상으로 진행되고 예약은 남는다 " +
+                      "(최초 경기를 대상으로 하면 그 판은 로비에서 시작되지 않는다).\n" +
+                      "  · 🔴 한 번 쓰이면 자동으로 해제된다 — 연속으로 실패시키려면 다시 고를 것." +
+                      overwriteNote);
         }
     }
 }
