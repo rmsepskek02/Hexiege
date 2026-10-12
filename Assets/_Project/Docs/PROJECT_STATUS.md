@@ -1,6 +1,6 @@
 # Hexiege - 프로젝트 진행 현황
 
-> **2026-10-12 private 로그 보관·병합 준비:** Private archive169 entry 원격 전체 검증/receipt 업로드·tracked raw123→0/local169 보존 완료. Main이 사용자 self-revert9e1c596d(12:44:46), main tree6a2f2403 대비diff0·원Resources88 복원·이동 잔여0·Config3 존재를 확인하여 이전 이동 blocker 해제. 사용자 commit/push/merge GO 수신; 실제 source branch commit/push·main merge/최종 반영 결과는 대기. [최신 확인·기존 보관 영수증](./_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md). 새 gameplay/compile/native PASS를 의미하지 않는다.
+> **2026-10-12 private 로그 보관·source/main 반영 완료:** Main actual A b65751c604fabd6b7dd410907ea8f152f51d33f4(445파일) commit/push → B befdd8ef37f3b064f31d550fd96192c93d379ad2 ort merge conflict0/tree=A → atomic push 및 양쪽 remote B 확인 완료. Post-merge Runtime/Editor/Development errors0·Project320/Bee drift0; native/빌드 재실행 없음. Private archive169 전체 검증/receipt 업로드·main raw0/local169·QA Log10/CrossAudit/원Resources Config3 보존 완료. [최종 실제 영수증](./_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md).
 
 > **2026-10-12 10_10 wave 경기:** Main full-key 전달·표시 **scoped PASS**(device server/editor client, epoch443cdc5dde2f8a57). Spawn465 delta0, contact313 양쪽unique/delta0, 채널 실패·중복0; 마지막wave465 종료 취소1 정상. ClockPending/Recovered/Expired0 → 수신보류 실전 회복 branch 미실행 OPEN, 상위 clock 원인·정밀 시각/global closure 미해결. [원본·모집단·anomaly 근거](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md). 이전 native/빌드 시도 이력은 보존하며 새 코드/빌드/로그 정책 변경 없음.
 

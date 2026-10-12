@@ -2,6 +2,16 @@
 
 원시 로그를 검증 가능한 archive로 보관한 뒤 main 최종 tree에서 RuntimeLog txt 본문만 추적 해제하되, 로컬 원본·Git 이력과 문서/metadata는 보존한다. 인증·보관 공개범위 결정·보관 검증은 서로 다른 gate이며 아래 영수증은 실행 완료 선언이 아니다.
 
+## 2026-10-12 최종 실제 영수증 — source/main B 원격 동기화 완료
+
+Main 실제 실행 인계: A `b65751c604fabd6b7dd410907ea8f152f51d33f4`에 사용자 전체 작업445파일(nonraw322 + 승인 raw cache 삭제123)을 commit하고 source branch에 push했다. 최신 main9e1c596d를 ort merge한 B **`befdd8ef37f3b064f31d550fd96192c93d379ad2`**는 conflict0·tree(B)=tree(A) true다. 실제 atomic push 성공 후 remote 확인으로 **origin/main과 origin/codex/unit-movement-attack-sync-audit 모두 B**임을 Main이 검증했다. 아래 commit/merge/main 대기·Resources 보류 문장은 당시 이력이며 이 완료 영수증으로 supersede한다.
+
+실제 post-merge compile: Runtime288 exit0/errors0/warnings20, Editor32 exit0/errors0/warnings0, Development288 exit0/errors0/warnings20; Project320 complete·Bee 누락/drift0. Static warnings는 obsolete19 + unused1이며 native/빌드는 재실행하지 않았다. Main fresh 문서 검사0(규칙10/Markdown78/Claude40, Task/Logs 제외)도 인계받았다. 문서 담당의 Git/API/소스/Unity 재검증 결과로 표기하지 않는다.
+
+Private archive ZIP·manifest·verification receipt 업로드 및 전체169 path/CRC/size/SHA 검증은 아래 기존 영수증 그대로 완료. 실제 main committed raw0·Temp DLL tracked0, QA Log 문서10·CrossAuditResult 보존, 원래 Resources의 UnitStats/UnitEffect/Building Config3 존재. 로컬 raw169는 삭제하지 않았고 untracked는 기존 root DLL2만 로컬 보존했다. Git 이력 재작성 없음.
+
+이번 최종 문서 patch는 Research.md·Plan.md·PROJECT_STATUS.md 관련1줄·공용 MEMORY.md 기존 custody 항목1줄, **총4파일**뿐이다. 소스·LogRules·WORKFLOW·다른 과거 Task·baseline은 변경하지 않는다. **영수증 작성 시점에는** 문서 commit C 및 C의 branch/main FF push가 미실행이었다. 자기 SHA 순환을 기록하지 않고 이 문서 반영 상태는 해당 Git commit/remote refs로 확인한다.
+
 ## 2026-10-12 12:44:46 main 사용자 self-revert 확인 — 병합 blocker 해제
 
 **첫 commit 전 현재 상태:** Main fresh fetch로 최신 main9e1c596d 및 6a2f2403 대비 tree diff0 확인. Resources 리버트 처리됨·병합 보류 해제·사용자 병합 GO 수신. **실제 source commit/push/merge는 아직 미실행**이며 완료 SHA를 선기록하지 않는다. 이번 사전 반영은 현재 Task2문서만 최소 수정한다. A/B 실제 commit·merge 결과 후 별도 짧은 Task 완료 영수증과 관련 상태1줄을 반영하고 second final commit할 예정이며, 현재 그 단계는 대기다.
