@@ -3862,3 +3862,34 @@ Handoff counted "최상위 원칙" (28 lines outside `_Tasks/`: 16 acting pointe
 - Stale status stamps **inside** the moved text (e.g. 「인터넷 도달 확인은 현재 구현돼 있지 않다」 while `InternetReachabilityProbe` exists and is constructed in `NetworkGameEndController`) — fixing them in the move round would blur the verbatim diff; they go on the user's list.
 - Code comments citing the old location (5) — code is permission-gated.
 - `check_docs.py --update-baseline` was **not** run (instruction: the permission classifier blocks it); [7] showed the stale-baseline notice only.
+
+---
+
+## §54. A user decision that **removes a clock** from a plan, and a rule-document revision that rewrites a live rule in place (2026-10-12, 멀티 최초 경기 맵 준비 실패 UI — 4th spec of the day)
+
+Two jobs in one round: finish the Plan (`_Tasks/2026-10-12/07_08_multi-first-map-failure-ui/Plan.md`) and revise rules M-2 / M-4 / D-5 / 8 (UI) + rule 16 (RandomMap). Code was out of scope.
+
+### 54-1. 🔴 Removing a timer is a **feature deletion**, so it gets §21's treatment — reason with measurements, dependents table, re-add gate
+- The removal section (Plan §5-6) holds: the user's original question verbatim · what the path was · **why it was a duplicate** (scene values `m_DisconnectTimeoutMS: 60000` in `Lobby.unity` and `Game.unity`, re-measured with grep, plus the project's own written ban on a "third clock" in `GameEndUI.cs`) · a **table of every sentence that depended on it** (nine places across §2/§5/§6/§7/§9/§11/§12 — grep the *claim* "60초", "세 경로", "③", not the identifier) · what **survives** · a **re-add gate** ("check these two facts first").
+- Whole-invalid bullets are struck through with a one-line verdict; a partly-valid one (7절 ④) is rewritten and the old text kept struck underneath. Lettered implementation slots are **not re-lettered** (ⓖ keeps its cell, struck) because other sections cite ⓐ~ⓗ by name (§20-1).
+- ⚠️ Do not over-claim the borrowed warning: the "third clock" comment is about the result screen; in the lobby it is the same *principle*, not a direct rule. Say so.
+
+### 54-2. 🔴 Handed-over claim, 11th class: "the three strings all differ now" was **wrong — two of the three are identical**
+Build the 3-row literal table (place / new string / old string) **before** writing "differ". Result: multi-lobby first-match and single first-match modal are the same string; only the single rematch status line changed (and its wording, not just its full stop). The correction goes into the Plan's table paragraph, the constraint ("do not merge") is stated as **stronger** (same string under two different rules), and the report names the discrepancy.
+
+### 54-3. An enumeration "N places" in a rule can be stale **before** your change — count in code and in rule history
+D-5 said "two places: rematch-map-failure alert (M-3·M-4) and D-6". Rule history showed M-3 → status line (2026-09-22 2nd) and M-4 rematch → status line (2026-09-29 4th); code grep showed one real `ShowAlert` caller (D-6). So the repair is not "two → three": it is "swap the stale member for M-2" and say the old member was already stale. The same enumeration is copied in rule 8's example list → fix both, report both (the hand-off named only D-5).
+
+### 54-4. Which edit shape each place got
+| Place | Shape |
+|---|---|
+| Live rule body (M-2) | rewritten in place; each changed clause carries `(2026-10-12 사용자 결정 — 종전: …)`; wholly void clauses struck through with a 무효 verdict; one pointer bullet for the undecided *where to put the spec* question; one bullet "this is the spec, the code is not it yet" |
+| A confirmation table cell the user told me to fix (M-4 확정 표 「표시 문구」) | edited in place, old value + why-the-referent-moved inside the fragment, and a ⚠️ 미정 pin for the one literal the user did not settle (final full stop) |
+| Cells/paragraphs inside dated past-round blocks that quote the old string | **pointer line only** (B-7); original sentence untouched |
+| A dated judgement block whose reasoning half-expired (4차 판정: "full-stop differs") | pointer: the verdict stands, the stated reason no longer explains the current strings |
+- Open-question list: **numbers kept** (other sections cite "11절 N번"); closed ones show the *value* decided; new questions appended as 11, 12; an item executed-but-unconfirmed stays open with that sentence (item 8).
+
+### 54-5. Small recurring traps
+- A TDD sentence quoted for a new situation (host disconnecting itself) is an **analogy** — say so in the Plan and again in 확인하지 못한 것.
+- Hand-off said "write it in ⑧" while the report's ⑧ was `check_docs.py` — put the question in **both** the Plan (11절) and the report's decision section and note the label mismatch.
+- `check_docs.py` skips `_Tasks/` and cannot see letter-prefixed rules (`M-2`, `D-5`): verify citations by hand, run the unescaped-pipe table check (old vs new), and count preserved phrases against `git show HEAD:`. `[7]` baseline was already stale (+1636 lines) and `--update-baseline` was forbidden by the instruction → reported, not run.
