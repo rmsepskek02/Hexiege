@@ -33,6 +33,8 @@
 //             Host 결말을 한 번만 통보하는 NotifyHostOutcomeOnce.
 //             바깥쪽 배선(스폰 주체 · 로비 진입점 · Client 투영 · 임시 고정 seed 비활성화)은
 //             NetworkGameManager.cs · BattleViewModel.cs · GameBootstrapper.Map.cs 에 있다.
+//   [2026-10-12] 최초 경기 실패 통보 — Host 가 접속한 쪽에 「맵 준비 실패」를 알리는 ClientRpc 한 개
+//             (아래 「RPC ④」 절). 사유를 나르지 않고 최초 경기에서만 쓴다.
 //
 // ── 왜 Infrastructure 레이어인가 ──────────────────────────────────────────
 //   NetworkBehaviour 는 이 프로젝트에서 **Infrastructure 에만** 둘 수 있다.
@@ -1599,6 +1601,103 @@ namespace Hexiege.Infrastructure
             //    통보가 먼저 가면 씬 로드가 시작된 뒤에 맵을 심게 되어,
             //    전투 씬이 "인계된 맵이 없다"고 판정할 여지가 생긴다.
             NotifyHostOutcomeOnce(true, MapTransferErrorCode.None);
+        }
+
+        // ====================================================================
+        // RPC ④ 맵 준비 실패 통보 (Host → Client) — 최초 경기 실패 안내용 (2026-10-12)
+        //
+        // [초급자용 설명] 이 RPC 가 왜 필요한가
+        //   최초 경기의 맵 준비가 실패하면 Host 는 곧바로 방을 나간다. 그런데 접속한 쪽은
+        //   아무것도 모른 채 "접속하는 중" 로딩 화면에 남는다. 그래서 Host 가 방을 나가기
+        //   전에 이 통보를 먼저 보내, 접속한 쪽도 같은 안내를 띄우고 스스로 방을 나가게 한다.
+        //
+        // 🔴 이 통보는 사유를 나르지 않는다. 규칙 M-1 · 규칙 16 이 사유(시드·유형·내부 코드)를
+        //    화면에 쓰지 않고 로그에만 남기라고 정했고, 사유로 안내 문구를 가르지도 않기 때문이다.
+        //    그래서 인자가 하나도 없다.
+        // 🔴 이 통보는 최초 경기 회차에서만 보낸다. 재경기 실패는 기존 경로(결과 화면)가
+        //    처리하며, 그 판단은 이 클래스가 아니라 부르는 쪽(NetworkGameManager 의 실패 게이트)이 한다.
+        // ⚠️ 이 통보가 접속한 쪽에 실제로 도착하는지는 확인하지 못했다. Host 가 보낸 직후
+        //    연결을 끊을 때 이 메시지가 먼저 나가는지는 NGO 내부 동작이고 패키지 소스가 저장소에 없다.
+        //    도착하지 않아도 접속한 쪽은 「맵 준비를 기다리다 연결이 끊김」으로 같은 결론에 닿는다
+        //    (BattleViewModel 의 두 번째 경로).
+        // ====================================================================
+
+        /// <summary>
+        /// [Host 에서 호출] 이번 판의 맵 준비가 실패했음을 접속한 쪽에 알린다.
+        /// 호출처는 <c>NetworkGameManager</c> 의 실패 게이트(최초 경기 회차)다.
+        ///
+        /// 🔴 <b>Host 가 방을 나가기 전에</b> 불러야 한다. 먼저 연결을 끊으면 이 메시지가 나갈 자리가
+        ///    사라져 접속한 쪽에는 이유 없이 끊긴 화면만 남는다.
+        /// ⚠️ 가드를 <c>IsSpawned</c> 먼저 거는 이유는 이 파일의 다른 진입점들과 같다 — NGO 는
+        ///    스폰되지 않았거나 NetworkManager 가 멈춘 뒤에 RPC 를 보내면 예외를 던진다.
+        /// ⚠️ 보내다 예외가 나도 삼키고 돌아간다. 이 호출이 터져 버리면 호출한 쪽(실패 게이트)이
+        ///    그 뒤의 일 — Host 자신이 로딩을 내리고 방을 나가는 것 — 을 못 하게 되어
+        ///    Host 가 "접속하는 중" 화면에 갇힌다. 삼킨 사실은 개발 로그로 남긴다
+        ///    (<c>NetworkGameEndController.SendResultScreenHeartbeat</c> 가 같은 방식을 쓴다).
+        /// </summary>
+        public void NotifyClientsOfMapPreparationFailure()
+        {
+            if (!IsSpawned || !IsServer)
+            {
+                // 축 A = Warn(통보만 못 보내고 Host 쪽 처리는 계속된다) · 축 B = 개발(에디터 2인 구성에서 재현된다).
+                GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                 "맵 준비 실패 통보를 보내지 못했다 — 스폰되지 않았거나 서버가 아니다",
+                                 $"Role=Host, IsSpawned={IsSpawned}");
+                return;
+            }
+
+            try
+            {
+                GameLog.Dev.Info(TransferLogSystem, nameof(NetworkMapTransfer),
+                                 "맵 준비 실패 통보 전송",
+                                 $"Role=Host, Nonce={_activeNonce}, Round={_hostRoundKind}, State={_state}");
+
+                MapPreparationFailedClientRpc();
+            }
+            catch (System.Exception e)
+            {
+                GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                 "맵 준비 실패 통보 전송 중 예외 — 삼키고 Host 쪽 처리를 계속한다",
+                                 $"Role=Host, Exception={e.GetType().Name}");
+            }
+        }
+
+        /// <summary>
+        /// [Client 에서 실행] Host 가 맵 준비 실패를 알려 왔다 → 세션 매니저에 전달한다.
+        ///
+        /// 이 클래스는 화면(Presentation)을 직접 부를 수 없다(레이어 방향). 그래서 DontDestroyOnLoad 인
+        /// <c>NetworkGameManager</c> 를 찾아 넘기고, 화면에 알리는 일은 그쪽 이벤트를 받는
+        /// ViewModel 이 한다. 찾는 방식은 <c>NetworkGameEndController</c> 가 같은 매니저를 찾는 방식과 같다
+        /// (이 전송 객체는 Host 가 동적 스폰해서 Inspector 로 미리 연결해 둘 수 없다).
+        ///
+        /// ⚠️ 메서드 이름이 반드시 ClientRpc 로 끝나야 한다. NGO 의 규약이고, 어기면 컴파일되지 않는다.
+        /// ⚠️ 맨 앞의 서버 되돌림은 <b>가드</b>다. Host 는 서버이자 클라이언트라 자기가 보낸 ClientRpc 를
+        ///    자기도 받는데, 그대로 두면 Host 가 "Host 가 알려 왔다"는 이벤트를 자기에게 발행해
+        ///    Host 의 안내가 두 번 처리된다. 가드 자체에는 로그를 넣지 않는다(정상 흐름이라 금지 8).
+        /// </summary>
+        [ClientRpc]
+        private void MapPreparationFailedClientRpc()
+        {
+            if (IsServer)
+            {
+                return;
+            }
+
+            GameLog.Dev.Info(TransferLogSystem, nameof(NetworkMapTransfer),
+                             "맵 준비 실패 통보 수신",
+                             $"Role=Client, Nonce={_activeNonce}, State={_state}");
+
+            NetworkGameManager manager = FindFirstObjectByType<NetworkGameManager>();
+            if (manager == null)
+            {
+                // 이 경로가 막혀도 접속한 쪽은 연결 끊김 경로로 같은 결론에 닿는다.
+                GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                 "NetworkGameManager 를 찾지 못해 맵 준비 실패 통보를 전달하지 못했다",
+                                 "Role=Client");
+                return;
+            }
+
+            manager.NotifyMapFailureFromHost();
         }
 
         // ====================================================================

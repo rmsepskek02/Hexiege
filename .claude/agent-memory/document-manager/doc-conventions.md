@@ -3893,3 +3893,32 @@ D-5 said "two places: rematch-map-failure alert (M-3·M-4) and D-6". Rule histor
 - A TDD sentence quoted for a new situation (host disconnecting itself) is an **analogy** — say so in the Plan and again in 확인하지 못한 것.
 - Hand-off said "write it in ⑧" while the report's ⑧ was `check_docs.py` — put the question in **both** the Plan (11절) and the report's decision section and note the label mismatch.
 - `check_docs.py` skips `_Tasks/` and cannot see letter-prefixed rules (`M-2`, `D-5`): verify citations by hand, run the unescaped-pipe table check (old vs new), and count preserved phrases against `git show HEAD:`. `[7]` baseline was already stale (+1636 lines) and `--update-baseline` was forbidden by the instruction → reported, not run.
+
+---
+
+## §55. A user decision that **removes the difference** a standing "do not merge" verdict leaned on (2026-10-12, full stops added to the three map-failure strings — 5th spec step of the day)
+
+One job: put a final full stop on three screen strings (single first-match modal body, single rematch status line, multi-lobby modal body), then repair every sentence that the decision made false. Code was out of scope (game-programmer was editing in parallel).
+
+### 55-1. 🔴 When the user removes one of two grounds, the **verdict survives and the removed ground's row does not**
+- The 2026-09-29 (4th) block gave two grounds for "do not merge the three places" — ⓐ the full-stop difference, ⓑ the events differ and the rules are revised separately. The decision made ⓐ false, ⓑ untouched.
+- Repair shape (B-5, in place): row ⓐ keeps its place, gets a strikethrough on the old title + a 「소멸」 verdict + the old cell quoted inside a dated fragment (it *was* true on 2026-09-29, say so). Do **not** delete the row and do **not** delete the verdict.
+- The pointer paragraph I wrote the round before described ⓐ as "no longer explains the current letters" — that is a status claim about a row that no longer exists in that form, so it was **rewritten** (one dated fragment saying what the old pointer said and why it was replaced). Pointers I author are current-state claims, not history.
+- Three things the new pointer must carry: (1) the surviving ground, named; (2) evidence that the surviving ground was right, measured not recalled — here `git diff <prev commit>~1 <prev commit>` hunks against the **line range of rule M-3** (zero hunks inside → "M-3 stayed as it was"), plus the honest side note that M-4's cell *was* revised the same round; (3) the pressure statement — the strings got more alike, so "merge them" became more tempting and the constraint more important (labelled as judgement, not observation).
+
+### 55-2. Handed-over claim, 12th class: "exactly one string has no full stop" — **right for the phrase, wrong for the places and the borderline forms**
+- Re-count with a script (Korean sentence-ending literals, comment/log/tooltip lines excluded, `Domain/` `Editor/` `Debug/` excluded; scenes decoded from `\uXXXX`): 78 end with `.`, 1 with `?`, **4 have no terminal punctuation** — the same old phrase at **two** code sites (the single modal constant and the multi-lobby local value, both about to change) plus two sentences that end in a parenthesis; plus one scene placeholder. The hand-over's conclusion survives with the qualifier "sentences that end like sentences".
+- Handling: the survey lives **only** in the Plan (§13, per-file counts as the reproducibility basis, method and limits written down); the rule document carries one clause and a pointer. The user-prescribed rationale wording ("one place only") was **narrowed to what is true** and the deviation was reported.
+- `grep -o` with an optional multibyte character (`재?`) silently drops matches when the locale is not UTF-8 — recount with Python before reporting numbers.
+
+### 55-3. Closing a pin that held **two** claims
+The ⚠️ pin on the rematch string ("full stop undecided") also said "the first-match modal has no full stop (previous confirmed form)". Closing the pin by striking it and writing the value would have left the second claim standing. The ✅ block therefore says explicitly that the second claim is closed by the same decision.
+
+### 55-4. Other places that carried the same false ground
+- Plan: the "what becomes false in the code comments" row had to be **widened** (it listed only "③ differs by one full stop"; now every sentence that states ground ⓐ), with line ranges labelled "the sentence is the reference, lines drift" because the code is edited in parallel. Open-question list: numbers kept, item 12 struck and closed in place **and** moved as a new row into the closed table.
+- Code comments (three files) still state ground ⓐ — not touched, listed for the implementer.
+- game-programmer's memory (`ui-system.md`) had the claim in two places → one pointer line after each (insertion only); three other mentions are dated history and were left.
+- 🔴 Not found: rule D-7 never states "the status line is a sentence" in words (grep for 문장/마침표 inside its range returns nothing) — the 4th block and three code comments characterise D-7's 4th-state strings (which end in full stops) that way. Reported, not "fixed".
+
+### 55-5. Checks that were run
+`check_docs.py` 0 findings, EXIT 0 (`--update-baseline` forbidden by the instruction, so the stale-baseline notice was reported only) · exact recount of both phrases in the rule documents (14 with a stop / 1 without — the one is a dated past-record sentence naming the multi-rematch strings) · unescaped-pipe comparison old vs new for every edited table row · key-phrase counts against `git show HEAD:` (no decreases) · citations of rule numbers checked by hand against section names.

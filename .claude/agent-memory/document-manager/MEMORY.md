@@ -615,3 +615,11 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - 🔴 The handed pointer list covered one title; the move falsified pointers by **three**. Grep every moved title and sub-title; triage acting pointer / name-only / inside moved text / history / code.
 - Pointer repair by place: rule text in place + dated fragment · ROADMAP rows B-5 · dated blocks and `.claude/` records **append only (B-7)**, proven with a `difflib` prefix check.
 → Details [doc-conventions.md](doc-conventions.md) §53.
+
+### 🔴 The round that **removed a ground from a standing "do not merge" verdict** (2026-10-12, full stops on the three map-failure strings)
+
+- A user decision removed one of the two grounds for a dated "do not merge three places" verdict. The verdict stays; the dead ground's table row is fixed in place (strike + 「소멸」 + old cell quoted in a dated fragment); the pointer paragraph I wrote the round before is **rewritten** because it was a status claim; the pointer now names the surviving ground, cites same-day evidence measured with `git diff` hunks against the rule's line range, and says the pressure to merge grew.
+- Hand-over "exactly one string has no full stop" → recount found the same phrase at two code sites + two parenthesis-ending sentences + one scene placeholder; conclusion survives with a qualifier. Survey single source = the Plan (§13), rule document gets one clause.
+- Closing a pin that held two claims → the ✅ block closes both. Pointers quoting the old spec that I wrote earlier are current-state claims → update values.
+- Another agent's memory carried the same false ground → insertion-only pointer lines.
+→ Details [doc-conventions.md](doc-conventions.md) §54–§55.

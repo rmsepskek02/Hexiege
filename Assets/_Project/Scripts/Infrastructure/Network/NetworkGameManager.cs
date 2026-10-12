@@ -20,6 +20,7 @@
 // ============================================================================
 
 using System;
+using System.Collections; // IEnumerator — 한 프레임 뒤에 이벤트를 발행하는 코루틴용
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -92,17 +93,35 @@ namespace Hexiege.Infrastructure
         ///
         /// 🔴 구독자(BattleViewModel)가 반드시 해야 하는 일은 <b>로딩 UI 를 내리는 것</b>이다.
         ///    안 내리면 화면이 "게임에 접속하는 중..." 에서 영영 멈춘다.
-        /// ✅ 구독자는 로딩을 내린 뒤 <b>방장(호스트) 화면에 모달 팝업</b>(재시도 · 로비 두 버튼)을 띄운다
-        ///    (공통 UI 규칙 M-2). 재시도를 고르면 구독자가 <see cref="BeginMapTransferAndLoadGameScene"/> 을
-        ///    다시 부른다 — 시드를 새로 뽑고 전송 객체도 새로 스폰하는 새 회차다.
+        /// ✅ [2026-10-12 사양 개정] 구독자는 로딩을 내린 뒤 <b>방을 나가고</b>(연결 종료 · 화면은 로비 메인)
+        ///    <b>알림 모달</b>(버튼 하나)을 띄운다(공통 UI 규칙 M-2). 종전의 재시도 · 로비 두 버튼은 없어졌다 —
+        ///    다시 하려면 방을 새로 만든다.
+        /// ✅ 접속한 쪽(상대방)은 이 이벤트가 아니라 <see cref="OnMapFailureNoticeReceived"/> 나
+        ///    <see cref="OnServerDisconnected"/> 로 같은 실패를 안다. 이 이벤트는 호스트 안의 C# 이벤트다.
+        /// 🔴 <b>발행 시점은 접속한 쪽에 실패 통보(ClientRpc)를 보낸 다음 프레임이다.</b> 통보를 먼저 보내고
+        ///    호스트가 방을 나가야 통보가 나갈 자리가 남기 때문이다(실패 게이트 주석 참조).
         /// ⚠️ 팝업을 띄우는 일은 <b>이 클래스가 하지 않는다.</b> 이 클래스(Infrastructure)가 화면(Presentation)을
         ///    부르는 것은 레이어 역방향이라 금지이고, 그래서 이 이벤트를 받는 쪽(ViewModel)이 띄운다.
-        /// ⚠️ 이 이벤트는 <b>호스트 안의 C# 이벤트</b>다 — 상대방(접속한 쪽)에게 실패를 알리는
-        ///    네트워크 경로는 없다. 그래서 팝업은 호스트 화면에만 뜬다.
         /// ⚠️ 발행되는 것은 <b>최초 경기 회차</b>뿐이다. 재경기 회차의 실패는 이 이벤트가 아니라
         ///    <see cref="BeginRematchMapTransfer"/> 에 넘어온 실패 콜백(결과 화면)으로 간다.
         /// </summary>
         public event Action<string> OnMapTransferFailed;
+
+        /// <summary>
+        /// [접속한 쪽 전용] 호스트가 「맵 준비가 실패해 경기를 열 수 없다」고 <b>알려 왔다</b>(2026-10-12).
+        /// 인자가 없다 — 사유로 안내 문구를 가르지 않으므로 사유를 나를 이유가 없다.
+        ///
+        /// [초급자용 설명] 이 이벤트는 호스트가 보낸 네트워크 메시지(<c>NetworkMapTransfer</c> 의 ClientRpc)가
+        /// 접속한 쪽에 도착했을 때 발행된다. 호스트 쪽에서는 발행되지 않는다(호스트는 자기 실패를
+        /// <see cref="OnMapTransferFailed"/> 로 안다).
+        ///
+        /// 🔴 <b>발행 시점은 메시지가 도착한 다음 프레임이다.</b> 이 이벤트를 받은 구독자는 곧바로
+        ///    연결을 끊고 방을 나가는데, 그 일을 NGO 가 메시지를 처리하는 도중에 하지 않게 하려는 것이다
+        ///    (<see cref="BackToLobby"/> 주석이 적은 「NetworkBehaviour 안에서 종료를 직접 부르지 않는다」와 같은 이유).
+        /// ⚠️ 이 통보가 도착하지 않을 수도 있다(확인하지 못했다). 그때는 <see cref="OnServerDisconnected"/>
+        ///    가 같은 결론을 낸다 — 구독자(BattleViewModel)는 둘을 하나의 진입점으로 모아 한 번만 처리한다.
+        /// </summary>
+        public event Action OnMapFailureNoticeReceived;
 
         // ====================================================================
         // 내부 매니저
@@ -1009,7 +1028,11 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
                                  "맵 전송을 시작하지 못했다 — 전투 씬으로 넘어가지 않는다",
                                  $"Round={roundKind}, RootSeed={rootSeed}");
-                FailMapTransferGate("BeginHostMapTransferRejected");
+
+                // 🔴 [2026-10-12] 방금 스폰한 전송 객체(transfer)를 함께 넘긴다 — 실패 게이트가
+                //    접속한 쪽에 실패 통보를 보내려면 이 객체가 필요하기 때문이다. 스폰 전에 실패하는
+                //    위쪽 자리들(서버 아님 · 프리팹 누락 · 컴포넌트 누락)은 보낼 객체가 없어 넘기지 않는다.
+                FailMapTransferGate("BeginHostMapTransferRejected", MapTransferErrorCode.None, transfer);
             }
         }
 
@@ -1065,16 +1088,23 @@ namespace Hexiege.Infrastructure
                              "맵 전송 실패 — 씬 전환 게이트가 전투 씬 전환을 막았다(로비 유지)",
                              $"ErrorCode={code}");
 
+            // 🔴 [2026-10-12] 구독을 풀기 전에 전송 객체 참조를 지역 변수에 잡아 둔다.
+            //    아래 정리가 _activeMapTransfer 를 null 로 만들기 때문이다. 실패 게이트가 접속한 쪽에
+            //    실패 통보를 보내려면 이 객체가 필요한데, 정리 뒤에 필드를 읽으면 항상 null 이라
+            //    통보가 조용히 생략된다(맵 준비 자체가 실패한 경로 — 게이트 직접 호출 — 는 정리를
+            //    거치지 않아 필드가 남아 있어, 두 경로가 서로 다르게 동작한다는 점이 함정이다).
+            NetworkMapTransfer failedTransfer = _activeMapTransfer;
+
             CleanupMapTransferSubscription();
 
             // 🔴 code 를 그대로 함께 넘긴다 — 규칙 18 의 문구 분기(연결 끊김인가 아닌가)가
             //    결과 화면에서 이 값으로 갈린다. 사유 문자열은 종전 그대로 로그·진단용이다.
-            FailMapTransferGate("MapTransferFailed:" + code, code);
+            FailMapTransferGate("MapTransferFailed:" + code, code, failedTransfer);
         }
 
         /// <summary>
         /// 게이트가 막았음을 바깥에 알린다. <b>이번 회차를 시작한 쪽</b>이 받는다.
-        ///   · 최초 경기 → <see cref="OnMapTransferFailed"/> 이벤트(로비 UI 가 구독) = 종전 그대로
+        ///   · 최초 경기 → 접속한 쪽에 실패 통보를 보낸 뒤 <see cref="OnMapTransferFailed"/> 이벤트(로비 UI 가 구독)
         ///   · 재경기   → <see cref="BeginRematchMapTransfer"/> 에 넘어온 실패 콜백(결과 화면)
         ///
         /// 🔴 <b>이 함수를 거치지 않는 실패 경로를 만들면 안 된다.</b> 아무에게도 알리지 않고
@@ -1089,7 +1119,15 @@ namespace Hexiege.Infrastructure
         ///    전송이 시작조차 못 한 실패(서버가 아님 · 프리팹 누락 · 중복 요청)가 그렇다.
         ///    성공을 뜻하는 것이 아니다.
         /// </param>
-        private void FailMapTransferGate(string reason, MapTransferErrorCode code = MapTransferErrorCode.None)
+        /// <param name="failedTransfer">
+        /// [2026-10-12] 이번 회차에 스폰한 전송 객체. <b>최초 경기 회차의 실패를 접속한 쪽에 알리는 데만</b> 쓴다.
+        /// 스폰 전에 실패한 경우(서버가 아님 · 프리팹 누락 · 컴포넌트 누락)에는 보낼 객체가 없어 null 이다.
+        /// 🔴 <b>필드(<c>_activeMapTransfer</c>)를 대신 읽지 않고 호출부가 직접 넘기게 한 이유</b>:
+        /// 필드는 어떤 경로에서는 이미 비워져 있고(전송 객체가 알려 온 실패) 어떤 경로에서는 지난 회차 값이
+        /// 남아 있을 수 있어(스폰 전 실패), 읽는 시점에 따라 값이 달라진다. 인자로 받으면 그 변동이 없다.
+        /// </param>
+        private void FailMapTransferGate(string reason, MapTransferErrorCode code = MapTransferErrorCode.None,
+                                         NetworkMapTransfer failedTransfer = null)
         {
             // 🔴 한 회차에 한 번만 알린다. 같은 회차의 실패 경로가 두 번 겹칠 수 있기 때문이다.
             //    (예: BeginHostMapTransfer 안에서 이미 실패 통보가 나간 뒤 그 함수가 false 를
@@ -1110,12 +1148,82 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // ⚠️ 최초 경기 회차는 종전과 완전히 같다 — 로비 UI 이벤트는 사유 문자열 하나만 나른다.
+            // ⚠️ 최초 경기 회차의 로비 UI 이벤트는 사유 문자열 하나만 나른다.
             //    규칙 18 의 문구 분기는 **결과 화면(재경기)** 규정이라 로비 쪽에 적용되지 않으므로,
-            //    이 이벤트의 시그니처는 일부러 건드리지 않았다(최초 경기 회귀 면적 0).
+            //    이 이벤트의 시그니처는 일부러 건드리지 않았다.
 
-            // 최초 경기 회차 — 종전과 같이 로비 UI 가 구독하는 이벤트로 알린다.
+            // 최초 경기 회차 — 두 가지를 이 순서로 한다. 🔴 순서가 곧 사양이다(2026-10-12).
+            //   ① 접속한 쪽에 실패 통보(ClientRpc)를 먼저 보낸다.
+            //   ② 호스트 자신의 처리(로딩 끄기 · 방 나가기 · 알림 모달)는 그 다음 프레임에 한다.
+            //
+            // [초급자용 설명] 왜 이 순서인가
+            //   ②에서 호스트는 연결을 끊고 방을 나간다. 연결을 먼저 끊으면 ①이 나갈 자리가 사라져
+            //   접속한 쪽에는 이유 없이 끊긴 화면만 남는다(전송 계층 타임아웃을 30초에서 60초로 올린 이유와
+            //   같은 걱정이다 — TechnicalDesignDocument.md 의 연결 타임아웃 절).
+            //
+            // 🔴 왜 ②를 한 프레임 미루는가 — 아래 이유들은 코드를 읽어서 낸 판단이다.
+            //   · ①과 연결 종료를 같은 프레임에 두면 메시지가 실제로 나가는지가 NGO 내부 동작에
+            //     달린다. 패키지 소스가 저장소에 없어 확인할 수 없다. 프레임을 갈라 그 의존을 없앴다.
+            //   · 이 게이트는 NGO 메시지 처리 안(전송 객체의 ServerRpc · 연결 끊김 콜백)에서 불릴 수 있다.
+            //     그 안에서 연결 종료를 직접 부르면 안 된다는 것이 이 프로젝트의 기존 관례다
+            //     (BackToLobby 주석 · NetworkGameEndController 의 연결 종료 위임).
+            // ⚠️ 미룬다고 ①이 도착한다는 보장은 없다. 도착하지 않아도 접속한 쪽은 연결 끊김으로 같은
+            //   결론에 닿는다(BattleViewModel). 호스트가 앱이 죽은 경우도 마찬가지다.
+            NotifyClientsOfFirstRoundFailure(failedTransfer);
+            StartCoroutine(RaiseMapTransferFailedAfterOneFrame(reason));
+        }
+
+        /// <summary>
+        /// [Host] 최초 경기의 맵 준비 실패를 접속한 쪽에 알린다(2026-10-12).
+        ///
+        /// 전송 객체가 없으면(스폰 전 실패) 보낼 수단이 없어 생략한다. 그 경우 접속한 쪽은 호스트가 곧바로
+        /// 방을 나가면서 생기는 연결 끊김으로 같은 결론에 닿는다.
+        /// 🔴 이 메서드는 <b>최초 경기 회차에서만</b> 불린다 — 실패 게이트가 재경기 회차(실패 콜백이 있는 경우)를
+        /// 이미 위에서 돌려보낸 뒤라서 재경기에는 이 길이 열리지 않는다.
+        /// </summary>
+        /// <param name="failedTransfer">통보를 보낼 전송 객체. 스폰 전 실패면 null.</param>
+        private void NotifyClientsOfFirstRoundFailure(NetworkMapTransfer failedTransfer)
+        {
+            if (failedTransfer == null)
+            {
+                // 축 A = Warn(통보만 생략되고 접속한 쪽은 연결 끊김으로 안다) · 축 B = 개발(설정 오류에서만 생긴다).
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "접속한 쪽에 맵 준비 실패 통보를 보내지 않았다 — 보낼 전송 객체가 없다(스폰 전 실패)",
+                                 "Role=Host");
+                return;
+            }
+
+            failedTransfer.NotifyClientsOfMapPreparationFailure();
+        }
+
+        /// <summary>
+        /// 한 프레임 기다린 뒤 최초 경기 실패 이벤트를 발행한다(실패 게이트가 시작한다).
+        /// 왜 기다리는지는 실패 게이트 본문의 순서 주석을 본다.
+        /// </summary>
+        /// <param name="reason">진단용 사유 문자열.</param>
+        private IEnumerator RaiseMapTransferFailedAfterOneFrame(string reason)
+        {
+            yield return null;
             OnMapTransferFailed?.Invoke(reason);
+        }
+
+        /// <summary>
+        /// [접속한 쪽] 호스트의 맵 준비 실패 통보가 도착했다고 알린다(2026-10-12).
+        /// 호출처는 <c>NetworkMapTransfer</c> 의 실패 통보 ClientRpc 수신부다.
+        ///
+        /// 🔴 이벤트(<see cref="OnMapFailureNoticeReceived"/>)는 <b>다음 프레임에</b> 발행한다 — 구독자가
+        /// 곧바로 연결을 끊는데, 그것을 NGO 가 메시지를 처리하는 도중에 하지 않게 하려는 것이다.
+        /// </summary>
+        public void NotifyMapFailureFromHost()
+        {
+            StartCoroutine(RaiseMapFailureNoticeAfterOneFrame());
+        }
+
+        /// <summary>한 프레임 기다린 뒤 호스트 통보 도착 이벤트를 발행한다.</summary>
+        private IEnumerator RaiseMapFailureNoticeAfterOneFrame()
+        {
+            yield return null;
+            OnMapFailureNoticeReceived?.Invoke();
         }
 
         /// <summary>
