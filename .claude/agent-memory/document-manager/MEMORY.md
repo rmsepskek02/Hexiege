@@ -606,3 +606,12 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - **Own mistake**: I ran a read-only `status` command as step one (reading rule 5 of `CLAUDE.md` narrowly) — recorded in `.claude/mistakes.md` and put on the user's list. Use `wc -l` / `ls` instead.
 - **Long round**: one section per write, line count + zero-deleted check after each (research 1,815 → 2,096; new Plan 180; `mistakes.md` 1,294 → 1,314).
 → Details [doc-conventions.md](doc-conventions.md) §51.
+
+### 🔴 The round that **moved three network-rule sections** out of the TDD into a new rule document (2026-10-12, network-rules-migration)
+
+- Sorting criterion = *user-confirmed behaviour rule* vs *structure / implementation*; ambiguous → do not move, report. A section that already names its rule-side single source stays (row-by-row verdict table); a mixed section is moved whole and the split goes on the user's list.
+- New rule document: the outranking principle stays **unnumbered**; the rule sets get numbers 1, 2 so `check_docs.py` can see the file at all (zero numbered rules = invisible).
+- Write the new copy first, prove it verbatim with `diff` of exact ranges (only 3 `../` link fixes + title format differ), delete from the source last.
+- 🔴 The handed pointer list covered one title; the move falsified pointers by **three**. Grep every moved title and sub-title; triage acting pointer / name-only / inside moved text / history / code.
+- Pointer repair by place: rule text in place + dated fragment · ROADMAP rows B-5 · dated blocks and `.claude/` records **append only (B-7)**, proven with a `difflib` prefix check.
+→ Details [doc-conventions.md](doc-conventions.md) §53.

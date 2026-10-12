@@ -2146,6 +2146,8 @@ unchanged, and add the forward rule (*"다음부터는 메서드 이름으로 �
 do not skip it because it is "only a line number" — a wrong line number in a 실측 예 is what makes the next reader
 distrust the measurement.
 
+> **[2026-10-12 pointer — original kept (B-7)]** The 최상위 원칙 section discussed here was later moved verbatim from the TDD to the first section of `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md`; the 79/81-line correction block travelled with it.
+
 ### 26-10. `PROJECT_STATUS.md` is the document you *decide not to touch*, and the decision is an artifact
 
 Its 미구현 row (*"재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만"*) is **still true today**
@@ -2339,6 +2341,7 @@ The round's whole job was **two stale records**, with code explicitly out of sco
   **two different sections** of the same document (here `TechnicalDesignDocument.md` 「결과 화면 이탈 판정·통보 구조」의
   2026-09-22 블록 and 「인게임 이탈 처리 — `ReconnectionHandler` 정리」의 확정 D). Close the block with
   「이 자리는 **「Phase N 이 통째로 완료가 아니다」**만 알린다」.
+  **[2026-10-12 pointer — original kept (B-7)]** 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 was later moved verbatim from the TDD to `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` 규칙 2.
 - 🔴 **A hand-off may list only the defective parts.** Here `ReconnectionHandler` was in the row and the
   hand-off had to spell out *"do not drop it"* — if a bundled cell lists N names, the repair must account for **all N.**
 
@@ -2533,6 +2536,7 @@ When the user asks **"what happens process-wise?"** rather than reporting a bug,
 - A Host/Client asymmetry caused by a `ServerRpc` (executes when the accepting side *is* the server, goes nowhere
   when the server is the one who left) is pinned to the **최상위 원칙** section of `TechnicalDesignDocument.md`
   by pointer only.
+  **[2026-10-12 pointer — original kept (B-7)]** That section was later moved verbatim from the TDD to the first section of `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` (unnumbered).
 
 ### 31-5. Two more handed-over-mismatch sightings (running list: §17-3, §20-7, §18, §21)
 
@@ -2542,6 +2546,7 @@ When the user asks **"what happens process-wise?"** rather than reporting a bug,
   🔴 Grep the *claim* (here 「역할과 무관」) rather than the handed name, point at the section that exists, and
   record the discrepancy in a note — never invent the handed name into the document
   (`.claude/mistakes.md` 2026-09-01「예시 목록에 적을 이름을 문서에서 찾지 않고 지어냈다」).
+  **[2026-10-12 pointer — original kept (B-7)]** The 「🔴 최상위 원칙」 section named above was later moved verbatim to the first section of `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` (unnumbered).
 - **The handed member list was short but the conclusion survived.** Handoff: *`IUIManager` has only
   `ShowConfirm`·`ShowAlert`·`HideBlockingOverlay`*; measured: **6 members** (+`ShowLoading`,
   `LoadSceneWithDelay`, `ShowBlockingOverlay`). The load-bearing claim —「팝업을 닫는 공개 API 가 없다」— is
@@ -3816,3 +3821,44 @@ A permission question can sit **under** a set: whether version-history reads are
 **Do not "fix" hand-over arithmetic.** Commit titles and bodies disagreed (18 vs 8+5+2 = 15; 12 false vs 11 + 2). Record both and list them under "needs confirmation".
 
 **Own slip of the round.** A repo-wide `.cs` search, run while the instruction said "do not even read" some files, printed lines of those files. Disclosed in the evidence-grade table of the document and in the report; the tree was clean at that moment.
+
+## §53. Moving rule-like sections out of a design document into a **new rule document**, and repairing every pointer the move falsified (2026-10-12, network-rules-migration)
+
+Round: three user-confirmed sections (the Host/Client 「최상위 원칙」, 「이탈 시 승패 기록」, 「인게임 이탈 처리」) moved verbatim from `TechnicalDesignDocument.md` to a new `GameSystemRules/GameSystemRules_Network.md`. Plan: `_Tasks/2026-10-12/15_28_network-rules-migration/Plan.md`.
+
+### 53-1. The sorting criterion, and 🔴 *check overlap with an existing rule before moving*
+- One question decides each section: **is it a user-confirmed product-behaviour rule, or a structure / implementation method?** Rule → rule document; structure → TDD; ambiguous → do not move, report (CLAUDE.md 12).
+- A section that *declares* "the rule's single source is X" (here TDD 「결과 화면 이탈 판정·통보 구조」 → RandomMap 규칙 17·18·19) is already split. Compare **row by row** (overlapping / delegated / structure-only / measurement) and leave it. The verdict table is the artifact. Real overlap remained (TDD correction block ≈ rule 17 ①) — **report it, do not trim it** in a move round.
+- A section can be mixed (rule 2: 확정 D·E are rules, the removal-target table / scene-value location are implementation). **Do not split it by your own judgement** — move whole, list it under "could not judge" and put the split on the user's list.
+
+### 53-2. Where numbers go in a brand-new rule document
+- A document with **zero** `**규칙 N.**` lines is invisible to `check_docs.py` (`parse_rule_docs` only registers docs with numbers) → later references to it are unverified. So the *rule sets* got 1 and 2.
+- The **principle that outranks rules stays unnumbered** (§24-2 forwards): a non-rule H2 above the one H2 that wraps the numbered rules. The rule title line keeps the old heading text verbatim so name-based pointers survive.
+
+### 53-3. Move procedure (verbatim, loss-proof)
+- Write the new copy **first**, check it, delete from the source last (an interrupted run then leaves a *duplicate*, which is detectable, instead of a hole).
+- Verification that worked: `sed -n` the exact ranges from `git show HEAD:<file>` into scratch files, `diff` against the new document's ranges → **only** the 3 relative links that needed `../` differed. Count preserved phrases on *moved block before* vs *corresponding region after* (difference 0 for all 20 phrases) and show the source-side decrease as `moved − additions made in the source`.
+- Everything that is not verbatim is listed in the new document's header: heading format, the 3 relative links, and a reading note for *relative words that no longer resolve* (「위/아래 … 절」, 「이 문서」 meaning the source). **Do not edit those words in the body**; explain them once.
+- `diff` hunk list of the source file is the proof that nothing else moved: header 2 lines / pointer block / 4 pointer lines / deleted range / one changelog row.
+
+### 53-4. 🔴 The handed-over pointer list was short — grep **every moved title**, not just the headline one
+Handoff counted "최상위 원칙" (28 lines outside `_Tasks/`: 16 acting pointers + 4 name-only + 5 inside the moved text + 3 history rows). The move falsifies pointers by **all three titles**: the other two added **17 more acting lines** (33 in total) in ROADMAP / PROJECT_STATUS / UI.md / RandomMap.md / TDD / `.claude/`, plus 5 code comments. Variant spellings matter (「이탈 판정 절차」 is a *sub*-title of one section). Report both counts.
+- Triage each hit: **acting pointer** / name-only mention with no path (leave — it points nowhere, so it cannot become false) / lines *inside* the moved text (leave — order preserved) / history rows (leave) / code (permission).
+- One pre-existing mis-attribution surfaced ("「이탈 시 승패 기록」의 확정 D" — 확정 D actually lives in the other section): repair the pointer to the true location **and say so in the fragment**.
+
+### 53-5. Three repair classes for the same falsified pointer
+| Place | Repair |
+|---|---|
+| Rule text / TDD retained blocks | destination fixed in place + a short `〔2026-10-12 이관 …〕` fragment (§9-5: a wrong pointer is not narrative) |
+| ROADMAP **current rows** | B-5 — fix the spot |
+| ROADMAP **dated round blocks**, `.claude/MEMORY.md` dated lessons, `mistakes.md`, agent memory | **B-7 append only** (end of line, or a new line right after the entry). Prove it mechanically: `difflib` opcodes — only `insert`, or `replace` where the new line **starts with** the old line |
+- The old TDD location keeps a **signpost block** (title different from the moved titles), so an old link still lands somewhere useful. No copy in it.
+
+### 53-6. Checker hazards for a new rule document
+- `extract_refs` binds each `규칙 N` to the **nearest preceding** `GameSystemRules_*.md` within 80 chars. A pointer line that names the new document and then, within 80 chars, a *different* document's rule number gets that number checked against the **new** document's maximum ([3]). Keep the new document name adjacent to its own rule number; re-run after every batch.
+- No parenthesised label directly after the number (`[5]`). Add the new file to **both** indexes: `AGENTS.md` file list and `GameSystemRules.md` (file table + the quick-reference section) — the latter is declared the single source of per-document summaries, and a summary must not carry a status stamp (point at the rule title / roadmap row instead).
+
+### 53-7. Left alone on purpose (and reported)
+- Stale status stamps **inside** the moved text (e.g. 「인터넷 도달 확인은 현재 구현돼 있지 않다」 while `InternetReachabilityProbe` exists and is constructed in `NetworkGameEndController`) — fixing them in the move round would blur the verbatim diff; they go on the user's list.
+- Code comments citing the old location (5) — code is permission-gated.
+- `check_docs.py --update-baseline` was **not** run (instruction: the permission classifier blocks it); [7] showed the stale-baseline notice only.

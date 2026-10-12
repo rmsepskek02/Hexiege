@@ -875,6 +875,7 @@ git 을 쓸 수 없어 중간 단계를 거쳤는지 판정 불가"* 라고 **�
 > ※ 근거 구분(`CLAUDE.md` 규칙 10): 커밋 해시 `1b26cdf` 는 **이 항목을 적은 세션이 전달받은 값**이며 규칙 5(git 명령 금지)로 재검증하지 않았다.
 > 작성 시점에 **직접 확인한 것**은 `Assets/_Project/Docs/TechnicalDesignDocument.md` 의 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절에
 > **확정 E 와 「그 뒤의 30초 유예는 없앤다」가 실제로 기록되어 있고**, 같은 문서의 「혼동 주의」 표 행이 **「코드는 아직 그대로」**라고 병기하고 있다는 사실이다.
+> **[🔴 2026-10-12 이관 포인터 — 원문 유지(B-7): 이 항목이 가리킨 기술 설계서의 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절은 이후 `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` 의 규칙 2 로 옮겨졌다. 위 본문은 고치지 않았다.]**
 
 ---
 
@@ -1089,6 +1090,7 @@ git 을 쓸 수 없어 중간 단계를 거쳤는지 판정 불가"* 라고 **�
 > 같은 회차에 사유가 양쪽 동일하다는 로그(에디터 `02:36:53.506` · 실기기 `02:36:53.996`, 둘 다 `Cause=OpponentDisconnected`) ·
 > `TechnicalDesignDocument.md` 에 그 최상위 원칙 절이 실재한다는 것이다.
 > **전달받은 값**은 사용자 발언 인용과 메인 세션이 절차에 쓴 문장이다.
+> **[🔴 2026-10-12 이관 포인터 — 원문 유지(B-7): 이 항목이 가리킨 기술 설계서의 「🔴 최상위 원칙 — 플레이어는 자신이 Host 인지 Client 인지 알 수 없다」 절은 이후 `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` 의 첫 절(번호 없음)로 옮겨졌다. 위 본문은 고치지 않았다.]**
 
 ---
 

@@ -13,6 +13,7 @@
 |------|------------|
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 유형별 생성·광산·건설 제한·seed·폴백·검증 (유형 목록과 개수는 3장 「유형별 사양」이 단일 소스) |
+| [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다), 이탈 시 승패 기록, 인게임 이탈 처리 (구조·구현 방법은 이 문서가 아니라 `TechnicalDesignDocument.md` 「🌐 네트워크 설계」) |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템(건물로 경로가 막혔을 때의 동작 포함), 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 (특수 공격 확장의 목록과 개수는 「특수 공격 시스템 규칙」 절이 단일 소스) |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 |
@@ -56,6 +57,14 @@
 - 초기 골드는 **중립 광산 수 하나에서** 파생한다 — 광산 수별 값의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 3. 🔴 **2026-09-14 개정으로 「맵 테스트 모드」 갈래가 제거돼 갈래는 하나뿐이다**(제거 조항과 근거의 단일 소스는 같은 문서 규칙 3 의 개정 블록)
 - 시작 공간 10타일
 - 결정적 seed, 최대 100회 재시도, 유형별 고정 템플릿 폴백과 생성 로그 — 폴백에서 어느 값이 템플릿 값으로 교체되는지의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 12
+
+### 네트워크 동작 관련 작업
+→ [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md)
+- 🔴 **최상위 원칙 — 플레이어는 자신이 Host 인지 Client 인지 알 수 없다**: 화면 · 승패 기록 · 이탈 처리가 역할과 무관하게 항상 같아야 하고, 개별 규칙이 이 원칙과 충돌하면 고칠 대상은 개별 규칙이다. **번호 없는 첫 절**이며 본문의 단일 소스는 그 문서다(이 요약은 사본이 아니다). 멀티플레이 화면 · 승패 · 이탈 작업은 규칙을 쓰기 전에 이 원칙부터 본다 — `GameSystemRules_UI.md` 「공통 UI 규칙」 서두와 `GameSystemRules_RandomMap.md` 규칙 17 도 이 원칙을 받아 쓴다
+- 이탈 시 승패 기록(규칙 1): 나간 쪽은 패배 · 남은 쪽은 승리로 기록한다는 규정, 상황별(정상 종료 · 회선 끊김 · 앱 강제 종료) 누가 언제 기록하는가, 상대 신호가 끊겼을 때 「내 인터넷이 되는가」를 먼저 확인하는 이탈 판정 절차와 남는 구멍
+- 인게임 이탈 처리(규칙 2): 경기 진행 중 이탈의 판정을 Host · Client 가 각자 하는 것(확정 D)과 판정 시점(확정 E)
+- 구현 상태는 이 요약이 아니라 각 규칙 제목의 표기와 `ROADMAP.md` 의 해당 행이 단일 소스다
+- 🔴 이 문서에 **없는 것** — 결과 화면 이탈의 규정은 `GameSystemRules_RandomMap.md` 규칙 17·18·19 가 단일 소스이고, Netcode 구조 · 동기화 전략 · 무작위 맵 데이터 계약 · 치팅 방어 같은 구조·구현 방법은 `TechnicalDesignDocument.md` 「🌐 네트워크 설계」 의 몫이다
 
 ### UI 관련 작업
 → [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md)

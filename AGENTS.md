@@ -30,6 +30,7 @@
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 — **규칙 문서별 상세 요약의 단일 소스** (세부 규칙은 `GameSystemRules/` 하위 파일) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 유형별 생성·검증 규칙 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다: 화면·승패 기록·이탈 처리가 역할과 무관하게 일관), 이탈 시 승패 기록, 인게임 이탈 처리. 구조·구현 방법(Netcode, 동기화, 데이터 계약, 치팅 방어)은 이 문서가 아니라 TDD |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, MistShrine 패널, 건물 배치 패널, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동(건물로 경로가 막혔을 때의 동작 포함), 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워, MistShrine 물안개 힐 |

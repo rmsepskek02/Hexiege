@@ -765,7 +765,7 @@
 > |---|---|---|
 > | `LobbyUI` | ✅ 동작 | **이번 확인 대상이 아니다** — 기존 표기를 그대로 유지한다 |
 > | `NetworkStatusUI` | 🔴 **코드는 있으나 어느 씬·프리팹에도 배치돼 있지 않아 실행되지 않는다** | guid `adc83ceead3e36246ba137d2ceede0a6` 로 `Assets` 전체 `*.unity`·`*.prefab` 검색 **0건**(문서 작업 중 직접 실측) · 2026-09-22 에디터 로그 전체에서 `NetworkStatusUI` 문자열 **0건** = `Start()` 의 *"네트워크 상태 모니터링 시작"* 미발생(**메인 세션 실측** — 이 체크아웃의 로그 사본에는 해당 구간이 없어 내가 재측정하지 못했다). **상세는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「결과 화면 이탈 판정·통보 구조」 절의 2026-09-22 블록이 단일 소스다** |
-> | `ReconnectionHandler` | ⚠️ **동작하지만 서버 전용이라 Host 이탈을 처리하지 못한다** | `OnNetworkSpawn` 의 `if (!IsServer) { enabled = false; return; }` · **2026-09-22 실기로 재현됨** — 실기기(Host) 앱 강제 종료 시 남은 Client(에디터)에서 몇 분이 지나도 승패가 나지 않았다(**사용자·메인 세션 실측**). **상세는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절(확정 D)이 단일 소스다** |
+> | `ReconnectionHandler` | ⚠️ **동작하지만 서버 전용이라 Host 이탈을 처리하지 못한다** | `OnNetworkSpawn` 의 `if (!IsServer) { enabled = false; return; }` · **2026-09-22 실기로 재현됨** — 실기기(Host) 앱 강제 종료 시 남은 Client(에디터)에서 몇 분이 지나도 승패가 나지 않았다(**사용자·메인 세션 실측**). **상세는 [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) 규칙 2 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절(확정 D)〔2026-10-12 이관 — 종전에는 기술 설계서〕이 단일 소스다** |
 >
 > ⚠️ **위 표를 다른 문서에 옮겨 적지 않는다** — 각 행의 상세는 위에 적힌 단일 소스가 갖는다. 이 자리는 **「Phase 8 이 통째로 완료가 아니다」**만 알린다.
 

@@ -783,6 +783,8 @@ Rule source: `GameSystemRules/GameSystemRules_RandomMap.md` **규칙 17** — es
 「2026-09-21 추가 (2차)」 block (①판정 주체 ②도달 확인 선행 ③측정 수단) · `TechnicalDesignDocument.md`
 「결과 화면 이탈 판정·통보 구조」 and 「이탈 판정 절차」. Screen reflection is step 7, **not here**.
 
+> **[2026-10-12 pointer — original kept (B-7)]** 「이탈 판정 절차」 was later moved verbatim from the TDD to `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` 규칙 1. 「결과 화면 이탈 판정·통보 구조」 stayed in the TDD.
+
 ### 🔴 RTT cannot detect silence — the 1순위 option is dead, use a heartbeat (investigated, with sources)
 
 The rule left 수단 open: 1순위 `NetworkGameManager.GetCurrentRttMs()` → `UnityTransport.GetCurrentRtt`,
@@ -989,6 +991,8 @@ Step 6 은 *"Unverified (no Unity here): compilation, and every runtime behaviou
 
 Players cannot tell whether they are Host or Client, so a role-dependent screen is a defect by itself
 (`TechnicalDesignDocument.md` 「🔴 최상위 원칙」).
+
+> **[2026-10-12 pointer — original kept (B-7)]** The 「🔴 최상위 원칙」 section cited above was later moved verbatim from the TDD to the first section of `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` (unnumbered).
 
 ### The three mechanisms added
 
