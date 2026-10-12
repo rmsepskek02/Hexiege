@@ -70,12 +70,21 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
    `Read` → `Edit`.** `Write` replaces the whole file and **succeeds while destroying the
    contents**; `Edit` fails loudly when it cannot find its target.
 4. Add what you learned to the **appropriate existing section**.
-5. **Update** entries that turn out to be wrong or outdated.
+5. **Update** entries that turn out to be wrong or outdated — **in place, at the line itself.**
+   A line that declares the *current* state ("undecided", "not implemented", "code not reflected",
+   "0 field tests", "not final" — any status stamp) is a claim about the present, not a record of
+   the past. When the fact changes, **fix that line; never stack a "now done" block under it.**
+   Leave one short dated fragment (date + why). 한글: 상태 도장은 이력이 아니다 — 그 줄을 고친다.
+   *Why the boundary is needed:* with "not yet" left above "done", readers stop at the top line and
+   are wrong. Proven twice: an agent reported from rule M-4's "undecided" stamp; the main session told
+   the user "no implementation" from a status line while two lines below said it was implemented.
 6. **Delete an entry only after confirming it is wrong, and record why you deleted it.**
    "Tidied up" / "made it shorter" is not a valid reason to delete.
-7. **When correcting a figure in a past record, append — do not overwrite.**
-   Leave the original sentence, then add `**[🔴 YYYY-MM-DD correction — original kept: …]**`.
-   Use strikethrough only when the entire entry has become invalid.
+7. **Only inside a history record** (a past round's entry, a dated block), when correcting a figure
+   or statement *in that record*, append — do not overwrite. Leave the original sentence, then add
+   `**[🔴 YYYY-MM-DD correction — original kept: …]**`. Strikethrough only when the whole entry is invalid.
+   **Not for status stamps** — those are B-5 (fix in place). Promising "this line is never deleted" under
+   a status stamp is what made stale stamps pile up.
 
 ### C. Structure
 
