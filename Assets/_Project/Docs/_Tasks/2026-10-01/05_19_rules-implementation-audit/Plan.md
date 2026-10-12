@@ -295,9 +295,9 @@
 | 분류 | 5차 | 앞으로 할 일 |
 |:-:|---|---|
 | **6** | **규칙 간의 충돌**(문서 간 + 문서 내부) 로 재정의 | 🔴 **분류 6 작업을 진행할 때 기존 6건을 재검수한다** — 문서 내 충돌이어서 빠진 항목이 있는지(지금 하지 않는다). 새 줄 6-7(규칙 11 정의 3곳) · 6-8(규칙 L-4)은 **분류만 했다** |
-| **7** | **사용하지 않는 코드**(신설) — 후보 5건 | 분류만 해 두고 분류별 진행 때 검토. 🔴 **전체 재검수는 하지 않는다** — 앞으로 발견되면 추가한다 |
-| **8** | **코드 간의 충돌**(신설) — 8-1(맵 생성기 자기검증) | 작업은 분류별 진행 때 검토. 분류 1 후보였던 점은 **기각**(규정이 상시 문서에 없다) |
-| **9** | **테스트가 필요한 항목**(신설) | 항목마다 **「아직 테스트하지 않음」과 「통과했으나 기록 누락」을 구분**해 적는다(지금은 전부 미조사). 갈래 ② 의 방향은 **로그 한 줄 + 실기 1회**(사용자 승인 · 로그 심기는 별도 허가 필요) |
+| **7** | **사용하지 않는 코드**(신설) — 후보 5건 | 분류만 해 두고 분류별 진행 때 검토. 🔴 **전체 재검수는 하지 않는다** — 앞으로 발견되면 추가한다. **7-4(공용 배경 버튼)에 사실 하나 더(2026-10-12):** 호출처는 0건이지만 `Game.unity` 에 **꺼진 오브젝트로 아직 붙어 있다**(직접 확인 — 지우기 전에 씬에서 먼저 떼야 한다) |
+| **8** | **코드 간의 충돌**(신설) — 8-1(맵 생성기 자기검증) | 작업은 분류별 진행 때 검토. 분류 1 후보였던 점은 **기각**(규정이 상시 문서에 없다). **8-2 추가(2026-10-12 · 합계 63 에는 아직 더하지 않았다):** 주석 두 개가 **서로 반대**다 — `UIManager.cs:309-311` 은 코루틴 안의 로딩 호출이 「다음 프레임에 실행된다」고, `GameEndUI.cs:1455-1457` 은 「그 자리에서 실행된다」고 적는다. 둘 다 엔진 내부라 판정 불가(§8-1)이지만 **한쪽은 반드시 틀렸다** |
+| **9** | **테스트가 필요한 항목**(신설) | 항목마다 **「아직 테스트하지 않음」과 「통과했으나 기록 누락」을 구분**해 적는다(지금은 전부 미조사). 갈래 ② 의 방향은 **로그 한 줄 + 실기 1회**(사용자 승인 · 로그 심기는 별도 허가 필요). 🔴 **자리 목록은 §8-1 의 판정 불가 41자리 표다** |
 
 ### 7-3. 개별 항목 — 결정 5 · 5-bis · 6 · 7
 
@@ -358,3 +358,71 @@
 - **⑥ §2-5 의 1 ~ 6번 원문을 삭제했다 — 사용자의 명시적 승인으로 한 예외다.** 그 자리에는 「원문은 `WORKFLOW.md` 의 「검수·판정 작업과 수치 보고의 절차」 절에 있다 · 7 · 8번을 더해 8개다」 포인터를 두었다(이유: 사본은 원본이 바뀌면 조용히 거짓이 된다). §7-8 의 「§2-5 는 포인터」 서술은 이제 글자 그대로 맞다. 이 문서에서 삭제된 줄은 **그 6줄뿐**이다.
 - **⑦ `AGENTS.md` 의 `WORKFLOW.md` 행 설명이 새 절을 가리키게 고쳤다**(같은 줄 안의 교체).
 - **⑧ 2-10(프로필 화면의 알림 호출)의 고칠 쪽은 「코드」로 확정됐다.** §7-3 의 「고칠 쪽은 정해지지 않았다(결정 필요 · 잠정)」는 그 시점의 서술이다. 합계 63 은 그대로이고 **코드 15 → 16 · 결정 필요 24 → 23** 이다(행별 · 열별 양방향 합이 맞는다 — `Research.md` §12-14-13). 코드 수정 자체는 하지 않았고 허가가 필요하다(`CLAUDE.md` 규칙 11).
+
+---
+
+## 8. 2026-10-12 — 주석 검수 중단(사용자 지시)과 그 시점의 상태
+
+**쉬운 말로:** 주석이 사실인지 따지는 검수를 **사용자가 멈추게 했다.** 이 절은 (1) 어디까지 했는지, (2) 다시 시작할 때 무엇만 하면 되는지, (3) 멈추기 전에 휘발성 공간에만 있던 **판정 불가 목록**을 적는다. 이 절이 중단 상태의 **단일 소스**이고, `Research.md` 는 **동결한다** — 조사 서사의 단일 소스로 남기고 이후 갱신은 하지 않는다.
+
+**중단 결정과 이유 (사용자 말):** 「어차피 지금 다른 브랜치에서 하고있는 작업이 들어오면 또 틀어지게 될거같으니 모두 멈추고 문서에만 현재 상태를 기록하고 원래 하던 ui작업을 다시 진행하면 좋겠어」. 함께 밝힌 이유는 문서가 문서를 낳아 쌓이고 그 누적이 오류를 만든다는 지적이다. 측정하니 맞았다: 이 세션에서 `.md` 는 +5,237행 / −13행, `.cs` 변경 1,292행은 전부 주석, `Research.md` 는 2,822행이 됐다. 누적이 만든 오류의 실례는 `WORKFLOW.md` 「검수·판정 작업과 수치 보고의 절차」 8번.
+
+| 층 | 상태 |
+|---|---|
+| 1층 — UI·랜덤맵 **89파일 전수 검수**(주석의 사실 주장 다섯 갈래 A 구현상태·B 위치·C 수치·D 구조·E 판단) | ✅ **완료.** 주석행 약 15,900행을 읽어 **거짓 215자리**를 고쳤다(162 + 범위 안 잔여 18 + 범위 밖 28 + 과거 주장 7) |
+| 2층 — 「전에는 이랬다」 **과거 이력 주장 재판정**(1층에서 수단이 없어 보류한 갈래. 전체 이력을 받아 가능해졌다) | ⬜ **39 / 약 88 파일에서 중단.** 문장 160건 판정 → 참 146 · 고침 6 · 한정 해제 3 · 판정 불가 2 |
+
+**2층에서 끝낸 39파일** (`Scripts/Presentation/UI/` 기준 · 재개 시 다시 읽지 않는다): BuildingActionPanelUI · BuildingPanelBase · BuildingPlacementUI · BuildingSkillPanelUI · Common/AnimatedPanel · Common/FloatingHpText · Common/LoadingScreen · Common/RematchRequestPopup · Common/SafeAreaFitter · Common/SharedBackgroundButton · Common/SpinnerRotator · Common/ToastUI · Common/UIAnimator · Common/VolumeControlBinder · ConfirmPopup · Core/IGameUI · Core/IUIManager · Core/IView · FloatingHpTextSpawner · GameEndUI · GameHudUI · GameUIManager · InGameSettingsUI · LobbySettingsView · LobbyUI · MistShrinePanelUI · NetworkStatusUI · ProductionPanelUI · ResearchCellView · ResearchMatrixView · ResearchPanelUI · ResearchProgressView · SceneLoader · SkillCooldownOverlay · SplashOverlayView · UIManager · ViewModels/BattleViewModel · ViewModels/LobbyViewModel · ViewModels/RaceSelectionViewModel
+
+**남은 범위:** `Presentation/UI/Views/**` **24파일** + 맵 계통 **약 25파일**(`Domain/Map/**` · 생성기 · 맵 준비 유스케이스 · 폴백 템플릿 관련) = 약 49. 파일 총수는 문서가 89 로 적고 직접 세면 88 이다(기존에 기록된 ±1 어긋남 — 새로 조사하지 않았다).
+**재개 조건:** 다른 브랜치 작업이 합쳐진 뒤. 재개하면 **남은 49파일만** 한다.
+**수율(재개 판단용):** 1층은 판정 대상 약 1,400건 중 거짓 162(11.6%), 2층 39파일은 160건 중 9(5.6%)로 떨어졌다.
+**과거 이력 160건 판정 표는 저장소에 없다** — 커밋 `49571f52` 의 메시지에 요약돼 있고 자리별 근거는 보존하지 않았다(고친 9자리도 그 메시지에 있다).
+
+### 8-1. 판정 불가 41자리 — 분류 9(테스트가 필요한 항목)의 자리 목록
+
+`WORKFLOW.md` 절차 7번(판정 불가는 수가 아니라 자리 목록으로 보존)의 이행이다. 아래 표가 **유일한 사본**이고 다른 곳에 복사하지 않는다(§7-2 의 분류 9 행이 이 표를 가리킨다). **갈래 합을 직접 더했다: 과거 1 + 엔진 내부 26 + 엔진 또는 화면 1 + 화면 7 + 실기 관측 6 = 41.** 호출 세션 전달값은 42 였으나 표의 행을 직접 세면 41 이다(행당 파이프 수 일정 · 표 43줄 = 머리 2 + 41). 갈래 번호는 §2-0 과 같다(① 과거 · ② 엔진 내부 · ③ 화면 · ④ 실기 관측). 풀리는 조건 칸의 「소스 없음」은 `Library/PackageCache` 가 이 체크아웃에 없다는 뜻이다. 대상은 2층에서 끝낸 39파일이며 HEAD `8cfd2cfc` 기준이다. 사유가 연결 끊김인 70여 건 줄과 재경기 준비 안내 줄은 로그 키·화면 문구를 베끼지 않으려 낱말만 풀어 적었다.
+
+| 파일:행 | 주장 | 갈래 | 풀리는 조건 |
+|---|---|---|---|
+| NetworkStatusUI.cs:193-198 | 유니티는 오브젝트가 꺼지면 그 위의 코루틴을 멈춘다 / 비활성으로 멈춘 루프는 재활성화해도 저절로 재시작 안 됨 | ② | 엔진 소스 없음. 해당 컴포넌트가 씬에 없어 실기 불가 — 임시 배치 후 SetActive 토글 로그 1회 |
+| GameEndUI.cs:1451-1458 | StartCoroutine 은 오브젝트가 비활성이면 시작하지 않고, 본문을 첫 yield 까지 그 자리에서 실행한 뒤 핸들을 돌려준다 | ② | 엔진 소스 없음. 코루틴 첫 줄에 로그 1줄(이미 있음) + 비활성 오브젝트에서 StartCoroutine 후 로그 순서 확인 1회 |
+| GameEndUI.cs:1211,1758-1760 | UniRx 발행은 동기이고, 앞 구독자가 예외를 던지면 뒤 구독자를 부르지 않는다 | ② | UniRx 소스 없음. 구독자 2개 Subject 에 예외 던지는 구독 + 로그 1줄 실기/에디터 1회 |
+| GameEndUI.cs:1852-1857 | 수락 전송 예외 시 로컬 발행이 동기 실행되어 같은 채널의 다음 구독자보다 먼저 끝난다(순서 뒤집힘) | ② | 로그(2026-09-28 18:43:37.805~809)가 순서와 일치하나 UniRx 내부 순서 보장은 소스 없음 — 구독 순서 로그 1줄 |
+| GameEndUI.cs:928-931,1679-1684,2013-2015 | NGO: Client 가 보낸 ServerRpc 는 Host 가 이미 떠났으면 증발 / Host 는 ServerRpc·ClientRpc 가 같은 호출 흐름에서 로컬 즉시 실행 | ② | NGO 소스 없음. Host·Client 각 1회 실기에서 수락 시 신호 도착 순서 로그(이미 3724fd3f 가 도착 순서 역전을 로그로 확인했다고 적음 — 로그 재대조는 하지 않음) |
+| GameEndUI.cs:129,128-129 | TMP: \n 뒤 공백 하나가 가운데 정렬 줄 전체를 한쪽으로 민다 | ③ | 스크린샷 1장(공백 있는 문구) |
+| GameEndUI.cs:132-134,140-143 | 문구 첫 줄이 비면 빈 줄로 남고, 줄 수가 달라도 고정 사각형 안에서 세로 가운데 기준 반 줄씩 퍼질 뿐 형제 UI 가 안 밀린다 | ③ | 스크린샷 2장(평시 한 줄·실패 두 줄). 048a4ca6 도 개행된 세 문구는 화면 미확인이라 적음 |
+| GameEndUI.cs:2357-2362 | 연결 끊김 사유로 실패한 관측은 전부 개발용 강제 실패 플래그가 만든 것이라 '진짜 끊김에서도 같은 화면'은 추론 | ④ | 사유가 연결 끊김인 관측 70여 건(_Logs 8파일)을 각각 강제 실패 줄과 시각 대조(기기 로그는 편집기 로그와 교차 필요) — 전수 대조는 하지 않음 |
+| GameEndUI.cs:2006-2009 | 한도를 한 창으로 잡으면 패킷 유실 시 재전송으로 맵 준비가 한 창을 넘겨 재경기 준비 안내가 먼저 사라지고 갑자기 씬이 재로드된다 | ④ | 패킷 유실 재현(네트워크 손실 에뮬레이션) 1회 |
+| BuildingActionPanelUI.cs:59-65 | LayoutGroup 은 SetActive(false) 자식을 레이아웃 계산에서 제외한다 | ② | UGUI 소스 없음. 슬롯 하나 SetActive(false) 후 스크린샷/RectTransform 로그 1회 (BuildingPlacementUI.cs:140-143,241-243 도 같은 주장) |
+| BuildingActionPanelUI.cs:129 (BuildingPlacementUI.cs:207) | TryGetComponent 는 가비지 할당이 없다 | ② | 프로파일러 GC Alloc 1회 |
+| BuildingPlacementUI.cs:142-143 | 슬롯 하나만 남으면 Child Force Expand Width=true 설정으로 그 버튼이 전체 폭을 채워 레이아웃이 깨진다 | ③ | 스크린샷 1장(해당 설정에서 슬롯 숨김을 SetActive(false)로 바꿔 본 화면) |
+| BuildingSkillPanelUI.cs:310-313 | raycastTarget 이 꺼진 그래픽은 포인터 판정에서 빠져 탭이 아래 버튼까지 내려온다 | ② | UGUI 소스 없음(씬 값 raycastTarget 0 은 확인). 쿨다운 중 버튼 탭 시 PointerDown 로그 1줄 |
+| BuildingSkillPanelUI.cs:333-338 | 공유 오버레이가 조준 중 맵 탭/드래그를 먼저 받아 패널을 닫는다 | ② | EventSystem 소스 없음. 조준 중 오버레이 켠 채 맵 탭 시 Close 로그 1줄(실기 1회) |
+| Common/AnimatedPanel.cs:117,144-145 | 비활성으로 시작하는 오브젝트는 Awake 가 호출되지 않는다 | ② | 엔진 동작. 비활성 오브젝트에 Awake 로그 1줄 + 활성화 시점 확인 |
+| Common/AnimatedPanel.cs:290-291 (FloatingHpText.cs:195, RematchRequestPopup.cs:210) | 파괴된 오브젝트에 트윈이 남으면 DOTween 에러가 난다 | ② | DOTween 소스 없음. Kill 을 빼고 파괴해 Console 확인 1회 |
+| Common/FloatingHpText.cs:134-136 | 카메라 정렬 회전 때문에 텍스트가 좌우 반전되어 보이고 X 스케일 음수로 복원된다 | ③ | 스크린샷 1장(X 스케일 양수로 바꾼 화면; 수학적 방향 도출 -cameraRight 는 코드로 확인 가능) |
+| Common/RematchRequestPopup.cs:188-190 | 막이 남으면 화면 전체를 받는 버튼이라 로비의 어떤 버튼도 눌리지 않고 앱을 완전 종료해야 풀린다 | ④ | 관측 기록 없음(8cce4028 메시지가 명시). 요청 팝업이 뜬 채 자동 복귀 만료시켜 로비 버튼 탭 1회 |
+| Common/SafeAreaFitter.cs:107-108 | 변경 감지 비용이 매우 낮아 Update 에 두어도 성능 부담 없다 | ③ | 프로파일러 1회 |
+| Common/SafeAreaFitter.cs:117 | Rect 비교(==)는 Unity 내부적으로 4개 float 비교 | ② | 엔진 소스 없음. 엔진 문서 또는 동일 Rect 비교 로그 1줄 |
+| Common/ToastUI.cs:272-273 | DOTween Kill() 기본값은 complete:false 라 OnComplete 를 부르지 않는다 | ② | DOTween 소스 없음. 페이드 중 같은 키 재요청 시 FinishCurrent 로그 1줄 |
+| Common/ToastUI.cs:178-180 | DontDestroyOnLoad 는 씬 루트(부모 없음) 오브젝트에서만 동작한다 | ② | 엔진 동작. 자식 오브젝트에 호출 후 씬 전환 생존 확인 로그 1회 |
+| Common/UIAnimator.cs:26-27 | SetActive(false) 는 LayoutGroup 제외·Awake 미호출 등 버그를 유발한다 | ② | UGUI/엔진 동작. 레이아웃 스크린샷/Awake 로그 1회 |
+| Common/VolumeControlBinder.cs:194-196 | 슬라이더 값 설정은 리스너를 발화시켜 자동 언뮤트가 일어난다(SetValueWithoutNotify 로 회피) | ② | UGUI 소스 없음. 음소거 상태에서 slider.value 대입 시 SetMuted 로그 1줄 |
+| ConfirmPopup.cs:352-354,390-391 | 막이 남으면 화면 전체를 받는 버튼이라 그 화면의 어떤 버튼도 눌리지 않는다 | ② | UGUI 레이캐스트 소스 없음 / 3b1cc4ef 는 실기 로그 3건이 '점유 0이라 무해'였다고 적음 — 점유 1 이상이 남는 사례는 관측 기록 없음. 점유 잔류 상태에서 버튼 탭 로그 1회 |
+| ConfirmPopup.cs:303-306,313-317,333-336 | SetActive(false) 로 숨기면 Layout Group 에서 그 자리가 사라져 나머지가 이동한다(프리팹 Vertical/HorizontalLayoutGroup 의존) | ③ | 스크린샷 1장씩(알림 팝업 / 확인 팝업) |
+| GameUIManager.cs:97-100 | 유니티에서 파괴된 컴포넌트 참조는 비워지지 않고 '파괴됨' 표시만 남으며, 콜백이 유니티 멤버를 건드릴 때 예외가 되고 순수 C# 필드만 만지면 예외가 없다 | ② | 엔진 소스 없음. 파괴한 컴포넌트를 Register 후 콜백 호출해 로그 1회 |
+| InGameSettingsUI.cs:9-11 | 페이드 애니메이션은 timeScale=0 에서도 돈다(DOTween SetUpdate(true)) | ② | DOTween 소스 없음. 싱글에서 설정 메뉴 열 때 페이드 동작 실기 1회 |
+| LobbyUI.cs:62-66 | SetActive(false) 는 위의 코루틴/이벤트 구독이 함께 멈출 수 있고 다시 켤 때 레이아웃 재계산 비용이 든다 | ② | 엔진 동작·비용. 프로파일러 1회 |
+| ProductionPanelUI.cs:20 | 업그레이드 버튼 숨김 방식을 SetActive → CanvasGroup.alpha=0 으로 교체했다 | ① | 이력 안에서 풀리지 않음: 그 버튼은 최초 커밋 f90e3704 부터 CanvasGroup 방식이라 SetActive 상태가 커밋에 없다. 작업자 진술 외 근거 불가 |
+| ProductionPanelUI.cs:583-587 | 조준 중에 다른 화면이 공용 막을 잡을 수 있는 경로가 있는지 확인하지 못했다(주석 스스로 미확인) | ④ | 랠리 조준 중 HUD 설정 버튼을 눌러 막 점유·반납 로그 확인 1회 |
+| ProductionPanelUI.cs:121-125 | 이 필드들에는 [Range] 가 없으므로 Inspector 에서 슬라이더가 아니라 숫자 입력칸으로 보인다 | ③ | Inspector 스크린샷 1장 |
+| ProductionPanelUI.cs:775-778 | 꺼진 오브젝트는 Awake 등이 돌지 않고, 비활성으로 저장된 씬은 다시 켜도 초기화가 끝나 있지 않아 표시되지 않는 함정이 있다 | ② | 엔진 동작. 비활성 저장 오브젝트 활성화 시 Awake 로그 1줄 |
+| MistShrinePanelUI.cs:21 | SetActive(false)는 슬롯 자리를 레이아웃 배치에서 빼 남은 버튼이 앞으로 당겨진다 | ② | UGUI 소스 없음 / 스크린샷 1장 (다른 파일의 같은 주장과 동일 사유) |
+| ResearchPanelUI.cs:75-76 | 완료/취소 통지가 패널이 닫힌 동안 도착해 소거되지 않은 뒤 같은 연구소를 다시 열면 진행 레이어가 남는지 | ④ | 코드상 _hasLocalProgress 가 유지되고 TryGetCurrentLabResearch 가 true 를 돌려 줄 것으로 읽히나(L315-327) 주석이 '실행해 보지 못했다'고 스스로 적음. 멀티 클라에서 연구 중 패널을 닫고 완료 통지 후 재오픈 1회 |
+| SkillCooldownOverlay.cs:30-37 | Unity Filled 이미지는 Fill Origin 에서 Clockwise 방향으로 fillAmount 만큼 그리며, 체크박스를 꺼 두어야 어두운 부분이 12시부터 시계방향으로 걷힌다 | ② / ③ | UGUI 소스 없음. 쿨다운 중 스크린샷 연속 2장(걷히는 방향) |
+| SkillCooldownOverlay.cs:121-123 | 레이아웃 그룹은 비활성 자식을 배치 계산에서 빼 버린다 | ② | 다른 파일의 같은 주장과 동일 사유 |
+| UIManager.cs:309-311 (GameEndUI.cs:1455-1457 와 충돌) | StartCoroutine 이 호출된 프레임에 코루틴 본문을 첫 yield 까지 실행하는가(GameEndUI 는 '그 자리에서 실행', UIManager 는 '다음 프레임에 실행되어 텍스트가 한 박자 늦다'고 적음) | ② | 엔진 소스 없음. 39d4f6af 이전 구조(코루틴 첫 줄에서 ShowLoading)를 사본으로 재현해 코루틴 첫 줄과 호출 직후 줄에 프레임 번호 로그 1줄씩 |
+| UIManager.cs:344-346 | (재현 경로) 설정 메뉴→포기→취소 후 설정 메뉴가 떠 있는데 막 바깥을 눌러도 닫히지 않는다 | ④ | 코드 판독으로는 리스너 미복원이 확정(UIManager.cs:366,406). 실제 화면 거동은 실기 1회로만 확인(onClick 없는 Button 이 탭을 삼키는지는 UGUI 동작 ②) |
+| SplashOverlayView.cs:43-45 | IPointerClickHandler 가 동작하려면 클릭을 받을 UI 의 Raycast Target 이 켜져 있어야 하고 EventSystem 이 있어야 한다 | ② | UGUI 소스 없음. Background 의 Raycast Target 을 끄고 탭 로그 1회 |
+| UIManager.cs:19-22 | DontDestroyOnLoad 대상은 루트에 두어야 하고 다른 오브젝트 자식이면 부모와 함께 파괴된다 | ② | 엔진 동작. 자식 오브젝트에 호출 후 씬 전환 생존 로그 1회 |
