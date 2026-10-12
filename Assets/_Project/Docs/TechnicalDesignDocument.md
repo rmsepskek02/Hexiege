@@ -376,9 +376,9 @@ MapReady(matchNonce, success, clientSHA, errorCode)
 
 **복구 상태:**
 
-- 최초 멀티 준비 실패: loading hide, lobby와 connection 유지, generic `맵 준비에 실패했습니다` modal, `Retry`/`Leave Match` actions. 양 player의 Retry request를 Host가 idempotency key로 한 번만 수락하고 새 64-bit root seed부터 selection/generation/transfer를 재시작한다.
+- 최초 멀티 준비 실패: loading hide, lobby와 connection 유지, generic `맵 준비에 실패했습니다` modal, 「다시하기」/「로비로」 actions *(2026-10-12 사용자 결정 — 종전 `Retry`/`Leave Match`)*. 양 player의 Retry request를 Host가 idempotency key로 한 번만 수락하고 새 64-bit root seed부터 selection/generation/transfer를 재시작한다.
 - 재경기 맵 준비 실패: pending candidate 폐기, old current definition 유지, rematch pending state reset, result UI 복원, auto-return countdown을 full duration으로 reset, **결과 화면의 기존 actions 재활성화**.
-- single 최초 실패: modal, Retry/Lobby. single 재경기 실패: 기존 rematch result choices 복원.
+- single 최초 실패: modal, 「다시하기」/「로비로」 *(2026-10-12 사용자 결정 — 종전 Retry/Lobby. 바로 아래 줄이 인용한 종전 표기와 「확정된 버튼 라벨이 없다」는 판정은 이 변경 이전 시점의 관측이다)*. single 재경기 실패: 기존 rematch result choices 복원.
 - ✅ **위 복구 상태 규정에 달렸던 「정해지지 않은 항목」 표시는 닫혔다** — 규칙 M-3 의 팝업 여부 미정은 상태 줄로 개정돼 닫혔고, 규칙 M-4 의 표시 문구 · loading UI 처리 · 버튼 라벨 · 팝업 여부 미정도 닫혔다. 확정값과 구현·실기 확인 상태의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3·M-4 와 그 확정 블록들이며, 이 문서에는 옮겨 적지 않는다. 🔴 **다만 이 절의 위 `single` 두 항목은 그 확정값을 담고 있지 않다(직접 읽어 확인)** — `single 최초 실패: modal, Retry/Lobby` 에는 표시 문구 · loading UI 를 닫는다는 것 · 확정된 버튼 라벨이 없고, `single 재경기 실패: 기존 rematch result choices 복원` 에는 상태 줄로 알린다는 것과 싱글에는 자동 복귀 타이머가 없다는 것이 없다. **비어 있는 채로 두었고 채우지 않았다**(사양 서술 보강은 이번 범위 밖). 또 첫 항목(최초 멀티 준비 실패의 modal · `Retry`/`Leave Match`)은 규칙 M-2 가 정한 규정이며 **코드에 구현이 없다**(모달 · 두 버튼 · 재시도 요청 경로 0건 확인). *(2026-10-12, 낡은 미정 표시를 현재 사실로 고쳤다 — 사용자 지시)*
 - UI payload에는 internal error code, seed, MapType을 포함하지 않는다. 상세 값은 진단 로그 전용이다.
 
