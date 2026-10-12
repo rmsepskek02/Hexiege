@@ -5,8 +5,10 @@
 // (무엇을 들고 있는지의 단일 소스는 아래 Inspector 참조 선언부다 — 이 열거를 「전부다」로 믿지 말 것.)
 //
 // 왜 필요한가:
-//   기존에는 ConfirmPopup과 LoadingIndicator를 Login/Lobby/Game 씬마다 따로 배치했다.
-//   → 같은 UI를 여러 번 만들어야 하고, 씬마다 연결이 어긋날 위험이 있었다.
+//   기존에는 공통 UI를 씬마다 따로 두었다. 전역 UIManager 를 도입하기 직전 판(커밋 6fe30d7e 의 부모)의
+//   씬 파일을 대조하면, ConfirmPopup 은 Login 씬(2곳)과 Game 씬에 있었고 Lobby 씬에는 없었으며,
+//   LoadingIndicator 는 Login 씬에만 있었다(Lobby 씬에는 이것과 다른 별도의 로딩 컴포넌트가 붙어 있었다).
+//   → 같은 종류의 UI를 씬마다 따로 만들고 연결해야 했고, 씬마다 연결이 어긋날 위험이 있었다.
 //   UIManager를 Login 씬에서 1회만 생성하고 DontDestroyOnLoad로 유지하면,
 //   이후 모든 씬에서 동일한 공통 UI를 재사용할 수 있다.
 //
