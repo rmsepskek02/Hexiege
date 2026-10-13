@@ -1,7 +1,9 @@
 # UI 가이드라인 — Hexiege
 
-**최종 수정일:** 2026-06-12
+**최종 수정일:** 2026-10-13
 **적용 범위:** 모든 UI 씬 (Game.unity, Lobby.unity)
+
+이 문서는 시각 분류·레이아웃·애니메이션 표준값과 연결 예시를 다룬다. 필수 동작은 [공통 UI 규칙](GameSystemRules/GameSystemRules_UI.md), 패널 조작은 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md), 경기 화면은 [경기 흐름 UI](GameSystemRules/GameSystemRules_MatchFlowUI.md), 설정은 [설정 UI](GameSystemRules/GameSystemRules_SettingsUI.md)를 따른다.
 
 ---
 
@@ -15,7 +17,7 @@
 | **게임 상태 알림 패널** | 게임 흐름 변화를 알리는 대형 UI | GameEndUI |
 | **시스템 팝업** | 사용자 결정이 필요한 오버레이 다이얼로그 | RematchRequestPopup |
 | **HUD** | 항상 표시되는 인게임 정보 | GameHudUI (골드, 인구, 타이머) |
-| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI (구현 완료 — DontDestroyOnLoad 싱글턴, **서로 다른 종류만** 큐에 쌓아 순차 표시. **같은 종류는 누적하지 않는다** — 표시 중이면 표시 시간만 되돌리고, 대기 중이면 무시한다. 단일 소스는 [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「생산 패널 UI」 규칙 25) |
+| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI. 같은 종류의 중복 처리·큐 동작은 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) 「생산 패널 UI」 규칙 25 참조 |
 | **로비 UI** | 로비 씬 탭/서브뷰 전환 | TabBarView, BattleRootView 서브뷰 |
 | **전역 공통 UI** | 씬 전환과 무관하게 항상 사용 가능한 공통 팝업/로딩 | UIManager (ConfirmPopup + LoadingIndicator — Login 씬 1회 생성, DontDestroyOnLoad) |
 | **스플래시 오버레이** | 앱 진입 시 초기화 중 표시, Tap to Start 흐름 | SplashOverlayView (Login 씬 전용, SortingOrder 200) |
@@ -79,12 +81,7 @@
 
 슬라이드 애니메이션이 있는 패널에 반투명 배경(Overlay)이 필요한 경우:
 
-**규칙: 배경은 애니메이션 없이 즉시 CanvasGroup으로 전환 (공통 UI 규칙 5)**
-
-| 시점 | 동작 |
-|------|------|
-| `Show()` 호출 | 배경 → `alpha=1, blocksRaycasts=true, interactable=true` 즉시 (패널 슬라이드와 동시) |
-| `Hide()` 호출 | 배경 → `alpha=0, blocksRaycasts=false, interactable=false` 즉시 (패널 슬라이드 완료 후) |
+배경의 CanvasGroup 값·active 유지·오버레이 소유와 입력 차단은 [공통 UI 규칙](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 규칙 5가 원본이다. 슬라이드가 끝날 때까지 배경 전환을 지연시키는 별도 사본 규칙을 두지 않는다. 아래는 연결 예시다.
 
 ### Inspector 연결 방법
 1. 배경 오브젝트에 `CanvasGroup` 컴포넌트 부착
@@ -110,10 +107,8 @@
 
 ## 4. 앵커 & 레이아웃 규칙
 
-> 기기별 해상도 대응 (9:16 기준, Safe Area 적용 예정).
+> 기기별 해상도 대응의 필수 조건은 [공통 UI 규칙](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 규칙 1~4(Canvas Scaler·앵커·자식 이미지·Safe Area)를 따른다. 이 가이드의 연결 예시는 현행 구현 완료 여부를 판정하는 자료가 아니다.
 
-- **Canvas Scaler**: Scale With Screen Size, Reference Resolution 1080×1920
-- **앵커 기반 배치 원칙**: 고정 픽셀값 대신 앵커 비율 사용 (반응형 팝업 참조)
 - **반응형 팝업 에디터 스크립트**: `Hexiege/UI/Apply Responsive Popup Layout`
   - VerticalLayoutGroup 패딩(20) + spacing(8)
   - 슬롯에 AspectRatioFitter(1.5:1)
@@ -161,7 +156,10 @@
 - `UIAnimator.SlideLeft()` / `SlideRight()` 추가 후 이 가이드 업데이트
 - 현재 뷰: SlideOut → 새 뷰: SlideIn (방향에 따라)
 
-### 토스트 알림 추가 시 (Phase 5 예정)
-- `ToastNotification.cs` + `ToastManager.cs` 구현
+### 토스트 알림 추가 시
+
+- 기존 `ToastUI`를 사용한다. 큐·같은 종류 중복 처리는 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) 「생산 패널 UI」 규칙 25를 따른다.
 - 애니메이션: DOFade (슬라이딩 없음)
 - 성공(초록) / 실패(빨강) / 정보(파랑) 색상 구분
+
+**2026-10-13 사본 정리:** 본문에 기존 ToastUI가 있다고 설명하면서 말미에는 신규 ToastNotification·ToastManager 구현 예정이라고 적던 중복 상태를 기존 원본 참조로 정리했다.

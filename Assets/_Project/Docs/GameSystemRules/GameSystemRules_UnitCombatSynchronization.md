@@ -1,10 +1,12 @@
 # Game System Rules — 유닛 멀티플레이 전투 동기화
 
-멀티플레이에서 유닛의 이동 방향, 타겟, 공격 방향, 타격 결과와 화면 표현이 같은 서버 행동을 재생하도록 만드는 동기화 계약이다.
+이 문서는 서버 권위·복제·순서 역전 계약의 원본이다. 유닛 동작 불변 조건은 [유닛 규칙](GameSystemRules_Units.md), 현재 개별 수용·이행은 [감사표](../Assets/UnitCombatAssetMatrix.md)를 기준으로 한다.
+
+날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](../History/ImplementationVerificationHistory.md#combat-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
 이 문서는 **무엇을 동기화해야 하는지**를 정의한다. 구체적인 NGO 타입, RPC 이름, 클래스 배치는 `TechnicalDesignDocument.md`가 담당한다. 게임플레이 의미는 `GameSystemRules_Units.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 에셋 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **동기화 구현 상태 (2026-08-27):** C2 Snapshot/ImpactResult Shadow와 observer v6의 Unity self-validation은 PASS했지만, 최신 Android Host / Editor Client 실기에서 Legacy overshoot를 Shadow Impact offset이 반영하지 않아 `NotDue`와 다중 hit `OutOfOrder`가 발생했다. B3도 같은 walkable 권위 타일의 중심 복귀를 경로 없음으로 오판한 Unit 64 영구 정지가 확인됐다. 따라서 C2와 B3 전투 전환은 **멀티 실기 FAIL / 교정 중**이며 Phase 5로 진행하지 않는다. 서버 권위, Legacy 피해·HP·RPC·VFX gameplay writer와 Client observer-only 경계는 유지한다.
+> **동기화 구현 상태 (2026-08-27 당시 기록; 현행 개별 수용은 감사표):** C2 Snapshot/ImpactResult Shadow와 observer v6의 Unity self-validation은 PASS했지만, 최신 Android Host / Editor Client 실기에서 Legacy overshoot를 Shadow Impact offset이 반영하지 않아 `NotDue`와 다중 hit `OutOfOrder`가 발생했다. B3도 같은 walkable 권위 타일의 중심 복귀를 경로 없음으로 오판한 Unit 64 영구 정지가 확인됐다. 따라서 C2와 B3 전투 전환은 **멀티 실기 FAIL / 교정 중**이며 Phase 5로 진행하지 않는다. 서버 권위, Legacy 피해·HP·RPC·VFX gameplay writer와 Client observer-only 경계는 유지한다.
 
 ---
 

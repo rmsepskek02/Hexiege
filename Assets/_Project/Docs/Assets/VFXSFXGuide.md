@@ -1,22 +1,8 @@
 # VFX / SFX 제작 가이드 (Unity AI Assistant)
 
-> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
+이 문서는 VFX/SFX 제작·명명·배선 계약을 다룬다. 제작·연결·수용 상태는 [VFXSFXList](VFXSFXList.md)를 기준으로 한다.
 
-> **두 번째 fixture 보완 적용·Main 실제 소스 검토 완료:** actual config AutoTower/Spirit row로 temporary data 초기화·lethal preflight를 적용하고 finally 첫 단계에서 EXACT 기존 `_data` 참조를 복원한다. throwing subscriber/death/remove assertion은 유지, Production/Stats asset 변경 없음(Main/programmer 인계). 현재 Editor compile exit0/errors0/warnings0. 현행 fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변; 문서 담당 현재2해시도 일치. 이전93B11D…/1C196A…는 단계별 이력이다. fresh native 결과는 대기,16:32 RED→lifecycle 보완→16:37 tracer/impact/HP 경계 통과·후속 nullStats fixture FAIL→두 번째 보완 적용을 구분한다. ROOT16:33 PASS 별도·build 미시도·runtime/visual OPEN이며 전체 PASS로 쓰지 않는다.
-
-> **최신 native — Main16:37:26 인계:** fresh UnitAction에서 이전 missing manager/tracer 실패는 해소됐고 실제 tracer·impact/HP assertions 통과, 해당 END failures0을 확인했다. 이후 VfxConnections line256 `Expression subscriber exception cannot prevent death/remove workflow` assertion에서 새 FAIL이다. tower fixture의 attack applied0/HP1(nullStats 컨텍스트)은 관찰값이며 원인 확정이나 production death/remove 결함 증명이 아니다. programmer read-only 진단 대기, build 미시도·runtime/visual OPEN.16:32 RED→fixture lifecycle 보완→16:37 이전 경계 통과/후속 경계 FAIL을 분리하고 전체 PASS로 쓰지 않는다. ROOT16:33:29 PASS는 독립 이전 결과다. 아래 기존 대기/실패 문단은 당시 이력이다.
-
-> **16:32 RED 원인·최소 fixture 교정 적용(Main 실제6행 patch 검토):** EffectManager Instance는 private Awake에서만 등록되고 ExecuteInEditMode가 없다. fixture AddComponent/Initialize가 lifecycle을 누락했으며 tracer asset 참조 존재·event 전달은 확인됐다. 같은 existing VfxConnections 파일에 actual Awake 호출 + Require Instance==manager + tracer nonnull preflight를 적용했고 Main이 실제6행 patch를 검토했다. 최종 SHA256 `93B11DB06A043E3B86E8002BB1991F05016718F124BECABBA11AE22BC6AF9878`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변. 기존 actual tracer-play/HP assertion은 약화하지 않고 production 소스/asset 변경은 없다. 현재 Editor compile exit0/errors0/warnings0; Runtime 불변·이전 static4 성공은 별도다. 교정 후 새 native 결과는 인계 대기이며 Action16:32:17 RED는 보존한다. ROOT16:33:29 PASS(Main UIstatus/Editor.log)와 source2 frozen/protection match는 별도, build 미시도·runtime/visual OPEN.
-
-> **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
-
-현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
-
-> Unity AI Assistant를 사용하여 VFX(시각 이펙트)와 SFX(사운드 이펙트)를 제작하기 위한 프롬프트 작성 가이드.
-> 에셋 현황 관리 → [AssetList.md](AssetList.md)
-> 공통 에셋 제작 원칙 → [CommonAssetGuide.md](CommonAssetGuide.md)
-
----
+날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](../History/ImplementationVerificationHistory.md#vfx-guide-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
 ## 게임 컨텍스트
 
@@ -319,7 +305,7 @@ EmberSpirit(불정령) 유닛의 공격 이펙트 파티클 시스템 프리팹�
 
 > **2026-10-10 asset freeze 보고 / native·실기 미수용:** 짧은 Mushroom impact의 nonloop/StopAction None·초기 정상 tail 최대 약0.8초 설정과 presets 연결이 인계됐다. 서버 DoT3초와 gameplay 수치는 유지된다. 이 수치는 초기 particle 설정의 tail budget이며 실제 렌더 종료시간·natural drain 수용이 아니다. recursive PS/start/return fixture 코드는 준비됐지만 native 미실행, capacity/mode/deadline/forced/wire assertion은 미완이다. [구체 tuning·검증 경계](VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계).
 
-> **2026-10-10 확정 제작/연결 계약:** Mushroom impact는 짧은 포자 확산 burst로 교정한다. 이전 3초 독구름·지면 링의 damage-zone 표현은 현행 사양이 아니다. burst의 정확한 초 수·입자 수는 여기서 임의 확정하지 않는다. 서버 DoT 3초는 그대로이고 poison/burn은 실제 recipient 효과 기간과 갱신·취소·사망을 따라 재생·StopEmitting 후 drain한다. Human AutoTower는 Tank 프리팹을 별도 preset으로 재사용(shared Cannon preset의 prefab 참조만 승인 변경·구현/Main 검토 완료, 이름/SFX/offset·다른 필드 불변; 새 native/build/visual 대기), Spirit은 RuneSpire VFX, Transcendence는 미지정이며 타 종족 fallback 금지다. 선택 키는 단일 AutoTower 타입 + Race다. 사양 확정과 구현/native/실기 수용은 [VFX 목록](VFXSFXList.md)에서 별도 관리한다.
+> **현행 제작/연결 계약:** Mushroom impact는 짧은 포자 확산 burst다. burst 길이·입자 수는 임의 확정하지 않으며 서버 DoT3초와 recipient poison/burn 기간·갱신·취소·사망·StopEmitting 후 drain 계약을 유지한다. Human AutoTower는 별도 preset의 actual Assault VFX를 참조하고 Tank/CannonCart는 actual Tank를 유지한다. Spirit은 RuneSpire, Transcendence는 미지정이며 타 종족 fallback 금지다. 선택 키는 단일 AutoTower 타입 + Race다. 구현·native·실기 수용은 [VFX 목록](VFXSFXList.md)에서 별도 관리하고, 이전 Tank 재사용 계약은 [당시 원문](../History/ImplementationVerificationHistory.md#vfx-guide-tower-contract-history)에 보존한다.
 
 ### 2. 유닛 사망 이펙트
 

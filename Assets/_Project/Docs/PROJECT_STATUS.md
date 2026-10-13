@@ -1,1491 +1,264 @@
 # Hexiege - 프로젝트 진행 현황
 
-> **2026-10-12 private 로그 보관·source/main 반영 완료:** Main actual A b65751c604fabd6b7dd410907ea8f152f51d33f4(445파일) commit/push → B befdd8ef37f3b064f31d550fd96192c93d379ad2 ort merge conflict0/tree=A → atomic push 및 양쪽 remote B 확인 완료. Post-merge Runtime/Editor/Development errors0·Project320/Bee drift0; native/빌드 재실행 없음. Private archive169 전체 검증/receipt 업로드·main raw0/local169·QA Log10/CrossAudit/원Resources Config3 보존 완료. [최종 실제 영수증](./_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md).
+이 문서는 현재 구현·검증 상태를 요약한다. 다음 작업은 [ROADMAP](ROADMAP.md), 유닛별 수용·이행 상태는 [전투 감사표](Assets/UnitCombatAssetMatrix.md)를 기준으로 한다.
 
-> **2026-10-12 10_10 wave 경기:** Main full-key 전달·표시 **scoped PASS**(device server/editor client, epoch443cdc5dde2f8a57). Spawn465 delta0, contact313 양쪽unique/delta0, 채널 실패·중복0; 마지막wave465 종료 취소1 정상. ClockPending/Recovered/Expired0 → 수신보류 실전 회복 branch 미실행 OPEN, 상위 clock 원인·정밀 시각/global closure 미해결. [원본·모집단·anomaly 근거](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md). 이전 native/빌드 시도 이력은 보존하며 새 코드/빌드/로그 정책 변경 없음.
+날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](History/ImplementationVerificationHistory.md#status-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
-> **2026-10-12 wave clock fresh 검증·빌드 시도:** Main source3 final hash 일치·CLR RED→GREEN100/100·정적 errors0, Release NOT RUN. Refresh 후 새 DLL generation에서 Unit Action02:20:22 전체 PASS(TORRENT-WAVE 포함), Root02:22:11 PASS. Console errors0/warnings999+는 injected stress 진단 포함. 약02:23 Build And Run 클릭1회 뒤 UI/log/process 관찰 없음; 완료/설치/runtime 사용자 소유·미확정. 실제 경기 재테스트·clock/NGO 원인·정밀 시각/global closure OPEN. 이전 pending/stale-generation 기록은 당시 이력. [최종 근거·전체 manifest](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md).
+### 현행 진행 경계 (2026-10-13 문서 정리)
 
-> **2026-10-12 로그 문서 정리:** 현행 규범과 과거 원문을 분리하고 Release ZIP 저장 정책 문서화 완료. [LogRules](./LogRules.md) / [LogHistory](./LogHistory.md) / [mapping·검증 인계](./_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md). 실제 ZIP·Git·업로드·삭제·.gitignore 적용은 미실행. Wave clock 코드 GO와 최종 실행 결과는 별도이며 새 코드 PASS 없음.
+- 사용자 추가 결정에 따라 유닛 스탯·공격 시간·건물 현재 기능 문서를 실제 구현값 기준으로 정정했다. 밸런싱은 추후이며, 생산 클립 조사와 기존 사용자 공격 교정 수용을 새 전체 migration·실기 정밀 검증으로 확대하지 않는다. EagleArcher 클립 열거 순서의 제한된 확인 경계는 [StatsReference](StatsReference.md#생산-타임라인-구현-근거), AI 시나리오 재논의는 [ROADMAP](ROADMAP.md#ai-시나리오-재논의-사용자-추가-결정-2026-10-13)을 따른다.
 
-> **2026-10-11 23_16 wave 저장 경기:** contact281 unique exact-key/로그 contact(6decimal)·hp·applied·heal 일치, duplicate/missing/extra0(full snapshot/replicaHP 증거 아님). 서버 적용 정상 관측과 Client clock 거부4·text281/278 분리. VFX271씩이나 wave79/272 key 비대칭으로 equality 아님. Generic EVIDENCE≠전체 wave PASS; 자연 fault-recovery 미입증/원인·시각 OPEN. [상세 경기 근거](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md). 기존 수용/랠리 후순위 유지, 코드·로그 정책 변경 없음.
-
-> **2026-10-11 22:22 최신 native·빌드 시도 인계:** Unit Action22:16:40 전체 PASS(TORRENT-WAVE 새 코드 포함), Root self-validation22:21:12 PASS(Editor.log line2546935); Console errors0/warnings50(intentional fixture 포함). Build And Run 약22:22 한 번 클릭, 이후 완료 감시 없음·완료 사용자 소유. Release NOT RUN·독립 CLR 차단(no PASS) 유지; runtime/정밀 시각/global closure 아님. 아래 이전 native/빌드 대기는 당시 이력이며 이 인계로 supersede. 근거: [현재 wave Task](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md).
-
-> **2026-10-11 wave contact 예외 격리 / 구현·정적 인계:** Main 승인 후 source2 적용·최종 hash 독립 일치, programmer 현재 Runtime/Editor/Development exit0/errors0 (warnings20/0/20). Release NOT RUN·CLR Time/UniRx 차단(no PASS); native/빌드 NOT RUN·Main CU 복구 대기. 예방적 source 위험 격리이며 정상 Torrent 수용/기존6종 수용을 철회하지 않는다. Gameplay clock·HP→사망 전 불변 snapshot→사망/제거 및 후속 대상 처리 유지; 보호 Game/Stats 불변. 로그 보관·정책 변경 없음. [최종 근거](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Research.md) / [승인 계획·진행 판정](./_Tasks/2026-10-11/21_50_wave-contact-authority-isolation/Plan.md). 기존 poison 분석 후보·시각/Invalid/63 OPEN·공통 랠리 후순위는 별개다.
-
-> **2026-10-11 20_28 최신 로그 / scoped 관측·시각 OPEN:** Android Host/Editor Client에서 MushroomImpact242 exact-key/명시 payload 필드 전달 mismatch0·양쪽 ImpactPlay242, Bloom Start↔Play142 exact identity missing0 및 recipient Play/Drain/Return30을 관측했다. Poison 조기 Expired Stop/마지막 forced Teardown과 Bloom 사망 Unknown은 별도 경계이며 전체 피해/힐 손실 증거가 아니다. overall LegacyInvalid FAIL·origin 미확정/local ROOT≠formal CrossAudit 유지. 사용자 시각 판정 없음: Mushroom/Bloom 시각 수용·whole PASS 미확정. 다음은 공통 poison 시간/진단 scope 분석 후보만, 구현/추가 로그·빌드 승인 없음. 기존6종 수용·공통 랠리 보류 유지. 상세 수치/원본 anchors: [20_28 최종 근거](./WORK_HISTORY.md#2026-10-11-20_28-mushroombomberbloomfairy-최종-로그-근거).
-
-> **2026-10-11 실제 감사 최종 인계 / 대기 해제:** programmer6종 감사·Main 독립 확인으로 RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight **기존 교정5종 확인**. EagleArcher는 기존 hookup·테스트 확인이며 최신 전용 공격 교정/Supported 승격은 미확인; 사용자 수용 유지, 자동 재테스트 요구 없음. LittleKnight 기존 공통 교정/continuous timeline 범위가 확인돼 새 전용 Task 부재를 미작업으로 읽지 않는다. 상세6행·기존 Task 근거: [매트릭스 실제 감사](./Assets/UnitCombatAssetMatrix.md#6종-실제-구현-감사-최종-근거-2026-10-11). Mushroom/Bloom 새 VFX 시각 후보·공통 랠리 보류·Invalid/63 OPEN 경계 유지. 새 native/raw-log/source 수정·global migration PASS 없음.
-
-> **이전 감사 대기 이력 — 최종 인계로 대체(2026-10-11 추가 지시):** 아래 테스트 완료는 사용자 수용 사실이다. 6종 실제 source/config/clip 연결 교정의 최종 구현 판정은 programmer 읽기 전용 감사 결과 인계 전까지 보류한다. 추천 철회·공통 랠리 분리 정정은 유효하며 이번 문서 작업에 소스 조회/수정은 없다.
-
-> **2026-10-11 현행 잔여 목록 정정:** 사용자 확인으로 RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher **개별 테스트 완료·수용**. LittleKnight 다음 추천은 철회하며 현행 공격 결함은 확인되지 않았다. 실제 남은 후보는 **이미 연결된 MushroomBomber/BloomFairy 새 VFX 시각 확인**; HumanTower Assault 교체 후 시각 확인은 건물 별도다. Tank/Cannon 세부 조정·Torrent 연결 복구 회귀·공통 랠리 장애물 이동(개별 교정 이후)은 별도/보류. Pistoleer 기존 개별 테스트 유지. overall Invalid·과거63·dead-abort 미재현·global migration은 별도 OPEN; 전체25종 완료나 정밀 측정을 뜻하지 않는다. 권위 현행 목록/근거: [매트릭스 현행 분류](./Assets/UnitCombatAssetMatrix.md#현행-개별-테스트후속-목록-2026-10-11-사용자-정정). 오류 기록: [.claude/mistakes.md](../../../.claude/mistakes.md). 아래 이전 추천·수용 대기는 날짜별 이력이다.
-
-> **2026-10-11 focused 수용 / 철회된 LittleKnight 추천의 이전 이력:** 사용자 “로그상으로 문제없으면 됐어 확인했어 다음 작업 어떤거할거야?”에 따라 최신 두 경기의 Assault·Sniper·Inferno 정상 관측을 로그 기반 focused 범위에서 수용하고 다음 진행 가능(Main 인계). overall Invalid 진단 scope·과거 Editor Client Expired63 원인/해결은 별도 OPEN, dead-abort 실기 미재현·역할 반대·suppressedNormal63≠Expired63 유지. 정밀 pixel/HP 동일/global migration 완료 아님. Main 다음 추천 LittleKnight는 단독 focused 교정 미완·현재2hits0.25/1.15초, 재설계 없이 추후 승인 작업에서 source/사용자30fps clip 확인; projectile 미준비 영향 없음. **추천만, 새 Task/구현 승인 없음.** 상세: [기존 Assault Research](./_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 아래 수용 미확인 문구는 당시 이력이다.
-
-> **2026-10-11 19_07 최종 분석 / 전체 FAIL·진단 scope OPEN:** Editor Host/Android Client 두 경기 Ready452/398·Coordinator fail/pending0·required presentations435/387·C2 resultfail/Client reject0, 정상 retry109건; 실제 dead-abort/timeout 표적 사례 미재현. 전체 FAIL은 attacker=-1/default key의 LegacyObservation 입력 자격→Invalid→진단 집계 경로(Main/programmer 확인)이며 HP/text/VFX 오작동 증거가 아니다. 개별 틱 원인 유닛/조회 실패 사유 미확정, Inferno 단정 금지. 이전00_46(Android Host/Editor Client)과 역할 반대라 Editor Client63만료 재현/해결 증명 불가; 신규 Expired/D0 및 2차 Client suppressedNormal63은 Expired63이 아님(Ready398/fail0). local ROOT 총4 PASS≠formal CrossAudit(미실행); count 일치≠payload/HP 동일. 진단 scope/집계 정합성 검토 제안만, 기존63·전체 수용 OPEN. 상세: [기존 Assault Research](./_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 이번 문서만 갱신, 추가 구현/빌드 없음. 아래는 이전 이력이다.
-
-> **2026-10-11 현재 후속 / 구현 완료·실기 수용 미완료:** Main 최종4소스 검토/6해시 일치, static4 errors0·CLR retry18시나리오 및 ReceiptPhaseClock/CanonicalTickClock PASS·exit0. D 보수적792bytes<1000. native·NGO PlayerLoop·fresh UnitAction/ROOT·멀티 HP 화면/실게임·빌드 미실행; 원Assault Expired63 원인/해결 OPEN, 피해 누락 주장 없음. 상세: [기존 Assault Research](./_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 이전 단계 이력 보존.
-
-> **2026-10-11 00_46 최종 분석 / FAIL·OPEN:** same879 exact-key payload 양쪽 일치, HostReady879/fail0 ↔ ClientReady816/**Expired63 전부 Assault**; 피해 불일치·미수신63이 아닌 표현 만료다. Sniper Host14/Client13 binding1.733333349초/cycle3, 결과99(71Hit/28Miss) 양쪽Ready99/Expired0·VFX98; 설정/권위전달/Ready 기술 확인만이며 pixel·사용자 육안 수용은 미확인이다. Inferno0으로 이번1.5초 실기 평가 불가. 양쪽 local ROOT PASS는 공식 cross-audit/전체 timing PASS가 아니다. 상세·원인 미확정 경계는 WORK_HISTORY.md의 최종 근거에 기록한다.
-
-> **[🔴 2026-10-11 correction — original kept]** 아래 중간 Host13 추정은 **Host14/Client13**으로 정정. Client63 전부 stageDecision Expired로 확정됐으며, 아래 “나머지47 원인 미확정”은 **상태 미확정이 아니라 원인 상세가16건만 관측됨**을 뜻한다. 중간 분석은 보존된 이력이고 최종 대기 표기는 종료됐다.
-
-> **2026-10-11 00_46 경기 / Main 확정 중간 분석·전체 FAIL/OPEN:** Android Host ↔ Editor Client, session `7ae2bf913d26ef160260670c64aaf46b18f7aeab810be5aa3f7173c70582f367`. 관측 타입 Assault/Sniper; Client Sniper13기의 explicit `Sniper_Attack` binding은 marker1.733333349초(1:22@30fps), cooldown/duration3초이며 Host13기 대조는 agent 확인 대기다. Inferno 문자/타입 관측 없어 이번 Inferno 실기 검증 불가. Host results879/fail0/ready879 ↔ Client results879/ready816/fail63. **63은 표현 실패이며 실제 피해 누락63의 증거가 아니다.** bounded 상세16건은 모두 Expired; 나머지47건 원인은 미확정. 16건 `publishAfterLimitFalse / receiveAfterLimitEstimateFalse / decisionAfterLimitTrue`, Client frame32876 gap0.910803초와 serverclock189.62629→190.736736, anchoredJump 추정0.66~0.79초가 동반한다; 전달 지연·기기사양을 근본 원인으로 확정하지 않는다. Client Unit52 InitTimeout1 별도 관측. Client local ROOT PASS/errors0/evidence complete는 Client C3 FAIL을 덮지 않으며 공식 cross-audit 없음. 최종 programmer 분석 대기. 근거: `_Logs/2026-10-11/00_46_logcat/RuntimeLog_device.txt`(Host), `_Logs/_editor/2026-10-11/RuntimeLog.txt`(Client); Main 인계값이며 문서 담당 추가 raw 분석 아님.
-
-> **2026-10-11 최종 Main UI 인계 / native gate PASS·빌드 시도만:** Assets Refresh 재컴파일 후 KST **00:17:41 Run Unit Action Self Validation 전체 native PASS**(A1/B3/C1/C2, PRODUCTION-TIMELINE의 Inferno exact1.5초 계약, C2-AUTHORITY, C3-PRESENTATION-SHADOW 포함), **00:18:47 Self Validate Unit Root Pose Cross Audit native PASS**. Console 오류0/warning30(의도된 fixture 경고 포함); warning-zero 런타임 증거가 아니다. programmer 소스/config2파일 적용·Main 해시 일치·static4 오류0 유지. **File > Build And Run 정확히1회 클릭**, 즉시 `Importing(Settings/Mobile_RPAsset.asset)`만 관찰한 뒤 UI/log/process 모니터링 전부 중단. 빌드 완료·성공·설치·실기/timing/pixel은 미확인/OPEN. 아래 대기 기록은 이전 단계이며, 과거 UnitAction FAIL의 stale0.50초 기대값과 기존 baseline은 보존한다. clip 추가 검사·해시·수정 및 모든 Task 변경 없음; 다른 VFX 보류 항목은 해소하지 않는다.
-
-> **2026-10-11 추가 Main 인계:** 소스2파일 최종 해시 일치, static4 errors0 / warnings Runtime20·Editor0·Development20·Release24. 실제 AssetsRefresh 완료 후 domain reload 대기; fresh native 메뉴·빌드 결과는 아직 없다. Config SHA256 `0A907B25728237837C2D5298B3E47EEB8570AD093AC2BE4D1FBE0633F67BC275`, 기존 gate SHA256 `65300906C0A98D362F7940393F9219E80C9BCC5CC035A75002911A81965FFB6F` (Main 대조값; 문서 담당의 clip/source 검사가 아님).
-
-> **2026-10-11 Inferno 현행 승인·소스 적용 인계 / 검증 대기:** 사용자 확정 `1:15@30fps = 45/30 = 1.5초`, 주기3초 유지. StatsReference 표의 기존 `1:15(3:00)` 값은 이미 올바르므로 변경하지 않는다. Main 인계상 관련 소스2파일의 1.5초 정합화가 적용됐으며 현행 source gate도1.5초다; 정적 결과는 대기 중이다. **2026-10-10 23:55:57 UnitAction FAIL(기존0.50초 기대값), 23:57:24 ROOT PASS**는 Main 실제 UI 인계의 별도 이력이며, 1.5초 적용 후 fresh UnitAction PASS나 Inferno 타격 검증을 뜻하지 않는다. 이전0.50초 binding/Stats/게이트 근거는 당시 baseline으로 보존한다. 사용자 요청에 따라 clip 조회·해시·수정 없음; 새 native/build 결과 미인계·runtime/timing/pixel OPEN. 직접 피해·DoT·서버 권위 계약과 기존 Human Assault VFX를 유지하고 burn fitting·Spirit endpoint·Tank/Cannon 진단은 보류한다. Sniper/과거 Task 수정 및 새 Task 생성 없음.
-
-> **Sniper 최종 소스/정적 성공·UI 검증 차단(Main):** 승인6파일 구현 완료, Main6해시 재대조 전부 일치·추가 source patch0. static4 반복 exit0/errors0(warnings Runtime20/Editor0/Development20/Release24), actual generator37/37. AssetsRefresh 후 새 Unity Editor.dll23:49:28 / Runtime23:49:30 및 새 disk IL의 Sniper 두 generator case 확인(programmer). reload 후 실제 Console errors0/warnings20. **23:50 Windows 보안 modal: Relay server for Unity AI Assistant public/private network allow/cancel**로 UI 중단; Main은 보안 dialog를 조작하지 않았다. 사용자 직접 보안 선택 대기, 현행 소스의 fresh UnitAction/ROOT 및 Build And Run 미실행/차단. 23:45 UnitAction FAIL은 남는 실패 이력이지 현행 source 결함이나 재실행 PASS가 아니다. native 전체·device/timing/pixel 수용 OPEN, 기존 Human/VFX 보류·Inferno 확인 금지 유지.
-
-> **Sniper 구현·정적 인계(programmer) / Main 최종 대조·native 대기:** 승인6파일 구현 완료 보고. static4 exit0/errors0, warnings Runtime20/Editor0/Development20/Release24. 기존 CLI35 + Sniper in-memory2 = 37/37, 새 fixture 파일 없음. Game one-field normalized initial SHA256 1BD0AC04E04D983EF75EFA5DCFBB68A452F9E789457786B4E3FE807B71F34A4B는 경계 대조용 초기값이며 최종 Game 해시가 아니다. 실제6파일 final hashes/Main 독립 검토는 대기, artifacts Temp/expiry-clock-history. UnitView·Assault policy·Human/Cannon 참조·VfxConnections 보존 및 Inferno access 없음은 programmer 인계. 새 native/UI gate·build 시도 결과 없음, runtime/timing/pixel OPEN. 아래 계획 대기는 당시 이력이다.
-
-> **Sniper1:22 승인 Task / Plan ready(2026-10-10 23:30):** 현재 clip52/30초·cycle3초 보존, type2 Stats/fallback hit 정합화·명시 production clip·기존 bounded PIST diagnostics/gate 확장 계획. programmer 기술 Plan Main 검토 및 GO 대기, 적용/static/native/build 인계 없음. 사용자 빌드 시도 승인과 실제 시도는 구분한다. 기존 HumanTower 실제 Assault 참조 유지, 기타 VFX 보류·Inferno 확인 금지 유지. 근거: [Sniper Plan](_Tasks/2026-10-10/23_30_sniper-attack-timing-correction/Plan.md).
-
-> **Human ONLY 최종 적용(Main 실제2파일 검토 완료):** Human 별도 preset의 _vfxPrefab ONLY → Assault(type1)의 실제 production VFX: EffectPreset_Pistoleer_Attack → vfx_pistoleer_attack, GUID badc7c96fdc06564fb9f9af71d1ddf68/root5594113295059828660. 기존 fixture는 Tank/Cannon=actual Tank, Assault/Human=actual Assault 및 Human 별도 preset을 검사한다. Editor static exit0/errors0/warnings0, 문서 담당 현재2해시도 인계와 일치. Assault 기존 preset·Tank/Cannon 참조 불변(Main/programmer); 다른 필드·VFX 실물·gameplay/Stats 변경 없음. 새 native/UI/build/Git 미실행·실기/pixel 미검증. Inferno는 사용자 clip/event 변경 보고만 유지하며 inspection/hash·Stats 동기화 검증 없음. burn fitting·Spirit endpoint·Tank/Cannon diagnostics deferred/미해결. 아래 대기/계획 및 이전 native는 단계별 이력이다.
-
-> **최신 HumanTower ONLY 사용자 승인:** Human 별도 tower preset의 prefab 참조만 기존 Assault actual VFX로 교체한다. Tank/CannonCart는 Tank VFX 및 shared Cannon preset 유지. Human preset 이름/SFX/offset/scale/나머지 값·VFX 실물·피해/HP/주기/범위/Stats 불변. 실제 programmer 경로/identity 조회·Main 검토·구현 인계 대기, 새 정적/native PASS나 빌드 주장 없음. Inferno는 사용자 clip/event 변경 보고만 기록하며 확인/hash 조회하지 않는다; 새 값·Stats 동기화 미확인. burn recipient fitting·Spirit original-target endpoint·Tank/Cannon diagnostics는 보류/미해결. 이전 세대상 Tank 계약은 당시 이력이다.
-
-> **21_43 최종 근거(Main/programmer):** Assault 양쪽56 Ready56/fail·reject·pending0, 이번 Expired0; clockInvalid1은 GameEnd transport closure. Client source52/result 교집합51·사망/despawn 종료 result-only5는 버그로 세지 않고 source-only1은 unresolved다. Inferno 실제 양 prefab/controller marker·Stats0.5/cycle3 확인, 문서1:15 모순 및 Start↔HP 정밀 측정 OPEN. source Host132/122/10·Client131/120/11/failure0/overflowTrue. burn Host Play·Drain·Return32/Client31, Pub40/Receive38는 merge 가능성으로 loss2 단정 금지. Tank/Cannon 누락 원인은 타입별 diagnostics 부재로 UNKNOWN. Tower Human22+Spirit8 exact 전달/play missing·extra0이나 dynamic target tracking/refit·pixel 수용 증거는 아니다. 제안은 미적용이며 현재 Tank 공유 계약 유지, 이전64/50 원인 OPEN. 상세는 기존00_19 및 Assault Task 최신 최종 인계.
-
-> **2026-10-10 21_43 새 실기 분석 OPEN:** 사용자 Inferno 피해 조기 표시/burn recipient별 크기 문제, Tank·CannonCart 간헐 효과 누락 관찰. SpiritTower 원래 피격 이동 유닛 endpoint 추적 및 HumanTower Assault VFX는 미적용 후속 요청이며 현재 세대상 Tank asset 공유 계약은 유지한다. Main Editor 부분 END C3 56/56/56/fail0이나 clockInvalid1/coverageUnknownTrue, Inferno raw131/started120/suppressed11/overflowTrue로 전체 수용을 증명하지 않는다. disk marker0.5와 문서1:15 불일치의 실제 binding/runtime은 조사 중(live1.5 단정 금지). 기존 native PASS와 새 경기 timing/pixel·타입별 최종 상관관계 OPEN을 분리한다. 상세: 기존 `2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Research.md` 및 Assault Research/Plan. 규칙·코드·에셋 변경 없음.
-
-> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
-
-> **두 번째 fixture 보완 적용·Main 실제 소스 검토 완료:** actual config AutoTower/Spirit row로 temporary data 초기화·lethal preflight를 적용하고 finally 첫 단계에서 EXACT 기존 `_data` 참조를 복원한다. throwing subscriber/death/remove assertion은 유지, Production/Stats asset 변경 없음(Main/programmer 인계). 현재 Editor compile exit0/errors0/warnings0. 현행 fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변; 문서 담당 현재2해시도 일치. 이전93B11D…/1C196A…는 단계별 이력이다. fresh native 결과는 대기,16:32 RED→lifecycle 보완→16:37 tracer/impact/HP 경계 통과·후속 nullStats fixture FAIL→두 번째 보완 적용을 구분한다. ROOT16:33 PASS 별도·build 미시도·runtime/visual OPEN이며 전체 PASS로 쓰지 않는다.
-
-> **최신 native — Main16:37:26 인계:** fresh UnitAction에서 이전 missing manager/tracer 실패는 해소됐고 실제 tracer·impact/HP assertions 통과, 해당 END failures0을 확인했다. 이후 VfxConnections line256 `Expression subscriber exception cannot prevent death/remove workflow` assertion에서 새 FAIL이다. tower fixture의 attack applied0/HP1(nullStats 컨텍스트)은 관찰값이며 원인 확정이나 production death/remove 결함 증명이 아니다. programmer read-only 진단 대기, build 미시도·runtime/visual OPEN.16:32 RED→fixture lifecycle 보완→16:37 이전 경계 통과/후속 경계 FAIL을 분리하고 전체 PASS로 쓰지 않는다. ROOT16:33:29 PASS는 독립 이전 결과다. 아래 기존 대기/실패 문단은 당시 이력이다.
-
-> **16:32 RED 원인·최소 fixture 교정 적용(Main 실제6행 patch 검토):** EffectManager Instance는 private Awake에서만 등록되고 ExecuteInEditMode가 없다. fixture AddComponent/Initialize가 lifecycle을 누락했으며 tracer asset 참조 존재·event 전달은 확인됐다. 같은 existing VfxConnections 파일에 actual Awake 호출 + Require Instance==manager + tracer nonnull preflight를 적용했고 Main이 실제6행 patch를 검토했다. 최종 SHA256 `93B11DB06A043E3B86E8002BB1991F05016718F124BECABBA11AE22BC6AF9878`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변. 기존 actual tracer-play/HP assertion은 약화하지 않고 production 소스/asset 변경은 없다. 현재 Editor compile exit0/errors0/warnings0; Runtime 불변·이전 static4 성공은 별도다. 교정 후 새 native 결과는 인계 대기이며 Action16:32:17 RED는 보존한다. ROOT16:33:29 PASS(Main UIstatus/Editor.log)와 source2 frozen/protection match는 별도, build 미시도·runtime/visual OPEN.
-
-> **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
-
-현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
-
-> **15:47 native blocker 원인 확정·사용자 선택 대기:** 현재 Tank production `UnitEffectConfig` type6는 `EffectPreset_Cannon_Attack`→`vfx_cannon_attack`이며 UnitView/EffectManager override 없음(Main/programmer 인계). 새 Human tower preset은 `vfx_tank_attack`이어서 actual Tank 공유 fixture와 다르다. 현재 Tank 시각 공유 versus Tank 이름의 새 asset 사용은 Main이 사용자에게 질문한 선택 대기다. 선택 전 Human 계약/Tank/Stats/소스 변경·빌드 없음. ROOT15:52:38 독립 PASS이며 Assault5 freeze/CLR 성공은 유지한다. Action15:47:57 FAIL은 선택 대기로 유지한다.
-
-> **2026-10-10 Assault canonical Tick 최신:** 승인5소스 적용·최종freeze 보고, static4 errors0/exit0 및 Replay/Dev/Release CLR exit0 수신.12:51 canonical Tick/bounds fixture PASS, actual endpoint14 Ready/50 Expired. all-retained Tick33 Ready/31 Expired는 synthetic preseed이며 추가19건의 실제 교정 증명이 아니다. 원64 pending/lifecycle 입력 부족·나머지50 원인/runtime OPEN. Main 최종 freeze check22항목 mismatch0/VFX unexpected0 확인 인계, freeze 이후 source 변경 없음. fresh Unit Action15:47:57은 Human tower 별preset의 Tank prefab 공유를 거부한 VFX connection fixture로 FAIL; Assault CLR 성공과 별도다. fresh ROOT15:52:38 실제 PASS(Main UI/Editor.log 확인), Unit Action FAIL·사용자 선택 대기·빌드 미시도. VFX44는 Map＋기존fixture host2변경/다른42불변의 programmer 보고이며 보호6＋Assault clip 불변.
-
-상세 근거: [기존 Assault Research](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 과거 날짜별 기록 및 기존 VFX44 native/coverage OPEN은 보존한다. 다음은 Main hash 확인→별도 VFX native 실패 교정/새 gate→승인 빌드 시도 및 사용자 runtime 수용이며 전체 PASS로 닫지 않는다.
-
-
-> **2026-10-10 현재 freeze / 정적 보고까지·전체 OPEN:** programmer44파일 snapshot(추가24/수정20)과 09:53:38 Runtime/Editor/Development/Release static4 exit0 보고 수신. Main SourceHash44 재확인 완료(Files44/Mismatches0/ChangedPaths=null, tool39f796), 보호6파일은 Bloom clip baseline 포함 모두 일치 인계다. UnitAction·AuthoritativeAttackPresentation 기존 fixture 확장은 연결됐으나 실행 전이고 Root 기존 gate는 불변이다. capacity·clock deadline/NaN·mode matrix·forced teardown·wire assertion 범위는 미완이다. native Action/ROOT 미실행(UI activation2 timeout)·빌드 미시도·실기/visual 미확인. writer-owned remaining-flight tracer와 immutable due impact, local Legacy HP marker·서버 즉시 타워 피해·actual DoT3초·Stats/cycle/range를 유지했다는 구현 보고와 실제 수용은 별개다. 최대 약0.8초 초기 정상 visual tail 설정은 실제 pixel 종료시간 PASS가 아니다. 기존 미인계/수정 중 단계와 다른 작업 PASS는 dated history다. [현재 구현·coverage·Task manifest](Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계).
-
-> **2026-10-10 재개 후 실제 수정 관측 / native 입력 blocker:** Main 인계상 programmer09:36 source·09:42 RunUnitActionSelfValidation 수정 진행 확인. 최종 freeze/inventory/static 결과는 아직 대기다. Unity window67396 확인 후 activate timeout→window 재선택/get_window 복구→재시도 timeout으로 native 입력 중단. 이번 두 메뉴 미실행·빌드 미시도·완료/실기 미확인이다. UI 접근 실패를 게임 결함/native gate FAIL로 판정하지 않는다. [재개 ID·중간 근거](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계). 아래 구현 승인 단계 및 이전 작업 완료 이력은 보존한다.
-
-> **2026-10-10 현재 단계 — 사양·Task Plan 승인 / 구현 진행 중:** Main은 Task4 실파일·기술 Plan 검토를 완료하고 programmer에게 구현 허가를 전달했다. Mushroom tracer/짧은 impact/recipient poison, Inferno burn 및 Type+Race AutoTower 연결이 대상이다. 피해·HP·주기·범위·Stats 불변, Unresolved/Legacy 유지. 구현 완료·새 정적/native gate·이번 빌드 시도/완료·runtime/visual 수용은 아직 미인계다. 이전 Bloom 자동 gate·실기 및 제작/GUID 검사 이력을 새 연결 PASS로 재사용하지 않는다. [현재 계약·Task 경로](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계).
-
-> **2026-10-09 Bloom HoT VFX 현재 상태 — 구현·양 peer 관측 / 전체·visual OPEN:** 서버 실제 recipient provenance/current-state writer·복제·single presenter, 동일 owner refresh no restart·종료 StopEmitting/drain/lease가 연결됐다. native Action/Root self-validation PASS와 실제 playback/종료 로그는 별개다. Match5638580898903259950의 Publish/Receive 차이는 같은 frame rev2 재생, Client NotStarted는 수신 후 LocalDeath로 확인했으며 grant/수신 누락·MissingAsset으로 분류하지 않는다. 강제 cleanup은 자연 종료 PASS가 아니다. Client C3 failures64 FAIL은 detail16만 Expired 분류 확인·나머지48 미분류로 원인 미확정이며 PhaseClockRegression도 별도 OPEN이다. 양쪽 local ROOT와 ready 범위 required visual 완료는 formal cross-audit/전체 PASS가 아니다. 이전 빌드 시도1은 JDK preparation 관찰뿐이며 완료·성공·설치는 미확인이다. 신규 Mushroom3·Inferno burn·RuneSpire attack은 제작됨·GUID 참조 미검출·게임 미연결이다. 상세 집계의 단일 원본은 [VFXSFXList](Assets/VFXSFXList.md#bloom-hot-최신-관측-근거)다. 아래 날짜별 기록은 이력으로 보존하며 전체 gameplay/타유닛/migration 완료로 확대하지 않는다.
-
-> **2026-10-09 00_10 새 실기 핵심 / Client C3 FAIL·OPEN:** session027acf…7349, Host C2/C3 1831/failure0·required1779/1779, Clientaccepted1831/reject0·ready1827/Expired4·required1775/1775(ready subset). 실패 snapshot anchor는 completed-bundle/result없음으로 diagnostic 격리 적용 근거이나 경기 전체 anchor 증명 아님. 동일 frame 네 Assault 건은 수신 estimate부터 limit 약10.565ms 초과, local대기73~78ms/음수jump를 별도 domain으로 분리하며 네트워크·렉 원인 미확정. HostMOVE18134 adapter/Fatal0, 양ROOT INCOMPLETE/coverageFalse(errors/drop0), 이전PASS 재사용 금지. raw331365는 coordinatorEND FAIL이며 별도 crash 확정 아님. 심층 최종 인계는 대기; 이번 docs만/새source·build0, source/timing/pixel/perf OPEN. [exact scope/raw 경계](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 23:10 최종 gate 인계 / runtime OPEN:** Main UI에서 새23:09:32 C2/C3(detail포함)·Required production fixture와23:10:44 ROOT-CROSS-AUDIT self-validation PASS 확인. source hash 불변, Console errors0/warnings29→31; token refresh timeout·짧은 Logcat modal/도구 timeout 복구는 실제 경기 crash 증거 아님. daily log는18:52뿐, fresh gate 증거는 UI snapshot 인계이며 저장 새 runtime log 주장 없음. 제한된 diagnostic clock 결함 교정 검증, 실제4Expired/perf/source/timing/pixel OPEN. 이번 build/scene save/Git/asset 변경0, UI 대기 종료; 아래 pending은 당시 이력. [최종 상세](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 diagnostic clock 격리 구현 / 실기 OPEN:** 기존 source2 교정·Main review, 정적4경로 errors0(기존 경고), 현재 CLR replay Dev/Release exit0. unrelated-result-jump는 oldDevExpired→current양쪽Ready/time100.101 동일, genuine late/wait Expired·Shadow 행동 유지. endpoint4는 여전히Expired/seq11 대조Pending(Ready 아님), CLR partial/synthetic·중간Tick 누락으로 실제4 인과/렉/marker/timing/pixel 미해결. 새 Unity reload 진행 관찰뿐이며 actual 새 메뉴 결과 대기, 이번 build요청/시도0. 아래 미구현/제안-only는 이전 단계 이력이다. [구현·manifest·한계](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 18_52 최종 분석 / C3 FAIL·runtime OPEN:** C2 양측3180정합, C3 Hostready3180/fail0·Client3176/Expired4(ready표현3037정합). pending 정상소모705/767·max2/overflow0이나 marker-absent Host358/Client12가 남아 전수 source fix PASS 아님. Assault47/BearGuard8/Bloom8/Torrent0, Bloom63 exact delivery 정합. Hostadapter/Fatal0·양peer local ROOT PASS는 formal 멀티/timing/pixel 수용 아님. ERROR는 coordinator 진단이며 별도 crash/throw 증거 없음. expiry 기여·성능·source/timing/pixel OPEN, 로그밀도만으로 렉 원인 단정 금지. 최종 인계 완료/이번 문서만 수정; 아래18:03 ready는 자동 gate 이력. [최종 근거](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 18:03 최종 교정 인계 / runtime OPEN:** source5 freeze, UnitView pending owner8/64hits와 immutable old-context exact once-only routing 교정 경로 준비 완료. 실제 Unit Action18:01:47·Root18:02:42 PASS, formatter/독립CLI35 failed0, Console0errors/27warnings. 17:58:24 missing route fixture FAIL과 refresh는 별도 보존; stale-loaded generator는 의심이지 확정 원인이 아니다. RED는 교정 후 production full-close negative control이며 수정 전 baseline TDD 실행이 아니다. manager 없는 emitter callsite 검증은 pixel 수용이 아니다. 18:03:22 Build And Run1회 직후 URP Settings Importing만 관측하고 감시 중단; 완료/성공/설치/실행 미확인. source/timing/pixel 새 실기·clock/rate/RPC 기여는 OPEN, 정상 scope0 unknown 한계 유지. 아래는 이전 실제 분석·준비 단계 이력. [최종 인계](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 b41f 최종 source 분류 / OPEN:** result-present source-absent Client32=이전 미소비 lease revision 교체23+공격자 사망9, Host6=first-close despawn. 이전 lease close→새 bind→이전 loop callback 거부23/23을 확인했다. 새 owner19는 후속 정상 Marker/VFX를 기록해 23새 owner 영구 손실이 아니다. 정상 unscoped omitted474/476·bounded unknown은 실패 수가 아니다. source defect·deeper clock/rate/RPC 기여·timing/pixel OPEN; 아래 채널 정합과 독립 판정. [최종 분류](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 새 b41f 경기 / 전체 OPEN:** Assault41·Torrent9·Bloom0. C2183정합/C3양쪽183방출·failure0, Torrent72수신/71VFX는 wave72 정상 종료 취소만 제외하며 contact104 양쪽 text exact-key 누락0. full-HP zero-heal129는 정상 미발행이다. Client valid-scope WrongAbsolute23은 별도 source 표현 결함; scope0 unbound11/unknown16을 실패에 더하지 않는다. deeper lease 원인·timing/pixel 수용 대기, 이전 결함 fix 증거 아님. [새 경기 상세](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 진단 후속 ready / runtime OPEN:** 진단7파일 freeze 후 실제 Unit Action12:52:08·RootSelfValidate12:53:24 PASS, Unity 생성fixture32·독립CLI32/failed0. 최초12:48:10 fixture 누락 FAIL과 compilation refresh를 분리 보존했다. Console errors0/warnings27, Game SHA 시작 동일. Build And Run1회 직후 Building Player/Backup & unload 관측 뒤 모든 UI/log 감시 중단; 완료·성공·설치·실행 미확인. gameplay fix/새 실기 수용 아님. 아래 분석은 이전 경기 근거로 유지. [현재 결과](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 Assault 역할교대 분석 완료 / 전체 OPEN:** 설정0:05 일치와 피해 전달은 확인했으나 Client source incomplete644/74는 관측 누락이며 정확한 실패 수가 아니다. 1차 Client C3 Expired7은 수신 후 지연·표현 FAIL, ready 부분집합 성공과 구분한다. 2차 C3fail0과 별도 Torrent VFX199/224·text198/216 거부를 분리한다. MOVE/ROOT 네 로컬 gate 성공은 formal CrossAudit·정확 타이밍/visual 전체 PASS가 아니다. 이번은 문서 분석만, 코드/빌드0. [실기 단일 근거](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)
-
-> **2026-10-08 Assault 구현:** 30fps 0:05 기본 타격값·명시 클립 연결 및 타입별 읽기 전용 진단을 반영했다. 공격 주기·서버 권위는 유지한다. 자동 검증/빌드 시도 증거와 실기 OPEN은 [현재 Plan](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Plan.md)에 기록한다. 아래 Pistoleer 분석은 이전 작업 이력이다.
-
-> **최신 단일 경기 분석 2026-10-08 / overall OPEN:** Pistoleer만 관측된 Editor Host/Android Client 경기의 payload·피해 필수 표현 일치는 확인됐다. 이전 source 누락 상세 표본은 없지만 clock으로 completeness unknown, 종료 후 callback 의심 별도 OPEN이다. ROOT INCOMPLETE는 단일 타입 coverage 부족이며 formal CrossAudit 미실행. Torrent/Bloom runtime·정확 시각/픽셀/full migration 수용 아님. 사용자 씬 폐기로 이전 복구 탐색은 종료됐고, 이번은 분석 문서만이다. [단일 근거](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#109-최신-저장-단일-경기-분석-2026-10-08-0126-인계)
-
-> **최신 2026-10-08:** 사용자 Game 씬 폐기로 이전 MistShrine 복구 대기를 종료하고 세 유닛 clip 연결만 재적용했다. fresh Unit Action/Root 메뉴 PASS 후 Build And Run 시도·MissingProjectID Yes·JDK 검사창 관찰, 저장창 없음. 이후 감시 중단·완료/설치/runtime 미확인. 아래 recovery OPEN/build blocked는 이전 단계이며 사용자 실기·정확 시각/full migration은 여전히 OPEN이다. [현재 증거](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#108-사용자-씬-폐기-후-세-유닛-attacktimeline-연결-재적용-계획-2026-10-08)
-
-> **복구 후보 최신 부기:** 사용자 Git read-only 승인 후 HEAD old Mist panel 후보가 확보되었으나 semantic/block-level diff 분리 대기·복구 미완/build blocked다. 정당한 후속 Pistoleer 설정 때문에 Game 전체 덮어쓰기는 불가하다. 아래 baseline 미확보는 이전 탐색 이력이다. [최신 경계](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#107-무관-mistshrine-setup-실행자동저장-사고와-씬-범위-정정-2026-10-08-기록)
-
-> **[🔴 2026-10-08 correction — original kept: 이전 scene0·저장창 미선택 인계 정정]** 무관 MistShrine setup 실행·Game 자동저장이 확인되어 작업 전체 “씬 수정0” 주장은 부정확했다. 최신은 사용자 Cancel 확인이며 이전 disk 저장 복구를 뜻하지 않는다. 원본 Game baseline/serialized diff 미확보, Temp backup은 LOGIN: recovery OPEN/build blocked, 복구/새 빌드 미실행. source8·compile·두 메뉴 PASS와6hash 불변은 독립 근거로 보존하며 Game 안전성/빌드 시작 증거로 확대하지 않는다. 아래는 원문 이력이다. [사고·정정 상세](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#107-무관-mistshrine-setup-실행자동저장-사고와-씬-범위-정정-2026-10-08-기록)
-
-
-> **Pistoleer 10-07 최종 교정·자동 gate / runtime OPEN:** 기존8source 완료·resolver contract3, 실제 기존 메뉴 RED→GREEN·메인 독립 CLI 인계. Unit Action20:09:00 / Root20:10:11 PASS·실제 Console error0. exact timing/pixel/runtime 수용/full migration OPEN.20:10:51 Build And Run 클릭 후 Game 저장 확인창에서 선택 대기(모두 미선택·씬 수정0), Building Player 시작/완료 미확인·이후 감시0. 아래는 이전 이력이다. [최종 상세](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#106-사용자-승인-후속-교정-준비--논리-회차와-native-재생-epoch-분리-2026-10-07)
-
-
-> **Pistoleer 10-07 새 두 경기 분석 / 전체 수용 미완:** canonical 피해 결과 전수 일치의 결과 정합 범위는 수용하나, 정상 Host HitApplied19 scope의 raw marker/VFX hook 공백은 발사표현 누락 의심·원인 OPEN이다. parser schema/fresh clock 경고와 normal pause duration 미확정을 별도 보존하며 오류0/Started 실패0만으로 전체 정상·정확 시각 PASS를 선언하지 않는다. formal CrossAudit 이번 미실행, exact timing/pixel/full migration OPEN. 이번은 분석 문서만, source 변경0. [단일 상세 근거](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#105-최신-역할교대-두-경기-로그--2026-10-07-최종-facts-인계); 아래 prebuild/이전 경기 기록은 이력이다.
-
-> **Pistoleer 10-07 구현·빌드 전 수용 완료 / 전체 OPEN:** 기존11파일 epoch/native occurrence·진단/parser 교정과 부족했던 native multihit/crossfade gate 보완 완료. 최종4경로 errors0·CLI23 독립 PASS·실제 Unit Action14:06:49/Root14:07:44 PASS. 실제 controller/relay/production VFX callsite 검증이며 입자 pixel·새 실기 수용은 아니다. Build And Run1회 Building Player / Backup & unload 관찰 뒤 감시 중단(완료/설치 미확인). 다음은 사용자 빌드 완료 확인과 새 exact-scope VFX/타이밍 실기; 정확 타이밍·육안·MigrationRequired/full migration은 OPEN. 아래 분석·미완 기록은 이력이다. [최종 근거](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#104-최종-구현빌드-전-검증과-빌드-시도--2026-10-07)
-
-> **Pistoleer 10-05 역할교대 최신 판정 — OPEN:** results878/accepted878·visual728/728 실패0은 전달 증거. sampled64 scope/role 중 LIVE Client2회는 marker 뒤 arm→다음 marker 전 retire의 scope/연속 phase 연결 결함과 강하게 부합하나 픽셀 VFX 부재·완전한 인과 증명은 아니다. parser Miss sentinel/revision축/rebased-clock 해석 오류 및 기존 fixture production 의미 coverage 부족을 분리 기록했다. 정확 타이밍·육안·MigrationRequired는 OPEN, 이번 턴 수정/빌드 없음. [최신 분석](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#9-역할교대-실기-분석--2026-10-05-03460349-kst)
-
-> **Pistoleer 최신 경기(2026-10-04 23:06 KST) — focused 로그상 긍정·정확 타이밍/육안 OPEN:** Editor22:31–22:34 / device22_56 paired session192c9a08…34711d의 단독235개(Blue119/Red116) 생산·Client 생성; Ready/commit/schedule 각1302, Host 결과1225=Client accepted1225(failure/reject0), 양쪽 필수 표현1020/1020(failure0). Host 이동220148 frames 핵심/fatal0·Client 복제1655 samples invalid/conflict/entrygap/order0·최신 ERROR/FATAL 양쪽0. ROOT는 representativeTypes<2로 INCOMPLETE(errors0), cap64가 전체235 coverage는 아니다. marker/실제 Impact 상세 없어 실제0.8초 offset·2초 주기는 계산 불가, 전체 exact-key join·최신 육안 PASS·full migration/분류 승격 없음. 두 메뉴 PASS와22:09 빌드 preflight만 관찰 기록은 유지한다. Blue 이벤트 확인/의도적 설정 변경 없음 진술과 이전 원인 미확인 해시 관찰은 함께 보존한다. [분석](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#6-최신-paired-경기-분석--2026-10-04-2306-kst) **2026-10-05 진단 보완 인계:** 기존6cs+Application helper/meta+읽기 전용 Tool 구현, 새 static4종 errors0·양 역할16 fixture CLI exit0. 새 Unit Action00:45:26 UI/Editor 로그 PASS·Root00:48:23 UI PASS(Root 추가 raw-log 읽기 미실행). Build And Run1회 BuildingPlayer/BuildPreProcess 관찰 뒤 사용자 지시로 감시 종료; 완료/설치/실기 미확인. 실제 타이밍·육안·MigrationRequired 판정은 그대로 OPEN. [새 인계](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md#8-진단-구현새-검증빌드-시도-인계--2026-10-05)
-
-> **Pistoleer 0:24 교정(2026-10-04) — 3파일 구현·Unit Action PASS / Root self-validation PASS·22:09 빌드 시도만·실기 OPEN:** config hit 0.8초(주기 2초), Game UnitFactory 명시 Attack 및 기존 production gate 보강을 메인이 검토했다. 새 static 4경로 errors0, 실제 Refresh 뒤 22:04:36 Unit Action PASS. 클립/VFX/Idle·서버 권위·분류 불변, 실기 수용은 미확인. [Task](_Tasks/2026-10-04/21_58_pistoleer-attack-timing-correction/Research.md)
-
-> **§23 최신 역할교대 saved-log 분석(2026-10-04) — first-entry/due/postdispatch cooldown/등록 기준 duration focused 관측 수용·전체 Bloom OPEN:** Android Host/Editor Client 및 Editor Host/Android Client 신규 두 경기에서 Expired27/27이 등록 후3.001368~3.107432초·now>=Deadline, early0이었다. 각 경기 FirstEntry7/7 및 exact Play/Marker55/63 일치. 별도 B 시작/rebind wave clock 경고는 미해결 관찰이며 HoT 인과 증거가 아니다. visual/VFX·Client HP/text 전수·skill HoT/invalid-clock/movement-replaced coverage는 미시험이다. §21 실패 baseline/§22 구현·메뉴 이력 보존, 이번은 로그 분석·문서만. 상세 기존 Bloom Research/Plan §23.
-
-> **§22 최종 native 인계(2026-10-04) — source1파일·static4 errors0·실제 새 기존 두 메뉴 PASS / 새 HoT runtime·전체 OPEN:** final source16:24:35 뒤 실제 Assets Refresh로 native Assembly-CSharp16:28:31/Editor16:28:32 갱신, reload busy 해소 및 Unit Action/Root SelfValidate 새 실행 PASS를 메인이 확인했다. 새 production HoT fixture·Analyze·게임 runtime 증거는 아니며 이번 빌드 없음. 아래 import/메뉴 대기는 당시 이력, §21 조기 종료 baseline·정책/수치 불변과 runtime OPEN 유지. 상세 기존 Bloom Research/Plan §22.6.
-
-> **§22 최신 구현 인계(2026-10-04) — 공통 continuous Heal 등록 기준 duration source 완료·새 static4경로 errors0 / 두 Unity 메뉴 대기·runtime OPEN:** 메인 review로 UnitCombatUseCase.cs 한 파일 반영을 확인했다. Bloom+skill HoT의 scaled 등록/deadline 계산이며 수치·authority·에셋/UnitView·ticker·DoT 불변이다. 실제 Assets Refresh 뒤 Unity import 진행 중이고 native DLL은 아직 이전14:15본이다. 이번 빌드 없음·새 메뉴 PASS 주장 없음. §21 조기 종료 증거는 교정 전 이력, 새 duration runtime 수용은 OPEN이다. 상세 기존 Bloom Research/Plan §22.5.
-
-> **§21 역할 한계:** 이전 §19 실패는 Android Host/Editor Client, 이번 수용은 Editor Host/Android Client 두 run만이다. 교정 후 Android Host first-entry 실기 coverage는 미확인·모든 플랫폼/역할 보편 해결 proof 아님. 새 역할교대 시험 요청/실행 없음.
-
-> **BloomFairy §21 최종 로그 판정(2026-10-04):** first-entry/반복 전달·due·postdispatch cooldown의 **focused 관측 수용**. 공통 HoT의 누적 Elapsed3과 실제 등록→종료는 별개로, 약70ms 짧은 duration 잔여는 OPEN·후속 제안만/코드 미수정이다. **전체 Bloom OPEN**: visual/VFX·Client HP/text 전수·movement-replaced 재진입 수용 없음. 원수치·3초 정책·클립/authority 불변, VFX 후 육안 선호는 제작 승인 아님. §20 이후 이번은 saved-log 분석·문서 갱신만이며 새 빌드/자동 검증 없음. 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §21.5/Plan §21.1. 아래 Timing 대기·이전 실패는 이력이다.
-
-> **BloomFairy §21 최신 두 실기 로그(2026-10-04):** TeamRed 생산13/13 FirstEntry accepted·총83 exact Host/Client Play로 **첫 진입/반복 전달 회귀의 focused 로그 관측 수용**. cast별 최신 revision 전수 수신이며 중간 inactive 차이는 시작 누락이 아니다. Timing/HoT 최종 확정 인계 대기, callback pose/MOVE/local ROOT는 pixel/model visual·formal CrossAudit PASS가 아니다. **visual/VFX 및 전체 Bloom OPEN**; 사용자 VFX 후 육안 확인 선호는 제작 승인이 아니다. 정책/스탯·에셋·source 무변경, 단일 상세 근거 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §21. 아래 미실기/실패/PASS는 해당 단계 이력이다.
-
-> **BloomFairy §20 최종 후속(2026-10-04):** UnitView 첫 authority 검사 전 same-object component 확보 교정 구현·새 static4경로 errors0·메인의 실제 새 Unit Action/Root SelfValidate **PASS** 확인. Build And Run1회 실제 클릭 직후 JDK checking 진행창까지만 관측하고 UI/build log 확인 모두 중단했다. **완료·설치·runtime 미확인/빌드 성공 주장 없음·runtime 재시험 OPEN.** fresh-first-entry production runtime fixture 미실행, 이전 fixture PASS는 실제 첫 진입 회귀 수용이 아니다. 클립/수치·authority·post3 정책/다른 타입 불변. 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §20.4; 아래 구현/gate/build 대기·이전 실패는 당시 이력이다.
-
-> **BloomFairy §20 현재 source 후속(2026-10-04):** §19 첫 진입 초기화 순서 결함의 최소 교정이 UnitView에 반영됐고 Sagan 최종/메인 review·새 정적4경로 errors0를 확인했다는 인계다. 실제 same-object component를 Initialize/첫 권위 검사 전에 확보하며 기존 authority·cooldown·stale owner/주석을 보존한다. **새 메뉴 결과·빌드 시도 사실 대기, 새 runtime/사용자 수용 OPEN.** 이전 §18 gate/build와 §19 실패·private cache 미관측은 이력으로 유지한다. 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §20.3. 정책/스탯·에셋·다른 타입 무변경.
-
-> **BloomFairy §18 최종 후속(2026-10-04):** UnitView 한 파일 교정·최종 정적4경로 errors0 뒤 메인이 새 기존 Unit Action/Root Pose Cross Audit SelfValidate **PASS**를 확인했다. 이어 Build And Run1회 클릭 직후 Importing/Settings/Mobile_RPAsset.asset만 관측하고 모든 UI/build log polling을 중단했다. **완료·설치·runtime 미관찰/빌드 성공 추정 없음, 실기·전체 OPEN.** 기존 자동 gate는 새 coroutine runtime fixture/이전 경기 Analyze가 아니다. 정책/스탯·에셋·다른 타입 불변. 최종 상세 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 실기는 §17; 아래 gate/build 대기는 당시 이력이다.
-
-> **BloomFairy §18 최종 정적 후속(2026-10-04):** 코드 담당 인계상 UnitView 한 파일의 최종 정적4경로 errors0이며 메인 source review/추가 owner cleanup 확인까지다. 경고 수는 정적 카운트로만 해석한다. **새 기존 두 메뉴·이번 빌드 시도는 실행 대기, runtime/전체 OPEN.** 정책/스탯·에셋·공통 ticker/다른 타입 불변. 상세 코드·정적·보조 artefact는 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 runtime은 §17; 아래 정적 대기/미승인·미구현 문구는 당시 이력이다.
-
-**2026-10-04 BloomFairy §18 코드 인계 — 반영 확인 / 최종 검증 대기:** 메인 source review로 UnitView 한 파일의 post-dispatch deadline+Remaining 양 조건·entry/owner 보호·bounded 로그와 이전 counter wait 주석 보존을 확인했다는 인계다. 최종 정적·새 두 기존 메뉴·이번 빌드 시도 결과는 별도 인계 대기, runtime/시각 수용·전체 OPEN이다. 정책/스탯·에셋·공통 ticker/다른 타입 무변경. 코드 내용은 `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §18, 이전 runtime 증거는 §17. 아래 분석만/미승인/미구현 문구는 당시 이력이다.
-
-**2026-10-04 BloomFairy 최신 분석 — due 경계 관측 수용 / 전체 OPEN:** §16 교정 뒤 Android Host/Editor Client 두 run에서 due 이전 dispatch와 비교 가능한 첫 positive HP의 marker 이전 적용은 관측되지 않았다. 첫 gain 없는 결과는 FullHP/대상 unavailable/효과 교체로 설명됐으며 unknown HP loss가 아니다. callback 각도는 pixel facing 검증이 아니고 Movie_002에도 exact key/HP onset 결합·사용자 최종 visual acceptance가 없다. 발동 후 cooldown 잔여·시각 방향/연속성은 OPEN, 정책/스탯·코드/에셋 변경 없음. 상세·raw anchors의 단일 근거: `_Tasks/2026-10-03/03_28_bloomfairy-heal-timing-correction/{Research,Plan}.md` §17. 아래 실기 전/교정 전 실패는 이력으로 보존한다.
-
-**2026-10-03 01_03 최신 경기 — 이동·발사 관측 통과 / Client 텍스트 결함 OPEN:** EditorHost/AndroidClient 동일 session81ef6ada…2c25a, epoch4c5fc1a2f46db585. 예약421=발사415+gameend취소6,415wave/VFX exact일치·중복0; lost-primary200파도 실제피해/힐43. MOVE99761 실패0·planned/committed1141·Blocked0, 이전stall 미재현으로 보편적교정 증명은 아님. contact publish/receive320·Hosttext320/Client319, wave1/impact2/unit4 텍스트1건은 clock회귀32.959ms로 거부됐으나damage200/HP300 정상. 별도clock/textOPEN·전체OPEN/UnresolvedLegacy 유지. 기존미실기 상태는 이력; 상세와anchors는23_45 Research/Plan §9. 사용자 빌드/실행 artifact확보, Codex 빌드완료 직접관찰로 소급하지 않음.
-
-**2026-10-03 공통 복구·Torrent 승인 발사 교정 — 구현/통합 확인 완료, 실기 OPEN:** 중앙 서버/싱글 예약 owner(cap1024·객체 identity·current/last-valid original aim)와 General 복귀·A* 인접 hop·현재 Root acquire를 교정했다. 정적4종 errors0, 변경 Unity Console errors0/compile warnings20·self-validation 뒤 총warning25. 00:19:46 Unit Action 네 부분·00:20:28 Root Pose self-validation 실제 메뉴 PASS. Build And Run 실제 시도 후 JDK Checking preflight만 관찰, 빌드 완료/성공·기기 runtime 미확인. Torrent Unresolved/LegacyFallback 및 랠리 Fatal/성능 별도 OPEN. 상세/전체 코드·meta 목록: `_Tasks/2026-10-02/23_45_common-recovery-and-torrent-launch-correction/{Research,Plan}.md`. 아래 미구현/정책 제안은 당시 이력이며 이전 파도 보정 근거는 유지한다.
-
-**2026-10-02 17_05 Android Host 공통 복귀 분석 — 교정 미구현/OPEN:** Torrent24는 16:55:16.886 Blocked 뒤 17:01:23.421 Align·23.460 Move로 약366.5초 후 재개했고 Sagan 정지 위치 표본499건은 spatial record 집계와 별개다. 유효 route 첫 hop 목표거리4→4와 strict-closer center 필터·반복 경로 거부→Blocked는 강한 source 추론이며 fallback guard 결정 로그가 없어 완전 causal 증명은 아니다. 61 corridor 실패(11개 인스턴스)는 전량 recovery/pursuit 복구, 영구 멈춤61개가 아니다. 4137chunk→3453record incomplete0·62dump 완전/진단손실 counter0이나 blocked-only 후속 capture·private ordinal/guard 근거 공백 유지. unit45 stale-Lerp acquire seam, Torrent18/39 Fatal4, unit24 재개 후 EmptySameTile은 구분한다. 공통 코드 적용성은 다른 종류 동일 실기 실패 증명이 아니다. Torrent Unresolved/Legacy 유지; 기존 파도 보정 판정을 이동 결함만으로 철회하지 않는다. 살아 있는 primary의 사거리 이탈만으로 launchwriter 취소는 없고 사망/미존재는 발사 전 skip, 이미 생성된 wave는 서버 contact HP/heal 독립 처리다. server-approved launchreservation/aim 보존은 미구현·정책 결정 필요 제안(고정 시작 방향 승인 아님), 공격자 사망/게임종료 취소는 현행 유지. 상세: `_Tasks/2026-10-02/15_25_common-post-combat-recovery-diagnosis/{Research,Plan}.md` 최신 분석; 아래는 별도 경기/이전 이력.
-
-**2026-10-02 이동 최종 분석 추가(교정 미구현):** 1차 Editor Host Pistoleer7개×최초/cleanup Fatal2=14, 2차 Android Host LittleKnight2+Pistoleer13개×2=30. 서버 공간 상태 불일치→Fatal→종료 거부→후속 이동 취소는 확정; 건물 랠리 종점 TerminalContact의 Root/domain commit 계약 충돌은 유력 근본 원인이나 직전 성공 프레임 미기록·재현 미수행이다. 사용자 멈춤 유닛은 미확인, ROOT PASS는 pose 정합이지 목표 진행 보장이 아니다. EmptySameTile0거리 거부와 wave18 소비 지연은 별개. 건물 목표/실제 walkable 종점 분리·Root/domain 일관성·안전 종료 상태는 권장 검토 방향일 뿐 구현 승인 아님. 전체 OPEN/C3 Unresolved·MOVE FAIL 유지; 아래 원인 추적 중 표기는 이전 인계 상태, 상세는 기존 Research/Plan 최신 이동 최종 분석 절.
-
-**TorrentSpirit 2026-10-02 12:59~13:08 역할교대 최신 — 확정 전달 정합 / 전체 OPEN·C3 Unresolved:** 1차 Editor Host/Android Client(epoch `40c733ed4f786813`) wave147·publish291(피해259/회복32), 2차 Android Host/Editor Client(epoch `491a032ae783db99`) wave176·publish292(피해263/회복29). Client 수신·양쪽text exact key 누락/초과/충돌0, Client VFX exact-wave 누락/초과0; zero60/118 모두 만피 회복 정상, badZero·중복writer0, 양쪽 최종 채널 reject/failure/expiry/pending/fault/overflow0. 기존100ms를 제외한 2차 Client 큰 잔차2건349.511ms·249.849ms(나머지290건 최대21.834ms)는 수락 후 소비 지연이며 원인·적시성 완전 PASS 미확정. 육안은 어느 정도 일치하나 정확 확인 어려움. 양 경기 서버 MOVE FAIL·원인 추적 중, ROOT PASS/Client EVIDENCE는 이동 성공이 아니다. 상세 세션·시간·로그·지표는 기존 `_Tasks/2026-10-01/01_00_torrentspirit-wave-contact-diagnosis/{Research,Plan}.md` 최신 역할교대 절. 아래 기록은 이전 경기·당시 이력으로 보존한다.
-
-**TorrentSpirit 2026-10-02 최신 실기 — 이번 경기 확정 접촉 전달·텍스트 표시 정합 / 전체 OPEN·C3 Unresolved:** 메인 최종 분석 인계 epoch `463c2fb49e473595`에서 wave53 spawn→Client 수신/VFX 재생 성공의 exact wave ID 누락·초과0, 확정 publish144(피해111+회복33)→Client 수신·양쪽 text exact key 누락·초과·충돌0. writer176 중 HP 무변화32는 전량 만피 회복 정상이며 이전 원인 미확정11건을 소급 확정하지 않는다. channel failure/expiry/reject/pending/helper fault/overflow0. 표현은 기존100ms 지연+Host 최대37.781ms/Client31.201ms; 경계 옆 진입 적용은 Units 규칙 29 사례다. raw particle 접촉 좌표·정확 윤곽/접촉 시각·성능은 미확정, 정확 시각 수용·미완 payload/fallback final 경계는 OPEN. 코드·원본 VFX/clip 불변. 상세는 기존 Research/Plan의 최신 테스트 절. 아래 실기 전/컴파일 대기 표기는 당시 이력이다.
-
-**TorrentSpirit 2026-10-02 최종 현행 — 로그 구현·정적 컴파일 인계 완료 / 전체 OPEN·C3 Unresolved:** invariant G17·full UTF-8 final guard 완료, >900은 keyed format-incomplete warning/faults/coverage=false. 최종 byte-format compile 4종 모두 error0·warning Runtime20/Development20/Release24/Editor0. 메인658과 별도 보수적 static fixture 최대699/fallback400은 다른 조건이며 실기값이 아니다. 944는 교정 이력으로 보존한다. Unity/device 미실행·build 미시도, Client normal/snapshot 직접 분리·single fallback server-owner final 미연결 및 정확 시각 수용은 OPEN. 서버 gameplay·원본 VFX/clip 불변. 아래 검토 대기/미해결 표현은 당시 이력이며 기존 TorrentSpirit Research/Plan 최종 절을 따른다.
-
-**TorrentSpirit 2026-10-02 — 전 경기 사건 로그 구현 인계 / 새 실기 전 OPEN·C3 Unresolved:** 32 관측 cap 제거·causal 사건 무샘플링·제외 전이·900byte field chunk/Base64·신규 prefix Info NoStacktrace가 구현됐다. 관측 state active wave512/target1024-per-wave·8192-overall은 누적 파도 cap이 아니며 overflow explicit·causal 계속이다. Client normal/snapshot 직접 구분 및 single fallback server-owner final Bootstrap 연결은 미완이다. 컴파일 인계는 오류0이나 메인 추가 근거 검토 중, Unity 메뉴·빌드·새 실기 미수행·정확 시각 수용 OPEN. 서버 authority/판정/hit-set/HP·원본 VFX/clip·70/30초 발사/4초 cycle 불변. 기존 TorrentSpirit Research/Plan의 2026-10-02 최신 절 참조.
-
-**아래 2026-10-01 최신/미승인 표현은 당시 이력이며 현행은 위 2026-10-02를 따른다.**
-
-**TorrentSpirit 최신(2026-10-01) — 두 경기 실기 근거 확보 / 정확 시각 수용 OPEN·전체 OPEN/C3 Unresolved:** 파도 관측/display 17→32·HP 변화 45→121·전체 Client heal 4→36. 최신 32는 cap(이후 미관측), noHpDelta 11 원인 미확정. ERROR/contract 0은 wave/text 누락 0의 증명이 아니며 실제 expiry 발생 증거도 아니다. 18:15 busy·당시 메뉴/빌드 미실행은 이력, Codex 최종 메뉴/빌드 확인 및 사용자 정확 시각 수용은 주장하지 않는다. 원본 VFX·발사 70/30초·cycle 4초 유지. 기존 `_Tasks/2026-10-01/01_00_torrentspirit-wave-contact-diagnosis/{Research,Plan}.md` 최신 절 참조.
-
-**최종 수정일:** 2026-10-13 *(2026-10-13 병합 — main 쪽 「2026-10-10」 표기는 이 브랜치의 더 뒤 날짜로 올렸다)*
-**최신 인계 반영일:** 2026-10-03(위 최신 절; 종전 날짜 보존)
-
-**SpearMan 현행 상태(2026-09-30) — 0:25 focused 실기 PASS/CLOSED · migration 별도 OPEN:** 생산 Attack 단일 `OnAttackHit`와 type 4 `hitFrameTimes`는 30fps `0:25 = 0.8333333초`, cooldown은 2초이며 Game 씬 명시 연결·영구 production gate·StatsReference `0:25(2:00)`이 일치한다. Unity 재컴파일 오류 0, Unit Action 및 Root Pose Cross Audit **두 self-validation PASS** 이후, 사용자가 실제 공격을 육안상 문제없다고 수용했다. `39af4c6d…52373a` Editor Host/Android Client는 SpearMan 47기+LittleKnight 48기, `9b0404e3…3a4f` Android Host/Editor Client는 SpearMan 28기+LittleKnight 31기를 생산했다. **경기 전체** Host 결과 597/298·실패 0 ↔ Client 수락 597/298·거부 0, 양쪽 C3 ready 597/597·298/298·필수 표현 474/474·271/271·실패 0, local ROOT 양쪽 PASS, Host MOVE adapterFailures 0이다. SpearMan 단독 결과 수치나 정확한 marker→권위 피해 offset을 뜻하지 않는다. 공식 CrossAudit Analyze·전체 25종·Legacy rollback/v2 migration은 미검증이고 `MigrationRequired` 유지다. 과거 LionKnight C3 만료 7건·LittleKnight MOVE 4건도 별도 OPEN이다. 아래 자동 검사 단계의 실기 대기 서술은 당시 이력이다. 근거: `_Tasks/2026-09-30/18_02_spearman-attack-timing-correction/{Research,Plan}.md` 최신 절 및 `_Logs/2026-09-30/18_50_logcat/RuntimeLog_device.txt`, `_Logs/_editor/2026-09-30/RuntimeLog.txt`.
-
-**LionKnight 현행 판정(2026-09-30) — 두 타격 focused 실기 PASS/CLOSED · 과거 C3 만료 별도 OPEN:** 저장 marker/type 22 설정은 30fps `0:18 = 0.6초`, `1:13 = 1.4333333초`다. 사용자 수용 `a8134504…c3aacb5b` Editor Host/Android Client에서 LionKnight 8기·LittleKnight 22기(2/25종)를 생산했고, **경기 전체** Host 결과 216/실패 0 ↔ Client 216 수락/거부 0, 양쪽 C3 결과·ready 216/216·실패 0·묶음 방출 216/216·필수 표현 188/188·Client `Expired` 0, local ROOT 양쪽 PASS였다. 사용자는 육안상 큰 문제 없음을 수용했다. 아래 첫 경기의 Client `Expired` 7건은 미해결 **별도 C3 결함**으로 `12_37_attack-presentation-expiry-diagnosis`에서 원인 진단 OPEN이다. 무만료 한 경기로 원인·근본 수정, 정확한 접촉/피해 offset, 공식 CrossAudit·25종/역할교대/Legacy rollback/v2 완료를 주장하지 않는다. 과거 렉의 원인과 LittleKnight 이전 MOVE 4건도 별도 OPEN. 근거: `_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/`와 `_Tasks/2026-09-30/12_37_attack-presentation-expiry-diagnosis/` 최신 절.
-
-> 아래 「LionKnight 최신 상태 — 실기 FAIL/OPEN」은 첫 `a2d9…c622225` 경기 직후의 이전 판정 이력이며, 현행 focused 판정은 위 문단을 따른다.
-
-**LionKnight 최신 상태(2026-09-30) — 타격 설정 정렬, 실기 FAIL/OPEN:** 저장 Attack clip·type 22 설정은 30fps `0:18 = 0.6초`, `1:13 = 1.4333333초`로 일치하고 Game 명시 연결·영구 production gate 코드가 있다. 승인 경기 `a2d9c80e…c622225` Android Host/Editor Client의 **LionKnight+LittleKnight 2/25종 경기 전체** Host C2 224 결과/실패 0·C3 ready 224/실패 0·필수 표현 199/199, Client C2 224 수락/거부 0이나 C3 `Expired` 7·ready 217/실패 7·224묶음 중 217 방출, ready 범위 필수 표현 192/192였다. 첫 만료는 LionKnight UnitId 2에 대응하며 나머지 여섯 유형은 미확정이다. 양쪽 local ROOT PASS. 사용자는 큰 시각적 문제를 보지 못했지만 심한 렉을 보고했다. FPS/frame-time 미계측으로 렉 원인·만료와의 인과 및 정확한 타격 접촉 시점은 미확정이다. **Client 표현 실패가 있어 focused PASS/CLOSED가 아니다.** 공식 CrossAudit Analyze·25종/역할교대·Legacy rollback/v2 Complete 및 기존 LittleKnight MOVE 4건은 별도 OPEN. 근거: `_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/` 최신 절과 동일 key Host/Client 로그.
-
-**BearGuard 최신 상태(2026-09-30) — 0:13 focused 실기 PASS/CLOSED:** 사용자가 공격을 육안상 괜찮다고 수용했다. 재테스트 `b986fbbc…61d7d94b` Editor Host/Android Client의 BearGuard 11·LittleKnight 49, 2/25 혼합 경기 전체 결과는 Host 641/실패 0 ↔ Client 641 수락/거부 0, 양쪽 필수 표현 608/608·실패 0, 공간 mismatch 0, Host MOVE adapterFailures 0, 양쪽 local ROOT PASS였다. 첫 경기 ROOT INCOMPLETE는 생산 전 관찰 종료로 별도 보존한다. BearGuard 단독 marker→피해 offset·공식 CrossAudit Analyze·25종/역할교대/rollback/v2 Complete는 미검증이다. LittleKnight 과거 MOVE 4건과 BearGuard 설계 주기 `1:20` 대 실제 cooldown `1.2초` 차이는 별도 OPEN. 아래 2026-09-29 실기 전 상태는 당시 이력이다. 근거: `_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/` 최신 절.
-
-**BearGuard 이전 단계(2026-09-29) — 구현·Unity 두 self-validation PASS / 실기 전:** 생산 Attack 단일 `OnAttackHit`와 실제 type 20 `hitFrameTimes`가 30fps `0:13 = 0.43333334초`로 저장됐다. Game 씬 UnitFactory 초월계 type 20의 명시 Attack clip 연결 및 BearGuard 영구 production gate 코드를 추가했다. 재컴파일 후 Unity Console에서 23:43:36 `[UAS-DIAG] self-validation PASS`, 23:45:06 `[UAS-ROOT-CROSS-AUDIT] self-validation PASS`를 확인했다. `File > Build And Run` 후 `Checking prerequisites / Starting Android build` 화면까지만 확인했으며 **빌드 완료·설치·실기·사용자 화면 판정은 미확인**이다. cooldown `1.2초`는 유지, `StatsReference.md` 타격만 `0:13(1:20)`으로 정정해 설계 주기 `1:20 = 1.666666…초`와 실제 cooldown 차이는 별도 OPEN이다. LittleKnight 기존 MOVE-AUTH 4건과 공식 CrossAudit·25종/역할교대/rollback/v2 Complete도 별도 OPEN이다. 근거: `_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/` 최신 절.
-
-**BearGuard 이전 상태(2026-09-29, 구현 저장 직후):** 당시 Unity 자동 재컴파일 중이어서 두 self-validation·Build And Run은 아직 미실행이었다. 그 뒤 2026-09-29 검증/빌드 시작 단계가 있었고, 현재 focused 판정은 2026-09-30 최상단을 따른다.
-
-**TideSpirit 최신 상태(2026-09-29) — focused 시각 PASS/CLOSED:** `ae04f2a9851c45c94bb4d4c73270232400041eb6e3435b08b424d401a8e6bd03` Editor Host/Android Client 20:14~20:16 단일 경기에서 Red TideSpirit 32기·Blue LittleKnight 12기 생산. **경기 전체** Host 결과 160/실패 0 ↔ Client 160 수락/거부 0, 필수 표현 양쪽 129/129·실패 0, 공간 mismatch 0, Host MOVE 74,832 frame/adapterFailures 0, 양쪽 ROOT local PASS였다. Android 초기화 지연 WARN 99와 종료 WARN 1은 최종 viewUnavailable 0/재시도 성공 44로 수렴했고 Android E/F·GameLog ERROR/FATAL 0이다. 사용자가 Tide 공격은 육안상 특별한 문제 없다고 수용했다. 단독 exact marker→피해 offset·공식 CrossAudit·25종/역할교대/Legacy rollback/v2 Complete는 미검증이며 LittleKnight 과거 이동 실패 4건은 별도 OPEN이다. 다음 문단은 실기 이전 상태 이력이다. 근거: `_Tasks/2026-09-29/19_09_tidespirit-attack-correction/` 최신 절.
-
-**TideSpirit 이전 상태(2026-09-29) — 구현·Unity 검증 PASS / 실기 전:** 사용자가 30fps `1:15(3:00)`의 생산 Attack marker를 frame 45에 저장했고, 후속으로 `UnitStatsConfig.asset` 실제 type 16 `hitFrameTimes=[1.5]`, Game 씬 Spirit type 16 명시 Attack clip 연결 및 `RunUnitActionSelfValidation.cs` 영구 production gate를 반영했다. 클립의 단일 marker 1.50초·3초 길이/loop와 cooldown 3초는 일치한다. 재컴파일 후 Unity `[UAS-DIAG]` 19:55:36, `[UAS-ROOT-CROSS-AUDIT]` 19:56:59 self-validation이 각각 PASS했다. Android `File > Build And Run` 클릭 뒤 `Detect Java Development Kit(JDK)` 진행까지만 확인했으며 **당시 빌드 완료·설치·새 경기·사용자 육안 결과는 미확인**이었다. 당시 TideSpirit focused 타격 시각은 OPEN이고, LittleKnight 기존 Host MOVE-AUTH adapterFailures 4/FAIL도 별도 OPEN이었다. 공식 cross-audit·25종 전체·역할교대·Legacy rollback/v2 Complete는 완료하지 않았다. 근거: `_Tasks/2026-09-29/19_09_tidespirit-attack-correction/` 최신 절.
-
-**BoulderSpirit 현재 상태(2026-09-29, 1:10 focused PASS/CLOSED):** 사용자 목표 30fps `1:10(4:00)`에 맞춰 실제 생산 Attack 단일 `OnAttackHit`, `UnitStatsConfig.asset` type 14 `hitFrameTimes`, 영구 production gate를 **40/30초 ≈ 1.3333333초**로 맞췄다. 4초 주기·클립 길이와 명시 scene binding은 유지했다. Assets Refresh/domain reload 뒤 Unit Action·Root Pose Cross Audit self-validation 각 PASS. 새 `0f0bbb32…923eb60` Android Host/Editor Client 경기에서 Boulder 7기 생산, **Boulder+LittleKnight 2/25종 경기 전체** 공격 결과 Host/Client 283/283·필수 표현 양쪽 265/265·오류 0, Host MOVE adapterFailures 0, 양쪽 local ROOT PASS를 확인했다. 사용자가 새 타격을 **“육안상 문제없었어”**라고 수용해 Boulder 공격 시각 focused gate는 **PASS/CLOSED**다. 정확한 Boulder 단독 marker→피해 offset·공식 cross-audit·25종 전체·역할교대·Legacy rollback/v2 Complete는 미검증이다. 아래 1.50초 사용자 수용과 453/414는 이전 버전 이력이고, 그 경기의 LittleKnight MOVE-AUTH 4건은 이번 재발 0건만으로 해결 증명이 되지 않아 별도 OPEN이다. Build And Run은 시작 화면만 관찰했으며 완료 관찰은 주장하지 않는다. 근거: `_Tasks/2026-09-29/03_13_boulderspirit-attack-correction/` 최신 절과 동일 key Host/Client 로그.
-
-**BoulderSpirit 1.50초 교정(2026-09-29) — focused 화면 수용 / 전체 이동 gate FAIL:** 사용자 확정 30fps `1:15(4:00)`에 맞춰 단일 Attack marker와 type 14 설정을 1.50초(주기 4초)로 교정하고 생산 clip 명시 연결·영구 검증 gate를 적용했다. 동일 `sharedSessionKey=06d034abf18c778a02cf56c57c1b8cdf81d9b8f46a74aba5e1a4356161e1a6c4` Editor Host/Android Client에서 Boulder 실제 생산·Host 공격 시작 Ready/Accepted, **경기 전체** 결과 Host 453/실패 0 ↔ Client 453 수락/거부 0, 양쪽 필수 표현 414/414·실패 0, ROOT 각 local PASS/errors 0이다. 사용자 화면에는 약간 늦지만 수용 가능했다. **453·414는 BoulderSpirit+LittleKnight 합계**이며 Boulder 단독 1.50초·subframe은 미계측. 별도 Host MOVE-AUTH `adapterFailures=4`는 LittleKnight UnitId 16/19/21/26의 `post-combat-no-safe-forward-center` `RejectedInvalidPath/Unreachable`이므로 전체 경기 PASS가 아니다. FPS/frame-time 미계측, 이동 FAIL과 화면 지연의 인과도 미확인. 25종·역할교대·Legacy rollback/v2 Complete 미완. 근거: `_Tasks/2026-09-29/03_13_boulderspirit-attack-correction/` 및 동일 key Host/Android RuntimeLog.
-
-**EmberSpirit 명시 공격 연결(2026-09-28, 현재) — focused PASS/CLOSED:** Game 씬 UnitFactory type 11을 실제 `EmberSpirit_Attack.anim` GUID `335daaffd649791409558085159725aa`에 명시 연결하고 영구 production self-validation gate를 추가했다. 두 Unity 메뉴 21:19~21:20 PASS·Console error 0 뒤 Build And Run을 시작했고 사용자가 빌드 완료·실기와 “육안으로 괜찮았어”를 보고했다. 동일 `sharedSessionKey=5500ceab6c19238787382bbd8fb15cf2e5f7f006c7400747a26329a8482dbbbf` Editor Host/Android Client 두 경기에서 Ember 18+34=52기, LittleKnight 46+18기 생산; 경기 전체 Host 결과 299/231·실패 0 ↔ Client 299/231 수락·거부 0, 양 peer 필수 표현 264/264·196/196·실패 0이다. Client Ember 데이터 재생성·UnitView 초기화 각 52건, 네 local ROOT 종료 PASS/errors·drop 0, Client 경기 구간 GameLog ERROR/FATAL 0이다. Client WARN 188건(일시적 spawn-init 및 종료 disconnect 1건)은 경고 0이 아니다. marker/config 1.00초·설정 폴백 2.2초는 유지하고 런타임은 clip 길이 2.6666667초를 주기로 사용한다. 결과·표현은 두 유닛 포함 경기 전체이며 정확한 animation→피해 subframe 미계측, 공식 CrossAudit 미실행이다. 25종 전체·역할교대·Legacy rollback/C3 migration 미완. task: `_Tasks/2026-09-28/21_05_ember-spirit-attack-correction/`.
-
-**RabbitTrickster 타격 marker 후속 교정(2026-09-28, 현재):** 사용자가 이전 경기에서 피해가 공격 애니메이션보다 약간 빠르다고 본 뒤, 생산 Attack의 단일 `OnAttackHit`을 0:20(30fps, 저장값 0.6666667초)으로 옮겨 저장했다. 실제 type 25 `UnitStatsConfig.hitFrameTimes`와 `RunUnitActionSelfValidation`의 Rabbit production 기대값도 0.6666667초로 동기화된 것을 확인했다. 명시 Attack GUID 연결·2초 주기·Supported 상태와 서버 권위 타이머는 유지한다. 새 Editor Host/Android Client 동일 경기 `3fc75ef4…b7beded`에서는 Rabbit 각 15기·LittleKnight 각 13기 생산, 경기 전체 Host 138 schedules/129 results/resultFailures 0 ↔ Client 129 accepted/rejected 0, 양쪽 필수 표현 122/122·실패/중복/전송 실패 0, Host commits 113/correlationFailures·targetMismatches·drop 0을 확인했다. 양쪽 local ROOT PASS/errors·drop 0, MOVE END EVIDENCE이며 관련 시간대 GameLog ERROR/FATAL 0이다. 사용자가 Rabbit 공격을 “알맞게 나오는 것 같다”고 육안 수용하여 **Rabbit 명시 연결·0:20 타이밍 focused PASS/CLOSED**다. 이 수치는 Rabbit 단독 결과가 아니고 정확한 animation→권위 피해 offset은 미계측이다. 공식 Root Pose CrossAudit 미실행, 전체 25종·역할교대·Legacy rollback/C3 migration 미완, 성능 렉은 별도 결함이다. 이전 `7d4f85a6…e2654a5` 경기와 아래 Unity PASS는 0.18초 버전 이력이다.
-
-> **아래 RabbitTrickster 명시 연결 문단은 0.18초 버전의 당시 실기·검증 기록이다. 현재값과 현재 판정은 위 후속 교정 문단을 따른다.**
-
-**RabbitTrickster 명시 연결(2026-09-28) — 구현 완료 / Unity 자동 검증 PASS / 사용자 확인 빌드·실기 수행 / 타격 시각 focused OPEN:** 실제 Game UnitFactory의 Rabbit 등록에 Attack을 명시하고 기존 self-validation에 production 연결·Attack3-first gate를 추가했다. 메인 두 파일 patch 검토 및 15:34:26 UAS/production timeline PASS, 15:35:16 Root Cross Audit self-validation PASS 확인. Console error 0 / warning 1(앞선 동시 새로고침 source version warning, 최종 재컴파일 이후 현재 error 0). 런타임 공통 코드·2초/0.18초 수치·클립·다른 유닛·Supported 상태는 유지한다. 메인이 Unity File → Build And Run 시작 화면을 확인한 뒤 사용자가 빌드 완료와 Editor Host/Android Client 실기 수행을 확인했다. 동일 세션 `7d4f85a6b980b02035e532b36068e5ca349ae35610294a423d3a4ebe2e2654a5`의 경기 전체 집계는 Host 223 schedules/212 results/0 failure, Client 212 accepted/0 rejected·필수 표현 199/199이다. 사용자는 공격 애니메이션에 비해 Rabbit 피해 적용이 약간 빠르게 보인다고 관찰했다. 실제 접촉 프레임과 선행 시간차는 로그 미계측이므로 타격 시각 PASS나 전체 migration 완료는 주장하지 않는다. 다음 단계는 생산 Attack 클립의 접촉 프레임 측정과 같은 조건의 피해 적용 시점 대조다. 구현 직후 검증·빌드 시작 이력과 최신 실기 분석은 Task에 보존한다: `_Tasks/2026-09-28/10_03_rabbittrickster-explicit-attack-clip-binding/`.
-
-**현재 상태(2026-09-28):** Fox 표시 지연 focused 교정은 사용자 수용, 현행 타이밍 유지·재튜닝은 발사체 구현 시점으로 이관. Dust 49기 focused 로그는 CONDITIONAL PASS/OPEN(육안 최종 수용 대기). 상세 증거는 기존 Fox Task §21 및 Dust Task 재테스트 결과 참조; 전체 migration 완료 아님.
-
-**이전 증거:** 09-27 시점 분리·17_21 지연 분석과 09-28 자동 검증 직후 상태는 Fox Task §18~20에 보존한다. 현재 판정은 위 요약을 따른다.
-
-
-**DustSpirit 구현 근거:** 실제 Attack 명시 연결로 서버/Client가 주기 3초·marker 1.04초를 같은 클립에서 추출한다. Attack2-first 자동 검증 PASS는 과거 실기 오선택 증거가 아니다. `_Tasks/2026-09-27/10_54_dustspirit-explicit-attack-clip-binding/` 참조.
-
-**Fox 현재 경계:** VFX 시작 1.00초·피해 2.25초 유지, VFX 종료/공격별 exact 결합 미계측. projectile/tracer와 전체 migration은 미완이다. `_Tasks/2026-09-22/19_48_foxmagician-production-timeline-correction/` 참조.
-
-**InfernoSpirit 이동·방향·VFX 교정 (2026-09-22) — ✅ focused 실기 PASS / Task CLOSED:** 프리팹 Visual Root의 누락된 X 위치를 0으로 복원해 InfernoSpirit만 발생하던 이동 순간이동을 해소했고, VFX SpawnPoint와 공격 방향 보정값을 실제 화면에 맞췄다. 이후 남은 간헐 VFX 누락은 Client에서 일반 Stop/타겟 사망이 이미 커밋된 Attack marker보다 먼저 도착해 공통 presentation scope를 닫던 수명 경쟁으로 확정했다. bounded source-marker lease를 추가해 Stop 뒤에는 공격자 VFX/SFX만 `SourceOnly`로 보존하고 target/tracer/local-hit/damage는 차단한다. 최종 `dc055118…46c8f` 경기에서 Editor Host/Android Client 실제 VFX 시작은 64/64, Client `sourceOnlyPreserved=11`, Client gate suppression 0, playback failure·overflow 0이었다. Host raw event 1건의 차이는 정렬 오차 98.363°인 커밋 전 provisional marker 정상 차단이다. 사용자가 육안상 정상으로 확인해 focused Task는 닫는다. InfernoSpirit은 아직 `LegacyFallback`이며 전체 25종·역할교대·Legacy rollback 또는 ActionSequence 완료를 뜻하지 않는다. task: `_Tasks/2026-09-21/02_42_infernospirit-movement-jump-correction/`.
-
-**BattleAxe production 타격 시점 교정 및 focused 멀티 로그 검증 (2026-09-20) — ⚠️ CONDITIONAL PASS / 성능 제한 육안 확인(OPEN):** production `OnAttackHit` 1.02초에 맞춰 `UnitStatsConfig.hitFrameTimes`를 1.1667초에서 1.02초로 Unity 직렬화 교정했고, 양 진영 프리팹→Controller→정확한 Attack state clip→단일 marker→config를 함께 읽는 영구 fail-closed gate를 추가했다. Unit Action self-validation과 Unit Root Pose Cross Audit은 PASS했다. 동일 `sharedSessionKey=010f6e1b…c9bb`의 Editor Host + Android Client 로그에서 BattleAxe는 Host/Client 각 14기, root sample 각 13이었고 unit 2는 정상 대기→Ready(yaw 0)→Accepted, unit 36은 Misaligned(yaw 12.078)→Ready(yaw 0)→Accepted로 수렴했다. Host 결과 420/실패 0 ↔ Client 420 수락/거부 0, 양쪽 필수 표현 440/440, AoE bundle 420/420, 공간 mismatch 0(max Host 0.087·Client 0.121/허용 1.5), Host 이동 47,070 frame의 gate/writer/handoff/stationary-Walk/error/drop 0, ROOT 양쪽 PASS다. Client WARN 181은 최종 회복된 UnitView 초기화 지연·재시도와 정상 종료 disconnect이며 final viewUnavailable 0, ERROR/FATAL/예외 0이다. 사용자 육안에서는 큰 문제가 없어 보였으나 렉 때문에 정확한 1.02초 접촉과 Sweep 아군·후방·범위 밖 제외를 독립 확정하지 못했다. 렉은 사용자 지시에 따라 별도 성능 결함으로 후속 처리하며 이번 Task에서 원인 추정·수정을 시작하지 않는다. 최신 실행은 4/25종이므로 전체 roster·역할교대·Legacy rollback 완료가 아니다. task: `_Tasks/2026-09-19/23_06_battleaxe-impact-marker-correction/`.
-
-**QuakeSpirit production marker/config 정렬 및 focused 멀티 검증 (2026-09-14) — ⚠️ CONDITIONAL PASS / 사용자 육안 확인 대기(OPEN):** Quake 전용 셋업과 영구 Unity gate로 production `OnAttackHit`·`UnitStatsConfig` 1.667초, Blue/Red 프리팹·Controller, `Supported / MeleeContact / Impact 1 / secondary true`, manifest 16/8/1을 확인했다. 후속 동일 경기 `sharedSessionKey=9d43b8…b3d75`의 Editor Host + Android Client 로그에서는 QuakeSpirit 10기가 생산됐다. Host 공격 commits 596·serverResults 770/failures 0, Client accepted 770/rejected 0, 양쪽 필수 표현 909/909, bundle 770/770, 공간 mismatch 0(max Host 0.089·Client 0.146/허용 1.5)으로 수렴했다. 주대상 200과 50% 스플래시 100이 유닛·건물에서 같은 결과 시점에 확인됐다. Host 이동 165,383 frame의 gate/writer/handoff/stationary-Walk/failure/drop은 0, 공간 계획/커밋 1,118/1,118, recoverable repath 5/repeated 0/fatal 0이다. Client 복제 932건의 invalid/duplicate/revision/conflict/gap/order 오류는 0이고 ROOT는 Host endpoint 44·Client 41로 양쪽 PASS다. 최신 Android PID 24233의 UnitView 초기화 지연 123건은 완료 123건과 1:1이며 최종 viewUnavailable 0, ERROR/FATAL/NullReference 및 U+27F3 경고 0이다. 다만 사용자가 화면 결과를 별도로 말하지 않았으므로 정확한 내려치기 프레임, 아군·범위 밖 제외, 체감 장시간 정지 없음과 비교 유닛 육안 회귀는 OPEN이다. 이번 범위는 4/25종이며 전체 25종·역할교대·Legacy rollback 완료가 아니다. task: `_Tasks/2026-09-14/00_56_quake-spirit-impact-marker-correction/`.
-
-**RhinoBreaker 실제 Attack marker 교정 (2026-09-14 문서 동기화) — ⚠️ CONDITIONAL PASS / Task OPEN:** 이전 교정 빌드의 Blue/Red 유닛 공격과 최신 `f9b842d9…35a8d0` Editor Host + Android Client 건물 공격에서 RhinoBreaker의 공격 진입이 정상 커밋됐다. 최신 경기 Host 결과 724/실패 0 ↔ Client 724 수락/거부 0, 양쪽 필수 표현 692/692, 중복·전송·표현 실패와 이동 gate·writer·handoff·stationary Walk·공간 mismatch·error/drop은 0이다. RhinoBreaker 30기, LittleKnight 77기, 유닛 사망 99·건물 사망 6을 관측했고 `unitId=0`이 Red TrainingCamp `BuildingId=11`을 공격한 뒤 대상 건물이 사망했다. 실제 접촉 동작과 표현 시점 및 개별 대상 사망 직후 전환은 사용자의 명시적 육안 판정이 없어 조건부로 남긴다. Client UnitView 초기화 지연 107건은 전부 completion했고 실패·소진은 0이며 별도 관찰 대상이다. Root pose observer는 양쪽 `maxUnits=64` 상한 이후 범위를 검증하지 못했다. 이번에는 새 빌드가 아니므로 `U+27F3` 경고 2건은 문자 제거 미반영 기존 APK 증거이며, 현재 소스의 `새로고침`은 다음 통합 빌드에서 확인한다. 전체 25종·역할교대·Legacy rollback 완료를 의미하지 않는다. task: `_Tasks/2026-09-13/20_34_rhino-breaker-impact-marker-correction/`.
-
-**공격 진입 production typed target payload seam 교정 (2026-09-13) — ✅ 동일 범위 실기 PASS / Task CLOSED:** 전체 Unit Action self-validation PASS와 Android 빌드 뒤, 이전 실패와 동일한 유닛 범위로 Editor Host + Android Client를 재시험했다. 공통 키 `abe1fb66…f5c1`에서 이전에 handoff 실패 87건을 냈던 근거리 6종이 모두 accepted shadow-commit에 포함됐고, Host `combatPresentationHandoffFailures=0`, `stationaryWalkViolations=0`, 실패 상세·overflow·ignored event 0이었다. Action 준비 전 `deferredCombatTargetChanges=2`는 정상 보류이며 실제 적용 실패가 아니다. C2는 Host 2,703건/실패 0 ↔ Client 2,703건 수락/거부 0, C3 필수 표현은 양쪽 2,410/2,410, 공간 mismatch 0, ROOT·error/drop·ERROR/FATAL/Exception 0으로 정상 축을 유지했다. `coveredUnitTypes=9/25`는 이전과 같은 의도적 비교 범위이므로 이 Task의 미완료가 아니다. 전체 25종·역할교대·Legacy rollback은 별도 P0 통합 회귀로 유지한다. task: `_Tasks/2026-09-13/11_41_attack-entry-target-payload-seam/`.
-
-**C3 v6 자동 교정 gate (2026-09-02) — ✅ Unity PASS / ⏳ 새 멀티 실기 대기:** exact presentation scope rendezvous, 구회차 retire/tombstone, 정상 marker와 timeout·사망·stop 복구 timing 분리, marker 시점 불변 revision 방향 판정, 구조 fallback 실패 증거를 구현했다. Unity compile과 전체 `[UAS-DIAG]`, C2, C3 self-validation이 모두 PASS했으며 C2 서버 권위 writer·B3 이동 writer·Legacy 단일 emitter는 보존했다. Android Build And Run은 코드 실패가 아니라 keystore 서명 비밀번호 미입력으로 중단됐다. 사용자가 서명 정보를 직접 입력한 새 v6 빌드의 동일 Host/Client 경기 전까지 C3는 OPEN이며 emitter 전환은 금지한다. task: `_Tasks/2026-08-31/23_30_b3-c3-runtime-failure-correction/` Plan 12절.
-
-**C3 v5 동일 계약 멀티 실기 (2026-09-01) — ❌ C3 FAIL/OPEN · C2/B3 PASS 유지:** 같은 `sharedSessionKey=fd521f…1ff4`의 Editor Host·Android Client가 모두 v5·`PresentationShadow`·combat schema 1로 실행됐다. C2는 Host 결과 2,828/실패 0, Client 수락 2,828/거부 0으로 서버 권위 피해·결과가 정상이다. B3 Host의 rejected·invalid·gate·writer·Client write·stationary Walk·adapter·drop은 0이고 recoverable repath 29건은 repeated 0으로 닫혔으며 Client 복제 2,226건도 오류 0이다. C3는 Host unmatched 385·timing 112, Client unmatched 562·timing 38·direction 49로 FAIL이다. Client 방향 49건은 same-revision 0, revision-lag 42, scope-mismatch 7이므로 실제 동일 revision 방향 writer 결함으로 확정하지 않는다. Android ERROR envelope는 C3 terminal 1건이며 비-UAS 예외·FATAL·ANR·crash는 0이다. 이번 후속은 C3 Marker/Tracer/결과 수명, timeout 복구 의미, Client revision/scope 수렴만 교정하고 C2·B3와 Legacy 단일 writer/emitter는 변경하지 않는다. task: `_Tasks/2026-08-31/23_30_b3-c3-runtime-failure-correction/` Research 10절·Plan 11절.
-
-**C2 공격 연속성·사망 future-hit 취소 집중 회귀 (2026-08-30) — ✅ 이번 8/25종·Android Host 범위 PASS / 전체 통합 회귀 유지:** 같은 `sharedSessionKey=f2ad63c0…171d8`의 Android Host·Editor Client 경기에서 8종을 관측했다. 서버 공격 결과 2,182건은 `resultFailures=0`, 공격 커밋 2,144건은 정렬 전 시작·타겟·회차·결과 상관 실패가 모두 0이었다. 유닛 사망 115건 동안 과거 실패였던 `DeadTerminal`, `shadow-unavailable-impact-rejected`, `completion-without-accepted-authorization`, `impact-pose-capture-failure`도 모두 0이었다. 서버 이동 62,434 frame은 rejected·invalid·gate·writer·client write·stationary Walk·adapter·drop 0, 공간 계획/커밋 1,382/1,382였고 양쪽 Root observer가 PASS했다. provisional→commit의 클립 진행 연속성은 현재 로그가 Animator normalized-time을 직접 측정하지 않으므로 사용자 시각 확인이 최종 gate다. 이번 결과는 25종 전체 완료나 반대 역할 완료를 뜻하지 않으며, 나머지 17종·Editor Host/Android Client·Legacy rollback은 후속 통합 회귀에 남긴다.
-
-**Tracer C2 통합 실기 재검증 (2026-08-28) — ❌ 이전 FAIL 원인 기준선 / 2026-08-30 후속 집중 회귀에서 해소:** 동일 `sharedSessionKey=fda268f4…5687d` Editor Host·Android Client에서 Android 애플리케이션 ERROR/예외/FATAL과 Client 결과 reject는 0이었지만 Host C2는 `serverResults=942`, `resultFailures=97`, `verdict=FAIL`이었다. `Assault` Unit 16·58에서 방향 오차 `0.192°/0.248°`와 동일 예약 TargetId를 유지한 상태로 Shadow `AuthorizedMiss`인데 Legacy 피해 10이 실제 적용된 사거리 밖 피해 2건을 확인했다. 원인은 Legacy `ApplyAttackDamageCore`의 오래된 “사거리 체크 없음” 계약이 현재 Impact 시점 권위 사거리 재검증 규칙과 충돌하는 것이다. 추가로 `Applied + NotDue` 5건과 unavailable completion `NotDue` 78건이 있었고, `Accepted + Miss` 12건은 observer가 정규 Miss를 Cancelled로 기대한 진단기 오탐이었다. 이 항목은 실패 원인 이력이며 현재 판정은 위 2026-08-30 8종 집중 PASS를 따른다. task: `_Tasks/2026-08-27/23_13_c2-b3-combat-transition-correction/`.
-
-**Tracer C2 Snapshot·ImpactResult Shadow (2026-08-27) — ✅ 구현·Editor PASS / 당시 멀티 OPEN(후속 실기 FAIL은 위 항목):** Legacy 서버 writer 안에서 적용 status·적용량·결과 HP를 확정하고, coordinator가 같은 Legacy token·hit authorization을 정식 `AttackImpactResult`로 completion한 뒤 reservation을 폐기한다. 전체 결과 키·delivery·Impact 시각·권위 AimDirection·outcome·HP를 별도 Reliable ClientRpc로 복제하며 Client는 observer만 실행한다. exact duplicate, payload conflict, invalid, out-of-sequence completion과 lifecycle retire를 bounded 분류한다. observer v6는 C1 END와 C2 result-END를 나눠 Android 전체 줄 preflight를 통과했고 Unity C# 오류 0건·전체 `[UAS-DIAG]` PASS다. Legacy 피해·HP·RPC·VFX writer는 유지된다. Android/Editor 역할교대 통합 실기와 Phase 5 Presentation은 미완료다. task: `_Tasks/2026-08-27/17_39_c2-attack-snapshot-impact-result-shadow/`.
-
-**Tracer C1 공격 연속 표현·독립 회차 결속 (2026-08-27) — ✅ 집중 멀티 PASS / 통합 회귀 유지:** 최신 Editor Host·Android Client 같은 경기에서 Client Shadow 4,863건 수락·거부 0, 예약 Legacy/Shadow TargetId·SequenceId·피해 결과의 실제 불일치 0을 확인했다. Host `targetMismatches=1`은 unit 14 sequence 5에서 예약 타겟 15, `Accepted`, `AuthorizedHit ↔ Applied`가 모두 일치했지만 다음 후보용 표시 타겟이 이미 `-1`이라는 이유로 실패 처리한 진단기 오탐이었다. observer v5는 표시 타겟을 진단 문맥으로만 남기고 예약 타겟·회차·Reducer·피해 결과만 fail-closed 비교하며 Unity `[UAS-DIAG]` RED→GREEN PASS를 받았다. 서버 권위 Legacy 피해·HP·RPC·VFX writer는 유지된다. 25종·반대 역할은 다음 Snapshot/ImpactResult Shadow 빌드의 통합 회귀에 남긴다. task: `_Tasks/2026-08-27/02_30_c1-attack-continuity-sequence-correction/`.
-
-**B3 v10 중심 경로·건물 Chase·복귀 집중 실기 (2026-08-24) — ✅ PASS / 전체 회귀 이관:** Unity `[UAS-DIAG]` PASS 뒤 같은 `sharedSessionKey=30780b...ce11` Android Host·Editor Client를 검증했다. Host MOVE는 61,788 frame, 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, rejected·invalid·gate·writer·client write·stationary Walk·adapter·drop 오류 전부 0, `verdict=EVIDENCE`였다. 양쪽 ROOT는 stable endpoint·회전 evidence 53/53, local PASS다. 공식 CrossAudit의 INCONCLUSIVE는 Host `summary-END` 1,066-byte 줄이 `rotationEvidenceSchema=root-rotation-re`에서 Logcat 절단된 진단 형식 결함이며 개별 증거 또는 게임 구현 실패가 아니다. compact terminal 교정은 다음 코드 변경에 포함하고 이 결함만을 위한 동일 빌드 재시험은 하지 않는다. 25종·반대 역할·Legacy rollback은 Tracer C 이후 권위 전환 전 통합 회귀에 유지한다.
-
-**RootCrossAudit 진단기 교정 (2026-08-23) — 공식 재감사 OPEN / B3 FAIL·OPEN:** 실제 `sharedSessionKey=a0e690...8d8` Editor Host·Android Client 경기의 v9 MOVE는 full EVIDENCE, ROOT는 양쪽 PASS였고 수동 pose 감사도 49/49 match·mismatch 0이었다. 기존 도구가 공유 시간축이 아닌 ROOT bucket 14/17을 peer 간 비교해 false-INCONCLUSIVE를 냈다. 진단기만 MOVE `startedAt` 차이 `<=2.000초`로 교정했고 Editor Roslyn은 PASS했다. 사용자 Unity RootCrossAudit SelfValidate/Analyze 재실행 전이므로 공식 실제 재감사는 OPEN이며 게임·서버 권위·로그 포맷·영구 규칙은 변경하지 않았다.
-
-> **이 문서의 역할: 현재 프로젝트 상태.** 무엇이 되어 있고 무엇이 안 되어 있는지만 담는다.
-> 「언제 무엇을 했나」는 [WORK_HISTORY.md](WORK_HISTORY.md), 「앞으로 할 일」은 [ROADMAP.md](ROADMAP.md).
-
-**✅ 구현 완료 · 실기 검증 (2026-10-13) — 검증 상태: ✅ 1차(`fc1fd101`)는 이 체크아웃의 로그로 직접 재확인했다 / ✅ 2차(`ba100c38`)도 이 체크아웃의 로그로 직접 재확인했다(접속한 쪽 · 호스트 모두 — 2026-10-13 에 병합으로 들어왔다. 종전 표시: 「2차는 인계값이다(그 로그 파일이 이 체크아웃에 없다)」 — 문서를 쓴 시점에는 사실이었다) / ✅ Unity 컴파일은 통과했다(에디터가 실행됐다) / 🔴 스폰 전 실패 · 호스트의 완전한 사망 · 전송 계층 60초 통보는 실기로 관측되지 않았다:** **멀티 최초 경기 맵 준비 실패 안내(규칙 M-2) — 사양 개정(2026-10-12) → 구현 → 실기 두 회차.**
-
-쉽게 말하면, **멀티플레이에서 맵 준비가 실패하면 이제 두 사람이 모두 곧바로 방을 나가 로비 첫 화면으로 돌아가고, 각자 화면에 제목 「알림」 · 본문 「경기를 시작할 수 없습니다.」 · 버튼 「확인」 하나인 같은 창을 본다.** 「확인」은 창만 닫는다. 종전 구현(`cbddf535`)은 **방장 화면에만** 「다시하기/로비로」 두 버튼 창을 띄웠고 접속한 쪽은 로딩 화면에 갇혀 있었다 — 그것이 「플레이어는 자신이 Host 인지 Client 인지 알 수 없다」는 최상위 원칙 위반이어서 사용자가 사양을 다시 정했다(**재시도 버튼은 없다 — 다시 하려면 방을 새로 만든다**). 그 새 사양이 구현되어 실기 두 번으로 확인됐다. 🔴 **그 사이 한 번 고쳤다** — 1차 실기에서 「호스트의 실패 통보」 경로가 도착은 하는데 처리는 늘 뒤에 오는 「연결 끊김」 경로에 밀리는 결함이 드러나(받는 쪽의 한 프레임 지연), 2차에서 그 지연을 없앤 뒤 통보 경로가 실제로 처리하는 것이 확인됐다.
-
-- **커밋** — 사양 개정 `4208e468` · 구현 계획 `62dc776d` · 네트워크 규칙 문서 신설(최상위 원칙의 집) `afc9a3fa` · 구현 `fc1fd101` · 받는 쪽 지연 제거 + 구 로직 최종 삭제 `ba100c38` · 병합 `b963a91d`. (`cbddf535` 는 종전 사양의 구현이며 `fc1fd101` 이 대체했다.)
-- **근거 파일(단일 소스 — 이 문서에 로그 내용을 옮겨 적지 않는다)** — 호스트(에디터): `_Logs/_editor/2026-10-13/RuntimeLog.txt`(**283행** · 🔴 **누적 파일이고 1차(10:55~10:58, 1~154행)와 2차(11:36:57 세션, 156행부터)를 모두 담는다** — 문서를 쓴 시점에는 154행이고 1차 구간뿐이었다) · 접속한 쪽 1차: `_Logs/2026-10-13/10_59_logcat/RuntimeLog_device.txt`(**9,929행** · 앱 로그는 10:5x 구간) · 접속한 쪽 2차: `_Logs/2026-10-13/11_38_logcat/RuntimeLog_device.txt`(**17,737행** · 🔴 **두 프로세스가 섞여 있다** — 1차 구간 + 2차 구간(11:36:40~, 10167행부터)) — 문서를 쓴 시점에는 이 파일이 체크아웃에 없어 **인계값**으로 적었으나 **같은 날 병합으로 들어와 직접 읽어 대조했고 일치했다**(Plan 14-4절 · 14-4-2절). **1차 값은 문서 작업 중 내가 1차 두 파일을 직접 읽어 재확인했고**(호스트 `[ERROR]` **2건 = 둘 다 강제 실패가 일부러 찍는 결말 줄** · 기기 앱 `[ERROR]` **0건**), 어긋난 값은 아래 표 칸 안에 적었다.
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 · 「무작위 맵 준비 실패 UI」 **규칙 M-2**(최상위 원칙은 [GameSystemRules/GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) 첫 절). **계획·실기 결과·결정 기록**은 `_Tasks/2026-10-12/07_08_multi-first-map-failure-ui/Plan.md` **14절**.
-
-**🔴 항목별 근거 등급 — 등급을 합치지 않는다**
-
-| 무엇 | 판정 | 근거 등급 |
-|---|---|---|
-| **양쪽에 알림 모달이 각각 한 번** 떴다 (1차) | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 호스트 `10:56:23.527` · 기기 `10:56:25.060` 모두 `IsAlert=True, IsTitleShown=True, IsCancelHidden=True`. ⚠️ **두 기기의 시계는 서로 다르다** — 두 시각의 차이로 간격을 재지 않는다 |
-| **화면에 실제로 보였다** (양쪽) | ✅ 정상 | **사용자 화면 확인**(「정상 작동」 — 인계값). 🔴 **로그의 「팝업을 띄웠다」 줄과 합치지 않는다** — 로그는 보였다는 말을 하지 못한다 |
-| **통보를 보낸 뒤에 끊었다**(순서 요건) | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 호스트 한 시계 안에서 `맵 준비 실패 통보 전송` `23.503` → `Disconnect 시작` `23.517` → `Shutdown 완료` `23.519` |
-| 🔴 **실패 `ClientRpc` 가 실제로 접속한 쪽에 전달된다** | ✅ **관측됨** | **로그 직접 관측 + 직접 재확인** — 기기 `10:56:25.034` `맵 준비 실패 통보 수신 … Role=Client`. 🔴 **종전까지 「NGO 내부라 확인 불가」로 올려 둔 항목이 닫혔다.** 단 **1회 관측**이다 |
-| **양쪽 깃발이 섰다** | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 호스트 `Role=Host`(`23.437`) · 기기 `Role=Client`(`23.290`) |
-| **방을 나갔다**(호스트) | ✅ 정상 | **로그 직접 관측** — `Lobby 삭제 완료 (Host 퇴장)`. 접속한 쪽의 방 나가기는 연결 끊김 줄까지만 로그에 있다 |
-| **「확인」은 모달만 닫고 오버레이 누수가 없다** | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 양쪽 `공통 팝업 닫기` → `반투명 배경 오버레이가 꺼진다 RefCount=0` (호스트 `32.357`/`32.358` · 기기 `36.664`/`36.665`) |
-| **회귀 — 정상 경기** | ✅ **증상 0건** | **로그 직접 관측 + 직접 재확인** — `10:57:09` 강제 실패 표식 없이 전송 성공 → `Game 씬 로드 시작` → 전투. 이 구간에 알림 모달 줄 **0건**(양쪽). 🔴 **「회귀가 없다」가 아니라 「증상 0건」이다** — 1회뿐이다 |
-| **회귀 — 멀티 재경기 실패 경로** | ✅ **증상 0건** | **로그 직접 관측 + 직접 재확인** — `10:57:34` `Round=Rematch` → `재경기 실패 상태 진입` → `자동 복귀 카운트다운을 전체 길이로 재시작 TotalSeconds=60` → `10:58:34.504` **만료 → 로비 복귀**(재시작 `34.308` → 만료 `34.504` = **60.196초**). 기기 쪽도 `재경기 맵 준비 실패 통보 수신 … Origin=MapFailedNotice`. ⚠️ **재경기 「성공」 경로의 회귀는 이번 로그에 없다** |
-| 🔴 **1차에서 드러난 결함 — 통보가 도착했는데 진입은 연결 끊김이 차지했다** | ✅ **관측됨(그리고 2차에서 고쳐졌다)** | **로그 직접 관측 + 직접 재확인** — 기기 `맵 준비 실패 통보 수신` `25.034` → `서버 연결 끊김 감지` `25.047`(**13ms 뒤**) → `맵 준비 실패 안내 진입 … Origin=ConnectionLost` `25.048`. `Origin=HostNotice` **0건**. 원인(받는 쪽 중계의 한 프레임 지연)은 **커밋 `ba100c38` 의 진단**이며 로그가 말하는 것은 순서와 간격까지다. *(인계값은 「14ms」였다 — 내가 잰 값은 통보 수신 → 끊김 감지 13ms, 통보 수신 → 안내 진입 14ms 다. 기준 줄이 달랐고 결론은 같다)* |
-| 🔴 **2차 — 통보 경로가 실제로 처리한다** | ✅ **관측됨(1회)** | **로그 직접 관측 + 직접 재확인** *(종전 등급: 인계값 — 로그가 체크아웃에 없던 시점의 표시)* — 기기 `11:37:49.683` 통보 수신 → `.686` `맵 준비 실패 안내 진입 … Origin=HostNotice`(**3ms**) → `.698` 모달. 2차 구간의 `Origin=` 줄은 이 **1건**이다 |
-| **2차 호스트 — 통보를 보낸 뒤에 끊었다**(순서 요건) | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 호스트 한 시계 안에서 `맵 준비 실패 통보 전송` `11:37:48.163` → `Disconnect 시작` `48.174`(**11ms 뒤**) → `Shutdown 완료` `48.175`. 호스트 자신의 진입은 `48.173` `Origin=HostOwnFailure`. 1회 관측이다 |
-| **양쪽에 알림 모달이 각각 한 번** 떴다 (2차) | ✅ 정상 | **로그 직접 관측 + 직접 재확인** — 호스트 `48.176` · 기기 `49.698` 모두 `IsAlert=True`. 호스트 오버레이는 `50.486` 에 `RefCount=0`. ⚠️ **두 기기의 시계는 서로 다르다** — 두 시각의 차이로 간격을 재지 않는다. 🔴 **화면에 보였는지는 이 칸이 말하지 않는다**(아래 1차의 사용자 화면 확인 행과 합치지 않는다) |
-| 🔴 **중복 처리 방지가 실기로 관측됐다** | ✅ **관측됨(1회)** | **로그 직접 관측 + 직접 재확인** *(종전 등급: 인계값)* — 모달 뒤 연결 끊김이 `49.699` · `49.701` 두 번 더 왔는데 **진입 줄은 1건뿐이다**(추가 없음). 로그가 보여 주는 것은 「추가 진입 줄이 없다」까지이고 **깃발이 막았다는 것은 코드 판독이다.** 설계만 하고 본 적 없던 부분이었다 |
-| **2차 — 재경기 회귀** | ⚠️ **관측되지 않음** | ~~**인계값** — 같은 로그에 `재경기 맵 준비 실패 통보 수신` → 결과 화면 실패 전이가 종전대로~~ **[🔴 2026-10-13 정정 — 원문 유지: 직접 대조하니 2차 구간에 재경기 실패가 없다.** 그 파일의 `재경기 맵 준비 실패 통보 수신` 줄은 `10:57:35`(1차 구간, 위 「회귀 — 멀티 재경기 실패 경로」 행과 같은 사건)뿐이고, 2차는 `11:37:25` 에 포기하고 곧바로 로비로 돌아갔다(호스트도 같다). 재경기 실패 경로의 회귀 근거는 1차 1회뿐이다.**]** |
-| **2차 — 정상 경기 회귀** | ✅ **증상 0건** | **로그 직접 관측 + 직접 재확인** — 호스트 `11:37:17.382` 강제 실패 표식 없이 전송 성공 → `Game 씬 로드 시작` → 전투 → `25.669` 포기 → 결과 화면 → `26.775` 로비 복귀. 접속한 쪽도 `18.724` 검증 통과. 알림 모달 줄은 이 구간에 양쪽 **0건**(2차 구간의 알림 모달은 강제 실패의 1건씩뿐). 🔴 **「회귀가 없다」가 아니라 「증상 0건」이다** — 1회뿐이다 |
-| **Unity 컴파일** | ✅ **통과** | **간접 관측** — 에디터가 실행됐고 새 코드가 찍는 로그 줄(`맵 준비 실패 안내 진입 … Origin=HostOwnFailure`)이 1차 로그에 있다(직접 재확인). 2차 코드(`ba100c38`)는 접속한 쪽 2차 로그에서 1차와 다른 동작(통보가 진입을 먼저 차지한다 — `Origin=HostNotice`)이 관측돼 그 코드가 실행됐다는 간접 근거가 있다(직접 재확인, 종전 표시: 인계값). 🔴 **직전 커밋들이 「컴파일 미확인」으로 적어 둔 것이 이로써 닫혔다.** ⚠️ **컴파일 「경고 0건」은 확인되지 않았다**(로그에 경고 집계 자리가 없다) |
-
-**⚠️ 과대 표기 금지 — 아직 완료가 아닌 것(관측되지 않은 것을 「덮는다」고 쓰지 않는다)**
-
-- 🔴 **ⓐ 전송 객체를 스폰하기 전의 실패**(프리팹 누락 · 컴포넌트 누락) — 기존 강제 실패 도구는 스폰 뒤 경로만 재현하므로 **관측 0건**이다.
-- 🔴 **ⓑ 호스트의 완전한 사망**(프로세스 강제 종료 등) — **관측 0건**이다.
-- ⚠️ **ⓐⓑ 는 「연결 끊김(②) 경로가 덮는 것으로 설계」됐을 뿐 실기로 관측되지 않았다.** 「덮는다」고 단정하지 않는다. 2차에서 증명된 것은 「통보가 먼저 도착한 경우에 끊김이 뒤늦게 와도 한 번만 처리된다」까지다.
-- ⚠️ **ⓒ 전송 계층 60초 타임아웃이 실제로 끊김을 통보하는지** — 씬 값(`m_DisconnectTimeoutMS: 60000`)만 확인했다.
-- ⚠️ **ⓓ 랜덤 매칭으로 들어온 경우 매칭 상태 값이 되돌려지지 않는** 기존 한계 — 미확인이다.
-- ⚠️ **ⓔ 구형 `LobbyUI` 가 지금 로비 씬에 활성인지** — 미확인이다.
-- ⚠️ **오류 텍스트 보조 안내는 지금 사양에서 눈에 보이지 않는다**(인계값 · 코드 주석이 같은 말을 적는다) — 처분은 아직 정해지지 않았다.
-- ⚠️ **실패는 강제 실패 도구가 만든 것**이다(`[ERROR]` 줄이 「실제 장애가 아니다」라고 적는다). 진짜 장애로 같은 길을 탄 기록은 0건이다. 각 항목은 **1회 관측**이다.
-- ⚠️ 부수 관측 1건 — 접속한 기기가 `10:56:25.424` 에 「Lobby 나가기 실패」 경고(HTTP 404)를 남겼다. 호스트가 이미 방을 지운 뒤라는 **판독**이며 확인하지 않았다(범위 밖 — Plan 14절에 적었다). *(2026-10-13 추가: 2차 구간에도 같은 종류의 경고가 `11:37:50.041` 에 한 번 있다 — 원인은 마찬가지로 확인하지 않았다.)*
-
-**⚠️ 부분 처리 (2026-10-01 (2차)) — 검증 상태: 🔴 문서·주석 작업만 / 실기·화면 확인 0건 / Unity 에디터 컴파일 미확인**
-
-쉽게 말하면, **「규칙 문서에 적힌 것이 실제로 프로그램에 있는가」를 규칙 105개 전수로 맞춰 보았습니다.** 출발점은 멀티플레이에서 **지도 만들기가 실패했을 때 띄울 화면**이었는데, 그 규정이 **프로그램에 아예 없다**는 것이 드러났고, 왜 몇 주나 몰랐는지 파고들자 **적혀 있지 않았던 것이 아니라 읽히지 않았던 것**임이 밝혀졌습니다. 그래서 전수 점검을 하고 결과를 **여섯 갈래**로 묶었으며, 이번에는 그중 **프로그램 안의 설명글이 사실과 반대인 자리**만 손댔습니다.
-
-- ✅ **끝난 것** — **분류 5(코드 주석이 거짓)의 주석 6자리 · 8파일**을 실제로 고쳤다. 🔴 **동작 코드는 0줄 바뀌지 않았다.**
-  🔴 **근거 구분(규칙 10):** 「주석·문자열 리터럴을 걷어낸 코드 본문이 변경 전과 8/8 동일」은 **메인 세션이 전달한 값**이고, 아래의 남은 자리·개수는 **문서 작업 중 내가 직접 실측한 값**이다.
-- 🔴 **끝나지 않은 것 — 이것이 이 문단의 요점이다.**
-  - **같은 분류 안에서도 3항목이 「부분 완료」**다. 주석을 고치는 범위가 **알려진 2자리로 좁혀져 있었던 탓**에, **같은 파일 안에서 앞뒤가 반대인 상태**가 세 파일에 남았다(한쪽은 고쳐졌고 머리말은 옛 서술 그대로다).
-  - 🔴 **그 과정에서 같은 종류의 거짓이 더 드러나 분류 5 가 6 → 10건이 됐다.** 늘어난 것은 **거짓의 종류가 아니라 고칠 자리의 수**다. 남은 4자리는 **코드 파일이라 사용자 승인 대기**이며 이번에 손대지 않았다.
-  - 🔴 **분류 1 · 2 · 3 · 4 · 6 은 한 자리도 손대지 않았다.** 총 42 → 46건 중 처리된 것은 **6자리**다. **[✅ 2026-10-13 갱신 포인터 — 위 문장은 2026-10-01 (2차) 시점의 기록이라 원문을 유지한다(B-7). 분류 1 의 맨 위 항목(규칙 M-2 = 이 점검이 시작된 자리)은 이후 닫혔다 — 사양이 개정(2026-10-12)되어 구현·실기 확인(2026-10-13)됐고, 분류 1 의 남은 건수는 10 → 8 이다(조사 문서 §12-2 의 1-1·1-2 가 M-2 의 옛 조항이다). 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-13)」 문단과 [ROADMAP.md](ROADMAP.md) 의 분류 1 행이다.]**
-- ⚠️ **과대 표기 금지 — 아직 완료가 아닌 것:** ① 🔴 **실기·화면 확인 0건.** 주석만 고쳤으므로 볼 것이 없고, **Unity 에디터 컴파일도 확인되지 않았다.** ② 🔴 **「문서가 거짓」으로 추가하라고 받은 두 건은 직접 실측에서 서지 않았다** — 하나는 **방향이 반대**(문서가 맞고 코드 주석이 낡았다)여서 분류 5 로 옮겼고, 하나는 **이미 그 표에 있던 항목**이라 새 번호를 붙이지 않았다. ③ ⚠️ **실기 검증 여부는 이 점검의 질문이 아니었다** — 본 것은 **「문서대로 구현됐는가」**뿐이고 **「실기 미검증」을 결함으로 올리지 않았다.**
-- 🔴 **「문서 정합성 검사가 문제였다」로 읽지 않는다.** `Tools/check_docs.py` 는 자기 **7종을 정확히 수행**했고, **그 7종이 막고 있는 사고는 실재한다**(`.claude/mistakes.md` 2026-08-17 두 건 = 검사 [6]·[7] 의 출처). 검사 범위에 `.cs` 가 **없다**는 것은 **사실의 기술이지 결함 판정이 아니며**, 틀린 것은 **그 0건을 범위보다 넓은 보증으로 전달한 보고 방식**이다.
-- **단일 소스** — **조사 결과·분류·개수·근거**는 `_Tasks/2026-10-01/05_19_rules-implementation-audit/Research.md`(**§12**, 처리 결과 표는 **§12-6-1**, 실측에서 서지 않은 두 건은 **§12-5-1**), **번진 경위**는 그 문서 **§1** 과 `_Tasks/2026-09-30/15_01_multi-map-projection-failure/Research.md`(**§7-1**), **남은 작업**은 [ROADMAP.md](ROADMAP.md) 우선순위 요약 표의 **2026-10-01 (2차) 행 7개**다. **이 문서에 그 내용을 옮겨 적지 않는다.**
-
-**✅ 구현 완료 · 실기 검증 (2026-10-01) — 검증 상태: 🔴 「결함 두 개가 서로를 가리던 상태」가 「각자 자기 몫을 책임지는 구조」로 바뀌었다 / ✅ 빌드 판별이 처음으로 로그로 가능했다 / ⬜ 로비 화면 회귀는 육안 미확인 · 멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이 회차에서도 미실시였다 — 규칙 M-3 자체는 이미 닫혀 있다 *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)*:** **팝업 로그 커버리지 + 확인/알림 팝업의 「잡은 적 없는 몫을 놓는」 결함 수정 — 두 팝업과 화면 막 관리자에 기록이 생기고, 그 기록으로 규칙 D-6 의 1·2항과 규칙 D-5 구조가 처음 로그로 확인됐다.**
-
-쉽게 말하면, **화면 전체를 덮는 반투명 막은 여러 창이 함께 쓰면서 「몇 곳이 쓰고 있는지」를 숫자로 세어 관리한다.** 여기에 결함이 둘 있었다. **하나는 창이 파괴될 때 자기 몫을 놓지 않는 것**이고, **다른 하나는 잡은 적도 없는 몫을 놓아 버리는 것**이다. 🔴 **그런데 두 번째 결함이 첫 번째 결함의 뒤처리를 대신해 주고 있어서, 화면에는 아무 증상도 나타나지 않았다.** 즉 **「증상 0건」이 「정상」을 뜻하지 않는 상태**였고, 한쪽만 고치면 그때부터 막이 다음 화면까지 따라왔을 것이다. 🔴 **이번에 두 번째 결함까지 닫히면서 두 창이 각자 자기 몫만 책임지는 구조가 됐고, 가림이 없어진 덕에 첫 번째 결함을 막는 그물이 이 프로젝트에서 처음으로 실제 발화하는 것이 로그에 남았다.** 그리고 **두 창과 막 관리자에 기록이 생겨**, 종전에 사람 눈으로만 확인됐던 항목들이 **로그로 확인되는 등급**으로 올라갔다.
-
-- **근거 파일** — `_Logs/_editor/2026-10-01/RuntimeLog.txt`(**902행** · 🔴 **누적 파일이라 이번 회차는 세 번째 세션 구간 793~902행** · 앱 로그 **107줄**) · `_Logs/2026-10-01/13_10_logcat/RuntimeLog_device.txt`(**3,660행** · 앱 로그 **93줄**). 🔴 **양쪽 `[ERROR]` 0건** · `[WARN]` 은 **이번 구간 에디터 2건 · 실기기 2건**이며 그중 **에디터 1건이 「파괴될 때 그물이 점유를 놓았다」는 줄**이다(나머지는 연결 끊김 감지와 규칙 D-6 건너뜀). ⚠️ **「에디터 7건」은 파일 전체(세 세션 합) 기준이다.** 🔴 **그리고 규칙 D-6 의 2항(알림 창이 뜬다)과 규칙 D-5 구조의 근거는 이 두 파일이 아니라 **같은 날 이른 회차(05시대) 로그**다** — 이번 구간에는 **알림 형태 팝업의 표시 줄이 0건**이고(그 경로를 타지 않았다) 🔴 **그 회차의 로그에도 같은 기록이 들어가 있다.** 단일 소스는 `_Tasks/2026-09-30/15_01_popup-log-coverage/Plan.md` **§14-2** 다.
-
-**🔴 항목별 근거 등급 — 등급을 합치지 않는다**
-
-| 무엇 | 판정 | 근거 등급 |
-|---|---|---|
-| 요청 팝업의 **잡음 → 뜸 → 닫힘(경로 = 파괴) → 놓음 → 막 꺼짐** 사슬 | ✅ 전 구간 관측 (순서까지) | **로그 직접 관측** |
-| 확인/알림 팝업이 **잡은 적 없는 몫을 놓지 않는다** | ✅ 정상 | **로그 직접 관측**(그 자리에서 「점유 보유 = 거짓」이고 뒤에 막 꺼짐 줄이 없다) |
-| 🔴 **파괴 시 그물의 실제 발화** | ✅ **처음 관측** | **로그 직접 관측**(보관 로그 전체에서 그 계기의 줄은 **1건**) |
-| 규칙 D-6 의 **1·2항**과 규칙 D-5 의 **「제목 + 본문 + 버튼 1개」 구조** | ✅ 정상 | **로그 직접 관측** — 🔴 **2026-09-30 문단에서 「사용자 화면 확인」이던 항목이 한 단 올라갔다.** ⚠️ **근거는 같은 날 05시대 로그**(Plan §14-2)이며 **이번 13시대 구간이 아니다** |
-| 이번 실기가 **「수정이 들어간 빌드」였는가** | ✅ **확정** | **로그 직접 관측** — 닫기 줄에 실리는 참/거짓 값이 **1개 → 2개**로 바뀌어 **형식 자체가 다르다**(수정 전 8건 ↔ 이번 3건) |
-| **「수정 전 빌드였다면 남의 몫을 가져갔을 것」** | ⚠️ **추론** | 🔴 **구조 추론** — 그 빌드를 이 구성으로 돌린 로그가 없다 |
-| **로비 화면 회귀**(로비 버튼이 실제로 눌리는가) | ⬜ **육안 미확인** | 🔴 **보고받지 못했다** — 로그는 **점유 수가 0 으로 끝났다**는 것까지만 말한다 |
-| 멀티 재경기 **맵 준비 실패 화면**(규칙 M-3) | ⬜ **이 회차에서는 미실시** | 🔴 **「실패」가 아니라 「미실시」다** — 강제 실패 도구 사용 기록 **0건**, 맵 준비 로그는 **성공 쪽 1줄**. 규칙 M-3 은 이 회차보다 앞선 2026-09-27~28 에 구현·실기 관측으로 닫혀 있어 남은 잔여가 아니다(규칙 M-3 의 상태 줄 참조 — 등급의 단일 소스는 규칙 D-7 블록) *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)* |
-
-**⚠️ 과대 표기 금지 — 아직 완료가 아닌 것**
-
-- 🔴 **로비 화면 회귀는 육안 미확인이다.** 사용자는 「테스트했다」고만 했고 **로비 버튼을 눌러 봤는지는 명시 보고를 받지 못했다.** 🔴 **「막이 남지 않았다」를 「화면이 정상이었다」로 넓혀 적지 않는다.**
-- ⚠️ **Unity 에디터 컴파일 경고 0건은 이번에도 미확인**이다(로그에 경고 집계 자리가 없다).
-- 🔴 **파괴 경로를 본 것은 1건이고 경로도 하나(씬 전환)뿐이다** — **앱 강제 종료 경로와 사라지는 쪽의 로그는 이번에도 없다**(2파일 모두 끝까지 남은 쪽이다). **에디터 Play 정지로는 여전히 볼 수 없다.**
-- ⬜ **멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이번 회차의 완료 조건이 아니었다.** 규칙 M-3 은 이 회차보다 앞선 2026-09-27~28 에 구현·실기 관측으로 닫혀 있어 남은 잔여가 아니다(규칙 M-3 의 상태 줄 참조 — 등급의 단일 소스는 규칙 D-7 블록) *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)*
-- 🔴 **「빌드 판별」이 증명하는 것은 「그 표시가 들어간 빌드였다」까지다** — 이번 회차의 다른 변경까지 증명하지 않는다.
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 D-6 끝의 2026-10-01 갱신 블록**. **실기 결과·근거 등급·인계 어긋남의 단일 소스**는 `_Tasks/2026-09-30/15_01_popup-log-coverage/Plan.md` **§14-10 · §14-11**, **무엇을 왜 남기는가**는 같은 문서 **§3**, **고치기로 한 근거와 순서**는 같은 문서 **§14-5 ~ §14-7** 이다.
-
-**✅ 구현 완료 · 실기 검증 (2026-09-30) — 검증 상태: 🔴 항목마다 근거 등급이 다르다 / 🔴 「증상 0건」과 「고쳤다」를 구분해 적는다 / ⬜ 멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이 회차에서 미실시였다 — 규칙 M-3 자체는 이미 닫혀 있다 *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)*:** **「경기 종료 후 UI」 마무리 회차 — 재경기 요청 팝업의 화면 막 점유 누수 보완(항목 1) · 씬 자리표시 4자리(항목 2) · 주석 사본 8줄(항목 3) · 문서 반영 5건(항목 4~8).**
-
-쉽게 말하면, **재경기 요청 창을 그냥 방치했다가 시간이 다 돼서 로비로 나가면, 화면 전체를 덮는 반투명 막이 로비까지 따라와 아무 버튼도 눌리지 않게 되는 길이 있었다.** 그 창이 사라질 때 막을 놓아 주는 한 번의 처리가 빠져 있던 것이고, 그것을 더했다. 🔴 **그런데 이 증상은 실기에서 한 번도 본 적이 없다 — 발견은 코드를 읽어서였다.** 그래서 이번 실기에서 **그 길을 일부러 다시 밟아 보고 증상이 나지 않는 것을 확인**했고, 🔴 **판정은 「버그를 고쳤다」가 아니라 「빠진 호출을 더했고 증상이 관측되지 않았다」**로 적는다. 그리고 **재경기 요청을 받은 뒤 요청한 쪽이 앱을 강제로 끈 경우**(규칙 D-6)가 이번에 **의도적으로 수행돼 로그와 화면이 함께 확인**됐다 — 강제 종료는 「나갑니다」라고 알릴 수 없으므로 **상대가 조용해진 것을 30초 동안 지켜보고 판정하는 그물**이 대신 일했다.
-
-- **근거 파일** — `_Logs/_editor/2026-09-30/RuntimeLog.txt`(**2,508행** · 🔴 **누적 파일이므로 이번 회차는 23시대 구간**) · `_Logs/2026-09-30/23_22_logcat/RuntimeLog_device.txt`(**139,067행**). 🔴 **양쪽 `[ERROR]` 0건** · `[WARN]` 에디터 **7건** · 실기기 **1건**이며 **전부 연결 끊김 감지와 무반응 이탈 판정 경로**다.
-
-**🔴 항목별 근거 등급 — 등급을 합치지 않는다**
-
-| 무엇 | 판정 | 근거 등급 |
-|---|---|---|
-| 요청 팝업이 응답 없이 떠 있는 채 카운트다운이 만료되는 **누수 경로에 도달**했다 | ✅ 도달 | **로그 직접 관측** |
-| 그 경로에서 **막이 로비까지 따라오는 증상** | ✅ **증상 0건** | **사용자 화면 확인**(당시 막을 켜고 끄는 자리에 로그가 없었다 — 2026-10-01 에 기록이 생겼다) |
-| 요청 팝업이 뜬 뒤 요청자 강제 종료 → **무반응 이탈 판정 → 30초 재시작 → 만료 복귀**(규칙 D-6 의 전제) | ✅ 전 구간 관측 | **로그 직접 관측** |
-| 규칙 D-6 의 **1항(요청 팝업이 닫힌다)·2항(알림 창이 뜬다)** | ✅ 정상 | **사용자 화면 확인**(당시 두 팝업 소스에 로그 호출이 **0개**였다 — 2026-10-01 에 생겼고, 이 항목은 그 회차에 로그 직접 관측으로 올라갔다) |
-| **건물 창 4개의 제목**(항목 2) | ✅ 정상 | **사용자 화면 확인**(로그에 자리가 아예 없다) |
-| 멀티 재경기 **맵 준비 실패 화면**(규칙 M-3) | ⬜ **이 회차에서는 미실시** | 🔴 **「실패」가 아니라 「미실시」다** — 강제 실패 도구 사용 기록 **0건**, 맵 준비 로그는 전부 성공 쪽. 규칙 M-3 은 이 회차보다 앞선 2026-09-27~28 에 구현·실기 관측으로 닫혀 있어 남은 잔여가 아니다(규칙 M-3 의 상태 줄 참조 — 등급의 단일 소스는 규칙 D-7 블록) *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)* |
-| 이번 실기가 **「수정이 들어간 빌드」였는가** | 🔴 **확인 불가** | **판정 수단이 없었다**(아래 · 이 회차 당시의 판정이다 — 판별 수단은 2026-10-01 에 생겼다) |
-
-**⚠️ 과대 표기 금지 — 아직 완료가 아닌 것**
-
-- 🔴 **빌드 판별 불가였다(이 회차 당시의 판정).** 카운트다운 코루틴의 컴파일러 생성 클래스 번호가 **직전 회차 로그와 같고**, 애초에 이번 수정은 요청 팝업 쪽이라 그 번호를 바꾸지 않는다. → **「수정이 들어간 빌드였다」는 로그로 확인되지 않으며 근거는 사용자가 직접 빌드해 돌렸다는 사실뿐이다.** ⚠️ **이 한계가 판정을 무효로 만들지는 않지만 「증상 0건」의 강도를 그만큼 낮춘다.** ✅ **판별 수단 — 닫기 줄에 실리는 참/거짓 값의 개수 변화 — 은 2026-10-01 에 생겼고 그 회차 빌드에 처음 쓰였다**(맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-01)」 문단).
-- ⬜ **멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이 회차에서 미실시** — 이번 회차의 완료 조건이 아니었다. 규칙 M-3 은 이 회차보다 앞선 2026-09-27~28 에 구현·실기 관측으로 닫혀 있어 남은 잔여가 아니다(규칙 M-3 의 상태 줄 참조 — 등급의 단일 소스는 규칙 D-7 블록) *(2026-10-12, 규칙 번호를 바로잡았다 — 종전 표기는 규칙 D-8 이었다. 그 번호는 「요청 중...」 문구 규칙이고 이 항목이 가리킨 것은 규칙 M-3 이다)*
-- 🔴 **「무반응 이탈 경로가 이 프로젝트에서 처음 발화했다」고 적지 않는다** — 이 체크아웃의 과거 로그에 같은 모양의 줄이 여러 건 있다. 🔴 **어긋남의 실측과 처리는 `_Tasks/2026-09-29/16_16_post-game-ui-close-out/Plan.md` §8-9 가 단일 소스**이며 여기서 판정하지 않는다.
-- ⚠️ **Unity 에디터 컴파일 경고 0건은 이번에도 미확인**이다(로그에 경고 집계 자리가 없다).
-- ⚠️ **`TechnicalDesignDocument.md` 의 「결과 화면 이탈 판정·통보 구조」 절이 (이 회차 당시) 「미구현」 표기이고 「응답을 무엇으로 재는지 미확정」이라 적는다** — 🔴 **이번 로그는 그 감시가 하트비트로 돌고 있음을 보여 준다.** ⚠️ **이번 회차가 만든 어긋남이 아니라 단계 6(2026-09-27) 이후로 낡아 있던 것**이며 **이 회차에서는 범위 밖으로 남겼다.** ✅ **같은 날 뒤 커밋(TDD 0.60.0)이 그 두 자리에 갱신 포인터(구현됨 · 하트비트 채택)를 덧붙였다** — 절 제목의 「미구현」 원문은 TDD 에 그대로 남아 있다(2026-10-12 직접 확인: TDD 「결과 화면 이탈 판정·통보 구조」 절 제목과 그 아래 2026-09-30 갱신 포인터).
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 D-6 끝의 2026-09-30 실기 검증 블록**. **실기 결과·근거 등급·인계 어긋남의 단일 소스**는 `_Tasks/2026-09-29/16_16_post-game-ui-close-out/Plan.md` **§8 실기 결과**(§8-5 ~ §8-10), **구현 방법**은 같은 문서 **§3-1**, **투영 단계 실패 지점 전수 계수**는 같은 폴더 `Research.md` **§4** 다.
-
-**✅ 구현 완료 · 실기 검증 (2026-09-29 (2차)) — 검증 상태: 🔴 「코드 적용 완료」와 「실기 PASS」를 갈라 적는다 / ✅ Unity 컴파일 미확인이 해소됐다 / ⚠️ 컴파일 경고 0건 · 진짜 투영 실패 발화 0건 · 화면 4가지는 사용자 확인:** **싱글 맵 실패 UI 의 후속 7건 — H(투영 단계까지 범위 확대) · I·L(씬 자리표시 문자열 2자리) · J(주석 문구 사본) · K-1(라벨 단일 소스) · K-2(상태 줄 완전 일원화) · M(싱글 투영 전용 강제 실패 수단).**
-
-쉽게 말하면, **혼자 하는 게임에서 「지도를 만들었지만 화면에 그리지 못한」 경우에도 이제 안내가 뜬다.** 종전에는 「만드는」 단계의 실패만 안내가 있었고 「그리는」 단계는 조용히 빈 화면이 됐다. 그리고 그 화면을 실제로 볼 수 있는 **전용 스위치**가 함께 만들어져 **실기에서 두 번 떴다** — 종전 스위치로는 **구조적으로 닿을 수 없던 자리**다. 나머지는 뒤처리다 — 씬에 남아 있던 개발용 글자 두 자리를 비우고, 같은 글자가 코드 여러 곳에 흩어져 있던 것을 한 자리로 모으고, 화면 한 줄에 글씨를 쓰는 창구를 완전히 하나로 만들었다.
-
-- **근거 파일** — `_Logs/_editor/2026-09-29/RuntimeLog.txt`(**1,225행** · 🔴 **덮어쓰지 않고 누적되므로 이번 회차는 23시대 구간**) · `_Logs/2026-09-29/23_33_logcat/RuntimeLog_device.txt`(**9,794행**). 🔴 **아래 수치·건수·시각은 문서 작업 중 내가 로그 원본을 직접 읽어 재측정한 것**이고 **화면 쪽 항목만 「사용자 화면 확인」**이다.
-
-**✅ 코드·씬 적용 완료 (7건)**
-
-| 항목 | 무엇이 들어갔나 |
-|---|---|
-| **H** — 투영 단계 실패도 알린다 | 투영 함수가 **성공/실패를 돌려주게** 됐고 **싱글 호출부만** 그 값을 읽어 **기존 통보 함수**를 부른다. 🔴 **멀티 호출부 본문 변경 0줄 · 새 채널·새 계약·새 로그 이벤트 0개** |
-| **I · L** — 씬 자리표시 문자열 | `Game.unity` 의 **상태 줄**(`CountdownText`)과 **결과 문구 자리**(`ResultText`)의 텍스트 값을 빈 문자열로. **각각 바꾼 줄 1줄 · 배선 무변경 · 파일 총 행수 53,260 유지**(실측). ⚠️ **되돌리기 값은 둘 다 `124124`** |
-| **J** — 주석의 문구 사본 | 로그 인터페이스 주석에서 화면 문구 사본을 걷어냈다 — 리포지토리 전체 히트 **4 → 3**(실측). 남은 3건은 **전부 값을 담은 자리**다 |
-| **K-1** — 라벨 단일 소스 | 「다시하기」·「로비로」의 값 자리가 **각 2곳 → 1곳**(실측). 🔴 **실패 문구 3곳은 합치지 않았다 — 마침표 차이가 사양이다** **[🔴 2026-10-13 포인터 — 이 행은 2026-09-29 시점의 기록이라 원문을 유지한다(B-7)]** ⓐ 위 「마침표 차이가 사양이다」의 근거는 2026-10-12 에 소멸했다 — 같은 날 사용자가 문구에 마침표를 붙이기로 해 세 자리 모두 마침표로 끝난다. ⓑ 🔴 그러나 판정 자체(세 자리를 한 상수로 합치지 않는다)는 유지된다 — 남는 근거는 「사건이 다르고 규칙이 따로 개정될 수 있다」이다. ⓒ 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-4 끝의 「2026-09-29 (4차) 판정」 블록이다(거기에 같은 정정이 이미 들어 있다). |
-| **K-2** — 상태 줄 완전 일원화 | 위젯에 직접 쓰던 2줄이 setter 경유로. setter 호출부 **5곳 · 위젯 직접 대입 0곳**(실측) |
-| **M** — 싱글 투영 전용 강제 실패 수단 | 에디터 전용 · 1회용. 메뉴 항목 **8개**가 됐고 「현재 설정 확인」·「해제」가 **저장소 넷**을 함께 다룬다 |
-
-**✅ 실기 PASS (로그 직접 관측)**
-
-- 🔴 **투영 단계에 실제로 도달해 실패로 끝났다 — 2회.** 준비 성공 직후 같은 판에서 이어졌다(23:29:25.704 준비 성공 → .706 강제 표식 → .707 투영 실패 / 23:30:08.071 → .072 → .072). **최초 경기와 다시하기 두 경로 모두**다.
-- ✅ **K-2 가 건드린 두 자리가 실기에서 정상 발화했다** — 재경기 준비 진입(23:28:43.573 정지 → .574 상태 줄 교체) · 이탈 재시작(23:29:00.182 정지 → .183 30초 재시작). 🔴 **「비운다 → 곧 채운다」 전제가 깨지지 않았다.**
-- ✅ **멀티 회귀 증상 0건** — 평시 60초(에디터 23:28:37.752 · 23:28:59.172 / 실기기 23:28:37.874 · 23:28:59.266) · 이탈 재시작 30초 · 재경기 수락 시 정지. 🔴 **「회귀가 없다」가 아니라 「증상 0건」이다.**
-- ✅ **싱글에 타이머 없음이 유지됐다** — 23시대 싱글 구간에 **카운트다운 시작 0건 · 만료 복귀 0건**, 로비 복귀 2건은 **전부 버튼**.
-- **오류 집계** — 실기기 `[ERROR]` **0건** · `[WARN]` **2건**. 에디터(23시대) `[ERROR]` **2건 = 강제 투영 실패가 의도적으로 남긴 것뿐** · `[WARN]` **3건**.
-
-**✅ Unity 컴파일 미확인이 해소됐다** — 직전 회차가 「완료로 적지 않은 것」에 올려 둔 **⚠️ Unity 에디터 컴파일 미확인**이 닫혔다. 근거는 둘이다 — ① 🔴 **새 도구 파일의 `.cs.meta` 가 실재한다**(`Assets/_Project/Scripts/Bootstrap/Debug/ForcedMapProjectionFailure.cs.meta` · guid `605733c9c209b4d4ab5ce05ac8b972d4` — 이 문서 작업 중 내가 직접 확인) = **에디터가 임포트했다** ② **그 코드가 실기에서 2회 실행됐다** = **컴파일에 성공했다**(컴파일되지 않았다면 실행될 수 없다).
-
-- ⚠️ **다만 「컴파일 경고 0건」은 확인된 것이 아니다** — 로그에 경고 집계 자리가 없다. 🔴 **「오류 없이 돌았다」와 「경고가 없다」는 다른 주장이다.**
-
-**⚠️ 과대 표기 금지 — 아직 완료가 아닌 것**
-
-- 🔴 **진짜 투영 실패는 발화 0건이다** — 이번 2회는 **전부 에디터 전용 강제 실패 도구가 만든 것**이라 **발생 빈도와 심각도는 여전히 알 수 없다.**
-- ✅ **투영 단계 전체의 실패 지점은 이후 전수로 세어졌다**(2026-09-30). 🔴 **단일 소스는 `_Tasks/2026-09-29/16_16_post-game-ui-close-out/Research.md` **§4** 이며 수치를 여기에 옮겨 적지 않는다.** 이 회차(2026-09-29 (2차)) 당시의 실측은 *밖에서 보이는 실패 지점이 한 자리*라는 것까지였다. ⚠️ **바로 위 불릿(「진짜 투영 실패는 발화 0건」)은 함께 닫히지 않는다** — 🔴 **「세었다」와 「실제로 난 적이 없다」는 다른 사실이다.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「투영 단계 전체의 실패 지점을 전수로 세지 않았다」)*
-- ⚠️ **컴파일 경고 0건 미확인**(위 참조).
-- ⚠️ **싱글 투영 실패는 에디터에서만 확인됐다** — 실기기 로그에는 **멀티 구간만** 들어 있다.
-- ⚠️ **로그에 자리가 없어 「사용자 화면 확인」에만 근거하는 것 4가지** — ① 투영 실패 시 **모달이 뜬 모습** ② **결과 화면이 되살아난 모습과 상태 줄 한 줄** ③ **승리/패배 글씨가 제대로 나오는 것**(L 이 씬 값을 비웠으므로 중요하다) ④ **씬의 두 자리가 빈 칸인 것**. 사용자 보고는 *"테스트절차대로 확인했고"* 다.
-- ⚠️ **종전 그대로 남는 것** — 매 초 상태 줄 setter 호출의 **성능·깜빡임 미측정** · **최초 실패 모달의 z-order 미확인**.
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 M-4 끝의 2026-09-29 (2차)·(3차) 블록**. **도구 사용 절차**는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「개발용 강제 실패 플래그 (에디터 전용)」 절의 **⑤·⑥ 소절**. **구현·실기 기록**은 `_Tasks/2026-09-28/11_50_single-map-failure-ui/Plan.md` **§12 · §15 · §8-1**.
-
-**✅ 구현 완료 · 실기 검증 (2026-09-29) — 검증 상태: 🔴 「코드 적용 완료」와 「실기 PASS」를 갈라 적는다 / ⚠️ 삭제 후 재검증 0건 · ✅ Unity 컴파일은 이후 확인됨(2026-09-29 (2차)):** **「경기 종료 후 UI·프로세스」 단계 10 — 싱글플레이 맵 준비 실패 UI(규칙 M-4)와 싱글 타이머 제거(규칙 D-4 의 적용 범위).**
-
-쉽게 말하면, **싱글플레이에서 맵 만들기가 실패해도 이제 사용자가 빈 화면에 갇히지 않는다.** 실패하면 「맵 준비에 실패했습니다」라는 안내와 함께 **「다시하기」·「로비로」 두 버튼이 뜨고**, 싱글에서는 **결과 화면이 시간이 지나서 저절로 사라지지도 않는다**(그 자동 복귀 타이머는 멀티 전용이 됐다). 그리고 이 화면을 실제로 띄워 보려면 일부러 실패를 만들 수단이 필요한데, **싱글 전용 강제 실패 수단**도 이번에 함께 만들어져 **실기에서 두 번 발화했다.** **[🔴 2026-10-13 포인터 — 위 문단은 2026-09-29 시점의 기록이라 원문을 유지한다(B-7)]** 위 *「맵 준비에 실패했습니다」* 는 그 시점에 코드에 들어간 문구다. 2026-10-12 사용자 결정으로 **싱글 최초 경기 실패 모달의 문구는 「경기를 시작할 수 없습니다.」로 바뀌었고 그 값이 코드에 들어갔다**(`GameBootstrapper.Map.cs` 의 모달 본문 상수 — 2026-10-13 코드의 문자열을 직접 확인했을 뿐 이 문구가 싱글 화면에 뜬 것은 확인되지 않았다). 현행 문구의 단일 소스는 규칙 M-4 의 2026-09-28 (3차) 확정 표 「표시 문구」 칸이다. 「다시하기」·「로비로」 두 버튼은 싱글에서 그대로다.
-
-- **근거 파일** — `_Logs/_editor/2026-09-29/RuntimeLog.txt`(**980행**) · `_Logs/2026-09-29/13_17_logcat/RuntimeLog_device.txt`(**16,007행**). 🔴 **아래 수치·건수·시각은 문서 작업 중 내가 로그 원본을 직접 읽어 재측정한 것**이고, **화면 쪽 항목만 「사용자 화면 확인」**, **삭제 diff 의 SHA-256 만 「호출 세션 전달값」**이다.
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 M-4 끝의 2026-09-29 블록**과 **규칙 D-4 끝의 2026-09-29 블록**. **구현·실기 기록**은 `_Tasks/2026-09-28/11_50_single-map-failure-ui/Plan.md` **§12 · §8-1**.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다. 🔴 「코드 적용 완료」와 「실기 PASS」는 다른 말이므로 일괄로 「완료」로 읽지 않는다.**
-
-- ✅ **코드 적용 완료 — 단계 A·B·C·D·E·F·G 전부.** 최초 경기 실패 모달 · 재경기 실패 시 결과 화면 되살리기 · 실패 통보 이벤트 채널(🔴 **`LoadMap()` 시그니처 무변경 · 기존 호출부 3곳 전부 무변경**) · 상태 줄 사적 setter 하나 · 싱글 평시 빈 줄 · 싱글에서 코루틴 미시작 · 싱글 전용 강제 실패 수단.
-- ✅ **코드 적용 완료 — 죽은 메서드 `ShowResult(TeamId, TeamId)` 최종 삭제**(WORKFLOW [4] 의 「[6] 통과 후 · [7] 전」 자리). **52줄 삭제 · 추가 0줄**(주석 아닌 줄 0 · 51줄이 `//` 로 시작 · 빈 줄 1), 파일 **2403 → 2351행**. 🔴 **동작 무변경이 측정으로 증명됐다** — 주석·문자열 리터럴을 걷어내고 공백을 제거한 **코드 본문 SHA-256 이 삭제 전후 동일**(`48413d09…4133f7`, 12,735자 — **호출 세션 전달값**). 잔존은 **코드 0건 · 씬·프리팹·에셋 0건**(UnityEvent 배선 없음. 내가 직접 실측).
-- ✅ **실기 PASS — 싱글에 타이머가 없다.** 에디터 싱글 구간(13:06~13:13)에 **「자동 복귀 카운트다운 코루틴 본문 시작」 0건**이고, 로비 복귀 3건(13:06:39.027 · 13:07:10.968 · 13:13:39.092)은 **전부 `NetworkActive=False` 이고 전부 버튼** — **만료로 인한 복귀 0건**이다. 🔴 **가장 강한 증거는 실패 화면이 13:08:16.598 → 13:13:32.543 = 약 315.9초(5분 16초) 유지된 것**이다(테스트 기준 90초의 3배 이상. 타이머가 있었다면 60초에 사라진다).
-- ✅ **실기 PASS — 싱글 전용 강제 실패 수단이 발화했다(2회).** `[WARN]` 13:07:46.400 · 13:08:16.597 — `Forced=ForcedMapPreparationFailure`, **각각 직후** `[ERROR] Event=MapPreparationFailed … ErrorCode=None`. 🔴 **강제 실패를 진짜 실패와 구별하는 표식 3겹이 다 찍혔다** — `Forced=` 필드 · 사유 문장 `[강제 실패] …(실제 장애가 아니다)` · **`ErrorCode=None` + 실패**(진짜 실패는 반드시 구체 사유 코드를 싣기 때문에 **정상 경로에서 나올 수 없는 조합**). ✅ **새 실패 경로를 만들지 않은 것도 확인됐다** — 실패 로그가 **기존 `Event=MapPreparationFailed` 그대로**다. 재시도 성공 2회(13:07:55.746 · 13:13:32.543).
-- ✅ **실기 PASS — 멀티 회귀 없음(양쪽 기기 실측).** 자동 복귀 만료가 **에디터 13:14:39.998 → 13:15:40.162 = 60.164초** · **실기기 13:14:39.729 → 13:15:40.015 = 60.286초**. 🔴 **간격은 각 기기 안에서만 쟀다 — 두 기기 시각을 섞지 않는다.** 재경기 수락 시 타이머 정지도 확인(`StoppedBy=EnterRematchPreparingState` · `LimitSeconds=20`, 규칙 D-7). ✅ **이탈 재시작 30초도 발화**(실기기 13:15:40.057 — `TotalSeconds=30` · `OpponentLeft=True`, 규칙 D-4 의 둘째 행).
-- ✅ **실기 PASS — 오류 없음.** 실기기 `[ERROR]` **0건** · `[WARN]` **2건**. 에디터 `[ERROR]` **2건 = 강제 실패가 의도적으로 남긴 것뿐**이고 `[WARN]` **3건**(강제 실패 2 + 세션 종료 시 정상 끊김 감지 1 — 13:15:40.182). 🔴 **「에디터 `[WARN]` 3건」은 내 재측정값이며 인계문에는 없던 숫자다.**
-- 🔴 **실기 검증의 함정 하나 — 실기기 로그 한 파일에 두 세션이 섞여 있었다.** 그중 **12:45 세션(PID 22260)이 싱글인데 `TotalSeconds=60` 으로 카운트다운을 시작**해 사양 위반으로 보인다. 🔴 **그것은 수정 전 빌드다** — 판별 근거는 **코루틴의 컴파일러 생성 클래스 번호**로, 12:45 = `<CountdownCoroutine>d__49`(**1건**) / 13:14~13:15(PID 25036) = `<CountdownCoroutine>d__59`(**9건**)이며 **번호가 다르면 다른 어셈블리**다. ✅ **수정 후 빌드에서 카운트다운이 시작된 것은 전부 `NetworkActive=True`(멀티)** 다.
-- ⚠️ **로그에 자리가 없어 「사용자 화면 확인」에만 근거하는 것 5가지** — **팝업이 뜬 모습 · 버튼 2개 · 안내문 문구 · 결과 화면이 되살아나는 모습 · 깜빡임 없음.** 사용자 보고는 *"모두 정상적으로 잘 되었고"* 다. 🔴 **이 등급은 위 「실기 PASS(로그)」 항목들과 합치지 않는다** — 로그는 이 다섯 가지에 대해 아무 말도 하지 않는다.
-- ⚠️ **과대 표기 금지 — 이 회차 당시 아직 완료·확인이 아니었던 것 5가지(ⓑ 는 이후 해소)**: ⓐ 🔴 **`ShowResult()` 최종 삭제 후의 재검증(실기·에디터)은 0건**이다 — 삭제는 실기 통과 **뒤**에 했고 그 뒤로 다시 돌리지 않았다 ⓑ ✅ **Unity 에디터 컴파일은 이후 확인됐다**(이 파일은 `UnityEngine` 의존이라 헤드리스 빌드가 불가하다 — 근거는 위 「2026-09-29 (2차)」 문단: 새 도구 파일의 `.cs.meta` 실재 + 그 코드의 실기 2회 발화. ⚠️ 컴파일 경고 0건은 그 문단대로 미확인) *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 Unity 에디터 컴파일 미확인」)* ⓒ **매 초 setter 호출의 성능·깜빡임 영향 미측정** ⓓ **최초 실패 모달의 z-order·오버레이 상호작용 미확인** ⓔ **위 「사용자 화면 확인」 5가지는 로그로 검증된 것이 아니다.**
-- ✅ **범위 밖으로 남았던 것은 이후 해소됐다 — `ProjectMap`(맵을 격자에 새기는 단계) 실패에도 이제 안내가 뜬다**(2026-09-29 (2차) 문단의 H — 규칙 M-4 의 범위가 투영 단계까지로 확정되고 구현됐다). ⚠️ 이 회차 당시에는 규칙 M-4 가 그 단계를 포함하는지 자체가 불분명했고 정하지 않았다 — 「판단 필요」로 [ROADMAP.md](ROADMAP.md) 에 행을 세웠던 것이 그 판단을 받아 닫혔다(`CLAUDE.md` 규칙 6·12). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 범위 밖으로 남은 것 — ProjectMap 실패에는 여전히 안내가 없다」)*
-
-**✅ 실기 검증 (2026-09-27) — 검증 상태: 결과 화면 전 구간 실기 확인 / ✅ 새 버그 1건은 이후 수정됨(좁은 범위) / ✅ 경로 1건(실패 경로 ①)은 이 회차 당시 재현 수단이 없었고 2026-09-28 (4차)에 재현됐다:** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 새 버그 1건 미해결 / ⚠️ 경로 1건은 재현 수단 없음」)* **「경기 종료 후 UI·프로세스」 단계 5·6·7·9 + §8 14-4 강제 실패 플래그 + `ForceWin` 수정.**
-
-쉽게 말하면, **경기가 끝난 뒤의 결과 화면이 처음으로 처음부터 끝까지 실기에서 돌았다.** 지금까지 이 작업의 여러 단계는 「코드는 들어갔지만 화면을 본 사람이 없다」는 상태였고 이 문서의 아래 문단들이 그것을 **「🔴 실기 검증 0건」**이라고 적어 두었었다. 이번에 그 표기가 **대부분 거짓이 됐고, 아래 문단들의 표기는 현재 사실로 고쳐졌다.** 특히 직전 회차에 **「자동 복귀 카운트다운이 만료되지 않는다」**고 의심했던 것은 **코드 결함이 아니었다** — 강제 실패가 `[ERROR]` 로 찍혀 **Unity 의 Error Pause 로 에디터가 멈춰 있었을 뿐**이고, 멈추면 코루틴도 돌지 않는다. **고칠 자리는 코드가 아니라 「Error Pause 를 끄고 쓴다」는 사용 절차였다.**
-
-- **근거 파일** — `_Logs/_editor/2026-09-27/RuntimeLog.txt`(4,052행). 🔴 **아래 ✅ 항목의 수치·건수·시각은 문서 작업 중 내가 직접 읽어 재측정한 것**이고, **화면 쪽 한 항목만 「사용자 화면 확인」**, **새 버그의 원인만 「메인 세션 코드 확정」**이다.
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 D-7** 의 **2026-09-27 확정 블록**(상태 줄 문구 개행)과 **2026-09-27 실기 검증 블록**, **강제 실패 플래그의 사용 절차**는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「개발용 강제 실패 플래그 (에디터 전용)」 절의 **2026-09-27 블록**, **실기 결과 전문·타임라인**은 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` **§15** 가 단일 소스다.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다. 🔴 항목마다 등급이 다르므로 일괄로 「완료」로 읽지 않는다.**
-- ✅ **실기 확인 — 자동 복귀 카운트다운.** 만료 **3회** 관측이고 **그 뒤 코드(Heartbeat 정지 · 정상 퇴장 통보 · Shutdown)가 전부 실행된다.** 길이도 실측으로 맞다 — 평시 **60.228초** · 이탈 재시작 **30.122 / 30.142초**. 🔴 **직전 회차의 「자기 코루틴 정지」 가설은 반증됐다** — 그 가설을 세운 것은 옳은 절차였고, **고치지 않고 진단 로그만 넣었기에 멀쩡한 코드를 수술하지 않았다.**
-- ✅ **실기 확인 — 우선순위 「이탈 > 실패」.** 실패 문구 → 이탈 문구가 덮음 → 30초 뒤 자동 복귀가 **한 줄기로 2회** 관측됐다(규칙 D-1 · D-2 · D-4).
-- ✅ **실기 확인 — 단계 5·6.** 정상 퇴장 통보와 무반응 30초 자체 감시(도달 확인 → 이탈 확정)가 로그에 남았다. ⚠️ **단계 5 는 「채널까지」다** — 화면 반영이 관측된 3건은 전부 자체 감시 경로이고, 통보로 들어온 1건은 **수신 170ms 뒤에 에디터 자신도 나가서 판정할 수 없다**(추정하지 않는다). ⚠️ **종전에 내가 「이 체크아웃의 로그 사본에 해당 구간이 없어 재측정하지 못했다」고 적은 두 항목이며, 이번 로그로 내가 직접 읽었다.**
-- ✅ **실기 확인 — 단계 9 의 실패 문구 2종.** 로그에 두 사유가 모두 남았고 **문구 두 종류는 사용자가 화면으로 직접 확인**했다. ⚠️ **항목별 관측 기록이 아니라 화면 확인이다.**
-- ✅ **실기 사용 확인 — 강제 실패 플래그.** `Forced=` **7건** · **사유 3종 전부**(`Disconnected` 4 · `HashMismatch` 1 · `ResponseTimeout` 2). 🔴 **그 도구만이 확인할 수 있던 「맵 준비 한도가 두 창을 재는가」도 확인됐다**(대기 10초 → 재전송 1회 → 다시 10초. UI 한도 만료가 실패보다 **9ms** 앞섰다).
-- ✅ **실기 확인(로그) — `ForceWin` 수정.** 그 항목이 스스로 적어 둔 판정 기준(`ForceWin 호출` 뒤에 `게임 종료 — 전투 틱 정지` 가 남는지)이 충족됐고, **요구 구성인 「에디터가 Host」였다.** ⚠️ **확인된 것은 전투 정지까지이고 결과 화면이 떴는지는 로그에 남지 않는다.**
-- ✅ **해소 — 새 버그 1건. 재경기 실패 직후에 화면이 「재경기 준비 중...」으로 되돌아가던 문제.** 실패 처리가 끝난 **바로 다음 ms** 에 준비 상태로 2차 진입해 **20초 동안 거짓 상태**를 보여 주고 자동 복귀 타이머도 멈춘 채 있다가, 한도 만료로 다시 실패 문구가 뜨던 것이다. **원인은 「수락 접수가 두 경로로 들어오고 수락한 쪽은 둘 다 받는데, 그 사이에 실패 처리가 끼어들어 가드가 풀린다」**는 것이다(메인 세션 코드 확정). ⚠️ **강제 실패 때문에 드러났지만 진짜 실패가 아주 빨리 나도 같은 일이 생긴다**(관측 회차의 간격 **12ms**). **상태는 「원인 확정 · 수정됨 · 원래 경쟁 순서에서 증상이 재발하지 않았다」**다 — 좁은 범위이며 단일 소스는 규칙 D-7 의 2026-09-28 실기 검증 블록 ① 이다(2026-09-28 01:51 회차: 2차 수락 신호가 실패 처리보다 3ms 늦게 도착해 새 가드가 흡수했고 카운트다운은 60.238초에 정상 만료). ⚠️ **같은 뿌리의 순서 반대 결함은 별도로 발견됐다**(규칙 D-7 의 2026-09-28 (4차) 블록 · Plan §15-15) — **이 줄이 닫는 것은 위 결함뿐이며 그 결함의 현재 상태는 이 문서가 판정하지 않는다.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 규칙 D-7 의 같은 줄과 일치. 종전 표시: 「🔴 미해결 … 상태는 『원인 확정 · 수정 진행 중 · 실기 미검증』이며 game-programmer 가 병렬로 고치고 있다」)*
-- ✅ **재현됐다 — 단계 9 의 실패 경로 ①(수락을 서버로 아예 보내지 못했다).** 이 회차(2026-09-27) 당시에는 **코드 보장까지**였다 — 강제 실패 플래그의 사유 3종은 **전송 계층**의 것이라 그 경로를 만들 수 없었다. 2026-09-28 (4차)에 넷째 사유 ④ 수락 전송 예외가 더해져 실기에서 작동했다(단일 소스는 규칙 D-7 끝의 「2026-09-28 (4차) 확정」 블록, 사용 절차는 TDD 「개발용 강제 실패 플래그 (에디터 전용)」 절의 (4차) 소절). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「⚠️ 재현 수단 없음 — 코드 보장까지」)*
-- ⚠️ **이 회차로 확인되지 않은 것 2건이었다** — **규칙 D-6(요청자 이탈 알림 팝업)** 은 이 회차 당시 실기 미검증이었다(그 자리에 로그가 없었고, 이번 이탈들은 **요청 팝업이 떠 있지 않은 상태**였다). ✅ **이후 1·2항이 실기로 확인됐다**(2026-09-30 사용자 화면 확인 · 2026-10-01 로그 직접 관측 — 맨 위 두 문단. 3항은 그 근거에 들어 있지 않다) *(2026-10-12, D-6 의 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「여전히 실기 미검증이다」)*. **규칙 D-8**(「요청 중...」 문구 되돌리기)도 이 회차 당시 버튼 문구가 로그에 남지 않아 확인되지 않았다. ✅ **이후 2026-09-28 (3차)에 구현·사용자 화면 확인으로 닫혔다**(단일 소스는 규칙 D-8 끝의 「2026-09-28 (3차) 확정 — 규칙 D-8 이 닫힌다」 블록) *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「확인되지 않았다」)*.
-- ✅ **사용자 확정 1건 — 상태 줄 문구를 「남은 초」 앞에서 두 줄로 나눈다.** 대상은 **평시 · 상대 이탈 · 재경기 실패(기본) · 재경기 실패(상대 나감) 전부**이며 **단일 소스는 규칙 D-7 의 2026-09-27 확정 블록 한 곳**이다. ⚠️ **알림 팝업 본문은 대상이 아니다**(남은 초가 들어가지 않는다). ✅ **이후 코드에 반영됐고 레이아웃은 양쪽 기기에서 사용자가 관측했다**(규칙 D-7 의 2026-09-27 확정 블록과 그 안의 코드 반영 확인, 2026-09-28 (3차) 확정 블록이 단일 소스). ✅ **「평시」 문구는 읽기 ②(평시만 한 줄)로 확정됐다**(같은 규칙 D-7). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 규칙 D-7 의 해소 블록과 코드 확인. 종전 표시: 「아직 코드에 반영되지 않았고 … 레이아웃이 밀릴 위험은 실기 미확인 … 「평시」 문구는 … 미정으로 남겼다」)*
-- ✅ **단계 10(싱글 규칙 M-4)은 이후 구현됐다** — 단일 소스는 이 문서의 「✅ 구현 완료 · 실기 검증 (2026-09-29)」 문단이다. 이번 회차(2026-09-27)는 그 미정(표시 문구·버튼 라벨)을 건드리지 않았다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 코드 확인과 규칙 M-4 의 2026-09-28 (3차) 확정 블록. 종전 표시: 「미착수 — 단계 10(싱글 규칙 M-4)뿐이다」)*
-
-**⚠️ 부분 구현 (2026-09-24) — 검증 상태: ✅ 실기 확인됨 (2026-09-27) · 단 실패 경로 ①은 2026-09-27 시점에 재현 수단이 없었고 2026-09-28 (4차)에 재현됐다:** **「경기 종료 후 UI·프로세스」 단계 9(규칙 18 — 재경기 실패 문구 분기) + §8 14-4 개발용 강제 실패 플래그.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 실기 검증 0건 (코드 확인까지)」, 2026-09-27 에 해소됐다. 현재 검증 상태의 단일 소스는 맨 위 「✅ 실기 검증 (2026-09-27)」 문단이다)*
-
-쉽게 말하면, **「왜 재경기가 안 됐는지」를 화면이 구분해 말한다.** 종전에는 이유가 무엇이든 「재경기를 시작할 수 없습니다」 한 문장만 떴는데, 이제 **상대가 나가서 실패한 경우에만** 「상대방이 나가서 재경기를 시작할 수 없습니다」로 바뀐다. 두 경우는 **사용자가 할 수 있는 일이 다르다** — 앞쪽은 다시 시도할 여지가 없고 뒤쪽은 있다. 🔴 **사유를 모르면 기본 문구를 쓴다**(상대가 나간 것처럼 보여도 내 회선 문제일 수 있어, 단정하면 거짓을 말하게 된다). 그리고 **그 화면을 개발 중에 볼 수 있게 하는 에디터 메뉴**가 함께 생겼다 — 맵을 주고받는 구간이 **실측 99~134ms** 라 사람이 그 순간에 네트워크를 끊을 수 없어서, 실패 화면은 지금까지 **한 번도 관측된 적이 없다.**
-
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — **문구 2종**은 [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 **규칙 D-7** 의 2026-09-24 확정 블록, **가르는 기준**은 [GameSystemRules/GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) **규칙 18** 이다. **강제 실패 플래그의 사용 절차**는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「개발용 강제 실패 플래그 (에디터 전용)」 절, **구현 상세**는 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` **§14** 가 단일 소스다.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다.**
-- ✅ **완료 — 실패 문구가 「연결 끊김인가」 하나를 기준으로 둘로 갈린다.** 문구 상수는 각각 코드에 한 곳뿐이고, **화면에 쓰는 자리는 종전과 같은 한 자리(삼항 연쇄)이며 우선순위 「이탈 > 실패 > 평시」도 그대로**다(직접 실측). **코드 확인까지다.**
-- ✅ **완료 — 새 이벤트·새 채널 0개.** 규칙 18 이 *"새 이벤트를 만들지 않는다"* 고 정했으므로 **기존 채널에 사유를 실었고 발행처 2곳·구독처 1곳으로 개수가 변하지 않았다**(직접 실측). 사유 값은 **레이어 제약 때문에 Application 쪽에 따로 뒀다.**
-- ✅ **완료 — 개발용 강제 실패 플래그.** 신규 파일 2개 · 에디터 메뉴 5개 · 사유 3종. **저장은 `EditorPrefs` 라 씬·프리팹에 남지 않고**(직렬화 필드 선언 0건), **한 번 쓰면 스스로 꺼지며**, **재경기 회차에만 걸린다.** 🔴 **가드가 `#if UNITY_EDITOR` 로 좁혀졌다** — 확정 당시의 `|| DEVELOPMENT_BUILD` 는 조작 수단이 에디터 메뉴뿐이라 죽은 코드가 되기 때문이다(근거는 위 Plan **§8** 의 2026-09-24 블록).
-- ✅ **실기 검증됨 (2026-09-27) — 강제 실패 플래그도 사용됐다**(경계의 단일 소스는 맨 위 「✅ 실기 검증 (2026-09-27)」 문단). 재현하려면 **에디터를 Host 로 두고** 한 판 끝낸 뒤 메뉴에서 사유를 고르고 재경기를 진행해야 한다. ⚠️ **단계 8 의 재현 조건과 다르므로 한 번의 테스트로 둘이 함께 검증되지 않는다** — 실제로 2026-09-27 테스트는 단계 8(규칙 D-6)을 검증하지 않았다. 🔴 **실패 경로 ①(수락을 서버로 못 보냄)은 이 도구의 사유 3종(전송 계층의 것)으로는 만들 수 없었다.** ✅ 2026-09-28 (4차)에 넷째 사유 ④ 수락 전송 예외가 더해져 재현됐다(단일 소스는 규칙 D-7 끝의 (4차) 확정 블록). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미검증 — 실기 검증이 0건이고, 강제 실패 플래그는 한 번도 쓰이지 않았다」)*
-- ✅ **단계 10(싱글 규칙 M-4)은 이후 구현됐다** — 구현·실기 기록의 단일 소스는 이 문서의 「✅ 구현 완료 · 실기 검증 (2026-09-29)」 문단이다. 멀티(규칙 M-3)는 **팝업이 아니라 상태 줄**로 개정됐고 그 구현은 직전 회차에 끝났다. 🔴 **`UIManager.ShowAlert` 실호출처는 이 회차 시점에 1건이었고** 이번 작업으로 늘지 않았다(직접 실측). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 코드와 규칙 M-4 의 2026-09-28 (3차) 확정 블록으로 확인했고 실호출처는 재측정에서도 1건이다. 종전 표시: 「미착수 — 단계 10(싱글 규칙 M-4)뿐이다 … 규칙 M-4 의 「표시 문구·버튼 라벨 미정」은 살아 있고 이번 회차가 건드리지 않았다」)*
-
-**⚠️ 부분 구현 (2026-09-22) — 검증 상태: ✅ 실기 확인됨 — 규칙 D-6 의 1·2항은 2026-10-01 로그 직접 관측 (경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-01)」 문단) *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 실기 검증 0건 (코드 확인까지)」)*:** **「경기 종료 후 UI·프로세스」 단계 8(규칙 D-6 — 재경기 요청자 이탈 처리).**
-
-쉽게 말하면, **상대가 「한 판 더 하자」고 물어 놓고 그대로 사라졌을 때 내 화면이 더 이상 멍하니 기다리지 않는다.** 답할 곳이 없어진 **요청 팝업을 먼저 닫고**, **「상대방이 떠났습니다.」 알림**을 **「로비로」 버튼 하나와 함께** 띄운다. 버튼을 누르지 않아도 이미 30초로 다시 시작된 자동 복귀 카운트다운이 로비로 데려가므로 **어느 쪽이든 갇히지 않는다.**
-
-- **커밋**: `500bbc1`(단계 8 코드 — **2개 파일뿐**: `Presentation/UI/Common/RematchRequestPopup.cs` +60행 · `Presentation/UI/GameEndUI.cs` +124/−3) · `cae1e9c`(docs) · 머지 후 원격 `ab0490f`. ※ 커밋 해시와 증감 행수는 메인 세션이 전달한 값이었고, 2026-10-12 에 읽기 전용 git 으로 재확인했다(`500bbc1` = 2개 파일 · `RematchRequestPopup.cs` +60 · `GameEndUI.cs` +124/−3 일치 · `cae1e9c`·`ab0490f` 는 커밋으로 실재).
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」의 **규칙 D-6** 이며 그 아래에 **2026-09-22 구현 결과 블록**이 붙어 있다. **구현 상세·완료 판정 6건·실기 재현 조건은 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §12** 가 단일 소스다.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다.**
-- ✅ **완료 — 규칙 D-6 의 1항(요청 팝업 닫기) · 2항(알림 팝업) · 3항(별도 타이머 없음).** 셋 다 **코드 확인**까지다. **새 닫기 경로를 만들지 않고 기존 숨김 경로를 재사용**했고, `UIManager.Instance?.ShowAlert(...)` 실호출처는 **1건**이며 null-safe 다(직접 실측).
-- ✅ **씬·인스펙터 작업 없음.** 팝업 참조가 직렬화 필드가 아니라 **런타임 1회 탐색·캐시**이고, 그 팝업이 `Game.unity` 에 배치돼 있음을 **guid 검색 1건**으로 확인했다(직접 실측). 🔴 **아래 「`NetworkStatusUI` 미배치」와 같은 상태가 아니다.**
-- ✅ **알림 팝업의 실호출처가 처음으로 생겼다 — 0건 → 1건.** 아래 2026-09-21 문단의 「실호출처 0건」 항목은 **이 항목이 대체했고**, 그 문단의 해당 줄은 2026-10-12 에 현재 사실(실호출처 1건)로 고쳤다.
-- ✅ **실기 확인됨 — 규칙 D-6 의 1·2항**(2026-09-30 사용자 화면 확인 → 2026-10-01 로그 직접 관측, 경계의 단일 소스는 맨 위 두 문단). 이 경로를 타려면 **한쪽이 재경기 버튼을 누른 직후 그 누른 쪽 앱을 강제 종료**해야 하고 **역할(Host/Client)은 무관하다**(단계 6 이 양쪽 각자 판정이므로). ⚠️ **「구현했다」와 「실기에서 확인됐다」는 다른 말이고, 위 확인은 1·2항 경로에 한한다 — 3항은 그 근거에 들어 있지 않다.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미검증 — 실기 검증이 0건이다 … 알림 팝업이 화면에 뜨는 모습은 여전히 아무도 본 적이 없다」)*
-- ✅ **단계 9·10 과 14-4 강제 실패 플래그는 이후 구현됐고 실기에서 관측됐다**(단계 9 와 플래그는 맨 위 「✅ 실기 검증 (2026-09-27)」 문단, 단계 10 의 싱글은 「✅ 구현 완료 · 실기 검증 (2026-09-29)」 문단이 단일 소스이며, 멀티 단계 10 은 규칙 M-3 의 상태 줄로 구현됐다). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미착수 — 단계 9·10 과 14-4 강제 실패 플래그 … 그 두 단계의 화면은 정상 경로에서 관측되지 않는다」)*
-
-**⚠️ 부분 구현 (2026-09-21) — 검증 상태: 컴파일 정상 · 기존 팝업 회귀 없음(2/3 확인) / ✅ 알림 팝업은 이후 실기에서 뜬 것이 확인됐다 (2026-09-30 사용자 화면 확인 · 2026-10-01 로그 직접 관측) *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 알림 팝업은 화면에 띄워 본 적이 없다」)*:** **「경기 종료 후 UI·프로세스」 단계 1·2·3 + 프리팹 구성.**
-
-쉽게 말하면, **결과 화면에서 사람이 갇히지 않게 만드는 작업의 앞부분 세 조각이 끝났다.** ① 「다시하기」를 눌러도 **로비로 나가는 버튼은 이제 꺼지지 않는다.** ② 결과 화면이 스스로 로비로 나가기까지의 시간이 **30초에서 60초로** 늘었다. ③ **「제목 + 본문 + 버튼 하나」짜리 알림 팝업을 띄울 수 있는 수단**이 생겼다 — 다만 **그것을 실제로 띄우는 자리는 아직 하나도 만들지 않았다.**
-
-- **커밋 4개**: `d881d23`(단계 1~3 — 5개 파일, +176/−6) · `b336d9c`(에디터 셋업 스크립트 + 에이전트 메모리 2건 + `_baseline.json` — 4개 파일) · `a87e404`(사용자의 로그·meta 커밋 `d6104af` 병합) · `1eba997`(사용자가 Unity 에서 셋업 스크립트를 실행해 저장·푸시한 `ConfirmPopup.prefab`).
-- **사양의 단일 소스는 규칙이고 여기에 옮겨 적지 않는다** — [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」의 **규칙 D-3 · D-4 · D-5** 이며, 각 규칙 아래에 **2026-09-21 구현 결과 블록**이 붙어 있다. 계획·단계 분할은 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md`.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다.**
-- ✅ **완료 — 규칙 D-3(로비 복귀 버튼 상시 활성).** `GameEndUI.SetupRematchButton` 의 `_backToLobbyButton.interactable = false` 를 제거했고 **잔존 0건**이다(주석만 남아 제거 이유를 설명한다. 문서 작업 중 직접 실측). ⚠️ **다만 이 규칙의 후반부「상대 이탈 판정 뒤에도 켜 둔다」가 화면으로 확인됐는지는 이 문서에서 확인하지 못했다** — 이탈 판정 자체는 구현돼 그 상황을 만들 수 있다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 규칙 D-4 의 2026-09-22 갱신 블록. 종전 표시: 「이탈 판정이 미구현이라 확인되지 않았다」)*
-- ✅ **완료 — 규칙 D-4 의 「결과 화면 표시 60초」.** 🔴 **코드와 씬 두 자리를 모두 고쳐야 성립하는 항목**이라 `GameEndUI._autoReturnSeconds` **30f → 60f** 와 `Game.unity` 직렬화 값 **30 → 60** 을 함께 바꿨다(**Inspector 값이 코드 기본값보다 우선**하므로 코드만 고쳤다면 실제 동작은 30초 그대로였다). ✅ **같은 규칙의 「이탈 판정 시 30초 재시작」은 이후 구현됐고 실기에서 초 단위 길이까지 관측됐다**(맨 위 「✅ 실기 검증 (2026-09-27)」 문단). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미구현이다」)*
-- ✅ **완료 — 규칙 D-5 의 수단(알림 팝업 API).** 신규 팝업을 만들지 않고 **기존 `ConfirmPopup` 을 확장**했다(사용자 승인). `_titleText` 필드 · `ShowAlert()` · `ApplyTitle()` · `SetCancelButtonVisible()` 추가, `IUIManager.ShowAlert` 선언 + `UIManager` 위임. **`ShowConfirm` 의 시그니처·동작 무변경 · 실호출처도 변경 전과 같은 5건**(직접 실측).
-- ✅ **완료 — 프리팹 전제 조건.** `ConfirmPopup.prefab` 의 Panel 에 VerticalLayoutGroup 이 들어갔다. 🔴 **이것이 없으면 제목을 숨겨도 그 자리가 빈 공간으로 남아 제목 없는 기존 팝업의 본문이 아래로 밀린다** — 즉 **코드만으로는 규칙 D-5 가 성립하지 않는다.** 1회성 에디터 스크립트 `Assets/Editor/Setup/SetupConfirmPopupAlertLayout.cs` 로 수행했고(WORKFLOW [5-2]), **그 스크립트는 멱등이라 프리팹이 깨졌을 때 되돌리는 수단으로도 쓸 수 있다.**
-- ✅ **알림 팝업은 이후 실기에서 뜬 것이 확인됐다** — 2026-09-30 사용자 화면 확인, 2026-10-01 로그 직접 관측(경계의 단일 소스는 이 문서 맨 위 두 문단). `UIManager.ShowAlert` 의 실호출처는 단계 8 이 만든 **1건**이며 2026-10-12 재측정에서도 1건이다(멀티 맵 실패는 규칙 M-3 이 상태 줄로, 싱글 맵 실패는 규칙 M-4 가 확인 팝업으로 알리므로 이 팝업을 쓰는 자리가 늘지 않았다). ⚠️ **「구현했다」와 「실기에서 확인됐다」는 다른 말이고, 위 확인은 규칙 D-6 의 1·2항 경로에 한한다.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미검증 — 알림 팝업이 화면에 뜨는 모습은 아무도 본 적이 없다 · 실호출처 0건 · 단계 8·10 둘 다 미착수」. 2026-09-22 에 덧붙였던 「실호출처 1건」 갱신은 이 줄에 합쳤다)*
-- ⚠️ **부분 확인 — 기존 확인/취소 팝업의 회귀.** 실기에서 **앱 종료 확인**(짧은 본문)과 **이메일 인증 취소**(긴 본문) 2건이 종전과 같이 표시됐다. **`ProfileView` 의 알림 표시 1건은 임의 재현이 어려워 미확인**이나, `ShowConfirm(cancelLabel: string.Empty)` 로 호출해 **버튼 2개 구조가 확인된 2건과 같고** 버튼 배치를 담는 ButtonRow 가 무변경이다.
-- ✅ **단계 4~10 은 이후 구현됐다.** 단계 4~9 의 등급별 상태 단일 소스는 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §10 실행 기록 표(여기에 표를 옮겨 적지 않는다 — ⚠️ 「완료」의 등급이 행마다 다르다는 것까지가 그 표의 내용이므로 이 줄만 읽고 전부 같은 수준으로 끝났다고 읽지 않는다), 단계 10 은 이 문서의 「✅ 구현 완료 · 실기 검증 (2026-09-29)」 문단(싱글 규칙 M-4)과 규칙 M-3(멀티, 상태 줄)이다. 대상은 전송 계층 타임아웃 60000(두 씬) · 이탈 채널과 정상 퇴장 통보 · 무반응 30초 자체 감시와 판정 시 연결 종료 · 결과 화면 반영(D-1·D-2·D-4 재시작) · D-6 요청자 이탈 · 맵 전송 중 이탈 문구 분기(규칙 18) · 맵 준비 실패 알림(규칙 M-3·M-4). ⚠️ **멀티 최초 경기 준비 실패(규칙 M-2)는 이 단계 목록에 없다. ✅ 그 구현은 2026-10-12 에 사양이 개정된 뒤 이루어졌고 2026-10-13 에 실기로 확인됐다**(맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-13)」 문단이 경계의 단일 소스). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미착수 — 단계 4~10」. 2026-10-13, 같은 줄의 「구현이 없다」를 다시 현재 사실로 고쳤다 — 종전 표시: 「이 단계 목록에 없고 구현이 없다」)*
-- ✅ **14-4 강제 실패 플래그는 이후 구현됐고 실기에서 사용됐다**(사유 선택형). 🔴 **가드는 `#if UNITY_EDITOR` 로 좁혀졌다** — 확정 당시의 표기 `|| DEVELOPMENT_BUILD` 는 조작 수단이 에디터 메뉴뿐이라 개발 빌드에 넣으면 죽은 코드가 되기 때문이다(근거는 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §8 의 2026-09-24 블록). **사용 절차의 단일 소스는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「개발용 강제 실패 플래그 (에디터 전용)」 절**이다. 맵 실패 화면은 정상 경로에서 관측되지 않으므로 이 도구로 관측한다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「미착수 — 14-4 강제 실패 플래그 … 이것 없이는 맵 실패 화면이 정상 경로에서 관측되지 않는다」. 2026-09-24 에 덧붙였던 구현·가드 갱신과 2026-10-12 정정은 이 줄에 합쳤다)*
-- ✅ **프리팹 값은 이 체크아웃에서 확인됐다** — `ConfirmPopup.prefab` 에 `_titleText` 행(1건) · `TitleText` 오브젝트 · `VerticalLayoutGroup` 이 있다(2026-10-12 직접 실측). 프리팹 변경은 사용자가 Unity 에서 실행해 푸시한 커밋 `1eba997` 에 있다. **프리팹 값의 대조는 메인 세션이 수행했고 실측값의 단일 소스는 `.claude/agent-memory/game-programmer/ui-system.md` 「알림 팝업 — 프리팹 전제 조건」이다.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「이 체크아웃에서 확인할 수 없었던 것 — 변경이 문서 작업 시점의 작업 트리에는 반영돼 있지 않다(이 트리의 프리팹에는 `_titleText` 행도 TitleText 오브젝트도 없다)」)*
-
-**✅ 구현 완료 (2026-09-15) — 검증 상태: 멀티플레이 9판 + 싱글플레이 2판 실기 PASS / 🔴 실패 경로·폴백·타임아웃은 실기 미검증:** **맵 테스트 모드 삭제(T1~T3) + 재경기 랜덤 맵(A~D).**
-
-쉽게 말하면, **이제 「한 판 더」를 눌러도 매번 새 전장이 나온다.** 종전에는 재경기를 하면 맵이 구성되지 않고 실패했는데(`Reason=MapHandoffEmpty` — 결함이 아니라 설계대로였다), 이제 결과 화면에서 재경기가 성립하는 순간 Host 가 새 맵을 만들어 상대에게 보내고, 지문(해시)이 맞을 때만 전투 화면으로 넘어간다. 그리고 **쓰지 않던 「맵 테스트 모드」를 코드·설정·문서에서 전부 걷어냈다.** 그 표식이 맵 데이터 안에 들어 있던 값이라, 걷어내면서 **맵 파일의 형식 번호가 1에서 2로 올라갔고 예비 맵(폴백 템플릿) 5개를 다시 만들었다.**
-
-- **커밋 3개**(브랜치 `claude/random-map-phase2-runtime`): `0608f85`(T1 — 규칙·설계 문서 개정, 5개 문서 통독 4,272행 중 24곳) · `8c83317`(T2·T3 — 코드 12개 파일에서 테스트 모드 제거 + `MapVersion` 1→2 + 폴백 템플릿 5개 재생성) · `20ba0ab`(A~D — 재경기 맵. 5개 파일 수정, 신규 파일 0개, 신규 `LogEvent` 키 0개).
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다.**
-- ✅ **완료 — 맵 테스트 모드 삭제.** 코드 12개 파일 · `Resources/Config/GameConfig.asset` 의 `_mapTestModeEnabled` · `_testStartingGold` 두 행 · 규칙 문서·설계 문서에서 전부 제거됐다. 🔴 **`_startingGold: 5000` 은 손대지 않았다** — 그것은 `Economy.StartingGold` 라는 **별개 필드**이며 아래 「미적용」 항목과 위 「🔴 사실 확정 · 결정 기록 (2026-09-14)」 ①②가 단일 소스다.
-- ✅ **완료 — canonical 바이트 형식 변경.** **`MapDefinition.CurrentMapVersion` 이 `1` → `2`** 가 됐고, **canonical 바이트 수 공식은 `315 + 4N`**(N = 중립 광산 수)이다. 종전 대비 정확히 **4바이트 감소**(`TestModeFlag` 고정폭 정수 4바이트 제거).
-- ✅ **완료 — 폴백 템플릿 5개 재생성(실측값).** Canyon **335 → 331** / FullyOpen · ObstacleOpen · Outer · ThreeLane **각 343 → 339**(전부 −4). `_Reference/MapTemplateSource/*.md` 5개도 같은 도구가 함께 재생성했다. 🔴 **재생성은 Unity 에디터 도구가 아니라 메인 세션이 mono 로 헤드리스 실행했다**(`MapFallbackTemplateFactory` 가 순수 C# 이라 가능했다). 계획서에는 「사용자 작업」으로 적혀 있던 자리다.
-- ✅ **완료 — 재경기 맵.** 결과 화면에서 재경기가 성립하면 Host 가 새 맵을 준비·전송·검증한 뒤에야 씬을 재로드한다. 최초 경기와 **같은 전송 본체**를 쓰며, 회차를 가르는 것은 **로그 필드 `Round=`(First / Rematch / Probe) 하나**다 — **새 로그 키는 하나도 만들지 않았다.** 프로토콜 변경도 **`MapPrepareBeginClientRpc` 에 `int roundKind` 를 더한 것 한 건**뿐이다.
-- 🔴 **미검증 — 실패 경로(전송 실패 시 재경기 상태 복원).** 실기 11판이 **전부 성공**이라 이 경로는 **한 번도 발화하지 않았다.** 발화시키려면 인위적 불일치(임시 조작) 코드가 필요한데 **사용자 승인 사항이라 이번에 넣지 않았다.** ⚠️ **「구현했다」와 「실기에서 확인됐다」는 다른 말이며, 이 항목은 앞쪽까지만 참이다.**
-- 🔴 **미검증 — 폴백 템플릿 사용 경로 · 타임아웃 · 재전송.** 11판 전부 `UsedFallback=False` · `ResendCount=0` 이었다. **검증 누락이 아니라 정상 조건에서 발화하지 않는 경로**다.
-- ⚠️ **mono 로 검증할 수 없었던 것** — Unity 의존 코드와 `GameConfig.asset` 의 T2 변경은 헤드리스로 확인이 불가능해 **실기로만 확인됐다.**
-- ✅ **해소 — `NetworkGameEndController.cs` 의 `[재경기맵 대체 대기]` 주석 마커 2건은 제거됐다.** 실기 통과로 제거 조건이 충족된 뒤 제거했다(커밋 `0b52188d`, 2026-09-15). ⓐ **잔존 0건** — `grep -rc "재경기맵 대체 대기" Assets/_Project/Scripts --include=*.cs` 가 **0** 이다(2026-10-12 재측정). ⓑ **삭제된 것은 주석 9줄뿐이고 동작 코드 diff 는 0줄이다** — 그 커밋의 `git diff --numstat` 는 **0 추가 / 9 삭제**이다(2026-10-12 재측정). `RequestRematchServerRpc` 상호 동의 분기의 마커 주석 4줄 + 비활성화돼 있던 `// StartRematch();` 1줄, `AcceptRematchServerRpc` 의 마커 주석 3줄 + 비활성화돼 있던 `// StartRematch();` 1줄이며 9줄 전부 `//` 로 시작하는 주석이었다(`GameLog.Dev.Info(...)` 2건 · `BeginRematchMapPreparation()` 호출 2건 · `StartRematch()` 본문과 디스폰 루프는 **전부 무변경**). ⓒ **근거 규정은 `WORKFLOW.md` [4]** — *"주석 처리된 기존 로직의 최종 삭제는 [6] 사용자 테스트 통과 후, [7] 문서/메모리 업데이트 전에 수행한다"* — 이고 2026-09-15 실기 통과로 그 조건이 충족됐다. ⓓ ✅ **제거 직후에는 확인되지 않았던 두 가지(Unity 에디터 컴파일 · 제거 후 재경기 동작)도 이후 확인됐다** — 같은 파일을 고친 커밋이 그 뒤로 여럿(2026-09-21 ~ 2026-10-06) 있고 그 코드가 에디터에서 돌았다. 에디터 로그 `_Logs/_editor/2026-09-27/RuntimeLog.txt` 에 `StartRematch: Game 씬 재로드` **9건** · `Round=Rematch` 가 실린 `MapTransferSucceeded` **15줄**, 실기기 로그 `_Logs/2026-09-27/02_52_logcat/RuntimeLog_device.txt` 에 같은 재로드 **5건** · `MapTransferSucceeded` **10줄**이 있다(2026-10-12 재측정). Assembly Definition 이 없어 한 곳이라도 컴파일 오류면 실행이 막히므로 컴파일은 통과했다. 이 마커를 근거로 세웠던 [ROADMAP.md](ROADMAP.md) 의 행은 이 확인이 끝나 내렸다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 남아 있는 것 — 주석 마커 2건 … 아직 코드에 남아 있다」. 2026-09-15 에 덧붙였던 『제거 완료 · 한계: 컴파일·재경기 재검증 미실시』 정정은 이 줄에 합쳤다)*
-
-**🔴 실기 검증 (2026-09-15, 사용자 수행 — 에디터 + 실기기 SM-S901N)**
-
-**멀티플레이 9판 전부 성공**(최초 경기 2 + **재경기 7회 연속**). Host 측 기록 기준:
-
-| # | 시각 | Round | Host | Seed | 맵 유형 | 광산 | Bytes |
-|---|---|---|---|---|---|---|---|
-| 1 | 14:52:25 | First | 에디터 | 14023354922428995914 | FullyOpen | 5 | 335 |
-| 2 | 14:55:10 | First | 실기기 | 14290271590550919112 | Outer | 4 | 331 |
-| 3 | 14:55:21 | Rematch | 실기기 | 6017095322931149659 | Canyon | 3 | 327 |
-| 4 | 14:55:28 | Rematch | 실기기 | 10529029088675175808 | Canyon | 4 | 331 |
-| 5 | 14:55:35 | Rematch | 실기기 | 5306482219129763561 | FullyOpen | 2 | 323 |
-| 6 | 14:55:41 | Rematch | 실기기 | 6133695853274885923 | Canyon | 1 | 319 |
-| 7 | 14:55:47 | Rematch | 실기기 | 3359347642611343971 | ObstacleOpen | 3 | 327 |
-| 8 | 14:55:53 | Rematch | 실기기 | 3182447489737384839 | ObstacleOpen | 1 | 319 |
-| 9 | 14:56:00 | Rematch | 실기기 | 3144190136066140277 | ThreeLane | 4 | 331 |
-
-- 9판 전부 `HashMatch=True` · `ResendCount=0` · `ErrorCode=None` · `UsedFallback=False` · `MapVersion=2` · `ChunkCount=1`
-- **9개 seed 전부 상이, 9개 해시 전부 상이.** 바이트 수는 9판 전부 **`315 + 4N` 과 정확히 일치**한다.
-- 클라이언트 복원(D 방식): 9판 전부 `AttemptIndex=0`, `SearchedCombinations` 1 또는 2(최대 2)
-- `Round=First` / `Round=Rematch` 가 Host 「맵 전송 회차 시작」 · Client 「시작 통보 수신」 · 양쪽 `MapTransferSucceeded` **3곳 모두**에 일관되게 기록됐다.
-- 팀·종족 유지: 에디터(Client) 8판 전부 `Team=Red, BlueRace=0, RedRace=1`
-- 재경기 추가 지연: 맵 준비 `ElapsedMs=0~3`, 전송 객체 스폰부터 전송 완료까지 **99~134ms**
-- 신규 빌드 구간(14:52~14:56) `[ERROR]` **0건**(양쪽)
-- 🔴 **같은 맵 유형이 연속으로 나온 구간이 있다** — #3·#4 Canyon, #7·#8 ObstacleOpen. **seed·광산 수·해시가 모두 달라 서로 다른 맵이며**, 사용자가 확정한 *「무작위성에 의한 연속은 문제가 아니다 · 회피 검사 불필요」*(위 「🔴 규칙 개정 기록 (2026-09-14)」)에 해당한다. **결함이 아니다.**
-
-**싱글플레이 2판 전부 성공**(19:04 세션, 로그인 화면부터):
-
-| 판 | 시각 | Seed | 맵 유형 | 광산 | ElapsedMs |
-|---|---|---|---|---|---|
-| 1 | 19:04:27 | 18422133001418411470 | Canyon | 3 | 46 |
-| 2 | 19:04:34 | 3593615340341175362 | ThreeLane | 5 | 1 |
-
-- 두 판 모두 `MapPreparationSucceeded` · `MapVersion=2` · `AttemptCount=1` · `UsedFallback=False` · `ErrorCode=None`, 해시 상이
-- 경로가 `[Map/GameBootstrapper]` — **싱글은 네트워크 전송을 거치지 않는 로컬 생성 경로를 그대로 유지**한다.
-- 19:04 세션 전체 `[ERROR]` 0건 · `[WARN]` 0건
-
-**로그 파일**: `_Logs/_editor/2026-09-15/RuntimeLog.txt` · `_Logs/2026-09-15/14_56_logcat/RuntimeLog_device.txt` · `_Logs/2026-09-15/14_40_logcat/RuntimeLog_device.txt`(**이전 빌드** — 재경기 시 `MapPreparationFailed, Reason=MapHandoffEmpty` 가 찍힌 「before」 기준).
-
-**※ 근거 구분(규칙 10):** 위 커밋 해시 · 실기 표의 모든 수치 · 폴백 템플릿 바이트 증감 · mono 검증 결과는 **메인 세션이 측정·전달한 값**이며, 런타임 실행 불가로 이 문서 작업에서 재검증하지 않았다(커밋 해시 3개 `0608f85`·`8c83317`·`20ba0ab` 는 2026-10-12 에 읽기 전용 git 으로 커밋으로 실재함만 확인했고 증감 행수는 재측정하지 않았다). **문서 작업 중 직접 확인한 것**은 `Round=` 필드가 `NetworkMapTransfer.BuildTransferLogData` 본문에 들어 있어 `MapTransfer*` 5개 키 전부에 실린다는 사실과, (2026-09-15 시점에) `[재경기맵 대체 대기]` 마커가 `NetworkGameEndController.cs` 에 2건 남아 있었다는 사실이다. ✅ **그 2건은 그 뒤 제거됐다** — 위 「해소」 항목이 단일 소스다.
-
----
-
-**🔴 규칙 개정 기록 (2026-09-14 · 같은 날 3차 추가 — 코드 변경 없음, 문서만):** **재경기 맵 선택 방식이 바뀌었다. 「같은 맵 / 새 맵」을 고르는 일이 없어졌다.**
-
-쉽게 말하면, **한 판 더 하기를 누르면 전장이 무조건 새로 뽑힌다.** 방금 싸운 전장을 다시 쓰는 선택지도, 상대에게 「어느 쪽으로 할지」를 보여 주는 표시도 만들지 않는다. 🔴 **사용자 확정**: *"재경기는 「같은 맵 / 새 맵」을 따로 선택하지 않고, 무조건 무작위로 새 맵이 결정된다. 추가 UI나 작업도 필요 없다."* 그리고 *"무작위로 같은 맵이 연속으로 나오는 것은 문제가 아니다."*
-
-- **개정된 문서**: `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14·16 · `GameSystemRules/GameSystemRules_UI.md` 규칙 M-3·M-4 · `GameSystemRules.md` · `GameDesignDocument.md`(1.17.0) · `TechnicalDesignDocument.md`(0.47.0). **제거한 조항과 그 근거의 단일 소스는 규칙 14 의 개정 블록**이며 이 문서에 옮겨 적지 않는다.
-- ✅ **이 개정으로 해소된 것 4가지** — **남은 일로 오해하지 않도록 못 박아 둔다.**
-  - **UI 자산 작업 불필요** — `GameEndUI` 세 번째 버튼도 `RematchRequestPopup` 조건 표시 텍스트 슬롯도 **만들 필요가 없다.** 아래 「과대 표기 금지」 ① 이 적은 *"UI 자산도 아직 담지 못한다"* 는 **더 이상 남은 일이 아니다.**
-  - **요청·수락 절차 수정 불필요** — 고를 조건이 없으므로 현재 요청/수락/거절 흐름을 그대로 쓴다.
-  - **싱글플레이 코드 변경 0건** — 싱글 재경기는 **이미 매 판 새 맵을 만든다**(다시하기 → `GameBootstrapper.LoadMap` → 호출마다 새 root seed. 문서 작업 중 직접 실측). 규칙을 현실에 맞춘 것이지 새 사양이 아니다.
-  - 🔴 **「현재 코드가 규칙 14 위반」이 해소됐다** — 종전 규칙의 「자동 시작 금지」 조항 때문에 *두 번째 요청을 받는 즉시 재경기를 시작하는* 현재 코드가 위반이었는데, **그 조항이 사라져 현재 동작이 그대로 규칙이 된다.**
-- ⚠️ **(2026-09-14 시점) 해소되지 않았던 것** — 🔴 재경기 맵은 당시 미구현이었고 재경기하면 `Reason=MapHandoffEmpty` 로 실패했다. 개정은 **만들 것의 범위를 줄였을 뿐 만든 것이 아니었다.** ✅ **이후 해소:** 재경기 맵은 2026-09-15 에 구현·실기 검증됐고(커밋 `20ba0ab`) 더 이상 `MapHandoffEmpty` 로 실패하지 않는다. 「재경기 실패 시 안내가 없다」는 별개의 다음 작업으로 [ROADMAP.md](ROADMAP.md) 에 행을 세웠던 것이다(「경기 종료 후 UI·프로세스」 — 2026-09-14 (4차) 등록) — ✅ 이후 구현·실기 확인됐다(맨 위 「경기 종료 후 UI·프로세스」 문단들). 규칙 M-3 의 「자동 로비 복귀 countdown 전체 길이 재시작」도 ✅ 구현됐다(코드 확인 + 2026-09-28 실기에서 `TotalSeconds=60` 재시작 관측 — 규칙 D-7 의 2026-09-28 실기 검증 블록). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「재경기 맵은 여전히 미구현이다 … 재경기 실패 시 안내가 없다는 여전히 미해결이고 그 로드맵 행도 그대로 살아 있다 … 전체 길이 재시작도 미구현·미충족으로 남는다」)*
-- ⚠️ **폴백 확인도 추가 작업이 없다** — 맵 생성기가 폴백으로 넘어가는 경우를 로그로 확인하는 수단(`MapPreparationUsedFallbackTemplate`, Warn)이 **이미 존재한다.**
-
-**🔴 사실 확정 · 결정 기록 (2026-09-14 · 같은 날 추가 — 코드 변경 없음, 문서만):** **초기 골드 5000 의 정체와 맵 테스트 모드의 처분이 확정됐다.**
-
-쉽게 말하면, **지금 초기 골드가 5000 인 것은 고장이 아니라 「테스트하기 편하라고 그렇게 맞춰 둔 것」**이다. 그리고 **맵마다 광산 수에 따라 초기 골드를 다르게 주기로 한 규칙은 아직 게임에 연결되어 있지 않다** — 맵은 그 값을 계산해서 상대에게 보내기까지 하는데 **받아서 쓰는 쪽이 없다.** 두 가지는 **별개의 문제**이며, 앞의 것은 **출시 때 조정**하고 뒤의 것은 **밸런싱과 함께 다시 작업**한다. 아울러 **지금은 쓰지 않는 「맵 테스트 모드」를 걷어내기로 정했다**(이번에는 기록만 하고 지우지 않는다).
-
-- **① 초기 골드 5000 은 버그가 아니라 확정된 개발 설정이다.** 🔴 **사용자 확정**: *"테스트 단계이기 때문에 5000 골드로 설정되어 있고, **출시에는 초기 골드를 조정할 것**이다. **현재 예정은 500이지만 밸런스에 따라 조정될 여지가 있다.** 현재 **맵 테스트 모드는 따로 사용하고 있지 않다.**"* 🔴 **출처는 `Economy.StartingGold` 이며 맵 테스트 모드가 아니다** — `Resources/Config/GameConfig.asset` 의 **`_startingGold: 5000`**(29행) · **`_mapTestModeEnabled: 0`**(34행) · **`_testStartingGold: 5000`**(35행)이고, 소비 지점은 `Bootstrap/GameBootstrapper.Setup.cs` **444행 `new ResourceUseCase(_config.StartingGold)`** 하나다(문서 작업 중 직접 실측). 실기 로그의 `MapPreparationSucceeded` 에도 **`TestMode=False`** 로 찍혔다.
-- **② 🔴 5000 이 서로 다른 두 필드에 우연히 같아 생기는 함정이 있다.** `Economy.StartingGold`(5000) 와 `TestStartingGold`(5000) 는 **다른 필드인데 값이 우연히 같다** — `Infrastructure/Config/GameConfig.cs` **160~162행** 주석이 이미 *"**다른 필드**다. **값이 우연히 같을 뿐**이며 … 한쪽을 고칠 때 다른 쪽이 따라 바뀐다고 가정하지 말 것"* 이라고 경고한다(직접 실측). **그래서 맵 테스트 모드를 켜도 화면상 5000 그대로라 효과가 관측되지 않는다** — 다음 사람이 **「테스트 모드가 동작하지 않는다」로 오해하기 가장 쉬운 자리**다. 🔴 **출시 때 `Economy.StartingGold` 를 500 으로 바꾸는 순간 이 우연이 깨져 두 값이 갈라진다.**
-- **③ 🔴 광산 수 ↔ 초기 골드 연동은 미구현이며 「추후 밸런싱과 함께」 작업한다(사용자 결정).** 🔴 **사용자 확정**: *"광산 수에 따른 초기 골드 연동은 추후 밸런싱과 함께 조정할 것이고 다시 작업하도록 하겠다."* **`MapPreparationResult.InitialGold` 를 실제 초기 골드로 소비하는 곳은 0곳**이며 `Bootstrap/` 안의 유일한 등장은 `GameBootstrapper.Map.cs` **713행 로그 문자열**이다(전수 grep 실측). 규칙 3 의 표를 강제하는 것은 `Domain/Map/MapDefinitionValidator.cs` **270행 `GetExpectedInitialGold(testModeFlag, neutralMineCount)`**(정상 모드 **광산 1개 700 … 6개 200** / 테스트 모드 **5000 고정**)다. **즉 맵은 이 값을 계산·검증·인코딩·전송·해시 대조까지 마친 뒤 아무도 읽지 않는다.** 🔴 **출시 때 `Economy.StartingGold` 를 500 으로 바꾸는 것만으로는 규칙 3 이 지켜지지 않는다 — 그렇게 하면 광산이 1개든 6개든 매 판 500 고정이 된다. 광산 수 연동은 별개의 배선 작업이다.** 그래서 **규칙 3 과 규칙 16 이 이 항목 때문에 미충족으로 남는다.**
-- **④ 🔴 맵 테스트 모드를 삭제하기로 결정했다 — 이 회차에는 기록만 했다. ✅ 삭제는 2026-09-15 에 완료됐다**(맨 위 「✅ 구현 완료 (2026-09-15)」 문단 · T1~T3). 🔴 **사용자 확정**: *"맵 테스트 모드는 현재 특별히 사용하고 있지 않아서 불필요한 것으로 보인다. 관련 구현 내용 삭제하고 문서도 삭제하면 될 것 같다."* **영향 범위는 12개 파일**(`MapPreparationUseCase` · `MapVerificationUseCase` · `GameBootstrapper.Map` · `IMapArchetypeGenerator` · `MapArchetypeGeneratorBase` · `MapDefinition` · `MapDefinitionCodec` · `MapDefinitionValidator` · `MapFallbackTemplateFactory` · `GameConfig` · `NetworkGameManager` · `NetworkMapTransfer` — 직접 실측). 🔴 **단순 삭제가 아니다**: ⓐ **`TestModeFlag` 가 canonical 바이트 안에 있어**(`MapDefinitionCodec.cs:67`) **맵의 바이트 형식 자체가 바뀌고** ⓑ 따라서 **`MapVersion` 을 `1 → 2` 로 올려야 하며**(`MapDefinition.cs:96`) ⓒ **폴백 템플릿 5개**(`Resources/MapTemplates/MapTemplate_{FullyOpen,Canyon,ThreeLane,ObstacleOpen,Outer}.bytes`)는 **옛 형식으로 인코딩된 바이너리라 재생성이 필요하고** ⓓ **검증기 자체 점검의 테스트 모드 케이스**(`MapDefinitionValidator.cs` N9b **1532~1543행** · P9c **1545~1558행** · 표 대조 루프 **1572~1576행**)와 ⓔ **D 방식 검증**(`MapVerificationUseCase.cs` **497·518행** + 함정 주석 **31·308~311·478행**)과 ⓕ **`MapPreparationUseCase.Prepare(rootSeed, mapTestModeEnabled)` 시그니처**(**302행**)를 함께 손봐야 한다. ⓖ 🔴 **규칙 문서 개정이 선행돼야 한다 — 규칙 3·12 가 테스트 모드를 정의한다.** ⓗ ⚠️ **`MapVersion` 을 올리면 2026-09-14 에 끝낸 전송 실기 검증이 무효가 되어 재검증이 필요하다**(해시·바이트 수·D 방식 복원이 전부 새 형식 기준이 된다). ✅ **덤**: `NetworkGameManager.ReadMapTestModeEnabled()` 가 사라지므로 아래 ⑦ⓒ 의 **「조합 루트 마찰 2건」 중 신규 1건이 자동 해소**된다(기존 1건은 남는다).
-- **⑤ ✅ 확인했고 문제없음 — 멀티 초기 골드 불일치.** `new ResourceUseCase(_config.StartingGold)` 가 **Host·Client 양쪽에서 각자 로컬 설정으로** 만들어지지만, `Infrastructure/Network/NetworkResourceSync.cs` 가 골드를 **서버 권위 `NetworkVariable`**(**53~62행 `readPerm: Everyone` · `writePerm: Server`**)로 내려보내고 **클라이언트가 `OnValueChanged` 에서 자기 `ResourceUseCase` 를 보정**하므로(서버만 구독 **103행**, 콜백 등록 **112~113행**) **Host 값으로 자동 수렴한다. 결함이 아니다.** 🔴 **생성 지점만 보면 양쪽이 각자 만드는 것으로 읽혀 같은 의심이 반복되기 쉬우므로 여기에 못 박아 둔다.** ⚠️ **다만 이것이 ③ 을 해소하지는 않는다** — 수렴하는 값이 **`Economy.StartingGold`** 이지 **맵이 정한 값**이 아니다.
-
-**※ 근거 구분(규칙 10):** 사용자 확정 문장 3건은 **사용자 발언 그대로**이고, 실기 로그의 `TestMode=False` 와 초기 골드 5000 고정은 **메인 세션이 로그 원본에서 측정·전달한 값**이며, **위의 모든 파일 경로·행 번호·필드 값·표 값·12개 파일 목록·템플릿 5개 실재 여부는 문서 작업 중 직접 실측한 값**이다. ⚠️ **인계값과 어긋난 1건**: 테스트 모드 참조 **줄 수**(인계 **89줄** → 실측 **115줄**(주석 포함) / **95줄**(주석 줄 제외)). **파일 수 12개는 일치**한다. 세는 기준이 달랐던 것으로 보이나 **확정할 수 없어 추정하지 않는다.** 대조표는 `_Tasks/2026-09-08/17_29_random-map-phase3-multiplayer/Plan.md` §16-아.
-
-⚠️ **범위 밖 — 이번 회차에 하지 않은 것:** 코드·에셋 수정 **0건**(맵 테스트 모드는 **삭제하지 않았다**). **규칙 문서**(`GameSystemRules_*.md` 등) **미수정** — 규칙 3·12 개정은 삭제 작업 착수 시 함께 한다.
-
----
-
-**✅ 구현 완료 (2026-09-14) — 검증 상태: 멀티플레이 실기 검증 완료(최초 경기 2판) / ✅ 재경기 맵은 이후 구현됨(2026-09-15) · 🔴 초기 골드는 미적용:** **무작위 맵 3단계 — 멀티플레이 맵 전송 · 해시 대조 · Client 재생성 검증 · 씬 전환 게이트.** 이 블록의 나머지 서술은 **`MapVersion=1` 시절의 기록**이다. 🔴 **「초기 골드는 미적용」은 그대로 유효하다 — 함께 부정하지 말 것.** 현재 상태의 단일 소스는 맨 위 「✅ 구현 완료 (2026-09-15)」 문단이다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「🔴 재경기 맵은 미구현 · 초기 골드는 미적용」)*
-
-쉽게 말하면, **이제 둘이 하는 경기에서도 매 판 다른 전장이 나온다.** 방을 만든 사람(Host)이 맵을 만드는 유일한 주인이 되고, 만든 맵을 통째로 상대에게 보내 준다. 받은 쪽은 **지문(해시)을 맞춰 보고**, 한 걸음 더 나아가 **받은 맵이 정말 그 씨앗값에서 나올 수 있는 맵인지 스스로 다시 만들어 대조**한다. **지문이 같을 때만 전투 화면으로 넘어간다.** 그 대가로 있던 임시 조치 — **양쪽이 똑같은 고정값으로 맵을 만들게 해 두었던 것** — 이 사라졌다.
-
-🔴 **완료된 것과 완료되지 않은 것의 경계 — 이 문단이 그 단일 소스다.**
-- ✅ **완료** — **최초 경기의 맵 전송.** 매 판 다른 seed · Host→Client 조각 전송 · SHA-256 해시 대조 · Client 재생성(D 방식) 검증 · 해시가 같을 때만 씬 전환. **싱글플레이 회귀도 없다.**
-- ✅ **구현·실기 검증 완료 (2026-09-15, 커밋 `20ba0ab`, 멀티 재경기 7회 연속 PASS) — 재경기(Rematch) 맵.** 결과 화면에서 재경기가 성립하면 Host 가 새 맵을 준비·전송·검증한 뒤 씬을 재로드하므로 재경기해도 더 이상 `Reason=MapHandoffEmpty` 로 실패하지 않는다(아래 「버그로 오해하기 쉬웠던 항목」의 마지막 문단). 🔴 **`SameMap`/`NewMap` 은 「다음 범위」였던 것이 아니라 2026-09-14 규칙 14 개정(사용자 확정)으로 폐지됐고**, T1 커밋 `0608f85` 에서 규칙 문서 개정까지 끝났다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시(2026-09-14): 「🔴 미구현 — 재경기하면 맵이 구성되지 않고 `Reason=MapHandoffEmpty` 로 실패한다. 이것은 결함이 아니라 설계대로의 동작이며, 규칙 14 의 `SameMap`/`NewMap` 은 다음 범위다」. 2026-09-14 (3차) 와 2026-09-15 에 덧붙였던 정정은 이 줄에 합쳤다)*
-- 🔴 **미적용** — **맵이 정한 초기 골드.** 규칙 16 의 「양쪽은 그 값을 그대로 적용한다」가 여전히 비어 있어 **규칙 16 이 일부 미충족으로 남는다**(아래 ④). **[🔴 2026-09-14 같은 날 정정 — 원문은 그대로 두고 덧붙인다: 「미적용」은 맞지만 **원인이 특정됐다.** 미구현인 것은 **광산 수 ↔ 초기 골드 연동**이고, 화면의 **5000 은 고장이 아니라 `Economy.StartingGold` 의 테스트 개발값**이다(맵 테스트 모드 때문이 **아니다** — `_mapTestModeEnabled: 0`). **규칙 3 도 함께 미충족**이며 **사용자가 「추후 밸런싱과 함께 다시 작업」으로 확정**했다. 맨 위 「🔴 사실 확정 · 결정 기록 (2026-09-14)」 문단 ①②③ 이 단일 소스다]**
-- ⚠️ **(2026-09-14 시점) 이 세 줄을 함께 적지 않으면 거짓이 된다** — 당시 완료된 것은 「멀티 맵 전송」이 아니라 **「최초 경기의 맵 전송」**이었다. ✅ **이 한정은 풀렸다** — 재경기 전송도 2026-09-15 에 완료·실기 검증됐으므로 「최초 경기의」라는 한정은 더 이상 필요하지 않다. 🔴 **다만 세 줄 중 「초기 골드 미적용」은 그대로 유효하므로 이 문단이 여전히 경계 문장을 요구한다는 취지 자체는 살아 있다.** 현재의 경계 문장은 맨 위 「✅ 구현 완료 (2026-09-15)」 문단이 갖는다.
-
-**🔴 실기 검증 (2026-09-14, 에디터 1 + 실기기 1) — 최초 경기 2판 모두 PASS**
-
-| | 1판 (19:59:16) | 2판 (19:59:34) |
-|---|---|---|
-| Seed | `3905793782056422338` | `10943744334431763949` |
-| 맵 유형 / 중립 광산 | FullyOpen / 3 | ObstacleOpen / 2 |
-| 전송 바이트 / 조각 수 | **331** / **1** | **327** / **1** |
-| 해시 일치 | **True** | **True** |
-| 전송 / 재전송 횟수 | 1 / **0** | 1 / **0** |
-| 맵 준비 시간 (시도 횟수) | 27ms (1) | 1ms (1) |
-| 씬 전환 게이트 | 통과 | 통과 |
-
-- **Client 쪽에서 D 방식 재생성 검증 통과** 확인 — `AttemptIndex=0, SearchedCombinations=2, VerifyStage=None, VerifyError=None`.
-- **로비 스폰 성공** — `맵 전송 객체 스폰 완료 | Role=Host/Client, NetworkObjectId=1`. 🔴 **이 프로젝트에서 로비 씬에 네트워크 오브젝트가 존재한 것은 이번이 처음이다**(`Lobby.unity` 의 `NetworkObject` 개수는 종전 **0개**, 기존 `NetworkBehaviour` **14개는 전부 Game 씬**). 즉 **「로비에서 NGO 가 실제로 도는가」 자체가 이번에 처음 확인됐다.**
-- **싱글 회귀 없음** — `20:00:04`·`20:00:07`·`20:00:10` 세 판이 각기 다른 seed(FullyOpen / ThreeLane / Outer)로 정상 동작.
-- **전송 관련 예외·경고 0건.**
-- 🔴 **바이트 수 공식이 실기 전송으로 확인됐다 — `319 + 4 × (중립 광산 수)`** (광산 3개 → 331, 2개 → 327, 장식 0). 그래서 **조각은 항상 1개**다. **[🔴 2026-09-15 공식 정정 — 원문 유지. 다음 작업자가 이 줄을 근거로 크기를 계산하므로 네 칸을 모두 적는다: ⓐ **옛 공식이 유효했던 시점** — `319 + 4N` 은 **`MapVersion = 1`** 의 canonical 형식에 대해 참이었고, 위 표의 **331 / 327 도 그 형식에서 실제로 측정된 값**이다(그래서 표를 고치지 않는다). ⓑ **현재 공식은 `315 + 4N`** (N = 중립 광산 수). ⓒ **바뀐 이유** — 맵 테스트 모드 삭제로 `TestModeFlag` 고정폭 정수 **4바이트가 canonical 바이트열에서 빠졌고**, 그래서 `MapVersion` 이 **`1` → `2`** 로 올라갔다(커밋 `8c83317`). ⓓ **2026-09-15 실기 9판이 새 공식과 전부 일치**했다(광산 1개 → 319 · 2개 → 323 · 3개 → 327 · 4개 → 331 · 5개 → 335). 🔴 **`MapVersion = 2` 인 지금은 `315 + 4N` 만 쓴다. 옛 공식으로 계산하면 매번 4바이트씩 크게 나온다**]**
-- **D 방식 대량 재측정(시드 1~5000)**: 준비 성공 5000/5000(폴백 0) · **복원 성공 5000/5000 = 100.00%** · 평균 생성 시도 **1.51회**(최대 3) · 복원값 불일치 0건. **2단계의 「시드 40개 · 평균 1.4회」 기록을 125배 넓게 다시 잰 값이며, 옛 기록을 지우지 않는다** — 표본 크기가 다른 두 측정이다.
-- **`MapChunkAssembler` 자체 검증**: 6가지 입력 **79 단언 전원 PASS**, 그리고 **모든 `Accept` 직전에 「불완전 상태에서 바이트가 나오는 일」이 0건**임을 확인(규칙 16 「부분 데이터 사용 금지」).
-
-**단계별 결과(커밋)**: **B·E** 전송 골격 + 로그 키 5종 `df392da` / **C·D** 인계 통로 + 준비/투영 분리 `771e5e4` / **F·G·H** 전송·수신 검증 `1ffe0f2` / **I** 씬 전환 게이트 + 고정 seed 해제 `cc3a14b`. **A(NGO 씬 재로드 생존 조건)는 착수하지 않았고 「차단 요인」에서 「관찰 항목」으로 강등**됐다 — 전송이 **씬 로드 전 로비에서 전부 끝나고** 확정 맵은 객체가 아니라 정적 홀더로 씬을 건너므로 이번 범위에 그 조건이 걸리지 않는다. **생존이 실제로 물리는 곳은 재경기(다음 범위)다.**
-
-🔴 **(2026-09-14 당시) 버그로 오해하기 쉬웠던 항목 — 재경기하면 맵이 구성되지 않았다. 결함이 아니라 설계대로였다.** ✅ **그 동작은 2026-09-15 에 대체돼 이제 재경기해도 맵이 정상 구성된다**(이 항목의 마지막 문단). 실기 로그(`19:59:44~45`)에 `StartRematch: 동적 NetworkObject Despawn | ObjectName=NetworkMapTransfer(Clone)` → `StartRematch: Game 씬 재로드` → `[ERROR] 멀티플레이인데 로비에서 확정된 맵이 전투 씬으로 인계되지 않았다 | Event=MapPreparationFailed, Reason=MapHandoffEmpty` 가 남았다. `NetworkGameEndController.StartRematch()`(`:447~497` 실측)는 **로비로 돌아가지 않고 Game 씬만 재로드**하며 그 과정에서 전송 객체를 despawn 하고, 확정 맵 인계 통로는 첫 경기에서 이미 비워졌다(`TryTake` 는 읽고 비운다). 🔴 **`GameBootstrapper` 가 지난 판 맵으로 조용히 때우지 않고 실패로 남긴 것이 규칙 16 이 의도한 동작이다** — 이 가드가 없었다면 **양쪽이 서로 다른 맵으로 재경기를 시작했을 것**이다. **다음 사람이 버그로 접수하지 않도록 못 박아 둔다.**
-
-✅ **2026-09-15 이후 — 위 문단이 설명하는 「설계대로의 동작」은 대체됐다. 이제 재경기해도 맵이 정상 구성된다.** 결과 화면에서 재경기가 성립하면 Host 가 **새 맵을 준비·전송·검증한 뒤에야** `StartRematch()` 로 넘어가므로 인계 통로가 비어 있는 채 씬이 재로드되지 않는다(커밋 `20ba0ab`). ✅ **`StartRematch()` 본문은 주석 외 무변경이며 위 문단이 적은 despawn 루프도 그대로다** — 전송 객체를 **결과 화면 위에서 새로 스폰**해 그 루프가 **동적 스폰이라는 이유 하나로** 정리하게 했다. 🔴 **위 문단이 인용한 `19:59:44~45` 의 `Reason=MapHandoffEmpty` 로그는 이제 「이전 빌드의 before 기준」으로 읽는다** — 같은 성격의 최신 before 기록은 `_Logs/2026-09-15/14_40_logcat/RuntimeLog_device.txt` 다. ⚠️ **그럼에도 「`GameBootstrapper` 가 지난 판 맵으로 조용히 때우지 않고 실패로 남긴다」는 가드 자체는 살아 있다** — 없어진 것은 그 가드에 걸리던 원인이지 가드가 아니다.
-
-⚠️ **과대 표기 금지 — 아직 완료가 아닌 것:** ① ✅ **(해소) 재경기 맵은 2026-09-15 에 구현·실기 검증됐다**(커밋 `20ba0ab`, 멀티 재경기 7회 연속 PASS). 이 항목은 당시 「재경기 맵은 미구현이다. 규칙 14 의 `SameMap`/`NewMap` 전부가 다음 범위이며 UI 자산도 아직 담지 못한다(`GameEndUI` 버튼 2개인데 3개 필요 · `RematchRequestPopup` 에 조건 표시 텍스트 슬롯 없음)」였다. 🔴 **그 뒤 두 번 바뀌었다** — 2026-09-14 (3차) 규칙 14 개정으로 `SameMap`/`NewMap` 조건 선택 자체가 폐지돼(사용자 확정) 세 번째 버튼도 조건 표시 텍스트 슬롯도 필요 없어졌고 T1 커밋 `0608f85` 에서 규칙 문서 개정까지 끝났으며, 2026-09-15 에 재경기 맵이 구현됐다. ⚠️ **②③④⑤⑥⑦⑧⑨ 는 이 해소의 대상이 아니다** — 그중 ②(실기 미발화 경로)와 ③(전송 한도 실측 2건)과 ④(초기 골드 미적용)는 2026-09-15 시점에도 그대로 미해결이었다. ② ⚠️ **실기에서 발화하지 않은 경로가 있다** — 실패 키 4종(`MapTransferRetried`/`Failed`/`MapHashMismatch`/`MapClientVerificationFailed`) · timeout 감시 · 1회 재전송 · **게이트가 막는 쪽**. 🔴 **검증 누락이 아니다 — 2판 모두 성공이었기 때문이며, 발화시키려면 인위적 불일치 코드를 넣어야 하는데 그 여부가 사용자 미확정이다**(Plan §15 표 3번). ③ 🔴 **전송 한도 실측 2건이 남았다** — ⓐ NGO RPC 한 번의 **실효** 페이로드 상한 ⓑ **Relay 경유** 실효 MTU. 그래서 조각 크기가 아직 `IsChunkSizeMeasured = false` · `ProvisionalChunkSizeBytes = 1024`(근거 없음)이며, **규칙 16 의 「값은 NGO 실측으로 확정하고 근거와 함께 TDD 에 기록한다」가 미충족**이다. **실전에서 조각이 항상 1개인 것은 이 미충족을 없애 주지 않는다.** ④ 🔴 **맵이 정한 초기 골드는 여전히 적용되지 않는다 — 규칙 16 이 일부 미충족으로 남는다.** 로그의 `InitialGold` 는 매 판 다르게 찍히지만(**500·600·200·300**) 실제 초기 골드는 **`BlueGold=5000, RedGold=5000` 고정**(`19:59:25.110` 실측). 전송·해시·검증은 값을 **실어 나르기만 하고** 「양쪽은 그 값을 그대로 적용한다」가 비어 있다. ⚠️ **사용자가 범위로 고르지 않았고 「하지 말라」인지 「이번엔 아니다」인지 확정되지 않았으므로 사실만 적는다.** **[🔴 2026-09-14 같은 날 정정·보강 — 원문은 그대로 두고 덧붙인다: ⓐ **「5000 고정」의 출처가 `Economy.StartingGold` 임이 확정**됐다 — **맵 테스트 모드 때문이 아니다**(`_mapTestModeEnabled: 0` · 실기 로그 `TestMode=False`). ⓑ **미구현인 것은 광산 수 ↔ 초기 골드 연동**이고 이것 때문에 **규칙 16 뿐 아니라 규칙 3 도 미충족**이다. ⓒ 🔴 **출시 때 `Economy.StartingGold` 를 500 으로 바꾸는 것만으로는 규칙 3 이 지켜지지 않는다 — 매 판 500 고정이 될 뿐이다.** ⓓ **「확정되지 않았다」는 부분은 해소됐다** — 사용자가 **「추후 밸런싱과 함께 다시 작업한다」**로 확정했다. 상세는 맨 위 「🔴 사실 확정 · 결정 기록 (2026-09-14)」 문단]** ⑤ 🔴 **로비 씬에서는 로그 파일이 써지지 않는다.** `LogSessionOwner.EnsureInitialized()` 호출부가 **`LoginBootstrapper.cs:121` 과 `GameBootstrapper.cs:529` 둘뿐**이라(전수 grep 실측) **`Lobby.unity` 에서 직접 Play 하면** sink 가 0개라 콘솔 폴백(`GameLog.cs:493`)을 타고 **파일에 아무것도 안 남는다**(실제로 그 회차에 맵 전송 로그가 통째로 누락됐다). **Login 씬부터 시작하면 정상**임은 재테스트로 확인됐다. **그럼에도 맵 전송은 로비에서 일어나는 일**이라 규칙 12·16 이 요구하는 기록이 「로비 직접 Play」에서는 남지 않는 구조다. ⑥ ⚠️ **인게임 패널 백그라운드가 에디터에서만 나타나지 않는다**(사용자 보고). 실기기에서는 백그라운드를 터치하면 UI 가 닫히는데 에디터에서는 백그라운드가 안 나온다. **재현 조건·원인 미조사이며, 맵 전송과 관계있는지조차 확인되지 않았다** — 추정하지 않고 보고 내용만 적는다. ⑦ ⚠️ **구현 중 나온 판단 3건이 사용자 확인 대기다** — ⓐ `MapRootSeed` 를 `Domain/Map/` 에 둔 것(Domain 이 시계·`Guid` 를 읽는다. **Application 으로 옮기자는 판단도 성립**한다) ⓑ **범위 밖 수정 1줄**(`NetworkMapTransfer.StartHostRound` 의 `PackageTooLarge` 분기에 `_hostIsProbe = isProbe;` 추가 — 게이트에 직결돼 불가피했으나 **범위를 넘은 것은 사실**이다) ⓒ **조합 루트 마찰이 1건 → 2건**(`NetworkMapTransfer` 의 자체 조립 + `NetworkGameManager.ReadMapTestModeEnabled()` 의 `Resources.Load<GameConfig>` 직접 읽기. 둘 다 **로비에 `GameBootstrapper` 가 없다**는 같은 원인). **[✅ 2026-09-15 갱신: **맵 테스트 모드 삭제(2026-09-15 T2·T3)로 `ReadMapTestModeEnabled()` 가 사라져 신규 1건은 해소됐고**(코드에는 그 이름이 주석으로만 남는다 — 2026-10-12 확인) 마찰은 다시 1건이다. ⚠️ **기존 1건은 남는다** — 원인인 *"로비에는 `GameBootstrapper` 가 없다"* 가 해소되는 것이 아니므로 **사용자 확정이 필요하다는 질문은 살아 있다**]** ⑧ **`UnityEngine`·`Unity.Netcode` 참조 파일의 컴파일 통과는 Unity 에서만 확인된다** — `NetworkMapTransfer` · `GameBootstrapper` 계열 · `NetworkGameManager` 가 그렇다. **헤드리스에서 실제 컴파일·실행된 것은 순수 C# 3개**(`MapChunkAssembler` · `MapHandoff` · `MapVerificationUseCase`)뿐이다. ⑨ **보류 항목**은 2단계 §13 의 8건 중 **1번(멀티 seed 고정)이 닫히고 2번(초기 골드)이 열린 채 남았으며**, 3단계에서 **6건이 새로 생겼다** — 목록은 `_Tasks/2026-09-08/17_29_random-map-phase3-multiplayer/Plan.md` **§16**. **[🔴 2026-09-14 같은 날 갱신 — 원문은 그대로 둔다: 같은 날 **§16 에 2건이 더해져 8건**이 됐다 — **(아) 맵 테스트 모드 삭제**(🔴 **사용자 확정 결정 · 다음 작업**)와 **(자) 멀티 초기 골드 불일치**(✅ **확인 완료 · 문제없음**). **번호는 재배열하지 않았다.** 그리고 **(마) 초기 골드 항목은 원인이 특정되어 갱신**됐다]**
-
-**※ 근거 구분(규칙 10):** 인게임 패널 백그라운드 보고와 화면에서 본 경기 동작은 **사용자 실기 관찰**, 위 실기 표·로그 지문·초기 골드 고정값·싱글 3판 seed·`MapChunkAssembler` 79 단언·D 방식 시드 1~5000 재측정·**커밋 해시 4개**·로비 `NetworkObject` 0개는 **메인 세션이 로그 원본과 `mono` 실행으로 측정·전달한 값**이며, `LogEvent` 46개·`IsChunkSizeMeasured`/`ProvisionalChunkSizeBytes`·`EnsureInitialized` 호출부 2곳·`GameLog.cs:493`·`StartRematch` 447~497행·`ReadMapTestModeEnabled` 의 `Resources.Load`·신설 파일 행수는 **문서 작업 중 직접 실측한 값**이다. ⚠️ **인계값과 어긋난 2건은 실측값으로 적었다** — `NetworkMapTransfer.cs` 행수(인계 1500 → 실측 **1607**) · `StartRematch()` 범위(인계 `:447~492` → 실측 **`:447~497`**). 대조표는 Plan §16-사.
-
----
-
-**⚠️ 멀티플레이 실기 검증 (2026-09-09) — 검증 상태: 2단계 결과의 멀티플레이 실기가 처음 이뤄졌다 / 부분 검증이었고 남은 두 가지는 2026-09-14 3단계로 해소됐다:** **무작위 맵 2단계 — 멀티플레이(랜덤 매칭) 실기 2회.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「부분 검증」. 현재 경계의 단일 소스는 「✅ 구현 완료 (2026-09-14)」 문단이다)*
-
-쉽게 말하면, 지금까지 무작위 맵은 **혼자 하는 경기(에디터 싱글플레이)에서만** 확인됐고 **둘이 붙는 경기에서는 한 번도 확인된 적이 없었다.** 이번에 랜덤 매칭으로 두 차례 붙어, 무작위 맵이 만든 전장이 멀티에서도 실제로 그려지고 규칙대로 동작하는지를 눈으로 확인했다. 다만 **전부 확인된 것은 아니다** — 멀티는 아직 seed 가 고정이라 매 판 같은 맵이 나오고, 그래서 「멀티에서 매 판 다른 맵이 나오는가」는 **이번에도 확인할 수 없었다.**
-
-🔴 **검증된 것과 검증되지 않았던 것의 경계 (2026-09-09 시점 — 현재의 단일 소스는 「✅ 구현 완료 (2026-09-14)」 문단이다).**
-- ✅ **검증됐다** — 멀티 경로에서 **무작위 맵 시스템이 실제로 돈다**: 격자 11×21 과 투영 · 성/광산 배치 · 빗금과 구멍 렌더링 · 빗금 타일 건설 차단 · 빗금 위 광산의 채굴소 예외 · 맵 준비 로그 · **Host 와 Client 가 같은 맵을 본다.**
-- ⚠️ **이 회차 당시 검증되지 않았던 것** — ✅ **「멀티에서 매 판 다른 맵이 나오는가」는 2026-09-14 3단계에서 해소됐다**(3단계 I 가 고정 seed 를 없앴고 실기에서 매 판 다른 seed 가 확인됐다). ✅ **Host/Client 대조도 해소됐다** — 당시에는 두 화면이 같은 맵임을 눈으로 본 것이지 칸 단위 대조가 아니었고(사용자 본인이 **「빗금 105칸을 세어본 건 아니고 같은 맵이 나온 것만 확인했다」**고 적었다), 3단계의 해시 대조는 바이트 단위 대조다. ⚠️ **「AI 가 빗금 타일에 일반 건물을 짓지 않는가」는 여전히 도달 불가**다(아래 「✅ 구현 완료 (2026-09-08)」 문단의 ③ 그대로 유효). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「검증되지 않았다 — 『멀티에서 매 판 다른 맵이 나오는가』는 이번에도 확인 불가다 … 칸 단위 대조가 아니다」)*
-
-**1차 (고정 seed `1`, 커밋 `2cb0867` 시점)** — 사용자 보고는 「여러 번 시도했으나 맵이 변경되지 않고 하나뿐」이었고 **이것은 정상이다**(멀티는 임시 고정 seed 를 쓰므로 매 판 같은 맵이 나온다). 메인 세션이 맵 준비 코드를 실제로 실행해 대조한 결과 **스크린샷과 일치**했다 — `seed=1 → FullyOpen · 중립 광산 3개(좌표 (5,10)(8,10)(2,11)) · 성 Red(5,1) Blue(5,19) · 시작 광산 Red(7,1) Blue(3,19) · 타일 일반 225 / 빗금 0 / 막힘 6 · 격자 11×21`. **옛 고정 맵은 10×29 였으므로, 이 대조 자체가 「멀티에서 무작위 맵 시스템이 실제로 돌고 있다」의 직접 증거다.**
-
-**2차 (고정 seed `11`, 커밋 `b515995`)** — 빗금 렌더링 · 구멍(막힌 칸) 표시 · 빗금 타일 건설 차단 · 빗금 위 광산의 채굴소 예외 · 맵 준비 로그가 **전부 정상 동작**했고 **Host 와 Client 가 같은 맵**을 봤다. 단 **칸 수를 대조한 정밀 검증은 아니다**(위 경계 참조).
-
-🔴 **버그로 오해하기 쉬운 항목 — 빗금 타일을 탭해도 토스트는 「그 타일을 점령한 뒤」에만 뜬다.** 2차 테스트에서 사용자가 처음 「토스트가 안 뜬다」고 보고했으나 **규정대로의 동작이었다.** `GameSystemRules_UI.md` 「건물 배치 패널 UI」 **규칙 7·8** 이 **자기 팀 소유** 건설 불가 타일에만 토스트를 띄우고 **중립·적 소유면 선택만** 하도록 정하는데, **경기 시작 시점에 빗금 타일을 소유한 팀은 없다** — seed 11 실측(메인 세션)으로 **Blue 초기 소유 12칸 중 빗금 0 · Red 초기 소유 12칸 중 빗금 0 · 맵 전체 빗금 105칸이 전부 중립에서 시작**이다. 사용자가 **빗금 타일을 점령한 뒤 탭하니 토스트가 정상 표시**됐다. 🔴 **이것은 위 ③「AI 가 빗금 타일에 닿을 수 없다」와 정확히 같은 구조다** — 초기 보유 칸에 빗금이 0개라 점령 전에는 **사람도 AI 도** 빗금 타일을 소유하지 않는다. **결함이 아니라 규칙대로의 동작이므로, 다음 사람이 버그로 접수하지 않도록 여기에 못 박아 둔다.**
-
-⚠️ **곁가지 — 「맵이 정한 초기 골드가 적용되지 않는다」가 실기로 드러났다.** 1차 스크린샷의 골드가 **5135** 였다. `seed=1` 맵은 중립 광산이 **3개**라 규칙 3 의 표대로면 초기 골드가 **500** 이어야 하는데, 실제로는 `GameConfig.StartingGold`(**5000**)가 그대로 쓰인다(문서 작업 중 직접 실측 — `Bootstrap/GameBootstrapper.Setup.cs` 가 `new ResourceUseCase(_config.StartingGold)` 로 만들고, `Resources/Config/GameConfig.asset` 의 `_startingGold` 가 `5000` · `_mapTestModeEnabled` 는 `0` · 광산 수→골드 표는 `Domain/Map/MapDefinitionValidator.cs` 의 `{ 0, 700, 600, 500, 400, 300, 200 }` 배열 한 곳뿐이다). **이것은 아래 ⑥ 보류 8건 중 「`InitialGold` 미사용」이 실기로 드러난 것**이며, `GameSystemRules_RandomMap.md` **규칙 16** 이 Host 가 「실제 초기 골드」를 보내고 Client 가 **그대로 로드**하도록 정하므로 **3단계에서 다루지 않으면 규칙 16 이 미충족으로 남는다.** ⚠️ **다만 사용자는 3단계 범위 선택에서 이 항목을 고르지 않았다 — 「하지 말라」인지 「이번엔 아니다」인지 당시 확정되지 않았으므로 범위에 넣지 않고 사실만 적는다**(✅ 2026-09-14 에 확정 — 아래 정정). **[🔴 2026-09-14 정정 — 원문은 그대로 두고 덧붙인다: 이 문단은 **5000 이 어디서 왔는지를 적지 않아** 맵 테스트 모드 때문으로 읽힐 여지가 있었다. **출처는 `Economy.StartingGold` 이며 맵 테스트 모드는 꺼져 있다**(`_mapTestModeEnabled: 0` · 실기 로그 `TestMode=False`). **5000 은 고장이 아니라 테스트 개발값**이고, **미구현인 것은 광산 수 ↔ 초기 골드 연동**이라 **규칙 3 도 함께 미충족**이다. **「확정되지 않았다」는 2026-09-14 에 해소**됐다 — 사용자가 **「추후 밸런싱과 함께 다시 작업한다」**로 확정했다. 단일 소스는 맨 위 「🔴 사실 확정 · 결정 기록 (2026-09-14)」 문단]**
-
-**테스트용 임시 seed 변경 (커밋 `b515995`)** — 멀티 임시 고정 seed 를 `1` → `11` 로 바꿨다. 바뀐 것은 `Bootstrap/GameBootstrapper.cs` 의 상수 `NetworkInterimRootSeed` **값 하나와 주석뿐**이고 **seed 분기 구조와 싱글플레이 경로는 무변경**이다(문서 작업 중 직접 실측 — 240행 `private const ulong NetworkInterimRootSeed = 11UL;`). 🔴 **숫자 자체에 의미는 없다** — 밸런스가 검증된 맵이 아니라 **테스트에 쓸모 있어서** 고른 값이다(`seed=11 → ThreeLane · 빗금 105칸 · 막힘 28칸 · 중립 광산 5개(그중 1개가 빗금 위)`. 종전 값 `1` 은 빗금이 0칸이라 빗금·구멍·채굴소 예외를 멀티에서 볼 방법이 아예 없었다). **당분간 11 로 유지한다** — 3단계 전송을 만드는 동안 빗금·구멍이 있는 맵이 계속 나와야 전송이 그 정보를 제대로 싣는지 화면으로 확인된다. **3단계가 이 분기 자체를 없앤다.** 🔴 **싱글플레이는 원래부터 매 판 랜덤이다** — `Bootstrap/GameBootstrapper.Map.cs` 의 `CreateRootSeed()` 가 싱글에서는 `Guid` + `UtcNow` 로 매 판 새로 뽑는다(문서 작업 중 직접 실측). **고정된 것은 멀티뿐이며, 이 구분이 흐려지면 「무작위 맵인데 왜 고정이냐」는 오해가 생긴다.**
-
-**※ 근거 구분(규칙 10):** 스크린샷·화면에서 본 동작·「같은 맵이 나온 것만 확인했다」는 **사용자 실기 관찰**이고, `seed=1`·`seed=11` 이 만드는 맵의 값(유형 · 빗금/막힘 칸 수 · 광산·성 좌표 · 초기 보유 12칸 중 빗금 0개)과 커밋 해시는 **메인 세션이 맵 준비 코드를 실행해 측정·전달한 값**이며, `NetworkInterimRootSeed = 11UL` · `CreateRootSeed()` 의 `Guid`+`UtcNow` · `_config.StartingGold` 소비 지점 · `_startingGold: 5000` · 초기 골드 표 배열 · UI 규칙 7·8 본문 · 규칙 16 본문은 **문서 작업 중 직접 실측한 값**이다.
-
-**✅ 구현 완료 (2026-09-08) — 검증 상태: 싱글플레이 에디터 실기 검증 완료 / 멀티는 이후 부분 검증(2026-09-09) → 해소(2026-09-14):** **무작위 맵 2단계 — A~K 전 단계 완료.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「멀티 미검증」. 경계는 「⚠️ 멀티플레이 실기 검증 (2026-09-09)」 문단과 「✅ 구현 완료 (2026-09-14)」 문단이다)*
-
-> **[🔴 2026-09-08 갱신]** 이 문단의 머리는 같은 날 **「⚠️ 진행 중 … 🔴 2단계는 아직 끝나지 않았다(K 단계 남음)」**으로 적혀 있었다. **K 단계(맵 준비 로그 키)가 커밋 `2e1b305` 로 끝나고 싱글플레이 실기 검증까지 마쳐** 완료로 바꾼다. 아래 「과대 표기 금지」 ①의 해소도 그 자리에서 고쳤다.
-
-쉽게 말하면, **이제 싱글 경기에 들어가면 매 판 다른 전장이 나온다.** 성과 광산 자리가 코드에 박혀 있던 것을 걷어내고, 맵을 만들어 내는 기계 · 만든 맵을 검사하는 기계 · 검사에 계속 실패할 때 쓸 예비 맵 · 그 맵을 실제 전장으로 옮기는 일 · 막힌 곳을 빈 공간으로 그리고 지을 수 없는 곳에 빗금을 얹는 일 · 그 빗금 규칙을 사람과 AI 양쪽에 똑같이 적용하는 일까지가 들어갔다. 사용자 실기 테스트로 **매 판 광산 위치·시작 광산 방향·초기 골드가 바뀌는 것**과 **기존 기능이 그대로 도는 것**을 확인했다. 마지막으로 **어떤 맵이 왜 그렇게 만들어졌는지를 기록으로 남기는 일**(K)까지 끝냈다 — 그 값들은 이미 계산되어 있었지만 **꺼내 쓰는 쪽이 없어 매 판 그대로 버려지고 있었다.** 사용자가 경기를 여러 판 돌려 **맵이 매번 다르게 나오는 것을 육안으로 확인**했고(2단계의 주 판정), 경기당 맵 준비 로그가 **한 줄만** 제 위치에 찍히는 것과 **빗금 타일 위 광산에 채굴소가 지어지고 주변 타일 색상이 바뀌는 것**도 실기로 확인했다.
-
-단계별 결과(커밋): **A~E** 결정적 난수·대칭 builder·초기 상태 평가·생성기 5종·검증기 / **F** 폴백 템플릿 5개 + 제작 도구 `996cc0a` / **G** 맵 준비 조정자 `7eea8f0` / **H** `GameConfig` 11×21 + 투영 `f432fb5`(**여기서 처음 화면이 바뀐다**) / **J** 렌더러 + 클릭 판정 `a2a8c60`·후속 `a19fe07` / **I** 판정 조건 전환 `c47a067` / **K** 맵 준비 로그 키 `2e1b305`. 🔴 **I 와 J 는 계획의 I → J 순서를 J → I 로 바꿔 실행했다**(사용자 승인) — 렌더링이 먼저 서야 「빗금 친 곳에 건설이 막히는가」를 눈으로 확인할 수 있기 때문이다.
-
-⚠️ **과대 표기 금지 — 아직 완료가 아닌 것(2026-09-08 시점의 목록 — 해소된 항목에는 표시를 달았다):** ① ✅ **K 단계(맵 준비 로그 키)는 완료됐다**(당시 표시: 「2단계는 미완이다 — 규칙 12 가 요구하는 로그 항목이 아직 로그로 나가지 않는다」) — 커밋 `2e1b305` 으로 `LogEvent` 키 4개(`MapPreparationSucceeded`/`UsedFallbackTemplate`/`Failed`/`MapProjectionFailed`)를 신설해 **enum 멤버 37개 → 41개**가 됐고, 발신은 호출부 `GameBootstrapper.Map.cs` 에서만 한다. ⚠️ 다만 **`GameBootstrapper` 계열은 `UnityEngine` 참조라 헤드리스 컴파일 검증이 불가하며 컴파일 통과는 Unity 에서만 확인된다**(아래 ⑤와 같은 사유). ② ✅ **멀티플레이 seed 임시 고정값은 해소됐다** — 당시 `LoadMap` 이 싱글·멀티 공용이라 그대로 두면 Host 와 Client 가 각자 seed 를 뽑아 서로 다른 맵을 보게 되므로 임시로 고정했었다(값 `1`, 이후 `11`). 3단계 I 단계(커밋 `cc3a14b`)에서 Host 가 seed 를 전송하게 되며 사라졌고 실기에서 매 판 다른 seed 가 확인됐다(2026-09-14). 코드에는 고정 seed 상수가 주석으로만 남아 있다(2026-10-12 확인). *(종전 표시: 「멀티플레이 seed 가 임시 고정값(1)이다 … 3단계에서 Host 가 seed 를 전송하면 사라지며, 그때까지 멀티는 매 판 같은 맵이 나온다」)* ③ 🔴 **「AI 가 빗금 타일에 건물을 짓지 않는가」는 현재 실기로 확인할 수 없다 — 검증 누락이 아니라 도달 불가다.** **[2026-09-08 — 갈라 적는다]** 같은 빗금 규칙 중 **「빗금 타일에서도 채굴소는 예외로 허용」 경로는 실기로 닫혔다**(사용자가 빗금 타일 위 광산에 채굴소를 짓고 주변 타일 색상 변경까지 확인). **여전히 닫히지 않은 것은 AI 의 일반 건물 경로 하나뿐이며 그것이 아래 사유로 도달 불가다.** 각 유형 200시드(외곽형만 100판) **900판 전부**에서 경기 시작 시점 Red 보유 10칸 중 빗금 타일이 **0개**였다(규칙상 양 팀 초기 보호 10칸이 일반 타일로 보장된다). AI 가 빗금 타일을 건설 후보로 만나려면 유닛으로 빗금 구역까지 진출해 점령을 넓혀야 하는데 **AI 시나리오가 이 맵을 전제로 짜인 것이 아니라 그 상황이 만들어지지 않는다.** 맵 전체 빗금 평균은 완전개방형 0.0 · 장애물개방형 0.0 · 협곡형 17.6 · 외곽형 26.5 · **3라인형 75.8**(225 재생 칸 중)이라, **AI 시나리오를 이 맵에 맞추는 순간 이 판정이 곧바로 실전에서 쓰인다. 지금 닿지 않을 뿐 죽은 코드가 아니다.** ④ ✅ **멀티플레이 실기는 이후 확인됐다** — 2026-09-09 멀티플레이(랜덤 매칭) 실기 2회로 **무작위 맵 시스템이 멀티 경로에서 실제로 도는 것**이 확인됐고(격자 11×21 과 투영 · 성/광산 배치 · 빗금과 구멍 렌더링 · 빗금 타일 건설 차단 · 빗금 위 광산의 채굴소 예외 · 맵 준비 로그 · **Host 와 Client 가 같은 맵을 본다**), 같은 날 남은 두 가지(「멀티에서 매 판 다른 맵이 나오는가」 · 「칸 단위 대조」)는 2026-09-14 3단계로 해소됐다(고정 seed 해제 + 해시 대조 = 바이트 단위 대조). 경계의 단일 소스는 「⚠️ 멀티플레이 실기 검증 (2026-09-09)」 문단과 「✅ 구현 완료 (2026-09-14)」 문단이다. *(종전 표시: 「멀티플레이 실기 미검증 — 위 검증은 전부 에디터 싱글플레이 세션이다」)* ⑤ **유스케이스·서비스·네트워크 컨트롤러의 컴파일 통과는 Unity 에서만 확인된다**(`UnityEngine` 참조라 헤드리스 컴파일이 불가하다). ⑥ **보류 항목 8건**(멀티 seed 임시 고정 · `InitialGold` 미사용 · 맵 준비/투영 실패 처리 미명세 · 규칙 13 임계값 3·2 기획 확인 · 생성기 주입 이음매 없음 · `AGENTS.md` 에 `_Reference` 누락 · `PlaceMiningPostDirect` 막힌 타일 가드 없음 · `NoBuildHatch.mat` 공유 머티리얼 오염 가능)은 **미해결 결함이 아니라 사용자가 이번 범위 밖으로 확정한 항목**이며 목록은 `_Tasks/2026-09-03/03_14_random-map-phase2-generator/Plan.md` §13. ⑦ ⚠️ **확인되지 않은 것 — K 실기 당시 콘솔에 오류 5건·경고 4건이 잡혀 있었으나 정체를 확인하지 않았다.** 맵 로그가 `MapPreparationSucceeded` 였고 지형·채굴소가 정상 동작했으므로 **준비 실패·투영 실패 두 키는 배제되지만**, 이는 **「맵과 무관함이 확인됐다」가 아니라 「맵 경로는 배제되지만 정체는 미확인」**이다. 근거: 같은 Plan §9·§12·「K 단계 상세」.
-
-**구현 완료 (2026-08-19) — ⚠️ 부분 검증 (A ✅ / C ✅ / B 미검증):** **전역 로그 훅의 `Error` 수집 확대 + 전투 컨트롤러 RPC 가드 + 연구 흐름 로그 보강** (커밋 `cc864054`). **[B]** `LogSessionOwner` 의 전역 훅이 이제 **`Exception` + `Error`** 를 수집한다 — 엔진·NGO 가 내는 `Debug.LogError` 가 로그 파일에 한 줄도 남지 않던 구멍을 메웠다. 방어 1겹을 푸는 변경이라 **되먹임 방어를 3겹 → 4겹**으로 올렸다(`RuntimeLogger.IsEmittingToConsole` 신설 — `GameLog` 를 우회하는 `RuntimeLogger` 직접 호출 경로까지 덮는다. **기존 「직전 동일 줄 무시」 방어는 우리 출력의 밀리초 타임스탬프 때문에 애초에 작동한 적이 없다**). 스팸 대비로 `condition` 단위 **1초 스로틀 + `Suppressed=n`**(딕셔너리 상한 32). `LogEvent` **36 → 37**(`UnhandledEngineError` 신설 — 엔진 오류를 `UnhandledException` 에 섞으면 **크래시 건수 지표가 크래시 아닌 사건으로 부풀고 조치도 다르다**). **[A]** `NetworkCombatController.Update` 가드를 `if (!IsSpawned || !IsServer) return;` 로 확장 — `IsServer` 는 *"내가 서버 역할인가"* 이지 *"이 오브젝트가 아직 살아 있는가"* 가 아니다. **[C]** `NetworkUpgradeController` 의 성공 경로가 **무로그**였다 → 착수·완료 브로드캐스트·클라 반영을 `개발`, 클라 측 서비스 부재 분기만 `운영`(기존 키 재사용)으로 4줄 추가. **[+]** `NetworkProductionController` 의 `Pos={unit.Position}` 이 `Pos=(4, 15)` 를 만들어 **값 안에 구분자가 들어가 있던 `key=value` 위반 1건**을 `Q=`/`R=` 로 수정 — **2026-08-18 에 `LogRules.md` 1.4 로 명문화한 규정을 우리 코드가 어기고 있었다.** **[실기 — `_Logs/_editor/2026-08-19/RuntimeLog.txt` 704줄]** **A ✅ 해결**(Shutdown 13:34:01.467 이후 `StopCombatClientRpc` 0건. 에디터가 host 인 회차라 조건 성립) · **C ✅ 정상**(착수 6건 ↔ 완료 브로드캐스트 6건 1:1, `Level=1` → `Level=2`) · **되먹임·폭주 ✅ 없음**. **⚠️ B 는 미검증** — `[ERROR]` 0건 · `UnhandledEngineError` 0건 · `Suppressed=` 0건으로 **이번 세션에 엔진 오류가 나지 않아 잡을 것이 없었다.** 「동작 확인」이 아니라 **「확인할 기회가 없었음」**이다(규칙 10). **⚠️ 그 밖의 단서:** **A 의 원인인 스폰 레이스는 이번에도 미발생**(`NetworkControllerSpawnedWithoutGameServices` 0건 — 정상 경로만 확인됨) · **`SetCameraStartPositionForTeam` 최종 삭제 여전히 잔여**  · ~~**범위 밖 2건**(`OnUnitDied` → `EntityDiedClientRpc` 의 같은 성질 가드 구멍 / `NetworkCombatController` 에 게임 종료 구독 부재 — 로그상 종료 감지 후 **약 3초간 전투 루프 지속**)~~ → **둘 다 해소됨**(커밋 `55d24d83` — 위 항목). 상세: `LogRules.md` **1.5 / 1.9 / 1.11 / 1.13**, task `_Tasks/2026-08-18/20_07_log-coverage-and-rpc-guard/Plan.md` §11.
-
-**구현 완료 (2026-08-18) — 컴파일 통과 · ⚠️ 실기 미검증:** **로그 체계(`GameLog`) 전환 — 나머지 계층 이관 완료.** `Assets/_Project/Scripts/` 의 게임 런타임 코드에서 raw `Debug.Log` 이관이 끝나, **누적 386건**(선행 205 + 이번 **181**)이 `GameLog` 를 경유한다. 배치별: 1-A **65**(`3151d0df`) · 1-B **23**(`793e584f`) · 2 **50**(신규 로그 3건 포함, `3141bc61`) · 3·4 **43**(`5a554bc7`) · `system` 문자열 교정 **16건**(`589c2fcf`). `LogEvent` enum 은 **36개**(배치 2 에서 4개 신설), **`LogEvent.Unknown` 사용처 0건**. **[최종 잔존 46건 — 전부 남을 이유가 있다]** `GameLog.cs` **9**(sink 0개일 때의 콘솔 폴백 — `LogRules.md` **1.8** 이 요구하는 동작) · `ILogSink.cs` **2**(주석) · `Infrastructure/Debug/` **19**(로그 시스템 본체) · `Assets/Editor/` **16**(**미적용** — 에디터 도구는 플레이 모드 밖이라 sink 가 없어 이관 효과가 원리적으로 0. **규칙 예외가 아니라 현행 구현의 한계**로 기재). `grep` 총계 54 = 실제 호출 46 + **주석 8**. **[⭐ 확정된 해석 — `system` 은 폴더가 아니라 기능 기준]** 배치 3 이 원본 `[Network]` 태그의 UI 4파일(`LobbyUI` 10 · `NetworkStatusUI` 4 · `GameEndUI` 1 · `LobbyRootView` 1)을 폴더 기준 `"UI"` 로 바꿨다가 되돌렸다(`589c2fcf`) — 폴더로 통일하면 **`System=Network` 필터에 `LobbyUI` 의 방 참가 실패가 안 잡힌다.** 이 해석을 `LogRules.md` **1.4 본문에 한 문장으로 명문화**했다(**규칙 번호는 신설하지 않음** — 코드 주석의 기존 참조가 끊긴다). **[⭐ 추정이 두 번 연속 빗나갔다]** *"같은 계층을 호출하니 중복일 것"* 이라는 판정이 두 번 틀렸다 — `RelaySetupFailed` 는 **3곳 중 2곳만**(`Stage=CodeMissing` 은 하위를 호출하지 않고 `return`), `PlayerProfileService` 호출 View 는 **4곳 중 3곳만**(`ProfileView` 로그아웃은 `SignOutAsync` 에 `catch` 가 없다) 중복이었다. **호출 경로를 끝까지 따라가야 한다** — `LogRules.md` **1.14 금지 9** 에 보강. **[함께 수정한 버그 3건 (커밋 `da5eeaab`)]** ① **`NetworkUpgradeController` 완료 훅 구독 누락** — `OnNetworkSpawn` 이 조기 `return` 하면 `OnResearchCompleted` 구독이 세션 내내 복구되지 않던 문제. `NetworkSkillController` 의 검증된 `EnsureStatusSubscription` 패턴을 이식(`EnsureUpgradeSubscription`, 호출 2곳). **증상은 클라이언트 한정** — 서버 레벨은 정상 상승하고 전투 판정도 서버 권위라 정상이며, 죽는 것은 **양 클라 브로드캐스트뿐**이다. ② **`SetCameraStartPositionForTeam` 비활성화**(호출부 0곳, `ViewConverter.Setup` 의 뷰 반전으로 대체됨) ③ **유닛 스폰 실패 운영 로그에 진단 필드 추가**(`UnitType`·`Team`·`Q`·`R`). **[⚠️ 과대 표기 금지 — 완료 옆에 붙는 단서]** **컴파일은 통과했으나 실기 동작 테스트를 하지 않았다** — 특히 **①은 회선 상태에 좌우되는 간헐 버그**라 실기로 확인되지 않았고, **"안 났으니 고쳐졌다"고 결론 내리지 않는다** · **`SetCameraStartPositionForTeam` 주석 처리분의 최종 삭제가 남아 있다**(WORKFLOW [6] 통과 후 · [7] 전) · **`Assets/Editor/` 16건 미적용**(위) · **`_services` 가 이전 경기 인스턴스를 가리킬 위험**은 `NetworkSkillController` 포함 **구조 공통 사항**이며 이번 변경이 만든 위험이 아니다(재경기 후 강화가 이상하면 여기를 먼저 의심) · **`LobbyUI` 가 현재 쓰이지 않을 가능성** — 로비가 `LobbyRootView` 계열로 재구성됐는데 `LobbyUI` 는 옛 구조 그대로다. **확인 없이 판단하지 않고 10건 전부 이관했다.** 상세: `LogRules.md` **1.4**·**1.7**·**1.13**·**1.14**, task `_Tasks/2026-08-17/17_19_remaining-layers-log-migration/Plan.md` §11 · `_Tasks/2026-08-18/04_02_upgrade-subscription-fix/Plan.md` §11.
-
-**구현 완료 (2026-08-17) — 컴파일 통과 · ✅ 실기 검증 PASS:** **씬 무관 로그 수집 구현 완료** (커밋 `a253232e`). 로그 파일에 기록을 켜는 배선이 `GameBootstrapper` 에만 있었고 그것은 **`Game.unity` 에만 배치**되어 있어, **로그인·로비 구간의 로그 73건이 파일에 한 줄도 남지 않던** 문제를 해소했다. **[구현]** 신규 정적 클래스 **`Infrastructure/Debug/LogSessionOwner.cs`** 가 sink 인스턴스·초기화 플래그·훅 중복 방지 상태를 **한 곳의 `static`** 으로 소유한다(계획서 가칭 `LogSessionBootstrap` 에서 이름 변경 — Infrastructure 에 `~Bootstrap` 을 두면 **세 번째 조합 루트로 오독**되기 때문). 규칙을 **여는 쪽 둘 / 닫는 쪽 하나**로 뒤집었다 — 두 부트스트래퍼(`LoginBootstrapper` · `GameBootstrapper`)가 `Awake` 첫 줄에서 `EnsureInitialized()`(멱등)를 부르고, 닫는 것은 `UnityEngine.Application.quitting` **1회**다(`GameBootstrapper.OnDestroy` 의 `ShutdownLogging()` 호출은 주석 처리 — 씬 언로드 때 닫으면 앞 씬이 연 세션까지 끊긴다). 에디터 보조 배선은 `EnteredEditMode`(`ExitingPlayMode` 는 `OnDestroy` 보다 앞설 수 있어 종료 과정 로그를 흘린다). **`LogRules.md` 1.9 의 전역 미처리 예외 훅도 함께 이관**했다 — 등록·해제와 중복 방지 상태가 인스턴스에 묶여 있어 커버리지만 고치면 로그인 구간에 구멍이 남기 때문이다. `LoginBootstrapper.cs` 13행의 *"GameBootstrapper 는 Lobby/Game 씬에 존재"* 주석도 실측(`Lobby.unity` 참조 0건)에 맞춰 정정. **[⚠️ 부수 영향]** 미처리 예외 로그의 `className` 이 `GameBootstrapper` → **`LogSessionOwner`** 로 바뀐다(`[Runtime/GameBootstrapper]` → `[Runtime/LogSessionOwner]`). Infrastructure 가 Bootstrap 을 참조할 수 없어 불가피하며 **로그를 grep 하는 쪽에 영향**이 있다. **[✅ 실기 검증 — 전 항목 PASS]** 사용자가 랜덤매칭 실기(에디터+실기기)로 확인했고 근거 로그가 `_Logs/_editor/2026-08-17/RuntimeLog.txt`(**199줄**)에 커밋되어 있다: 파일명 `RuntimeLog.txt` · 헤더 3줄 규정 · 199줄 축적 · **같은 파일에 2번째 헤더(일 단위 이어쓰기)** · `Role=` 3건 · **`[Auth/...]` 7건 기록(목적 달성)** · 마스킹(`Uid`·`PlayerId` **16자리 16진수** · `Email=` 0건 · `@` 포함 줄 0건) · 감사 누락분 `HostId` 해시 일치. **[후속 — `Role` 값 표기 통일 (커밋 `73574a23`)]** 실기 로그에서 같은 `Role=` 키가 두 표기로 갈린 것이 발견되어(`NetworkGameManager` 5곳 `Host`/`Client` · `NetworkCombatController` 1곳 `host`/`client`) **소수 쪽을 `Host`/`Client` 로 맞췄다.** 근거는 `LogRules.md` **1.4** — 표기가 섞이면 *"집계가 조용히 둘로 갈라진다"*. **[⚠️ 과대 표기 금지 — 남는 단서]** **커밋 `73574a23` 은 명시적인 컴파일 확인을 받지 않았다**(문자열 리터럴 대소문자 1줄 변경이지만 "통과했다"고 적지 않는다. 커밋 `a253232e` 까지는 통과 확인됨 — 사용자가 그 상태로 실기를 수행했다) · **`Lobby.unity` 직접 진입은 커버되지 않는다**(부트스트래퍼가 없어 sink 0개 → 콘솔 폴백. **사용자가 "로비를 직접 열어 실행하는 경우는 없다(항상 Login 을 거친다)" 고 판단해 커버하지 않기로 결정** — 미해결 결함이 아니라 범위 밖 확정) · **나머지 계층 이관 미착수**(잔존 `Debug.Log` **234건** — 별도 task) · **잔여 조치 1건 해소**: `GameBootstrapper.cs` 의 주석 처리된 `// ShutdownLogging();` **삭제 완료**(커밋 `7ef682db` — 사용자 테스트 통과 후 삭제 예정이었던 항목. 동작 변경 없음). 상세: `LogRules.md` **1.8**·**1.9**·**1.10**·**1.13**, task `_Tasks/2026-08-17/11_07_scene-independent-logging/Plan.md`(§9-1 · §10-1 · §13 · §14).
-
-**코드 작성 완료 (2026-08-17) — 컴파일 통과 확인됨 (2026-08-17) · ✅ 실기 동작 테스트 PASS (2026-08-17):** **로그 체계(`GameLog`) 전환 — 네트워크·인증 계층 정리 task 의 코드 작업이 전부 끝났다.** `LogRules.md` 2026-08-13 전면 개정(심각도 + 존속 **두 축**)에 맞춰, 네트워크·인증 **8파일 205건**의 raw `Debug.Log` 를 `GameLog` 로 이관(`개발` 120 / `운영` 85, 커밋 `668e0aeb` 계열 — **이 이관분은 사용자 유니티 컴파일 통과 확인됨**)한 데 이어, 남아 있던 **미조치 4항목**을 구현했다(커밋 `4e027e68` · `675203ae`). **[구현 내역]** ① **민감 데이터 마스킹 15곳** — Firebase UID · UGS PlayerId 를 `GameLog.HashId` 해시로 치환하고 **이메일 출력은 없앴다**(`Email=` 잔존 0건). `LogRules.md` **1.6** 이 *"에디터 포함 항상 적용"* 이고 **에디터 로그 파일은 커밋되어 공유**되므로 `개발` 로그에도 적용했다. ② **에디터 로그 파일명 단일화** — ~~`RuntimeLog_host.txt` / `RuntimeLog_client.txt`~~ → **`RuntimeLog.txt`**. 빌드는 `#if UNITY_EDITOR` 로 파일을 쓰지 않아 **파일을 쓰는 프로세스가 항상 에디터 1개**라 나눌 이유가 없었고, 기존 파일명은 *"에디터 = Host"* 라는 **틀린 전제**에 기대고 있었다. 역할은 `NetworkCombatController.OnNetworkSpawn` 이 `Role=host` / `Role=client` **로그 한 줄**로 남긴다. ③ **`RuntimeLogger` 헤더 규정 준수** — `BeginSession(folderPath, purpose)` 로 시그니처를 바꿔 헤더 1줄째에 목적을 넣고 헤더 뒤 빈 줄 1줄을 추가. ④ **수동 정리 메뉴 구현** — `Hexiege > Logcat > 3. 오래된 에디터 로그 정리`(보존 기간 선택 → 대상 목록 확인 → `_Logs/_editor/` 하위 한정 · 날짜 폴더 단위 · 삭제 직전 매 건 경로 재검사). **[감사가 놓쳤던 1건]** `LobbyManager` 의 `"CreateOrJoin 완료"` 로그가 **`HostId` 를 평문 출력**하고 있었다(`HostId` 가 UGS PlayerId 인 근거는 같은 파일이 `AuthenticationService.Instance.PlayerId` 와 직접 비교한다는 점) — 감사표에 없던 자리라 그 **누락 사실 자체를 `LogAudit.md` §6 에 기록**했다. **⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:** **커밋 `4e027e68` · `675203ae` 는 사용자 유니티 컴파일 통과가 확인되었다(2026-08-17) — 다만 컴파일 통과는 문법이 맞다는 뜻일 뿐이다** · **실기 동작 테스트를 하지 않았다** · **새 정리 메뉴는 실제로 실행해 본 적이 없다** · **나머지 계층 이관 미착수**(전체 잔존 `Debug.Log` **234건**은 이번 8파일 밖 — 별도 task 로 분리 결정) · **`.meta` 취급 규정 명문화 보류**(사용자 판단 대기). 상세: `LogRules.md` **1.13**, task `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/`(`Plan.md` §0-7 · §0-9 · `LogAudit.md`).
-
-**구현 완료 (2026-08-12) — 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증:** **MistShrine(HealShrine) 물안개 힐 시스템 구현 완료.** 2026-08-10 기획 확정 후 코드·프리팹·씬 배선을 모두 구현하고 **에디터 싱글플레이 실기 + 런타임 로그 실측으로 검증**했다. 검증 완료 항목: **범위 원 경계 = 실제 회복 판정 일치**(회복 최대 거리 2.29 / 탈락 최소 거리 3.12, 설정 반경 3.00과 모순 0건), **범위 이탈 시 즉시 끊김**(규칙 9 — 거리 2.29→3.77 이탈 다음 틱부터 HP 고정), **회복량 매 틱 +10**(설정값 일치), **중첩 해소**(규칙 13 — 후보 4개에서도 대상당 1회만 적용, 거리 동률 0.87에서 Id 작은 신전 선택), 자동/수동 토글·쿨다운 방향·적 건물 미반응·연구/스킬 패널 `ClosedFrame` 가드. **⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:** **멀티플레이 실기 미검증**(싱글로만 검증했다. 범위 판정 코드는 싱글·멀티 공유라 판정 로직은 유효하나 **건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러 등 멀티 고유 경로는 실행된 적이 없다**) · **물안개 지속 VFX 미제작**(물안개가 눈에 보이지 않는다) · **사용 버튼 아이콘 미제작**(임시 텍스트 라벨) · **밸런싱 수치 미확정**(현재 값은 전부 임시값). **구현 중 발견·수정한 규칙 위반 버그:** 겹친 물안개 2개가 같은 대상을 각각 회복시켜 **초당 회복량이 2배**가 되던 문제 — 물안개마다 틱 위상이 달라 중첩 해소 코드가 **돌 기회 자체가 없던 죽은 코드**였다. **활성 물안개 위상 정렬 + 소유권 판정을 발화 여부와 분리**해 수정(커밋 `be17148`), 이 불변식을 **규칙 8-1에 보강 기재**. 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(§9-4 · §10).
-**정밀 동기화 상태:** Tracer A0/A1/A2와 B0/B1/B2, B3 v10 집중 이동, C1 회차 결속, C2 결과, C3 결과 기반 표현 및 production 공격 진입 typed target payload seam까지 집중 범위 실기 PASS다. 최신 BattleAxe focused 4/25종 Editor Host + Android Client에서도 handoff·stationary Walk·결과·표현·공간 오류가 모두 0으로 수렴했지만 육안 판정은 성능 제한으로 조건부다. 아직 남은 P0는 유닛별 타임라인 교정과 전체 25종·반대 역할·Legacy rollback 통합 회귀이며, 그 전에는 ActionSequence 전체 완료나 Legacy 제거를 선언하지 않는다.
-**최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고 production marker/config는 0.50/0.50초로 정렬됐다. 이동·방향·VFX focused 교정도 2026-09-22 사용자 실기 PASS지만 profile은 계속 `LegacyFallback`이므로 권위 이관 완료가 아니다. QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 과거 로그로 확인됐으며, 2026-09-14 production `OnAttackHit`과 config를 1.667초로 정렬하고 Supported secondary profile 자동 게이트를 통과했다. 전체 권위 전환은 25종·역할교대·Legacy rollback 통합 회귀 전에는 완료로 선언하지 않는다.
-**현재 단계 (규칙 v2.2):** C2 결과, C3 결과 기반 표현, B3 이동과 공격 진입 production typed target payload seam은 최신 동일 범위 Editor Host + Android Client 실기에서 오류 0으로 수렴했다. 다음 P0는 새 기능 추가가 아니라 **전체 25종·Host/Client 역할교대·Legacy rollback 통합 회귀**로 현재 권위 전환 경계가 넓은 조건에서도 유지되는지 확인하는 것이다. 이 통합 회귀 전에는 ActionSequence 전체 완료나 Legacy 제거를 선언하지 않는다.
-**Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
-
-**기획 확정 이력 (2026-08-10):** MistShrine은 공격하지 않는 별도 힐 건물로, 시전 시 **건물 중심 고정 원형 범위**에 물안개가 깔려 지속 동안 **아군 유닛+아군 건물**(자기 자신·Castle 포함)을 **1초 discrete 틱**으로 회복한다(범위 이탈 시 즉시 끊기는 아우라, 물안개 지속 < 쿨다운, 시전 비용 없음, 파괴 시 물안개 즉시 제거, 물안개 간 중첩 금지 — 가까운 건물 우선·거리 동률이면 Id 작은 쪽, **연구소 자연회복과는 중첩 적용**). UI는 `BuildingPanelBase` 상속 전용 패널(탭=수동/롱프레스=자동 토글, **자동 기본 OFF**, `SkillCooldownOverlay` 재사용, 범위 표시는 아군·패널 열린 동안만). 로직은 `SkillActivationUseCase` 재사용 불가로 **전용 UseCase 신설**(쿨다운 패턴만 차용 + 클라 로컬 미러). **함께 정정한 문서 오류:** GDD/TDD가 Transcendence 방어 타워를 MistShrine으로 적어 왔으나 **정확히는 VineTower**이며 MistShrine은 `HealShrine`(=6) 별도 건물이다. 수치(회복량·지속·쿨다운·반경·텍스트 주기)는 **전부 밸런싱 미확정.** 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`(기획) · `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(구현).
-**버그 수정 (2026-08-08):** **랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정 · 실기 테스트 PASS**(커밋 `9a19cd5`). 배럭 팝업에서 랠리포인트 버튼을 누르면 팝업만 숨겨지고 공유 반투명 오버레이(BlockingOverlay)가 화면에 남아, 집결지를 찍으려 맵을 탭하면 오버레이(탭=`Close`)가 터치를 먼저 가로채 `Close()`→`OnBeforeClose()`(`IsSettingRallyPoint=false`+랠리 마커 숨김)가 실행되며 **지정이 그냥 취소된 것처럼 보이던** 버그. 원인은 `ProductionPanelUI.OnRallyPointClick()`이 `_popup?.Hide()`만 호출하고 오버레이를 내리지 않은 것(오버레이를 켜는 곳은 `BuildingPanelBase.Show()`, 끄는 곳은 `Close()` 단 하나). **수정: `ProductionPanelUI.cs` 1파일 2줄 순수 추가** — ① `OnRallyPointClick()`에 `HideBlockingOverlay()`(스킬 패널 `BuildingSkillPanelUI`의 조준 진입 패턴과 동일) ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에 참조 카운터 반납 호출(②를 빠뜨리면 카운터 미반납으로 다음 팝업의 오버레이가 어긋남 — 기존엔 이 버그가 대신 `Close()`를 태워 우연히 상쇄하고 있었음). 이로써 `GameSystemRules_Buildings.md` 랠리포인트 시스템 규칙 2의 "설정 직후 3초 표시"도 정상화. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(BlockingOverlay 단일 소유·참조 카운터) — **규칙 문서 변경 없음(코드가 기존 규칙을 다시 준수하도록 맞춘 수정)**. task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`(Testcase 미작성 — 사용자 미지시).
-**구현 완료 (2026-08-08):** **건물 파괴 시 열린 패널/조준 UI 원복** **구현 완료 · 실기 테스트 PASS**(커밋 `8c7fa01`). 건물 패널 4종(생산/건물액션/스킬/연구)이 열려 있거나 스킬 조준 중일 때 그 건물이 파괴되면 화면에 유령 패널·조준 UI가 남던 시각적 갭을 해소. 공통 베이스 `BuildingPanelBase`가 `GameEvents.OnBuildingDied`를 구독해, 파괴된 건물이 **현재 표시/조준 중인 건물이면(`_currentBuilding.Id` 매칭 — 조준 중엔 `_popup.Hide()`로 `IsOpen=false`라 IsOpen 아닌 Id로 판정) `Close()` 호출** → 각 패널 `OnBeforeClose`로 스킬 조준 취소(`CancelAim`)·생산 랠리 마커 숨김이 자동 연계(4개 패널 전부 커버). **코드 변경은 `BuildingPanelBase.cs` 1개 파일만**(자식 4개 패널 무변경). 멀티는 `NetworkCombatController.HandleBuildingDied`가 클라에서 `OnBuildingDied`를 재발행해 싱글/호스트/순수 클라 전부 커버(별도 배선 불필요). **교훈: MonoBehaviour 베이스에서 자식(`ResearchPanelUI`)이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 은닉(hide)돼 구독 해제가 누락되는 회귀가 생김 → Plan의 `OnDestroy`+Dispose 대신 `.AddTo(this)`(UniRx, 프로젝트 관용 패턴)로 컴포넌트 수명에 묶어 해결.** task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`. 아래 "완료된 시스템 > 스킬 건물 시스템" 후속/미완 항목 ① 참조.
-**구현 완료 (2026-08-05):** 스킬 시스템 **타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2** **구현 완료 · 실기+멀티(클라) 테스트 PASS**. 스킬 프레임워크의 마지막 메커니즘 타입으로, 버프·디버프·제어(둔화·빙결)·회복을 **하나의 상태변경 시스템**으로 표현. Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}`(순수 계산) + Application `Services/StatusEffectSystem`(서버 권위 부여/틱) + `Skill/GlobalStatusChangeExecutor`(타입 C 실행기, 조준 없음 전역 즉시) 신설. 유효 스탯 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`)에 상태 배율을 연구 강화 배율과 **곱연산 합성** + 공격 게이트 `CanAttack`(빙결/기절 시 데미지 봉쇄) 추가 — **무상태면 배율1·CanAttack true라 기존과 완전 동일(회귀 안전)**. 빙결=이동배율 0 + `Animator.speed=0` 애니 정지(`UnitAnimState.Frozen`·`OnUnitFreezeChanged` 클라 동기화), 둔화=이동 코루틴이 매 프레임 유효 배율을 재조회해 **즉시 라이브 반영**(전투 종료 정렬 Lerp 구간만 캡처값 미세 잔여), 회복=기존 HoT 재사용. 멀티는 `StatusAppliedClientRpc`로 빙결/둔화/버프 동기화(회복은 HP 동기화로 재현). 실기 확인: 공격버프·빙결·둔화(0.5)·회복·무상태 회귀 + 순수 클라 재현 모두 PASS. **정리(cleanup):** 개발용 진단 로그 코드를 LogRules 준수 위해 제거(`IRuntimeLogSink`/`RuntimeLoggerSink` 삭제, 상시 기능 아님 — 로그 파일은 LogRules대로 보존), 좌표화 때 주석 비활성화했던 코드 3곳 삭제. **유지 중인 테스트 스캐폴딩:** 종족별 플레이스홀더 스킬 5슬롯(1 폭탄A/2 빙결/3 공격버프/4 둔화/5 회복), 임시 텍스트 라벨 — 최종 기획·아이콘 전까지 테스트용. **미완(별도 작업·과대 표기 금지):** ~~건물 파괴 시 패널/조준 UI 원복 미구현~~ → **2026-08-08 구현 완료·실기 PASS(위 참조)** · 구체 스킬 목록/수치/아이콘(기획) 보류. 아래 "완료된 시스템 > 스킬 건물 시스템" 참조.
-**구현 완료 (2026-08-04):** 스킬 건물 시스템 Phase 1(타입 A 즉발 범위 피해 · 타입 B 장판 DoT + 프레임워크 골격 + 3×3 패널 UI·쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 렌더링 + 취소 버그 수정·쿨다운 안내 토스트) **구현 완료 · 실기기 테스트 PASS**. 조준 중심을 타일 스냅(HexCoord) → 연속 도메인 월드 Vector3로 좌표화 — **착탄 반경 판정은 원래 연속 원이라 무변경, "중심 좌표"만 연속화**하고 서버 재검증을 유효타일(HasTile) → 맵 경계 안 점(point-in-bounds, `HexMetrics` 경계 헬퍼 신규)으로 교체(최외곽 타일 바깥선까지 엄밀 clamp). 조준원은 지형(ProBuilder 실린더)과 coplanar z-fighting으로 파묻히던 것을 신규 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader`(ZTest LEqual + Offset -1,-1 + ZWrite Off + Cull Off)로 지형엔 안 가려지고 유닛/건물엔 가려지는 지면 데칼로 해결(셋업 스크립트가 머티리얼 자동 생성·배선). 실기(Android) 취소 버그 — 손 뗀 프레임에 합성 마우스 좌표(0,0)가 유효로 반환돼 캐시 폴백을 가로채 취소 X 위에서 손을 떼도 발동·쿨다운이 걸리던 문제 — 를 release 프레임엔 라이브 좌표를 읽지 않고 캐시된 마지막 드래그 좌표로만 취소/발동 판정하도록 근본 수정. 쿨다운 중 스킬 탭 시 조용히 무시하던 것을 ToastUI(`ToastKey.SkillOnCooldown` + `ToastMessageConfig` key:4 "스킬이 쿨다운 중입니다") 안내로 개선. **미완(당시 기준·별도 작업·과대 표기 금지):** 타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2 — **이후 2026-08-05 구현 완료(위 참조)** · 건물 파괴 시 패널/조준 UI 원복 — **이후 2026-08-08 구현 완료(위 참조)** · 구체 스킬 목록/수치(기획) 보류. 아래 "완료된 시스템 > 스킬 건물 시스템 Phase 1" 참조.
-**구현 완료 (2026-07-31):** 연구소 유닛 강화 시스템(공/방/속 + 초월 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI(매트릭스 2-레이어) **구현 완료 · 멀티플레이 실기 PASS**. ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). **후속 보류:** UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(**2026-08-12 구현 완료 / 멀티 미검증**)·싱글 자연회복 실기. 아래 "완료된 시스템 > 연구소 유닛 강화 시스템" 섹션 참조.
-**현재 단계:** **로그 체계(`GameLog`) 전환이 코드 전 계층에서 완료되었고, 전역 훅의 수집 범위가 엔진 오류까지 넓어졌다**(2026-08-19 — 위 항목 참조. 누적 386건 이관 · 최종 잔존 46건 · `LogEvent` **37개** · **A/C 실기 확인, B(엔진 오류 수집) 미검증** · `SetCameraStartPositionForTeam` 최종 삭제 잔여). ~~*"…컴파일 통과, 실기 미검증"*(2026-08-18 시점)~~ 직전 MistShrine(HealShrine) 물안개 힐 **구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증**(2026-08-12 — 위 항목 참조. 범위 판정·아우라 끊김·회복량·중첩 해소를 로그 실측으로 확인. **멀티 실기·물안개 VFX·버튼 아이콘·밸런싱 수치는 미완**). 직전 랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정·실기 테스트 PASS(2026-08-08, `ProductionPanelUI` 2줄 추가 — 조준 진입 시 `HideBlockingOverlay()` + `Close()`를 우회하는 랠리 완료 경로의 참조 카운터 반납). 직전 건물 파괴 시 열린 패널/조준 UI 원복 구현·실기 테스트 PASS(2026-08-08, `BuildingPanelBase`가 `OnBuildingDied` 구독→현재 건물 매칭 시 `Close()`, 4개 건물 패널 공통 커버·`.AddTo(this)` 해제). 직전 스킬 건물 시스템 Phase 1(타입 A·B + 프레임워크 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 + 취소 버그·쿨다운 토스트) 구현·실기기 테스트 PASS(2026-08-04)에 이어 타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2도 구현·실기+멀티(클라) PASS(2026-08-05) — 스킬 관련 잔여는 구체 스킬 목록/수치/아이콘(기획)뿐. 직전 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 구현·멀티 실기 완료(2026-07-31). 직전 QuakeSpirit(대지의 정령) 착탄형 즉발 범위 딜러 구현 완료(2026-07-20, QA PASS·**멀티플레이 실기 로그 검증 완료**) — 마지막 남은 특수 유닛으로, 이로써 **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) 전량 + InfernoSpirit DoT까지 전부 완료**. 착탄형 **즉발** AoE(DoT 아님): 주 타깃 1마리 **직접 100%(공격력 200)**(스플래시 제외, 건물이 주 타깃이면 100%로 공성) + 착탄 **월드 좌표 원형 반경**(`_quakeRadius` 기본 1.0=인접 1칸) 내 **다른 적 유닛·적 건물 50%**(올림 `CeilToInt(200×0.5)`=100, 주 타깃 제외). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함**(그쪽 두 유닛의 AoE는 유닛만 — 차별점). 아군 무피해, 서버 권위. 구현: 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`) + 레지스트리 `QuakeSpirit → QuakeAttackBehavior` 1줄, MushroomBomber 원형 반경 헬퍼(`CollectEnemyUnitsInRadius`)를 `internal static`으로 공용화 재사용(MushroomBomber 유닛만 로직 무변경) + 건물 순회 `CollectEnemyBuildingsInRadius` 신설 + 유닛/건물 hit-set 분리(규칙 29 계승), `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5) GameBootstrapper 주입(폴백 1.0/0.5). **멀티플레이(Host/Client) 실기 로그로 100%=20·스플래시=10·건물 스플래시·주 타깃 제외·반경 이내·아군 무피해·서버↔클라 동기화 전부 정상 검증**(로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`). 규칙 43 등재. **알려진 이슈(보류, 별도 task 분리)**: ① QuakeSpirit 타격 애니↔데미지 텍스트 타이밍 어긋남 — Attack 클립 `OnAttackHit` 미주입 + placeholder `hitFrameTimes`(1.0s)로 스플래시 텍스트가 `HitPresentationQueue` 타임아웃(쿨다운×1.5=7.5s)까지 지연(피해·판정·동기화 자체는 정상), ② 멀티 원거리 공격 facing 버그(InfernoSpirit 작업에서 진단) — 둘 다 사용자 결정으로 이번 미수정. 직전 InfernoSpirit(지옥불 정령) 단일 대상 지속 피해(DoT) 구현 완료(2026-07-20, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 외 추가 DoT 유닛. 이미 완성된 원거리 유닛(에셋·VFX·생산·`OnAttackHit` 완비)에 DoT 특수만 추가. 원거리 공격이 주 타깃 1마리에 **직접 250**(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성 포함) + 특수 핸들러 `InfernoAttackBehavior`가 그 **주 타깃 1마리에게만** DoT 50/초×3초(총 150) 부여(AoE 아님·반경 없음). DoT는 **적 유닛만**(건물 제외 — 건물은 직접 250만), 주 타깃 유닛은 직접+DoT, 아군 무피해, 갱신=리셋. DoT는 MushroomBomber에서 만든 **규칙 40 초 단위 discrete 틱 시스템을 단일 대상으로 재사용**(1초 간격·틱당 올림·총량 150 클램프·매초 남은 체력 데미지 텍스트·서버 권위). InfernoSpirit(50/3)은 MushroomBomber(20/3)와 **별도 필드·델리게이트·진입점**(`_infernoDot*`/`ApplyInfernoDot`)으로 분리 — MushroomBomber 회귀 없음. 튜닝값 `SpecialAttackConfig`(`_infernoDotPerSecond`/`_infernoDotDuration`), GameBootstrapper 주입(폴백 50/3). 레지스트리 `InfernoSpirit → InfernoAttackBehavior` 1줄. 규칙 41~42 등재. **잔여 특수 유닛(레지스트리 확인 결과 QuakeSpirit이 유일 미구현 — BattleAxe/TorrentSpirit/MushroomBomber/InfernoSpirit 등록됨, BloomFairy는 힐러 전용 경로로 의도적 미등록)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정). **알려진 이슈(보류)**: 멀티플레이 원거리 공격 시 유닛이 타겟을 정확히 안 바라보는 facing 버그 — 진단상 InfernoSpirit 에셋은 정상 유닛(FlameSpirit)과 동일 → 멀티 원거리 facing 공유 로직 문제로 추정(근접 유닛은 안 보임). 사용자 결정으로 이번 미수정·보류, 상세는 task Plan 참조. — 직전 MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 100**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 20/초×3초(총 60)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 60 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. **잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 100) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 하단 매치메이킹 404 섹션 참조. **※ 2026-08-10 ×10 스케일 반영 정정:** 이 "현재 단계" 문단의 전투 수치(직접 피해·DoT 틱값·파도 힐량)를 ×10 스케일 개편(2026-07-31) 기준으로 정정했다. **비율·반경(100% / 50% / ×0.5 / 반경 1.0)과 쿨다운·사거리·비용은 ×10 대상이 아니라 그대로다.** 단, 위 QuakeSpirit 문장 안의 **2026-07-20 멀티 로그 검증 기록(100%=20·스플래시=10)은 당시 측정 사실이므로 원문을 보존**한다(현재 유효 수치는 200/100). 아래 "✅ 완료 (2026-07-19/07-20)" 표들도 날짜가 박힌 완료 이력이라 원문 보존한다. 단일 진실 소스: `StatsReference.md`.
-**현재 단계:** **네트워크 종료 시점 가드가 `Infrastructure/Network/` 의 이벤트 구독 경로 전체에서 한 가지 형태(`!IsSpawned || !IsServer`)로 통일되었다**(2026-08-20 — 위 항목 참조. 직전 6곳 + 이번 8곳 = **6파일 14곳** · ~~**⚠️ 이번 8곳은 실기 재현 0회이자 실기 미검증**~~ → **🔴 2026-08-24: 재현 0회는 그대로이나 멀티 실기 3경기(`[ERROR]` 0건 · 3경기 정상 종료)로 회귀 없음을 확인. 단 8곳 중 서버 발화가 로그로 확인된 것은 ③⑧ 2곳뿐이고 나머지 6곳은 호출당 로그가 없어 셀 수 없다 · `_combatStopped` 재경기 리셋은 여전히 미검증(2·3경기 에디터가 클라이언트였다)** · 위험 구간 실측 **6~41ms**(27ms 단일값 정정) · `ProductionTicker` 종료 가드는 **제안만** · `NetworkBuildingController`·`NetworkUpgradeController` 는 **구독 0건이라 미점검**). 그리고 **로그 체계(`GameLog`) 전환이 코드 전 계층에서 완료되었고, 전역 훅의 수집 범위가 엔진 오류까지 넓어졌다**(2026-08-19 — 위 항목 참조. 누적 386건 이관 · 최종 잔존 46건 · `LogEvent` **37개** · **A/C 실기 확인, B(엔진 오류 수집) 미검증** · `SetCameraStartPositionForTeam` 최종 삭제 잔여). ~~*"…컴파일 통과, 실기 미검증"*(2026-08-18 시점)~~ 직전 MistShrine(HealShrine) 물안개 힐 **구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증**(2026-08-12 — 위 항목 참조. 범위 판정·아우라 끊김·회복량·중첩 해소를 로그 실측으로 확인. **멀티 실기·물안개 VFX·버튼 아이콘·밸런싱 수치는 미완**). 직전 랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정·실기 테스트 PASS(2026-08-08, `ProductionPanelUI` 2줄 추가 — 조준 진입 시 `HideBlockingOverlay()` + `Close()`를 우회하는 랠리 완료 경로의 참조 카운터 반납). 직전 건물 파괴 시 열린 패널/조준 UI 원복 구현·실기 테스트 PASS(2026-08-08, `BuildingPanelBase`가 `OnBuildingDied` 구독→현재 건물 매칭 시 `Close()`, 4개 건물 패널 공통 커버·`.AddTo(this)` 해제). 직전 스킬 건물 시스템 Phase 1(타입 A·B + 프레임워크 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 + 취소 버그·쿨다운 토스트) 구현·실기기 테스트 PASS(2026-08-04)에 이어 타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2도 구현·실기+멀티(클라) PASS(2026-08-05) — 스킬 관련 잔여는 구체 스킬 목록/수치/아이콘(기획)뿐. 직전 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 구현·멀티 실기 완료(2026-07-31). 직전 QuakeSpirit(대지의 정령) 착탄형 즉발 범위 딜러 구현 완료(2026-07-20, QA PASS·**멀티플레이 실기 로그 검증 완료**) — 마지막 남은 특수 유닛으로, 이로써 **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) 전량 + InfernoSpirit DoT까지 전부 완료**. 착탄형 **즉발** AoE(DoT 아님): 주 타깃 1마리 **직접 100%(공격력 200)**(스플래시 제외, 건물이 주 타깃이면 100%로 공성) + 착탄 **월드 좌표 원형 반경**(`_quakeRadius` 기본 1.0=인접 1칸) 내 **다른 적 유닛·적 건물 50%**(올림 `CeilToInt(200×0.5)`=100, 주 타깃 제외). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함**(그쪽 두 유닛의 AoE는 유닛만 — 차별점). 아군 무피해, 서버 권위. 구현: 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`) + 레지스트리 `QuakeSpirit → QuakeAttackBehavior` 1줄, MushroomBomber 원형 반경 헬퍼(`CollectEnemyUnitsInRadius`)를 `internal static`으로 공용화 재사용(MushroomBomber 유닛만 로직 무변경) + 건물 순회 `CollectEnemyBuildingsInRadius` 신설 + 유닛/건물 hit-set 분리(규칙 29 계승), `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5) GameBootstrapper 주입(폴백 1.0/0.5). **멀티플레이(Host/Client) 실기 로그로 100%=20·스플래시=10·건물 스플래시·주 타깃 제외·반경 이내·아군 무피해·서버↔클라 동기화 전부 정상 검증**(로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`). 규칙 43 등재. **알려진 이슈(보류, 별도 task 분리)**: ① QuakeSpirit 타격 애니↔데미지 텍스트 타이밍 어긋남 — Attack 클립 `OnAttackHit` 미주입 + placeholder `hitFrameTimes`(1.0s)로 스플래시 텍스트가 `HitPresentationQueue` 타임아웃(쿨다운×1.5=7.5s)까지 지연(피해·판정·동기화 자체는 정상), ② 멀티 원거리 공격 facing 버그(InfernoSpirit 작업에서 진단) — 둘 다 사용자 결정으로 이번 미수정. 직전 InfernoSpirit(지옥불 정령) 단일 대상 지속 피해(DoT) 구현 완료(2026-07-20, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 외 추가 DoT 유닛. 이미 완성된 원거리 유닛(에셋·VFX·생산·`OnAttackHit` 완비)에 DoT 특수만 추가. 원거리 공격이 주 타깃 1마리에 **직접 250**(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성 포함) + 특수 핸들러 `InfernoAttackBehavior`가 그 **주 타깃 1마리에게만** DoT 50/초×3초(총 150) 부여(AoE 아님·반경 없음). DoT는 **적 유닛만**(건물 제외 — 건물은 직접 250만), 주 타깃 유닛은 직접+DoT, 아군 무피해, 갱신=리셋. DoT는 MushroomBomber에서 만든 **규칙 40 초 단위 discrete 틱 시스템을 단일 대상으로 재사용**(1초 간격·틱당 올림·총량 150 클램프·매초 남은 체력 데미지 텍스트·서버 권위). InfernoSpirit(50/3)은 MushroomBomber(20/3)와 **별도 필드·델리게이트·진입점**(`_infernoDot*`/`ApplyInfernoDot`)으로 분리 — MushroomBomber 회귀 없음. 튜닝값 `SpecialAttackConfig`(`_infernoDotPerSecond`/`_infernoDotDuration`), GameBootstrapper 주입(폴백 50/3). 레지스트리 `InfernoSpirit → InfernoAttackBehavior` 1줄. 규칙 41~42 등재. **잔여 특수 유닛(레지스트리 확인 결과 QuakeSpirit이 유일 미구현 — BattleAxe/TorrentSpirit/MushroomBomber/InfernoSpirit 등록됨, BloomFairy는 힐러 전용 경로로 의도적 미등록)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정). **알려진 이슈(보류)**: 멀티플레이 원거리 공격 시 유닛이 타겟을 정확히 안 바라보는 facing 버그 — 진단상 InfernoSpirit 에셋은 정상 유닛(FlameSpirit)과 동일 → 멀티 원거리 facing 공유 로직 문제로 추정(근접 유닛은 안 보임). 사용자 결정으로 이번 미수정·보류, 상세는 task Plan 참조. — 직전 MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 100**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 20/초×3초(총 60)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 60 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. **잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 100) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 하단 매치메이킹 404 섹션 참조. **※ 2026-08-10 ×10 스케일 반영 정정:** 이 "현재 단계" 문단의 전투 수치(직접 피해·DoT 틱값·파도 힐량)를 ×10 스케일 개편(2026-07-31) 기준으로 정정했다. **비율·반경(100% / 50% / ×0.5 / 반경 1.0)과 쿨다운·사거리·비용은 ×10 대상이 아니라 그대로다.** 단, 위 QuakeSpirit 문장 안의 **2026-07-20 멀티 로그 검증 기록(100%=20·스플래시=10)은 당시 측정 사실이므로 원문을 보존**한다(현재 유효 수치는 200/100). 아래 "✅ 완료 (2026-07-19/07-20)" 표들도 날짜가 박힌 완료 이력이라 원문 보존한다. 단일 진실 소스: `StatsReference.md`.
-
-**구현 완료 (2026-09-03) — 검증 상태: 에디터 실기 검증 완료 / 멀티는 이후 검증됨(2026-09-09 부분 → 2026-09-14 해소):** **무작위 맵 1단계 — 타일 상태 계약 전환.** *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「멀티 미검증」)*
-
-쉽게 말하면, 타일이 「지나갈 수 있는가」를 **저장해 두고 여기저기서 켜고 끄던 방식**에서 **그때그때 계산해서 답하는 방식**으로 바꿨다. 예전에는 건물이 생겼을 때·건물이 없어졌을 때·광산이라 원래 막힌 칸일 때가 전부 같은 스위치 하나를 건드렸고, 그래서 「채굴소를 부쉈는데 광산이라 계속 막아야 한다」 같은 조건을 한 줄에 뒤섞어 적어야 했다. 이제는 **막힌 지형인가 · 광산이 있는가 · 건물이 서 있는가** 세 가지를 각각 따로 기록하고, 「지나갈 수 있는가」는 그 셋으로부터 계산한다. 계산 결과라서 손으로 덮어쓸 수 없다.
-
-에디터 실기(2026-09-03)에서 확인한 것: 초기 배치 **성 2 · 시작 채굴소 2 · 광산 타일 4** 정상 / 광산 타일 4칸 전부 이동 불가이며 **그중 중립 광산 2칸은 건물이 없는데도 이동 불가**(계산 방식이 실제로 동작한다는 직접 증거) / **채굴소를 철거해도 이동 불가가 유지**(이번 전환의 최대 위험 지점이 통과했다는 뜻) / 일반 건물 철거 후에는 이동 가능으로 복구 / 발급된 경로 **43건 전부 중간에 이동 불가 칸 0개** / **AI 건물 배치 2건 전부 성사**.
-
-⚠️ **과대 표기 금지 — 이 회차(2026-09-03) 당시 아직 완료가 아니었던 것(전부 이후 해소 — 항목마다 표시):** ① **무작위 맵 자체는 미구현이었다.** 당시 경기는 고정 맵을 썼다. **2단계(2026-09-03 범위 재조정)** 는 생성기 5종·검증기·폴백에 더해 **만든 맵을 실제 전장으로 옮기는 것까지**였고 완료 판정은 「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」였다 — ✅ 2026-09-08 에 구현·싱글 실기 검증됐다. ② 이번에 생긴 타입 6종 중 **`MapType`·`DecorationDefinition`·`MapDefinition`·`MapDefinitionCodec` 4종은 어느 코드에서도 호출되지 않았다** — ✅ 2단계가 그 호출부를 만들었다(2026-10-12 코드 확인: 생성기·검증기·인코더·맵 준비 코드가 호출한다). ③ **AI 건물 배치 후보 판정**(과 그 XML 주석)은 당시 이동 가능 여부로 판정했고 같은 파일의 광산 타일 조회만 전환돼 한 파일 안에 전환된 자리와 안 된 자리가 섞여 있었다 — ✅ 2단계 I 단계(커밋 `c47a067`)에서 처리됐다(2026-09-03 재조정으로 종전 3단계 몫에서 2단계 몫으로 내려왔던 항목이다). ④ **건설·점령의 전용 조건 전환도 미완**이었다(일반 건물 배치가 이동 가능 여부를 그대로 썼고, 고정 맵에는 「이동은 되지만 건설만 막히는 타일」이 하나도 없어 결과가 갈리지 않았을 뿐이다) — ✅ 같은 I 단계에서 처리됐다. ⑤ **멀티플레이 실기 미검증**이었다(위 검증은 전부 에디터 싱글플레이 세션) — ✅ 2026-09-09(부분) · 2026-09-14(해소). 근거: `_Tasks/2026-09-01/19_49_random-map-phase1-tilekind/`. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「아직 완료가 아닌 것: ① 무작위 맵 자체는 미구현이다 … ⑤ 멀티플레이 실기 미검증」)*
-
-**현재 단계:** **[✅ 2026-10-13 추가: **멀티 최초 경기 맵 준비 실패 안내(규칙 M-2)가 새 사양(양쪽 즉시 이탈 + 같은 알림 모달 「확인」 하나)으로 구현되고 실기 두 회차로 확인됐다.** 🔴 **그 사이 1차 실기에서 「호스트의 실패 통보」 경로가 연결 끊김 경로에 밀리는 결함이 드러나 고쳤고, 2차에서 통보 경로가 실제로 처리하는 것이 확인됐다(로그 직접 관측 — 종전 표시: 인계값).** ✅ **Unity 컴파일은 통과했다(에디터가 실행됐다).** ⚠️ **그래도 「완료」로 일괄 읽지 않는다 — 스폰 전 실패 · 호스트의 완전한 사망 · 전송 계층 60초 통보는 실기로 관측되지 않았다(「연결 끊김 경로가 덮는 것으로 설계」됐을 뿐이다) · (2차 로그 파일은 문서를 쓴 시점에는 체크아웃에 없어 인계값이었으나 같은 날 들어와 직접 재확인했다) · 오류 텍스트 보조 안내의 처분은 미정이다.** 검증 경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-13)」 문단이고, 사양은 규칙 M-2, 결과·결정 기록은 `_Tasks/2026-10-12/07_08_multi-first-map-failure-ui/Plan.md` 14절이다]** **[⚠️ 2026-10-01 (2차) 추가: **규칙 105개를 코드와 전수 대조한 점검이 끝났고 남은 일이 6분류 46건으로 정리됐다. 이번 회차에 처리된 것은 그중 코드 주석 6자리뿐이며 나머지 분류는 미착수다. 🔴 실기·화면 확인은 0건이다.** 단일 소스는 `_Tasks/2026-10-01/05_19_rules-implementation-audit/Research.md` §12 와 [ROADMAP.md](ROADMAP.md) 의 2026-10-01 (2차) 행 7개다.]** **[✅ 2026-10-01 추가: **두 팝업과 화면 막 관리자에 기록이 생겼고, 확인/알림 팝업이 「잡은 적 없는 몫을 놓던」 결함이 닫혔다.** 🔴 **이 회차의 본체는 「결함 두 개가 서로를 가려 증상이 0건이던 상태」가 「각자 자기 몫을 책임지는 구조」로 바뀐 것**이다 — 그래서 **파괴될 때 점유를 놓는 그물이 이 프로젝트에서 처음으로 실제 발화했다.** ✅ **규칙 D-6 의 1·2항과 규칙 D-5 구조의 검증 등급이 「사용자 화면 확인」에서 「로그 직접 관측」으로 올라갔고, 빌드 판별도 처음으로 로그로 가능했다.** ⚠️ **그래도 「완료」로 일괄 읽지 않는다 — ⬜ 로비 버튼 조작은 육안 미확인 · ⬜ 멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이 회차에서 미실시(규칙 M-3 자체는 이미 닫혀 있다 — 종전 표기 규칙 D-8 은 번호 오기: D-8 은 「요청 중...」 문구 규칙) · 컴파일 경고 0건 미확인 · 파괴 경로는 1건·경로 하나(씬 전환)만 봤고 앱 강제 종료 경로는 못 봤다.** 검증 경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-01)」 문단이고, 실기 결과·근거 등급은 `_Tasks/2026-09-30/15_01_popup-log-coverage/Plan.md` §14-10 · §14-11 이다]** **[✅ 2026-09-30 추가: **「경기 종료 후 UI」 마무리 회차가 실기로 확인됐다.** 🔴 **재경기 요청 창을 방치한 채 시간이 다 돼 로비로 나가면 화면 전체를 덮는 막이 따라오던 길이 닫혔다** — 🔴 **다만 판정은 「증상이 관측되지 않았다」이고 「버그를 고쳤다」가 아니다**(이 증상의 실기 관측 기록은 착수 전에도 0건이었다). 그리고 **재경기 요청을 받은 뒤 요청자가 앱을 강제 종료한 경우**(규칙 D-6)가 의도적으로 수행돼 **로그와 화면이 함께 확인**됐다. ⚠️ **그래도 「완료」로 일괄 읽지 않는다 — 🔴 빌드 판별 불가(당시 — 판별 수단은 2026-10-01 에 생겼다) · ⬜ 멀티 재경기 맵 준비 실패 화면(규칙 M-3)은 이 회차에서 미실시(규칙 M-3 자체는 이미 닫혀 있다 — 종전 표기 규칙 D-8 은 번호 오기) · 컴파일 경고 0건 미확인 · 팝업이 닫히고 알림 창이 뜨는 모습(→ 2026-10-01 에 로그 직접 관측으로 올라갔다)과 건물 창 제목 4개는 사용자 화면 확인에만 근거한다.** 검증 경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-09-30)」 문단이고, 실기 결과·근거 등급은 `_Tasks/2026-09-29/16_16_post-game-ui-close-out/Plan.md` §8 실기 결과다]** **[✅ 2026-09-29 (2차) 추가: **싱글 맵 실패 UI 의 후속 7건(H·I·J·K-1·K-2·L·M)이 구현되고 실기로 확인됐다.** 🔴 **맵을 「격자에 새기는」 단계의 실패도 이제 안내가 뜬다**(규칙 M-4 의 범위 확정이 코드에 들어갔다). 🔴 **직전 회차의 「Unity 에디터 컴파일 미확인」이 해소됐다** — 새 도구 파일의 `.cs.meta` 실재 + 그 코드의 실기 2회 발화. ⚠️ **그래도 「완료」로 일괄 읽지 않는다 — 컴파일 경고 0건 미확인 · 진짜 투영 실패 발화 0건(강제 실패로만 봤다) · 화면 4가지는 사용자 확인 · 투영 단계 실패 지점 전수 계수는 이후 완료(2026-09-30).** 검증 경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-09-29 (2차))」 문단이고, 단계별 상태는 `_Tasks/2026-09-28/11_50_single-map-failure-ui/Plan.md` §12 표다]** **[✅ 2026-09-29 추가: **「경기 종료 후 UI·프로세스」 단계 10(싱글 규칙 M-4)이 구현되고 실기로 확인됐다.** 싱글 맵 준비 실패 시 안내와 두 버튼이 뜨고, **싱글 결과 화면의 자동 복귀 타이머는 없어졌다**(규칙 D-4 의 적용 범위가 멀티 한정). 죽은 메서드 `ShowResult()` 도 최종 삭제됐다(52줄, 동작 무변경을 코드 본문 해시로 증명). 🔴 **그럼에도 「완료」로 일괄 읽지 않는다 — 삭제 후 재검증 0건 · Unity 컴파일 미확인(→ 2026-09-29 (2차) 에 해소) · 팝업이 뜬 모습 등 5가지는 사용자 화면 확인에만 근거한다.** 검증 경계의 단일 소스는 맨 위 「✅ 구현 완료 · 실기 검증 (2026-09-29)」 문단이고, 단계별 상태는 `_Tasks/2026-09-28/11_50_single-map-failure-ui/Plan.md` §12 표다]** **[⚠️ 2026-09-22 추가: **「경기 종료 후 UI·프로세스」가 단계 8 까지 왔다**(커밋 `500bbc1`). **규칙 D-6**(재경기 요청에 응답하기 전 요청자가 이탈한 경우)이 코드에 들어가 **알림 팝업의 실호출처가 처음으로 1건** 생겼다. ✅ **규칙 D-6 의 1·2항은 이후 실기로 확인됐다**(2026-09-30 사용자 화면 확인 · 2026-10-01 로그 직접 관측). 재현하려면 한쪽이 재경기 버튼을 누른 직후 그 누른 쪽 앱을 강제 종료해야 하며 역할(Host/Client)은 무관하다. ✅ **단계 9·10 과 14-4 강제 실패 플래그는 이후 구현됐다.** 단계별 상태의 단일 소스는 `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §10 표이고, 검증 경계는 맨 위 「⚠️ 부분 구현 (2026-09-22)」 문단이다 *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「그러나 실기 검증은 0건이다 … 다음 단계는 단계 9 이고 단계 10 과 14-4 가 함께 남아 있다」)*]** **[⚠️ 2026-09-21 추가: **「경기 종료 후 UI·프로세스」에 착수해 단계 1·2·3 과 프리팹 구성이 끝났다**(커밋 `d881d23`·`b336d9c`·`a87e404`·`1eba997`). 규칙 **D-3**(로비 복귀 버튼 상시 활성) · **D-4 의 60초** · **D-5 의 알림 팝업 API** 가 코드·씬·프리팹에 들어갔다. ✅ **알림 팝업은 이후 실기에서 뜬 것이 확인됐고**(2026-09-30 · 2026-10-01) 실호출처는 단계 8 이 만든 1건이다. ✅ **단계 4~10 과 14-4 강제 실패 플래그는 이후 구현됐다.** 맨 위 「⚠️ 부분 구현 (2026-09-21)」 문단이 경계의 단일 소스다 *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「그러나 알림 팝업은 화면에 띄워 본 적이 없다 — 실호출처가 0건이며 단계 4~10 과 14-4 는 미착수다 … 다음 단계는 단계 4」)*]** **[🔴 2026-09-15 (2차) 추가: **`NetworkGameEndController.cs` 의 `[재경기맵 대체 대기]` 주석 마커 2건은 제거됐다** — 잔존 **0건**. 삭제분은 **주석 9줄뿐이고 동작 코드 diff 는 0줄**(`git diff --numstat` = 0 추가 / 9 삭제)이며 근거 규정은 `WORKFLOW.md` [4] 다. ✅ **제거 직후에는 확인되지 않았던 Unity 에디터 컴파일과 제거 후 재경기 동작은 이후 확인됐다.** 상세는 맨 위 「✅ 구현 완료 (2026-09-15)」 문단의 해당 항목이다 *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「Unity 에디터 컴파일은 확인되지 않았고 제거 후 재경기 실기 재검증도 하지 않았다 — 그래서 ROADMAP 의 해당 행은 내리지 않고 그 두 확인으로 좁혀 남겼다」)*]** **[🔴 2026-09-15 추가: **맵 테스트 모드 삭제(T1~T3)와 재경기 랜덤 맵(A~D)이 구현·실기 검증까지 끝났다**(멀티 9판 + 싱글 2판 전부 성공, 커밋 `0608f85`·`8c83317`·`20ba0ab`). **`MapVersion` 은 `2`, canonical 바이트 수 공식은 `315 + 4N` 이다.** 🔴 **그럼에도 완료로 적지 않는 것 셋** — **실패 경로(재경기 상태 복원) · 폴백 템플릿 사용 경로 · 타임아웃/재전송은 실기에서 한 번도 발화하지 않아 미검증**이다. ✅ **`NetworkGameEndController.cs` 의 `[재경기맵 대체 대기]` 주석 마커 2건은 같은 날 제거됐다**(바로 위 2026-09-15 (2차) 추가). 「경기 종료 후 UI·프로세스」는 사용자가 「맵 작업 완료 후」로 지정한 다음 작업이었고([ROADMAP.md](ROADMAP.md)) 이후 진행·구현됐다. 맨 위 「✅ 구현 완료 (2026-09-15)」 문단 참조 *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「마커 2건도 아직 남아 있다 … 다음 단계는 『경기 종료 후 UI·프로세스』다」)*]** **[🔴 2026-09-14 (3차) 추가: 규칙 14 가 개정돼 **재경기는 조건 선택 없이 매 판 무작위 새 맵**이 됐다(문서만 변경, 구현 없음). **다음 단계였던 「재경기 맵」은 범위가 좁아졌고** — UI 자산 작업·요청 절차 수정·싱글 코드 변경이 **모두 불필요**해졌다 — ✅ **2026-09-15 에 구현·실기 검증됐다.** 맨 위 「🔴 규칙 개정 기록 (2026-09-14)」 문단 참조]** **무작위 맵 3단계(멀티플레이 맵 전송·해시 대조·Client 검증·씬 전환 게이트)가 구현·실기 검증까지 끝났다**(2026-09-14 — 맨 위 「✅ 구현 완료 (2026-09-14)」 문단 참조). ✅ **이후 재경기 맵(2026-09-15)과 실패 표시 UI(싱글 최초·재경기, 멀티 재경기 — 2026-09-24~29, 멀티 최초 경기(규칙 M-2) — 2026-10-12 구현·2026-10-13 실기 확인)가 구현됐다**(맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-13)」 문단이 경계의 단일 소스). *(2026-10-13, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「멀티 최초 경기(규칙 M-2)의 실패 표시만 구현 0줄이다(2026-10-12 코드 확인: `BattleViewModel.OnMapTransferFailed` 가 로딩을 끄고 로비 화면 오류 텍스트에 한 줄 쓸 뿐이다)」)* 🔴 **2026-09-14 당시 완료된 것은 「최초 경기의 맵 전송」이었고, 당시 완료되지 않은 것은 초기 골드 미적용(규칙 16 일부 미충족 — 지금도 그대로) · 전송 한도 실측 2건 미완(`IsChunkSizeMeasured = false` — 지금도 그대로) · 로비 씬 직접 Play 시 로그 파일 미기록 · 인게임 패널 백그라운드 에디터 미출현(미조사) · 구현 중 판단 3건 사용자 확인 대기**(뒤 셋은 이 문서에서 재확인하지 않았다). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「다음은 재경기(`SameMap`/`NewMap`)와 실패 표시 UI 다 … 재경기 맵은 미구현」)* 직전 **무작위 맵 2단계 결과의 멀티플레이 실기 검증이 2026-09-09 에 처음 이뤄졌다 — 부분 검증이며, 다음은 여전히 3단계(맵 전송·해시 대조·재경기)다**(맨 위 「⚠️ 멀티플레이 실기 검증 (2026-09-09)」 문단 참조. **멀티 seed 는 `1` → `11` 로 바뀌었을 뿐 여전히 고정이라 「매 판 다른 맵」은 멀티에서 확인 불가 · Host/Client 대조는 칸 단위가 아님 · 빗금 토스트는 점령 후에만 뜬다(규정대로) · 초기 골드 미적용이 실기로 드러났으나 범위 밖**). 직전 **무작위 맵 2단계가 A~K 전 단계 구현·싱글플레이 실기 검증까지 끝났다 — 다음은 3단계(맵 전송·해시 대조·재경기)다**(2026-09-08 — 위 「✅ 구현 완료 (2026-09-08)」 문단 참조. **멀티플레이 실기 미검증 · 멀티 seed 임시 고정(1) · AI 빗금 판정은 도달 불가로 실기 확인 불가 · `GameBootstrapper` 계열은 Unity 에서만 컴파일 확인 가능 · Plan §13 보류 8건**). **[🔴 2026-09-09 갱신 — 원문은 그대로 두고 덧붙인다: 「멀티플레이 실기 미검증」은 멀티 실기 2회로 **부분 해소**됐고, 「멀티 seed 임시 고정(1)」의 값은 커밋 `b515995` 로 **1 → 11** 이 됐다(여전히 고정이다). 「AI 빗금 판정 도달 불가」와 나머지 항목은 그대로 유효하다. 경계는 맨 위 「⚠️ 멀티플레이 실기 검증 (2026-09-09)」 문단 참조. ✅ 그 뒤 2026-09-14 3단계로 「멀티 미검증」·「멀티 seed 고정」 둘 다 해소됐다]** ~~**무작위 맵 2단계가 A~J 까지 구현·싱글 실기 검증까지 끝났고, 남은 것은 K(로그 키) 하나다 — 즉 2단계는 아직 완료가 아니다**~~ **[🔴 2026-09-08 갱신 — 원문은 그대로 두고 덧붙인다: K 가 커밋 `2e1b305` 로 완료됐다]**. 직전 **무작위 맵 1단계(타일 상태 계약 전환)가 구현·에디터 실기 검증까지 끝났고 다음은 2단계 — 싱글플레이에서 무작위 맵이 실제로 도는 것까지다**(2026-09-03 — 위 항목 참조. **멀티 미검증 · 무작위 맵 본체 미구현**(2026-09-03 시점 — 둘 다 이후 해소: 위 「구현 완료」 문단들). 같은 날 단계 경계를 「싱글 = 2단계 / 멀티 = 3단계」로 재조정해 **AI 배치 후보 판정 전환과 건설·점령 전용 조건이 2단계로 내려왔다** — 범위표의 단일 소스는 `_Tasks/2026-09-03/03_14_random-map-phase2-generator/Research.md` §0). 직전 **네트워크 종료 시점 가드가 `Infrastructure/Network/` 의 이벤트 구독 경로 전체에서 한 가지 형태(`!IsSpawned || !IsServer`)로 통일되었다**(2026-08-20 — 위 항목 참조. 직전 6곳 + 이번 8곳 = **6파일 14곳** · ~~**⚠️ 이번 8곳은 실기 재현 0회이자 실기 미검증**~~ → **🔴 2026-08-24: 재현 0회는 그대로이나 멀티 실기 3경기(`[ERROR]` 0건 · 3경기 정상 종료)로 회귀 없음을 확인. 단 8곳 중 서버 발화가 로그로 확인된 것은 ③⑧ 2곳뿐이고 나머지 6곳은 호출당 로그가 없어 셀 수 없다 · `_combatStopped` 재경기 리셋은 여전히 미검증(2·3경기 에디터가 클라이언트였다)** · 위험 구간 실측 **6~41ms**(27ms 단일값 정정) · `ProductionTicker` 종료 가드는 **제안만** · `NetworkBuildingController`·`NetworkUpgradeController` 는 **구독 0건이라 미점검**). 그리고 **로그 체계(`GameLog`) 전환이 코드 전 계층에서 완료되었고, 전역 훅의 수집 범위가 엔진 오류까지 넓어졌다**(2026-08-19 — 위 항목 참조. 누적 386건 이관 · 최종 잔존 46건 · `LogEvent` **37개** · **A/C 실기 확인, B(엔진 오류 수집) 미검증** · ✅ `SetCameraStartPositionForTeam` 최종 삭제는 같은 날 완료(커밋 `d0a3ac45` — 2026-10-12 재측정: `Assets/_Project/Scripts` 에서 그 이름 0건)). ~~*"…컴파일 통과, 실기 미검증"*(2026-08-18 시점)~~ 직전 MistShrine(HealShrine) 물안개 힐 **구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증**(2026-08-12 — 위 항목 참조. 범위 판정·아우라 끊김·회복량·중첩 해소를 로그 실측으로 확인. **멀티 실기·물안개 VFX·버튼 아이콘·밸런싱 수치는 미완**). 직전 랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정·실기 테스트 PASS(2026-08-08, `ProductionPanelUI` 2줄 추가 — 조준 진입 시 `HideBlockingOverlay()` + `Close()`를 우회하는 랠리 완료 경로의 참조 카운터 반납). 직전 건물 파괴 시 열린 패널/조준 UI 원복 구현·실기 테스트 PASS(2026-08-08, `BuildingPanelBase`가 `OnBuildingDied` 구독→현재 건물 매칭 시 `Close()`, 4개 건물 패널 공통 커버·`.AddTo(this)` 해제). 직전 스킬 건물 시스템 Phase 1(타입 A·B + 프레임워크 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 + 취소 버그·쿨다운 토스트) 구현·실기기 테스트 PASS(2026-08-04)에 이어 타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2도 구현·실기+멀티(클라) PASS(2026-08-05) — 스킬 관련 잔여는 구체 스킬 목록/수치/아이콘(기획)뿐. 직전 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 구현·멀티 실기 완료(2026-07-31). 직전 QuakeSpirit(대지의 정령) 착탄형 즉발 범위 딜러 구현 완료(2026-07-20, QA PASS·**멀티플레이 실기 로그 검증 완료**) — 마지막 남은 특수 유닛으로, 이로써 **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) 전량 + InfernoSpirit DoT까지 전부 완료**. 착탄형 **즉발** AoE(DoT 아님): 주 타깃 1마리 **직접 100%(공격력 200)**(스플래시 제외, 건물이 주 타깃이면 100%로 공성) + 착탄 **월드 좌표 원형 반경**(`_quakeRadius` 기본 1.0=인접 1칸) 내 **다른 적 유닛·적 건물 50%**(올림 `CeilToInt(200×0.5)`=100, 주 타깃 제외). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함**(그쪽 두 유닛의 AoE는 유닛만 — 차별점). 아군 무피해, 서버 권위. 구현: 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`) + 레지스트리 `QuakeSpirit → QuakeAttackBehavior` 1줄, MushroomBomber 원형 반경 헬퍼(`CollectEnemyUnitsInRadius`)를 `internal static`으로 공용화 재사용(MushroomBomber 유닛만 로직 무변경) + 건물 순회 `CollectEnemyBuildingsInRadius` 신설 + 유닛/건물 hit-set 분리(규칙 29 계승), `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5) GameBootstrapper 주입(폴백 1.0/0.5). **멀티플레이(Host/Client) 실기 로그로 100%=20·스플래시=10·건물 스플래시·주 타깃 제외·반경 이내·아군 무피해·서버↔클라 동기화 전부 정상 검증**(로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`). 규칙 43 등재. **알려진 이슈(보류, 별도 task 분리)**: ① QuakeSpirit 타격 애니↔데미지 텍스트 타이밍 어긋남 — Attack 클립 `OnAttackHit` 미주입 + placeholder `hitFrameTimes`(1.0s)로 스플래시 텍스트가 `HitPresentationQueue` 타임아웃(쿨다운×1.5=7.5s)까지 지연(피해·판정·동기화 자체는 정상), ② 멀티 원거리 공격 facing 버그(InfernoSpirit 작업에서 진단) — 둘 다 사용자 결정으로 이번 미수정. 직전 InfernoSpirit(지옥불 정령) 단일 대상 지속 피해(DoT) 구현 완료(2026-07-20, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 외 추가 DoT 유닛. 이미 완성된 원거리 유닛(에셋·VFX·생산·`OnAttackHit` 완비)에 DoT 특수만 추가. 원거리 공격이 주 타깃 1마리에 **직접 250**(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성 포함) + 특수 핸들러 `InfernoAttackBehavior`가 그 **주 타깃 1마리에게만** DoT 50/초×3초(총 150) 부여(AoE 아님·반경 없음). DoT는 **적 유닛만**(건물 제외 — 건물은 직접 250만), 주 타깃 유닛은 직접+DoT, 아군 무피해, 갱신=리셋. DoT는 MushroomBomber에서 만든 **규칙 40 초 단위 discrete 틱 시스템을 단일 대상으로 재사용**(1초 간격·틱당 올림·총량 150 클램프·매초 남은 체력 데미지 텍스트·서버 권위). InfernoSpirit(50/3)은 MushroomBomber(20/3)와 **별도 필드·델리게이트·진입점**(`_infernoDot*`/`ApplyInfernoDot`)으로 분리 — MushroomBomber 회귀 없음. 튜닝값 `SpecialAttackConfig`(`_infernoDotPerSecond`/`_infernoDotDuration`), GameBootstrapper 주입(폴백 50/3). 레지스트리 `InfernoSpirit → InfernoAttackBehavior` 1줄. 규칙 41~42 등재. ✅ **당시 잔여 특수 유닛이던 QuakeSpirit(착탄형)은 같은 날(2026-07-20) 구현됐다**(위 QuakeSpirit 문장 · `SpecialAttackRegistry` 에 `QuakeSpirit → QuakeAttackBehavior` 등록 — 2026-10-12 코드 확인. BloomFairy 는 힐러 전용 경로로 의도적 미등록). *(종전 표시: 「잔여 특수 유닛(레지스트리 확인 결과 QuakeSpirit이 유일 미구현 …)」)* **알려진 이슈(보류)**: 멀티플레이 원거리 공격 시 유닛이 타겟을 정확히 안 바라보는 facing 버그 — 진단상 InfernoSpirit 에셋은 정상 유닛(FlameSpirit)과 동일 → 멀티 원거리 facing 공유 로직 문제로 추정(근접 유닛은 안 보임). 사용자 결정으로 이번 미수정·보류, 상세는 task Plan 참조. — 직전 MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 100**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 20/초×3초(총 60)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 60 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. ✅ **당시 잔여 특수 유닛이던 QuakeSpirit·InfernoSpirit 은 이후(2026-07-20) 둘 다 구현됐다**(위 두 문장 · 레지스트리 등록 확인). *(종전 표시: 「잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현): QuakeSpirit …, InfernoSpirit …」)* 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 100) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 하단 매치메이킹 404 섹션 참조. **※ 2026-08-10 ×10 스케일 반영 정정:** 이 "현재 단계" 문단의 전투 수치(직접 피해·DoT 틱값·파도 힐량)를 ×10 스케일 개편(2026-07-31) 기준으로 정정했다. **비율·반경(100% / 50% / ×0.5 / 반경 1.0)과 쿨다운·사거리·비용은 ×10 대상이 아니라 그대로다.** 단, 위 QuakeSpirit 문장 안의 **2026-07-20 멀티 로그 검증 기록(100%=20·스플래시=10)은 당시 측정 사실이므로 원문을 보존**한다(현재 유효 수치는 200/100). 아래 "✅ 완료 (2026-07-19/07-20)" 표들도 날짜가 박힌 완료 이력이라 원문 보존한다. 단일 진실 소스: `StatsReference.md`.
-
----
+- RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher의 사용자 개별 수용을 유지한다. Mushroom/Bloom 새 VFX·HumanTower 표현 후속, Tank/Cannon 세부 조정·Torrent 복구 회귀·공통 랠리 보류는 감사표의 현행 목록으로 구분한다. LittleKnight 다음 추천은 철회됐으며 MigrationRequired는 미테스트를 뜻하지 않는다.
+- wave 최신 경기 전달·표시 scoped PASS와 상위 clock/NGO 원인·pending 자연 회복 미실행·정밀 시각·전체 migration OPEN은 별개다. Assault/Sniper/Inferno focused 수용과 전체 Invalid·과거63 expiry 원인·dead-abort 미재현도 분리한다.
+- 로그 private 보관·source/main 반영 완료의 현행 근거는 [실제 영수증](_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md)이다. 이전 병합 대기 표시는 당시 이력으로 이관했다.
 
 ## 전체 구현 현황
 
 ### 🔴 P0 재오픈 — 서버 권위 유닛 ActionSequence
 
-- 규칙 v2 완료: `GameSystemRules_Units.md`, `GameSystemRules_UnitCombatSynchronization.md`
-- 25종 에셋 감사 완료: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
-- Tracer A0 완료: `UnitActionSequencing` 계약 유틸리티와 SpearMan schedule/dispatch Shadow 계측. 기존 피해·HP·RPC·VFX는 그대로 유지했다.
-- 사용자 멀티 Host 계측: scheduled 204 / dispatch 204 / unique 204, missing·duplicate·target mismatch·schedule↔dispatch facing change 모두 0. Windup 240ms 전건 일치.
-- 방출 지연: min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms. 16.667ms 초과 27건, 33.333ms·50ms 초과 0건.
-- Client 로그는 현재 계측 범위상 header only이므로 Host/Client 상관관계 검증 완료로 판정하지 않는다.
-- Tracer A1 완료: `UnitActionContracts`와 `UnitActionSequencer` 순수 Application 계약·stateful reducer. C# 9/Application 및 Editor 컴파일 PASS, Unity Editor 메뉴 PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec P0~P3 지적 0건.
-- Tracer A2 완료: pure `IUnitActionPoseSource`/`UnitActionPoseSample`, `UnitView` read-only adapter, 서버 SpearMan one-cycle reducer Shadow를 연결했다. 기존 위치·회전·타겟·피해·HP·RPC·VFX·path writer는 변경하지 않았다.
-- 공격자 사망 경계는 pending observer 삭제 대신 `MarkDead=Accepted`와 `DeadTerminal`로 닫고, bounded 용량 초과는 canonical `capacity-evicted` terminal skip으로 기록한다.
-- 사용자 런타임 검증: Host(2026-07-27 18:04:04) schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 전 in-flight다. 완료 회차 누락·중복 0, attacker-dead 2건 정상 terminal, capacity eviction·예외 0. Client(18:09:48) `[UAS-POSE]` 0.
-- Tracer B0 완료: 50개 프리팹(Human 16 / Spirit 18 / Transcendence 16)의 read-only 구조 감사와 migration dry-run을 통과했다. 예상치는 VisualRoot create 50 / reuse 0 / direct-child move 58이며 실제 에셋 변경은 0이다.
-- B0 결정성 검증: 연속 두 실행 모두 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256은 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 동일했다.
-- Tracer B1 적용: 50/50 프리팹에 `VisualRoot`와 `VisualRootProjector`를 적용하고 migration journal을 완료했다. 재실행은 50개 모두 migrated state로 `[NO-OP]` 종료해 prefab 저장 호출 0을 확인했다.
-- B1 런타임 seam: 클라이언트 Simulation Root 관점 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 기존 서버 피해·HP·RPC·VFX 권위와 A2 Simulation pose 관측은 유지한다.
-- B1 rollback PASS: graceful failure injection index 0/24/49는 각각 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`다. crash index 24는 별도 프로세스 `RecoverCrash`로 복구했으며, 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25에서 복구 후 100/100 원상복구를 확인했다.
-- B1 보조 검증: primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS.
-- 잘못된 진단 가정 제거: 2026-07-27 B1에서 근거 없이 도입된 Collider 존재·배치 조건은 B1 범위가 아니므로 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거했다. B1 구조 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
-- B1 Match A PASS: Editor Host Blue + Android Client Red에서 stable endpoint exact match 34/39(`0.872`), pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`.
-- B1 Match B PASS: Android Host Blue + Editor Client Red 양쪽 완전 END PASS. endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2, pose mismatch 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error 0. self-validation도 overlap/non-overlap·union coverage·실제 match shape를 포함해 PASS했다.
-- B1 범위 판정: 이동 Simulation Root/Visual Root와 NetworkTransform 보간 양방향 멀티 검증 완료. 후속 B2 Shadow와 B3 경기 단위 writer 정확성 기준선을 확보했고, B3 연속 이동은 현재 Editor 조건부 PASS다. 공격 방향·Impact·피해 적용 시점과 result seam은 미완료다.
-- Tracer B2 구현: pure Application `UnitMovementReducer`(`b2-movement-reducer-v1`)에 command/segment scope, 10° 진입·15° 이탈 히스테리시스, target-acquire priority, revision fail-closed와 endpoint `NoIntent` 정규화를 구현했다. `UnitMovementShadowObserver`(`b2-movement-shadow-v5`)는 서버 read-only 비교와 클라이언트 sentinel만 수행한다.
-- B2 진단 내구성: Android 로그 절단을 막기 위해 손실 없는 entry-boundary manifest, 청크별 문자/UTF-8 byte 메타데이터, SHA-256, terminal 예약과 fail-closed preflight를 적용했다. self-validation은 endpoint lifecycle과 최대 29청크 경계를 포함해 PASS했다.
-- B2 멀티플레이 검증: Android 1대와 Unity Editor counterpart에서 역할을 교대하며 6개 경기 그룹으로 25/25종을 Blue/Red 모두 관측했다. 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5 누적 증거다. 모든 인정 세션의 invalid·duplicate·stale·illegal·scope·unknown·client reducer·Simulation Root write·exception·drop·preflight·overflow 카운터는 0이고 manifest 청크·entry count·SHA-256이 일치했다.
-- B2 범위 판정: 당시 10°/15° 일반 정렬 계약의 Shadow/증거 게이트는 완료 이력으로 보존한다. 규칙 v2.1에서 10°/15°는 안전 fallback으로 재분류했으므로 B2 PASS를 연속 코너링 준수 증거로 재사용하지 않는다.
-- Tracer B3 정확성 기준선: 경기 단위 `UnitMovementPipelineMode`, exact-one 서버 writer, Client reducer/Simulation Root write 0, phase/scope 복제와 역할교대 pose 수렴은 현재 로그에서 오류 0이다. 교정 전 21/25종 관측은 기준선으로만 보존하며, 공통 이동 변경 뒤 25종 전체를 다시 시험한다.
-- B3 연속 이동 구현: pure Application `UnitServerTrajectoryPlanner`·`UnitTrajectoryStep`·`UnitPathCheckpointTracker`를 추가했다. A*·Chase·PendingRepath·PostCombatResume는 공통 서버 commit seam을 사용하고, 경유 타일 중심 스냅 없이 실제 trajectory distance로 waypoint를 소비한다. corridor point sweep/fallback repath, candidate-position acquire commit, committed `SimulationFacing → UnitData.Facing`, 270°/s와 150° reverse hold를 적용했다.
-- B3 Editor 검증: CS0165 미할당 변수와 최초 곡선 waypoint orbit을 self-validation이 검출해 교정했다. 최종 `[UAS-DIAG]`는 `continuous 60-degree trajectory/150-degree reverse/held-progress invariants`를 포함해 PASS했고 사용자 Editor smoke도 잠정 PASS다.
-- B3 Android Host 1차 실패: 예외·ANR·OOM 없이 프로세스 CPU가 상승하고 Unity 게임 로그가 멈췄다. `RepathRequired → RequestMove → needRepath → yield 없는 outer continue`가 동일·순환 path에서 한 frame 무한 반복이 될 수 있는 구조를 확인했다.
-- B3 유한 재탐색 1차 교정과 실기 회귀: ordered `HexCoord` signature, 한-frame 1회와 다음-frame 경계로 동기식 무한 반복은 중단했다. 그러나 후속 Android Host 세션에서 `REPATH-FAIL-CLOSED` 10회, Host movement `rejected=3`, `invalid=3`, 최종 FAIL이 발생했다. 네 유닛이 약 1.2초 사이 stale PendingPath의 현재 타일 누락으로 정지했고 동일 A* 결과도 즉시 종료됐다. 유닛 15는 공성 ticker가 command revision 2→3→4를 반복 발행했다. Client 복제 221건 오류 0과 Root Pose PASS이므로 원인은 서버 navigation lifecycle이다.
-- B3 제자리 걷기 교정: 목표 단위 `WaitingRepath/Blocked`, walkability revision 재개, 명시적 lifecycle terminal과 별도 서버 권위 `Held` 표현을 구현했다. 위치 변화가 없는 대기/막힘은 Walk 첫 pose를 고정하고 `Frozen`과 우선순위를 합성한다. Unity C# 컴파일은 PASS했지만 Editor/Android 재검증 전이므로 **FAIL / OPEN**이다.
-- B3 v8 코드 게이트: v7은 route checkpoint 소비를 실제 타일 도착으로 잘못 간주해 Root와 도메인 위치가 1~5타일 벌어지는 결합을 드러냈다. v8은 sampled spatial transition과 preflight/commit으로 실제 Root 경계 전이만 원자 커밋하고, ReducerAuthoritative route checkpoint의 직접 `ProcessStep`을 제거했다. A*·Chase·PendingRepath·PostCombatResume가 공용 공간 커밋기를 사용하며 Legacy rollback은 보존한다.
-- B3 v8 실기 결과: Unity 메뉴 self-validation 뒤 Android Host·Editor Client에서 authority·replication·양쪽 Root와 cross-audit는 PASS했지만 recoverable 공간 preflight 24건과 단일 SpearMan 후보 반복이 발생해 **FAIL / OPEN**을 유지했다.
-- B3 v9 최종 통합 코드 게이트: typed status/offending tile/index와 후보 verdict, corridor probe/final-stage 동일 seam, recoverable `WaitingRepath`, actual commit attempt 직전 `planned`/성공 뒤 `committed` 및 END equality, 양수 전이 성공 commit에서만 recoverable 이력 clear, lifecycle retire/reuse를 구현했다. `origin/main` 60개 commit과 양측 의미 병합을 완료해 main의 로그·종료 안전·research 수정과 B3를 모두 보존했다. observer `b3-movement-authority-v9`, post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0이다. Android-safe terminal은 26 manifest + 5 summary + compact END = 32줄·최대 968 UTF-8 byte이며 27개/초과 길이는 fail-closed, stateful adapter는 64/65 경계를 갖고 release `Conditional`이다. **이 코드 게이트 당시에는** post-merge Unity 메뉴 2종과 Android v9가 미실행이어서 B3 FAIL / OPEN을 유지했다. 후속 실제 경기는 아래 RootCrossAudit 교정 항목을 따른다. Android는 recoverable repath 0이 아니라 resolved/nonrepeat/no-cleanup coverage를 요구한다. 규칙 문서는 기존 계약과 일치해 변경하지 않았다.
-- B3 v9 RootCrossAudit 교정: `a0e690...8d8` 실제 경기 MOVE full EVIDENCE·ROOT 양쪽 PASS, 수동 pose 49/49 match·mismatch 0. 기존 ROOT bucket 14/17 peer equality는 공유 시간축이 아니어서 false-INCONCLUSIVE였다. 진단기는 run 내부 bucket invariant를 유지하고 validated MOVE `startedAt <=2.000초`(`2.000` 허용/`2.001` 거부)로 교정했다. Editor Roslyn PASS, 사용자 SelfValidate/Analyze 재실행 전 공식 판정은 **OPEN**이다.
-- 신규·교체 프리팹은 migrated 템플릿과 `NET-ROOT-004` 승인 게이트를 사용한다. B1 50개 일괄 migration을 반복하지 않으며 Asset Matrix와 fail-closed validator roster·기준선을 함께 갱신한다.
-- 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
-- 런타임: A2 pose seam, B1 Simulation/Visual Root 표현 seam, B2 Shadow와 B3 경기 단위 이동 writer·연속 trajectory·목표 단위 재경로 lifecycle·Held 정지 표현까지 연결했다. B3 Editor/Android 역할교대·25종·rollback, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**
-- 중요 사실: UnitStatsConfig는 25/25 등록됐다. 기본 Attack marker 누락은 **MushroomBomber·BloomFairy 2종**이며, 설정/clip 불일치는 **Inferno·Stream 등 미교정 유닛**에 남아 있다. BattleAxe는 marker/config 1.02초, QuakeSpirit은 1.667초로 정렬돼 영구 production gate를 통과했으므로 잔여 불일치에 포함하지 않는다. hit/tracer preset 0/25는 남아 있다.
-- 후속 구현과 검증은 현재 task Plan의 A2 이후 게이트를 따른다.
+- 권위·표현·observer의 현행 책임 경계는 유닛 규칙과 전투 동기화 계약을 따른다. 개별 테스트 수용은 [감사표](Assets/UnitCombatAssetMatrix.md)의 현행 목록을 따른다.
+- 전체25종·역할교대·Legacy rollback·정밀 시각 수용과 clock/Invalid 진단 미결은 개별 focused 결과로 닫지 않는다.
+- A0~C3 단계별 과거 수치와 회귀 범위: [상세 원문](History/ImplementationVerificationHistory.md#status-action-sequence). 계약 원본: [유닛 규칙](GameSystemRules/GameSystemRules_Units.md) / [전투 동기화](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md).
 
-### 📐 확정 설계 — 구현 예정
+### 📐 무작위 맵 — 본체 구현·검증 완료, 적용 후속 남음
 
 #### FlatTop 11×21 무작위 대전 맵 (2026-07-19 기획 확정)
 
-- 다섯 유형(완전개방형/장애물 개방형/협곡형/외곽형/3갈래형), 각각 20%
-- 모든 생성 요소와 장식 exact 180° 대칭, 팀별 즉시 건설 가능 고유 타일 10개
-- 유형별 중립 광산 1~6개와 정상 모드 광산 수별 초기 골드 700~200
-- 초기 골드 전용 `MapTestModeEnabled` 확정: ON=5000, OFF=광산 수 표. 멀티플레이는 Host 표식·실제 골드 권위 **[🔴 2026-09-15 갱신 — 원문은 2026-07-19 기획 확정 시점의 기록이라 그대로 두고 덧붙인다: **이 항목은 2026-09-14 규칙 3 개정으로 기획에서 제거됐고, 2026-09-15 커밋 `8c83317` 로 코드·`GameConfig.asset` 에서도 실제로 삭제됐다.** 초기 골드 갈래는 **광산 수 표 하나**만 남는다. 권위 규정은 「Host 가 생성·확정한 `MapDefinition` 이 권위」로 대체됐다]**
-- 국소 건설 불가 구역, 완전 차단 지형, 결정적 seed·독립 PRNG 스트림·100회 재시도·검증된 폴백 규칙 확정
-- canonical binary + SHA-256, persistent chunk 전송, `SameMap`/`NewMap`, 임시 `MapVersion=1` 계약 확정 **[🔴 2026-09-14 (3차) 갱신 — 원문은 그대로 두고 덧붙인다: 이 줄은 **2026-07-19 기획 확정 시점의 계약 목록**이다. 그중 **`SameMap`/`NewMap` 은 2026-09-14 규칙 14 개정으로 폐기**되어 현재 계약은 **「재경기 맵 — 조건 선택 없이 매 판 새 맵」** 한 갈래다. 같은 줄의 나머지 셋(canonical binary + SHA-256 · persistent chunk 전송 · 임시 `MapVersion=1`)은 **그대로 유효하다.**]** **[🔴 2026-09-15 갱신 — 위 두 기록을 그대로 두고 덧붙인다: **`MapVersion` 은 더 이상 `1` 이 아니다.** 테스트 모드 표식이 canonical 바이트열에서 빠지면서 **`1` → `2`** 로 올라갔고(`MapDefinition.CurrentMapVersion = 2`), 그 결과 **canonical 바이트 수 공식이 `315 + 4N`**(N = 중립 광산 수)이 됐다. canonical binary + SHA-256 · persistent chunk 전송 계약 자체는 그대로다]**
-- `GameSystemRules_Map.md`, `GameSystemRules_RandomMap.md`, GDD, TDD, 작업 Research/Plan 반영 완료
-- **상태 (2026-10-12 현재 — 단 ③ 한 건만 2026-10-13 에 고쳤다):** 문서 설계 완료, 그리고 **무작위 맵 본체(1~3단계)는 구현·실기 검증까지 끝났다** — 1단계 2026-09-03 · 2단계 2026-09-08 · 3단계 2026-09-14 · 재경기 맵 2026-09-15(위 「구현 완료」 문단들과 「완료된 시스템 > 코어 게임플레이」 표의 **타일 상태 계약** 행). 런타임 생성기 5종 · 검증기 · 폴백 5개 · 건설 불가/차단 지형 · 맵 준비 조정자 · `MapDefinition` → `HexGrid` 투영 · 렌더러 · 건설/점령/AI 판정 조건 · 맵 전송 · 해시 대조 · 재경기 맵은 **구현됐다.** **맵 테스트 모드는 구현됐다가 삭제됐다**(2026-09-15, 커밋 `8c83317`, `MapVersion` `1` → `2`). 🔴 **이 절에 남은 미구현은 둘이다**(셋이었으나 ③ 이 2026-10-13 에 닫혔다) — ① **경로 완전 차단 대응**(맵이 아니라 유닛 행동. `GameSystemRules_Units.md` 규칙 45 가 단일 소스이며 그 규칙이 스스로 「미구현」이라 적는다. 2026-09-14 기록은 「조사조차 되지 않았다」였고 이후 변동은 이 문서에서 확인하지 않았다) ② **맵이 정한 초기 골드 적용**(규칙 3·16 미충족 — 맵이 계산·검증·전송하는 `InitialGold` 를 `ResourceUseCase` 에 적용하는 곳이 없다, 2026-10-12 코드 확인. 사용자가 「추후 밸런싱과 함께 다시 작업」으로 확정) ~~③ **멀티 최초 경기의 맵 준비 실패 안내**(규칙 M-2 — 구현 0줄. 싱글 최초·재경기와 멀티 재경기는 구현됐다, 2026-10-12 코드 확인).~~ ✅ **③ 은 닫혔다 — 규칙 M-2 가 2026-10-12 에 개정된 사양대로 구현되고 2026-10-13 에 실기로 확인됐다**(맨 위 「✅ 구현 완료 · 실기 검증 (2026-10-13)」 문단. 스폰 전 실패 · 호스트 사망 · 전송 계층 60초 통보는 관측되지 않았다). 이 절이 아직 「확정 설계 — 구현 예정」 아래에 있는 이유는 ① ② 두 건뿐이다. ⚠️ **이 절을 「✅ 완료된 시스템」으로 옮길지는 문서 구조 변경이라 하지 않았다 — 사용자 판단 대상이다**(`CLAUDE.md` 규칙 12). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시(2026-09-03): 「문서 설계 완료. 1단계만 구현 … 런타임 생성기·검증기·전송·테스트 모드·건설 불가/차단 지형·경로 완전 차단 대응은 여전히 미구현이다(2·3단계)」. 그 뒤 2026-09-08 ~ 09-15 에 덧붙였던 갱신 5건과 『이 절이 남아 있는 것은 맞다』는 근거 줄은 이 줄에 합쳤다)*
+- 무작위 맵1~3단계 및 재경기 맵은 구현·실기 검증 기록이 있다. 멀티 최초 맵 준비 실패 안내도2026-10-13 실기로 확인됐다.
+- 잔여: 경로 완전 차단 대응(유닛 행동), 맵 InitialGold 실제 적용(추후 밸런싱과 함께 작업).
+- 맵 테스트 모드는 삭제됐고 매 재경기는 새 맵 한 갈래다. 세부 규칙·수치는 [맵](GameSystemRules/GameSystemRules_Map.md) / [무작위 맵](GameSystemRules/GameSystemRules_RandomMap.md), 당시 변경·미관측 경계는 [상세 원문](History/ImplementationVerificationHistory.md#status-random-map)을 따른다.
 
 ### ✅ 완료된 시스템
 
+아래는 기존 구현·검증 기록의 인덱스다. 제목에 명시된 검증 범위를 유지하며 현재 전투 수용은 감사표, 잔여는 아래 미완성 항목과 ROADMAP이 우선한다. 세부 사양 사본은 아래 이력에 보존하고 현행 [게임 규칙](GameSystemRules.md)과 [스탯](StatsReference.md)을 기준으로 읽는다.
+
 #### MistShrine 물안개 힐 시스템 ✅ 구현 완료 · 에디터 싱글플레이 실기 검증 완료 (2026-08-12) — **멀티 미검증**
 
-초월(Transcendence) 종족의 **공격하지 않는 힐 건물** MistShrine(`BuildingType.HealShrine` = 6).
-2026-08-10 재설계 기획 확정 → **코드·프리팹·씬 배선 구현 완료**, 2026-08-12 **에디터 싱글플레이 실기 + 런타임 로그 실측으로 검증**.
-
-**✅ 검증 완료 항목 (에디터 싱글플레이 실기 / 로그 실측)**
-
-| 항목 | 결과 |
-|------|------|
-| 범위 원 경계 = 실제 회복 판정 | **정상** — 회복된 최대 거리 **2.29** / 회복에서 탈락한 최소 거리 **3.12**, 설정 반경 **3.00**과 모순 **0건** |
-| 범위 이탈 시 즉시 끊김 (규칙 9) | **정상** — 거리 `2.29(Healed)` → `3.77(OutOfRange)` 이탈 **다음 틱부터 HP 고정** |
-| 회복량 | **정상** — 매 틱 **+10** (`_mistHealPerSecond: 10`과 일치) |
-| 중첩 해소 (규칙 13) | **수정 후 정상** — 후보 물안개 4개에서도 대상당 **1회만** 적용, 거리 동률(0.87)에서 **Id 작은 신전** 선택 |
-| 자동/수동 토글 · 쿨다운 방향 · 적 건물 미반응 · 연구/스킬 패널 `ClosedFrame` 가드 | 정상 (육안 확인) |
-| 컴파일 | 오류 0건 (사용자 에디터 확인) |
-
-**⚠️ 아직 완료가 아닌 것 (과대 표기 금지)**
-
-- **멀티플레이 실기 미검증** — 검증은 **에디터 싱글플레이로만** 이루어졌다. 범위 판정·중첩 해소·회복량 계산은 싱글·멀티가 **같은 `MistShrineUseCase` 경로를 공유**하므로 판정 로직 자체는 유효하지만, **건물 HP 동기화(`SyncBuildingHealClientRpc`)·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱 여부는 멀티에서만 도는 경로이며 한 번도 실행되지 않았다.**
-- **물안개 지속 VFX 미제작**(규칙 26) — 물안개는 현재 **눈에 보이지 않는다.**
-- **사용(시전) 버튼 아이콘 미제작**(UI 규칙 15) — 임시 텍스트 라벨.
-- **밸런싱 수치 미확정**(규칙 16) — 현재 값은 전부 임시값. 확정 시 `SpecialAttackConfig.asset` 한 곳만 교체하면 된다.
-
-**🐞 구현 중 발견·수정한 규칙 위반 버그 — 중첩 해소가 동작하지 않던 문제 (커밋 `be17148`)**
-
-- **증상(로그 실측):** 거리 0.87로 겹친 신전 2개가 같은 유닛을 각각 회복시켜 **3초에 +60**(기댓값 +30) — **초당 회복량 2배**. 규칙 13의 "가장 가까운 하나"도 어긋나 **더 먼 신전까지** 회복을 적용했다.
-- **원인:** 물안개마다 틱 누적기가 독립이라 **시전 시각이 다르면 발화 프레임이 달라진다**(실측 위상 `.36x` / `.73x`, 동시 틱 **0건**). 그런데 중첩 해소는 **"이번 프레임 발화분"끼리만** 비교하는 구조여서 비교 대상이 늘 하나뿐 → **해소 코드가 돌 기회 자체가 없는 죽은 코드**였다.
-- **수정(두 겹):** ① **위상 정렬** — 새 물안개의 누적기를 0이 아니라 **기존 물안개와 같은 값**에서 출발시킨다 ② **소유권 판정 분리** — **활성 물안개 전체**에서 대상별 최근접 소유자를 정하고 그 소유자가 발화한 틱에만 적용.
-- **규칙 정합:** 규칙 8-1이 요구하는 것은 "물안개마다 자기 누적기"이지 "시작 위상이 제각각"이 아니다 — **누적기 개수는 물안개 개수 그대로**(규칙 14 표). 매 틱 재수집 구조도 무변경이라 규칙 9 유지. **이 불변식을 규칙 8-1에 보강 기재**해 되돌림을 막았다.
-- **건물 경로도 함께 고쳐졌다** — 규칙 13은 "한 대상"이므로 유닛만의 문제가 아니었고, 건물 해소 코드도 같은 이유로 돌지 못하고 있었다.
-- **진단 로그:** `848d891`(추가) → `939bd87`(세션 배선) → `be17148`(확장) → `cfe73bb`(전량 제거). 로그 파일은 `_Logs/2026-08-10/14_12_mistshrine-heal-implementation/RuntimeLog_host.txt`에 **영구 보존**(LogRules).
-
-**📋 확정 사양 (규칙 1~27)**
-
-- **동작:** 시전 → 건물 중심 고정 원형 범위에 물안개 생성 → 지속 시간 동안 **1초 단위 discrete 틱**으로 회복 → 물안개 소멸 → 쿨다운 잔여 → 재사용. **물안개 지속시간 < 쿨다운**(다운타임 존재)
-- **대상:** 범위 안의 **아군 유닛 + 아군 건물**(시전 건물 자신·본기지 Castle 포함). 최대 체력 대상은 회복 없음
-- **아우라 방식:** 시전 시점 스냅샷이 아니라, 범위를 벗어나면 즉시 회복이 끊김
-- **시전 비용 없음**(쿨다운으로만 제어), **시전 건물 파괴 시 물안개 즉시 제거**, 물안개는 이동하지 않음
-- **중첩:** 물안개끼리는 중첩되지 않음(더 가까운 건물 우선, 거리 동률이면 **건물 Id가 작은 쪽** — 결정적 규칙). 단 **연구소 자연회복과는 별개 효과로 중첩 적용**
-- **UI:** `BuildingPanelBase` 상속 전용 패널 신설(`BuildingSkillPanelUI` 재사용 불가 — 5슬롯·지점 조준 전제). 짧은 탭=수동 시전 / 롱프레스=자동 모드 토글 / 자동 중 탭=해제, **자동 모드 기본 OFF**. 쿨다운은 `SkillCooldownOverlay` 재사용. 범위 표시는 **아군 건물 + 패널 열린 동안만**(적 MistShrine은 표시 안 함). 회복 텍스트는 실제 회복 대상만·표시 주기 분리(임시 3초)
-- **로직:** `SkillActivationUseCase` 재사용 불가(`IsSkillBuilding` 게이트가 `HealShrine` 차단 + 슬롯/로드아웃 전제) → **전용 UseCase 신설**. 쿨다운 관리 패턴(Dictionary + 총 쿨다운 보관 + 서버 틱 + **클라 로컬 미러**)만 차용. 자동 토글 동기화는 생산 시스템의 `Request → ServerRpc(팀 검증) → ClientRpc` 3단 구조
-- **신규로 필요했던 것 (VFX 제외 전부 구현 완료):** 아군 유닛·건물 수집 헬퍼(기존 원형 반경 헬퍼는 **전부 적 대상 전용**이었음) · **건물 회복 경로**(`BuildingData.Heal` 신설 + 멀티 동기화용 전용 RPC) · 파괴·철거 시 물안개/자동모드/쿨다운 정리 경로. **물안개 VFX만 여전히 미제작**(현재 MistShrine VFX는 destroy/upgrade뿐)
-- **미확정(밸런싱):** 회복량 · 물안개 지속시간 · 쿨다운 · 범위 반경 · 회복 텍스트 표시 주기. `StatsReference.md`의 기존 값(HP 500 / 건설비 100 / 10 HP/s·범위 3)은 재설계 이전 수치로 재검토 대상
-- **함께 정정한 문서 오류:** GDD·TDD가 Transcendence 방어 타워를 MistShrine으로 적고 있었으나 **정확한 방어 타워는 `VineTower`(`AutoTower` = 2)** 다. `AssetList.md`·`StatsReference.md`·`BuildingType.cs`·`GameSystemRules_Buildings.md`는 원래 올바르게 구분하고 있었음
-- **문서:** `GameSystemRules/GameSystemRules_Buildings.md`(MistShrine 물안개 힐 시스템 규칙 1~27 — **2026-08-12 규칙 8-1에 "활성 물안개 위상 공유" 불변식 보강** · 특수 건물 2종 이상 시 `GameSystemRules_SpecialBuildings.md`로 분리한다는 분기 시점 명시), `GameSystemRules/GameSystemRules_UI.md`(MistShrine 패널 UI 규칙 1~15 — 규칙 15는 아이콘 미제작), GDD §5, TDD, `StatsReference.md`, `GameSystemRules_Upgrade.md`
-- **task:** `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`(기획) · `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(구현 — §9 보완 수정 4건 · §10 완료 판정)
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-1).
 
 #### 스킬 건물 시스템 (Phase 1 타입 A·B + 조준/UI/좌표화/렌더링/버그수정, Phase 2 타입 C 전역 상태변경) ✅ 구현 완료 · 실기기 테스트 PASS (Phase 1: 2026-08-04, Phase 2: 2026-08-05 실기+멀티(클라) PASS)
 
-스킬 건물(FlightFacility / MagicSpirit / WillowShrine)로 액티브 스킬을 발동하는 프레임워크와 타입 A(즉발 범위 피해)·B(장판 DoT)·C(전역 상태변경: 버프/디버프/CC/힐) 실행기, 모바일 탭 조준, 전용 UI를 구현하고 실기기 테스트로 검증(타입 C는 멀티 클라이언트 재현까지 확인). SSoT는 `GameSystemRules/GameSystemRules_Skills.md`(규칙 1~26). task: `_Tasks/2026-07-28/12_14_skill-building-system-design/`(프레임워크 설계·Phase 1·Phase 2) + `_Tasks/2026-08-04/04_46_skill-aim-coordinate-based/`(조준 좌표화·렌더링·버그수정).
-
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 프레임워크 골격 (데이터 주도) | ✅ 완료 | Domain `Skill/SkillMechanicType.cs`(A/B/C **전부 구현**)·`Skill/SkillAimType.cs`(Instant/PointTarget). Application `Skill/{SkillData,ISkillExecutor,SkillActivationContext,SkillExecutorRegistry}`·`UseCases/SkillActivationUseCase.cs`(발동 단일 진입점 `Activate`, 플레이어/AI 공유). 건물 글로벌 쿨다운=UseCase `Dictionary<int,float>`(BuildingData 무변경). 로드아웃=RaceId 키(`SkillLoadoutConfig:ISkillDataProvider` — MagicBuilding enum 공유라 종족 분기). 규칙 1~7 |
-| 타입 A — 즉발 범위 피해 실행기 | ✅ 완료 | `Application/Skill/InstantAreaDamageExecutor.cs`. 건물 출처 피해=`UnitCombatUseCase.ApplySkillInstantAreaDamage`(방어 감쇄 O, **Tank 2배 미적용**). 반경 수집은 도메인월드(`_mapper.HexToWorld`)+TeamId 기준 전용 헬퍼(`CollectEnemy{Units,Buildings}InRadiusDomain`). 규칙 11 |
-| 타입 B — 범위 지속 피해(장판 DoT) 실행기 | ✅ 완료 | `Application/Skill/AreaDotDamageExecutor.cs`. `ApplySkillAreaDot`(무감쇄 DoT=`ApplyDamageOverTime(source:null)`, 규칙 40 초 단위 틱 재사용). 규칙 12 |
-| 타입 C — 전역 상태변경(버프/디버프/CC/힐) 실행기 | ✅ 완료 (2026-08-05, 실기+멀티 PASS) | Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}.cs`(순수 계산) + Application `Services/StatusEffectSystem.cs`(서버 권위 부여/틱) + `Skill/GlobalStatusChangeExecutor.cs`(조준 없음 전역 즉시). `StatusEffectKind`=None/MoveSpeedMul/AttackPowerMul/AttackDisabled/Freeze(이속0+공격불가)/HealOverTime. 유효 스탯 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`)에 상태 배율 **곱연산 합성** + 공격 게이트 `CanAttack`. **무상태면 기존과 완전 동일(회귀 안전).** 빙결=`Animator.speed=0` 애니 정지(`UnitAnimState.Frozen` 클라 동기화), 둔화=이동 코루틴 매 프레임 배율 재조회로 라이브 반영, 회복=기존 HoT 재사용. 규칙 13 |
-| 타입 C — 멀티 동기화 | ✅ 완료 | `StatusAppliedClientRpc`로 빙결/둔화/버프 브로드캐스트(클라 자기 유닛 재현, 서버 skip), 회복은 HP 동기화로 재현(이중 힐 방지) |
-| 타입 C — UI 버튼 균일화 | ✅ 완료 | 스킬 슬롯 CostContainer를 `SetActive(false)`(행 높이 붕괴) 대신 CanvasGroup alpha=0(HideChildKeepLayout)로 숨겨 행 높이 보존 |
-| 3×3 건물 패널 UI + 쿨다운 오버레이 | ✅ 완료 | `Presentation/UI/{BuildingSkillPanelUI,SkillCooldownOverlay}.cs`. 슬롯 1~5 스킬/6 철거/7~9 예약(규칙 8·9). 쿨다운 오버레이=버튼 전체 덮는 어두운 반투명 + 12시 기점 시계방향 소멸(`fillOrigin=Top`+`fillClockwise=false`)+남은 초 텍스트, 유휴 시 숨김(규칙 10). BuildingSkillPanel=BuildingActionPanel 복제로 룩 상속 |
-| 모바일 탭 조준 (2단계) | ✅ 완료 | `Presentation/Input/SkillAimController.cs`. 버튼 탭 → 조준 모드 진입(패널 닫힘·조준원·취소 X 표시, 버튼 자신 release 무시) → 새 화면 press·드래그로 조준 이동+엣지 스크롤 → release로 발동, 하단 X 위 release로 취소. X hover 시 취소버튼 Lerp 확대 예고(규칙 20-1). static `IsAiming` 가드로 CameraController.HandlePan/InputHandler.HandleClick 억제. 규칙 15~21 |
-| 조준 지점 연속 좌표화 (HexCoord → Vector3) | ✅ 완료 (2026-08-04) | 조준 중심을 타일 스냅(HexCoord) → **연속 도메인 월드 Vector3**로. **착탄 반경 판정은 원래 연속 원(중심 월드 + 반경 유클리드)이라 무변경 — "중심 입력"만 연속화**. 전 계층 시그니처 Vector3화(SkillAimController/BuildingSkillPanelUI/`SkillActivationUseCase.Activate(Vector3?)`/`SkillActivationContext.AimWorld`/`UnitCombatUseCase.ApplySkill*(Vector3 center)`/`NetworkSkillController` RPC=NGO Vector3 기본 직렬화, int q,r 폐지). 규칙 19·26 |
-| 맵 경계 point-in-bounds 재검증 (신규 헬퍼) | ✅ 완료 (2026-08-04) | 서버 재검증을 유효타일(HasTile) → **맵 경계 안 점(point-in-bounds)**으로 교체. `Core/HexMetrics.{ComputeMapWorldBounds,IsWithinMapBounds,ClampToMapBounds}` 신규(최외곽 타일 중심 극값 + 반칸 AABB = 최외곽 타일 바깥선까지 엄밀 clamp). HexGrid(Domain)는 Vector3 불가 → Core 수학 + 클로저 주입(GameBootstrapper `_grid` 캡처=맵 재로드 대응). 규칙 22·26 |
-| 조준원 지면 데칼 렌더링 (z-fighting 해결) | ✅ 완료 (2026-08-04) | 원인=조준원(y=0.05)과 HexTile(ProBuilder 실린더) coplanar → z-fighting으로 파묻힘. 신규 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader`(Transparent + ZWrite Off + **ZTest LEqual + Offset -1,-1** + Cull Off) = 지형엔 안 가려지고 불투명 유닛/건물엔 정상 가려지는 데칼. **ZTest Always 금지**. 머티리얼은 셋업 스크립트(`SkillSetup_Scene.EnsureOverlayMaterial`)가 생성·3겹 SpriteRenderer + `SkillAimReticle._overlayMaterial` 배선. 타일 Y Scale(등각) 무변경. 규칙 22-1 |
-| 취소 버그 근본 수정 (2026-08-04) | ✅ 완료 (2026-08-04) | 실기(Android) 터치에서 취소 X 위에서 손을 떼도 발동·쿨다운이 걸리던 문제. 원인=손 뗀 프레임에 `TryGetPointerScreenPos`의 마우스 분기가 합성 마우스 좌표(0,0)를 유효로 반환해 캐시 폴백을 가로챔. 수정=release 프레임엔 라이브 좌표를 읽지 않고 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 취소/발동 판정 |
-| 쿨다운 스킬 안내 토스트 (2026-08-04) | ✅ 완료 (2026-08-04) | 쿨다운 중 스킬 탭 시 조용히 무시하던 것을 안내. 기존 ToastUI(에셋 기반)에 `ToastKey.SkillOnCooldown` 추가 + `ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다"(`BuildingSkillPanelUI`에서 `ToastUI.Show`) |
-| 멀티플레이 / 서버 권위 | ✅ 완료 | `Infrastructure/Network/NetworkSkillController.cs`(NetworkBehaviour). 좌표만 전송 + 서버 재검증(건물 생존·글로벌 쿨다운·맵 경계 안 점). 발동 성공 시 `SkillActivatedClientRpc`로 양 클라 쿨다운 미러. 쿨다운 틱=싱글 GameBootstrapper.Update / 멀티 서버 NetworkCombatController.TickCombat / 순수 클라 오버레이 미러 감소(이중 틱 금지). 규칙 25·26 |
-| 건물 파괴 시 패널/조준 UI 원복 | ✅ 완료 (2026-08-08, 실기 PASS) | 스킬 포함 4개 건물 패널(생산/건물액션/스킬/연구) 공통 갭 해소. `BuildingPanelBase`가 `GameEvents.OnBuildingDied` 구독 → 파괴 건물이 현재 표시/조준 중인 건물(`_currentBuilding.Id` 매칭, 조준 중엔 `IsOpen=false`라 IsOpen 아닌 Id로 판정)이면 `Close()` → 각 패널 `OnBeforeClose`로 조준 취소(`CancelAim`)·랠리 마커 숨김 자동 연계. **코드 변경 `BuildingPanelBase.cs` 1파일**(자식 무변경). 구독 해제=`.AddTo(this)`(자식 `ResearchPanelUI` 자체 `OnDestroy`가 베이스 은닉하는 회귀 회피). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행으로 커버. 커밋 `8c7fa01` |
-| 문서 | ✅ 완료 | `GameSystemRules/GameSystemRules_Skills.md`(규칙 1~26, 조준 좌표화 정정 17·19·22·22-1·24·26 반영·구현 상태 갱신) + 건물 파괴 원복은 공통 UI 규칙(`GameSystemRules_UI.md` 팝업 규칙 11) 명문화 |
-
-> **✅ 타입 C Phase 2 완료(2026-08-05):** `SkillMechanicType.GlobalStatusChange` 실행기(`GlobalStatusChangeExecutor`)와 상태효과 시스템(`StatusEffectSystem`) 구현·실기+멀티(클라) PASS. 유효 스탯 접근자에 상태 배율을 연구 강화 배율과 곱연산 합성(무상태면 회귀 안전). 업그레이드 연동은 이 곱연산 합성으로 확정됨.
->
-> **⏳ 후속 / 미완 (별도 작업 — 과대 표기 금지):** ① ✅ **건물 파괴 시 패널/조준 UI 원복 — 2026-08-08 구현 완료·실기 PASS(커밋 `8c7fa01`)**. 스킬 포함 4개 건물 패널 공통 갭을 `BuildingPanelBase`가 `OnBuildingDied` 구독→현재 건물(`_currentBuilding.Id`) 매칭 시 `Close()`로 해소(각 패널 `OnBeforeClose`로 조준 취소·랠리 마커 숨김 자동 연계). 구독 해제는 `.AddTo(this)`(자식 `ResearchPanelUI`의 자체 `OnDestroy` 은닉 회귀 회피). task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`. ② **구체 스킬 목록·수치·아이콘(기획)** — 보류(각 슬롯 1~5의 스킬·쿨다운·반경·지속·피해·상태효과는 추후 ScriptableObject로 확정). **현재는 종족별 타입 A/C 플레이스홀더 5슬롯(1 폭탄A/2 빙결/3 공격버프/4 둔화/5 회복, 임시 텍스트 라벨) = 최종 기획·아트 전까지 유지되는 테스트용.** ③ 둔화 전투종료 정렬 Lerp 구간은 캡처값 사용(미세 잔여, 필요 시 후속).
->
-> **정리(cleanup, 2026-08-05):** 개발용 진단 로그 코드를 LogRules 준수 위해 제거(`IRuntimeLogSink`/`RuntimeLoggerSink` 삭제 — 상시 기능 아님, 로그 파일은 LogRules대로 보존), 좌표화 때 주석 비활성화했던 코드 3곳 삭제. 교훈: 로그 작업 착수 전 반드시 `LogRules.md`를 먼저 확인.
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-2).
 
 #### 연구소 유닛 강화 시스템 + 전투 스탯 ×10 스케일 + 연구 패널 UI ✅ 구현 완료 · 멀티플레이 실기 PASS (2026-07-31)
 
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 전투 스탯 ×10 스케일 (config 재조정) | ✅ 완료 | UnitStatsConfig·BuildingStatsConfig·SpecialAttackConfig `.asset`에 ×10 커밋 반영(전투 스탯 ×10 확정). 적용에 쓰였던 셋업 스크립트는 제거됨. HP·공격력 동일 배율 → TTK 불변(상성·매치업 불변). 사거리·이동속도·쿨다운·비용·비율은 불변 |
-| 방어력 신규 스탯 + 비율 감쇄 공식(K=120) | ✅ 완료 | 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense`(floor 1, 하드캡 65%, 방어 0이면 무감쇄 하위호환). 방어 0/8/16/24/32/40. 직격·스플래시·타워→유닛 일괄, DoT 미적용. `UnitStats.StatValues.Defense`/`UnitData.Defense`/`BuildingData.Defense=>0` |
-| 유닛별 고정 정수 공격력 / 이동속도 배율 / 힐량 트랙 / 초월 자연회복 | ✅ 완료 | Application `UseCases/UnitUpgradeUseCase.cs` (B) 실시간 배율/증가치 조회(`GetEffectiveAttack`/`GetMoveSpeedMultiplier`/`GetDefense`/`GetRegenPerSecond`/`ScaleByGroupAttack`). 자연회복은 BloomFairy 힐과 별개 채널 |
-| 유닛→그룹 매핑 | ✅ 완료 | `Domain/Unit/UpgradeGroup.cs`(`UpgradeGroup`·`UnitUpgradeStat`·`UpgradeGroupHelper`, 순수 Domain 정적 헬퍼) |
-| Tank/CannonCart 건물 2배 | ✅ 완료 | `UnitCombatUseCase.ComputeFinalDamage` 건물 분기(대상 건물 + 공격자 Tank/CannonCart → ×2) |
-| 팀별 강화 상태 + 서버 권위 + 소급 강화(B) | ✅ 완료 | 유닛 스냅샷 미변경 → 이미 전장에 나온 유닛도 연구 완료 즉시 강화 |
-| 네트워크 동기화 (연구 RPC·완료 브로드캐스트·파괴 환불) | ✅ 완료 | Infrastructure `Network/NetworkUpgradeController.cs`. 완료 레벨은 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중은 소유자만, 파괴 시 취소·100% 환불. **MP 완료 처리 서비스 스폰 레이스 버그는 `ResolveServices()`(지연 재조회)로 수정 완료** |
-| 연구 패널 UI (매트릭스 2-레이어) | ✅ 완료 | `Presentation/UI/ResearchPanelUI.cs`(`: BuildingPanelBase` — 공통 헤더·닫기·철거+환불) + 매트릭스(`ResearchMatrixView`/`ResearchCellView`) ↔ 진행 게이지(`ResearchProgressView`) 2-레이어, 연구소 단위 전환, 진행 트랙 잠금, 배경 탭 닫기. 규칙 13 |
-| 문서 | ✅ 완료 | `GameSystemRules/GameSystemRules_Upgrade.md`(구현 계약·구현 상태·규칙 13 UI), `StatsReference.md`, `GameSystemRules_Units.md` 규칙 44, GDD. old/new 대조: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md` |
-
-> **⏳ 후속 / 보류 (별도 작업 — 과대 표기 금지):** ① 연구 패널 UI 레이아웃 다듬기(현재 에디터 스크립트 자동생성 골격, 사용자가 Unity에서 직접 다듬을 예정) ② 매트릭스 헤더 아이콘(공/방/속·그룹, 텍스트 라벨 대체 중) ③ AI 시나리오 연구 사용(코드는 있으나 실기 미검증) ④ **MistShrine(HealShrine) 힐 — 2026-08-12 구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증 · VFX·아이콘 미제작 · 밸런싱 미확정**(위 "완료된 시스템 > MistShrine 물안개 힐 시스템" 참조. 자연회복과는 별개 효과로 중첩 적용) ⑤ 싱글플레이 자연회복 실기 미검증(코드상 정상 예상). ×10 적용·배선·디버그에 쓰였던 에디터·디버그 스크립트는 config `.asset` 커밋·씬 배선 반영 후 제거됨.
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-3).
 
 #### 코어 게임플레이
-| 시스템 | 상태 | 비고 |
-|--------|------|------|
-| 헥스 그리드 (FlatTop/PointyTop) | ✅ 완료 | 듀얼 Orientation 지원, 런타임 전환 |
-| 타일 소유권/점령 | ✅ 완료 (2026-04-26 갱신) | TileOwnershipService — Phase 0/1/2 모든 이동 방식에서 매 프레임 물리 위치 기반 실시간 점령 |
-| 금광 타일 시스템 | ✅ 완료 (2026-09-03 갱신) | `MineKind`(None/Neutral/BlueStart/RedStart), 채굴소 건설 조건, 건물 배치 시 광산 숨김/파괴 시 재표시+타일 중립 복원. **2026-09-03 무작위 맵 1단계로 광산 표시가 전용 저장 필드에서 `MineKind` 로 바뀌었고, 이동 불가 여부는 저장하지 않고 계산한다**(아래 「타일 상태 계약」 행 참조) |
-| 타일 상태 계약 (`TileKind`/`MineKind`/`HasBuilding`) | ✅ 완료 · 에디터 실기 검증 완료 (2026-09-03) | 무작위 맵 **1단계**. `IsWalkable` 이 저장 필드에서 **setter 없는 계산 프로퍼티**로 바뀌었다(세 상태로부터 계산). 광산 표시 전용 저장 필드는 삭제(`.cs` 0건), `HexTile` 생성자의 이동 가능 매개변수 제거, 건물 철거 시의 광산 예외 가드 제거. ✅ **이 행이 쓰던 「무작위 맵」은 이후 구현됐다**(2단계 2026-09-08 · 3단계 2026-09-14 — 위 「구현 완료」 문단들). 신설 타입 6종 중 `MapType`·`DecorationDefinition`·`MapDefinition`·`MapDefinitionCodec` 4종은 이제 생성기·검증기·인코더·맵 준비 코드에서 호출된다(2026-10-12 코드 확인). AI 건물 배치 후보 판정과 건설·점령의 전용 조건 전환은 2단계 I 단계(커밋 `c47a067`)에서 처리됐다 *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시(2026-09-03): 「⚠️ 과대 표기 금지 — 무작위 맵 자체는 미구현이다 … 4종은 아직 어느 코드에서도 호출되지 않으며 … 미착수이며 2단계 몫이다」)* |
-| A* 경로탐색 | ✅ 완료 (2026-03-18 갱신) | ClaimedTile 기반 아군 차단 (중간 타일만), 목표 타일 blocked 체크 제거 |
-| 카메라 줌 보간 | ✅ 완료 (2026-03-19) | DOTween.To + Ease.OutCubic, _targetZoom 누적, _zoomDuration(0.25f) SerializeField |
-| 유닛 이동 (Lerp) | ✅ 완료 | Per-step 가용성 체크, 재탐색 |
-| 전투 시스템 | ✅ 완료 | IDamageable, 이동 중 자동 공격 |
-| 전투 거리 정밀도 | ✅ 완료 (2026-03-18 갱신) | 월드좌표 기반, Epsilon=0.05f 추가 (인접 경계 부동소수점 오차 방지) |
-| 공격 방향 정밀도 | ⚠️ Legacy 구현 / v2 미완료 | 2026-03-07의 타겟 실제 position 기반 Atan2·2D 레거시 제거 이력은 보존한다. 서버 `AttackSequenceId + HitIndex`의 권위 AimDirection과 Host/Client 결과 상관 검증은 아직 미완료다. |
-| 공격 쿨다운 시스템 | ✅ 완료 (2026-04-04 갱신) | 유닛별 AttackCooldown=클립 길이 (Assault=0.2s, Pistoleer=2.0s, Sniper=3.0s), elapsed 기반 정확한 감소 |
-| 다중 히트 데미지 | ✅ 완료 (2026-04-24) | FlameSpirit 6히트(총 12dmg), LionKnight 2히트(총 18dmg). HitFrameTimes float[] 기반, 싱글=PendingHit 타이머, 멀티=코루틴 N개 병렬 |
-| 전투 애니메이션 시스템 (멀티플레이) | ✅ 완료 (2026-04-04) | 3-신호 RPC, 6가지 규칙, _combatAnimationSent 경쟁조건 수정, 사이클 동기화 |
-| Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
-| 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
-| 전투 타격 타이밍 동기화 | ✅ 완료 (2026-07-12) | 실기/로그 검증 PASS. **[타이밍 단일 소스]** `HitFrameTimes`를 Attack 클립 `OnAttackHit` 이벤트에서 자동 추출(UnitFactory), 검증 메뉴 `CombatHitEventValidator` + 주입 메뉴 `CombatHitEventInjector`로 13종 클립 이벤트 주입(특수 타격 5종 의도적 제외). **[서버 정밀화]** `NetworkCombatController.TickCombat` 오버슈트를 데미지 딜레이+쿨다운 리셋 양쪽 차감. **[피격 표현 큐]** `EntityDamagedEvent`/`SyncHealthClientRpc`에 공격자 정보 추가, `HitPresentationQueue` 신설(HP텍스트/피격VFX/스케일펀치를 공격자 로컬 타격 프레임에 동기화, 도메인 HP는 즉시=서버 권위), `EffectManager.PlayUnitHit`+`UnitEffectConfig.hitPreset`, `HitReactionPunch`, `FloatingHpTextSpawner` `ShowDamage` 단일 진입점화. **[연출 공백]** 타워 발사 VFX(`BuildingEffectConfig.attackPreset`+`PlayBuildingAttack`), 원거리 트레이서(`TracerProjectile`+`tracerPreset`, 데미지 타이밍 불변). `UnitEffectView.cs` 최종 삭제. 규칙 U-17~U-21(Units)/B-12(Buildings) 등재. task: `_Tasks/2026-07-09/01_12_combat-hit-timing-sync/` |
-| 전투 타이밍 검증 중 기존 버그 3건 수정 | ✅ 완료 (2026-07-12) | **[버그1]** `NetworkCombatController.Update()` Tick 이월 잔여분이 다음 Tick의 경과 시간에 이중 계산되어 쿨다운 15~25% 조기 소진(Pistoleer 2.0초 대비 실측 1.71초) → 실제 경과 시간 1:1 감소로 수정. **[버그2]** 피격 표현 큐가 공격자 사망/전투 중단(StopCombat) 시 잔여 항목 미방출 → 즉시 방출 경로 추가. **[버그3]** 클라 Attack 루프 이탈(Walk RPC) 시 `_combatAnimationSent` 잔존으로 StartCombat 재전송 억제 → 유닛이 굳어 보이는 시각 버그(실기 75초 Assault 사례). Walk RPC 전송 시 가드 해제로 수정. 3건 모두 이번 작업 이전부터 존재한 기존 결함으로, 이번 계측이 처음 가시화. 승패 무관. |
-| 이동/Walk 애니메이션 동기화 (레벨 동기화 전환) | ✅ 완료 (2026-07-13) | 실기/로그 검증 PASS. **[레벨 동기화]** 유닛 애니메이션 상태(`UnitAnimState` None/Walk/Attack)를 1회성 엣지 RPC(`StartWalkAnimationClientRpc`/`OnUnitWalkStarted` 등)에서 **NetworkUnit의 NetworkVariable(서버 쓰기 / 클라 읽기)** 로 전환. 클라는 `OnValueChanged` + 스폰 시 현재 값 자동 적용 → 갓 생성 유닛의 첫 Walk RPC 스폰 레이스 유실(클라 222/223기 실측) 구조적 소멸. 호스트/싱글플레이는 기존 로컬 직접 제어 유지. **[초기화 후 재적용]** 상태 적용이 `UnitView.Initialize`보다 이르면 애니메이터 미준비로 무음 실패(unit=-1 125건/무귀속 15기) → Initialize 말미 `NetworkUnit.ReapplyAnimStateToView()`(멱등)로 재적용해 봉합. **[위치 보정]** 재경로 첫 스텝이 최종 목적지 역방향으로 향하던 뒤로 밀림(서버 282건 실측) → `MoveTo` `AlignPathStartToTransform`로 첫 스텝이 역방향일 때만 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 경로 재발급(규칙 11 강제). **[최종 3차 검증]** 로그 15,316줄 — 생성 634기 전원 애니메이션 상태 적용 보장(무귀속 15→0기), Initialize 후 재적용 634회, 역방향 282→41(보정 353건/실이동 278). 잔여 41건은 전부 스폰 직후 우회 경로를 "첫 걸음이 먼 성 직선 방향인가" 지표가 오탐한 계측 한계로 코드 무수정 종결(육안 밀림 없음). **[정리]** `[MOVESYNC-LOG]` 계측 코드 전량 제거, 엣지 Walk 경로 최종 삭제. Plan 대비: `_combatAnimationSent`는 애니메이션이 아니라 데미지(ExecuteAttack)·타겟 RPC 게이팅 가드로 확인돼 주석 처리하지 않고 유지. 규칙 U-22 등재. task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/` |
-| 유닛 메시 방향 보정 | ✅ 완료 (2026-04-29 갱신) | 전 유닛 Mesh Y=0, _meshYOffset 제거, 이동 anim offset=0, DirectionAngles={60,120,180,240,300,0} (FlatTop 월드 각도 기준) |
-| 유닛 회전 시스템 (RotateTowards 통일) | ✅ 완료 (2026-05-14 개편) | 모든 회전 Quaternion.RotateTowards 통일. 방향 계산 Atan2(현재 월드 위치→목적지) 기반. [SerializeField] _rotationSpeed = 270f Inspector 조정 가능 |
-| 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
-| 건물 배치 (Castle/Barracks/MiningPost) | ✅ 완료 | 건설 검증, 영토 확장 |
-| 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
-| 인구 시스템 | ✅ 완료 | 타일 수 = 최대 인구 |
-| 유닛 생산 (수동/자동) | ✅ 완료 | 큐 최대 3, 롱프레스 자동 |
-| 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정. 팀별 표시 분리: 각 플레이어 자신의 깃발만 표시 (2026-05-16) |
-| 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
-| 유닛 분산 이동 (혼잡도 기반) | ✅ 완료 (2026-05-15) | CongestionMap + CongestionAwarePathfinder — 타일 혼잡도 가중 A*로 경로 자연 분산. GameConfig에 DecayInterval/CongestionWeight 통합 |
-| 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-4).
 
 #### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 특수 공격 전략 핸들러 아키텍처 | ✅ 완료 (2026-07-17) | `ISpecialAttackBehavior`(계약) + `SpecialAttackContext`(공격자·주 타깃·유닛목록·피해헬퍼·월드좌표 조회·reach/arc) + `SpecialAttackRegistry`(UnitType→핸들러, 현재 BattleAxe만) + `SweepAttackBehavior`. 모두 `Scripts/Application/Combat/`. 신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄, `ExecuteAttack` 재수정 불필요. |
-| 피해 수렴점 단일화 (ApplyDamageToVictim) | ✅ 완료 (2026-07-17) | 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출(주 타깃/AoE 공용 → 멀티 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄 추가. |
-| 도끼병 휩쓸기형 AoE (SweepAttackBehavior) | ✅ 완료 (2026-07-17) | 판정 = 월드 좌표 전방 부채꼴. forward=공격자→주 타깃 방향(XZ), 각 적 XZ거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`이면 피격. Y 무시, 겹친 적 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표는 `IEntityPositionProvider`(서버 권위). 초기 "전방 5타일 타일 기준"에서 실기 후 변경. |
-| SpecialAttackConfig 튜닝 SO + 셋업 스크립트 | ✅ 완료 (2026-07-17) | `SpecialAttackConfig`(Infrastructure/Config) — `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 float로 UnitCombatUseCase 생성자에 주입(미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화. |
-| BattleAxe 스탯·타격 타이밍 확정 | ✅ 완료 (2026-07-17) | UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/hitFrameTimes[1.1667]/생산20s/골드200/인구1. Attack 클립에 `OnAttackHit` 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(1.1667s=클립 타격모션 종료 프레임 35f/30fps). 근거리A 라인(TrainingCamp/WarAcademy/HumanBarracks) requiredStage 3 생산(기존 확인). |
-| **[🔴 2026-09-20 수치 정정 — 위 2026-07-17 원문 보존] BattleAxe production 타격 시점** | ⚠️ CONDITIONAL PASS / OPEN | 실제 `Base Layer/Attack` clip의 단일 `OnAttackHit`은 1.02초이며 `UnitStatsConfig.hitFrameTimes`도 `[1.02]`로 교정됐다. 영구 production gate와 focused 로그는 PASS했지만 렉 때문에 정확한 화면 접촉 및 Sweep 제외 조건은 조건부다. 1.1667초는 당시 기록이지 현재 production 값이 아니다. |
-| AoE 피격 연출 동시 방출 | ✅ 완료 (2026-07-17) | `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`(단일 타격 프레임)이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 데미지·HP는 서버에서 전원 정확 적용, 이 변경은 연출 타이밍만. |
-| 실기 테스트 | ✅ PASS (2026-07-17) | 사용자 실기 통과. 도끼병 전방 부채꼴 범위 적 전원 피해·연출 동시 표시 확인. main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리). |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-5).
 
 #### BloomFairy(꽃요정) 힐러 + HoT/DoT 공용 시스템 (2026-07-18) — 특수 유닛 5종 중 3번째
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 힐러 전용 경로 (적 공격 흐름 분리) | ✅ 완료 (2026-07-18) | BloomFairy는 적을 때리지 않고 부상 아군을 회복하는 힐러. `ExecuteAttack`/`ISpecialAttackBehavior`/`SpecialAttackRegistry`(적 공격 흐름)에 **등록하지 않고**, 상태머신이 데이터(힐러 플래그)로 인식해 힐 루프를 타는 독립 경로. 힐 발동은 `OnAttackHit`이 아니라 상태머신 `HitFrameTimes` 타이머(`OnAttackHit`은 연출 전용). 규칙 32. |
-| 부상 아군 탐색 (팀 필터 반대) | ✅ 완료 (2026-07-18) | 기존 적 탐색은 무변경, 아군 탐색을 별도 메서드로 신설(같은 팀 AND 살아있음 AND `Hp<MaxHp`, **본인 포함**, 아군 유닛만·건물 제외). 사거리 4.0 월드. 우선순위 잃은 체력 비율 최대 → 동률 시 거리 최소. 규칙 33. |
-| HoT/DoT 공용 시간 지속 효과 시스템 | ✅ 완료 (2026-07-18) | 서버 권위 diff 틱(`ActiveTimedEffect`/`ApplyTimedEffect`/`TickTimedEffects`, Application). 대상별 동종 1레코드·갱신=리셋. HoT는 매 프레임 부드럽게(diff)로 총량 정확 도달(3초 20HP). Damage(DoT) 분기는 구조로 수용(MushroomBomber가 초 단위 틱으로 실제 배선). 규칙 34. |
-| 힐 유휴 감시 + 쿨다운 예외 | ✅ 완료 (2026-07-18) | 경로 끝 도달 후에도 부상 아군 지속 감시(`HealerIdleWatchV3`, 규칙 35). ⚠️ **쿨다운 예외**(프로젝트 유일): `AttackCooldown`(3.0s)이 힐 발동 준비(1.0s)를 미포함 → 발동 후부터 카운트라 실제 힐 주기 4.0s. 의도된 설계(되돌리지 말 것). 규칙 36. |
-| HoT 힐 텍스트 집계 (완료 시 1회) | ✅ 완료 (2026-07-19, 실기 확정) | HP 회복은 종전대로 틱마다 상승(HP바·멀티 동기화 무변경). 플로팅 힐 텍스트만 틱마다 억제하고 효과 정상 종료 시 회복 후 현재 HP로 1회 표시(대상 사망 시 생략). `EntityHealedEvent.ShowText`+`NetworkHealthSync` 전파, `ActiveTimedEffect.ActualHealed>0`일 때만. TorrentSpirit 즉발 힐·데미지 텍스트는 무변경. 규칙 37. |
-| 실기 테스트 | ✅ 완료 (2026-07-18) | 사용자 실기 테스트 완료. task: `_Tasks/2026-07-18/03_40_bloomfairy-healer/`. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-6).
 
 #### MushroomBomber(버섯폭격기) 착탄형 범위 DoT (2026-07-19) — 특수 유닛 5종 중 4번째
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 착탄형 특수 핸들러 (BlastAttackBehavior) | ✅ 완료 (2026-07-19) | `Application/Combat/BlastAttackBehavior.cs` 신설(`ISpecialAttackBehavior`, `ReplacesPrimaryAttack=false`) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 착탄 중심(주 타깃 위치) 기준 **월드 원형 반경**(XZ, arc 없음) 내 적 유닛 수집(주 타깃 포함·아군/사망/공격자/건물 제외) 후 DoT 부여. 수집부 `CollectEnemyUnitsInRadius`는 QuakeSpirit 재사용 위해 static 헬퍼 분리. 규칙 38. |
-| 직접 10 + DoT 역할 분담 | ✅ 완료 (2026-07-19) | 직접 10=기존 `ExecuteAttack` 주 타깃 단일 피해(`ApplyDamageToVictim`, 건물 공성 포함), DoT AoE=특수 핸들러(적 유닛만). 주 타깃 유닛=직접+DoT, 반경 내 다른 적 유닛=DoT만, 주 타깃 건물=직접만(주변 유닛엔 DoT), 아군 무피해. 규칙 39. |
-| DoT 초 단위 틱 모드 (규칙 34 확장) | ✅ 완료 (2026-07-19) | `ActiveTimedEffect.TickInterval` 분기(0=연속 HoT/양수=discrete DoT). `ApplyDamageOverTime`: 틱 간격 1.0s, 틱당 올림(`CeilToInt(perSecond×interval)`, 최소 1), 총량 클램프(`RoundToInt(perSecond×duration)`=6). 매초 `OnEntityDamaged` 발행→남은 체력 데미지 텍스트(힐과 반대로 억제 안 함). 서버 권위·이중 틱 금지. 규칙 40. |
-| 튜닝 SO + 스탯·데이터 배선 | ✅ 완료 (2026-07-19) | `SpecialAttackConfig`에 `blastRadius`(1.0=인접 1칸)/`blastDotPerSecond`(2)/`blastDotDuration`(3) 추가, GameBootstrapper가 float 주입(미연결 시 폴백). UnitStatsConfig(26): HP40/공격력10/사거리2.0/감지2.0/이동1/쿨다운3.0/생산15·200골드·인구1. 클립 `OnAttackHit` 주입(규칙 27, 1개). VFX(투사체·폭발)는 사용자 별도 제작. |
-| 식물 라인 생산 배선 (에디터 스크립트) | ✅ 완료 (2026-07-19) | UnitFactory `_transcendencePrefabs`에 type 26 등록 + `ProductionPanelUI._buildingUnitMappings` 식물 라인 배선: SporePatch(1단계)=MushroomBomber, FloralNursery(2단계)=BloomFairy(BloomFairy 생산 노출도 이때 완성). 멱등 에디터 스크립트. |
-| QA / 실기 테스트 | ✅ QA PASS · 실기 완료 (2026-07-19) | qa-tester PASS + 사용자 실기 테스트 완료. task: `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-7).
 
 #### InfernoSpirit(지옥불 정령) 단일 대상 DoT (2026-07-20) — 특수 유닛 5종 중 5번째
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 단일 대상 DoT 특수 핸들러 (InfernoAttackBehavior) | ✅ 완료 (2026-07-20) | `Application/Combat/InfernoAttackBehavior.cs` 신설(`ISpecialAttackBehavior`, `ReplacesPrimaryAttack=false`) + 레지스트리 `InfernoSpirit → InfernoAttackBehavior` 1줄. 반경 수집 없이 **주 타깃 1마리만** 판정(AoE 아님) — 유닛으로 캐스팅 성공(적 유닛)·`IsAlive`·팀 필터 통과 시 DoT 부여, 건물이면 무동작. 규칙 41. |
-| 직접 25 + DoT 역할 분담 | ✅ 완료 (2026-07-20) | 직접 25=기존 `ExecuteAttack` 주 타깃 단일 피해(`ApplyDamageToVictim`, 공격력 25, 건물 공성 포함), DoT=특수 핸들러(주 타깃 적 유닛만). 주 타깃 유닛=직접+DoT, 주 타깃 건물=직접만, 아군 무피해, 직접 25로 주 타깃 사망 시 DoT 스킵. 규칙 41. |
-| DoT 초 단위 틱 재사용 (규칙 40) | ✅ 완료 (2026-07-20) | 규칙 40 초 단위 discrete 틱 시스템을 단일 대상으로 재사용 — 5/초×3초(총 15), 1초 간격·틱당 올림(`CeilToInt`)·총량 15 클램프·매초 남은 체력 데미지 텍스트·서버 권위·이중 틱 금지·갱신=리셋. 틱 간격은 MushroomBomber와 동일 `BlastDotTickInterval`(1.0s). 규칙 41. |
-| 유닛별 DoT 값 분리 (MushroomBomber 회귀 방지) | ✅ 완료 (2026-07-20) | InfernoSpirit(5/3)은 MushroomBomber(2/3)와 별도 필드·델리게이트·진입점으로 분리: `SpecialAttackContext.ApplyInfernoDot` → `UnitCombatUseCase.ApplyInfernoDot`(`_infernoDot*` 필드). MushroomBomber `ApplyBlastDot`(`_blastDot*`) 경로 무변경. `SpecialAttackConfig`에 `_infernoDotPerSecond`(5)/`_infernoDotDuration`(3) 추가, GameBootstrapper float 주입(미연결 시 폴백 5/3). 규칙 42. |
-| QA / 실기 테스트 | ✅ QA PASS · 실기 완료 (2026-07-20) | qa-tester PASS + 사용자 실기 테스트 완료. task: `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/`. |
-| 알려진 이슈(보류) — 공격 방향(facing) 버그 | ⏸️ 보류 (2026-07-20) | 멀티플레이 원거리 공격 시 유닛이 타겟을 정확히 안 바라봄. 진단상 InfernoSpirit 에셋은 정상 유닛(FlameSpirit)과 동일 → 멀티 원거리 facing 공유(서버 회전+NetworkTransform) 로직 문제로 추정(근접 유닛은 미노출). 사용자 결정으로 이번 미수정·보류(DoT만 구현). 상세: task Plan.md `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/`. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-8).
 
 #### QuakeSpirit(대지의 정령) 착탄형 즉발 AoE (2026-07-20) — 특수 유닛 5종 전량 완료
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 착탄형 즉발 특수 핸들러 (QuakeAttackBehavior) | ✅ 완료 (2026-07-20) | `Application/Combat/QuakeAttackBehavior.cs` 신설(`ISpecialAttackBehavior`, `ReplacesPrimaryAttack=false`) + 레지스트리 `QuakeSpirit → QuakeAttackBehavior` 1줄. 착탄 중심(주 타깃 위치) 기준 **월드 좌표 원형 반경**(XZ, arc 없음 — 규칙 38 판정 재사용) 내 대상에 **즉발**(DoT 아님) 스플래시. 규칙 43. |
-| 직접 100% + 스플래시 50% 역할 분담 (건물 포함) | ✅ 완료 (2026-07-20) | 직접 100%(공격력 20)=기존 `ExecuteAttack` 주 타깃 단일 피해(`ApplyDamageToVictim`, 건물이면 100% 공성), 스플래시 50%=특수 핸들러(올림 `CeilToInt(20×0.5)`=10, **주 타깃 제외**). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 적 유닛뿐 아니라 적 건물도 포함**. 아군 무피해. 규칙 43. |
-| 원형 반경 헬퍼 공용화 + 건물 순회 + hit-set 분리 | ✅ 완료 (2026-07-20) | 규칙 38의 유닛 수집 헬퍼 `CollectEnemyUnitsInRadius`를 `internal static`으로 **공용화**해 재사용(MushroomBomber "유닛만" 로직 무변경 — 회귀 없음) + 건물용 `CollectEnemyBuildingsInRadius` **신설**. 유닛 Id/건물 Id 카운터 충돌 방지 위해 **유닛/건물 hit-set 분리**(규칙 29 계승). 규칙 43. |
-| 튜닝 SO + 주입 | ✅ 완료 (2026-07-20) | `SpecialAttackConfig`에 `_quakeRadius`(1.0=인접 1칸)/`_quakeSplashRatio`(0.5) 추가, GameBootstrapper가 float 주입(미연결 시 폴백 1.0/0.5). 즉발 연출은 규칙 26(단일 타격 프레임 = 보류 큐 전부 방출)에 따라 폭발과 동시 표시. |
-| QA / 멀티플레이 실기 로그 검증 | ✅ QA PASS · 멀티 로그 검증 완료 (2026-07-20) | qa-tester PASS + **멀티플레이(Host/Client) 실기 로그로 100%=20·스플래시=10·건물 스플래시·주 타깃 제외·반경 이내·아군 무피해·서버↔클라 동기화 전부 정상 확인**. 로그: `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`. task: `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`. |
-| 타격 타이밍 후속 교정 | ⚠️ 자동·focused 멀티 로그 CONDITIONAL PASS / 사용자 육안 대기 (2026-09-14) | 2026-07-20 당시 `OnAttackHit` 미주입 + `hitFrameTimes` 1.0초 placeholder 문제는 과거 기록이다. 현재 marker/config 1.667초와 production 연결·Unity gate를 통과했고, Android Client가 참여한 focused 경기에서 결과 770/770·필수 표현 909/909·직접 200/스플래시 100·공간/이동/ROOT 오류 0을 확인했다. 정확한 화면 타격 프레임과 제외 대상·육안 회귀 전에는 Task를 닫지 않는다. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-9).
 
 #### 코드 정리 3건 — 죽은 코드 제거 / Animator 상태 의존 제거 / Firebase 게이트 제거 (2026-07-13)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `UnitView.StopMovement()` 죽은 코드 삭제 | ✅ 완료 (2026-07-13) | 호출 0건(코드베이스 Grep 전수 확인)인 미사용 메서드 삭제. 함께 있던 주석이 이미 제거된 `OnUnitWalkStopped` 이벤트를 언급하던 문서 불일치도 해소. 순수 삭제로 런타임 동작 불변. 커밋 `8840798`(main). |
-| 전투 종료 후 Walk 재개 Animator 상태 의존 제거 (리팩토링) | ✅ 완료 (2026-07-13) | 전투 종료 후 Walk 재개 3곳(`EnterCombatLoopV3` 멀티 서버 분기/싱글 분기, `ResumeFromForwardTileV3`)이 `Animator.GetCurrentAnimatorStateInfo`로 "이미 Walk인지"를 판별하던 것 → CrossFade 블렌딩 도중 출발 상태 반환으로 판별이 어긋날 수 있는 잠재 취약점(프로젝트 자체 원칙 "Animator 런타임 상태 의존 제거", 규칙 U-18·U-22와 동일 방향). **해결**: 신규 필드 `_currentAnimStateHash`(마지막 지시한 상태 해시 로컬 추적, 초기값 0) + 공통 헬퍼 `ResumeWalkAnimation()`. CrossFade 4곳(MoveAlongPathV3 Walk 시작 / StartWalkAnimation / PlayAttackAnimation / StartCombatAnimation)에서 필드 갱신, 위반 3곳을 헬퍼 호출로 대체, Animator 런타임 상태 질의 제거. 실행 컨텍스트가 서버/호스트/싱글 한정이라 클라 애니메이션(규칙 U-22 값 기반 경로) 무영향. 겉보기 동작 불변. 비활성화(주석 처리)했던 기존 블록은 실기 통과 후 최종 삭제 완료. 커밋 `97adaad`+후속. task: `_Tasks/2026-07-13/09_28_anim-resume-state-tracking/`. |
-| Firebase 인증 게이트 제거 (로그인 무조건 실패 버그 수정) | ✅ 완료 (2026-07-13) | main 커밋 `528c7c6`이 도입한 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 게이트가 심볼 미정의 환경에서 스텁 `FirebaseAuthService`를 컴파일시켜 로그인이 무조건 실패하던 문제. Firebase Unity SDK는 `.gitignore` 정책상 git 미포함(용량 대형 — 각자 로컬 임포트)이므로, 게이트를 제거해 실제 Firebase 코드가 무조건 컴파일되도록 복원(검증된 `combat-system-visuals` 브랜치 상태와 동일). 파일: `FirebaseAuthService.cs`(게이트+스텁 제거), `LoginBootstrapper.cs`(GPGS 가드 2곳), `Assets/Plugins/Android/mainTemplate.gradle`(firebase-auth 24.1.0 / firebase-app-unity 13.11.0 / gpgs-plugin-support 2.1.0 등 Android 의존성 복원). 사용자가 Firebase Unity SDK 13.11.0 + GooglePlayGames v2.1.0 로컬 임포트 후 컴파일/테스트 통과. 커밋 `4fe1cf0`(main). **잔여(별도 이슈)**: 에디터 "Firebase 초기화 실패" 런타임 로그(코드 게이트와 무관), Firebase/EDM 저장소 버전 관리 방침 정리(ROADMAP Phase F-5). |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-10).
 
 #### 플랫폼 / 빌드 최적화 (2026-07-15)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Android AAB 용량 최적화 | ✅ 완료 (2026-07-15) | `codex/asset-size-optimization` 작업 main 병합. AAB 용량 **190.66 MB → 125.30 MB**(65.36 MB 절감). 핵심 변경: `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**` Android max texture size `1024 → 512`. `_Old` 미사용 에셋 7개 디렉터리 정리, 93개 normal-map PNG + 84개 roughness PNG 정리, 보수적 FBX import 조정 적용. TMP Font Atlas 축소 테스트는 AAB 효과가 작아 되돌림. 상세: `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`(**현재 없음** — 2026-08-25 확인), `UnusedAssetAudit.md`. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-11).
 
 #### 팀별 피아식별 + 신규 유닛 에셋 (2026-03-13)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 건물 Blue/Red 프리팹 (Castle, Barracks) | ✅ 완료 (2026-03-14) | BuildingFactory 팀별 분기 |
-| 유닛 Pistoleer Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기 |
-| 유닛 Assault(돌격소총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
-| 유닛 Sniper(저격총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
-| 초상화 스프라이트 Blue/Red (전 유닛) | ✅ 완료 | UI용 |
-| 반응형 팝업 UI (ProductionPopup/BuildingPopup) | ✅ 완료 | 앵커 기반 배치, ResponsivePopupUISetup.cs |
-| 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-30) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 및 생산 타입 바인딩 |
-| 잠금 유닛 Lock Icon 표시 (ProductionPopup) | ✅ 완료 (2026-05-31) | 초상화 디밍(35% 밝기) + 우측 하단 자물쇠 아이콘 배지. 업그레이드 후 잠금 해제 확인 |
-| 건물 업그레이드 생산 상태 처리 오류 수정 | ✅ 완료 (2026-05-31) | 업그레이드 시 생산 중 골드 환불 누락 + 랠리포인트 초기화 2건 수정. ProductionTicker.cs 1개 수정 |
-| 방어 타워(AutoTower) 공격 기능 | ✅ 완료 (2026-06-01) | TowerCombatUseCase 신규. 종족별 쿨다운(Human 5s/Spirit 3.5s/Trans 5s), 사거리 4.0 타일, 서버 권위. |
-| Human CannonTower 초기 방향 | ✅ 완료 (2026-06-02) | BuildingFactory.GetInitialRotation() — 상대 포탑 Y180도, 내 포탑 기본값. |
-| UnitStatsConfig 미사용 필드 제거 + 스탯 정비 | ✅ 완료 (2026-06-02) | AttackKind/occupancySize 제거. 유닛 9종 쿨다운/hitFrameTimes 문서 기준 입력. |
-| BuildingView Missing Script 정리 | ✅ 완료 (2026-06-05) | Spirit/Transcendence 건물 프리팹 8개에서 삭제된 BuildingView 참조 제거. Editor 스크립트 1회 실행. |
-| 자동생산 재등록 슬롯 버그 수정 | ✅ 완료 (2026-06-05) | CurrentIsAuto 파생 getter 구조로 개선. UnitProductionUseCase reset 2곳 제거. |
-| 신규 유닛 프리팹 컴포넌트 부착 (32개) | 🔧 스크립트 완료 (2026-06-05) / 실기 테스트 예정 | Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`(**1회성 — 실행 후 삭제됨**). 후속: Animation Event·UnitFactory 등록·스탯 추가 별도 필요. |
-| NetworkGameManager 고아 필드 + Game씬 NGM 제거 | ✅ 완료 (2026-06-06) | GameBootstrapper 미사용 _networkGameManager 필드 제거. Game.unity 중복 NGM 제거. 싱글+멀티 실기 확인. |
-| 멀티플레이 유닛 사망 GO 미파괴 + 이펙트 미재생 버그 수정 | ✅ 완료 (2026-06-08) | 근본 원인: 서버 UnitView의 Destroy(gameObject)가 NGO 클라이언트 전파 불보장. 수정: NetworkCombatController(Infrastructure)에서 EntityDiedClientRpc 발행 후 NetworkObject.Despawn(destroy:true) 명시 호출. UnitView에서 Unity.Netcode 직접 참조 완전 제거(레이어 규칙 준수). 런타임 로그 13킬 전체 이펙트 재생 확인. |
-| 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
-| 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
-| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) + 실기 버그 3종 수정 (2026-07-08) / 로비 볼륨 패널은 2026-07-09 구현 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. 로비 볼륨 패널은 이후 구현됨(2026-07-09 — 아래 「인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결」, 실기 PASS 2026-07-10) *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시: 「로비 볼륨 패널 미구현(별도 작업)」)*. |
-| 사운드 시스템 실기 버그 3종 수정 | ✅ 완료 (2026-07-08) | **BUG-1** BGM 씬 전환 시 소리 겹침: `AudioManager.StartCrossfade()`에서 `StopCoroutine` 직후 페이드아웃 중이던 stale AudioSource를 즉시 `Stop()`(volume 0/clip null)하도록 수정. GameSystemRules_Sound 규칙 8에 요건 명문화. **BUG-2** 볼륨 UI 규칙 위반: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`) 슬라이더 서브 요소 고정 픽셀값→앵커 비율(규칙 2), 전 TMP에 Maplestory **Bold** SDF 폰트 적용(규칙 6) + `EditorUtility.SetDirty()`로 씬 저장 반영, 라벨/여백/BackButton lavender 스프라이트/패딩 개선(레이아웃 미세 조정은 사용자 직접). **BUG-3** SFX 볼륨 슬라이더 미작동: Exposed Parameter 이름 3종 정상 확인(불일치 아님), `ApplyVolume()`에 `SetFloat` 실패 감지 디버그 로깅 추가. 브랜치 `claude/sound-system-review-itwt0t`. task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/` |
-| 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
-| LoadingIndicator 최소 표시 시간 보장 | ✅ 완료 (2026-06-22) | `UIManager.ShowLoading(false)` 호출 시 최소 1초 미만이면 코루틴으로 지연(`WaitForSecondsRealtime`). `_loadingMinDuration` SerializeField(기본 1f). 모든 호출부 자동 적용. |
-| LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |
-| ConfirmPopup + NetworkErrorPopup 씬 버그 수정 | ✅ 완료 (2026-06-22) | ① ConfirmPopup: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup이 alpha=0/interactable=0으로 강제된 버그 Inspector 수정. ② NetworkErrorPopup: ConfirmPopup 컴포넌트가 남아있던 것 교체, `_panel` 슬롯 연결, LoginRootView + LoginBootstrapper `_networkErrorPopup` 슬롯 연결. |
-| 로그인 팝업 CloseButton 무반응 버그 수정 | ✅ 완료 (2026-06-23) | AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성(Active) 상태로 존재했으나 코드 필드 누락으로 리스너 미등록 → 클릭 무반응. AnonymousWarningPopup은 `SetInteractable()`에 `_closeButton` 포함(로그인 진행 중 취소 방지). |
-| 스플래시 화면 로그인 흐름 개선 (skipFade 모드) | ✅ 완료 (2026-06-23) | 로그인된 상태 재실행 시 스플래시 FadeOut으로 로그인 씬 배경이 노출되던 문제 해결. `SplashOverlayView._skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기: true이면 FadeOut 없이 즉시 콜백 호출. `LoginBootstrapper` 자동 로그인 성공 분기에서 `SetTapCallback(GoToNextScene, skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()` 적용. 로딩 인디케이터(SO=300)가 즉시 화면 커버. 로그인 X 흐름 변화 없음. |
-| 코드 정리(클린업) Phase 1 — 히스토리성 주석 및 폐기 코드 제거 | ✅ 완료 (2026-06-23) | 약 30개 파일에서 `[2026-XX-XX]`/`[Phase X]` 형식 이력 라벨 제거, 구방식→현재방식 전환 설명 주석 제거. 폐기 코드 블록 제거: `GameBootstrapper.cs`의 `_enableAI` 블록(주석 처리 코드+메모)·`_confirmPopup` 전환 설명 블록. `NetworkGameFlow.cs` 빈 섹션 헤더 제거. `GameBootstrapper.Setup.cs` 중복 RaceId 배열 → 지역 변수 1개 통합(동작 동일). 런타임 동작 변경 없음(순수 주석/폐기코드 정리). 브랜치 `claude/code-refactor-cleanup-jsa24o`. task: `_Tasks/2026-06-23/00_00_코드정리-클린업/` |
-| 코드 구조 개선 Phase 2 — switch→Dictionary lookup table + HexMetrics 중복 제거 | ✅ 완료 (2026-06-25) | 동작 보존 리팩토링(SINGLE 7 + MULTI 2 전 항목 PASS). ① `BuildingTypeHelper.cs`: IsProductionBuilding/GetStage/GetNextStage 3개 switch → 단일 `Dictionary<BuildingType, BuildingMeta>` lookup table. `BuildingMeta` struct(IsProduction/Stage/NextStage). 신규 생산건물 추가 시 table 한 줄 추가로 끝(세 메서드 자동 정합). CanUpgrade/CanShowActionPanel 무수정 자동 반영. PrimalSanctuary는 기존 switch에도 포함돼 있던 항목으로 동작 보존(`(true,3)` 명시). ② `GameBootstrapper.Network.cs`: StartNetworkGame HexMetrics 수동 4줄 → `ApplyConfig(FlatTop, oc)` 1줄. ApplyConfig 멱등(멀티서 2회 실행 무해), UnitYOffset 누락 부분중복 해소. 기존 switch/수동4줄은 주석 보존(별도 지시 시 삭제). 브랜치 `claude/code-refactor-phase2-structural`(3838c4d). task: `_Tasks/2026-06-23/15_37_구조개선-Phase2/` |
-| GameBootstrapper.Setup.cs 하드코딩 배열 파생 | ✅ 완료 (2026-06-25) | 환불 캐시 초기화(`InitializeBuildingStatsFromConfig`)에서 손으로 나열하던 건물 목록 배열 2개를 `BuildingTypeHelper` 공개 API 파생으로 교체. ① `stage1Buildings`(1단계 생산건물 9개 하드코딩) → `Array.FindAll((BuildingType[])Enum.GetValues(typeof(BuildingType)), t => BuildingTypeHelper.GetStage(t) == 1)`. ② `nonProductionBuildings`(비생산 건물 6개, Castle 제외 하드코딩) → `Array.FindAll(..., t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle)`. Setup.cs에 `using System;` 추가. 환불 캐시 foreach 루프는 변수명·타입(`BuildingType[]`) 동일 유지로 무변경. Phase 2 lookup table 통합의 연장선 — **신규 생산건물 추가 시 `BuildingTypeHelper._buildingTable` 한 줄 추가만으로 환불 캐시 목록까지 자동 반영**(Setup.cs 무수정). 안 2(도메인 레이어 무변경) 선택, 곧바로 교체(파생 목록이 기존 배열과 값 동치·환불 계산 순서 무관임을 Research에서 검증). 동작/환불 값 불변. 사용자 실기 PASS(생산/비생산 건물 철거 환불 금액 정상). 커밋 `8d74e06`(main). task: `_Tasks/2026-06-25/07_23_하드코딩배열-파생/` |
-| IUnitFactory 인터페이스 도입 (Bootstrap 의존성 제거 리팩토링) | ✅ 완료 (2026-06-26) | Application → Infrastructure 역방향 의존 제거. `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. 신규 파일 `Assets/_Project/Scripts/Application/Interfaces/IUnitFactory.cs` — `GetUnitObject(int)`/`RegisterUnitObject(int, GameObject)`/`InitializeUnitView(UnitData)` 3개 멤버. `UnitFactory.cs`(Infrastructure)에 `IUnitFactory` 구현 추가. 호출부 `GameBootstrapper.cs`/`NetworkProductionController.cs`/`NetworkCombatController.cs`/`NetworkUnitMovementController.cs`/`NetworkUnit.cs`가 `IUnitFactory` 타입으로 수신하도록 업데이트. 기존 `IEntityPositionProvider`/`IForfeitService`와 동일한 의존성 역전 패턴. 동작 변경 없음. 싱글/멀티 실기 PASS(사용자 확인). 브랜치 `claude/code-refactor-cleanup-jsa24o`. |
-| 방 만들기 취소 후 텍스트 잔류 버그 수정 | ✅ 완료 (2026-06-26) | 커스텀 게임 방 만들기 취소 후 CustomHostPanel 재진입 시 이전 LobbyCode/ConnectedPlayers/ErrorMessage 값이 잔류하던 문제. `BattleViewModel.CancelHosting()`에 세 값 초기화 3줄 추가(`LobbyCode.Value=""`, `ConnectedPlayers.Value=0`, `ErrorMessage.Value=""`). main 머지 완료. |
-| ConfirmPopup z-order 버그 수정 (Canvas SO=250) | ✅ 완료 (2026-06-22) | InGameSettings Panel(SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가. Canvas SortingOrder 전체 구조 확정: SO=0/100/200/250/300. GameSystemRules_CanvasSortingOrder.md 작성. |
-| BlockingOverlay 씬 전환 후 미표시 버그 수정 | ✅ 완료 (2026-06-22) | 근본 원인: UIManager가 Login.unity에서 `[UI Systems]` 자식으로 배치되어 DontDestroyOnLoad가 동작하지 않음(Unity 제약: DontDestroyOnLoad는 루트 GO에만 적용). Game 씬 전환 후 UIManager가 파괴되어 `UIManager.Instance=null`. 수정: Login.unity에서 UIManager GO를 계층 루트로 이동(Inspector). Canvas SortingOrder 확정 구조: SO=0(HUD) / SO=100(UIManager BlockingOverlay) / SO=200(패널 Canvas Override) / SO=300(LoadingIndicator). 파일 기반 RuntimeLog(RuntimeLogWriter.cs [DEBUG-TEMP]) 로 흐름 추적 후 원인 확인 → 디버깅 완료 후 로그 코드 제거. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-12).
 
 #### 싱글플레이 AI 시스템 (2026-06-07)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| LocalPlayerDifficulty.cs (정적 홀더) | ✅ 완료 | `Infrastructure/` — DifficultyLevel enum(Easy/Normal/Hard), LocalPlayerRace 패턴 동일 |
-| AIConfig.cs ScriptableObject | ✅ 완료 | `Infrastructure/Config/` — DifficultyParams(goldIncomeMultiplier/productionTimeMultiplier/decisionInterval 외 6개) × Easy/Normal/Hard |
-| AIScenarioConfig.cs ScriptableObject | ✅ 완료 | `Infrastructure/Config/` — BuildOrderStep(ActionType/BuildingType/UnitType/targetBuildingLine/delay 3종) 플랫 리스트 구조 |
-| AIConfigSetup.cs Editor 스크립트 | ✅ 완료 (**1회성 — 실행 후 삭제됨**) | `Assets/Editor/` — 메뉴 `Hexiege/Setup/AIConfig 생성` + `AIScenarioConfig_Human_A/B/C 생성` |
-| UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
-| ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
-| AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
-| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). 구 GameBootstrapper._enableAI 주석 처리 블록은 코드 정리 Phase 1(2026-06-23)에서 제거됨 |
-| GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드 → enableAI=false면 조기 반환 → 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
-| GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 `if (!NetworkContext.IsNetworkActive) InitializeAI();` (enableAI 체크는 InitializeAI() 내부) |
-| BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |
-| DifficultySelectView.cs 신규 + UI 구조 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움/뒤로 버튼 + CanvasGroup 패턴(Rule 5). BattlePanel 상단 절반 배치. VLG Padding 60/60, Spacing 20, preferredHeight=100 (BattleMainPanel 동일 구조) |
-| BattleRootView — DifficultySelectView 바인딩 | ✅ 완료 | `BattleRootView.cs` — _difficultySelectView 필드 + Bind/Unbind 포함 |
-| LogRules.md 작성 | ✅ 완료 (2026-06-20) | 런타임 로그 파일 규칙 문서. 파일 위치/명명, 형식, 레벨 3단계([INFO]/[WARN]/[ERROR]), 카테고리([System/Class]), 금지사항 확정. |
-| AI 시나리오 문서 (전 종족) | ✅ 완료 (2026-06-10) | Human 3개 + Spirit 3개 + Transcendence 3개 — 총 9개 빌드오더 시나리오. 골드 수지 검토 완료. |
-| AI 시나리오 ScriptableObject 3종족 개편 | ✅ 완료 (2026-06-10) | Human/Spirit/Transcendence 각 1파일 × 3시나리오. DifficultyLevel·BuildOrderStep Domain 레이어 분리. |
-| Inspector 작업 | ✅ 완료 (2026-07-16) | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → Spirit/Transcendence 시나리오 에셋 생성 → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 실행 완료. AIConfig 에셋, AIScenarioConfig 3종족 에셋, DifficultySelectView 레이아웃 배치 모두 반영됨(실기 테스트가 진행된 사실로 확인). |
-| 실기 테스트 | 🔵 조건부 완료 (2026-07-16) | 핵심 흐름(유닛 생산, 건물 업그레이드 등)을 반복 실기로 확인 — PASS, 특별한 문제 미발견. 단, 세부 정밀 검증은 미완: 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴)의 트리거·동작, 3종족(Human/Spirit/Transcendence) 시나리오 무작위 선택 동작은 아직 정밀 확인하지 않음. 후속으로 정밀 검증 필요. |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-13).
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
-| 항목 | 상태 |
-|------|------|
-| XY→XZ 좌표계 전환 | ✅ 완료 |
-| Orthographic 55도 틸트 카메라 | ✅ 완료 |
-| 카메라 이동 경계(ClampPosition) 줌 연동 | ✅ 완료 |
-| 2D Sprite → 3D Mesh 렌더링 | ✅ 완료 |
-| sortingOrder 폐기 → Z-buffer | ✅ 완료 |
-| Animator (IsDead/Walk/Attack) | ✅ 완료 |
-| 헥스 타일 3D (ProBuilder + Shader Graph) | ✅ 완료 |
-| 유닛 3D 모델 (Pistoleer, Meshy.ai) | ✅ 완료 |
-| 건물 3D 모델 (Castle/Barracks/MiningPost) | ✅ 완료 |
-| 금광 타일 3D 오브젝트 (GoldMineTile) | ✅ 완료 |
-| 랠리포인트 마커 3D | ✅ 완료 |
-| HexTileView 팀 색상 (_BaseColor, Shader Graph) | ✅ 완료 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-14).
 
 #### Game UI Lifecycle Framework (2026-03-24)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `IGameUI.cs` 인터페이스 | ✅ 완료 | OnGameStarted/OnGameEnded/OnGamePaused/OnGameResumed, default 빈 구현 |
-| `GameUIManager.cs` 매니저 | ✅ 완료 | Register/Initialize, CompositeDisposable 중복 구독 방지, GameEndUI 제외 로직 |
-| GameEvents — OnGameStarted/Paused/Resumed 추가 | ✅ 완료 | Subject<Unit> 3개 추가 |
-| 기존 UI 4종 IGameUI 구현 | ✅ 완료 | GameHudUI/ProductionPanelUI/BuildingPlacementUI/GameEndUI |
-| 멀티플레이 클라이언트 팝업 미닫힘 버그 수정 | ✅ 완료 | NetworkGameEndController.AnnounceWinnerClientRpc에서 NotifyGameEnded() 직접 호출 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-15).
 
 #### UI DOTween 애니메이션 프레임워크 (2026-03-19)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `UIAnimator.cs` — static 헬퍼 | ✅ 완료 | PopupShow/Hide, SlideFromBottom/Top, ButtonPunch, CountTo, FlashText, FillTo |
-| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(CanvasGroup — Show 시 alpha=1/blocksRaycasts/interactable=true, Hide 시 alpha=0/false/false 즉시 전환) |
-| `AnimatedPanelSetup.cs` — Inspector 자동화 에디터 스크립트 | ✅ 완료 | `Hexiege/Setup/Apply AnimatedPanel Setup` 메뉴 |
-| GameEndPanel → SlideFromTop | ✅ 완료 | 위에서 아래로 슬라이드 인 |
-| ProductionPopup → SlideFromBottom | ✅ 완료 | 하단 슬라이드 업 |
-| BuildingPopup → SlideFromBottom | ✅ 완료 | 기존 PopupFade → 변경 (ProductionPanelUI와 일관성 통일) |
-| RematchRequestPopup DOFade 수정 | ✅ 완료 | _currentFade 공유 → 3개 별도 Tween / blocksRaycasts 해제 버그 수정 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-16).
 
 #### 전역 로딩 스크린 (2026-03-17)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| LoadingScreen.cs (싱글턴, DontDestroyOnLoad) | ✅ 완료 | `Presentation/UI/Common/` |
-| Lobby 씬 UI 배치 (Canvas SO:100, Background/Spinner/StatusText) | ✅ 완료 | MCP로 생성 |
-| 싱글플레이 씬 전환 2초 딜레이 | ✅ 완료 | `LoadSingleplayScene()` async void |
-| 커스텀 호스트/참가 씬 전환 시 로딩 스크린 | ✅ 완료 | `LoadGameScene()` 직전 Show() |
-| 랜덤 매칭 완료 시 로딩 스크린 | ✅ 완료 | `onMatchFound` 콜백 |
-| sceneLoaded 이벤트 자동 Hide() | ✅ 완료 | NGO 씬 전환에도 정상 발동 확인 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-17).
 
 #### 커스텀게임 재경기 시스템 (2026-03-17)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `NetworkGameManager.IsRandomMatchmaking` 속성 추가 | ✅ 완료 | 게임 모드 판별용 |
-| `NetworkGameEndController` 재경기 RPC 시스템 | ✅ 완료 | Request/Accept/Decline ServerRpc + Notify ClientRpc(targeted) |
-| `GameEndUI.SetupRematchButton()` / `RestoreRematchButton()` | ✅ 완료 | 모드별 버튼 분기, 요청 중 상태 관리 |
-| `RematchRequestPopup.cs` 신규 생성 | ✅ 완료 | `Presentation/UI/Common/` — 수락/거절/거절알림 팝업 |
-| `RematchPopupBuilder.cs` 에디터 스크립트 | ✅ 완료 | `Hexiege/UI/Build Rematch Popup` 메뉴 |
-| 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
-| 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
-| 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-18).
 
 #### Google 로그인 실기 디버깅 (2026-06-27~28)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Google 로그인 즉시 Canceled 버그 수정 | ✅ 완료 (2026-06-27~28) | 실기 기기에서 구글 로그인 시 계정 선택 UI 미표시 + 즉시 `signInStatus=Canceled` 반환 문제. 3가지 원인을 순차 해결하여 로그인 성공(`UID=xdmWpVNyyvaBe0cB878mSg0URm83`, IsLoggedIn=True, IsAnonymous=False). task: `_Tasks/2026-06-27/12_26_google-login-debug/` |
-| [문제 1] `Authenticate()` → `ManuallyAuthenticate()` 코드 수정 | ✅ 완료 | `FirebaseAuthService.cs`. `Authenticate()`는 `isAuthenticated()`만 호출하여 기존 세션 없으면 무조건 Canceled 반환 → `ManuallyAuthenticate()`(`signIn()` 호출)로 변경해야 계정 선택 UI 표시. GPGS Plugin 2.1.0 기준. |
-| [문제 2] google-services.json SHA-1 보강 | ✅ 완료 | Firebase Console에 SHA-1 1개(릴리즈)만 등록돼 있던 것을 디버그 + Play App Signing 추가하여 3개로 업데이트. `Assets/google-services.json` 재다운로드. |
-| [문제 3] 실제 빌드 키스토어 SHA-1 미등록 (근본 원인) | ✅ 완료 | logcat `PlayGamesServices[SignInAuthenticator]`에서 실제 APK 서명 SHA-1(`18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D`) 확인 → 등록된 3개 어느 것과도 불일치(`hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일). Firebase Console + Play Console GPGS 사용자 인증 정보에 실제 SHA-1 추가 등록·게시 + Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret 입력). |
-| GPGS Server Auth Code 발급 정상화 | ✅ 완료 | SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → SHA-1 정합 후 `length=73` 정상 발급. |
-| UGS OIDC 브릿지 실패 (`id provider not found`) | ❌ 미해결 (별도 이슈) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard OIDC 제공자 미등록으로 실패 → UGS PlayerId 미발급, 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-19).
 
 #### 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (2026-07-09, 실기 PASS)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| AudioManager 음소거 기능 신규 | ✅ 완료 (2026-07-09) | `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. 뮤트는 **Master 채널만 -80dB(`MutedDb`)** 로 눌러 전체 무음(BGM/SFX 논리 볼륨값 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터하여 무음·볼륨변환이 SetFloat 진단 로깅 경로 공유. 슬라이더 조작 시 자동 언뮤트. PlayerPrefs 키 `"Muted"`(0/1) 영속화. `Initialize()`에서 저장된 뮤트 상태 로드·적용. |
-| VolumeControlBinder 신규 (공용 순수 C#) | ✅ 완료 (2026-07-09) | `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 공통 볼륨 UI 로직(슬라이더3 + On/Off/Reset/Back 버튼 + 색상) 캡슐화. `Bind(Refs)` 참조 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상(규칙26, `soundOnColor`/`soundMutedColor`). 프로그램 값 설정은 `SetValueWithoutNotify`로 자동 언뮤트 부작용 차단. |
-| UIColorConfig 색상 토큰 추가 | ✅ 완료 (2026-07-09) | `soundOnColor`(초록)/`soundMutedColor`(빨강) 추가. **별개 정리**: 미사용 `confirmButtonColor`/`cancelButtonColor` 죽은 코드 제거(ConfirmPopup이 이미지 에셋 기반으로 전환됨) → `ConfirmPopup.cs`의 `Awake()`/`_colorConfig` 필드도 제거. |
-| InGameSettingsUI 프로필 버튼 + 볼륨 연동 | ✅ 완료 (2026-07-09) | 프로필 버튼 추가(사운드 버튼과 동일 CanvasGroup 열기/닫기, 규칙6, 내부 콘텐츠는 범위 밖 빈 토글). VolumeControlBinder 연동. **버그 수정**: `Hide()`가 서브패널 복원 부수효과 없이 현재 화면 그대로 페이드아웃(닫힘 시 메인 화면 깜빡임 해소), `Show()`/`Initialize()`는 `ResetToMainView()`로 통합. |
-| LobbySettingsView Setting 전용 정리 | ✅ 완료 (2026-07-09) | Profile 관련 필드/로직 제거(비활성화 후 삭제), VolumeControlBinder 연동. 스크립트 컴포넌트를 자식 오브젝트 → `SettingPanel` 패널 루트로 이동(탭 패널 컨벤션 통일). |
-| 로비 설정 탭 배선 완성 (버그 수정) | ✅ 완료 (2026-07-09) | 증상: 로비 하단 탭바가 "설정" 탭을 인식 못 함(클릭 무반응 + 항상 선택된 것처럼 표시). 원인: `LobbyViewModel.LobbyTab` enum에 `Setting` 부재, `TabBarView`/`LobbyRootView`에 설정 버튼·패널 참조 부재. 수정: enum에 `Setting` 추가(Profile↔Ranking 사이), 탭 버튼 바인딩·색상 갱신·패널 CanvasGroup 전환 완성. task: `_Tasks/2026-07-09/09_58_lobby-setting-tab-wiring/` |
-| On/Off 버튼 위치·크기 균등화 (버그 수정) | ✅ 완료 (2026-07-09) | 증상: 전체소리켜기/전체음소거 버튼이 VerticalLayoutGroup에서 서로 다른 슬롯·크기를 차지. 수정: `MuteToggleSlot` 래퍼로 재부모화(파괴/재생성 없이 `SetParent`)하여 완전히 겹침. 추가 발견된 높이 불균등(빈 슬롯 선호높이 0)은 `LayoutElement.preferredHeight=0f`/`flexibleHeight=1f` 비율 가중치 방식으로 최종 해결(고정 픽셀 금지, 공통 규칙 2 준수). Editor 스크립트 `FixMuteToggleOverlap_20260709.cs`. |
-| Editor 1회성 배선 스크립트 | ✅ 완료 (2026-07-09) | `SetupVolumeProfileUI_20260709.cs`(신규 Serialized 필드 자동 연결, LobbySettingsView 컴포넌트 이동, UIColorConfig 참조 연결, ProfileSubView 자동 생성). 사용자가 Unity에서 직접 실행하여 `Game.unity`/`Lobby.unity`에 반영. |
-| 규칙 문서 반영 | ✅ 완료 (2026-07-09) | `GameSystemRules_UI.md` 인게임 설정 메뉴 규칙6(인게임 프로필 버튼)·로비 ProfilePanel/SettingPanel 분리, `GameSystemRules_Sound.md` 규칙23~26(볼륨 버튼 구성/상호배타/리셋/색상) + 규칙26 음소거 내부 구현 확정 반영. |
-| 실기 테스트 | ✅ PASS (2026-07-10) | 인게임/로비 슬라이더+뮤트+초기화, 인게임 프로필 버튼 열기/닫기, 로비 프로필/설정 탭 분리·전환, 닫힘 화면 깜빡임 해소, On/Off 버튼 위치·크기 균등화 전부 확인. task: `_Tasks/2026-07-09/06_09_ingame-lobby-volume-profile-ui/` |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-20).
 
 #### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 게임포기 시 로딩 인디케이터 영구 잔존 버그 수정 | ✅ 완료 (2026-06-26) | 증상: 멀티플레이 게임포기(Forfeit) 시 로딩 인디케이터가 사라지지 않고 화면에 영구히 남음. 원인: `InGameSettingsUI.OnForfeitConfirmed()`에서 `UIManager.ShowLoading(true, "게임을 포기하는 중...")` 호출 후 씬 전환이 없어 `ShowLoading(false)`가 호출되지 않음(규칙 L-3의 해제 책임자는 씬 전환 후 Bootstrapper/RootView). 수정: 포기는 씬 전환 없이 GameEndUI만 표시하므로 ShowLoading 호출 자체를 제거. `GameSystemRules_UI.md` 규칙 L-2에서 "게임 포기(멀티)" 항목 제거 + "게임 포기(싱글/멀티 모두)는 씬 전환 없이 GameEndUI만 표시하므로 해당 없음" 명시. 수정 파일: `Presentation/UI/InGameSettingsUI.cs`, `GameSystemRules/GameSystemRules_UI.md`. 사용자 실기 PASS. 브랜치 `claude/game-quit-loading-indicator-0h3w0u`. task: `_Tasks/2026-06-26/02_16_forfeit-loading-indicator-stuck/` |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-21).
 
 #### 매치메이킹 404 수정 — 호스트 결정 Lobby CreateOrJoin 전환 (2026-07-17)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 매치메이킹 404(호스트 결정 단계) 수정 — A방식 | 🔵 초기 정상·지속 관찰 중 (2026-07-17) | 증상: 랜덤 매칭은 성사되나 직후 **호스트 결정 단계에서 HTTP 404** 발생 → 게임 연결 끊김. 원인: `MatchmakerManager.DetermineIsHostAsync` 내부 `GetMatchmakingResultsAsync`가 **전용 서버(Multiplay)용 서버 지향 API**인데 P2P(Relay) 클라이언트가 호출 → 조회 대상 리소스 없어 404(매칭 자체는 정상, 호스트 결정만 실패). 해결(A방식): 호스트 결정을 매치 결과 조회 → **Lobby CreateOrJoin 원자 선점**으로 전환. 모든 플레이어가 같은 `matchId`를 `lobbyId`로 `LobbyService.Instance.CreateOrJoinLobbyAsync(lobbyId, lobbyName, maxPlayers, options)`(com.unity.services.multiplayer@2.0.0) 호출 → 없으면 생성=호스트 / 있으면 참가=클라이언트. 서버 원자 처리로 정확히 한 명만 호스트 → race condition 원천 차단. 호스트/클라 판별은 기존 `LobbyManager.IsHost` 재사용. **수정 파일(3개, Infrastructure/Network)**: `LobbyManager.cs`[추가: `CreateOrJoinLobbyByMatchIdAsync`, `RefreshCurrentLobbyAsync`; `FindLobbyByMatchIdAsync` 미사용화·삭제 안 함], `MatchmakerManager.cs`[비활성화 주석: `DetermineIsHostAsync`/`GetStableHash`], `NetworkGameManager.cs`[추가: `StartMatchmadeGameAsync`/`HostMatchmadeGameAsync`/`JoinMatchmadeGameAsync`, `StartMatchmakingAsync` 분기 교체, 구 클라 참가 경로 `JoinByMatchIdAsync`/`JoinGameByIdAsync` 비활성화 주석]. 클라 참가 경로는 CreateOrJoin 한 곳으로 일원화, RelayJoinCode 채워짐만 대기(`RefreshCurrentLobbyAsync` 최대 15회 폴링). **상태**: 초기 매칭 실기에서 404 없이 정상 연결 확인. 단 **간헐(intermittent) 버그라 지속 테스트 중** — 확정 PASS 아님, 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제. 잔여 리스크: ① SDK 시그니처 에디터 컴파일 최종 확인 권장, ② "정확히 한 명만 호스트"·간헐 재현 지속 멀티 실기 검증, ③ 클라 RelayJoinCode 대기 15초 타임아웃. 브랜치 `claude/matchmaker-404-error-pi9qdn`, 커밋 `a3dbc73`. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/` |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-22).
 
 #### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 랜덤 매칭 2회차 "Cannot start Host" 버그 수정 | ✅ 완료 (2026-06-25) | 증상: 첫 게임 완료 → 로비 복귀 → 2번째 랜덤 매칭 시 NGO "Cannot start Host while an instance is already running" + 로딩 무한 대기. 원인: `GameEndUI._networkGameManager` Inspector 미연결(null) → ReturnToLobby에서 BackToLobby 미호출 → NetworkManager.Shutdown 없이 씬 전환 → 2번째 매칭 시 IsListening=True로 StartHost 재호출. 수정: `GameEndUI.Initialize()`에 `FindFirstObjectByType<NetworkGameManager>()` 자동 탐색 추가(LobbyUI 동일 패턴). 실기 PASS. task: `_Tasks/2026-06-25/...`(GameEndUI 수정) |
-| RuntimeLogger 유틸리티 생성 | ✅ 완료 (2026-06-25) | `Infrastructure/Debug/RuntimeLogger.cs` 신규. `BeginSession(folderPath, role)` / `Log(level, system, className, message, data)` / `EndSession()` API. `#if UNITY_EDITOR`에서 파일 기록, 항상 `Debug.Log` 출력(Logcat 대응). task: `_Tasks/2026-06-25/07_25_runtime-logger/`<br>**⚠️ [2026-08-17 시그니처 변경] 위 API 서술은 2026-06-25 시점 기록이다.** 현행은 **`BeginSession(folderPath, purpose)`** — `role` 인자가 빠지고 **목적 문자열**이 들어갔다(파일명이 `RuntimeLog.txt` 로 단일화되고 헤더 1줄째가 목적을 받게 되면서). 커밋 `4e027e68` · `LogRules.md` **1.4** / **1.10** / **1.11** 참조 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-23).
 
 #### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 버그 원인 파악 | ✅ 완료 | `_lobbySceneName` Inspector 값 "Game"으로 설정된 것이 근본 원인 |
-| "로비로" 버튼 독립 처리 | ✅ 완료 | RPC 제거 → 로컬 Shutdown+LoadScene |
-| 30초 자동 복귀 카운트다운 | ✅ 완료 | `WaitForSecondsRealtime` (timeScale=0 대응) |
-| 싱글/멀티 통합 `ReturnToLobby()` | ✅ 완료 | NetworkContext 분기 제거 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-24).
 
 #### 멀티플레이 (Phase 1~8)
-| Phase | 내용 | 상태 |
-|-------|------|------|
-| Phase 1 | Lobby/Relay/NGO 연결 인프라 | ✅ 완료 |
-| Phase 2 | 팀 할당 + 게임 시작 흐름 | ✅ 완료 |
-| Phase 3 | 타일/자원 동기화 (NetworkTileSync, NetworkResourceSync) | ✅ 완료 |
-| Phase 4 | 건물 배치 동기화 (NetworkBuildingController) | ✅ 완료 |
-| Phase 5 | 유닛 생산 동기화 (NetworkProductionController, 자동생산 포함) | ✅ 완료 |
-| Phase 6 | 유닛 이동 + 전투 동기화 (NetworkUnitMovementController, NetworkCombatController) | ✅ 완료 |
-| Phase 6+ | AI 이동(Siege/랠리) 서버 권위 동기화 (BroadcastServerMove) | ✅ 완료 (2026-03-07) |
-| Phase 6++ | 유닛 NGO NetworkObject 전환 (NetworkTransform 위치 동기화, 클라이언트 예측 제거) | ✅ 완료 (2026-03-26) |
-| Phase 6+++ | 이동 전 회전 선행 (Rotate-then-Move, _isPreRotating 플래그로 DOTween-LateUpdate 충돌 해소) | ✅ 완료 (2026-03-27) |
-| Phase 6++++ | 공격 타이밍 정밀화 (타격 프레임 데미지, 타겟 고정, 쿨다운 통일) | ✅ 완료 (2026-03-27) |
-| Phase 7 | 승패 판정 동기화 (NetworkGameEndController) | ✅ 완료 |
-| Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ⚠️ 부분 완료 (2026-09-22) |
 
-> **[🔴 2026-09-22 — 위 Phase 8 행의 「상태」 칸을 `✅ 완료` → `⚠️ 부분 완료` 로 갱신했다.]**
-> 한 칸이 **세 부품을 묶어 「완료」로 적고 있었는데 그중 둘은 완료가 아니다.** 부품별로 갈라 적는다.
->
-> | 부품 | 실제 상태 | 근거 · 상세의 단일 소스 |
-> |---|---|---|
-> | `LobbyUI` | ✅ 동작 | **이번 확인 대상이 아니다** — 기존 표기를 그대로 유지한다 |
-> | `NetworkStatusUI` | 🔴 **코드는 있으나 어느 씬·프리팹에도 배치돼 있지 않아 실행되지 않는다** | guid `adc83ceead3e36246ba137d2ceede0a6` 로 `Assets` 전체 `*.unity`·`*.prefab` 검색 **0건**(문서 작업 중 직접 실측) · 2026-09-22 에디터 로그 전체에서 `NetworkStatusUI` 문자열 **0건** = `Start()` 의 *"네트워크 상태 모니터링 시작"* 미발생(**메인 세션 실측** — 이 체크아웃의 로그 사본에는 해당 구간이 없어 내가 재측정하지 못했다). **상세는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「결과 화면 이탈 판정·통보 구조」 절의 2026-09-22 블록이 단일 소스다** |
-> | `ReconnectionHandler` | ⚠️ **동작하지만 서버 전용이라 Host 이탈을 처리하지 못한다** | `OnNetworkSpawn` 의 `if (!IsServer) { enabled = false; return; }` · **2026-09-22 실기로 재현됨** — 실기기(Host) 앱 강제 종료 시 남은 Client(에디터)에서 몇 분이 지나도 승패가 나지 않았다(**사용자·메인 세션 실측**). **상세는 [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) 규칙 2 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절(확정 D)〔2026-10-12 이관 — 종전에는 기술 설계서〕이 단일 소스다** |
->
-> ⚠️ **위 표를 다른 문서에 옮겨 적지 않는다** — 각 행의 상세는 위에 적힌 단일 소스가 갖는다. 이 자리는 **「Phase 8 이 통째로 완료가 아니다」**만 알린다.
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-25).
 
 #### 팀별 관점 (ViewConverter)
-| 항목 | 상태 |
-|------|------|
-| ViewConverter (Core 레이어) | ✅ 완료 |
-| Red팀 좌표 반전 (ToView/FromView) | ✅ 완료 |
-| 건물/유닛 위치 반전 | ✅ 완료 |
-| 입력 좌표 역변환 | ✅ 완료 |
-| ViewConverter 초기화 순서 수정 (Setup→LoadMap) | ✅ 완료 |
-| 싱글플레이 ViewConverter LocalPlayerTeam 기반 초기화 | ✅ 완료 (2026-03-20) |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-26).
 
 #### 로비 종족 선택 UI (2026-04-04~06)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| RaceId enum (Human/Spirit/Transcendence) | ✅ 완료 | Domain 레이어 |
-| LocalPlayerRace / GameRaceContext 정적 홀더 | ✅ 완료 | Infrastructure 레이어 |
-| RaceSelectionViewModel (UniRx) | ✅ 완료 | 종족 순환 + LocalPlayerRace 연동 |
-| RaceSelectionView (캐러셀 + DOTween) | ✅ 완료 | 3캐릭터 원근감 배치, Walk/Idle CrossFade 1초 |
-| BattleMainView BindRace 연동 | ✅ 완료 | BattleRootView에서 ViewModel 생성·주입 |
-| CharacterPreview RenderTexture 카메라 | ✅ 완료 | CharacterPreview 레이어 격리 |
-| 종족 선택 항상 표시 (화면 전환 무관) | ✅ 완료 | BattleMainView에서 RaceSelectionView 독립 토글 제거 |
-| 종족명 자연→초월 변경 | ✅ 완료 | Nature→Transcendence (코드+한글 표시명 모두) |
-| Pistoleer Idle 첫 프레임 동결 버그 수정 | ✅ 완료 | Pistoleer.controller Idle m_Speed 0→1 |
-| Android URP RenderTexture 잔상 + RenderPass 에러 수정 | ✅ 완료 | RT antiAliasing 2→1, allowMSAA/allowHDR false, backgroundColor alpha 1 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-27).
 
 #### 유닛/건물 스탯 확정 적용 (2026-04-12~13)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Spirit/Transcendence 6종 HP/ATK/생산시간/비용 확정 | ✅ 완료 | StatsReference.md 기준 |
-| Pistoleer MoveSpeed 1.0→0.5 수정 | ✅ 완료 | |
-| Transcendence 건물 HP 종족별 분기 | ✅ 완료 | BuildingStats.GetMaxHp(type, RaceId) 오버로드 |
-| 생산 패널 골드 비용 텍스트 표기 | ✅ 완료 | _slot1/2/3CostText (숫자만, G 없음) |
-| 건물 배치 팝업 골드 비용 텍스트 표기 | ✅ 완료 | _barracksCostText / _miningPostCostText |
-| 싱글/멀티 실기 테스트 | ✅ PASS | TC-SINGLE-01~10, TC-MULTI-01 전체 PASS |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-28).
 
 #### 피격 시 부유 HP 텍스트 — World Space (2026-04-12~13, 2026-04-17 World Space 전환)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| FloatingHpText.cs (DOTween 애니메이션, 오브젝트 풀 반환) | ✅ 완료 | TextMeshPro 3D World Space |
-| FloatingHpTextSpawner.cs (이벤트 구독, 풀 관리) | ✅ 완료 | 월드 좌표 직접 사용, 좌표 변환 없음 |
-| FloatingHpText 프리팹 (Maplestory Light SDF FloatingHpText Material.mat) | ✅ 완료 | 독립 .mat 파일 사용 (폰트 .asset 오염 방지) |
-| 줌 연동 비율 일관성 (scale=1f 고정) | ✅ 완료 (2026-04-17) | 텍스트가 유닛/건물처럼 줌 비례 동작 → 모든 줌에서 유닛 대비 비율 일정 |
-| 빌보드 회전 + 좌우 반전 보정 | ✅ 완료 (2026-04-13) | LookRotation(-forward,up) + localScale(-s,s,s) |
-| 멀티플레이 클라이언트 표시 (NetworkHealthSync 재발행) | ✅ 완료 | |
-| 팀별 텍스트 색상 (Blue=연두, Red=노랑) | ✅ 완료 (2026-04-13) | Inspector SerializedField로 조정 가능 |
-| SetupFloatingHpText 에디터 스크립트 자동화 | ✅ 완료 | Hexiege/Setup/FloatingHpText 설정 |
-| 싱글플레이 실기 테스트 | ✅ PASS | TC-1~6 전체 PASS, TC-7(멀티) 미확인 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-29).
 
 #### 종족 인게임 적용 (2026-04-07)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| UnitFactory 종족별 6세트 프리팹 분기 | ✅ 완료 | GameRaceContext 기반 (race, team) 튜플 switch |
-| BuildingFactory 종족별 6세트 프리팹 분기 | ✅ 완료 | MiningPost 포함 종족별 분기 |
-| GameBootstrapper 싱글 GameRaceContext 초기화 | ✅ 완료 | LoadMap() 직전 Set(LocalPlayerRace.Current, 랜덤종족) — Enum.GetValues + Random.Range (2026-04-24 랜덤으로 변경) |
-| 오브젝트 이름 실제 프리팹명 반영 | ✅ 완료 | {prefab.name}_{id} 형식 |
-| 에디터 자동 연결 스크립트 | ✅ 완료 | Hexiege/Setup/UnitFactory·BuildingFactory 프리팹 연결 |
-| 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-01~06 전체 통과 |
-| 멀티플레이 실기 테스트 | ✅ PASS | MULTI-01 통과 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-30).
 
 #### UnitType 개편 + 근접 사거리 시스템 (2026-04-10~11)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| UnitType enum 유닛별 독립 식별자로 개편 | ✅ 완료 | Pistoleer=0 ~ LionKnight=8 (9종) |
-| UnitFactory List<UnitPrefabEntry> 구조 변경 | ✅ 완료 | 종족별 리스트 (type/blue/red) |
-| Spirit/Transcendence UnitStats 추가 | ✅ 완료 | Range/Cooldown/HitFrameTime 확정 (HP/ATK 는 2026-04-12~13 에 확정 — 위 「유닛/건물 스탯 확정 적용」. 종전 표시: 「HP/ATK 미정」) |
-| ProductionPanelUI 종족별 버튼 동적 바인딩 | ✅ 완료 | BindButtonUnitTypes(RaceId), 6세트 초상화 필드 |
-| 생산 패널/건물 배치 종족별 초상화 스프라이트 연결 | ✅ 완료 (2026-04-13) | Spirit/Transcendence 유닛+건물 초상화 Inspector 연결 완료 (Spirit Blue ManaRift 2026-04-13 제작 완료) |
-| 근접 유닛 Castle 방향 Lerp 이동 + 공격 | ✅ 완료 | FindPathToNeighbor + 경로 끝에 Castle 타일 추가 |
-| 다중 유닛 Castle 연속 공격 (ClaimedTile 버그 수정) | ✅ 완료 | 마지막 non-walkable 타일 ClaimedTile 설정 생략 |
-| SetupUnitFactoryPrefabs 에디터 스크립트 재작성 | ✅ 완료 | List 구조 대응 |
-| 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-001~006 통과 (003/004 스프라이트 CONDITIONAL PASS) |
-| 멀티플레이 실기 테스트 | ✅ PASS | MULTI-001 통과 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-31).
 
 #### 원거리 유닛 공격 중 회전 추적 (2026-04-11~12)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 공격 중 타겟 방향 지속 추적 | ✅ 완료 | Transform 참조 저장 + Update() RotateTowards |
-| 멀티플레이 타이밍 방어 (B사망→C전환 고착 버그) | ✅ 완료 | 백업 ID 필드 + Update() 재조회 로직 |
-| 타겟 고착성 (현재 타겟 생존 중 교체 방지) | ✅ 완료 | IsCurrentTargetStillValid() 추가, TickCombat 2곳 수정 |
-| 타겟 변경 시 부드러운 회전 전환 | ✅ 완료 (2026-04-12) | RotateTowards(270°/s), ChangeTarget() 즉시 스냅 제거 |
-| 멀티플레이 실기 테스트 | ✅ PASS | MULTI-001~007 전체 통과 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-32).
 
 #### 근접유닛 적 감지 사거리 + 추적 회전 개선 (2026-04-19~24)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| DetectRange / AttackRange 분리 | ✅ 완료 (2026-04-19) | 근접유닛 DetectRange=1.0f(타일), 원거리는 AttackRange와 동일 |
-| 하이브리드 이동 시스템 (Phase 0/1/2) | ✅ 완료 (2026-04-19) | Phase 1 월드 직선 추적, Phase 2 타일 스냅 후 A* 재개 |
-| Phase 1 추적 중 타겟 방향 회전 개선 | ✅ 완료 (2026-04-24) | CalculateAttackAngle + RotateTowards(270°/s), 이전 타일 방향 고정 문제 해소 |
-| 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-001~002 통과 (2026-04-24) |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-33).
 
 #### 타일 소유권 실시간 감지 — TileOwnershipService (2026-04-26)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `TileOwnershipService.cs` 신규 생성 | ✅ 완료 | `Application/Services/` — Pull 모델, 매 프레임 유닛 물리 위치 기반 타일 소유권 결정 |
-| HashSet 풀(`Queue<HashSet<TeamId>>`) | ✅ 완료 | 매 프레임 GC 최소화 |
-| 점령 규칙 (한 팀/양 팀/없음) | ✅ 완료 | 한 팀만 있을 때만 갱신, 나머지 현 상태 유지 |
-| 이벤트 중복 발행 방지 | ✅ 완료 | `GetOwner != claimingTeam` 조건 가드 |
-| `HexGrid.GetOwner(HexCoord)` 신규 추가 | ✅ 완료 | `_tiles.TryGetValue` → `tile.Owner` |
-| GameBootstrapper Tick 연결 | ✅ 완료 | `(!NetworkContext.IsNetworkActive \|\| NetworkContext.IsNetworkServer)` 가드 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-34).
 
 #### 근접유닛 뒷무빙 5차 개선 (2026-04-26)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Phase 1 타겟 사망 시 즉시 다음 적 재선택 | ✅ 완료 | 다음 적 있으면 Phase 1 유지, 없으면 Phase 2 진입 |
-| 전투 루프 종료 후 다음 타겟 선택 | ✅ 완료 | 전투 종료 후에도 감지 범위 내 적 재탐색 |
-| Phase 2 후방 스냅 방지 | ✅ 완료 | `HexCoord.Distance` 비교로 nearestTile이 finalTarget보다 멀면 현 위치 유지 |
-| Phase 2 점유 누수 방지 | ✅ 완료 | `nearestTile == _unitData.Position`이면 `RegisterOccupancyMove` 생략 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-35).
 
 #### 유닛/건물 스탯 ScriptableObject 전환 (2026-04-25)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| UnitStatsConfig ScriptableObject (전투+생산 통합) | ✅ 완료 | `UnitStatEntry` struct, Inspector에서 9종 유닛 수치 편집 |
-| BuildingStatsConfig ScriptableObject (건물타입별 종족 묶음) | ✅ 완료 (2026-05-18 갱신) | `BuildingTypeEntry` B방식, 32종 BuildingType × 3종족 전체 항목 채움. `AttackCooldown` (float) 필드 추가 — AutoTower 종족별 쿨다운 적용 (Human/Trans 5.0s, Spirit 3.5s). `BuildingStats.GetAttackCooldown(type, race)` API 신규. |
-| UnitStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<UnitType, StatValues>`, `Initialize()` 추가 |
-| UnitProductionStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<UnitType, ProductionValues>`, `Initialize()` 추가 |
-| BuildingStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<(BuildingType, RaceId), StatValues>`, HP+골드+공격력 통합 |
-| BuildingStats.GetGoldCost / GetAttackPower 신규 메서드 | ✅ 완료 | 건물 배치 비용 조회 + 향후 타워 기능 대비 |
-| GameBootstrapper Initialize 연결 | ✅ 완료 | `_unitStatsConfig`, `_buildingStatsConfig` SerializedField |
-| BuildingPlacementUI GetBuildingCost BuildingStats 연동 | ✅ 완료 | `BuildingStats.GetGoldCost(type, race)` |
-| 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
-| 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-36).
 
 #### Lobby 패널 CanvasGroup 사전 부착 + ProfileView 로그아웃 버튼 (2026-06-22)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| ProfileView 로그아웃 버튼 UI 추가 | ✅ 완료 | `AddLogoutButtonToProfileView.cs` 에디터 스크립트. LogoutButton GO 생성 + ProfileView._logoutButton 연결. 임시 배치(추후 재설계 예정) |
-| Lobby 탭 패널 CanvasGroup 에디터 사전 부착 | ✅ 완료 | `SetupLobbyPanelCanvasGroups.cs` 에디터 스크립트. 4개 패널 활성화 + CanvasGroup 초기값 설정 |
-| LobbyRootView EnsureCanvasGroup → GetComponent 전환 | ✅ 완료 | 런타임 AddComponent 방식 폐기. EnsureCanvasGroup() 헬퍼 제거 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-37).
 
 #### Lobby 씬 UI 규칙 재점검 및 추가 수정 (2026-06-15)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Rule 5: `LobbyUI._lobbyPanel` CanvasGroup 전환 | ✅ 완료 | `GameObject` → `CanvasGroup`, SetActive → alpha/blocksRaycasts/interactable |
-| Rule 6: `LoadingScreen > StatusText` 폰트 교체 | ✅ 완료 | LiberationSans SDF → Maplestory Light SDF. `FixLobbyRuleViolations.cs` 에디터 스크립트 실행 |
-| `BattleRootView.cs` 미사용 `using System;` 제거 | ✅ 완료 | 코드 정리 |
-| 규칙 1~6 전수 재점검 (YAML 173개 GO) | ✅ 완료 | Rule 1/2/4/5/6 전체 준수. Rule 3 실기 확인 권장 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-38).
 
 #### Lobby UI 전체 규칙 준수 수정 (2026-05-30)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Lobby.unity 규칙 위반 25건 전수 수정 | ✅ 완료 | 규칙 1(Toast CanvasScaler 추가) 1건, 규칙 2(앵커 비율화) 23건, 규칙 5(CanvasGroup 초기값) 1건. 에디터 스크립트 4종(GroupA~D) 실행 적용 |
-| 규칙 1~6 전체 준수 검증 | ✅ 완료 | Explore 에이전트 정적 분석 + 실기 확인. 위반 0건 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-39).
 
 #### 공통 UI 규칙 수립 및 Canvas Scaler / SafeArea 적용 (2026-05-25)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 공통 UI 규칙 10개 확정 (GameSystemRules.md) | ✅ 완료 | Canvas Scaler, 앵커 기반 레이아웃, SafeArea, CanvasGroup 패턴, 폰트, 골드 부족 UI, 팝업/모달 구분 등 |
-| Canvas Scaler 통일 (Rule 1) | ✅ 완료 | SetupCanvasScaler.cs 에디터 스크립트. Game.unity(540×960→1080×1920, 0.5→0) + Lobby.unity Canvas2(0.5→0) |
-| SafeAreaFitter.cs 신규 구현 (Rule 4) | ✅ 완료 | Screen.safeArea 기반 anchorMin/anchorMax 정규화. `Presentation/UI/Common/` |
-| SafeAreaContainer 씬 구조 적용 (Rule 4) | ✅ 완료 | SetupSafeAreaContainer.cs 에디터 스크립트. Game.unity 7개 UI 이동, Lobby.unity 캔버스별 적용, ToastUI SafeAreaFitter 직접 부착 |
-| 전체 UI 규칙 준수 검증 (Rule 5 CanvasGroup 전환) | ✅ 완료 (2026-05-27) | 로비 7개 뷰 SetActive → CanvasGroup 전환. LobbyRootView, BattleMainView, CustomGameView, CustomHostView, CustomJoinView, RandomMatchView, ProfileView. 실기기 TC 전체 PASS (2026-05-27): TC-SINGLE-001~014 PASS, TC-SINGLE-015~016 SKIP(로그인 미구현). 랜덤 매칭 대기화면 BUG(GameObj inactive)→ Inspector에서 직접 수정 완료 |
-| 로비 배경 Safe Area 수정 (Rule 4) | ✅ 완료 (2026-05-26) | LobbyRoot Image가 SafeAreaContainer 안에 있어 Safe Area 경계에서 배경이 끊기는 문제. Canvas 직속 자식 LobbyBackground 오브젝트 신규 추가(전체화면 stretch, 남색), LobbyRoot Image 비활성화. FixLobbyBackground.cs 에디터 스크립트로 적용. 실기기 테스트 PASS |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-40).
 
 #### 게임 화면 UI TC 전체 실기기 테스트 (2026-05-27)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 게임 화면 UI TC 62개 실기기 테스트 | ✅ 완료 | `Assets/_Project/Docs/_Tasks/2026-05-26/game-ui-tc/Testcase.md` 참조 |
-| TC-MULTI-END-001 버그 수정 (BUG-001) | ✅ 완료 | 포기 시 호스트 GameEndUI 미표시. `NetworkGameEndController.ForfeitServerRpc`에 `GameEvents.OnGameEnd.OnNext()` 1줄 추가. 근본 원인: ForfeitServerRpc가 GameEndUseCase를 건너뛰어 서버 측 OnGameEnd 미발행 |
-| TC-MULTI-END-001 버그 수정 (BUG-002) | ✅ 완료 | 재경기 팝업이 GameEndUI 뒤에 가려짐. Canvas Hierarchy에서 RematchRequestPopup을 SafeAreaContainer 이후 인덱스로 이동 (Inspector). AnimatedPanel.Show()에 SetAsLastSibling() 없음 확인 → 영구 수정 |
-| UI 크기/레이아웃 FAIL 항목 (BP-001/002, BAP-001, PRD-001 완료) | ⚠️ 일부 완료, 나머지 별도 작업 예정 | ✅ BP-001/BP-002(건물 배치 패널): 씬 계층 재설계로 해결 (2026-05-29). ✅ BAP-001(비생산 건물 패널): 3x3 그리드 + 런타임 슬롯 제어로 해결 (2026-05-29). ✅ PRD-001(패널 버튼 크기): LayoutElement(prefH=0,flexH=1) Row 적용 + Rallypoint 패딩 수정으로 해결 (2026-05-31). ❌ HUD-007(설정 버튼), SET-004(확인팝업 버튼 색상), SET-007/END-001(UI 크기), MULTI-END-002(재경기 UI 크기) |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-41).
 
 #### BuildingActionPanelUI 씬 계층 재설계 + 런타임 슬롯 제어 (2026-05-29)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| BuildingActionPanel 3x3 그리드 구조 재구성 | ✅ 완료 | BuildingPlacementUI와 동일한 VLG+HLG 중첩 패턴. 래퍼 오프셋 제거(anchoredPosition=0,sizeDelta=0). CancelButton 위치 BuildingPlacementUI와 통일 |
-| 런타임 슬롯 표시/숨김 제어 | ✅ 완료 | BuildingActionPanelUI.cs에 _allSlotButtons/_activeSlotButtons 추가. OnShow() 오버라이드에서 CanvasGroup alpha 제어. BuildingPlacementUI._buttonCanvasGroups 패턴과 동일 |
-| HeaderText 앵커 순수 앵커 기반 변환 | ✅ 완료 | anchorMin=(0.096,0.826), anchorMax=(0.867,1.006), pos=(0,0), delta=(0,0) |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-42).
 
 #### BuildingPlacementUI 씬 계층 재설계 (2026-05-29)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| BuildingPlacementUI 씬 계층 전면 재구성 | ✅ 완료 | TC-SINGLE-BP-001/002 FAIL 해결. GridLayoutGroup 제거 → VLG+HLG 중첩 구조(GameSystemRules Rule 2). 3행×3열 그리드 정상 표시. 순수 앵커 기반(anchoredPosition=0, sizeDelta=0) |
-| BuildingPlacementUI.cs _buildingGoldIcons 필드 추가 | ✅ 완료 | 버튼 내부 골드 아이콘 Inspector 참조 신규 |
-| GameSystemRules.md Rule 2 보완 | ✅ 완료 | Layout Group 반응형 패턴 명세 추가 (VLG+HLG 중첩 + Control Child Size + Force Expand) |
-| GameSystemRules 준수 검증 (Rule 2/4/5/6) | ✅ 완료 | BuildingPopup 전체 계층 씬 YAML 직접 파악 + 검증 통과 |
-| RebuildBuildingPlacementUI.cs 에디터 스크립트 | ✅ 완료 | Assets/Editor/ — 재구성 재실행 가능한 1회성 스크립트 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-43).
 
 #### 설계 규칙 문서 (GameSystemRules.md)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 유닛 이동 시스템 규칙 1~8 | ✅ 확정 (2026-05-14 개편) | 이동/전투/회전 규칙 통합, 총 16개 규칙으로 재번호화 |
-| 회전 규칙 통합 | ✅ 확정 (2026-05-14) | 규칙 7(A* 이동 중 서서히 회전), 8(재개 시 이동 방향 바라봄), 12(전투 이동 중), 15(공격 중) — 이동/전투 규칙에 통합 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-44).
 
 #### 인증 시스템 설계 규칙 문서 (AuthSystemRules.md)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| AuthSystemRules.md 작성 | ✅ 완료 (2026-05-23, 2026-06-10 갱신) | Firebase Auth 기반. 로그인 3종(익명/Google Play Games/이메일+비밀번호). Firebase ID Token → UGS OIDC Bridge(`SignInWithOpenIdConnectAsync`) 설계. UGS 데이터 플랫폼(Cloud Save/Leaderboard/Economy) 채택 확정 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-45).
 
 #### 로그인 시스템 C# 구현 (2026-05-24)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| Firebase SDK v13.11.0 설치 | ✅ 완료 | FirebaseAuth.unitypackage 임포트. FirebaseApp은 v12+에서 각 패키지에 번들됨 (별도 임포트 불필요) |
-| Google Play Games Plugin v2.1.0 설치 | ✅ 완료 | GitHub `current-build/` 폴더 내 .unitypackage 임포트. v1은 2026년 5월부터 deprecated |
-| EDM4U Android 의존성 해결 | ✅ 완료 | Custom Main Gradle Template + Custom Gradle Properties Template 활성화 (Jetifier 필요). Multidex 불필요 (Min API 25) |
-| FirebaseAuthService.cs (Infrastructure) | ✅ 완료 | Firebase SDK 래퍼. 익명/Google/이메일 로그인 API 제공. AuthException + AuthErrorReason enum 정의. SignInWithCredentialAsync 반환값 FirebaseUser로 수정 (SDK 13.x 호환) |
-| LoginUseCase.cs (Application) | ✅ 완료 (2026-06-10 갱신) | 로그인 흐름 조율. BridgeToUGSAsync(Task<bool>) — 실계정: OIDC Bridge(`SignInWithOpenIdConnectAsync("oidc-firebase")`), 익명: UGS 익명 로그인 분기 구현 완료 |
-| AccountLinkUseCase.cs (Application) | ✅ 완료 | 익명 → 실계정 연동 흐름 |
-| LoginBootstrapper.cs (Bootstrap) | ✅ 완료 | Login.unity 씬 Composition Root. PlayGamesPlatform.Activate() + Firebase 초기화 + DI |
-| LoginRootView.cs (Presentation) | ✅ 완료 | 패널 전환 + Back 스택 + Android 뒤로가기. Application.Quit() → UnityEngine.Application.Quit() 수정 (Hexiege.Application 네임스페이스 충돌 방지) |
-| LoginSelectView.cs | ✅ 완료 | 로그인 방식 선택 화면 |
-| EmailLoginView.cs | ✅ 완료 | 이메일 로그인 화면 |
-| SignUpView.cs | ✅ 완료 | 이메일 회원가입 화면 |
-| EmailVerifyView.cs | ✅ 완료 | 이메일 인증 대기 화면 |
-| PasswordResetView.cs | ✅ 완료 | 비밀번호 재설정 화면 |
-| AnonymousWarningPopup.cs | ✅ 완료 | 익명 로그인 경고 팝업 |
-| ProfileView.cs (Lobby — 수정) | ✅ 완료 | 계정 정보 표시, Google/이메일 연동 버튼, 로그아웃 UI 구현 |
-| UnityServicesInitializer.cs (수정) | ✅ 완료 (2026-06-10 갱신) | OIDC 세션 보존 로직으로 교체. 기존 세션 있으면 재로그인 없이 보존, 세션 없을 때만 익명 폴백. 기존 "항상 재로그인" 블록은 주석 처리(테스트 통과 후 최종 삭제 예정) |
-| 컴파일 에러 전체 해결 | ✅ 완료 | CS0103(AuthException/AuthErrorReason using 누락), CS0029(SignInWithCredentialAsync 반환 타입), CS1061(SignInWithCustomIdAsync 미지원), CS0234(Application.Quit 네임스페이스 충돌) 전체 해결 |
-| 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
-| Firebase Console 설정 | ✅ 완료 (2026-06-27) | google-services.json SHA-1 3개 + 실제 빌드 키스토어 SHA-1(`18:E0:...:3D`) 등록, Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret). Google 로그인 실기 성공. |
-| GPGS 클라이언트 ID + Play Console 사용자 인증 정보 | ✅ 완료 (2026-06-27) | Web Client ID 입력 완료. Play Console GPGS 사용자 인증 정보에 실제 빌드 키스토어 SHA-1 등록·게시 완료(GPGS `signIn()` 검증 통과). |
-| Login.unity 씬 생성 | 🔵 부분 완료 (2026-06-18) | UIManager + SplashOverlay 배치 완료. 로그인 UI 배치(UIWireframe.md 기반) + Inspector 연결은 미완료 — 추후 진행 |
-| Firebase → UGS OIDC Bridge | 🔵 코드 완료 (2026-06-10) / 실기 실패 (2026-06-27) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현 완료. 실기 결과 `id provider not found`로 실패 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 미등록. UGS PlayerId 미발급으로 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-46).
 
 #### 유닛 이동/전투 시스템 재설계 (2026-05-11~13)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 슬롯 시스템 전면 폐기 | ✅ 완료 (2026-05-11) | TileMoveSlotManager / TileOccupancyManager / AttackPositionManager 비활성화(주석 처리). GameBootstrapper 주입 코드 포함 |
-| 타일 점유 한도(OccupancySize) 제거 | ✅ 완료 (2026-05-11) | UnitData.ClaimedTile / UnitStats.OccupancySize / UnitMovementUseCase 점유 메서드 비활성화 |
-| 근접/원거리 동일 상태 머신 (MoveAlongPathV3) | ✅ 완료 (2026-05-11) | Phase 0(A* Lerp) → 감지 → Phase 1(직선 추격) → 공격 → FindForwardClosestTile → 재개. 겹침 허용 |
-| UnitCombatUseCase DetectRange 판정 통합 | ✅ 완료 (2026-05-11) | isMelee 분기 제거, 모든 유닛 DetectRange × TileHeight 통일 |
-| 원거리 유닛 DetectRange 수치 분리 | ✅ 완료 (2026-05-11) | UnitStatsConfig Inspector에서 원거리 유닛 DetectRange > AttackRange 설정 |
-| 추격 중 건물 변화 시 유닛 멈춤 (BUG-001) | ✅ 완료 (2026-05-12) | `_isInCombatPursuit` 필드 추가, IsInCombat() 추격 단계도 전투 중으로 판정 |
-| 전투 종료 후 순간이동 (BUG-002) | ✅ 완료 (2026-05-13) | 즉시 스냅 제거 → 정렬 Lerp(동일 이동 속도)로 교체. 정렬 중 적 감지 시 즉시 전투 재진입 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-47).
 
 #### 유닛 생산 실패 피드백 시스템 (2026-05-16)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 범용 토스트 UI 시스템 (ToastUI) | ✅ 완료 | DontDestroyOnLoad 독립 Canvas, 큐 방식, 터치 제거, DOTween 페이드아웃 **[🔴 2026-09-08 정정 — 원문은 그대로 두고 덧붙인다: 「큐 방식」은 서로 다른 종류에만 적용된다.** 커밋 `f518997` 로 **같은 종류는 누적하지 않게** 바뀌었다 — 이미 표시 중인 종류가 다시 요청되면 큐에 넣지 않고 **표시 시간만 처음 값으로 되돌리고**(트윈을 먼저 중단하고 알파를 되살린 뒤), 큐에서 대기 중인 종류면 **무시**한다. 빗금 타일만이 아니라 **골드 부족·인구 초과 등 전 토스트 공통**이다. 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「생산 패널 UI」 **규칙 25**] |
-| ToastMessageConfig ScriptableObject | ✅ 완료 | Resources/Config — 메시지/노출시간 Inspector 편집 가능 |
-| 골드 부족 피드백 — 유닛 생산 비용 텍스트 빨간색 | ✅ 완료 | `_unitCostTexts[i]` 개별 평가 (보유 골드 표시 텍스트는 변경 안 함) |
-| 인구 초과 피드백 — HUD 인구수 텍스트 빨간색 | ✅ 완료 | `used >= max` 조건 매 갱신 시 색상 자동 전환 |
-| 수동 생산 실패 토스트 3종 | ✅ 완료 | GoldInsufficient / PopulationFull / ProductionQueueFull **[🔴 2026-09-08 덧붙임 — 이 행의 3종은 「수동 생산 실패」 범위라 그대로 맞다.** 다만 프로젝트 전체 `ToastKey` 는 이후 늘어 위 3종 외에 `UpgradeRequired` · `SkillOnCooldown` · `BuildingNotAllowed` 가 더 있다. **개수는 여기에 적지 않는다**(늘어나면 조용히 낡는다) — **전체 목록의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「생산 패널 UI」 규칙 28** 이다] |
-| 자동 생산 자원 부족 시 즉시 취소 | ✅ 완료 | IsCharged=false 항목만 취소, IsCharged=true는 Rule 2 유지 |
-| 싱글플레이 실기 테스트 | ✅ PASS (골드부족·큐초과) | 인구초과·자동취소는 코드 검토 완료 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-48).
 
 #### 건물 배치 패널 실패 피드백 + UI 개선 (2026-05-16)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 골드 부족 시 건물 비용 텍스트 빨간색 | ✅ 완료 | 팝업 열릴 때 + OnResourceChanged 구독으로 실시간 재평가. 팝업 닫힐 때 흰색 초기화 |
-| 골드 부족 시 토스트 메시지 | ✅ 완료 | `ToastKey.GoldInsufficient` 재사용. 팝업 유지(Close 호출 없음). 싱글플레이 분기만 적용 |
-| 건물 비용 텍스트 'G' 접미사 제거 | ✅ 완료 | "200G" → "200". 생산 패널과 동일 표기로 통일 |
-| ToastUI SetActive 버그 수정 | ✅ 완료 | ClearAll/FinishCurrent의 SetActive(false) 제거 → CanvasGroup.blocksRaycasts+interactable로 대체. 루트 항상 활성 유지 |
-| 싱글플레이 실기 테스트 | ✅ PASS | 골드 부족 비용 텍스트 빨간색, 토스트 메시지, 팝업 유지 동작 확인 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-49).
 
 #### 건물 업그레이드 시스템 (2026-05-17~18)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| BuildingType enum 26종 확장 | ✅ 완료 | 단일 Barracks 제거 → 종족별 생산라인×단계(1/2/3) |
-| BuildingTypeHelper.cs 신설 (Domain) | ✅ 완료 | IsProductionBuilding / GetStage / GetNextStage / CanUpgrade |
-| BuildingData.Stage 파생 프로퍼티 | ✅ 완료 | BuildingType에서 도출, 별도 저장 없음 |
-| BuildingStats.GetUpgradeCost + GetTotalInvestedCost | ✅ 완료 | 업그레이드 비용 조회 + 누적 투자비 캐시 |
-| BuildingStatsConfig.upgradeCost 필드 | ✅ 완료 | 32종 BuildingType Inspector 설정 완료 |
-| GameEvents.OnBuildingUpgraded | ✅ 완료 | BuildingUpgradedEvent(OldBuildingId, NewBuilding) |
-| BuildingPlacementUseCase.UpgradeBuilding() | ✅ 완료 | 기존 BuildingData 제거 → 다음 단계 BuildingData 생성 |
-| BuildingFactory.UpgradeBuildingObject() | ✅ 완료 | 새 GO 먼저 생성 → 기존 GO Destroy (빈 타일 방지) |
-| NetworkBuildingController 업그레이드 RPC | ✅ 완료 | RequestUpgradeServerRpc / UpgradeBuildingClientRpc |
-| ProductionPanelUI BuildingUnitMapping 구조 | ✅ 완료 | BuildingType별 유닛 라인업 + requiredStage 단계별 잠금 |
-| ToastKey.UpgradeRequired + ToastMessageConfig | ✅ 완료 | 잠금 유닛 탭 시 "건물 업그레이드가 필요합니다" 토스트 |
-| GameBootstrapper 누적 투자비 캐싱 | ✅ 완료 | 단계별 체인 순회 → BuildingStats._totalInvestedCostCache |
-| 신규 3D 에셋 (HumanBarracks, AncientGrove, PrimalSanctuary) | ✅ 완료 | Blue/Red 프리팹 + 머티리얼 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-50).
 
 #### ProductionPopup UI 레이아웃 재구성 (2026-05-18)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| BuildingIconEntry 팀별 Sprite 분리 (blueIcon/redIcon) | ✅ 완료 | GetBuildingIcon(BuildingType, TeamId). Sprite 명명 규칙: bld_{type}_blue/red.png |
-| 2유닛 건물 레이아웃 [유닛1][빈슬롯][유닛2] | ✅ 완료 | _unitButtonGroups (List<CanvasGroup>). 가운데 슬롯 alpha=0 숨김, 레이아웃 공간 유지 |
-| UpdateButtonPortraits() 2유닛 슬롯 매핑 수정 | ✅ 완료 | 2유닛 시: slot0=list[0], slot2=list[1] (slot1 스킵). 이전 건물 초상화 잔존 버그 수정 |
-| HeaderText 건물 이름 동적 표시 | ✅ 완료 | BuildingType.ToString() 기반. Show() 호출 시 갱신 |
-| 철거 환불 누적 계산 | ✅ 완료 | 1단계 건설비 + 모든 업그레이드비 합산의 50%. BuildingStats.GetTotalInvestedCost() + GameBootstrapper 캐싱 |
-| 2/3단계 건물 랠리 마커 미표시 버그 수정 | ✅ 완료 | ProductionTicker에 OnBuildingUpgraded 구독 추가. 전 종족 테스트 통과 |
+
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-51).
 
 #### 건물 철거 시스템 (2026-05-18)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| UnitProductionUseCase.CancelAllQueue() | ✅ 완료 | 생산 큐 전체 취소 + IsCharged=true 항목 전액 환불 + UnregisterBarracks |
-| ProductionPanelUI.OnDemolishButtonClick() | ✅ 완료 | 싱글: CancelAllQueue → AddGold(50%) → DemolishBuilding. 멀티: RequestDemolishServerRpc |
-| BuildingPlacementUseCase.DemolishBuilding() | ✅ 완료 | OnEntityDied 발행 → RemoveBuilding 호출 |
-| NetworkBuildingController — RequestDemolishServerRpc | ✅ 완료 | 소유권/Castle/존재 검증 후 철거 + DemolishBuildingClientRpc 동기화 |
-| BuildingFactory — OnEntityDied 구독 (GO 파괴) | ✅ 완료 | B방식: 구독 1개 + _buildingObjects Dict O(1) 조회로 GO 파괴 |
-| BuildingView.cs + MiningEffectView.cs 삭제 | ✅ 완료 | 미사용 코드 제거. BuildingFactory가 GO 파괴 책임 인수 |
-| 채굴소(MiningPost) 철거 UI | ✅ 기본 완료 | BuildingActionPanelUI에서 철거 지원. 전용 패널(일시정지 등)은 별도 작업 예정 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-52).
 
 #### 비생산 건물 공용 액션 패널 UI (2026-05-18~19)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `BuildingPanelBase.cs` 추상 베이스 신규 | ✅ 완료 | ProductionPanelUI / BuildingActionPanelUI 공통 부모. Template Method 패턴. |
-| `BuildingActionPanelUI.cs` 신규 | ✅ 완료 | 비생산 건물 클릭 시 공용 팝업 (헤더 + 철거 버튼) |
-| `ProductionPanelUI` BuildingPanelBase 상속 리팩토링 | ✅ 완료 | 공통 필드/메서드 베이스 이전. 외부 API 동일 유지 |
-| `BuildingTypeHelper.CanShowActionPanel()` 추가 | ✅ 완료 | `!IsProductionBuilding && type != Castle` |
-| `InputHandler` 분기 추가 | ✅ 완료 | CanShowActionPanel 분기 + ClosedFrame 체크 |
-| `GameBootstrapper` 주입/등록 추가 | ✅ 완료 | UIManager 등록 + 비생산 건물 환불 캐시 루프 |
-| `SetupBuildingActionPanelUI.cs` 에디터 스크립트 | ✅ 완료 | 씬 자동 생성 + 필드 배선 + GameBootstrapper 연결 |
-| 싱글플레이 실기 테스트 | ✅ PASS | 채굴소/AutoTower 팝업 표시 + 철거 버튼 동작 확인 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-53).
 
 #### 인게임 설정 메뉴 + 게임 포기 기능 (2026-05-18~19)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| `InGameSettingsUI.cs` 신규 | ✅ 완료 | IGameUI 구현. Show() 싱글 일시정지(timeScale=0). Hide() 복원 + ConfirmPopup 닫기 |
-| `ConfirmPopup.cs` 신규 | ✅ 완료 | 범용 확인 팝업. BlockingOverlay로 공유 Background 클릭 차단 |
-| 포기 흐름 구현 | ✅ 완료 | 싱글: GameEndUseCase.Forfeit() / 멀티: NetworkGameEndController.ForfeitServerRpc |
-| `GameEndUseCase.Forfeit()` 신규 | ✅ 완료 | IsGameOver=true + GameEvents.OnGameEnd(TeamId.Red) 발행 |
-| `NetworkGameEndController.ForfeitServerRpc` 신규 | ✅ 완료 | RequireOwnership=false. _announced 재사용, AnnounceWinnerClientRpc 재사용 |
-| `GameHudUI` 설정 버튼 연결 | ✅ 완료 | _settingsButton, _settingsUI 필드 + OnSettingsClicked() |
-| `GameBootstrapper` 등록 | ✅ 완료 | _inGameSettingsUI, _confirmPopup SerializeField + UIManager 등록 |
-| `SetupInGameSettingsUI.cs` 에디터 스크립트 | ✅ 완료 | HUD 재배치 + 설정 패널 생성 + 필드 배선 자동화 |
-| AnimatedPanel._backgroundOverlay 배선 | ✅ 완료 | [UI]/Background CanvasGroup 연결 → 패널 열릴 때 반투명 배경 표시 |
-| 싱글플레이 실기 테스트 | ✅ PASS | 설정 메뉴 열기/닫기, 일시정지, 포기 기능 확인 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-54).
 
 #### 코드 리팩토링 (2026-05-18)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| OnEntityDied 이벤트 분리 | ✅ 완료 | 단일 공용 이벤트 → OnUnitDied + OnBuildingDied 강타입 분리. 구독자 타입 필터(is-캐스팅) 전면 제거. 13개 파일 수정 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-55).
 
 #### 코드 리팩토링 전체 완료 (2026-05-24)
 
-7개 그룹 전체 구현 완료. task 문서: `Assets/_Project/Docs/_Tasks/2026-05-19/10_46_code-refactoring/`
-
-| 그룹 | 내용 | 상태 |
-|------|------|------|
-| **그룹 1** — Slot/Occupancy 시스템 제거 | AttackPositionManager, TileOccupancyManager 등 ~600줄 삭제. 관련 주석/참조 전면 정리 | ✅ 완료 |
-| **그룹 2** — Application→Core 의존성 제거 | IHexCoordinateMapper 인터페이스 신규. HexMetricsCoordinateMapper 구현체. Application이 Core HexMetrics 직접 참조 금지 | ✅ 완료 |
-| **그룹 2-B** — Infrastructure→Core 의존성 분리 | HexCoordinateMapper 구현체 Infrastructure로 이동. 레이어 경계 완성 | ✅ 완료 |
-| **그룹 3** — Presentation→NGO 의존성 제거 (카테고리 A~E) | Presentation 레이어에서 `using Unity.Netcode` 0건. Infrastructure에서 `using Hexiege.Presentation` 0건. ServerRpc 래퍼 메서드 패턴 도입. 11개 파일 수정 | ✅ 완료 |
-| **그룹 4** — FindFirstObjectByType 캐시화 | 30+회 매 프레임 호출 → OnNetworkSpawn 시점 1회 캐시로 전환 (~12회 이하로 감소) | ✅ 완료 |
-| **그룹 5** — O(n) 탐색 캐시화 | `_unitsByPosition`, `_buildingsByPosition`, `_ownedTileCounts`, `_usedPopulationByTeam` Dictionary 도입. GetUnitAt/GetBuildingAt/CountTilesOwnedBy/GetUsedPopulation → O(1) | ✅ 완료 |
-| **그룹 6** — 가독성/유지보수 (15개 sub-task) | enum 명시값, 중복 생성자 제거, 메서드 분해, GameEvents Subject 허브 통일, ToastKey Application 이동, IUnitView 인터페이스, IsNetworkMode→NetworkContext.IsNetworkActive 전면 교체, TODO 토스트 해소 등 15항목 전부 완료 | ✅ 완료 |
-| **그룹 7** — GameBootstrapper partial class 분리 | GameBootstrapper.cs / Setup.cs / Map.cs / Network.cs 4파일로 분리 | ✅ 완료 |
-
-**인스펙터 수동 연결 필요** (에디터에서 직접 연결):
-- ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
-- ~~`NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (기존 코드에 이미 `FindFirstObjectByType` 자동 탐색 적용됨)
-  - **[🔴 2026-09-22 덧붙임 — 위 문장은 코드상으로 참이다.]** ⚠️ **이 연결 코드는 존재하지만 `NetworkStatusUI` 가 씬에 없어 실행되지 않는다.** 즉 **자동 탐색이 있다는 서술은 맞고, 「그래서 연결이 살아 있다」로 읽으면 틀린다.** 근거: guid `adc83ceead3e36246ba137d2ceede0a6` 로 `Assets` 전체 `*.unity`·`*.prefab` 검색 **0건**(문서 작업 중 직접 실측) · 2026-09-22 에디터 로그에서 `NetworkStatusUI` 문자열 **0건**(**메인 세션 실측**). **단일 소스는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「결과 화면 이탈 판정·통보 구조」 절의 2026-09-22 블록**이며, 같은 사실의 현황 표기는 위 **「멀티플레이 (Phase 1~8)」 표의 Phase 8 행** 아래 블록이 갖는다.
-
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-56).
 
 #### 버그 수정 및 폴리싱
-| 항목 | 상태 |
-|------|------|
-| 랠리포인트 조준 시 반투명 오버레이 잔존 (집결지 지정이 취소된 것처럼 보임) | ✅ 완료 (2026-08-08, 실기 PASS·커밋 `9a19cd5`) — 랠리포인트 버튼 탭 시 팝업만 숨겨지고 공유 BlockingOverlay(탭=`Close`)가 `blocksRaycasts=true`로 잔존 → 맵 탭을 오버레이가 먼저 가로채 `Close()`→`OnBeforeClose()`로 조준 취소·랠리 마커 숨김. `ProductionPanelUI.cs` 2줄 순수 추가로 수정: ① `OnRallyPointClick()`에 `HideBlockingOverlay()`(스킬 패널 조준 진입과 동일 패턴) ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에 참조 카운터 반납(②를 빠뜨리면 다음 팝업 오버레이가 어긋남). 랠리포인트 규칙 2의 "설정 직후 3초 표시"도 정상화. task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/` |
-| 건물 배치 팝업 3행 버튼 가로폭 불일치 | ✅ 완료 (2026-05-19) — Human/Spirit(7개 건물) 시 3행 버튼 1개가 전체 가로폭 채우던 버그. SetActive(false) → CanvasGroup alpha=0 전환으로 HorizontalLayoutGroup 레이아웃 공간 보존. BuildingPlacementUI.cs 수정 |
-| 건물 생성/파괴 시 유닛 이동 멈춤 | ✅ 완료 (2026-05-17) — OnPathInvalidated에서 코루틴 즉시 재시작 대신 _pendingPath 예약 방식 도입. 다음 타일 도착 시점에 부드럽게 경로 교체. 앞 타일에 건물이 생긴 경우만 즉시 재시작 (건물 관통 방지). UnitView.cs 단독 수정 |
-| 랠리포인트 깃발 상대팀에도 표시되는 버그 | ✅ 완료 (2026-05-16) — RallyPointChangedEvent에 TeamId 추가, ProductionTicker에 팀 필터 추가. 멀티: 각 플레이어 자신의 깃발만 표시. 싱글플레이 영향 없음 |
-| 랜덤 매칭 후 캐릭터 잘못 표시 버그 | ✅ 완료 (2026-05-15) — Lobby 씬 CharPreview 오브젝트가 실제 유닛 프리팹 인스턴스(NetworkTransform 포함)여서 Host 캐러셀 위치가 Red 클라이언트로 동기화되던 원인 확정. Unpack Completely + NetworkObject 계열 컴포넌트 5종 제거 |
-| 자동생산 반복 순환 시 골드 미소모 (BUG-20) | ✅ 완료 (2026-04-04) — CompleteProduction IsCharged 리셋 누락 수정 |
-| Pistoleer Idle 첫 프레임 동결 | ✅ 완료 (2026-04-06) — Pistoleer.controller Idle 상태 m_Speed: 0 → 1 수정 |
-| Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |
-| 근접 공격 거리 다듬기 | ✅ 완료 (2026-04-11) — 유닛 vs 유닛 0.35f, 유닛 vs 건물 0.55f (타겟 타입별 분리) |
-| 타겟 고정(Target Lock) 데미지 불일치 버그 | ✅ 완료 (2026-04-18) — 멀티플레이에서 애니메이션 타겟(B)과 다른 유닛(C)에게 데미지 적용되던 버그. NetworkCombatController.TickCombat() damageTargetId 분리로 수정 |
-| 생산 슬롯 깜빡임 버그 (등록 경로) | ✅ 완료 (2026-04-19) — 큐 비어있을 때 자동 등록 시 슬롯2→슬롯1 1프레임 이동. AddNewAutoSlot에서 즉시 TryStartNext 호출로 수정 |
-| 생산 슬롯 깜빡임 버그 (완료 사이클 경로) | ✅ 완료 (2026-06-05) — 자동생산 완료 시 재순환 항목이 슬롯2에 1프레임 표시되는 버그. CompleteProduction에서 ChargeVisibleSlots+이벤트 직접 발행 제거 → TryStartNext 즉시 호출로 수정 (UnitProductionUseCase.cs) |
-| 자동생산 재등록 슬롯 중복/누락 버그 | ✅ 완료 (2026-06-05) — 자동 해제/재등록 시 슬롯 중복 표시 및 슬롯3 미추가 버그 3케이스. CurrentIsAuto를 수동 필드에서 파생 계산 getter로 구조 개선(ProductionState.cs), RegisterAutoType에 PendingQueue.Count==0 조건 추가, GameSystemRules 규칙 20 보완 |
-| 랠리포인트 Client 무시 버그 | ✅ 완료 (2026-04-19) — 멀티플레이 Client(Red팀)에서 랠리포인트 설정이 서버에 전달되지 않던 버그. NetworkProductionController에 SetRallyPointServerRpc 추가, ProductionPanelUI에 네트워크 분기 추가 |
-| 근접유닛 뒷무빙 현상 | ✅ 완료 (2026-04-26) — Phase 1 타겟 사망 시 무조건 Phase 2 진입으로 후방 스냅 발생. 타겟 사망 즉시 다음 적 재선택 + Phase 2 후방 스냅 방지 + 점유 누수 방지 (UnitView.cs 3곳 수정) |
-| Phase 1 중 타일 소유권 미갱신 | ✅ 완료 (2026-04-26) — Phase 1(월드 직선 추적) 중 유닛이 타일을 지나가도 소유권이 갱신되지 않던 구조적 문제. TileOwnershipService(Pull 모델)로 매 프레임 물리 위치 기반 실시간 점령 |
 
----
+구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-57).
 
 ### ⚠️ 알려진 미완성/버그 항목
 

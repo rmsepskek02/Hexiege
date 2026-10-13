@@ -4,25 +4,21 @@
 **최종 수정일:** 2026-10-13
 **작성자:** HANYONGHEE
 
-> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
+> 기획·플레이 경험·시스템 역할을 설명한다. 상세 동작은 [게임 규칙](GameSystemRules.md), 수치는 [StatsReference](StatsReference.md), 구현 상태는 [PROJECT_STATUS](PROJECT_STATUS.md)가 담당한다.
+>
+> 날짜별 구현·native·빌드 인계 원문은 [구현·검증 이력](History/ImplementationVerificationHistory.md#gdd-handoff)에 보존했다.
 
-> **두 번째 fixture 보완 적용·Main 실제 소스 검토 완료:** actual config AutoTower/Spirit row로 temporary data 초기화·lethal preflight를 적용하고 finally 첫 단계에서 EXACT 기존 `_data` 참조를 복원한다. throwing subscriber/death/remove assertion은 유지, Production/Stats asset 변경 없음(Main/programmer 인계). 현재 Editor compile exit0/errors0/warnings0. 현행 fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변; 문서 담당 현재2해시도 일치. 이전93B11D…/1C196A…는 단계별 이력이다. fresh native 결과는 대기,16:32 RED→lifecycle 보완→16:37 tracer/impact/HP 경계 통과·후속 nullStats fixture FAIL→두 번째 보완 적용을 구분한다. ROOT16:33 PASS 별도·build 미시도·runtime/visual OPEN이며 전체 PASS로 쓰지 않는다.
+<a id="2026-10-10-확정-vfx-표현-사양"></a>
 
-> **최신 native — Main16:37:26 인계:** fresh UnitAction에서 이전 missing manager/tracer 실패는 해소됐고 실제 tracer·impact/HP assertions 통과, 해당 END failures0을 확인했다. 이후 VfxConnections line256 `Expression subscriber exception cannot prevent death/remove workflow` assertion에서 새 FAIL이다. tower fixture의 attack applied0/HP1(nullStats 컨텍스트)은 관찰값이며 원인 확정이나 production death/remove 결함 증명이 아니다. programmer read-only 진단 대기, build 미시도·runtime/visual OPEN.16:32 RED→fixture lifecycle 보완→16:37 이전 경계 통과/후속 경계 FAIL을 분리하고 전체 PASS로 쓰지 않는다. ROOT16:33:29 PASS는 독립 이전 결과다. 아래 기존 대기/실패 문단은 당시 이력이다.
+## 현행 VFX 표현 사양
 
-> **16:32 RED 원인·최소 fixture 교정 적용(Main 실제6행 patch 검토):** EffectManager Instance는 private Awake에서만 등록되고 ExecuteInEditMode가 없다. fixture AddComponent/Initialize가 lifecycle을 누락했으며 tracer asset 참조 존재·event 전달은 확인됐다. 같은 existing VfxConnections 파일에 actual Awake 호출 + Require Instance==manager + tracer nonnull preflight를 적용했고 Main이 실제6행 patch를 검토했다. 최종 SHA256 `93B11DB06A043E3B86E8002BB1991F05016718F124BECABBA11AE22BC6AF9878`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변. 기존 actual tracer-play/HP assertion은 약화하지 않고 production 소스/asset 변경은 없다. 현재 Editor compile exit0/errors0/warnings0; Runtime 불변·이전 static4 성공은 별도다. 교정 후 새 native 결과는 인계 대기이며 Action16:32:17 RED는 보존한다. ROOT16:33:29 PASS(Main UIstatus/Editor.log)와 source2 frozen/protection match는 별도, build 미시도·runtime/visual OPEN.
+Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지면 damage zone을 표현하지 않는다. 실제 서버 DoT 3초는 유지하고 poison/burn은 실제 대상 효과 수명을 따른다. 같은 owner 갱신은 재시작하지 않고 기존 Damage 덮어쓰기 정책에 따라 이전 표현을 종료·교체한다. **현행 Human AutoTower는 별도 preset으로 기존 Assault actual production VFX를 재사용**하며 Tank/CannonCart의 Tank VFX 참조는 유지한다. Spirit은 RuneSpire, Transcendence는 미지정이며 타 종족 fallback은 금지한다. 단일 AutoTower 타입 + Race로 선택한다. 피해·HP writer·공격 주기·범위·스탯을 변경하는 기획이 아니다. 연결 계약과 실제 구현·검증 범위는 [VFX 목록](Assets/VFXSFXList.md), 현재 요약은 [PROJECT_STATUS](PROJECT_STATUS.md)를 따른다.
 
-> **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
-
-현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
-
-## 2026-10-10 확정 VFX 표현 사양
-
-Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지면 damage zone을 표현하지 않는다. 실제 서버 DoT 3초는 유지하고 poison/burn은 실제 대상 효과 수명을 따른다. 같은 owner 갱신은 재시작하지 않고 기존 Damage 덮어쓰기 정책에 따라 이전 표현을 종료·교체한다. Human AutoTower는 Tank VFX를 별도 preset으로 재사용(shared Cannon preset의 prefab 참조만 승인 변경·구현/Main 검토 완료, 이름/SFX/offset·다른 필드 불변; 새 native/build/visual 대기), Spirit은 RuneSpire, Transcendence는 미지정이며 타 종족 fallback은 금지한다. 단일 AutoTower 타입 + Race로 선택한다. 피해·HP writer·공격 주기·범위·스탯을 변경하는 기획이 아니다. 구현 진행과 검증 결과는 [현재 상태](PROJECT_STATUS.md) 및 [VFX 목록](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계)을 따른다.
+**2026-10-13 현행 사양 정리:** 이 절의 이전 HumanTower Tank 재사용 계약은 이후 Human ONLY Assault 재사용 승인으로 바뀌었다. 기존 날짜 사양 원문은 [과거 VFX 사양](History/ImplementationVerificationHistory.md#gdd-vfx-spec-history)에 보존했다.
 
 
 > **이 문서는 기획문서다.** 구현 진행 상태(무엇이 만들어졌고 무엇이 남았는지)는 여기에 적지 않는다 —
-> 현재 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 시스템별 구현 계약과 상태는 각 `GameSystemRules/` 문서가 단일 소스다.
+> 상세 동작·구현 계약은 각 `GameSystemRules/` 문서를 따른다. 현재 시스템 구현·검증 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 유닛별 에셋·구조 이행·검증 상태는 [전투 에셋 감사표](Assets/UnitCombatAssetMatrix.md)가 담당한다.
 > 여기에 상태를 병기하면 사본이 낡는다. 다만 **기획 상태**(`확정 기획` · `밸런싱 미확정` 등)는 기획문서의 정당한 내용이므로 이 문서가 계속 관리한다.
 
 ---
@@ -42,6 +38,8 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 > 개발 진행 현황 및 로드맵은 `ROADMAP.md`, `PROJECT_STATUS.md` 참조.
 
 ---
+
+<a id="게임-개요"></a>
 
 ## 🎮 게임 개요
 
@@ -74,6 +72,8 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 - **이동 제한**: 맵 경계 내로 제한
 
 ---
+
+<a id="핵심-게임플레이"></a>
 
 ## 🎯 핵심 게임플레이
 
@@ -138,20 +138,11 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 - 중립 광산: 맵 유형에 따라 1~6개. 홀수는 중앙 단독 1개+대응쌍, 짝수는 모두 180도 대응쌍
 - 중앙 단독 광산은 양 성에서 같은 접근거리, 대응 광산 쌍은 교차 접근거리가 같아야 함
 
-**건물 비용**:
-| 건물 | 비용 |
-|------|------|
-| 배럭 (Barracks) | 100 골드 |
-| 채굴소 (MiningPost) | 50 골드 |
-
-**유닛 생산 비용**:
-| 유닛 | 비용 | 생산 시간 | 인구 |
-|------|------|-----------|------|
-| 권총병 (Pistoleer) | 50 골드 | 5초 | 1 |
-| 돌격소총병 (Assault) | 100 골드 | 10초 | 1 |
-| 저격총병 (Sniper) | 200 골드 | 15초 | 1 |
+**건설·생산 수치**: 건물 비용과 유닛 비용·생산 시간·인구는 [StatsReference](StatsReference.md)의 종족별 표를 따른다.
 
 ---
+
+<a id="건물-시스템"></a>
 
 ## 🏗️ 건물 시스템
 
@@ -170,27 +161,26 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 - 업그레이드 시: 진행 중 생산 골드 환불 + 랠리포인트 유지
 
 **종족별 건물 라인**:
-- Human: HumanBarracks 1/2/3단계
-- Spirit: AncientGrove 1/2/3단계
-- Transcendence: PrimalSanctuary 1/2/3단계
+
+단계별 건물명 사본의 이전 표기는 [건물 라인 정리 이력](History/ImplementationVerificationHistory.md#gdd-building-lines-history)에 보존했다. 라인 구성과 수치는 아래 원본을 따른다.
+- Human: 근거리·총기·탈것 라인. 단계별 건물명은 [StatsReference](StatsReference.md#건물--인간계-human) 참조
+- Spirit: 불·물·땅 라인. 단계별 건물명은 [StatsReference](StatsReference.md#건물--정령계-spirit) 참조
+- Transcendence: 동물A·동물B·식물 라인. 단계별 건물명은 [StatsReference](StatsReference.md#건물--초월계-transcendence) 참조
 
 ---
 
 ### 2. 자원 건물 (Resource Collector / MiningPost)
-**기능**:
+
+**현재 기능**:
 - **금광 타일 위에만** 건설 가능
 - 건설 조건: 인접 6타일 중 최소 1개가 자기 팀 소유
-- 자동 자원 수집 (초당 10 골드)
-- 건물 업그레이드
+- 살아 있는 채굴소마다 기본 **10 골드/초** 수입. AI 팀 수입에는 난이도 배율이 적용된다.
+- 채굴소의 등급 업그레이드는 현재 지원하지 않는다. 건설 비용은 [StatsReference](StatsReference.md)의 종족별 MiningPost 표를 따른다.
 
-**업그레이드 효과**:
-- Lv1: +10 골드/초
-- Lv2: +15 골드/초
-- Lv3: +20 골드/초
-
-**비용**: 50 골드
+이전 Lv1/2/3 수입 증가 기획은 [미확정 건물 기획](#미확정-건물-기획)에 보존한다. 실제 구현에서는 생산 건물의 등록된 다음 단계만 업그레이드하고 채굴소는 그 목록에 없다.
 
 ---
+
 
 ### 3. 스킬 건물 (Skill Building)
 
@@ -261,7 +251,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 **밸런싱 미확정**: 회복량 · 물안개 지속시간 · 쿨다운 · 범위 반경 · 회복 텍스트 표시 주기(임시 3초)는 **전부 미확정**이다.
 현재 `StatsReference.md`의 값(HP 500 / 건설비 100 / 10 HP/s · 범위 3)은 재설계 이전 수치이며 밸런싱 재검토 대상이다.
 
-> **상세 규칙은 단일 소스 문서 참조:** [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) — **MistShrine 물안개 힐 시스템** (UI 규칙은 [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) MistShrine 패널 UI)
+> **상세 규칙은 단일 소스 문서 참조:** [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) — **MistShrine 물안개 힐 시스템** (UI 규칙은 [GameSystemRules_BuildingPanelsUI.md](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) MistShrine 패널 UI)
 > **구현 상태는 위 단일 소스 문서를 참조한다** — 여기에 상태를 병기하면 사본이 낡는다.
 
 ---
@@ -303,18 +293,18 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 ---
 
 ### 본기지 (Main Base)
-**기능**:
-- 체력: 종족별 상이 (×10 값 — Human Castle 2000 / Spirit Nexus 1500 / Trans ElderTree 3000. 권위 소스 `StatsReference.md`)
-- 수리: 골드 소모로 체력 회복
-- 약한 기본 공격력 (방어용)
 
-**업그레이드 (선택적)**:
-- Lv2: 체력 +1000
-- Lv3: 수리 효율 증가
-- Lv4: 방어 공격력 증가
-- Lv5: 근처 아군 버프
+**현재 기능**:
+- 종족별 체력을 가진 승리 조건의 핵심 건물이다. HP는 [StatsReference](StatsReference.md)의 Castle 표를 따른다.
+- 현재 일반 공격 경로는 AutoTower만 처리하며 Castle의 공격력은 0이다.
+- 골드를 써서 수리하거나 본기지를 Lv2~Lv5로 업그레이드하는 실행 경로는 현재 지원 범위에 없다.
+- 본기지도 MistShrine 물안개 범위 안에서는 회복 대상이다. 금화 수리 조작이 없다는 사실을 모든 회복이 불가능하다는 뜻으로 확대하지 않는다.
+
+이전 수리·방어 공격·단계별 확장 아이디어는 [미확정 건물 기획](#미확정-건물-기획)에 따로 보존한다. 이 문단의 구현 범위 근거는 [현재 정리 Task](_Tasks/2026-10-13/19_03_main-docs-organization/Research.md#실제-구현값-기준-후속-정정)를 따른다.
 
 ---
+
+<a id="유닛-시스템"></a>
 
 ## 🪖 유닛 시스템
 
@@ -341,22 +331,11 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 ### 유닛 스탯 (인간계 기본 3종 — StatsReference.md 권위 소스)
 
-> **HP·공격력은 ×10 스케일 값이다.** 전 유닛 정식 값은 `StatsReference.md`가 권위 소스다. 사거리·이동속도·비용 등 불변 항목과 상세 표는 `StatsReference.md` 참조.
-
-| 항목 | 권총병 (Pistoleer) | 돌격소총병 (Assault) | 저격총병 (Sniper) |
-|------|-------------------|---------------------|-----------------|
-| HP | 300 | 400 | 300 |
-| 공격력 | 60 | 10 | 180 |
-| 사거리 (타일) | 1.0 | 2.0 | 5.0 |
-| 사거리 (world units 임계값) | 0.916 | 1.782 | 4.38 |
-| 이동속도 (칸/초) | 0.5 | 1.0 | 0.25 |
-| 골드비용 | 50 | 100 | 200 |
-| 인구 소비 | 1 | 1 | 1 |
-| UnitType enum | Pistoleer = 0 | Assault = 1 | Sniper = 2 |
+정확한 HP·공격력·사거리·이동속도·비용·생산 시간은 [StatsReference](StatsReference.md#유닛--인간계-human)를 따른다. HP·공격력은 ×10 스케일이며, GDD에는 역할만 요약한다.
 
 **사거리 계산식**: `임계값 = 사거리 × TileHeight(0.866) + 0.05` (사거리는 타일 단위, ×10 불변)
 
-> HP·공격력 값은 `StatsReference.md`의 ×10 확정 설계값과 일치시킴(생산시간 등 불변 항목은 StatsReference 권위). Spirit / Transcendence 유닛 스탯 및 신규 Human 유닛 스탯 → `StatsReference.md` 참조
+**기존 타입 식별 대응**: Pistoleer = 0, Assault = 1, Sniper = 2. 인간계 기본 3종의 world units 임계값은 위 계산식 기준 각각 0.916 / 1.782 / 4.38이다.
 
 **각 유닛 역할**:
 - **권총병**: 대량 생산 러시 전략의 주력. 사거리 1.0 — 인접 타일 진입 직전 교전. 공격 속도가 빠르고 저렴해 수적 우위 전략에 적합
@@ -365,23 +344,9 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 ### 유닛 타입 (스탯 확정 현황, StatsReference.md 참조)
 
-**인간계 (Human)** — 3종 스탯 확정, 5종 추가 예정:
-- **Pistoleer** (5초): 원거리 1.0타일, 범용 생산형
-- **Assault** (10초): 원거리 2.0타일, 고체력 주력
-- **Sniper** (15초): 원거리 5.0타일, 고화력 저속
-- LittleKnight / SpearMan / BattleAxe / Tank / CannonCart: 스탯 미확정
+종족별 전체 유닛 목록과 수치·임시값 표시는 [StatsReference](StatsReference.md)의 Human·Spirit·Transcendence 표를 따른다. 수치가 존재한다는 이유만으로 밸런싱 확정 또는 실기 수용을 뜻하지 않는다. 유닛별 구현·에셋·검증 상태는 [전투 에셋 감사표](Assets/UnitCombatAssetMatrix.md)에서 확인한다.
 
-**정령계 (Spirit)** — 3종 스탯 확정, 6종 추가 예정:
-- **EmberSpirit** (5초): 근접 0.5타일, 단발
-- **FlameSpirit** (15초): 근접 0.5타일, 6히트 연속 공격
-- **InfernoSpirit** (30초): 원거리 4.0타일, 고화력 고비용
-- DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit: 스탯 미확정
-
-**초월계 (Transcendence)** — 3종 스탯 확정, 2종 추가 예정:
-- **FoxMagician** (5초): 원거리 3.0타일, 마법 공격
-- **BearGuard** (25초): 근접 0.5타일, 고체력 탱커
-- **LionKnight** (15초): 근접 0.5타일, 2히트 공격
-- RabbitTrickster / RhinoBreaker: 스탯 미확정
+GDD에서 별도로 유지하던 “기본 3종 확정 / 추가 유닛 스탯 미확정” 목록과 생산시간 사본은 제거했다. 이 목록은 현행 스탯·유닛 목록을 표현하지 못했고 Sniper 생산시간도 원본과 달랐다. **2026-10-13 사본 정리:** 기존 Sniper 15초는 StatsReference 및 런타임 `UnitStatsConfig.asset`의 type 2 생산시간 20초와 어긋났다. 수치 원본을 수정하지 않고 참조로 수렴했다.
 
 ---
 
@@ -405,7 +370,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 큰 도끼로 눈앞을 한 번에 쓸어버리는 근접 광역 딜러다. 한 번 휘두르면 주 타깃뿐 아니라 **공격자 정면 부채꼴 안에 있는 적 유닛 전원**이 동시에 같은 피해를 받는다. 여러 적이 좁은 통로에 뭉쳐 밀고 들어올 때 특히 강하다.
 
-- **판정 형태**: 공격자 → 주 타깃 방향을 기준으로 한 **전방 부채꼴**. 반경 `sweepReach`(실기값 0.75), 부채꼴 반각 120°. 부채꼴 안의 적 유닛 전원에게 **동일 피해(공격력 15)**를 즉시 적용한다.
+- **판정 형태**: 공격자 → 주 타깃 방향을 기준으로 한 **전방 부채꼴**. 반경 `sweepReach`(실기값 0.75), 부채꼴 반각 120°. 부채꼴 안의 적 유닛 전원에게 **동일 피해(공격력 수치는 StatsReference 참조)**를 즉시 적용한다.
 - **주 타깃 vs 부채꼴**: 주 타깃은 기본 단일 피해로 처리하고, 부채꼴은 그 외의 적 유닛을 추가로 쓸어담는다(주 타깃 중복 피해 없음).
 - **제외 대상**: 아군·사망 유닛·공격자 자신·등 뒤의 적(각도로 자연 제외). **건물은 부채꼴 대상이 아니며**, 건물이 주 타깃일 때만 단일 피해를 받는다.
 - 상세 규칙: 규칙 23~27.
@@ -417,7 +382,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 앞으로 밀려나가는 거대한 물결로 **적은 쓸어 피해를 주고 아군은 회복시키는** 양면 정령이다. 단일 대상 기본 공격이 아예 없고(**special-only**), 파도 자체가 공격의 전부다. 전선을 밀면서 아군을 살리고 적을 깎는 지원형 딜러다.
 
 - **판정 형태**: 전방으로 이동하는 **월드 직사각형 전선**(폭·전방 길이·이동 시간을 가진 파도). 전선이 지나가며 닿는 대상에게 효과를 준다.
-- **대상별 효과**: **적 유닛·적 건물 = 피해 20**, **아군 유닛 = 힐 10**. 각 대상은 한 번의 파도로 **1회만** 영향을 받는다(아군 건물은 힐 대상 아님).
+- **대상별 효과**: **적 유닛·적 건물 = 피해**, **아군 유닛 = 회복**(공격력 및 힐량은 StatsReference 참조). 각 대상은 한 번의 파도로 **1회만** 영향을 받는다(아군 건물은 힐 대상 아님).
 - **special-only의 의미**: 단일 공격이 없으므로 파도 판정이 **건물도 반드시 훑어야** 성(승리 조건)을 깎을 수 있다.
 - **힐 서브시스템**: 이 유닛을 위해 "아군 회복" 채널을 신설했다(피해와 분리된 별도 연출·동기화). 이후 BloomFairy가 공유한다.
 - 상세 규칙: 규칙 28~31.
@@ -428,7 +393,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 적을 전혀 때리지 않고 **부상당한 아군을 회복시키는 순수 힐러**다. 지금까지의 특수 유닛과 근본적으로 다르며, 적 공격 흐름과 완전히 분리된 **힐러 전용 경로**로 동작한다.
 
-- **회복 방식**: 사거리(4.0타일) 안의 부상 아군 중 **잃은 체력 비율이 가장 큰 대상**(동률이면 가장 가까운 대상)을 골라, **3초에 걸쳐 총 20 HP를 서서히 회복**시킨다(HoT). **본인도 회복 대상에 포함**되며, 회복 대상은 **아군 유닛만**(건물 제외)이다.
+- **회복 방식**: 사거리(4.0타일) 안의 부상 아군 중 **잃은 체력 비율이 가장 큰 대상**(동률이면 가장 가까운 대상)을 골라, **3초에 걸쳐 설정된 총 힐량을 서서히 회복**시킨다(HoT). **본인도 회복 대상에 포함**되며, 회복 대상은 **아군 유닛만**(건물 제외)이다.
 - **유휴 감시**: A* 경로 끝(최전선)에 도달해 더 갈 곳이 없어도 멈추지 않고, 사거리 안에 부상 아군이 생기면 즉시 다시 힐한다.
 - **⚠️ 쿨다운 예외(의도된 설계)**: 다른 모든 유닛은 쿨다운이 "발동 준비 시간을 포함한 전체 주기"지만, **BloomFairy만** 힐이 실제로 발동된 **뒤부터** 쿨다운(3.0초)을 센다. 그래서 실제 힐 주기는 **발동 준비 1.0초 + 쿨다운 3.0초 = 4.0초**다. "힐 한 번 걸고 3초 쉰다"는 체감이 핵심이므로, 이 예외는 확정 설계이며 다른 유닛과 같게 되돌리지 않는다.
 - 상세 규칙: 규칙 32~37.
@@ -439,8 +404,8 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 포자 폭탄을 던져 **착탄 지점에서 폭발**시키는 착탄형 범위 딜러다. 폭발은 두 가지 피해를 동시에 준다 — 폭탄을 맞은 1마리에게 즉시 들어가는 **직접 피해**, 그리고 폭발 반경 안 적 유닛 전원에게 시간에 걸쳐 뚝뚝 들어가는 **지속 피해(DoT)**다.
 
-- **직접 피해**: 주 타깃 1마리에게 **직접 10**(기본 단일 피해, 건물 공성 포함).
-- **범위 DoT**: 착탄 중심 기준 **월드 원형 반경**(기본 1.0 = 인접 1칸) 안의 **적 유닛 전원**에게 **초당 2씩 3초간(총 6)** DoT를 건다. DoT는 **1초 간격으로 뚝뚝** 들어가며, 매초 남은 체력이 데미지 텍스트로 표시된다.
+- **직접 피해**: 주 타깃 1마리에게 **설정된 직접 피해**(기본 단일 피해, 건물 공성 포함).
+- **범위 DoT**: 착탄 중심 기준 **월드 원형 반경**(기본 1.0 = 인접 1칸) 안의 **적 유닛 전원**에게 **설정된 초당 피해를 3초간** DoT를 건다. DoT는 **1초 간격으로 뚝뚝** 들어가며, 매초 남은 체력이 데미지 텍스트로 표시된다.
 - **건물 처리**: **건물은 DoT를 받지 않는다**(직접 피해만). 단, 주 타깃이 건물이어도 폭발은 항상 터지므로 반경 안의 주변 적 유닛에게는 DoT가 걸린다.
 - 상세 규칙: 규칙 38~40.
 
@@ -450,9 +415,9 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 원거리로 적을 포격하는 고화력 정령으로, **때린 그 1마리에게만 지속 피해를 추가로 남긴다.** MushroomBomber와 달리 **범위가 없다** — AoE가 아니라 주 타깃 단일 대상이다.
 
-- **직접 피해**: 원거리 공격이 주 타깃에게 **직접 25**(기본 단일 피해, 건물 공성 포함).
-- **단일 DoT**: 그 **주 타깃 1마리에게만** **초당 5씩 3초간(총 15)** DoT를 추가로 건다(반경 없음). DoT 거동(1초 간격·매초 남은 체력 텍스트·갱신 시 리셋)은 MushroomBomber와 공유하되, 수치는 별도로 분리 관리된다.
-- **대상 제한**: DoT는 **적 유닛만** 받는다. 건물이 주 타깃이면 직접 25만 들어가고 DoT는 걸리지 않는다.
+- **직접 피해**: 원거리 공격이 주 타깃에게 **설정된 직접 피해**(기본 단일 피해, 건물 공성 포함).
+- **단일 DoT**: 그 **주 타깃 1마리에게만** **설정된 초당 피해를 3초간** DoT를 추가로 건다(반경 없음). DoT 거동(1초 간격·매초 남은 체력 텍스트·갱신 시 리셋)은 MushroomBomber와 공유하되, 수치는 별도로 분리 관리된다.
+- **대상 제한**: DoT는 **적 유닛만** 받는다. 건물이 주 타깃이면 직접 피해만 들어가고 DoT는 걸리지 않는다.
 - 상세 규칙: 규칙 41~42.
 
 ---
@@ -461,13 +426,15 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 대지를 내리찍어 **착탄 지점 주변을 즉시 뒤흔드는** 착탄형 광역 딜러다. 주 타깃은 온전한 100% 피해를, 주변은 그 절반을 한 번에(즉발) 받는다. **다른 착탄·휩쓸기 유닛과 달리 스플래시가 건물까지 타격한다**는 점이 핵심 차별점이다.
 
-- **직접 피해(100%)**: 주 타깃 1마리에게 **20(공격력 100%)만** 적용한다(주 타깃은 스플래시에서 제외 — 중복 피해 없음).
-- **스플래시(50%)**: 착탄 중심 기준 **월드 원형 반경**(`_quakeRadius` 기본 1.0 = 인접 1칸) 안의 **다른 적 유닛 + 적 건물**에게 **10(공격력의 50%, 올림)**을 즉시 적용한다.
+- **직접 피해(100%)**: 주 타깃 1마리에게 **공격력 100%만** 적용한다(주 타깃은 스플래시에서 제외 — 중복 피해 없음).
+- **스플래시(50%)**: 착탄 중심 기준 **월드 원형 반경**(`_quakeRadius` 기본 1.0 = 인접 1칸) 안의 **다른 적 유닛 + 적 건물**에게 **공격력의 50%(올림)**을 즉시 적용한다.
 - **⚠️ 건물도 스플래시 대상**: BattleAxe·MushroomBomber는 스플래시/부채꼴에서 건물을 제외하지만, QuakeSpirit은 반경 안 적 건물도 50% 스플래시를 받는다(공성 기여). 아군 유닛·건물은 무피해.
 - **즉발**: DoT가 아니라 한 타격에 즉시 적용되는 2단계(100%/50%) 피해다.
-- 구현 task: `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`. 상세 규칙은 `GameSystemRules_Units.md`에 별도 등재 예정.
+- 구현 task: `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`. 상세 규칙은 [유닛 규칙](GameSystemRules/GameSystemRules_Units.md)의 `U-SPECIAL-*` 및 Legacy 규칙 43을 참조한다.
 
 ---
+
+<a id="종족-시스템"></a>
 
 ## 🌍 종족 시스템
 
@@ -489,15 +456,15 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 ### 정령계 (Spirit)
 **컨셉**: 자연 원소에서 태어난 정령들
 
-**스탯 확정 유닛**:
+**유닛 역할 예시** (수치·확정/임시 표시는 [StatsReference](StatsReference.md) 참조):
 - EmberSpirit: 근접 단발 공격
 - FlameSpirit: 근접 6히트 연속 공격
 - InfernoSpirit: 원거리 고화력 정령
 
-**스탯 미확정 유닛**:
+**추가 유닛 목록** (기존 미확정 사본 라벨은 현행 수치·확정 상태 원본 참조로 정리):
 - DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit
 
-**건물 라인**: AncientGrove 1/2/3단계 (고대 신목 스타일)
+**건물 라인**: 불·물·땅 라인의 단계별 이름은 [StatsReference](StatsReference.md#건물--정령계-spirit)와 [AI의 종족 참조](GameSystemRules/GameSystemRules_AI.md#8-spirit-종족-참조-정보)를 따른다. 고대 신목 스타일이라는 기획 방향은 유지한다.
 **방어 타워**: Spirit RuneSpire — 쿨다운 3.5s (전 종족 중 최단) (스킬 건물 `MagicSpirit`과 별개)
 
 ---
@@ -507,15 +474,15 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 - **건물**: 거대한 식물, 살아있는 나무, 꽃 등 자연물을 그대로 활용한 유기적 건축물 (Flora)
 - **유닛**: 숲을 수호하는 의인화된 동물 전사들 (Fauna)
 
-**스탯 확정 유닛**:
+**유닛 역할 예시** (수치·확정/임시 표시는 [StatsReference](StatsReference.md) 참조):
 - FoxMagician: 원거리 마법 공격
 - BearGuard: 근접 고체력 탱커
 - LionKnight: 근접 2히트 공격
 
-**스탯 미확정 유닛**:
+**추가 유닛 목록** (기존 미확정 사본 라벨은 현행 수치·확정 상태 원본 참조로 정리):
 - RabbitTrickster / RhinoBreaker
 
-**건물 라인**: PrimalSanctuary 1/2/3단계 (원시 신전 스타일)
+**건물 라인**: 동물A·동물B·식물 라인의 단계별 이름은 [StatsReference](StatsReference.md#건물--초월계-transcendence)와 [AI의 종족 참조](GameSystemRules/GameSystemRules_AI.md#9-transcendence-종족-참조-정보)를 따른다. 원시 신전 스타일이라는 기획 방향은 유지한다.
 **방어 타워**: Trans **VineTower** — 쿨다운 5.0s (`BuildingType.AutoTower`. 힐 기능 없음 — 힐은 별개 건물 MistShrine 담당)
 
 **종족 특성**:
@@ -525,6 +492,8 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 - 초월 전용 강화 트랙 **자연회복**(연구소) — MistShrine 물안개 힐과 별개 효과이며 함께 적용된다.
 
 ---
+
+<a id="타일-시스템"></a>
 
 ## 🗺️ 타일 시스템
 
@@ -654,6 +623,8 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 ---
 
+<a id="승리-조건"></a>
+
 ## 🏆 승리 조건
 
 ### 주 승리 조건
@@ -690,42 +661,19 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 ---
 
+<a id="생산-시스템"></a>
+
 ## ⚙️ 생산 시스템
 
 ### 자동 생산 (Auto Production)
-**활성화**:
-- 유닛 아이콘 **롱프레스** (0.5초)
-- UI 피드백: 테두리 회전 효과 (✨)
 
-**작동**:
-- 설정된 유닛들을 **순차 반복**
-- 예: 권총병(✨) + 저격수(✨) → 권총병 → 저격수 → 반복
-- 인구수 부족 시 대기
-
-**취소**:
-- 수동 생산 시작 시 자동으로 취소
-
----
+길게 누르기로 원하는 유닛의 자동 순환 생산을 등록해 전선 관리에 집중한다. 실제 입력·큐·비용 차감·자원 부족 처리는 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) 「생산 패널 UI」 규칙 3~7·9~11·18~22를 따른다.
 
 ### 수동 생산 (Manual Production)
-**활성화**:
-- 유닛 아이콘 **탭** (짧게 누름)
 
-**작동**:
-- 생산 큐에 추가 (최대 3개 — 현재 생산 중 1 + 대기 2)
-- 큐 첫 번째부터 순차 생산
-- **수동 생산 시작 시**:
-  1. 현재 자동생산 중이던 유닛 즉시 취소 (골드 환불 없음)
-  2. 모든 자동생산 설정 해제
-  3. 수동 큐 생산 시작
+짧게 탭해 필요한 유닛을 직접 큐에 추가한다. 자동 순환에 등록된 타입의 탭은 자동 해제로 처리한다. 수동 등록 시 자동 모드는 해제되지만 **이미 골드를 차감한 항목은 수동 큐로 이관되어 생산을 계속한다**. 슬롯 직접 취소와 환불은 같은 원본 규칙 8·23을 따른다.
 
-**큐 취소**:
-- 큐 슬롯 클릭 → 해당 유닛 생산 취소 + **골드 100% 환불**
-- 현재 생산 중(슬롯 0) 취소 시 타이머 초기화
-- 대기 중(슬롯 1~2) 취소 시 큐에서 제거
-
-**큐 소진**:
-- 큐가 비면 생산 중지 (자동 재개 안 함)
+**2026-10-13 사본 정정:** 이전 “수동 시작 시 자동생산 중 유닛 즉시 취소”와 “자원 부족 시 대기” 사본은 원본의 생산 계속·자동 모드 취소 규칙과 충돌했다. 현행 원본 참조로 정리했다.
 
 ### 생산 타이머
 
@@ -755,13 +703,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 #### 전역 규칙 5가지
 
-| # | 규칙 | 설명 |
-|---|------|------|
-| Rule 1 | 생산 취소 시 항상 전액 환불 | 슬롯 X 버튼으로 생산을 직접 취소할 때만 해당. 예외 없음 |
-| Rule 2 | 슬롯 표시 항목은 자동 취소 후에도 생산 계속 | 슬롯에 이미 표시된(골드가 차감된) 자동 항목은 자동 순환 목록에서 제거되더라도 수동 큐로 이관되어 생산이 유지됨 |
-| Rule 3 | 수동 추가 시 자동 모드 해제 | 수동 생산을 추가하면 자동 모드 인디케이터가 모두 꺼짐. 단 Rule 2에 따라 슬롯 표시 항목은 수동 큐로 이관 후 해제 |
-| Rule 4 | 생산큐 최대 3개 | 현재 생산 중 + 수동 대기 항목 합산 기준. 자동 대기(골드 미차감) 항목은 이 상한에 포함되지 않음 |
-| Rule 5 | 비용 차감은 슬롯에 표시되는 시점 | 자동 등록 시 슬롯에 표시 가능하면 즉시 차감, 큐가 꽉 차 있으면 슬롯 진입 시 차감 |
+생산 취소 환불·차감 항목의 생산 유지·수동 등록 시 모드 해제·큐 상한·슬롯 비용 차감의 원본은 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) 「생산 패널 UI」 규칙 7·9~10·18~19·23이다. 이곳에 별도 Rule 1~5 사본을 유지하지 않는다.
 
 #### 용어 정의
 
@@ -776,12 +718,7 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 #### 공통 조건 (버튼 동작)
 
-| 동작 | 조건 | 결과 |
-|------|------|------|
-| 유닛 버튼 탭 | 해당 유닛이 자동 순환 목록에 있음 | 자동 취소 (생산 취소 아님 — 환불 없음) |
-| 유닛 버튼 탭 | 해당 유닛이 자동 순환 목록에 없음 | 수동 추가 |
-| 유닛 버튼 롱프레스 | 항상 | 자동 등록/취소 토글 |
-| 슬롯 X 버튼 클릭 | 항상 | 해당 슬롯 생산 취소 + 골드 환불 (Rule 1) |
+탭·롱프레스·슬롯 직접 취소의 조건과 결과는 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) 「생산 패널 UI」 규칙 3~5·8·18~19·23을 따른다.
 
 ---
 
@@ -809,12 +746,14 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 - 유닛은 전투(사거리 내 적 공격)와 진군을 동시에 수행
 
 ### 생산 UI 예시
+
+아래는 배치 개념을 보여주는 예시다. 시간·골드·인구는 예시값이며 실제 수치는 StatsReference와 경기 상태를 따른다.
 ```
 [배럭 Lv.2]
 ┌────────────────────────────┐
 │  ┌────┐  ┌────┐  ┌────┐   │
 │  │권총│  │기관│  │저격│   │
-│  │ 5s │  │10s │  │15s │   │
+│  │시간│  │시간│  │시간│   │
 │  └────┘  └────┘  └────┘   │
 │   ✨ON              ✨ON    │
 │                            │
@@ -826,6 +765,8 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 ```
 
 ---
+
+<a id="수익화-전략"></a>
 
 ## 💰 수익화 전략 (BM)
 
@@ -890,6 +831,42 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 
 ---
 
+
+## 미확정 건물 기획
+
+**2026-10-13 구분:** 아래는 기존 GDD에 섞여 있던 유일 기획 원문이다. 현재 실행되는 건물 기능이나 확정 수치가 아니며, 도입 여부·수치·비용은 별도 논의가 필요하다. 현행 본문은 실제 구현 기준으로 정리했고 아이디어 자체는 삭제하지 않았다.
+
+**사용자 확정 상태:** 아직 구현하지 않은 낮은 우선순위의 추후 고려 대상이다. 원문을 남겨두기만 하며 지금 구현하거나 상세 설계를 진행하지 않는다.
+
+### 채굴소 단계 확장 — 기존 원문
+
+**기능**:
+- **금광 타일 위에만** 건설 가능
+- 건설 조건: 인접 6타일 중 최소 1개가 자기 팀 소유
+- 자동 자원 수집 (초당 10 골드)
+- 건물 업그레이드
+
+**업그레이드 효과**:
+- Lv1: +10 골드/초
+- Lv2: +15 골드/초
+- Lv3: +20 골드/초
+
+**비용**: 50 골드
+
+### 본기지 확장 — 기존 원문
+
+**기능**:
+- 체력: 종족별 상이 (×10 값 — Human Castle 2000 / Spirit Nexus 1500 / Trans ElderTree 3000. 권위 소스 `StatsReference.md`)
+- 수리: 골드 소모로 체력 회복
+- 약한 기본 공격력 (방어용)
+
+**업그레이드 (선택적)**:
+- Lv2: 체력 +1000
+- Lv3: 수리 효율 증가
+- Lv4: 방어 공격력 증가
+- Lv5: 근처 아군 버프
+
+---
 
 ## 📝 변경 이력
 

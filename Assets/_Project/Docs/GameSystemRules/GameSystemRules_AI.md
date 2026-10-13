@@ -1,7 +1,7 @@
 # Game System Rules — AI 시스템
 
 싱글플레이 전용 AI 상대(Red팀)의 동작 규칙 모음.
-이 문서는 구현 기준 규칙을 정의하며, 종족별 구체적인 빌드오더 시나리오는 별도 논의 후 추가한다.
+이 문서는 난이도·Phase·반응·가드·배치의 공통 규칙을 정의한다. 종족별 건물·유닛 선택과 예비 빌드오더는 아래 연결된 세 시나리오 문서가 담당한다.
 
 ---
 
@@ -44,7 +44,7 @@ AI 동작은 두 계층으로 구성된다.
 ### ScriptableObject 구조
 
 `Assets/_Project/Resources/Config/AIConfig.asset` **하나의 파일**에 3개 난이도 파라미터를 모두 담는다.
-기존 `UnitStatsConfig.asset`이 9개 유닛 스탯을 하나에 담는 것과 동일한 패턴이다.
+기존 `UnitStatsConfig.asset`이 여러 유닛 스탯을 하나에 담는 것과 동일한 패턴이다.
 인스펙터에서 쉬움/보통/어려움 3개 섹션의 수치를 한 곳에서 비교하며 수정할 수 있다.
 
 ```
@@ -95,6 +95,22 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 어떤 이유(골드 부족, 타일 없음 등)로도 Phase를 건너뛰지 않는다.
 현재 단계의 항목이 완료될 때까지 재시도한다. (→ 가드 메커니즘 섹션 참조)
 이 게임은 순차 테크트리 기반이므로 단계 건너뜀은 AI 동작을 깨뜨린다.
+
+### 종족 시나리오 공통 타이밍
+
+종족 시나리오는 건물·유닛·투자 계획만 개별로 정의한다. Phase 순차 실행·스킵 금지는 규칙 6~8, 채굴소 병행 트랙은 규칙 27이 원본이다.
+
+- `delaySeconds`는 해당 Phase 시작 후 해당 항목까지의 최소 대기 시간(보통 난이도 기준)이다.
+- 쉬움 delay ×1.5 / 어려움 ×0.7은 **조정 예정**인 시나리오 예비 기준이다. 규칙 5의 생산 시간 배율과 별개의 값이며 확정값으로 확대하지 않는다.
+
+| Phase | 예비 시간 기준 |
+|---|---|
+| Phase 1 | 0~3분 |
+| Phase 2 | 3~6분 |
+| Phase 3 | 6~9분 |
+| Phase 4 | 9분~종료 (최대 12분) |
+
+위 시간은 10분 플레이타임을 전제로 한 시나리오 예비 계획이며, 실제 Phase 진입은 규칙 6~8의 완료 조건을 따른다. 지연·골드 부족으로 진입이 늦어져도 Phase를 건너뛰지 않는다. 시나리오의 수치·경제 계산은 스탯 및 맵 초기 경제를 반영한 재검토 전까지 현행 경제 성립을 보증하지 않는다.
 
 ### 빌드오더 항목 구조
 
@@ -486,7 +502,9 @@ public static class LocalPlayerDifficulty
 
 **규칙 33. 씬 진입 시 AIConfig 선택**
 `GameBootstrapper.InitializeAI()`에서 `LocalPlayerDifficulty.Current`를 읽어
-해당 난이도의 `AIConfig` asset을 로드하고 `AIOpponentController`에 주입한다.
+단일 `AIConfig.asset`을 로드한 뒤 규칙 4에 따라 `GetParams(difficulty)`로 해당 난이도의 `DifficultyParams`를 선택하여 `AIOpponentController`에 주입한다.
+
+**2026-10-13 사본 정정:** 난이도마다 다른 AIConfig 에셋을 로드한다는 이전 서술은 단일 에셋 구조(규칙 4) 및 `GameBootstrapper.Setup.cs`의 단일 로드·GetParams 호출과 어긋나 정리했다.
 
 ### 로비 난이도 선택 UI
 

@@ -13,8 +13,12 @@
 |------|------------|
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 유형별 생성·광산·건설 제한·seed·폴백·검증 (유형 목록과 개수는 3장 「유형별 사양」이 단일 소스) |
-| [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다), 이탈 시 승패 기록, 인게임 이탈 처리 (구조·구현 방법은 이 문서가 아니라 `TechnicalDesignDocument.md` 「🌐 네트워크 설계」) |
-| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
+| [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다), 이탈 시 승패 기록, 인게임 이탈 처리 (구조·구현 방법은 이 문서가 아니라 `TechnicalDesignDocument_Network.md` 「🌐 네트워크 설계」) |
+| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI·팝업·로딩 규칙 원본, 이동된 UI 규칙의 기존 참조 안내 |
+| [GameSystemRules_MatchFlowUI.md](GameSystemRules/GameSystemRules_MatchFlowUI.md) | 경기 준비 실패·결과·재경기 화면, M/D 규칙 원본 |
+| [GameSystemRules_BuildingPanelsUI.md](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) | 생산·MistShrine·건물 배치 패널 규칙 원본 |
+| [GameSystemRules_SettingsUI.md](GameSystemRules/GameSystemRules_SettingsUI.md) | 인게임 설정·로비 설정·프로필 규칙 원본 |
+| [GameSystemRules_MatchFlow.md](GameSystemRules/GameSystemRules_MatchFlow.md) | 맵 전송·실패 복구·재경기 맵 선택·결과 화면/재로드 이탈 규칙 원본 |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동(건물 경로 차단 포함)·정렬·타겟·공격·피해 불변 규칙, 전투 연출·애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 (특수 공격 확장의 목록과 개수는 「특수 공격 시스템 규칙」 절이 단일 소스) |
 | [GameSystemRules_UnitCombatSynchronization.md](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) | 서버 권위 행동 회차, 시간, 방향, 타격 결과 및 멀티플레이 표현 동기화 계약 |
 | [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md) | 25종 유닛 공격 프로필·클립·이벤트·VFX·구현 및 검증 상태 감사표 |
@@ -44,6 +48,19 @@
 ---
 
 ## 시스템별 빠른 참조
+
+### 경기 운영 관련 작업
+→ [GameSystemRules_MatchFlow.md](GameSystemRules/GameSystemRules_MatchFlow.md)
+- 맵 전송·실패 복구: 규칙 16, 재경기 맵 선택: 규칙 14
+- 결과 화면 이탈·맵 전송 중 이탈·재로드 범위: 규칙 17~19
+- 화면 표시·버튼·타이머: [GameSystemRules_MatchFlowUI.md](GameSystemRules/GameSystemRules_MatchFlowUI.md) 「공통 UI 규칙」의 M/D 규칙
+- 기술 구조·데이터 계약: [TechnicalDesignDocument_Network.md](TechnicalDesignDocument_Network.md)
+
+### UI 원본 찾기
+- 공통 프레임·팝업·로딩: [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md)
+- 생산·MistShrine·건물 배치 패널: [GameSystemRules_BuildingPanelsUI.md](GameSystemRules/GameSystemRules_BuildingPanelsUI.md)
+- 인게임·로비 설정·프로필: [GameSystemRules_SettingsUI.md](GameSystemRules/GameSystemRules_SettingsUI.md)
+- 스킬·연구 UI는 각각 기능 규칙 문서의 원본을 유지한다.
 
 ### 맵 관련 작업
 → [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md)
@@ -75,7 +92,7 @@
 - 폰트, 골드 부족 표시
 - 팝업 규칙 한 벌 — 팝업/모달 타입 구분, 배경 탭으로 닫히는지의 타입별 차이, 팝업 중첩, 대상 건물 파괴 시 자동 닫힘. 단일 소스는 `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 8~11
 - 로딩 인디케이터: `UIManager.ShowLoading()`으로만 제어, 호출해야 하는 상황, `ShowLoading(false)` 책임 소재, null-safe 패턴 — `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 L-1~L-4
-- 무작위 맵 준비 실패 UI: 내부 정보 비공개, 멀티플레이 최초 경기 실패 · 멀티플레이 재경기 맵 준비 실패 · 싱글플레이 실패 각각의 표시와 action 구성 — `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-1~M-4. 🔴 재경기 실패의 **팝업 여부와 싱글 최초 실패의 표시 문구·loading UI 처리는 미정**이며 그 미정 표시도 같은 규칙들이 단일 소스다
+- 무작위 맵 준비 실패 UI: 내부 정보 비공개와 최초·재경기·싱글 실패 표시 — [GameSystemRules_MatchFlowUI.md](GameSystemRules/GameSystemRules_MatchFlowUI.md) 「공통 UI 규칙」 규칙 M-1~M-4가 원본이다. 표시 수단·문구·loading 처리의 현행 확정값과 과거 미정 기록을 구분하며, 구현·실기 범위는 원본의 근거 링크로 확인한다. *(2026-10-13 정리 — 종전 미정 요약은 원본의 확정 블록과 어긋나 수정했다.)*
 - 생산 패널: 큐 구조, 골드 차감 시점, 자동 생산, 토스트 메시지
 - MistShrine 패널: `BuildingPanelBase` 상속 전용 패널, 3×3 그리드 배치, 짧은 탭=수동 시전 / 롱프레스=자동 모드 토글(기본 OFF), 쿨다운 오버레이, 범위 원 표시(아군 패널 열림 중에만), 회복 텍스트 — 건물 동작 규칙의 단일 소스는 `GameSystemRules_Buildings.md`
 - 건물 배치 패널: 비용 표시, 실패 피드백, 무작위 맵 타일 클릭 판정(판정 우선순위 · 막힌 타일과 빈 공간 · 건설 불가 타일의 자기 팀 / 중립·적 분기) — `GameSystemRules_UI.md` 「건물 배치 패널 UI」 규칙 5~8
