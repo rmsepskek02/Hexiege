@@ -624,7 +624,7 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - Another agent's memory carried the same false ground → insertion-only pointer lines.
 → Details [doc-conventions.md](doc-conventions.md) §54–§55.
 
-### 🔴 The implementation-close round for rule M-2 (2026-10-13, multi first-match map-failure UI — field-verified, one of two logs missing)
+### 🔴 The implementation-close round for rule M-2 (2026-10-13, multi first-match map-failure UI — field-verified; the "one of two logs missing" state of this round ended the same day, see the §57 / §58 blocks below)
 
 - The hand-over list of stale places was **short again**: grep the *claims* (`미구현` · `구현 0줄` · `0건` · `코드에 없다` · `아직 코드` · `다음 단계`) next to the rule number → UI rule doc 6 spots, RandomMap summary + its "four remaining" head count, **TDD 4**, PROJECT_STATUS 3, Plan ~12. A head count that counts the closed item is a stamp; a pointer I wrote the round before ("code is still the old string") is a stamp too.
 - Handed-over "close these §11 items" named items that **did not exist** in §11 → record values in a "decided during implementation" table, no invented numbers, say so in the report.
@@ -632,3 +632,19 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - Field result with one log missing: round 2 = hand-over values in every cell; never subtract times across devices; "14 ms" vs 13/14 ms = anchor-line difference; compile evidence = the new code's own log lines (warnings not in the log).
 - Traps: raw `|` in log excerpts inside table cells (3 rows broke); an explicit "don't touch row X" beats B-5 for a stale sentence inside X → report it, don't fix it.
 → Details [doc-conventions.md](doc-conventions.md) §56.
+
+### 🔴 Follow-up rounds the same day (2026-10-13 (2nd, 3rd) — the missing logs arrived; sweep by claim, not by spot)
+
+- 2nd round: relabel "hand-over value" → "직접 관측" only after **opening the log and counting inside the round's own range** (the device file holds two processes). Every bullet under an upgraded heading is re-read against the source — one line (`rematch regression in the same log`) did **not** survive and was struck through with a correction marker instead of being promoted. Screen-only items stay "hand-over".
+- A "do not merge" verdict whose stated ground died: body untouched, pointer appended with the dead ground / the surviving ground / the single source. A roadmap sentence that must change inside a row that must stay: replace the sentence only, quote the old one, "implemented ≠ everything confirmed".
+- 3rd round: the caller's scope was drawn too narrowly three times, so the method became **sweep the kind** — search by claim over the whole set minus `_Logs/`, classify each hit (promote / leave as screen-only or unobservable / past-round pointer / unrelated word), and add **new table rows** for new evidence instead of only relabelling. Host log is an accumulating file: count from the second session header; name unrelated warnings.
+- Index check: later sections have per-section blocks; only §52, §57, §58 were missing → added.
+→ Details [doc-conventions.md](doc-conventions.md) §57 · §58.
+
+### 🔴 The round that merged non-class-5 findings into the six classes (2026-10-06 (4th), rules-implementation-audit §12-13) — block added 2026-10-13 (it was missing from this index)
+
+- A hold list instead of a seventh class: when the instruction is "no new class" and "report, do not decide", doubtful rows go to a hold list; re-sum both ways and keep the old tables with a dated correction line.
+- Re-measure hand-over claims by **running** them (pure-C# domain folders compile with `mcs` as a scratch copy); count with the pattern and state the folder and notations searched; do not "fix" hand-over arithmetic — record both figures under "needs confirmation".
+- Verify "the rule is violated" against the rule document's own later dated blocks before classifying.
+→ Details [doc-conventions.md](doc-conventions.md) §52.
+

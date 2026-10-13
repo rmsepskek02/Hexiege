@@ -3949,6 +3949,7 @@ The caller asked to close "한 프레임 지연 · 오류 텍스트 · 모달 �
 - Hand-over figure "14 ms" vs measured **13 ms** (notice → disconnect detected) and **14 ms** (notice → entry): same data, different anchor line — put both in the cell; the code comment independently says 13 ms.
 - Compile status: "the editor ran and the new code's own log lines are in the log" is the evidence; **warnings count is not in the log** → say so.
 - Side observation (device `Lobby 나가기 실패` WARN, HTTP 404): recorded in the Plan section as a **판독, unconfirmed**, no roadmap row (§15 no-row rule), reported.
+- **[🔴 2026-10-13 pointer — original kept (B-7)]** The "round 2 = hand-over in every cell" state above was true when written. Both missing logs (device round 2, host round 2) arrived the same day and were re-read — see §57 (device) and §58 (host + the sweep).
 
 ### 56-6. Two traps this round hit
 - 🔴 **Log excerpts inside table cells**: `…진입 | Origin=HostNotice` carries a raw `|` and silently adds a column (3 rows). Replace with `…`; run an unescaped-pipe comparison old vs new for every edited file.
@@ -3956,3 +3957,47 @@ The caller asked to close "한 프레임 지연 · 오류 텍스트 · 모달 �
 
 ### 56-7. Checks run
 `check_docs.py` 0 findings EXIT 0 (`--update-baseline` forbidden → stale-baseline notice reported only) · phrase counts vs `git show HEAD:` (no decrease in 사용자 확정 / 근거 / 왜 / 합치지 않는다 / 되돌리지 / 원문 / B-7 / B-5 for 8 files; one explanatory parenthetical removed from a dated line was re-added as a quoted fragment) · unescaped-pipe comparison · residual grep of the three stale claims (current-spec positions: 0; remaining hits are quoted old stamps or dated past-round records with pointers).
+
+## §57. The follow-up round that **cashed in "hand-over value" labels after the missing log arrived**, pointed a stale "must not merge" reason at its replacement, and fixed a roadmap sentence without taking its row down (2026-10-13 (2nd), same task as §56)
+
+Docs only; three spots. The caller had merged the missing device log into the checkout and asked me to re-read it myself before changing any label.
+
+### 57-1. Re-read first, then relabel — and check the *neighbouring* claims, not just the listed ones
+- The log file is a **superset**: it holds two processes (pid 8111 = round 1 from 10:32, pid 15922 = round 2 from 11:36:40, line 10167 on). Count inside the round-2 range only (`Origin=` lines: 1; whole file: 2 `안내 진입` lines, the other being round 1's `ConnectionLost`). "N lines in the file" without the range would have been wrong.
+- 🔴 A line I had written under the old "hand-over" heading (`rematch regression was as before in the same log`) did **not** survive: the only `재경기 맵 준비 실패 통보 수신` in that file is round 1 (10:57:35). Had I just flipped the section heading to "직접 관측", that line would have been silently promoted to an observation. **When a heading's grade is upgraded, read every bullet under it against the source.** Fix = strike through + `[🔴 date 정정 — 원문 유지: …]` (B-7), report as the one mismatch.
+- A second hand-over item that is **screen-based** (error text not visible) stays "인계값" — a log cannot show visibility. Say so; do not upgrade by association (§38 grade split).
+- Leaving `인계값` where it is correct is part of the job: the "사용자 화면 확인" cells, the error-text visibility cells, and unrelated uses (ElapsedMs recount, punctuation hand-over) were left; grep after editing and classify every remaining hit.
+
+### 57-2. The wording of the fragment
+"The label was right at the time of writing (log not in checkout); the log arrived the same day (merge commit), I opened it and compared; match." Put it once at the section head (quote block) and a short version in each cell/bullet that carried the old label. Do not delete the old stamp's meaning: the cell says what it was and what it is now.
+
+### 57-3. A "do not merge" verdict whose stated ground has died (PROJECT_STATUS K-1 row)
+Past-round row → B-7: **no edit to the body, pointer appended at the end of the cell** with three parts: (a) the ground (full-stop difference) expired on date X, (b) 🔴 the verdict itself stands because a second ground remains ("different event, rules can be revised separately"), (c) single source = the rule-document block that already carries the same correction (verified by opening it). Avoid `|` inside the appended text (table row).
+
+### 57-4. Fixing one sentence inside a roadmap row that must stay
+Replace only the sentence; state in-place what is true now (✅ + one-clause scope + pointer to the status document's section, **no copied content**), quote the old sentence in a dated fragment ("it was true on the earlier date"), add "implemented ≠ everything confirmed". The earlier note I had written at the top of the roadmap ("that row was not touched; one sentence in it is stale") is itself a current-state claim → rewrite it in place (B-5), state that **only that sentence** was changed and the row's other remainders were not.
+
+### 57-5. Things seen and **not** fixed (reported)
+- `PROJECT_STATUS.md` line 8 (the new 2026-10-13 paragraph header) still says the second run "is a hand-over value / its log is not in this checkout" — now false, and it is the document the roadmap sentence points at.
+- Plan 14-2 host-log row says 154 lines / round 2 not contained; the file is now 283 lines with a round-2 section (session start line 156).
+- The PROJECT_STATUS baseline notice (+1753 lines) is stale; `--update-baseline` was forbidden in this round.
+- **[🔴 2026-10-13 pointer — original kept (B-7)]** The first two items were fixed in the next round (§58); the list above was **not complete** — the caller's own scope had been drawn three times too narrowly. See §58-1.
+
+## §58. The third round on one feature: **sweeping the whole kind of stale statement instead of fixing handed-over spots**, and adding the second log's values (2026-10-13 (3rd), same task as §56–§57)
+
+Docs only. The caller said its own scope had been drawn too narrowly three times in a row and asked me to find *every* statement that says "the 2026-10-13 second field run is unconfirmed / hand-over value / log not in checkout", then to add the host-side round-2 values.
+
+### 58-1. The sweep method (this is the reusable part)
+- Search by **claim**, over the whole document set minus `_Logs/`: `인계값` · `체크아웃에 없` · `재확인하지` · `확인되지` · `로그가 없` · the log folder name · the commit hash · the enum value the run produced (`HostNotice`). Then **classify every hit** into four buckets before touching anything: ① log-answerable → promote to "직접 관측" (with the old grade quoted) ② screen-only or structurally unobservable → **leave** (user-screen confirmation; error text visibility; "safe inside an RPC callback"; pre-spawn failure; host death; transport 60 s; random-match state; legacy lobby UI) ③ a past-round record → pointer only (B-7) ④ unrelated uses of the same word.
+- Result beyond the two spots handed over: `PROJECT_STATUS.md` had **seven more** (header, evidence-file bullet, three table rows, compile row, the "현재 단계" line with two stale phrases) plus the side-observation bullet that wanted a second-run sentence; `WORK_HISTORY.md` had one; agent memory had two. Rule documents, TDD, GDD, RandomMap summary and ROADMAP were clean — their only 2026-10-13 statements are about the *unobserved* items, which stay unobserved.
+- A status table that upgrades a grade also needs **new rows for evidence that did not exist before** (host order requirement, second-round normal game, second-round modal on both sides) — relabelling alone would leave the evidence unrecorded.
+
+### 58-2. Reading the host log (accumulating file, two sessions)
+- The file is append-only across editor sessions: round 2 starts at the second `=== 세션 시작` header (line 156). Count inside the range. `[ERROR]` 1 (the forced-failure end line) and `[WARN]` 5 (4 on the forced path + one unrelated reconnection-handler line after the normal game ended) — name the unrelated one, or the count looks like 5 forced-path warnings.
+- Intervals only inside the host clock (notice sent → disconnect start 11 ms; 1st round 14 ms). The device notice-received time is **not** subtractable.
+- The hand-over said "the Origin tail was cut" → read it: `Origin=HostOwnFailure, Role=Host, Reason=MapTransferFailed:HashMismatch`.
+- A hand-over that said "round 2 also had no rematch failure" was right and my earlier strike-through stays: check it from the *host* side too (it went straight back to the lobby 1.1 s after the forfeit).
+
+### 58-3. Index finding
+The topic table row stops at ㉛ (§39), but the body of `MEMORY.md` carries one block per later section with a "→ Details … §N" pointer. Checking §40–§57 individually: only §52 (and the new §57 and §58) had no block. Added blocks for those three. The table row itself was left alone — extending a ~60,000-character cell is not what the later sections' convention does.
+
