@@ -623,3 +623,12 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - Closing a pin that held two claims → the ✅ block closes both. Pointers quoting the old spec that I wrote earlier are current-state claims → update values.
 - Another agent's memory carried the same false ground → insertion-only pointer lines.
 → Details [doc-conventions.md](doc-conventions.md) §54–§55.
+
+### 🔴 The implementation-close round for rule M-2 (2026-10-13, multi first-match map-failure UI — field-verified, one of two logs missing)
+
+- The hand-over list of stale places was **short again**: grep the *claims* (`미구현` · `구현 0줄` · `0건` · `코드에 없다` · `아직 코드` · `다음 단계`) next to the rule number → UI rule doc 6 spots, RandomMap summary + its "four remaining" head count, **TDD 4**, PROJECT_STATUS 3, Plan ~12. A head count that counts the closed item is a stamp; a pointer I wrote the round before ("code is still the old string") is a stamp too.
+- Handed-over "close these §11 items" named items that **did not exist** in §11 → record values in a "decided during implementation" table, no invented numbers, say so in the report.
+- Roadmap sub-row count: rule M-2's old text = **two** audit items; one closed by implementation, one by **spec withdrawal** — separately labelled; 10 → 8; the alternative count is a user decision; no new "heaviest remaining" claim.
+- Field result with one log missing: round 2 = hand-over values in every cell; never subtract times across devices; "14 ms" vs 13/14 ms = anchor-line difference; compile evidence = the new code's own log lines (warnings not in the log).
+- Traps: raw `|` in log excerpts inside table cells (3 rows broke); an explicit "don't touch row X" beats B-5 for a stale sentence inside X → report it, don't fix it.
+→ Details [doc-conventions.md](doc-conventions.md) §56.

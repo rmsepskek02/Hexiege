@@ -3922,3 +3922,37 @@ The ⚠️ pin on the rematch string ("full stop undecided") also said "the firs
 
 ### 55-5. Checks that were run
 `check_docs.py` 0 findings, EXIT 0 (`--update-baseline` forbidden by the instruction, so the stale-baseline notice was reported only) · exact recount of both phrases in the rule documents (14 with a stop / 1 without — the one is a dated past-record sentence naming the multi-rematch strings) · unescaped-pipe comparison old vs new for every edited table row · key-phrase counts against `git show HEAD:` (no decreases) · citations of rule numbers checked by hand against section names.
+
+---
+
+## §56. The implementation-close round: **sweeping every status stamp the feature falsified**, recording a two-run field result when one log is missing, and counting a roadmap sub-row (2026-10-13, 멀티 최초 경기 맵 준비 실패 UI / 규칙 M-2 구현·실기)
+
+Docs only; `.cs`, scenes and prefabs out of scope. The hand-off listed the stale places (UI rule `:314` `:320` `:401`, RandomMap summary ③, TDD `:378`, GDD `:627`) and said "count them yourself".
+
+### 56-1. 🔴 The hand-off list was short again (§20-7 / §21 third sighting) — grep the *claim*, not the identifier
+- Claims grepped near the rule number: `미구현` · `구현 0줄` · `0건` · `코드에 없다` · `구현이 없다` · `아직 코드` · `다음 단계` · `옛 문구`. Result: **UI rule document 6 spots** (the M-2 "code is not this spec" bullet, the 3차 table header, the 3차 table multi cell, the M-4 pointer I had written the round before saying "code is still the old string", the 2026-09-29 (2차) "M-2 has no implementation", the D-5 last bullet + its 2026-10-12 pointer) · RandomMap summary ③ **and its "four remaining" head count** · **TDD 4 spots** (item ③ of "여전히 남은 것 넷", a line in the 2026-09-28 block, the 복구 상태 first bullet, the closing sentence of that sub-section) · PROJECT_STATUS **3 more** (현재 단계 tail, the 2026-09-21 paragraph, the 무작위 맵 상태 line's "미구현은 셋") · Plan ~12.
+- 🔴 A **head count that counts the closed item** ("아직 충족되지 않은 규칙 조항은 아래 넷이다") is itself a stamp — fix it too, keep the circled labels (`①②④` remain, `③` closed) so pointers to the labels survive.
+- A heading phrase other blocks quote ("여전히 남은 것 넷") is **not renamed**; the closure goes in a fragment after it.
+
+### 56-2. 🔴 A pointer I wrote the round before is a current-state claim — rewrite it, quote the old stamp inside
+"지금 코드는 아직 옛 문구이고 … 코드 반영은 다음 단계다" (my own 2026-10-12 pointer) became false when the code shipped. Fixed in place with a dated fragment; same for an enumeration ("실호출처 1건") — add the new measured count (2) and say the old one was that day's measurement. When counting `ShowAlert` callers: `ProfileView` has its own private method of the same name — do not count it.
+
+### 56-3. Handed-over item names that **do not exist** in the Plan's open-question list
+The caller asked to close "한 프레임 지연 · 오류 텍스트 · 모달 제목 리터럴" among the Plan's §11 items. §11 had only the error-text item (5·10). Do **not** invent numbers or pretend to close: record the two values (receiving-side frame delay removed / sending-side kept, with the "목적이 다르다" reason and the **unmeasured** claim that the sender delay is why the notice arrived; title = call-site literal `알림`, and the same word exists in a second constant) in a "values decided during implementation" table, point to it from the §11 heading, and say in the report that the named items were not in §11.
+
+### 56-4. Counting a roadmap sub-row from the audit table
+`Research.md` §12-2 lists 10 items; rule M-2's old text is **two** of them (1-1 modal + retry + leave buttons; 1-2 retry request / duplicate request / new seed). 1-1 closed by **implementation**, 1-2 closed by **spec withdrawal** (the clause was voided) — say so separately, never as "implemented". New count 8 (code 9→7, decision 1). The row stays (8 remain). Offer the alternative count (9 if 1-2 is not counted) as a user decision. Do not name a new "heaviest remaining item" — that is a judgement the row never made.
+
+### 56-5. Recording a field result when **one of two logs is absent** (§29-6 / §35 sibling)
+- Re-read what exists (host editor log 154 lines = round 1 only — the accumulating file did not contain round 2; device round 1 = 9,929 lines mostly system log). Round 2 = **인계값** in every table cell (`⚠️ 인계값`, "이 체크아웃에 로그 없음"), plus a line "re-read once the file is in the repository".
+- Cross-device clocks differ by ~1.5 s: never subtract times across devices (§38 trap, third sighting). Intervals only within one device.
+- Hand-over figure "14 ms" vs measured **13 ms** (notice → disconnect detected) and **14 ms** (notice → entry): same data, different anchor line — put both in the cell; the code comment independently says 13 ms.
+- Compile status: "the editor ran and the new code's own log lines are in the log" is the evidence; **warnings count is not in the log** → say so.
+- Side observation (device `Lobby 나가기 실패` WARN, HTTP 404): recorded in the Plan section as a **판독, unconfirmed**, no roadmap row (§15 no-row rule), reported.
+
+### 56-6. Two traps this round hit
+- 🔴 **Log excerpts inside table cells**: `…진입 | Origin=HostNotice` carries a raw `|` and silently adds a column (3 rows). Replace with `…`; run an unescaped-pipe comparison old vs new for every edited file.
+- 🔴 **An explicit "do not touch row X" beats B-5 for a stale sentence inside X**: the audit's neighbouring roadmap row (`경기 종료 후 UI·프로세스`) still says "M-2 구현 0줄". Obey the instruction, quote the sentence and the proposed fix in the report and in the new Plan section.
+
+### 56-7. Checks run
+`check_docs.py` 0 findings EXIT 0 (`--update-baseline` forbidden → stale-baseline notice reported only) · phrase counts vs `git show HEAD:` (no decrease in 사용자 확정 / 근거 / 왜 / 합치지 않는다 / 되돌리지 / 원문 / B-7 / B-5 for 8 files; one explanatory parenthetical removed from a dated line was re-added as a quoted fragment) · unescaped-pipe comparison · residual grep of the three stale claims (current-spec positions: 0; remaining hits are quoted old stamps or dated past-round records with pointers).
