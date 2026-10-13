@@ -115,9 +115,10 @@ namespace Hexiege.Infrastructure
         /// 접속한 쪽에 도착했을 때 발행된다. 호스트 쪽에서는 발행되지 않는다(호스트는 자기 실패를
         /// <see cref="OnMapTransferFailed"/> 로 안다).
         ///
-        /// 🔴 <b>발행 시점은 메시지가 도착한 다음 프레임이다.</b> 이 이벤트를 받은 구독자는 곧바로
-        ///    연결을 끊고 방을 나가는데, 그 일을 NGO 가 메시지를 처리하는 도중에 하지 않게 하려는 것이다
-        ///    (<see cref="BackToLobby"/> 주석이 적은 「NetworkBehaviour 안에서 종료를 직접 부르지 않는다」와 같은 이유).
+        /// 🔴 <b>발행 시점은 메시지가 도착한 바로 그 호출 안이다(지연 없음, 2026-10-13).</b> 종전에는 한 프레임 뒤에
+        ///    발행했으나 그러면 호스트가 통보 직후 방을 닫아 생기는 연결 끊김(<see cref="OnServerDisconnected"/>)이
+        ///    그 한 프레임 안에 먼저 도착해, 이 통보 경로가 구조적으로 항상 늦었다.
+        ///    근거와 「왜 받는 쪽에는 지연이 필요 없는가」는 <see cref="NotifyMapFailureFromHost"/> 주석에 있다.
         /// ⚠️ 이 통보가 도착하지 않을 수도 있다(확인하지 못했다). 그때는 <see cref="OnServerDisconnected"/>
         ///    가 같은 결론을 낸다 — 구독자(BattleViewModel)는 둘을 하나의 진입점으로 모아 한 번만 처리한다.
         /// </summary>
@@ -1211,18 +1212,31 @@ namespace Hexiege.Infrastructure
         /// [접속한 쪽] 호스트의 맵 준비 실패 통보가 도착했다고 알린다(2026-10-12).
         /// 호출처는 <c>NetworkMapTransfer</c> 의 실패 통보 ClientRpc 수신부다.
         ///
-        /// 🔴 이벤트(<see cref="OnMapFailureNoticeReceived"/>)는 <b>다음 프레임에</b> 발행한다 — 구독자가
-        /// 곧바로 연결을 끊는데, 그것을 NGO 가 메시지를 처리하는 도중에 하지 않게 하려는 것이다.
+        /// 🔴 이벤트(<see cref="OnMapFailureNoticeReceived"/>)를 <b>지연 없이 곧바로</b> 발행한다(2026-10-13).
+        ///
+        /// [초급자용 설명] 같은 클래스의 호스트 쪽 실패 게이트(<c>FailMapTransferGate</c>)는 한 프레임을 미루지만,
+        /// 그것은 이 메서드와 <b>목적이 다른 지연</b>이다. 호스트 쪽 지연은 「통보를 보내는 것」과 「연결을 끊는 것」을
+        /// 같은 프레임에 두지 않으려는 것이고, 그래서 <b>보내는 쪽</b>에서는 지연이 필요하다(없애면 통보가 안 나갈 수 있다).
+        /// 이 메서드는 <b>받는 쪽</b>이다.
+        ///
+        /// 왜 받는 쪽에는 지연이 필요 없는가
+        ///   · 이 메서드는 이미 통보 ClientRpc 가 도착해 실행되는 콜백 안에서 불린다. 더 기다린다고 얻는 것이 없다.
+        ///   · 구독자(BattleViewModel)가 하는 일은 화면 처리뿐이다 — 로딩 끄기 · 방 나가기 · 알림 모달.
+        ///     여기에는 「통보가 나갈 자리를 남겨 두기 위해 기다려야 하는」 사정이 없다(그 사정은 보내는 쪽의 것이다).
+        ///   · 방 나가기는 <c>DisconnectAsync</c> 를 결과를 기다리지 않고 부르는 기존 처리다
+        ///     (<c>BattleViewModel.CancelHosting</c>). ⚠️ 다만 그 안의 NetworkManager 종료는 첫 await 이전이라
+        ///     <b>호출한 그 자리에서 곧바로</b> 실행되고, 뒤로 미뤄지는 것은 로비 퇴장(await 이후)뿐이다.
+        ///     같은 방 나가기를 이미 NGO 연결 끊김 콜백(<see cref="OnServerDisconnected"/> 경로) 안에서도 부르고 있다.
+        ///   · ⚠️ <b>확인하지 못한 것</b>: 「RPC 콜백 안에서 곧바로 연결을 종료해도 NGO 가 안전한가」는 NGO 내부 동작이라
+        ///     패키지 소스가 저장소에 없어 확인하지 못했다. 이 변경은 그 안전성을 새로 증명한 것이 아니다.
+        ///     (종전의 한 프레임 지연은 바로 이 걱정에서 넣었던 것이다.)
+        ///
+        /// 실기 근거(2026-10-13): 통보가 도착하는 것은 확인됐으나(로그의 「맵 준비 실패 통보 수신」), 한 프레임 뒤 발행이라
+        /// 약 13ms 뒤의 연결 끊김이 먼저 처리했다(안내 진입 로그의 Origin 이 ConnectionLost). 그래서 지연을 없앴다.
+        /// 로그 원본은 <c>_Logs/_editor/2026-10-13/</c> 와 <c>_Logs/2026-10-13/10_59_logcat/</c> 에 있다.
         /// </summary>
         public void NotifyMapFailureFromHost()
         {
-            StartCoroutine(RaiseMapFailureNoticeAfterOneFrame());
-        }
-
-        /// <summary>한 프레임 기다린 뒤 호스트 통보 도착 이벤트를 발행한다.</summary>
-        private IEnumerator RaiseMapFailureNoticeAfterOneFrame()
-        {
-            yield return null;
             OnMapFailureNoticeReceived?.Invoke();
         }
 
