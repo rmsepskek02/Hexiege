@@ -1382,11 +1382,16 @@ namespace Hexiege.Editor.Combat
             Require(preset != null && config.GetAttack(UnitType.BloomFairy) == null, "Bloom heal slot is independent; attack remains null.");
             Require(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(preset.VfxPrefab)) == "ff068a5e9b80f3043a0517ebb1cfb00f", "Authored Bloom GUID must match.");
             var authored = preset.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true);
-            Require(authored.Length == 5 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null, "Recursive5/root1 are separate metrics.");
+            // [R-3 비활성화 — 2026-10-13] 개수 5 고정은 옛 프리팹(Bloom_Ring 포함) 가정이었다. 새 프리팹은 4개.
+            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+            // Require(authored.Length == 5 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null, "Recursive5/root1 are separate metrics.");
+            // 개수는 "실제 프리팹에서 센 값(1개 이상)"으로 바꾸고, 아래 시스템별 계약 단언은 그대로 둔다(검증 강도 유지).
+            Require(authored.Length >= 1 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null,
+                "Recursive authored PS count>=1 and root PS presence are separate metrics.");
             foreach (var ps in authored)
                 Require(ps.main.loop && !ps.main.useUnscaledTime && ps.main.stopAction == ParticleSystemStopAction.None
                     && ps.main.simulationSpace == ParticleSystemSimulationSpace.Local && ps.emission.burstCount == 0,
-                    "Authored5PS loop/local/scaled/None/burst0 contract must remain unchanged.");
+                    "Every authored PS loop/local/scaled/None/burst0 contract must remain unchanged.");
             Func<UnitData> targetFactory = () => new UnitData(9901, UnitType.LittleKnight, TeamId.Blue, new HexCoord(0, 0), 100, 10, 1, 1);
             var target = targetFactory();
             var channel = new BloomHealEffectChannel();
@@ -1445,7 +1450,12 @@ namespace Hexiege.Editor.Combat
                 var proof = new BloomHealEffectDiagnostics();
                 Require(item.BeginBloomAcquire(), "Pool checkout can begin.");
                 ulong lease = item.PlayBloomLoop(next, pose.transform, preset, proof);
-                Require(lease != 0 && item.BloomRecursiveSystemCount == 5 && item.ParticleSystemCount == 1, "All5PS lease starts.");
+                // [R-3] 옛 단언: item.BloomRecursiveSystemCount == 5 — "lease가 재생한 개수 == authored 개수"로 대체.
+                Require(lease != 0 && item.BloomRecursiveSystemCount == authored.Length && item.ParticleSystemCount == 1,
+                    "All authored PS lease starts (played count equals authored count).");
+                // [C] 크기 맞춤 없는 기존 호출은 배율 1 — 예전과 같은 크기(원본 × 프리셋 배율, pose 스케일 1).
+                Require(VfxApprox(item.transform.localScale, Vector3.Scale(authoredScale, preset.ScaleMultiplier)),
+                    "Bloom without recipient fit keeps the authored × preset scale.");
                 var systems = itemGo.GetComponentsInChildren<ParticleSystem>(true);
                 foreach (var ps in systems) ps.Simulate(.25f, false, false, false);
                 float time = systems[0].time;
@@ -1471,14 +1481,26 @@ namespace Hexiege.Editor.Combat
                 // Simulate ends paused, unlike the runtime's continuing StopEmitting tail.
                 // Prove natural particle expiry BEFORE restoring the stopped native state; never Clear.
                 foreach (var ps in systems)
-                    Require(ps.particleCount == 0 && !ps.isEmitting, "All5PS simulation expires particles before StopEmitting reassertion.");
+                    Require(ps.particleCount == 0 && !ps.isEmitting, "All authored PS simulation expires particles before StopEmitting reassertion.");
                 foreach (var ps in systems) ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
                 foreach (var ps in systems)
-                    Require(ps.particleCount == 0 && ps.isStopped && !ps.IsAlive(false), "All5PS NoClear reassertion retains zero particles and closes native state.");
+                    Require(ps.particleCount == 0 && ps.isStopped && !ps.IsAlive(false), "All authored PS NoClear reassertion retains zero particles and closes native state.");
                 update.Invoke(item, null); update.Invoke(item, null);
-                Require(returns == 1 && proof.Ended && proof.PendingTails == 0 && item.BloomSnapshot.Equals(terminal), "All5PS drain/return once retains terminal key.");
+                Require(returns == 1 && proof.Ended && proof.PendingTails == 0 && item.BloomSnapshot.Equals(terminal), "All authored PS drain/return once retains terminal key.");
                 Require(item.BeginBloomAcquire(), "Returned item can be checked out again.");
-                ulong lease2 = item.PlayBloomLoop(next, pose.transform, preset, new BloomHealEffectDiagnostics());
+                // [C] 재사용 lease는 크기 맞춤(배율 2, 발밑 보정)으로 재생해 배율·위치·refresh 유지·반환 복원을 확인한다.
+                var bloomFit = new Hexiege.Presentation.RecipientFit(2f, new Vector3(0.1f, 0.05f, -0.2f));
+                ulong lease2 = item.PlayBloomLoop(next, pose.transform, preset, bloomFit, new BloomHealEffectDiagnostics());
+                Vector3 fittedBloomScale = Vector3.Scale(authoredScale, preset.ScaleMultiplier) * 2f;
+                Require(VfxApprox(item.transform.localScale, fittedBloomScale)
+                    && VfxApprox(item.transform.position, pose.transform.position
+                        + pose.transform.rotation * (preset.LocalPositionOffset + bloomFit.FootOffset)),
+                    "Bloom recipient fit applies uniform scale and foot offset at Play.");
+                var fitRefresh = next; fitRefresh.Revision++;
+                Require(item.RefreshBloom(lease2, fitRefresh), "Fitted Bloom same-owner refresh is accepted.");
+                pose.transform.position += new Vector3(1f, 0f, 2f); item.FollowBloomPose(lease2, pose.transform);
+                Require(VfxApprox(item.transform.localScale, fittedBloomScale),
+                    "Bloom refresh/follow keeps the Play-time fit scale (no per-frame recompute).");
                 Require(lease2 > lease && !item.StopBloom(lease, "StaleCallback"), "Stale old lease cannot stop a reused item.");
                 item.StopBloom(lease2, "LocalAttachmentClose");
                 Require(item.BloomSnapshot.Active, "Local attachment close does not fake server Active=false.");
@@ -1487,8 +1509,24 @@ namespace Hexiege.Editor.Combat
                     Require(ps.particleCount == 0 && !ps.isEmitting, "Reused lease simulation expires particles before StopEmitting reassertion.");
                 foreach (var ps in systems) ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
                 update.Invoke(item, null);
+                // [C] 자연 drain 반환 후에는 맞춤 배율이 남지 않고 프리팹 원본 스케일로 돌아와야 한다.
+                Require(!item.BloomLoopActive && VfxApprox(item.transform.localScale, authoredScale),
+                    "Fitted Bloom natural return restores the authored scale for the next reuse.");
                 var bad = systems[0].main; bad.loop = false; // instance only, never authored asset.
-                Require(item.BeginBloomAcquire() && item.PlayBloomLoop(next, pose.transform, preset, proof) == 0, "Malformed5PS contract fails before Play.");
+                Require(item.BeginBloomAcquire() && item.PlayBloomLoop(next, pose.transform, preset, proof) == 0, "Malformed authored PS contract fails before Play.");
+                // [A] 개수 하한 회귀 방지: 파티클 시스템이 0개인 임시 오브젝트는 재생 전에 거부(0 반환)돼야 한다.
+                //   원본 프리팹·config는 건드리지 않는 임시 오브젝트다.
+                var zeroGo = new GameObject("BloomZeroPSFixture") { hideFlags = HideFlags.HideAndDontSave };
+                try
+                {
+                    var zero = zeroGo.AddComponent<Hexiege.Presentation.VfxPoolItem>();
+                    int zeroReturns = 0; zero.Setup(preset.VfxPrefab, _ => zeroReturns++);
+                    Require(zero.BeginBloomAcquire() && zero.PlayBloomLoop(next, pose.transform, preset, proof) == 0
+                        && !zero.BloomLoopActive, "Zero authored PS Bloom item is rejected before Play.");
+                    zero.RejectBloomAcquire();
+                    Require(zeroReturns == 1, "Zero PS rejected acquire returns exactly once.");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(zeroGo); }
                 int beforeReject = returns; item.RejectBloomAcquire(); item.RejectBloomAcquire();
                 Require(returns == beforeReject + 1 && !item.gameObject.activeSelf && !item.BloomLoopActive, "Failed acquire clears/deactivates/returns exactly once.");
                 foreach (var ps in systems) Require(!ps.IsAlive(false), "Failed acquire leaves no visible/orphan loop.");

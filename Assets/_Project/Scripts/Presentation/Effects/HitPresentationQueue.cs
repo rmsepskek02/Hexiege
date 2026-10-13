@@ -237,7 +237,15 @@ namespace Hexiege.Presentation
                 string outcome = "ManagerUnavailable";
                 try
                 {
-                    bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome);
+                    // [2026-10-13 B] 정령 타워만 "원래 맞은 유닛"의 화면 오브젝트를 재생 1회 시점에 해석해 넘긴다.
+                    //   해석 실패면 default → 추적 없이 스냅샷 Impact까지 길이만 맞춘다(NET-PRESENT-003).
+                    //   Human 타워·버섯 착탄은 해석하지 않으며 PlayAttackEffect도 이 인자를 무시한다.
+                    TowerBoltTarget boltTarget = default;
+                    string boltUntracked = null;
+                    if (s.Visual == AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
+                        boltTarget = ResolveTowerBoltTarget(s.TargetId, out boltUntracked);
+                    bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
+                        boltTarget, boltUntracked);
                     if (!played && outcome != "UnspecifiedTranscendence") _attackEffectFailures++;
                     AttackEffectIdentity.Record(played ? "Play" : "Skip", s, outcome, now);
                 }
@@ -246,6 +254,34 @@ namespace Hexiege.Presentation
                 _attackEffectReceivedAt.Remove(key);
             }
         }
+        /// <summary>
+        /// [2026-10-13 B] 타워 스냅샷의 TargetId(서버 발급 유닛 ID — Client UnitFactory도 같은 ID로 등록한다)로
+        /// 이 화면의 유닛 오브젝트를 "재생 1회 시점에만" 찾아, 그 객체 참조를 고정해 돌려준다.
+        /// 이후 번개는 ID로 다시 찾지 않고 이 객체만 따라가므로 ID 재사용에 휩쓸리지 않는다(K-2).
+        /// 화면 표현 전용 — 서버 타겟 선택·피해 판정에 쓰이지 않는다(NET-AUTH-001, 규칙 12의 "현재 target
+        /// 재조회 금지"는 타워의 새 타겟 탐색을 뜻하며 이것은 원래 맞은 대상의 시각 추적이다 — D-5).
+        /// </summary>
+        /// <param name="targetId">스냅샷의 대상 유닛 ID.</param>
+        /// <param name="reason">실패 사유(로그용 짧은 토큰). 성공이면 null.</param>
+        /// <returns>추적 대상. 실패면 default(HasReference=false).</returns>
+        private TowerBoltTarget ResolveTowerBoltTarget(int targetId, out string reason)
+        {
+            reason = null;
+            if (_unitFactory == null || _presentationPoseProvider == null) { reason = "NoResolver"; return default; }
+            GameObject go = _unitFactory.GetUnitObject(targetId);
+            if (go == null) { reason = "TargetViewMissing"; return default; }
+            UnitView view = go.GetComponent<UnitView>();
+            UnitData data = view != null ? view.Data : null;
+            // 같은 객체 수명 확인: View가 들고 있는 Data의 ID가 스냅샷과 같고 살아 있어야 한다.
+            //   (GameBootstrapper.Map의 화상/독/힐 pose 해석과 같은 원칙 — 동일 객체 확인 후에만 붙는다)
+            if (data == null || data.Id != targetId) { reason = "TargetDataMismatch"; return default; }
+            if (!data.IsAlive) { reason = "TargetDead"; return default; }
+            if (!go.activeInHierarchy) { reason = "TargetInactive"; return default; }
+            Transform pose = _presentationPoseProvider.GetUnitTransform(targetId);
+            if (pose == null) { reason = "PoseUnavailable"; return default; }
+            return new TowerBoltTarget(pose, view, data, go.GetComponent<VisualRootProjector>());
+        }
+
         public int AuthoritativeEmits { get; private set; }
         public int AuthoritativeViewUnavailable { get; private set; }
 #if UNITY_EDITOR

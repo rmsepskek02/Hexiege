@@ -69,7 +69,69 @@ namespace Hexiege.Editor.Combat
             ValidateDamageNetworkCurrentValue();
             ValidateDamageParticles(units.GetTimedDamage(UnitType.MushroomBomber));
             ValidateDamageParticles(units.GetTimedDamage(UnitType.InfernoSpirit));
+            ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
+            ValidateRuneSpireBoltEndpoint(units, buildings);
+        }
+
+        /// <summary>두 벡터가 부동소수 오차 안에서 같은지(검증 전용).</summary>
+        private static bool VfxApprox(Vector3 a, Vector3 b) => (a - b).sqrMagnitude < 1e-8f;
+
+        /// <summary>
+        /// [2026-10-13 C] 상태 이펙트 크기 표의 계산 규칙과 실제 에셋 표의 상태를 확인한다.
+        /// 표가 비어 있거나 일부 유닛이 빠진 것은 "실패"가 아니라 경고다 — 빠진 유닛은 배율 1(예전 크기)로
+        /// 안전하게 재생되고, 표는 사용자가 측정 메뉴를 실행해야 채워지기 때문이다(K-11).
+        /// </summary>
+        private static void ValidateRecipientFitTable(UnitEffectConfig units)
+        {
+            // (1) 계산 규칙: 원본 에셋을 건드리지 않도록 임시 config 인스턴스에 표를 넣어 확인한다.
+            var probe = ScriptableObject.CreateInstance<UnitEffectConfig>();
+            probe.hideFlags = HideFlags.HideAndDontSave;
+            try
+            {
+                var rows = new List<UnitRecipientFitEntry>
+                {
+                    new UnitRecipientFitEntry { unitType = UnitType.LittleKnight, height = UnitEffectConfig.RecipientReferenceHeight },
+                    new UnitRecipientFitEntry { unitType = UnitType.Tank, height = 2f, footOffset = new Vector3(0f, 0.1f, 0f) },
+                    new UnitRecipientFitEntry { unitType = UnitType.BloomFairy, height = 0.5f, manualScale = 1.5f },
+                    new UnitRecipientFitEntry { unitType = UnitType.Sniper, height = float.NaN },
+                    new UnitRecipientFitEntry { unitType = UnitType.Assault, height = 100f },
+                };
+                typeof(UnitEffectConfig).GetField("_recipientFits", VfxFields).SetValue(probe, rows);
+                probe.Initialize();
+                Require(probe.TryGetRecipientFit(UnitType.LittleKnight, out var reference)
+                    && Mathf.Approximately(reference.UniformScale, 1f),
+                    "Reference-height recipient keeps fit scale 1 (approved burn shape preserved).");
+                Require(probe.TryGetRecipientFit(UnitType.Tank, out var tall) && Mathf.Approximately(tall.UniformScale, 2f)
+                    && VfxApprox(tall.SafeFootOffset, new Vector3(0f, 0.1f, 0f)),
+                    "Default scale is height ÷ reference height with foot offset.");
+                Require(probe.TryGetRecipientFit(UnitType.BloomFairy, out var manual) && Mathf.Approximately(manual.UniformScale, 1.5f),
+                    "Positive manualScale overrides the height ratio.");
+                Require(!probe.TryGetRecipientFit(UnitType.Sniper, out var invalid) && Mathf.Approximately(invalid.UniformScale, 1f),
+                    "Invalid height row falls back to identity scale 1.");
+                Require(probe.TryGetRecipientFit(UnitType.Assault, out var huge)
+                    && Mathf.Approximately(huge.UniformScale, RecipientFit.MaxScale),
+                    "Fit scale is clamped to the safe maximum.");
+                Require(!probe.TryGetRecipientFit(UnitType.Pistoleer, out var missing) && Mathf.Approximately(missing.UniformScale, 1f)
+                    && missing.SafeFootOffset == Vector3.zero,
+                    "Missing unit type falls back to identity (scale 1, no offset).");
+                Require(Mathf.Approximately(default(RecipientFit).UniformScale, 1f), "default(RecipientFit) is identity.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(probe); }
+
+            // (2) 실제 에셋 표: 들어 있는 줄은 쓸 수 있는 값이어야 하고(실패), 빠진 유닛은 경고만 한다.
+            var missingTypes = new List<string>();
+            foreach (UnitType type in Enum.GetValues(typeof(UnitType)))
+            {
+                if (!units.HasRecipientFitEntry(type)) { missingTypes.Add(type.ToString()); continue; }
+                Require(units.TryGetRecipientFit(type, out var fit) && fit.UniformScale >= RecipientFit.MinScale
+                    && fit.UniformScale <= RecipientFit.MaxScale && fit.SafeFootOffset == fit.FootOffset,
+                    "Recipient fit row has a usable height/manual scale and finite foot offset: " + type);
+            }
+            if (missingTypes.Count > 0)
+                GameLog.Dev.Warn("Combat", "RunUnitActionSelfValidation",
+                    "상태 이펙트 크기 표에 없는 유닛이 있다 — 해당 유닛은 배율 1(예전 크기)로 재생된다. 메뉴 Hexiege/Effects/Measure Unit Recipient Fit 실행 필요",
+                    "Missing=" + missingTypes.Count + ", Types=" + string.Join("|", missingTypes));
         }
 
         private static void ValidateDamageCurrentState()
@@ -167,10 +229,14 @@ namespace Hexiege.Editor.Combat
             try
             {
                 instance.SetActive(false);
+                Vector3 authoredScale = instance.transform.localScale;
                 var item = instance.AddComponent<VfxPoolItem>();
                 int returned = 0; item.Setup(preset.VfxPrefab, _ => returned++);
                 var state = channel.Upsert(VfxUnit(98002), 1, TimedDamageVisual.Poison, 3f);
                 item.PlayTimedDamage(state, root.transform, preset, channel);
+                // [C] 크기 맞춤 없이 부르면 예전과 같은 크기(원본 × 프리셋 배율).
+                Require(VfxApprox(instance.transform.localScale, Vector3.Scale(authoredScale, preset.ScaleMultiplier)),
+                    "Timed damage without recipient fit keeps authored × preset scale.");
                 var systems = instance.GetComponentsInChildren<ParticleSystem>(true);
                 Require(systems.Length > 0, "Native recipient systems exist.");
                 foreach (var ps in systems) { Require(ps.isPlaying, "Each recursive native PS starts."); ps.Emit(1); }
@@ -190,8 +256,142 @@ namespace Hexiege.Editor.Combat
                 }
                 item.Return(); item.Return();
                 Require(returned == 1, "Natural drain returns lease exactly once.");
+
+                // [C] 같은 아이템 재사용 + 크기 맞춤(배율 2, 발밑 보정): 재생 배율·위치, refresh 유지, 반환 복원.
+                var pose = new GameObject("DamageFitPose") { hideFlags = HideFlags.HideAndDontSave };
+                pose.transform.SetParent(root.transform, false);
+                pose.transform.SetPositionAndRotation(new Vector3(3f, 0.5f, -2f), Quaternion.Euler(0f, 70f, 0f));
+                var fit = new RecipientFit(2f, new Vector3(0.05f, 0.02f, -0.1f));
+                var fitState = channel.Upsert(VfxUnit(98009), 1, TimedDamageVisual.Burn, 3f);
+                item.PlayTimedDamage(fitState, pose.transform, preset, channel, fit);
+                Vector3 fittedScale = Vector3.Scale(authoredScale, preset.ScaleMultiplier) * 2f;
+                Require(VfxApprox(instance.transform.localScale, fittedScale)
+                    && VfxApprox(instance.transform.position, pose.transform.position
+                        + pose.transform.rotation * (preset.LocalPositionOffset + fit.FootOffset)),
+                    "Timed damage recipient fit applies uniform scale and foot offset at Play.");
+                ulong fitLease = item.DamageLease;
+                fitState.Revision++; item.RefreshTimedDamage(fitLease, fitState);
+                pose.transform.position += new Vector3(1f, 0f, 1f); item.FollowTimedDamage(fitLease, pose.transform);
+                Require(item.DamageLease == fitLease && VfxApprox(instance.transform.localScale, fittedScale),
+                    "Same-owner refresh/follow keeps the Play-time fit scale without restart.");
+                item.StopTimedDamage(fitLease, "Expired");
+                foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                item.Return();
+                Require(returned == 2 && VfxApprox(instance.transform.localScale, authoredScale),
+                    "Fitted timed damage natural return restores the authored scale.");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
+        }
+
+        /// <summary>
+        /// [2026-10-13 B] 정령 타워(RuneSpire) 번개: 프리팹 계층 계약(D-4), 거리 맞춤, 원래 대상 추적,
+        /// 사망/교체 시 영구 고정(ID 재사용 방어), 반환 시 원본 복원, Human 타워 무추적을 확인한다.
+        /// EditMode에서는 LateUpdate가 자동으로 돌지 않으므로 기존 fixture처럼 리플렉션으로 직접 호출한다.
+        /// </summary>
+        private static void ValidateRuneSpireBoltEndpoint(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            var rune = buildings.GetAttack(BuildingType.AutoTower, RaceId.Spirit);
+            // (a) 실제 preset 프리팹 계층: Bolt는 루트 직속 자식, Impact_Sparks는 Bolt의 자식(로컬 Z=1).
+            Transform authoredBolt = rune.VfxPrefab.transform.Find("Bolt");
+            Require(authoredBolt != null && authoredBolt.Find("Impact_Sparks") != null
+                && rune.VfxPrefab.transform.Find("Impact_Sparks") == null
+                && Mathf.Approximately(authoredBolt.Find("Impact_Sparks").localPosition.z, 1f),
+                "RuneSpire hierarchy contract (D-4): Impact_Sparks is a child of Bolt at local Z=1.");
+            Vector3 authoredBoltScale = authoredBolt.localScale;
+
+            var root = new GameObject("RuneSpireBoltFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var targetGo = new GameObject("RuneSpireBoltTarget") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                var view = targetGo.AddComponent<UnitView>();
+                var data = VfxUnit(98010, UnitType.LittleKnight, TeamId.Red);
+                typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, data);
+                targetGo.transform.position = new Vector3(3f, 0f, 4f);
+                var target = new TowerBoltTarget(targetGo.transform, view, data, null);
+                var lateUpdate = typeof(VfxPoolItem).GetMethod("LateUpdate", VfxFields);
+                Require(lateUpdate != null, "Tower bolt per-frame endpoint method exists for the lifecycle fixture.");
+
+                var s = new AttackEffectPresentation { Match = 1, Lifetime = 1, Sequence = 1, AttackerId = 98011, TargetId = data.Id,
+                    Visual = AttackEffectVisual.Tower, Race = RaceId.Spirit, Source = Vector3.zero, Impact = new Vector3(0f, 0f, 2f), ImpactTime = 1d };
+                Require(manager.PlayAttackEffect(s, s.Source, s.Impact, out string outcome, target)
+                    && outcome.Contains("Endpoint=Tracked"), "Spirit tower bolt resolves the original target and tracks it.");
+                var item = root.GetComponentsInChildren<VfxPoolItem>(true)[0];
+                var bolt = item.transform.Find("Bolt");
+                // 기대값은 실제 preset 보정값(현재 offset 0 / euler 0 / scale 1)을 그대로 반영해 계산한다.
+                //   → 사용자가 나중에 preset을 조정해도 계약(거리=길이, XZ 방향)만 검사한다.
+                Quaternion Facing(Vector3 endpoint) { var d = endpoint - s.Source; d.y = 0f; return Quaternion.LookRotation(d); }
+                Vector3 RootAt(Vector3 endpoint) => s.Source + Facing(endpoint) * rune.LocalPositionOffset;
+                Vector3 ForwardAt(Vector3 endpoint) => Facing(endpoint) * Quaternion.Euler(rune.EulerRotationOffset) * Vector3.forward;
+                float LengthAt(Vector3 endpoint)
+                { var span = endpoint - RootAt(endpoint); span.y = 0f; return span.magnitude / item.transform.lossyScale.z; }
+                bool BoltMatches(Vector3 endpoint) => Mathf.Abs(bolt.localScale.z - LengthAt(endpoint)) < 1e-4f
+                    && VfxApprox(item.transform.forward, ForwardAt(endpoint)) && VfxApprox(item.transform.position, RootAt(endpoint));
+
+                // 시작 시점: 스냅샷 Impact(0,0,2)가 아니라 대상의 현재 위치(3,0,4)까지 맞춘다.
+                Vector3 first = targetGo.transform.position;
+                Require(item.TowerBoltTracking && BoltMatches(first)
+                    && Mathf.Approximately(bolt.localScale.x, authoredBoltScale.x) && Mathf.Approximately(bolt.localScale.y, authoredBoltScale.y),
+                    "Bolt Z scale equals XZ distance and only Z changes; root faces the target.");
+
+                // (b) 대상이 움직이면 길이·방향이 따라간다(높이 차는 무시하고 XZ만).
+                targetGo.transform.position = new Vector3(0f, 1f, -6f);
+                Vector3 moved = targetGo.transform.position;
+                lateUpdate.Invoke(item, null);
+                Require(item.TowerBoltTracking && BoltMatches(moved),
+                    "Moving original target updates bolt length/direction; source stays fixed.");
+
+                // (c) 대상 사망 → 마지막 끝점에서 영구 고정, 이후 이동해도 따라가지 않는다.
+                data.TakeDamage(99999);
+                lateUpdate.Invoke(item, null);
+                targetGo.transform.position = new Vector3(5f, 0f, 0f);
+                lateUpdate.Invoke(item, null);
+                Require(!data.IsAlive && !item.TowerBoltTracking && BoltMatches(moved),
+                    "Dead target freezes the bolt at the last known endpoint.");
+
+                // (d) Return → Bolt 원본 스케일 복원, 대상 참조 해제.
+                item.Return();
+                Require(VfxApprox(bolt.localScale, authoredBoltScale) && !item.TowerBoltTracking
+                    && ((TowerBoltTarget)typeof(VfxPoolItem).GetField("_boltTarget", VfxFields).GetValue(item)).View == null,
+                    "Pool return restores the authored Bolt scale and drops the target reference.");
+
+                // (c') ID 재사용 방어: 같은 View에 같은 ID의 "다른" UnitData가 들어오면 따라가지 않고 고정한다.
+                var reused = VfxUnit(98012, UnitType.LittleKnight, TeamId.Red);
+                typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, reused);
+                targetGo.transform.position = new Vector3(0f, 0f, 3f);
+                var s2 = s; s2.Sequence = 2; s2.TargetId = reused.Id;
+                Require(manager.PlayAttackEffect(s2, s2.Source, s2.Impact, out outcome, new TowerBoltTarget(targetGo.transform, view, reused, null))
+                    && ReferenceEquals(root.GetComponentsInChildren<VfxPoolItem>(true)[0], item), "Pooled bolt item is reused.");
+                Vector3 reusedEndpoint = targetGo.transform.position;
+                Require(item.TowerBoltTracking && BoltMatches(reusedEndpoint), "Reused bolt has no leftover length from the previous play.");
+                typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, VfxUnit(reused.Id, UnitType.LittleKnight, TeamId.Red));
+                targetGo.transform.position = new Vector3(0f, 0f, 8f);
+                lateUpdate.Invoke(item, null);
+                Require(!item.TowerBoltTracking && BoltMatches(reusedEndpoint),
+                    "Replaced UnitData on the same View (ID reuse) freezes instead of re-acquiring.");
+                item.Return();
+
+                // (e) 해석 실패 → 추적 없이 스냅샷 Impact까지 길이만 맞춘다.
+                var s3 = s; s3.Sequence = 3;
+                Require(manager.PlayAttackEffect(s3, s3.Source, s3.Impact, out outcome, default, "TargetViewMissing")
+                    && outcome.Contains("Endpoint=Untracked(TargetViewMissing)") && !item.TowerBoltTracking
+                    && BoltMatches(s3.Impact), "Unresolved target plays to the snapshot Impact without tracking.");
+                item.Return();
+
+                // (f) Human 타워는 추적·길이 맞춤 경로를 타지 않는다(현행 유지).
+                var human = s; human.Sequence = 4; human.Race = RaceId.Human;
+                Require(manager.PlayAttackEffect(human, human.Source, human.Impact, out outcome, target)
+                    && !outcome.Contains("Endpoint"), "Human tower attack effect ignores endpoint tracking.");
+                foreach (var pooled in root.GetComponentsInChildren<VfxPoolItem>(true))
+                    Require(!pooled.TowerBoltTracking, "No pooled item tracks after the Human tower play.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(targetGo);
+            }
         }
 
         private static void ValidateWriterSnapshotVfx(UnitEffectConfig units, BuildingEffectConfig buildings)

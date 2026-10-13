@@ -93,6 +93,10 @@ namespace Hexiege.Presentation
         private ulong _bloomLease;
         private Hexiege.Application.BloomHealEffectPresentation _bloomState;
         private Vector3 _bloomOffset, _bloomEuler, _bloomScale;
+        // [2026-10-13 C] 힐 대상 유닛 크기에 맞춘 "한 값(균등) 배율".
+        //   재생 시작 때 1번만 정해 두고, 매 프레임 Follow에서는 이 저장값만 곱한다(재계산 없음).
+        //   크기 표에 대상 유닛이 없으면 1 → 예전과 완전히 같은 크기.
+        private float _bloomFitScale = 1f;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private Hexiege.Application.BloomHealEffectDiagnostics _bloomDiagnostics;
 #endif
@@ -122,8 +126,34 @@ namespace Hexiege.Presentation
             _onReturn?.Invoke(this); // pending을 먼저 해제하여 중복 실패 callback도 1회만 반환한다.
         }
 
-        /// <summary>새 lease에서만 5PS를 시작한다. refresh는 이 메서드를 호출하지 않는다.</summary>
+        /// <summary>
+        /// 새 lease에서만 프리팹에 들어 있는 파티클 시스템(authored 전체 PS)을 시작한다.
+        /// refresh는 이 메서드를 호출하지 않는다.
+        /// 대상 크기 맞춤이 없는 기존 호출용 — 배율 1(예전과 같은 크기)로 아래 오버로드에 위임한다.
+        /// </summary>
         public ulong PlayBloomLoop(Hexiege.Application.BloomHealEffectPresentation state, Transform pose, EffectPreset preset
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
+#endif
+            )
+        {
+            return PlayBloomLoop(state, pose, preset, RecipientFit.Identity
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                , diagnostics
+#endif
+                );
+        }
+
+        /// <summary>
+        /// 새 lease에서만 authored 전체 PS를 시작하고, 힐 대상 유닛 크기 맞춤(fit)을 함께 저장한다.
+        /// fit은 재생 시작 때 1번만 정해지고, 같은 owner의 refresh·Stop 뒤에도 바뀌지 않는다.
+        /// </summary>
+        /// <param name="state">서버가 정한 힐 표현 상태(owner·revision).</param>
+        /// <param name="pose">이펙트가 따라붙을 대상 유닛의 VisualRoot Transform.</param>
+        /// <param name="preset">힐 이펙트 프리셋(위치·회전·배율 보정값).</param>
+        /// <param name="fit">대상 유닛 크기 맞춤(균등 배율 + 발밑 보정). 표에 없으면 Identity.</param>
+        public ulong PlayBloomLoop(Hexiege.Application.BloomHealEffectPresentation state, Transform pose, EffectPreset preset,
+            RecipientFit fit
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
 #endif
@@ -131,15 +161,24 @@ namespace Hexiege.Presentation
         {
             if (pose == null || !state.IsValid || !state.Active || _active) return 0;
             _bloomSystems ??= GetComponentsInChildren<ParticleSystem>(true);
-            if (_bloomSystems.Length != 5) return 0;
+            // [R-1 비활성화 — 2026-10-13] 옛 프리팹(Bloom_Ring 포함)이 5개였다는 가정일 뿐 규칙 조항이 아니다.
+            //   새 프리팹은 사용자 결정으로 Bloom_Ring을 빼서 4개라, 이 줄이 힐 이펙트를 항상 거부했다.
+            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+            // if (_bloomSystems.Length != 5) return 0;
+            // 개수는 "1개 이상"이면 된다. 대신 바로 아래의 시스템별 규격 검사(반복 재생·scaled 시간·
+            // stopAction None·Local 좌표·burst 0)는 그대로 두므로 잘못 만든 프리팹은 여전히 재생 전에 거부된다.
+            if (_bloomSystems.Length == 0) return 0;
             foreach (var ps in _bloomSystems)
                 if (!ps.main.loop || ps.main.useUnscaledTime || ps.main.stopAction != ParticleSystemStopAction.None
                     || ps.main.simulationSpace != ParticleSystemSimulationSpace.Local || ps.emission.burstCount != 0) return 0;
             ResetTravelState();
             _bloomLease++; if (_bloomLease == 0) _bloomLease++;
             _bloomState = state; _bloomLoop = true; _bloomStopped = false; _active = true;
-            _bloomOffset = preset.LocalPositionOffset; _bloomEuler = preset.EulerRotationOffset;
+            // [C] 위치 = 대상 발밑(pose) + 대상 회전 × (프리셋 보정 + 크기 표의 발밑 보정).
+            //   두 보정을 미리 더해 두면 매 프레임 Follow 계산이 예전과 똑같은 한 줄로 끝난다.
+            _bloomOffset = preset.LocalPositionOffset + fit.SafeFootOffset; _bloomEuler = preset.EulerRotationOffset;
             _bloomScale = preset.ScaleMultiplier;
+            _bloomFitScale = fit.UniformScale;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             _bloomDiagnostics = diagnostics;
 #endif
@@ -148,10 +187,11 @@ namespace Hexiege.Presentation
             foreach (var ps in _bloomSystems)
             {
                 ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
-                // authored 5PS burst=0 계약을 위에서 검증했다. emission 설정을 변형하지 않는다.
+                // authored 전체 PS의 burst=0 계약을 위에서 검증했다. emission 설정을 변형하지 않는다.
                 ps.Play(false);
             }
-            ObserveBloom("Play", "RecursivePS=5");
+            // 로그에는 "실제로 재생한 개수"를 적는다(옛 고정 문구 "RecursivePS=5"는 사실과 달라 교체).
+            ObserveBloom("Play", "RecursivePS=" + _bloomSystems.Length + ", FitScale=" + _bloomFitScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
             _bloomAcquirePending = false;
             return _bloomLease;
         }
@@ -167,7 +207,13 @@ namespace Hexiege.Presentation
             if (!BloomLoopActive || lease != _bloomLease || pose == null) return;
             transform.SetPositionAndRotation(pose.position + pose.rotation * _bloomOffset,
                 pose.rotation * Quaternion.Euler(_bloomEuler));
-            var world = Vector3.Scale(Vector3.Scale(_originalLocalScale, _bloomScale), pose.lossyScale);
+            // [R-5 비활성화 — 2026-10-13] 대상 Transform 스케일(lossyScale)을 곱하던 옛 방식.
+            //   유닛 VisualRoot 스케일은 전 유닛 1이라(25종 Blue/Red 프리팹 실측, 런타임에 유닛 스케일을
+            //   바꾸는 코드 없음) 실제 모델 크기 차이를 반영하지 못했다. 크기 표의 균등 배율로 대체한다.
+            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+            // var world = Vector3.Scale(Vector3.Scale(_originalLocalScale, _bloomScale), pose.lossyScale);
+            // 최종 월드 크기 = 프리팹 원본 × 프리셋 배율 × 대상 맞춤 배율(재생 시작 때 저장한 값).
+            var world = Vector3.Scale(_originalLocalScale, _bloomScale) * _bloomFitScale;
             var parentScale = transform.parent != null ? transform.parent.lossyScale : Vector3.one;
             transform.localScale = new Vector3(world.x / parentScale.x, world.y / parentScale.y, world.z / parentScale.z);
         }
@@ -177,7 +223,7 @@ namespace Hexiege.Presentation
             _bloomStopped = true;
             // 마지막 유효 world pose를 유지한다. 더 이상 target을 조회/추종하지 않는다.
             foreach (var ps in _bloomSystems) ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
-            ObserveBloom("StopEmitting", "RecursivePS=5, Reason=" + reason);
+            ObserveBloom("StopEmitting", "RecursivePS=" + _bloomSystems.Length + ", Reason=" + reason);
             return true;
         }
         public bool StopBloom(ulong lease, Hexiege.Application.BloomHealEffectPresentation terminal)
@@ -429,7 +475,7 @@ namespace Hexiege.Presentation
                 // 활성 loop는 particle gap으로 반환하지 않는다. scaled pause 중 tail도 유지한다.
                 if (!_bloomStopped) return;
                 foreach (var ps in _bloomSystems) if (ps != null && ps.IsAlive(false)) return;
-                ObserveBloom("Drain", "RecursivePS=5");
+                ObserveBloom("Drain", "RecursivePS=" + _bloomSystems.Length);
                 Return();
                 return;
             }
@@ -481,6 +527,10 @@ namespace Hexiege.Presentation
             _travelDuration = 0f;
             _travelElapsed = 0f;
             _isTravelling = false;
+            // [2026-10-13 B] 정령 타워 번개 길이·추적 상태도 "재생별 상태"이므로 여기서 함께 원상복구한다.
+            //   Play/PlayWave/PlayTimedDamage/PlayBloomLoop 시작과 Return 모두 이 메서드를 거치므로,
+            //   풀 재사용 때 이전 번개 길이나 옛 유닛 참조가 남지 않는다(VfxPoolItem.TowerBolt.cs).
+            ResetTowerBolt();
         }
 
         /// <summary>
@@ -528,8 +578,9 @@ namespace Hexiege.Presentation
             // 기존 입자는 자르지 않는다. acquire 실패만 별도 Reject 경로로 즉시 clear한다.
             if (_bloomLoop)
                 foreach (var ps in _bloomSystems) if (ps != null && ps.IsAlive(false)) return;
-            if (_bloomLoop) ObserveBloom("Return", "RecursivePS=5");
+            if (_bloomLoop) ObserveBloom("Return", "RecursivePS=" + _bloomSystems.Length);
             _bloomLoop = false; _bloomStopped = false;
+            _bloomFitScale = 1f; // 다음 재사용에 이전 대상의 맞춤 배율이 남지 않게 한다.
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             _bloomDiagnostics = null;
 #endif

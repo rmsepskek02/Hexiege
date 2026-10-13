@@ -254,8 +254,18 @@ namespace Hexiege.Presentation
         public bool WavePresentationReady => _unitConfig?.GetAttack(UnitType.TorrentSpirit)?.VfxPrefab != null;
 
         public bool BloomPresentationReady => _unitConfig?.GetHeal(UnitType.BloomFairy)?.VfxPrefab != null;
+        /// <summary>
+        /// 화상(InfernoSpirit)·독(MushroomBomber) 지속 이펙트를 대상 유닛에 붙여 시작한다.
+        /// </summary>
+        /// <param name="state">서버가 정한 지속 피해 표현 상태.</param>
+        /// <param name="pose">대상 유닛 VisualRoot Transform.</param>
+        /// <param name="channel">진단 기록 채널.</param>
+        /// <param name="recipientType">
+        /// 이펙트가 붙을 "맞은 유닛"의 타입. 있으면 UnitEffectConfig 크기 표로 크기·발밑 위치를 맞춘다.
+        /// null이면(또는 표에 없으면) 배율 1 — 예전과 같은 크기.
+        /// </param>
         public VfxPoolItem StartTimedDamageEffect(Hexiege.Application.TimedDamageEffectPresentation state, Transform pose,
-            Hexiege.Application.TimedDamageEffectChannel channel)
+            Hexiege.Application.TimedDamageEffectChannel channel, UnitType? recipientType = null)
         {
             if (!state.IsValid || !state.Active || (state.Visual != Hexiege.Application.TimedDamageVisual.Burn
                 && state.Visual != Hexiege.Application.TimedDamageVisual.Poison)) return null;
@@ -263,13 +273,60 @@ namespace Hexiege.Presentation
             var preset = _unitConfig?.GetTimedDamage(type);
             if (pose == null || preset?.VfxPrefab == null) return null;
             var item = GetOrCreateVfx(preset.VfxPrefab);
-            try { item.PlayTimedDamage(state, pose, preset, channel); }
+            // 크기 맞춤은 재생 시작 때 1번만 표에서 읽는다(매 프레임 렌더러 크기를 재지 않음 — D-1).
+            RecipientFit fit = ResolveRecipientFit(recipientType);
+            try { item.PlayTimedDamage(state, pose, preset, channel, fit); }
             catch { item.RejectTimedDamageAcquire(); throw; }
             // Sound15: recipient poison/burn SFX is not authored; no invented sound fallback.
             return item;
         }
 
+        /// <summary>
+        /// BloomFairy 힐 지속 이펙트를 대상에 붙여 시작한다(크기 맞춤 없음 — 배율 1).
+        /// 대상 타입을 아는 호출은 아래 recipientType 오버로드를 쓴다.
+        /// </summary>
         public VfxPoolItem StartBloomEffect(Hexiege.Application.BloomHealEffectPresentation state, Transform pose
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
+#endif
+            )
+        {
+            return StartBloomEffectCore(state, pose, RecipientFit.Identity
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                , diagnostics
+#endif
+                );
+        }
+
+        /// <summary>
+        /// BloomFairy 힐 지속 이펙트를 대상에 붙여 시작하고, 대상 유닛 크기에 맞춘다(D-2: 화상과 같은 방식).
+        /// </summary>
+        /// <param name="state">서버가 정한 힐 표현 상태.</param>
+        /// <param name="pose">대상 유닛 VisualRoot Transform.</param>
+        /// <param name="recipientType">힐을 받는 유닛 타입. 크기 표에 없으면 배율 1.</param>
+        public VfxPoolItem StartBloomEffect(Hexiege.Application.BloomHealEffectPresentation state, Transform pose,
+            UnitType recipientType
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
+#endif
+            )
+        {
+            return StartBloomEffectCore(state, pose, ResolveRecipientFit(recipientType)
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                , diagnostics
+#endif
+                );
+        }
+
+        /// <summary>대상 유닛 타입으로 크기 표를 조회한다. 타입을 모르거나 표가 없으면 Identity(배율 1).</summary>
+        private RecipientFit ResolveRecipientFit(UnitType? recipientType)
+        {
+            if (!recipientType.HasValue || _unitConfig == null) return RecipientFit.Identity;
+            return _unitConfig.GetRecipientFit(recipientType.Value);
+        }
+
+        private VfxPoolItem StartBloomEffectCore(Hexiege.Application.BloomHealEffectPresentation state, Transform pose,
+            RecipientFit fit
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
 #endif
@@ -281,7 +338,7 @@ namespace Hexiege.Presentation
             try
             {
                 if (!item.BeginBloomAcquire()) throw new System.InvalidOperationException("Bloom pool checkout already owned");
-                if (item.PlayBloomLoop(state, pose, preset
+                if (item.PlayBloomLoop(state, pose, preset, fit
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                 , diagnostics
 #endif
@@ -402,7 +459,21 @@ namespace Hexiege.Presentation
             foreach (var ps in tracer.GetComponentsInChildren<ParticleSystem>(true)) started |= ps.isPlaying;
             return tracer.gameObject.activeInHierarchy && started;
         }
-        public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome)
+        /// <summary>
+        /// 서버가 확정한 공격 표현 스냅샷(타워 발사 / 버섯 착탄)을 이 화면에서 재생한다.
+        /// 피해·HP와 무관한 화면 표현 전용이다.
+        /// </summary>
+        /// <param name="s">서버 확정 스냅샷.</param>
+        /// <param name="source">시작점(화면 좌표).</param>
+        /// <param name="impact">공격 순간 대상 위치(화면 좌표).</param>
+        /// <param name="outcome">진단 기록용 결과 문자열.</param>
+        /// <param name="boltTarget">
+        /// [2026-10-13 B] 정령(Spirit) 타워 번개가 따라갈 "원래 맞은 유닛". Spirit 타워일 때만 쓰인다.
+        /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. Human 타워·버섯 착탄은 무시한다.
+        /// </param>
+        /// <param name="boltUntrackedReason">boltTarget이 default인 이유(진단용). null 허용.</param>
+        public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome,
+            TowerBoltTarget boltTarget = default, string boltUntrackedReason = null)
         {
             outcome = "InvalidSnapshotOrVisual";
             if (!s.IsValid || (s.Visual != Hexiege.Application.AttackEffectVisual.Tower && s.Visual != Hexiege.Application.AttackEffectVisual.MushroomImpact)) return false;
@@ -420,6 +491,12 @@ namespace Hexiege.Presentation
                 preset.LocalPositionOffset, preset.EulerRotationOffset, preset.ScaleMultiplier, preset.ForwardTravelDistance, preset.ForwardTravelDuration);
             bool started = false; foreach (var ps in systems) started |= ps.isPlaying;
             outcome = started ? "AuthoritySnapshotStarted" : "PlaybackInactive";
+            // [2026-10-13 B] 정령 타워만: 번개 길이를 실제 거리에 맞추고 원래 맞은 유닛을 끝점으로 추적한다.
+            //   Human 타워(현행 유지)와 MushroomImpact는 이 분기를 타지 않아 동작이 이전과 같다.
+            //   Type+Race 선택(위 preset 조회)과 Transcendence 미지정 no-fallback은 그대로다.
+            if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
+                outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
+                    preset.EulerRotationOffset, boltTarget, boltUntrackedReason);
             // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
             return started;
         }

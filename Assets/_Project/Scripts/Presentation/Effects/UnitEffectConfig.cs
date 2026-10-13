@@ -59,6 +59,74 @@ namespace Hexiege.Presentation
     }
 
     // ========================================================================
+    // UnitRecipientFitEntry (2026-10-13 vfx-code-followups C)
+    // 화상·독·힐처럼 "유닛 몸에 붙는 상태 이펙트"를 그 유닛 크기에 맞추기 위한 유닛 종류별 크기 표의 한 줄.
+    //
+    // 값은 처음에 에디터 메뉴 「Hexiege/Effects/Measure Unit Recipient Fit」이 유닛 프리팹을 재서 채운다.
+    // 그 뒤에는 Inspector에서 사람이 직접 고쳐도 된다(게임 중에는 이 표만 읽고, 매 프레임 크기를 재지 않는다).
+    // 측정 기준 좌표 = 유닛의 VisualRoot(발밑 pivot) 기준, 단위 = 월드 미터.
+    // ========================================================================
+    [System.Serializable]
+    public struct UnitRecipientFitEntry
+    {
+        [Tooltip("이 크기 값이 적용되는 유닛 타입")]
+        public UnitType unitType;
+
+        [Tooltip("몸통 반경(미터). 측정 도구가 채운다. 현재 배율 계산에는 쓰지 않고 참고·튜닝용으로 보관한다(D-3 균등 배율)")]
+        public float radius;
+
+        [Tooltip("몸통 키(미터). 자동 배율 = 키 ÷ 1.0(이펙트 제작 기준 키). 0 이하면 이 줄은 무시된다")]
+        public float height;
+
+        [Tooltip("VisualRoot 기준 발밑 위치 보정(미터). 측정 도구가 몸통 아래 가운데로 채운다")]
+        public Vector3 footOffset;
+
+        [Tooltip("0 이하 = 자동(키 비율). 양수 = 이 값을 배율로 그대로 사용(사람이 직접 덮어쓰기)")]
+        public float manualScale;
+    }
+
+    // ========================================================================
+    // RecipientFit
+    // 크기 표에서 계산한 "실제로 적용할 값" 묶음. VfxPoolItem이 재생 시작 때 1번 받는다.
+    //
+    // 🔴 default(RecipientFit) = Identity = 배율 1, 발밑 보정 0 → 예전과 완전히 같은 크기·위치.
+    //   그래서 표에 없는 유닛이나 크기를 모르는 호출은 아무것도 안 바꾼 것과 같다(안전한 기본값).
+    // ========================================================================
+    public readonly struct RecipientFit
+    {
+        /// <summary>표 값이 잘못 들어가도 이펙트가 사라지거나(0) 화면을 덮지(거대) 않게 막는 하한.</summary>
+        public const float MinScale = 0.1f;
+        /// <summary>배율 상한.</summary>
+        public const float MaxScale = 10f;
+
+        /// <summary>원본 배율 값(검증 전). 0·음수·NaN이면 UniformScale은 1이 된다.</summary>
+        public readonly float Scale;
+        /// <summary>원본 발밑 보정 값(검증 전).</summary>
+        public readonly Vector3 FootOffset;
+
+        /// <summary>배율과 발밑 보정으로 맞춤 값을 만든다.</summary>
+        public RecipientFit(float scale, Vector3 footOffset)
+        {
+            Scale = scale;
+            FootOffset = footOffset;
+        }
+
+        /// <summary>크기 맞춤을 하지 않는 값(배율 1, 보정 0). default와 같다.</summary>
+        public static RecipientFit Identity => default;
+
+        /// <summary>실제로 곱할 균등 배율. 유효하지 않으면 1, 유효하면 [MinScale, MaxScale]로 제한.</summary>
+        public float UniformScale => Scale > 0f && !float.IsNaN(Scale) && !float.IsInfinity(Scale)
+            ? Mathf.Clamp(Scale, MinScale, MaxScale) : 1f;
+
+        /// <summary>실제로 더할 발밑 보정. NaN/무한대가 섞이면 0(보정 없음).</summary>
+        public Vector3 SafeFootOffset => IsFinite(FootOffset) ? FootOffset : Vector3.zero;
+
+        private static bool IsFinite(Vector3 v) =>
+            !float.IsNaN(v.x) && !float.IsInfinity(v.x) && !float.IsNaN(v.y) && !float.IsInfinity(v.y)
+            && !float.IsNaN(v.z) && !float.IsInfinity(v.z);
+    }
+
+    // ========================================================================
     // UnitEffectConfig
     // 모든 UnitType의 UnitEffectEntry를 한곳에 모으는 ScriptableObject.
     // ========================================================================
@@ -73,6 +141,52 @@ namespace Hexiege.Presentation
         /// 중복 키가 있으면 처음 항목만 유지.
         /// </summary>
         private Dictionary<UnitType, UnitEffectEntry> _cache;
+
+        /// <summary>상태 이펙트(화상·독·힐) 프리팹을 만들 때 기준으로 삼은 유닛 키(미터). 이 키면 배율 1.</summary>
+        public const float RecipientReferenceHeight = 1.0f;
+        /// <summary>상태 이펙트 프리팹 제작 기준 반경(미터). 참고용(현재 배율 계산은 키 기준 균등).</summary>
+        public const float RecipientReferenceRadius = 0.25f;
+
+        [Header("상태 이펙트 크기 맞춤 (화상·독·힐)")]
+        [Tooltip("유닛 종류별 몸 크기 표. 메뉴 Hexiege/Effects/Measure Unit Recipient Fit 이 채우고, 이후 직접 조정 가능. "
+            + "표에 없는 유닛은 배율 1(예전 크기)로 재생된다")]
+        [SerializeField] private List<UnitRecipientFitEntry> _recipientFits = new List<UnitRecipientFitEntry>();
+
+        /// <summary>크기 표 조회 캐시. Initialize()에서 빌드.</summary>
+        private Dictionary<UnitType, UnitRecipientFitEntry> _fitCache;
+
+        /// <summary>
+        /// 이 유닛 종류에 쓸 상태 이펙트 크기 맞춤 값을 반환한다.
+        /// 표에 없거나 값이 쓸 수 없으면 false + Identity(배율 1, 보정 0).
+        /// 배율 = manualScale(양수일 때) 우선, 아니면 키 ÷ RecipientReferenceHeight (D-3 균등 배율).
+        /// </summary>
+        /// <param name="type">이펙트가 붙을 대상 유닛 타입.</param>
+        /// <param name="fit">적용할 맞춤 값.</param>
+        /// <returns>표의 유효한 줄을 찾았으면 true.</returns>
+        public bool TryGetRecipientFit(UnitType type, out RecipientFit fit)
+        {
+            fit = RecipientFit.Identity;
+            if (_fitCache == null || !_fitCache.TryGetValue(type, out UnitRecipientFitEntry entry)) return false;
+            float scale = IsPositiveFinite(entry.manualScale) ? entry.manualScale
+                : IsPositiveFinite(entry.height) ? entry.height / RecipientReferenceHeight : 0f;
+            if (scale <= 0f) return false; // 키도 수동 배율도 없는 줄 → 맞춤 없음(배율 1)
+            fit = new RecipientFit(scale, entry.footOffset);
+            return true;
+        }
+
+        /// <summary>TryGetRecipientFit의 간단판 — 못 찾으면 Identity(배율 1)를 돌려준다.</summary>
+        /// <param name="type">이펙트가 붙을 대상 유닛 타입.</param>
+        public RecipientFit GetRecipientFit(UnitType type)
+        {
+            TryGetRecipientFit(type, out RecipientFit fit);
+            return fit;
+        }
+
+        /// <summary>크기 표에 줄이 하나라도 있는 유닛인지(검증기의 「25종 표 완비」 경고용).</summary>
+        /// <param name="type">확인할 유닛 타입.</param>
+        public bool HasRecipientFitEntry(UnitType type) => _fitCache != null && _fitCache.ContainsKey(type);
+
+        private static bool IsPositiveFinite(float v) => v > 0f && !float.IsNaN(v) && !float.IsInfinity(v);
 
         /// <summary>
         /// List를 Dictionary로 변환하여 O(1) 조회를 준비한다.
@@ -92,6 +206,14 @@ namespace Hexiege.Presentation
                 if (!_cache.ContainsKey(entry.unitType))
                     _cache.Add(entry.unitType, entry);
             }
+
+            // 상태 이펙트 크기 표도 같은 방식(중복은 첫 줄만)으로 캐시한다.
+            //   옛 에셋에는 _recipientFits 필드가 없어 null로 읽힐 수 있으므로 방어한다.
+            _fitCache = new Dictionary<UnitType, UnitRecipientFitEntry>(_recipientFits?.Count ?? 0);
+            if (_recipientFits != null)
+                foreach (UnitRecipientFitEntry fit in _recipientFits)
+                    if (!_fitCache.ContainsKey(fit.unitType))
+                        _fitCache.Add(fit.unitType, fit);
         }
 
         /// <summary>

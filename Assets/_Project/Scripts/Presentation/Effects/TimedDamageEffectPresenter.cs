@@ -61,7 +61,8 @@ namespace Hexiege.Presentation
                         continue;
                     }
                     if (owner.Item != null) { owner.Item.FollowTimedDamage(owner.Lease, owner.Pose); continue; }
-                    owner.Item = _manager?.StartTimedDamageEffect(owner.State, owner.Pose, _channel);
+                    // [2026-10-13 C] 맞은 유닛 타입을 넘겨 화상·독 이펙트를 그 유닛 크기에 맞춘다(표에 없으면 배율 1).
+                    owner.Item = _manager?.StartTimedDamageEffect(owner.State, owner.Pose, _channel, owner.Target.Type);
                     if (owner.Item != null) { owner.Lease = owner.Item.DamageLease; owner.Pending = false; }
                     else if (!owner.Pending) { _channel.Record("Skip", owner.State, "MissingPreset; Pending=True"); owner.Pending = true; }
                 }

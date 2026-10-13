@@ -104,7 +104,8 @@ namespace Hexiege.Presentation
                         if (!owner.AssetReported) { owner.AssetReported = true; Record("MissingAsset", owner.State, "Pending=True"); }
                         continue;
                     }
-                    owner.Item = _manager.StartBloomEffect(owner.State, owner.Pose
+                    // [2026-10-13 C] 힐 받는 유닛 타입을 넘겨 크기를 맞춘다(D-2: 화상·독과 같은 방식, 표에 없으면 배율 1).
+                    owner.Item = _manager.StartBloomEffect(owner.State, owner.Pose, owner.Target.Type
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         , _channel.Diagnostics
 #endif
