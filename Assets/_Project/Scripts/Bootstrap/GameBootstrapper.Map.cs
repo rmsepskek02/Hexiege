@@ -250,12 +250,42 @@ namespace Hexiege.Bootstrap
             // 표시의 진입점은 public ShowDamage() — 아래 10-4의 HitPresentationQueue가 방출 시점에 호출한다.
             // (예전처럼 OnEntityDamaged를 직접 구독하지 않는다 — 이중 표시 방지, Phase 2 — 축 3)
             if (_floatingHpTextSpawner != null)
-                _floatingHpTextSpawner.Initialize(_positionProvider, _floatingTextContainer, _floatingHpTextPrefab);
+                _floatingHpTextSpawner.Initialize(
+                    _presentationPoseProvider,
+                    _floatingTextContainer,
+                    _floatingHpTextPrefab);
 
             // 10-3. EffectManager 초기화 — VFX/SFX Pool 구성 및 Config 연결
             // 각 Config의 List → Dictionary 변환과 SFX Pool 사전 생성이 여기서 수행된다.
             if (_effectManager != null)
                 _effectManager.Initialize(_unitEffectConfig, _buildingEffectConfig, _uiEffectConfig);
+
+            var wavePresenter = GetComponent<WavePresentationPresenter>();
+            if (wavePresenter == null) wavePresenter = gameObject.AddComponent<WavePresentationPresenter>();
+            wavePresenter.Initialize(_unitCombat, _floatingHpTextSpawner);
+            var bloomPresenter = GetComponent<BloomHealEffectPresenter>();
+            if (bloomPresenter == null) bloomPresenter = gameObject.AddComponent<BloomHealEffectPresenter>();
+            // 공통 pose provider만 사용한다. Root 쓰기/Red 재변환/target reparent 없음.
+            var bloomFactory = _unitFactory;
+            var bloomPoseProvider = _presentationPoseProvider;
+            bloomPresenter.Initialize(_unitCombat.BloomHealEffects, _effectManager, target =>
+            {
+                var go = bloomFactory.GetUnitObject(target.Id);
+                var view = go != null ? go.GetComponent<UnitView>() : null;
+                return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
+                    ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
+            });
+            var waveOwnerCombat = _unitCombat;
+            var damagePresenter = GetComponent<TimedDamageEffectPresenter>();
+            if (damagePresenter == null) damagePresenter = gameObject.AddComponent<TimedDamageEffectPresenter>();
+            damagePresenter.Initialize(_unitCombat.TimedDamageEffects, _effectManager, target =>
+            {
+                var go = bloomFactory.GetUnitObject(target.Id);
+                var view = go != null ? go.GetComponent<UnitView>() : null;
+                return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
+                    ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
+            });
+            _floatingHpTextSpawner?.SetWaveOwnerReady(() => waveOwnerCombat.WavePresentationOwned);
 
             // 10-4. 피격 표현 큐 초기화 (Phase 2 — 축 3).
             //   피격 연출(HP 텍스트·피격 VFX·타격 반응)을 공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출.
@@ -264,7 +294,35 @@ namespace Hexiege.Bootstrap
             //   EffectManager.Initialize 이후에 두어야 GetHit(피격 프리셋 조회)가 정상 동작한다.
             if (_hitPresentationQueue == null)
                 _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
-            _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn, _buildingPlacement);
+            _hitPresentationQueue.SetAttackEffectClock(() => _unitCombat.WaveServerTime);
+            if (_effectManager != null) _effectManager.AttackEffectClock = () => _unitCombat.WaveServerTime;
+            _hitPresentationQueue.SetWaveOwnerReady(() => waveOwnerCombat.WavePresentationOwned);
+            _hitPresentationQueue.Initialize(
+                _floatingHpTextSpawner,
+                _unitFactory,
+                _buildingFactory,
+                _unitSpawn,
+                _buildingPlacement,
+                _presentationPoseProvider);
+
+            // C3 read-only Presenter는 효과 writer를 주입받지 않는다. 기존 큐 초기화 뒤 조합해
+            // 관측만 시작하며, Legacy HP/VFX/Animator/OnAttackHit 경로는 그대로 단일 emitter다.
+            if (_unitAttackResultPresentationShadow == null)
+                _unitAttackResultPresentationShadow =
+                    gameObject.AddComponent<UnitAttackResultPresentationShadow>();
+            // 이번 맵의 서비스를 캡처한다. 맵 재생성 뒤의 _unitCombat을 이전 공급자가
+            // 읽으면 안 된다. WaveServerTime의 싱글용 fallback은 멀티 C3 시각으로 쓰지
+            // 않도록 NGO 활성/Listening/shutdown을 먼저 검사하고 같은 서비스에서만 조회한다.
+            var tickOwnerCombat = _unitCombat;
+            _unitAttackResultPresentationShadow.Initialize(() =>
+            {
+                var network = Unity.Netcode.NetworkManager.Singleton;
+                if (!ReferenceEquals(_unitCombat, tickOwnerCombat) || tickOwnerCombat == null
+                    || !NetworkContext.IsNetworkActive || network == null
+                    || !network.IsListening || network.ShutdownInProgress)
+                    return double.NaN;
+                return tickOwnerCombat.WaveServerTime;
+            });
 
             // 11. Castle 자동 배치 (좌표는 3-A 의 투영 결과에서 온다)
             PlaceCastles(orientation, oc);
@@ -305,6 +363,8 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void ClearAll()
         {
+            _unitAttackResultPresentationShadow?.CloseClock();
+            _unitCombat?.CloseTorrentLaunches("map-clear");
             if (_unitFactory != null)
                 _unitFactory.DestroyAllUnits();
 

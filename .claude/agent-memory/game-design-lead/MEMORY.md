@@ -1,5 +1,19 @@
 # Game Design Lead Memory — Hexiege
 
+## Torrent-only approved launch policy and runtime boundary (2026-10-03)
+
+- **Latest tested subset:**415 waves/VFX matched;200 lost-primary launches included37 unit damage/1 building damage/5 heals, confirming real contacts in this match. Client text1 loss does not revoke observed launch/movement acceptance or HPauthority. Clock/text defect and overallmigration remainOPEN; no new design/rule approval.23_45 Research/Plan §9 records evidence; earlier runtime-pending notes are history.
+
+- Server-approved Torrent scheduled launches survive original primary loss/range exit: live original target uses current server aim, lost original uses last-valid aim, never fixed-start direction/new retarget. Provisional is not approval; prelaunch attacker death/gameend/despawn/shutdown cancels. Exactly-one server wave retains real enemy unit/building damage and ally-unit heal. Implemented/integration menus PASS, build attempted/JDK preflight only, runtime OPEN/Unresolved/LegacyFallback. Other units retain existing rules; notify the user BEFORE changing conflicts. Policy source: `GameSystemRules_Units.md` rule29; implementation/limitations:23_45 Research/Plan. No balance/assets changes or rally Fatal/performance fix.
+
+## 2026-09-30 BearGuard strike timing versus cycle decision
+
+- The user accepted BearGuard's corrected 30fps `0:13` strike visually in a focused mixed match, so the strike-timing task is PASS/CLOSED. This does not settle attack-cycle balance: StatsReference still shows design `1:20` (`1.666666…s`) while `UnitStatsConfig.attackCooldown` remains `1.2s`; keep that discrepancy OPEN and do not infer authorization to change cooldown. BearGuard-only marker-to-damage offset and full v2 migration were not established. Source: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
+## 2026-08-24 동적 건물 재탐색 판정 기준
+- 건물로 현재 경로가 무효화돼도 서버 경로 그래프에 우회로가 있으면 같은 목표로 이동을 계속해야 한다. `Blocked`는 현재 environment revision에서 실제 유효 경로가 없을 때만 정상이다.
+- 건물로 현재 `path[0]`이 non-walkable이 된 경우 유닛이 이미 서 있는 그 타일에서 인접 walkable 타일로 빠져나가는 첫 구간만 허용한다. 재진입·건물 관통·비인접 점프는 금지한다.
+
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
@@ -115,6 +129,14 @@ rule 14 (and its 2026-09-14 revision block). What follows is only what a design 
 - 밸런싱 (AI delay 수치는 예비값 — StatsReference.md 확정 후 경제 시뮬레이션 재조정 예정)
 - PlayFab 백엔드 연동 (계정/랭킹/인앱결제)
 - 멀티플레이 로비 UI 완성
+
+### 2026-07-20 - 유닛 이동·공격 규칙 v2 확정
+
+- 서버 권위를 유지한 공통 행동 단계를 AlignToMove / Move / Acquire·Chase / AlignToAttack / Windup / Impact / Recovery로 확정했다.
+- 이동은 10° 이내에서 시작하고 이동 중 15°를 넘으면 재정렬한다. 공격은 5° 진입·8° 유지 기준이며, 커밋 전 취소는 무비용이고 커밋 후에는 쿨다운을 환불하지 않는다.
+- 공격 전달 방식은 MeleeContact / Hitscan / ProjectileImpact / TravelingArea로 분리하고 TargetScope·AreaShape·Effect·Schedule은 독립 축으로 둔다.
+- BloomFairy의 성공 발동 후 3초, Windup 포함 총 4초 예외는 유지했다. 구체 규칙은 `GameSystemRules_Units.md`와 `GameSystemRules_UnitCombatSynchronization.md`가 권위다.
+- 문서 설계만 완료했으며 25종 런타임 구현·멀티 검증은 아직 0/25다.
 
 ## 비주얼 목표
 - 레퍼런스: Clash of Clans, Clash Royale

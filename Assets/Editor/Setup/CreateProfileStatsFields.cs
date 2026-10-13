@@ -110,9 +110,9 @@ namespace Hexiege.EditorTools
             GameObject statsLabelGo = FindOrCreateChild(statsHeaderRow.transform, "StatsLabel");
             EnsureText(statsLabelGo, boldFont, "전적", 30, TextAlignmentOptions.Left);
             GameObject refreshBtnGo = FindOrCreateChild(statsHeaderRow.transform, "RefreshButton");
-            // 아이콘 에셋이 없어(Research 4-2) 우선 텍스트/기호로 대체한다.
+            // 아이콘 에셋이 없어(Research 4-2) 명확한 텍스트만 사용한다.
             Button refreshButton =
-                EnsureButton(refreshBtnGo, boldFont, "새로고침 ⟳", new Color(0.30f, 0.60f, 0.80f, 1f), skySprite);
+                EnsureButton(refreshBtnGo, boldFont, "새로고침", new Color(0.30f, 0.60f, 0.80f, 1f), skySprite);
 
             // 전적 항목들("라벨: 값" 행).
             TextMeshProUGUI totalGamesText =

@@ -31,6 +31,8 @@ using UniRx;
 using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
+using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
@@ -38,7 +40,7 @@ namespace Hexiege.Infrastructure
     /// 전투 네트워크 컨트롤러.
     /// 서버에서 전투를 처리하고 사망 이벤트를 모든 클라이언트에 전파.
     /// </summary>
-    public class NetworkCombatController : NetworkBehaviour
+    public partial class NetworkCombatController : NetworkBehaviour
     {
         // ====================================================================
         // Inspector 설정
@@ -54,6 +56,49 @@ namespace Hexiege.Infrastructure
 
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
+        private System.IDisposable _attackEffectSubscription;
+        private void PublishAttackEffect(AttackEffectPresentation s)
+        {
+            if (!IsServer || !IsSpawned || _combatStopped || !s.IsValid) return;
+            AttackEffectClientRpc(s.Match, s.Lifetime, s.Sequence, s.AttackerId, s.TargetId, (byte)s.Visual,
+                (int)s.Race, s.Source, s.Impact, s.ImpactTime, s.AppliedDamage, s.ResultHp,
+                s.ResultKey.AttackerInstanceId.Value, s.ResultKey.SequenceId.Value, s.ResultKey.HitIndex,
+                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal);
+            AttackEffectIdentity.Record("Publish", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+        }
+        [ClientRpc]
+        private void AttackEffectClientRpc(ulong match, ulong lifetime, ulong sequence, int attacker, int target,
+            byte visual, int race, Vector3 source, Vector3 impact, double time, int applied, int hp,
+            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal)
+        {
+            if (IsServer || _combatStopped) return;
+            var s = new AttackEffectPresentation { Match = match, Lifetime = lifetime, Sequence = sequence,
+                AttackerId = attacker, TargetId = target, Visual = (AttackEffectVisual)visual,
+                Race = (Hexiege.Domain.RaceId)race, Source = source, Impact = impact, ImpactTime = time, AppliedDamage = applied, ResultHp = hp,
+                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal) };
+            if (s.IsValid)
+            {
+                AttackEffectIdentity.Record("Receive", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                try { GameEvents.OnAttackEffectReceived.OnNext(s); }
+                catch (System.Exception ex) { AttackEffectIdentity.Record("Fault", s, "ReceiveSubscriber:" + ex.Message); }
+            }
+            else AttackEffectIdentity.Record("Fault", s, "InvalidWireSnapshot");
+        }
+        private BloomHealEffectChannel _bloomEffectChannel;
+        private void OnBloomEffectChanged(BloomHealEffectPresentation value, Hexiege.Domain.UnitData target)
+        {
+            if (!IsSpawned || !IsServer || _combatStopped) return;
+            var go = _services?.GetUnitFactory()?.GetUnitObject(value.TargetId);
+            var recipient = go != null ? go.GetComponent<NetworkUnit>() : null;
+            recipient?.PublishBloomEffect(value, target);
+        }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        /// <summary>
+        /// Read-only multiplayer pose observer. It exists only in development/editor builds,
+        /// reuses this controller's RuntimeLogger session, and is stopped before that session.
+        /// </summary>
+        private UnitRootPoseConsistencyObserver _rootPoseConsistencyObserver;
+#endif
 
         /// <summary>OnUnitDied 구독 해제용 Disposable. 서버 전용(유닛 사망 → 클라이언트 RPC 전파).</summary>
         private System.IDisposable _unitDiedSubscription;
@@ -69,9 +114,18 @@ namespace Hexiege.Infrastructure
 
         /// <summary>OnUnitHealCastStarted 구독 해제용 Disposable. 서버 전용(힐러 힐 애니메이션 동기화).</summary>
         private System.IDisposable _healCastSubscription;
+        private System.IDisposable _healCastEndedSubscription;
 
         /// <summary>[스킬 - 빙결] OnUnitFreezeChanged 구독 해제용 Disposable. 서버 전용(빙결 걷기 정지 동기화).</summary>
         private System.IDisposable _freezeChangedSubscription;
+
+        /// <summary>재경로 대기/막힘 중 걷기 모션 정지 상태 구독.</summary>
+        private System.IDisposable _movementHeldChangedSubscription;
+
+        private readonly System.Collections.Generic.HashSet<int> _frozenAnimationUnits =
+            new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> _heldMovementUnits =
+            new System.Collections.Generic.HashSet<int>();
 
         /// <summary>
         /// OnGameEnd 구독 해제용 Disposable. 서버 전용(승패 확정 → 전투 틱 정지).
@@ -99,6 +153,47 @@ namespace Hexiege.Infrastructure
         private readonly System.Collections.Generic.HashSet<int> _combatAnimationSent
             = new System.Collections.Generic.HashSet<int>();
 
+        /// <summary>
+        /// Attack 표현은 유지하지만 다음 서버 권위 공격 회차의 정렬/커밋을 기다리는 유닛.
+        /// 이 상태에서는 클라이언트 Animation Event 타격 연출이 억제되며, 커밋 시 같은
+        /// Attack 상태라도 T=0 재시작 RPC를 보낸다.
+        /// </summary>
+        private readonly System.Collections.Generic.HashSet<int> _attackPresentationRestartPending
+            = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.Dictionary<int, ulong> _attackPresentationRevisions
+            = new System.Collections.Generic.Dictionary<int, ulong>();
+        private readonly System.Collections.Generic.Dictionary<int, double> _attackPresentationEpochServerTimes
+            = new System.Collections.Generic.Dictionary<int, double>();
+        private readonly System.Collections.Generic.Dictionary<int, UnitAttackPhasePresentation> _committedAttackPhases
+            = new System.Collections.Generic.Dictionary<int, UnitAttackPhasePresentation>();
+
+        private sealed class CompletedAttackEntryReceipt
+        {
+            public int TargetId;
+            public bool TargetIsUnit;
+            public ulong PresentationRevision;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<int, CompletedAttackEntryReceipt>
+            _completedAttackEntryReceipts =
+                new System.Collections.Generic.Dictionary<int, CompletedAttackEntryReceipt>();
+
+        /// <summary>
+        /// Legacy 공격 writer가 실제 공격을 시작하기 전에 사용하는 유닛별 정지 표본이다.
+        /// 타겟이 바뀌면 이전 위치 표본을 재사용하지 않으며, 첫 표본 다음 서버 Tick부터만
+        /// 정지 상태를 증명할 수 있다. 값은 gameplay pose를 쓰지 않고 읽기만 한다.
+        /// </summary>
+        private sealed class AttackAlignmentSampleState
+        {
+            public EntityRef Target;
+            public WorldPointXZ PreviousAttackerPosition;
+            public bool HasPreviousAttackerPosition;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<int, AttackAlignmentSampleState>
+            _attackAlignmentSamples
+                = new System.Collections.Generic.Dictionary<int, AttackAlignmentSampleState>();
+
         /// <summary>다음 전투 판정까지 남은 시간.</summary>
         private float _attackTimer = 0f;
 
@@ -108,6 +203,79 @@ namespace Hexiege.Infrastructure
         /// 이월분이 두 번 세어지는 이중 계산을 막는다. (자세한 이유는 Update() 주석 참조.)
         /// </summary>
         private float _lastCarry = 0f;
+
+        /// <summary>
+        /// Tracer A 진단 로그에만 사용하는 공격 회차 번호 발급기다.
+        /// 피해, RPC, 애니메이션, 타겟 선택에는 관여하지 않으며 현재는 SpearMan만 관측한다.
+        /// </summary>
+        private readonly AttackSequenceAllocator _shadowAttackSequences = new AttackSequenceAllocator();
+
+        /// <summary>
+        /// Tracer C Phase 4의 신규 서버 Shadow 경로. true인 동안 기존 SpearMan A2는 삭제하지 않고
+        /// 휴면시켜 한 Legacy 공격에 두 개의 sequence 경로가 동시에 번호를 발급하지 못하게 한다.
+        /// 이 값은 경기 중 바뀌지 않는 코드 고정값이며 gameplay writer를 선택하지 않는다.
+        /// </summary>
+        private static readonly bool AttackShadowCoordinatorEnabled = true;
+        private readonly UnitAttackShadowCoordinator _attackShadowCoordinator
+            = new UnitAttackShadowCoordinator();
+        private readonly NetworkAttackPresentationBundleClassifier
+            _attackPresentationBundleClassifier =
+                new NetworkAttackPresentationBundleClassifier();
+
+        /// <summary>
+        /// Tracer A가 서버 프로세스 안에서 관측한 UnitData 참조를 생성 개체 식별자에 연결한다.
+        /// UnitData의 일반 Id가 재사용되더라도 이전 공격 결과와 섞이지 않도록 값은 1부터 단조 증가한다.
+        /// 현재는 네트워크 복제 계약이 없는 진단용 seam이며, 후속 Tracer에서는 서버가 스폰 시점에 발급해
+        /// snapshot으로 전달하는 정식 AttackerInstanceId로 교체해야 한다. 이 매핑은 전투 판정에 사용하지 않는다.
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<UnitData, AttackerInstanceId> _shadowAttackerInstances
+            = new System.Collections.Generic.Dictionary<UnitData, AttackerInstanceId>();
+
+        /// <summary>마지막으로 발급한 Tracer A 서버 프로세스 내 생성 개체 번호다. 0은 None으로 비워 둔다.</summary>
+        private static ulong _lastShadowAttackerInstanceValue;
+
+        // A2는 SpearMan의 단일 직접 피해 결과 하나만 관측한다. 1은 direct damage 의미이고,
+        // ordinal 0은 그 hit에서 유일한 첫 결과라는 명시 값이다. 두 값은 canonical key에 반드시 들어간다.
+        private const int PoseDirectDamageEffectKind = 1;
+        private const int PoseSingleDirectResultOrdinal = 0;
+        private const int MaximumPoseObservationCount = 256;
+
+        /// <summary>Unity interface는 GetComponent&lt;T&gt;의 Component 제약을 만족하지 않으므로 함께 보관할 adapter cache.</summary>
+        private sealed class PoseAdapterCacheEntry
+        {
+            public GameObject Owner;
+            public MonoBehaviour Component;
+            public IUnitActionPoseSource Source;
+        }
+
+        /// <summary>schedule 표본과 A1 one-cycle reducer를 dispatch까지 묶어 두는 bounded 관측 레코드.</summary>
+        private sealed class PoseObservation
+        {
+            public AttackResultKey Key;
+            public int AttackerId;
+            public UnitActionSequencer Sequencer;
+            public UnitActionPoseSample ScheduleSample;
+            public double ScheduleServerTime;
+            public double ScheduledImpactServerTime;
+            public AttackTargetBinding TargetBinding;
+            public float AttackRange;
+            public bool UsesMeleeContactRange;
+            public double MaximumDistanceWorld;
+            public UnitActionReducerStatus BeginStatus;
+            public UnitActionReducerStatus CommitStatus;
+            public string CommitExecutionStatus;
+            public bool Committed;
+            public bool AttackerDead;
+            public UnitActionReducerStatus MarkDeadStatus;
+            public string MarkDeadExecutionStatus;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<int, PoseAdapterCacheEntry> _poseAdapters
+            = new System.Collections.Generic.Dictionary<int, PoseAdapterCacheEntry>();
+        private readonly System.Collections.Generic.Dictionary<AttackResultKey, PoseObservation> _poseObservations
+            = new System.Collections.Generic.Dictionary<AttackResultKey, PoseObservation>();
+        private readonly System.Collections.Generic.Queue<AttackResultKey> _poseObservationOrder
+            = new System.Collections.Generic.Queue<AttackResultKey>();
 
         /// <summary>
         /// 게임 종료(승패 확정) 이후 서버 전투 틱을 멈추기 위한 플래그.
@@ -138,6 +306,12 @@ namespace Hexiege.Infrastructure
             base.OnNetworkSpawn();
 
             _services = GameServicesLocator.Current;
+            if (IsServer) _attackEffectSubscription = GameEvents.OnAttackEffectConfirmed.Subscribe(PublishAttackEffect);
+            if (IsServer)
+            {
+                _bloomEffectChannel = _services?.GetCombatUseCase()?.BloomHealEffects;
+                if (_bloomEffectChannel != null) _bloomEffectChannel.Changed += OnBloomEffectChanged;
+            }
             if (_services == null)
             {
                 // [운영] 스폰은 계속되고 아직 요청 전이라 기능이 죽지는 않았다 → 축 A Warn.
@@ -190,6 +364,27 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkCombatController),
                              "네트워크 역할 확정", $"Role={(IsServer ? "Host" : "Client")}");
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // OnNetworkSpawn implies a live NGO multiplayer controller. The process-wide
+            // LogSessionOwner session is already open, so observers only append evidence.
+            if (NetworkManager != null && NetworkManager.IsListening)
+            {
+                _rootPoseConsistencyObserver =
+                    GetComponent<UnitRootPoseConsistencyObserver>();
+                if (_rootPoseConsistencyObserver == null)
+                {
+                    _rootPoseConsistencyObserver =
+                        gameObject.AddComponent<UnitRootPoseConsistencyObserver>();
+                }
+                _rootPoseConsistencyObserver.Initialize(NetworkManager, IsServer);
+            }
+            UnitAttackShadowObserver.BeginSession(NetworkManager, IsServer);
+#endif
+
+            // 완료 묶음의 중복/충돌 기억은 한 경기에만 유효하다. Host와 Client가 각각
+            // 자기 수신 경계를 같은 규칙으로 분류할 수 있도록 역할 분기 전에 초기화한다.
+            _attackPresentationBundleClassifier.Clear();
+
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
@@ -225,15 +420,19 @@ namespace Hexiege.Infrastructure
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
                     .Subscribe(OnUnitEnteredCombatHandler);
 
-                // 힐러(BloomFairy) 힐 시전 → 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화.
+                // 힐 시전 시작/종료 → 별도 회차 atomic snapshot으로 값 복제.
                 // 데미지 유발 없이 클라이언트에 힐 애니메이션만 보여주기 위한 별도 경로.
                 _healCastSubscription = GameEvents.OnUnitHealCastStarted
+                    .Subscribe(OnUnitHealCastStartedHandler);
+                _healCastEndedSubscription = GameEvents.OnUnitHealCastEnded
                     .Subscribe(OnUnitHealCastStartedHandler);
 
                 // [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제 시 발행하는 이벤트를 받아
                 // 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다(순수 클라의 "제자리걸음" 제거).
                 _freezeChangedSubscription = GameEvents.OnUnitFreezeChanged
                     .Subscribe(OnUnitFreezeChangedHandler);
+                _movementHeldChangedSubscription = GameEvents.OnUnitMovementHeldChanged
+                    .Subscribe(OnUnitMovementHeldChangedHandler);
 
                 // 게임 종료(승패 확정) 이벤트를 구독하여 서버 전투 틱을 멈춘다.
                 //
@@ -261,6 +460,14 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            _attackEffectSubscription?.Dispose(); _attackEffectSubscription = null;
+            _services?.GetCombatUseCase()?.TimedDamageEffects.CloseVisuals("ActualNetworkDisconnect");
+            if (_bloomEffectChannel != null) _bloomEffectChannel.Changed -= OnBloomEffectChanged;
+            _bloomEffectChannel?.CloseVisuals("ActualNetworkDisconnect");
+            _bloomEffectChannel = null;
+            _committedAttackPhases.Clear();
+            if (IsServer) _services?.GetCombatUseCase()?.CloseTorrentLaunches("network-despawn");
+            DisposeWaveTransport();
             base.OnNetworkDespawn();
 
             // 사망 이벤트 구독을 모두 해제 (Unit/Building 두 종류 모두).
@@ -283,10 +490,16 @@ namespace Hexiege.Infrastructure
             // HealCast 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _healCastSubscription?.Dispose();
             _healCastSubscription = null;
+            _healCastEndedSubscription?.Dispose();
+            _healCastEndedSubscription = null;
 
             // [스킬 - 빙결] FreezeChanged 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _freezeChangedSubscription?.Dispose();
             _freezeChangedSubscription = null;
+            _movementHeldChangedSubscription?.Dispose();
+            _movementHeldChangedSubscription = null;
+            _frozenAnimationUnits.Clear();
+            _heldMovementUnits.Clear();
 
             // 게임 종료 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _gameEndSubscription?.Dispose();
@@ -295,6 +508,18 @@ namespace Hexiege.Infrastructure
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
             _combatAnimationSent.Clear();
+            _attackPresentationRestartPending.Clear();
+            _attackPresentationRevisions.Clear();
+            _attackPresentationEpochServerTimes.Clear();
+            _completedAttackEntryReceipts.Clear();
+            _attackAlignmentSamples.Clear();
+            _shadowAttackerInstances.Clear();
+            _shadowAttackSequences.Clear();
+            _poseAdapters.Clear();
+            _poseObservations.Clear();
+            _poseObservationOrder.Clear();
+            _attackShadowCoordinator.Clear();
+            _attackPresentationBundleClassifier.Clear();
 
             // 전투 Tick 타이머/이월분도 초기화 — 다음 게임 스폰 시 깨끗한 상태에서 시작.
             _attackTimer = 0f;
@@ -312,6 +537,18 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
+            UnitAttackResultPresentationShadowBridge.EndMatch();
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Flush bounded evidence while the process-wide LogSessionOwner session is open.
+            // Observers append to that session and never own or replace it.
+            UnitMovementShadowObserver.EndSession("network-despawn");
+            UnitMovementAuthorityObserver.EndSession("network-despawn");
+            UnitAttackShadowObserver.EndSession("network-despawn");
+            _rootPoseConsistencyObserver?.StopAndLogSummary();
+            _rootPoseConsistencyObserver = null;
+#endif
+
         }
 
         // ====================================================================
@@ -344,6 +581,21 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void Update()
         {
+            if (IsSpawned && IsServer && !_combatStopped && (_bloomEffectChannel == null || _bloomEffectChannel.IsClosed))
+            {
+                // 서비스 초기화 지연/맵 교체시에만 재조회. 준비 후 상시 factory/target scan 없음.
+                _services = GameServicesLocator.Current;
+                var next = _services?.GetCombatUseCase()?.BloomHealEffects;
+                if (next != null && !next.IsClosed && !ReferenceEquals(next, _bloomEffectChannel))
+                {
+                    if (_bloomEffectChannel != null) _bloomEffectChannel.Changed -= OnBloomEffectChanged;
+                    _bloomEffectChannel = next; next.Changed += OnBloomEffectChanged;
+                    var baseline = new System.Collections.Generic.List<BloomHealEffectChannel.Recipient>();
+                    next.CopyCurrent(baseline);
+                    foreach (var entry in baseline) OnBloomEffectChanged(entry.Cursor.Current, entry.Target);
+                }
+            }
+            UpdateWaveTransport();
             // 멀티플레이 서버만 실행 + **이 오브젝트가 아직 네트워크에 살아 있을 때만** 실행
             //
             // ── 왜 IsSpawned 를 함께 보는가 (초급 개발자용 설명) ──────────────────
@@ -378,6 +630,9 @@ namespace Hexiege.Infrastructure
             //   (멀티 순수 클라이언트의 쿨다운/상태 미러는 GameBootstrapper.Update 가 따로 감소시키므로
             //    이 변경의 영향을 받지 않는다. 여기서 멈추는 것은 서버 쪽 틱뿐이다.)
             if (!IsSpawned || !IsServer || _combatStopped) return;
+            // 전투 ticker 간격과 무관하게 매 서버 frame에 원래 primary aim을 갱신한다.
+            _services?.GetCombatUseCase()?.TickTorrentLaunches(GetAuthoritativeServerTime());
+            if (_combatStopped) return;
 
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
@@ -511,11 +766,11 @@ namespace Hexiege.Infrastructure
                 //   계산: 차감 전 남은 쿨다운(R)이 이번 elapsed보다 작으면, R만큼 지난 시점에 만료된 것이므로
                 //         만료 후 초과 경과 = elapsed - R (= elapsed 차감 시 0 아래로 내려갔을 크기).
                 //         R >= elapsed(이번 Tick에도 만료 안 됨) 또는 R이 이미 0이면 오버슈트는 0.
-                float overshoot = 0f;
+                double overshoot = 0d;
                 if (unit.AttackCooldownRemaining > 0f)
                 {
                     if (unit.AttackCooldownRemaining < elapsed)
-                        overshoot = elapsed - unit.AttackCooldownRemaining;
+                        overshoot = (double)elapsed - unit.AttackCooldownRemaining;
 
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - elapsed);
                 }
@@ -563,16 +818,52 @@ namespace Hexiege.Infrastructure
                         // --- 상태 변화 감지: 이전 타겟과 비교하여 RPC 전송 여부 결정 ---
                         if (_unitCombatTargets.TryGetValue(id, out var prev))
                         {
-                            if (prev.targetId != targetId)
+                            if (prev.targetId != targetId || prev.isUnit != isUnit)
                             {
                                 // 현재 타겟이 아직 살아있고 사거리 내에 있으면 교체하지 않는다.
                                 // 새 유닛이 더 가까이 들어왔더라도 현재 타겟을 유지하여 공격 집중도를 보장한다.
                                 // 현재 타겟이 사망했거나 사거리를 벗어난 경우에만 교체를 허용한다.
                                 if (!combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit))
                                 {
-                                    // 기존 타겟이 유효하지 않음 → 새 타겟으로 교체
+                                    // 기존 공격 주기가 끝났고 기존 타겟도 무효인 경우에만 다음
+                                    // 타겟 후보로 전환한다. 새 타겟은 새 정렬 표본을 거친 뒤 별도의
+                                    // 공격 시작 경계에서 커밋된다.
+                                    bool attackPresentationActive =
+                                        _combatAnimationSent.Contains(id)
+                                        || _attackPresentationRestartPending.Contains(id);
                                     _unitCombatTargets[id] = (targetId, isUnit);
-                                    ChangeTargetClientRpc(id, targetId, isUnit);
+                                    ResetAttackAlignmentSample(id);
+                                    _combatAnimationSent.Remove(id);
+                                    UnitAttackPresentationDecision targetChangeDecision =
+                                        UnitAttackPresentationPolicy.Evaluate(
+                                            hasEnemyInRange: true,
+                                            attackPresentationActive: attackPresentationActive,
+                                            attackStartGateReady: false);
+                                    if (targetChangeDecision
+                                        == UnitAttackPresentationDecision.KeepAttackAndSuppressImpact)
+                                    {
+                                        // 후보 발견과 표시 타겟 공개는 다른 경계다. Action 소유권이
+                                        // 아직 없으면 이전 타격 허가만 닫고 후보를 보류한다.
+                                        // pending을 선점하지 않아 다음 OnUnitEnteredCombat이
+                                        // provisional Start로 정확한 target을 원자 전달하게 한다.
+                                        if (TryPublishCombatTargetChange(id, targetId, isUnit))
+                                            _attackPresentationRestartPending.Add(id);
+                                        else
+                                            PublishAttackImpactSuppression(id);
+                                    }
+                                    else if (targetChangeDecision
+                                        == UnitAttackPresentationDecision.BeginProvisionalAttack)
+                                    {
+                                        // Start payload가 target을 함께 운반하므로 같은 target의
+                                        // Change RPC를 별도로 발행하지 않는다.
+                                        BeginProvisionalAttackPresentation(
+                                            id, targetId, isUnit,
+                                            requireAtomicHandoff: false);
+                                    }
+                                    else
+                                    {
+                                        SetUnitAnimState(id, UnitAnimState.Held);
+                                    }
                                 }
                                 else
                                 {
@@ -586,42 +877,178 @@ namespace Hexiege.Infrastructure
                         }
                         else
                         {
-                            // 새로 전투 진입 — Dictionary 등록만 수행.
-                            // StartCombatClientRpc는 OnUnitEnteredCombatHandler에서 단독 담당.
+                            // 이동 이벤트보다 TickCombat이 먼저 후보를 본 경우에도 동일한
+                            // provisional Attack 경계를 연다. gameplay cooldown/피해 예약은
+                            // 아래 5도 gate 이전에 시작하지 않는다.
                             _unitCombatTargets[id] = (targetId, isUnit);
-
-                            // [Phase 2] 애니메이션 상태 Attack 백업 쓰기(레벨 동기화).
-                            //   OnUnitEnteredCombatHandler(즉시 경로)가 코루틴 타이밍상 아직 실행되지
-                            //   않은 채 TickCombat이 먼저 전투를 등록하는 경우를 대비한 안전망이다.
-                            //   NGO는 같은 값을 다시 써도 전송하지 않으므로 즉시 경로와 중복돼도 무해하다.
-                            //   전투 등록 전이(transition) 시점에만 1회 실행되므로 매 틱 비용이 아니다.
-                            SetUnitAnimState(id, UnitAnimState.Attack);
+                            BeginProvisionalAttackPresentation(
+                                id, targetId, isUnit,
+                                requireAtomicHandoff: false);
                         }
 
+                        // Shadow는 비교용 상태를 계속 계산하지만 gameplay 시작 판정은 아래의
+                        // 별도 순수 Legacy gate가 담당한다. 두 writer를 섞지 않는다.
+                        ObserveAttackShadowIntent(unit, damageTargetId, damageTargetIsUnit);
+
+                        if (!TryPassLegacyAttackStartGate(
+                                unit, damageTargetId, damageTargetIsUnit,
+                                out UnitActionPoseSample attackStartSample,
+                                out bool attackStartTargetAlive,
+                                out bool attackStartTargetValid))
+                        {
+                            bool attackPresentationActive =
+                                _combatAnimationSent.Contains(id)
+                                || _attackPresentationRestartPending.Contains(id);
+                            UnitAttackPresentationDecision deferredDecision =
+                                UnitAttackPresentationPolicy.Evaluate(
+                                    hasEnemyInRange: true,
+                                    attackPresentationActive: attackPresentationActive,
+                                    attackStartGateReady: false);
+                            if (deferredDecision
+                                == UnitAttackPresentationDecision.KeepAttackAndSuppressImpact
+                                && _combatAnimationSent.Remove(id))
+                            {
+                                _attackPresentationRestartPending.Add(id);
+                                PublishAttackImpactSuppression(id);
+                            }
+                            continue;
+                        }
+
+                        // provisional Attack의 첫 marker를 이미 지났다면 클립을 되감거나 지난
+                        // marker를 즉시 소급 승인하지 않는다. 같은 표현의 다음 cycle까지 기다린 뒤
+                        // 그 cycle에서 실제로 경과한 시간만 overshoot로 사용한다.
+                        bool continuousPresentation =
+                            UnitAttackPresentationPolicy.ShouldAlignToPresentationEpoch(
+                                _combatAnimationSent.Contains(id),
+                                _attackPresentationRestartPending.Contains(id));
+                        if (continuousPresentation)
+                        {
+                            if (!_attackPresentationEpochServerTimes.TryGetValue(
+                                    id, out double presentationEpoch))
+                            {
+                                // Attack clip이 이미 진행 중인데 epoch가 없다면 현재 시각을
+                                // 새 시작점으로 위조할 수 없다. 다음 provisional 시작이 정식
+                                // epoch를 발행할 때까지 gameplay 회차를 fail-closed한다.
+                                continue;
+                            }
+
+                            double[] sourceImpactOffsets = unit.HitFrameTimes != null
+                                ? new double[unit.HitFrameTimes.Length]
+                                : null;
+                            if (sourceImpactOffsets != null)
+                            {
+                                for (int hitIndex = 0;
+                                    hitIndex < sourceImpactOffsets.Length;
+                                    hitIndex++)
+                                {
+                                    sourceImpactOffsets[hitIndex] =
+                                        unit.HitFrameTimes[hitIndex];
+                                }
+                            }
+                            AttackPresentationTimelineWindow window =
+                                UnitAttackPresentationPolicy.ResolveContinuousTimeline(
+                                    presentationEpoch,
+                                    GetAuthoritativeServerTime(),
+                                    unit.AttackCooldown,
+                                    sourceImpactOffsets);
+                            if (!window.IsValid || !window.ShouldCommit)
+                                continue;
+                            overshoot = window.OvershootSeconds;
+                        }
+
+                        // 용량은 cooldown/공격 커밋 전에 확보하며 C3 scope를 위조하지 않는다.
+                        if (unit.Type == UnitType.TorrentSpirit
+                            && !combat.TryReserveTorrentLaunch(unit, damageTargetId,
+                                damageTargetIsUnit, GetAuthoritativeServerTime(), overshoot))
+                            continue;
+
+                        // 정지+5도와 표현 marker 창이 모두 확인된 경계에서만 gameplay를 시작한다.
+                        // 이미 재생 중인 Attack은 commit RPC에서도 절대 restart하지 않는다.
+                        _attackPresentationRestartPending.Remove(id);
+                        SetUnitAnimState(id, UnitAnimState.Attack);
                         // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
                         // damageTargetId: 기존 타겟이 유효하면 기존 타겟, 아니면 새 타겟
                         // overshoot: 이번 Tick에서 쿨다운이 만료되며 초과 경과한 시간 → 데미지 딜레이에서 차감(축 2)
-                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit, overshoot);
+                        ulong foxMagicianTimelineCorrelationTicket = 0UL;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        foxMagicianTimelineCorrelationTicket =
+                            UnitAttackShadowObserver.ReserveFoxMagicianTimelineCorrelationTicket(unit.Type);
+#endif
+                        AttackPresentationScope committedPresentationScope = ExecuteAttack(
+                            unit, damageTargetId, damageTargetIsUnit, overshoot,
+                            attackStartSample, attackStartTargetAlive, attackStartTargetValid,
+                            foxMagicianTimelineCorrelationTicket);
+
+                        UnitAttackShadowProfileResolver.TryResolve(
+                            unit.Type, out UnitAttackShadowProfile presentationProfile);
+                        AttackPresentationImpactMode impactMode =
+                            UnitAttackPresentationPolicy.ResolveImpactMode(
+                                presentationProfile.Support,
+                                committedPresentationScope.IsValid);
+
+                        // Attack 클립의 최초 시작 상태와 서버 공격 회차 scope의 수명은 다르다.
+                        // 클립은 전투 동안 계속 루프하지만 ExecuteAttack은 쿨다운마다 새 회차를
+                        // 커밋하므로, 이미 Attack 표현 중이어도 정확한 instance/sequence/hit을
+                        // Host와 Client에 매번 다시 보내야 한다. 이 발행을 _combatAnimationSent
+                        // 안에 넣으면 첫 공격 뒤 marker가 scope 0으로 떨어져 C3 상관이 끊긴다.
+                        bool attackPresentationAlreadyActive = !_combatAnimationSent.Add(id);
+                        AttackPresentationCommitDispatch presentationDispatch =
+                            UnitAttackPresentationPolicy.ResolveCommitDispatch(
+                                attackPresentationAlreadyActive);
+                        if (presentationDispatch.ShouldPublishScope)
+                        {
+                            ulong presentationRevision = NextAttackPresentationRevision(id);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            UnitAttackShadowObserver.BindFoxMagicianTimelineCorrelationTicket(
+                                foxMagicianTimelineCorrelationTicket,
+                                id,
+                                unit.Type,
+                                presentationRevision,
+                                impactMode);
+#endif
+                            AttackPresentationScope presentationScope =
+                                impactMode == AttackPresentationImpactMode.Scoped
+                                    ? committedPresentationScope
+                                    : default;
+                            bool nativePublished = TryPublishAttackPhase(unit, damageTargetId, damageTargetIsUnit,
+                                presentationRevision, impactMode, presentationScope, out bool nativeQualified);
+                            // OLD native order (RED): TryApplyHostCombatPresentation -> phase publish.
+                            // Legacy is selected before publication, never after native failure.
+                            bool hostApplied = nativeQualified ? nativePublished : TryApplyHostCombatPresentation(
+                                id,
+                                damageTargetId,
+                                damageTargetIsUnit,
+                                presentationDispatch.RestartAttackCycle,
+                                presentationRevision,
+                                impactMode,
+                                presentationScope);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            if (!hostApplied)
+                                UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                                    id,
+                                    "commit");
+#endif
+                            if (!nativeQualified) StartCombatClientRpc(
+                                id,
+                                damageTargetId,
+                                damageTargetIsUnit,
+                                restartAttackCycle: presentationDispatch.RestartAttackCycle,
+                                presentationRevision: presentationRevision,
+                                // Supported는 정규 scope를 엄격히 소비하고, Unresolved는
+                                // 지원 성공을 가장하지 않은 채 기존 Legacy VFX/SFX를 보존한다.
+                                impactMode: impactMode,
+                                attackerInstanceId: committedPresentationScope.AttackerInstanceId.Value,
+                                attackSequenceId: committedPresentationScope.SequenceId.Value,
+                                firstHitIndex: committedPresentationScope.HitIndex);
+                        }
                     }
                     else
                     {
-                        // 쿨다운 중 + 적 있음 — 데미지 없음, Attack 루프 유지.
-                        // 단, 쿨다운 중에도 타겟이 변경되었을 수 있으므로 (규칙 5-2)
-                        // FindNearestEnemy로 현재 가장 가까운 적을 확인하여 방향 전환 RPC 전송.
-                        if (_unitCombatTargets.TryGetValue(id, out var prev))
-                        {
-                            var nearestResult = combat.FindNearestEnemy(unit);
-                            if (nearestResult.HasValue && nearestResult.Value.id != prev.targetId)
-                            {
-                                // 쿨다운 중에도 타겟 교체 전 동일하게 현재 타겟 유효성을 확인한다.
-                                // 현재 타겟이 살아있고 사거리 내에 있으면 회전 방향도 유지한다.
-                                if (!combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit))
-                                {
-                                    _unitCombatTargets[id] = (nearestResult.Value.id, nearestResult.Value.isUnit);
-                                    ChangeTargetClientRpc(id, nearestResult.Value.id, nearestResult.Value.isUnit);
-                                }
-                            }
-                        }
+                        // 쿨다운 중에는 이미 예약된 회차의 표시 타겟을 바꾸지 않는다.
+                        // 타겟이 사망하거나 이탈해도 기존 회차를 새 타겟에 이전하지 않고,
+                        // 쿨다운이 끝난 다음 공격 시작 경계에서 새 타겟을 선택한다.
+                        if (_unitCombatTargets.TryGetValue(id, out var shadowTarget))
+                            ObserveAttackShadowIntent(unit, shadowTarget.targetId, shadowTarget.isUnit);
                     }
                 }
             }
@@ -638,8 +1065,18 @@ namespace Hexiege.Infrastructure
             }
             foreach (int id in toRemove)
             {
-                _unitCombatTargets.Remove(id);
-                _combatAnimationSent.Remove(id); // RPC 전송 추적도 함께 정리
+                RetireLogicalCombatPresentation(id);
+                ResetAttackAlignmentSample(id);
+                if (AttackShadowCoordinatorEnabled
+                    && unitSpawn.Units.TryGetValue(id, out UnitData stoppedUnit)
+                    && _shadowAttackerInstances.TryGetValue(
+                        stoppedUnit, out AttackerInstanceId stoppedInstance))
+                {
+                    UnitActionSnapshot stoppedSnapshot = _attackShadowCoordinator.StopCombat(
+                        stoppedInstance,
+                        GetAuthoritativeServerTime());
+                    PublishAttackShadowSnapshot(id, stoppedSnapshot);
+                }
                 StopCombatClientRpc(id);
             }
         }
@@ -651,8 +1088,8 @@ namespace Hexiege.Infrastructure
         /// 클라이언트에서 공격 애니메이션의 타격 프레임(OnAttackHit)에 도달할 시점에
         /// 서버에서 데미지를 적용 → HP NetworkVariable 업데이트 → 클라이언트에 HP 감소 전달.
         ///
-        /// 딜레이 동안 공격자/타겟 상태가 변할 수 있으므로
-        /// ApplyAttackDamage() 내부에서 모든 조건(생존, 사거리)을 재확인.
+        /// 딜레이 동안 공격자/타겟 상태가 변할 수 있으므로 타격 순간 서버 권위 pose로
+        /// 생존·타겟·사거리·방향을 판정한 뒤, 승인 결과를 단일 피해 writer에 전달한다.
         ///
         /// delay가 0이면 최소 1프레임 대기 (Inspector 미설정 시 안전망).
         /// </summary>
@@ -660,7 +1097,19 @@ namespace Hexiege.Infrastructure
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
         /// <param name="delay">데미지 적용까지의 대기 시간 (초). Attack.anim의 타격 프레임 시간.</param>
-        private IEnumerator DelayedAttackDamage(UnitData attacker, int targetId, bool targetIsUnit, float delay)
+        private IEnumerator DelayedAttackDamage(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            float delay,
+            AttackerInstanceId shadowAttackerInstanceId,
+            AttackSequenceId shadowSequenceId,
+            int shadowHitIndex,
+            double shadowScheduledImpactTime,
+            AttackResultKey poseObservationKey,
+            LegacyAttackToken attackShadowToken,
+            double attackShadowDueServerTime,
+            ulong foxMagicianTimelineCorrelationTicket)
         {
             // hitFrameTime > 0이면 해당 시간만큼 대기
             // hitFrameTime == 0이면 최소 1프레임 대기 (Inspector 미설정 시 즉시 적용 방지)
@@ -669,13 +1118,176 @@ namespace Hexiege.Infrastructure
             else
                 yield return null;
 
+            // WaitForSeconds는 Unity의 상대 시간 경계이고 reducer는 NGO 서버 절대 시각을 사용한다.
+            // 프레임/float 경계에서 상대 대기가 먼저 끝난 경우 서버 권위 due 시각까지 기다려
+            // Legacy 피해가 authorization보다 앞서 실행되는 Applied+NotDue를 막는다.
+            if (attackShadowToken.IsValid
+                && !double.IsNaN(attackShadowDueServerTime)
+                && !double.IsInfinity(attackShadowDueServerTime))
+            {
+                while (!UnitAttackShadowCoordinator.HasReachedLegacyImpactTime(
+                    GetAuthoritativeServerTime(), attackShadowDueServerTime))
+                {
+                    yield return null;
+                }
+            }
+
+            // 공격자 사망 때 coordinator가 future 비독립 hit를 취소했다면 여기서 끝낸다.
+            // 이 확인은 pose 캡처, Legacy 피해 writer, Shadow result와 observer보다 앞에 있어야
+            // 취소된 타격이 AuthorizationUnavailable 오류나 0피해 결과로 위조되지 않는다.
+            if (attackShadowToken.IsValid
+                && _attackShadowCoordinator.TryConsumeLegacyImpactCancellation(
+                    attackShadowToken, shadowHitIndex))
+            {
+                PistoleerTimingDiagnostics.TokenEvent(attacker, "Cancel", attackShadowToken.Value, shadowHitIndex,
+                    GetAuthoritativeServerTime(), "reason=coordinator-cancel-consumed");
+                yield break;
+            }
+
             // 딜레이 후 UseCase를 다시 가져와서 데미지 적용
             // _services가 파괴되었을 수 있으므로 null 체크
             UnitCombatUseCase combat = _services?.GetCombatUseCase();
-            if (combat == null) yield break;
+            if (combat == null)
+            {
+                PistoleerTimingDiagnostics.TokenEvent(attacker, "Unavailable", attackShadowToken.Value, shadowHitIndex,
+                    GetAuthoritativeServerTime(), "reason=combat-use-case-missing");
+                TryAbandonPoseObservation(poseObservationKey, "combat-use-case-missing");
+                yield break;
+            }
 
-            // ApplyAttackDamage 내부에서 공격자 생존, 타겟 생존, 사거리를 모두 재확인
-            combat.ApplyAttackDamage(attacker, targetId, targetIsUnit);
+            // 서버 권위 Impact 판정을 Legacy 피해 호출 직전에 실행한다. 토큰이 발급된 C2
+            // 경로에서는 이 authorization이 실제 writer의 적용/거절 입력이 된다.
+            TryDispatchPoseObservation(poseObservationKey);
+
+            UnitActionPoseSample attackShadowSample = default;
+            UnitAttackShadowCoordinator.DispatchObservation attackShadowDispatch = default;
+            AttackImpactPoseCaptureStatus attackShadowPoseStatus =
+                AttackImpactPoseCaptureStatus.InfrastructureFailure;
+            bool hasAttackShadowDispatch = TryDispatchAttackShadow(
+                attacker, targetId, targetIsUnit, shadowHitIndex, attackShadowToken,
+                out attackShadowSample, out attackShadowDispatch,
+                out attackShadowPoseStatus);
+
+            if (shadowSequenceId.IsValid)
+            {
+                // 이 시점은 ApplyAttackDamage 호출 직전의 dispatch 계측이다.
+                // ApplyAttackDamage 내부 조건에 따라 피해가 거절될 수 있으므로 피해 성공으로 기록하지 않는다.
+                RuntimeLogger.Log(
+                    LogLevel.Info,
+                    "Combat",
+                    "NetworkCombatController",
+                    "[UAS-DIAG] Legacy 피해 호출 직전 dispatch",
+                    $"event=legacy-impact-dispatch, unit={attacker.Id}, " +
+                    $"attackerInstance={shadowAttackerInstanceId.Value}, sequence={shadowSequenceId.Value}, " +
+                    $"hit={shadowHitIndex}, targetKind={(targetIsUnit ? "unit" : "building")}, target={targetId}, " +
+                    $"scheduledImpact={shadowScheduledImpactTime:F6}, dispatchTime={GetAuthoritativeServerTime():F6}, " +
+                    $"aimDirection=unavailable-tracer-a, simulationFacing={attacker.Facing}");
+            }
+
+            // Apply 중 타겟 사망 이벤트가 동기적으로 다음 표시 타겟을 설치할 수 있으므로,
+            // 현재 공격 회차와 비교할 표시 타겟은 Apply 직전에 고정한다.
+            int displayTargetBeforeApply = _unitCombatTargets.TryGetValue(attacker.Id, out var displayBefore)
+                ? displayBefore.targetId
+                : -1;
+
+            // Legacy writer가 실제로 선택한 종료 경로를 명시 결과로 받는다. HP 전후 차이를
+            // observer가 추정하지 않으며, 승인된 Hit만 기존 피해·이벤트 실행 경계를 통과한다.
+            AttackDamageApplyStatus writerAuthorization = attackShadowToken.IsValid
+                ? hasAttackShadowDispatch
+                    ? UnitAttackShadowCoordinator.ResolveLegacyWriterAuthorization(
+                        attackShadowDispatch)
+                    : AttackDamageApplyStatus.PoseUnavailable
+                : AttackDamageApplyStatus.Applied;
+            AttackResultKey presentationResultKey = hasAttackShadowDispatch
+                && attackShadowDispatch.Authorization.IsValid
+                    ? attackShadowDispatch.Authorization.Key
+                    : default;
+            PistoleerTimingDiagnostics.TokenEvent(attacker, "Dispatch", attackShadowToken.Value, shadowHitIndex,
+                GetAuthoritativeServerTime(), $"due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)} authorization={writerAuthorization}");
+            AttackDamagePresentationBundleObservation presentationBundleObservation =
+                presentationResultKey.IsValid
+                    ? combat.ApplyAttackDamageObservedWithPresentationBundle(
+                        attacker, targetId, targetIsUnit, writerAuthorization,
+                        presentationResultKey)
+                    : new AttackDamagePresentationBundleObservation(
+                        combat.ApplyAttackDamageObserved(
+                            attacker, targetId, targetIsUnit, writerAuthorization),
+                        System.Array.Empty<AppliedAttackPresentationFact>(),
+                        AttackDamagePresentationBundleStatus.InvalidScope);
+            PistoleerTimingDiagnostics.TokenEvent(attacker, "WriterResult", attackShadowToken.Value, shadowHitIndex,
+                GetAuthoritativeServerTime(), $"status={presentationBundleObservation.PrimaryObservation.Status} due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)}");
+            AttackDamageObservation legacyObservation =
+                presentationBundleObservation.PrimaryObservation;
+            AttackDamageApplyStatus legacyResult = legacyObservation.Status;
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // StreamSpirit/FoxMagician production은 아직 resolver상 Unresolved/TimerImpact이므로 공통 C3
+            // 결과만으로 Animation Event 및 VFX와 같은 공격을 식별할 수 없다. Fox는 이 코루틴에 함께
+            // 전달된 개발 진단 전용 ticket을 presentation revision에 결합해 FIFO 추정 없이 exact match한다.
+            // ticket은 writer 입력이나 gameplay 상태로 사용하지 않는다.
+            // 피해, 쿨다운, 타겟, 코루틴 순서는 전혀 변경하지 않는다.
+            UnitAttackShadowObserver.RecordStreamSpiritTimerImpact(
+                attacker.Id,
+                attacker.Type,
+                targetId,
+                targetIsUnit,
+                legacyResult);
+            UnitAttackShadowObserver.RecordFoxMagicianTimerImpact(
+                foxMagicianTimelineCorrelationTicket,
+                attacker.Id,
+                attacker.Type,
+                targetId,
+                targetIsUnit,
+                legacyResult);
+#endif
+
+            UnitAttackShadowCoordinator.ResultObservation attackShadowResult = default;
+            if (attackShadowToken.IsValid)
+            {
+                attackShadowResult = _attackShadowCoordinator.CompleteLegacyImpact(
+                    attackShadowToken,
+                    shadowHitIndex,
+                    legacyObservation,
+                    GetAuthoritativeServerTime());
+                if (attackShadowResult.ShouldPublishSnapshot)
+                    PublishAttackShadowPublication(attacker.Id, attackShadowResult.Publication);
+                if (attackShadowResult.HasResult)
+                {
+                    PistoleerTimingDiagnostics.TokenEvent(attacker, "Result", attackShadowToken.Value, shadowHitIndex,
+                        GetAuthoritativeServerTime(), $"outcome={attackShadowResult.Result.Outcome} impact={PistoleerTimingDiagnostics.Number(attackShadowResult.Result.ImpactServerTime)} revision={attackShadowResult.Result.ActionRevision} victim={attackShadowResult.Result.Key.VictimId} kind={attackShadowResult.Result.Key.VictimKind} effect={attackShadowResult.Result.Key.EffectKind} ordinal={attackShadowResult.Result.Key.ResultOrdinal} amount={attackShadowResult.Result.AppliedAmount} hp={attackShadowResult.Result.ResultingHp}");
+                    PublishAttackShadowImpactResult(attacker.Id, attackShadowResult);
+                    UnitAttackResultPresentationShadowBridge.ObserveCompletedBundleTransportResult(
+                        PublishCompletedAttackPresentationBundle(
+                            attacker.Id,
+                            attackShadowResult,
+                            presentationBundleObservation),
+                        "server-completed-bundle-publish-rejected");
+                }
+            }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (hasAttackShadowDispatch)
+            {
+                int displayTargetAfterApply = _unitCombatTargets.TryGetValue(attacker.Id, out var displayAfter)
+                    ? displayAfter.targetId
+                    : -1;
+                UnitAttackShadowObserver.RecordDispatch(
+                    attacker.Id,
+                    displayTargetBeforeApply,
+                    displayTargetAfterApply,
+                    new EntityRef(targetIsUnit ? EntityKind.Unit : EntityKind.Building, targetId),
+                    attackShadowSample,
+                    attackShadowDispatch,
+                    legacyResult,
+                    GetAuthoritativeServerTime());
+            }
+            if (attackShadowToken.IsValid)
+                UnitAttackShadowObserver.RecordImpactResult(
+                    attacker.Id,
+                    legacyObservation,
+                    attackShadowResult,
+                    GetAuthoritativeServerTime());
+#endif
         }
 
         /// <summary>
@@ -691,7 +1303,15 @@ namespace Hexiege.Infrastructure
         ///   ② 각 히트 딜레이(hitTime - overshoot) → 이번 사이클 내 타격 시점 보정(50ms 격자 오차 제거).
         /// 첫 공격(OnUnitEnteredCombatHandler)처럼 T=0에 정확히 맞춘 경로는 0f로 호출한다.
         /// </param>
-        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit, float overshoot)
+        private AttackPresentationScope ExecuteAttack(
+            UnitData unit,
+            int targetId,
+            bool targetIsUnit,
+            double overshoot,
+            UnitActionPoseSample attackStartSample,
+            bool attackStartTargetAlive,
+            bool attackStartTargetValid,
+            ulong foxMagicianTimelineCorrelationTicket)
         {
             // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리.
             //
@@ -709,19 +1329,1114 @@ namespace Hexiege.Infrastructure
             //   → 딜레이(hitTime) 차감 = "이번 사이클 내 타격 시점 보정",
             //     이 리셋 보정 = "사이클 경계를 루프에 고정" — 둘이 짝을 이뤄야 격자 오차가 누적되지 않는다.
             //   (OnUnitEnteredCombatHandler의 첫 공격은 overshoot=0f이므로 기존과 동일하게 전체 값 C로 리셋된다.)
-            unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldown - overshoot);
+            unit.AttackCooldownRemaining = Mathf.Max(
+                0f,
+                unit.AttackCooldown - (float)overshoot);
+
+            // Torrent만 사전 확보한 gameplay 예약 owner가 dispatch한다.
+            // 기본 scope는 기존 Unresolved 의미이며 일반 피해 writer에는 진입하지 않는다.
+            if (unit.Type == UnitType.TorrentSpirit) return default;
+
+            // 신규 coordinator 활성 중에는 기존 SpearMan 일회성 A2를 휴면시킨다.
+            // 기존 코드는 사용자 멀티 검증 전까지 보존하지만 두 allocator가 동시에 발급하지 않는다.
+            bool traceShadowSequence = !AttackShadowCoordinatorEnabled
+                && unit.Type == UnitType.SpearMan;
+            AttackerInstanceId shadowAttackerInstanceId = traceShadowSequence
+                ? GetOrCreateShadowAttackerInstance(unit)
+                : AttackerInstanceId.None;
+            AttackSequenceId shadowSequenceId = shadowAttackerInstanceId.IsValid
+                ? _shadowAttackSequences.Next(shadowAttackerInstanceId)
+                : AttackSequenceId.None;
+            double shadowNow = traceShadowSequence ? GetAuthoritativeServerTime() : 0d;
+            double shadowCommitTime = shadowNow - overshoot;
+            AttackResultKey poseObservationKey = default;
+            if (traceShadowSequence)
+            {
+                poseObservationKey = TrySchedulePoseObservation(
+                    unit, targetId, targetIsUnit,
+                    shadowAttackerInstanceId, shadowSequenceId,
+                    shadowCommitTime, shadowNow);
+            }
+
+            LegacyAttackToken attackShadowToken = LegacyAttackToken.None;
+            UnitActionSnapshot attackShadowSnapshot = null;
+            if (AttackShadowCoordinatorEnabled
+                && UnitAttackShadowProfileResolver.TryResolve(
+                    unit.Type, out UnitAttackShadowProfile runtimeShadowProfile)
+                && runtimeShadowProfile.CanRunSequencer)
+            {
+                AttackerInstanceId attackShadowInstance = GetOrCreateShadowAttackerInstance(unit);
+                var attackShadowTarget = new AttackTargetBinding(
+                    AttackTargetMode.TargetLocked,
+                    new EntityRef(targetIsUnit ? EntityKind.Unit : EntityKind.Building, targetId));
+                double legacyScheduledAt = GetAuthoritativeServerTime();
+                UnitAttackShadowCoordinator.IntentObservation prepared
+                    = _attackShadowCoordinator.PrepareLegacyAttack(
+                        attackShadowInstance,
+                        unit,
+                        attackShadowTarget,
+                        attackStartSample,
+                        attackStartTargetAlive,
+                        attackStartTargetValid,
+                        legacyScheduledAt,
+                        overshoot);
+                if (prepared.ShouldPublish)
+                    PublishAttackShadowPublication(unit.Id, prepared.Publication);
+
+                attackShadowSnapshot = prepared.Snapshot;
+                if (prepared.CommittedNow)
+                {
+                    attackShadowToken = _attackShadowCoordinator.ScheduleLegacyAttack(
+                        attackShadowInstance,
+                        attackShadowTarget,
+                        unit.HitFrameTimes != null ? unit.HitFrameTimes.Length : 0,
+                        legacyScheduledAt,
+                        out attackShadowSnapshot);
+                }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitAttackShadowObserver.RecordIntent(
+                    unit.Id,
+                    unit.Type,
+                    attackShadowTarget.Target,
+                    attackStartSample,
+                    prepared,
+                    legacyScheduledAt);
+                if (attackShadowToken.IsValid)
+                {
+                    UnitAttackShadowObserver.RecordLegacySchedule(
+                        unit.Id,
+                        unit.Type,
+                        attackShadowToken,
+                        attackShadowTarget.Target,
+                        attackShadowSnapshot,
+                        legacyScheduledAt);
+                }
+                else
+                {
+                    UnitAttackShadowObserver.RecordLegacyCorrelationFailure(
+                        unit.Id,
+                        unit.Type,
+                        attackShadowTarget.Target,
+                        prepared,
+                        legacyScheduledAt);
+                }
+#endif
+            }
 
             // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
             // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
             // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트): 원소 수만큼 코루틴 실행.
             // 각 코루틴은 독립적으로 동작하며, 타겟 사망 시 ApplyAttackDamage 내 IsAlive 체크로 자동 취소.
-            foreach (float hitTime in unit.HitFrameTimes)
+            for (int hitIndex = 0; hitIndex < unit.HitFrameTimes.Length; hitIndex++)
             {
+                float hitTime = unit.HitFrameTimes[hitIndex];
                 // [축 2] 오버슈트(격자 만료 지연)만큼 딜레이를 앞당겨 실제 타격 시점을 보정한다.
                 // 오버슈트가 hitTime보다 크면 이미 지난 것이므로 하한 0(다음 프레임 즉시 적용).
-                float delay = Mathf.Max(0f, hitTime - overshoot);
-                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, delay));
+                float delay = (float)System.Math.Max(
+                    0d,
+                    (double)hitTime - overshoot);
+                double scheduledImpactTime = shadowCommitTime + hitTime;
+                double attackShadowDueServerTime = double.NaN;
+                if (attackShadowToken.IsValid
+                    && attackShadowSnapshot != null
+                    && attackShadowSnapshot.Timeline != null
+                    && hitIndex < attackShadowSnapshot.Timeline.ImpactCount)
+                {
+                    attackShadowDueServerTime = attackShadowSnapshot.CommitServerTime
+                        + attackShadowSnapshot.Timeline.GetImpactOffset(hitIndex);
+                    var timingScope = new AttackPresentationScope(attackShadowSnapshot.AttackerInstanceId,
+                        attackShadowSnapshot.SequenceId, hitIndex);
+                    // 予約 완료 값의 due를 복사한다. commit + nominal을 재계산하지 않는다.
+                    if (_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double phaseEpoch)
+                        && unit.AttackCooldown > 0 && !unit.IsHealer)
+                    {
+                        if (hitIndex == 0)
+                            _committedAttackPhases[unit.Id] = new UnitAttackPhasePresentation
+                            {
+                                UnitId = unit.Id, Active = true, EpochServerTime = phaseEpoch,
+                                EpochId = unchecked((ulong)System.BitConverter.DoubleToInt64Bits(phaseEpoch)),
+                                Duration = unit.AttackCooldown, CommitServerTime = attackShadowSnapshot.CommitServerTime,
+                                ActionRevision = attackShadowSnapshot.Revision, Scope = timingScope,
+                                Hits = new AttackSourceOccurrence[unit.HitFrameTimes.Length]
+                            };
+                        if (_committedAttackPhases.TryGetValue(unit.Id, out var phase))
+                        {
+                            long occurrence = (long)System.Math.Floor((attackShadowDueServerTime - phaseEpoch) / unit.AttackCooldown);
+                            phase.Hits[hitIndex] = new AttackSourceOccurrence { HitIndex = hitIndex, Loop = occurrence,
+                                MarkerOffset = hitTime, MarkerServerTime = attackShadowDueServerTime,
+                                ImpactServerTime = attackShadowDueServerTime };
+                        }
+                    }
+                    PistoleerTimingDiagnostics.Register(unit, timingScope, attackShadowSnapshot.Revision, attackShadowToken.Value);
+                    PistoleerTimingDiagnostics.Event(unit, "Schedule", timingScope, GetAuthoritativeServerTime(),
+                        $"commit={PistoleerTimingDiagnostics.Number(attackShadowSnapshot.CommitServerTime)} due={PistoleerTimingDiagnostics.Number(attackShadowDueServerTime)} nominal={PistoleerTimingDiagnostics.Number(hitTime)} effective={PistoleerTimingDiagnostics.Number(attackShadowSnapshot.Timeline.GetImpactOffset(hitIndex))} overshoot={PistoleerTimingDiagnostics.Number(overshoot)} anchor={PistoleerTimingDiagnostics.Number(_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double timingAnchor) ? timingAnchor : double.NaN)} cooldown={PistoleerTimingDiagnostics.Number(unit.AttackCooldown)}");
+                    // Reliable per-hit intent prevents fast Commit -> Impact transitions from being
+                    // lost when NGO coalesces the current-state NetworkVariable. This comparison
+                    // input cannot change the existing damage coroutine or its authoritative clock.
+                    if (NetworkContext.ActiveCombatPipelineMode == CombatPipelineMode.PresentationShadow
+                        || NetworkContext.ActiveCombatPipelineMode == CombatPipelineMode.ResultPresentation)
+                    {
+                        GameObject presentationOwner = _services.GetUnitFactory()?.GetUnitObject(unit.Id);
+                        NetworkUnit presentationUnit = presentationOwner != null
+                            ? presentationOwner.GetComponent<NetworkUnit>() : null;
+                        presentationUnit?.PublishAttackPresentationSchedule(new AttackPresentationSchedule(
+                            unit.Id, new AttackPresentationScope(attackShadowSnapshot.AttackerInstanceId,
+                                attackShadowSnapshot.SequenceId, hitIndex), attackShadowSnapshot.Revision,
+                            attackShadowSnapshot.Delivery, attackShadowDueServerTime,
+                            attackShadowSnapshot.SimulationFacing));
+                    }
+                }
+
+                if (traceShadowSequence)
+                {
+                    RuntimeLogger.Log(
+                        LogLevel.Info,
+                        "Combat",
+                        "NetworkCombatController",
+                        "[UAS-DIAG] 공격 타격 일정 예약",
+                        $"event=attack-scheduled, unit={unit.Id}, " +
+                        $"attackerInstance={shadowAttackerInstanceId.Value}, sequence={shadowSequenceId.Value}, " +
+                        $"phase={UnitActionPhase.Windup}, hit={hitIndex}, " +
+                        $"targetKind={(targetIsUnit ? "unit" : "building")}, target={targetId}, " +
+                        $"commit={shadowCommitTime:F6}, scheduledImpact={scheduledImpactTime:F6}, " +
+                        $"aimDirection=unavailable-tracer-a, simulationFacing={unit.Facing}");
+                }
+
+                StartCoroutine(DelayedAttackDamage(
+                    unit,
+                    targetId,
+                    targetIsUnit,
+                    delay,
+                    shadowAttackerInstanceId,
+                    shadowSequenceId,
+                    hitIndex,
+                    scheduledImpactTime,
+                    poseObservationKey,
+                    attackShadowToken,
+                    attackShadowDueServerTime,
+                    foxMagicianTimelineCorrelationTicket));
             }
+
+            return attackShadowToken.IsValid
+                && attackShadowSnapshot != null
+                && attackShadowSnapshot.SequenceId.IsValid
+                    ? new AttackPresentationScope(
+                        attackShadowToken.AttackerInstanceId,
+                        attackShadowSnapshot.SequenceId,
+                        0)
+                    : default;
+        }
+
+        /// <summary>
+        /// Legacy가 현재 유지하는 타겟을 서버 Simulation Root pose와 함께 신규 coordinator에 전달한다.
+        /// 반환 상태는 진단·복제 외에는 사용하지 않으며 실패해도 공격, 쿨다운, RPC 흐름은 계속된다.
+        /// </summary>
+        private void ObserveAttackShadowIntent(UnitData unit, int targetId, bool targetIsUnit)
+        {
+            if (!AttackShadowCoordinatorEnabled || !IsServer || unit == null || unit.IsHealer) return;
+
+            try
+            {
+                if (!UnitAttackShadowProfileResolver.TryResolve(
+                        unit.Type, out UnitAttackShadowProfile declaredProfile))
+                    return;
+
+                EntityRef target = new EntityRef(
+                    targetIsUnit ? EntityKind.Unit : EntityKind.Building,
+                    targetId);
+                IUnitActionPoseSource source = GetPoseSource(unit.Id);
+                UnitActionPoseSample sample = default;
+                bool poseCaptured = source != null
+                    && source.TryCaptureUnitActionPose(target, out sample)
+                    && sample.IsValid;
+
+                if (!declaredProfile.CanRunSequencer)
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitAttackShadowObserver.RecordUnsupportedProfile(
+                        unit.Id, unit.Type, declaredProfile, declaredProfile.Reason,
+                        target, poseCaptured, sample);
+#endif
+                    return;
+                }
+
+                AttackerInstanceId instanceId = GetOrCreateShadowAttackerInstance(unit);
+                var binding = new AttackTargetBinding(AttackTargetMode.TargetLocked, target);
+                if (!instanceId.IsValid || !poseCaptured)
+                    return;
+
+                ReadTargetState(target, out bool targetValid, out bool targetAlive, out string targetState);
+                if (targetState == "unobserved")
+                {
+                    targetValid = false;
+                    targetAlive = false;
+                }
+
+                double now = GetAuthoritativeServerTime();
+                UnitAttackShadowCoordinator.IntentObservation observation
+                    = _attackShadowCoordinator.ObserveIntent(
+                        instanceId,
+                        unit,
+                        binding,
+                        sample,
+                        targetAlive,
+                        targetValid,
+                        now,
+                        allowCommit: false);
+                if (observation.ShouldPublish)
+                    PublishAttackShadowPublication(unit.Id, observation.Publication);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (observation.Status == UnitActionReducerStatus.UnsupportedDelivery)
+                {
+                    UnitAttackShadowObserver.RecordUnsupportedProfile(
+                        unit.Id, unit.Type, observation.Profile, observation.Reason,
+                        target, poseCaptured, sample);
+                }
+                else
+                {
+                    UnitAttackShadowObserver.RecordIntent(
+                        unit.Id, unit.Type, target, sample, observation, now);
+                }
+#endif
+            }
+            catch (System.Exception exception)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                GameLog.Dev.Warn(
+                    "Network",
+                    nameof(NetworkCombatController),
+                    "Tracer C 공격 의도 관측 실패",
+                    $"UnitId={unit.Id}, Reason={exception.GetType().Name}");
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 현재 서버 Simulation Root pose가 Legacy 공격 시작 계약을 만족하는지 판정한다.
+        /// Shadow profile 지원 여부와 무관하게 모든 비힐러 유닛에 같은 정지·5도 규칙을 적용한다.
+        /// 첫 표본이나 이동/미정렬 표본은 false이며 쿨다운과 피해 예약을 전혀 소비하지 않는다.
+        /// </summary>
+        private bool TryPassLegacyAttackStartGate(
+            UnitData unit,
+            int targetId,
+            bool targetIsUnit,
+            out UnitActionPoseSample acceptedSample,
+            out bool acceptedTargetAlive,
+            out bool acceptedTargetValid)
+        {
+            acceptedSample = default;
+            acceptedTargetAlive = false;
+            acceptedTargetValid = false;
+            if (unit == null || !unit.IsAlive) return false;
+
+            // 위치·방향만 우연히 정렬된 유닛이 이동→공격 gameplay handoff 전에 피해를
+            // 시작하지 못하게 한다. 서버 Root의 Action 소유권이 먼저 열려 있어야 한다.
+            UnitView serverView = GetUnitView(unit.Id);
+            if (serverView == null || !serverView.IsServerCombatActionReady())
+                return false;
+
+            EntityRef target = new EntityRef(
+                targetIsUnit ? EntityKind.Unit : EntityKind.Building,
+                targetId);
+            IUnitActionPoseSource source = GetPoseSource(unit.Id);
+            UnitActionPoseSample sample = default;
+            bool poseCaptured = source != null
+                && source.TryCaptureUnitActionPose(target, out sample)
+                && sample.IsValid;
+
+            ReadTargetState(target, out bool targetValid, out bool targetAlive, out string targetState);
+            if (targetState == "unobserved")
+            {
+                targetValid = false;
+                targetAlive = false;
+            }
+
+            if (!_attackAlignmentSamples.TryGetValue(
+                    unit.Id, out AttackAlignmentSampleState alignment)
+                || alignment.Target != target)
+            {
+                alignment = new AttackAlignmentSampleState { Target = target };
+                _attackAlignmentSamples[unit.Id] = alignment;
+            }
+
+            UnitAttackStartGateResult result = UnitAttackStartGate.Evaluate(
+                poseCaptured ? sample : default,
+                targetAlive,
+                targetValid,
+                alignment.HasPreviousAttackerPosition,
+                alignment.PreviousAttackerPosition);
+
+            if (poseCaptured)
+            {
+                alignment.PreviousAttackerPosition = sample.AttackerPosition;
+                alignment.HasPreviousAttackerPosition = true;
+            }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitAttackShadowObserver.RecordProductionStartGate(
+                unit.Id,
+                unit.Type,
+                target,
+                result,
+                sample);
+#endif
+            if (result != UnitAttackStartGateResult.Ready)
+                return false;
+
+            acceptedSample = sample;
+            acceptedTargetAlive = targetAlive;
+            acceptedTargetValid = targetValid;
+            return true;
+        }
+
+        private void ResetAttackAlignmentSample(int unitId)
+        {
+            _attackAlignmentSamples.Remove(unitId);
+        }
+
+        /// <summary>
+        /// ApplyAttackDamageObserved가 UnitData.Facing을 덮어쓰기 전에 서버 Root pose를 읽고
+        /// 같은 LegacyAttackToken의 Shadow Impact를 평가한다.
+        /// </summary>
+        private bool TryDispatchAttackShadow(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            int hitIndex,
+            LegacyAttackToken token,
+            out UnitActionPoseSample sample,
+            out UnitAttackShadowCoordinator.DispatchObservation observation,
+            out AttackImpactPoseCaptureStatus captureStatus)
+        {
+            sample = default;
+            observation = default;
+            captureStatus = AttackImpactPoseCaptureStatus.InfrastructureFailure;
+            if (!AttackShadowCoordinatorEnabled || !IsServer || attacker == null || !token.IsValid)
+                return false;
+
+            try
+            {
+                EntityRef target = new EntityRef(
+                    targetIsUnit ? EntityKind.Unit : EntityKind.Building,
+                    targetId);
+
+                // 타겟이 이미 사망·제거됐다면 그 Transform으로 pose를 만들 수 없는 것이 정상이다.
+                // pose adapter를 먼저 호출해 실패를 AuthorizationUnavailable로 잃지 말고,
+                // 커밋된 token/hit를 TargetUnavailable Miss로 정확히 한 번 닫는다.
+                ReadTargetState(
+                    target,
+                    out bool targetValid,
+                    out bool targetAlive,
+                    out string targetState);
+                bool targetStateObserved = targetState == "observed";
+                bool targetAvailable = targetValid && targetAlive;
+                captureStatus = AttackImpactPoseCaptureClassifier.Classify(
+                    attacker.IsAlive,
+                    targetStateObserved,
+                    targetAvailable,
+                    poseSourceAvailable: true,
+                    captureSucceeded: true,
+                    sampleValid: true,
+                    infrastructureFailure: false);
+                if (AttackImpactPoseCaptureClassifier.IsCanonicalUnavailableMiss(
+                        captureStatus))
+                {
+                    AttackDamageApplyStatus unavailableStatus = captureStatus
+                            == AttackImpactPoseCaptureStatus.AttackerUnavailable
+                        ? AttackDamageApplyStatus.AttackerUnavailable
+                        : AttackDamageApplyStatus.TargetUnavailable;
+                    observation = _attackShadowCoordinator.DispatchLegacyUnavailableImpact(
+                        token,
+                        hitIndex,
+                        unavailableStatus,
+                        GetAuthoritativeServerTime());
+                    if (observation.ShouldPublish)
+                        PublishAttackShadowPublication(attacker.Id, observation.Publication);
+                    return true;
+                }
+
+                if (captureStatus != AttackImpactPoseCaptureStatus.Captured)
+                    return LogAttackImpactPoseCaptureFailure(
+                        attacker.Id, target, token, hitIndex, captureStatus);
+
+                IUnitActionPoseSource source = GetPoseSource(attacker.Id);
+                if (source == null)
+                {
+                    captureStatus = AttackImpactPoseCaptureStatus.PoseSourceUnavailable;
+                    return LogAttackImpactPoseCaptureFailure(
+                        attacker.Id, target, token, hitIndex, captureStatus);
+                }
+                if (!source.TryCaptureUnitActionPose(target, out sample))
+                {
+                    captureStatus = AttackImpactPoseCaptureStatus.CaptureFailed;
+                    return LogAttackImpactPoseCaptureFailure(
+                        attacker.Id, target, token, hitIndex, captureStatus);
+                }
+                if (!sample.IsValid)
+                {
+                    captureStatus = AttackImpactPoseCaptureStatus.InvalidSample;
+                    return LogAttackImpactPoseCaptureFailure(
+                        attacker.Id, target, token, hitIndex, captureStatus);
+                }
+
+                captureStatus = AttackImpactPoseCaptureStatus.Captured;
+
+                observation = _attackShadowCoordinator.DispatchLegacyImpact(
+                    token,
+                    hitIndex,
+                    sample,
+                    attacker.IsAlive,
+                    targetAlive,
+                    targetValid,
+                    GetAuthoritativeServerTime());
+                if (observation.ShouldPublish)
+                    PublishAttackShadowPublication(attacker.Id, observation.Publication);
+                return true;
+            }
+            catch (System.Exception exception)
+            {
+                captureStatus = AttackImpactPoseCaptureStatus.InfrastructureFailure;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                GameLog.Dev.Warn(
+                    "Network",
+                    nameof(NetworkCombatController),
+                    "Tracer C 공격 Impact 관측 실패",
+                    $"UnitId={attacker.Id}, Reason={exception.GetType().Name}");
+#endif
+                return false;
+            }
+        }
+
+        private static bool LogAttackImpactPoseCaptureFailure(
+            int attackerId,
+            EntityRef target,
+            LegacyAttackToken token,
+            int hitIndex,
+            AttackImpactPoseCaptureStatus status)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            GameLog.Dev.Warn(
+                "Network",
+                nameof(NetworkCombatController),
+                "Tracer C 공격 Impact pose 획득 실패",
+                $"status={status}, attackerId={attackerId}, targetKind={target.Kind}, " +
+                $"targetId={target.Id}, attackerInstanceId={token.AttackerInstanceId.Value}, " +
+                $"legacyAttackToken={token.Value}, hitIndex={hitIndex}");
+#endif
+            return false;
+        }
+
+        private void PublishAttackShadowSnapshot(int unitId, UnitActionSnapshot snapshot)
+        {
+            if (snapshot == null || _services == null || !IsSpawned) return;
+            if (!_attackShadowCoordinator.TryCreatePublication(
+                    snapshot.AttackerInstanceId, snapshot, out UnitAttackShadowPublication publication))
+                return;
+            PublishAttackShadowPublication(unitId, publication);
+        }
+
+        private void PublishAttackShadowPublication(
+            int unitId,
+            UnitAttackShadowPublication publication)
+        {
+            if (!publication.IsValid || _services == null || !IsSpawned) return;
+            GameObject owner = _services.GetUnitFactory()?.GetUnitObject(unitId);
+            NetworkUnit networkUnit = owner != null ? owner.GetComponent<NetworkUnit>() : null;
+            networkUnit?.PublishAttackShadowSnapshot(publication);
+        }
+
+        private void PublishAttackShadowImpactResult(
+            int unitId,
+            UnitAttackShadowCoordinator.ResultObservation observation)
+        {
+            if (!observation.HasResult || _services == null || !IsSpawned) return;
+            GameObject owner = _services.GetUnitFactory()?.GetUnitObject(unitId);
+            NetworkUnit networkUnit = owner != null ? owner.GetComponent<NetworkUnit>() : null;
+            networkUnit?.PublishAttackShadowImpactResult(
+                observation.Result,
+                observation.Delivery);
+        }
+
+        /// <summary>
+        /// 서버의 한 HitIndex 피해 처리가 모두 끝난 뒤에만 완결 manifest를 Reliable 전송한다.
+        /// 이 메서드는 이미 적용된 결과를 읽어 표현 입력으로 바꿀 뿐 HP/피해/RPC writer를
+        /// 다시 호출하지 않는다. 공격자 NetworkObject가 곧 Despawn되더라도 패킷 소유자가
+        /// 사라지지 않도록 경기 수명의 NetworkCombatController가 전송을 소유한다.
+        /// </summary>
+        private bool PublishCompletedAttackPresentationBundle(
+            int attackerUnitId,
+            UnitAttackShadowCoordinator.ResultObservation primary,
+            AttackDamagePresentationBundleObservation observation)
+        {
+            if (!IsSpawned || !IsServer || NetworkManager == null
+                || !NetworkManager.IsListening || !primary.HasResult)
+                return false;
+            if (!AttackPresentationBundleAssembler.TryCreate(
+                    attackerUnitId, primary.Result, primary.Delivery, observation,
+                    out AttackResultPresentationInput[] results)
+                || !AttackPresentationBundleAssembler.TryToNetwork(
+                    results, out NetworkAttackImpactShadowResult[] payload)
+                || !AttackPresentationBundleAssembler.TryFromNetwork(
+                    attackerUnitId, payload,
+                    out AttackResultPresentationInput[] canonicalWireResults))
+                return false;
+
+            NetworkAttackPresentationBundleStatus status =
+                _attackPresentationBundleClassifier.Classify(attackerUnitId, payload);
+            if (status == NetworkAttackPresentationBundleStatus.Duplicate) return true;
+            if (status != NetworkAttackPresentationBundleStatus.Accepted) return false;
+
+            double serverTime = NetworkManager.ServerTime.Time;
+            double localTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
+                canonicalWireResults, serverTime, localTime);
+            // 진단용 발행 시각은 결과/피해 데이터가 아니며, 같은 Reliable 묶음에 동봉한다.
+            double publishServerTime = NetworkManager.ServerTime.Time;
+            double publishLocalTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            AttackPresentationCompletedBundleClientRpc(attackerUnitId, payload,
+                publishServerTime, publishLocalTime);
+            return true;
+        }
+
+        [ClientRpc(Delivery = RpcDelivery.Reliable)]
+        private void AttackPresentationCompletedBundleClientRpc(
+            int attackerUnitId,
+            NetworkAttackImpactShadowResult[] payload,
+            double publishServerTime,
+            double publishLocalTime)
+        {
+            // Host는 위 서버 발행 경계에서 이미 같은 묶음을 관찰했다. Host의 ClientRpc
+            // 재수신까지 처리하면 같은 사건을 두 번 계측하므로 순수 Client만 수락한다.
+            if (IsServer || NetworkManager == null || !NetworkManager.IsListening) return;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            double receiveLocalTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            double receiveServerTime = NetworkManager.ServerTime.Time;
+            int receiveFrame = UnityEngine.Time.frameCount;
+            // 이 RPC 호출 자체의 entry ticket이다. accepted decode 뒤에만 실제 key와
+            // 연결하며 이전/현재 공격 context로 누락된 identity를 추측하지 않는다.
+            ulong clockRpcTicket = UnitAttackShadowObserver.RecordClockRpcEntry(
+                attackerUnitId, receiveLocalTime, receiveServerTime, receiveFrame);
+#endif
+            NetworkAttackPresentationBundleStatus status =
+                _attackPresentationBundleClassifier.Classify(attackerUnitId, payload);
+            if (status == NetworkAttackPresentationBundleStatus.Duplicate) return;
+            if (status != NetworkAttackPresentationBundleStatus.Accepted)
+            {
+                UnitAttackResultPresentationShadowBridge.ReportCompletedBundleTransportFailure(
+                    "client-completed-bundle-" + status);
+                return;
+            }
+            if (!AttackPresentationBundleAssembler.TryFromNetwork(
+                    attackerUnitId, payload, out AttackResultPresentationInput[] results))
+            {
+                UnitAttackResultPresentationShadowBridge.ReportCompletedBundleTransportFailure(
+                    "client-canonical-decode-after-accept");
+                return;
+            }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitAttackShadowObserver.RecordCompletedBundleArrival(results,
+                publishServerTime, publishLocalTime,
+                receiveServerTime, receiveLocalTime, receiveFrame, clockRpcTicket);
+            UnitAttackShadowObserver.RecordCompletedBundleBridgeEntry(results,
+                UnityEngine.Time.realtimeSinceStartupAsDouble);
+#endif
+            UnitAttackResultPresentationShadowBridge.ObserveCompletedBundle(
+                results,
+                NetworkManager.ServerTime.Time,
+                UnityEngine.Time.realtimeSinceStartupAsDouble);
+        }
+
+        /// <summary>
+        /// 적격 SpearMan 한 공격에 A1 reducer 하나를 만들고 Begin+Commit까지만 shadow 실행한다.
+        /// 반환 키는 Legacy 코루틴 correlation 용도이며 유효하지 않으면 observer가 schedule되지 않았다는 뜻이다.
+        /// </summary>
+        private AttackResultKey TrySchedulePoseObservation(
+            UnitData unit,
+            int targetId,
+            bool targetIsUnit,
+            AttackerInstanceId attackerInstanceId,
+            AttackSequenceId sequenceId,
+            double commitServerTime,
+            double observedServerTime)
+        {
+            // 서버 외 또는 SpearMan 외 경로에서는 로그조차 남기지 않아 A2 실행 횟수를 정확히 0으로 유지한다.
+            if (!IsServer || unit == null || unit.Type != UnitType.SpearMan)
+                return default;
+
+            try
+            {
+                if (!attackerInstanceId.IsValid || !sequenceId.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-a0-correlation");
+                if (unit.HitFrameTimes == null || unit.HitFrameTimes.Length != 1)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "not-targetlocked-melee-single-hit");
+                if (!IsFinite(commitServerTime) || !IsFinite(observedServerTime)
+                    || commitServerTime > observedServerTime)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-server-time");
+
+                EntityRef target = new EntityRef(targetIsUnit ? EntityKind.Unit : EntityKind.Building, targetId);
+                var binding = new AttackTargetBinding(AttackTargetMode.TargetLocked, target);
+                if (!binding.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-target-binding");
+
+                IUnitActionPoseSource source = GetPoseSource(unit.Id);
+                if (source == null)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "pose-adapter-missing");
+                if (!source.TryCaptureUnitActionPose(target, out UnitActionPoseSample sample) || !sample.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-schedule-sample");
+
+                // Commit 입력을 만들기 전에 도메인 컬렉션의 실제 타겟 상태를 읽는다.
+                // 조회 자체가 불가능하면 true를 추측하지 않고 Commit을 실행하지 않는다.
+                ReadTargetState(target, out bool targetValid, out bool targetAlive, out string targetState);
+                bool targetStateObserved = targetState != "unobserved";
+                double hitOffset = unit.HitFrameTimes[0];
+                double cooldown = unit.AttackCooldown;
+                var key = new AttackResultKey(
+                    attackerInstanceId, sequenceId, 0, (int)target.Kind, target.Id,
+                    PoseDirectDamageEffectKind, PoseSingleDirectResultOrdinal);
+                bool timelineValid = AttackTimelinePlan.TryCreate(
+                    cooldown, cooldown, new[] { hitOffset }, out AttackTimelinePlan timeline);
+                bool rangeValid = AttackRangeProfile.TryCreate(
+                    unit.AttackRange, HexMetrics.TileHeight, out AttackRangeProfile range);
+                bool factoryValid = UnitActionSequencer.TryCreateShadowCycle(
+                    attackerInstanceId, unit.Id, sequenceId, out UnitActionSequencer sequencer);
+                UnitActionReducerStatus begin = UnitActionReducerStatus.InvalidInput;
+                UnitActionReducerStatus commit = UnitActionReducerStatus.InvalidInput;
+                string commitExecutionStatus = "not-run-prerequisite-rejected";
+                if (timelineValid && rangeValid && factoryValid)
+                {
+                    begin = sequencer.BeginAttackAlignment(
+                        sequencer.Snapshot.Revision, binding, AttackDeliveryKind.MeleeContact,
+                        timeline, range, sample.SimulationFacing, commitServerTime);
+                    if (begin == UnitActionReducerStatus.Accepted)
+                    {
+                        if (targetStateObserved)
+                        {
+                            commit = sequencer.CommitAttack(
+                                sequencer.Snapshot.Revision, binding,
+                                unit.IsAlive, targetAlive, targetValid,
+                                sample.TargetSquaredDistance, sample.FacingToAimYawDegrees,
+                                commitServerTime, observedServerTime);
+                            commitExecutionStatus = "executed";
+                        }
+                        else
+                        {
+                            commitExecutionStatus = "not-run-target-unobserved";
+                        }
+                    }
+                }
+
+                bool committed = commit == UnitActionReducerStatus.Accepted
+                    && sequencer != null && sequencer.Snapshot.SequenceId == sequenceId;
+                var observation = new PoseObservation
+                {
+                    Key = key,
+                    AttackerId = unit.Id,
+                    Sequencer = sequencer,
+                    ScheduleSample = sample,
+                    ScheduleServerTime = observedServerTime,
+                    ScheduledImpactServerTime = commitServerTime + hitOffset,
+                    TargetBinding = binding,
+                    AttackRange = unit.AttackRange,
+                    UsesMeleeContactRange = rangeValid && range.UsesMeleeContact,
+                    MaximumDistanceWorld = rangeValid ? range.GetMaximumDistance(target.Kind) : double.NaN,
+                    BeginStatus = begin,
+                    CommitStatus = commit,
+                    CommitExecutionStatus = commitExecutionStatus,
+                    Committed = committed,
+                    MarkDeadStatus = UnitActionReducerStatus.NoChange,
+                    MarkDeadExecutionStatus = "not-run-attacker-alive"
+                };
+                AddPoseObservation(observation);
+                UnitActionPhase phase = sequencer != null
+                    ? sequencer.Snapshot.Phase
+                    : UnitActionPhase.Idle;
+                ulong revision = sequencer != null ? sequencer.Snapshot.Revision : 0UL;
+                LogPose(
+                    "schedule", unit.Id, attackerInstanceId, sequenceId,
+                    revision, target, 0, sample, unit.AttackRange,
+                    observedServerTime, phase, commit, committed ? "accepted" : "commit-rejected",
+                    $"effectKind={PoseDirectDamageEffectKind}, resultOrdinal={PoseSingleDirectResultOrdinal}, scheduledImpact={observation.ScheduledImpactServerTime:F6}, rangeMode={(observation.UsesMeleeContactRange ? "fixed-contact" : "scaled-center")}, usesMeleeContact={observation.UsesMeleeContactRange}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={begin}, commitStatus={commit}, commitExecutionStatus={commitExecutionStatus}, advanceStatus=not-run-schedule, evaluateStatus=not-run-schedule, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}");
+                return key;
+            }
+            catch (System.Exception exception)
+            {
+                LogPoseSafe($"event=skip, reason=schedule-exception, attackerId={unit.Id}, exception={exception.GetType().Name}");
+                return default;
+            }
+        }
+
+        /// <summary>Legacy ApplyAttackDamage 직전 pose를 같은 key의 schedule 표본과 비교한다.</summary>
+        private void TryDispatchPoseObservation(AttackResultKey key)
+        {
+            if (!IsServer || !key.IsValid) return;
+            if (!_poseObservations.TryGetValue(key, out PoseObservation observation)) return;
+
+            try
+            {
+                double now = GetAuthoritativeServerTime();
+                ReadTargetState(
+                    observation.TargetBinding.Target,
+                    out bool targetValid,
+                    out bool targetAlive,
+                    out string targetState);
+                bool targetStateObserved = targetState != "unobserved";
+                IUnitActionPoseSource source = GetPoseSource(observation.AttackerId);
+                if (source == null
+                    || !source.TryCaptureUnitActionPose(observation.TargetBinding.Target, out UnitActionPoseSample dispatchSample)
+                    || !dispatchSample.IsValid)
+                {
+                    bool attackerDead = observation.AttackerDead;
+                    LogPose(
+                        "dispatch", observation.AttackerId, key.AttackerInstanceId, key.SequenceId,
+                        observation.Sequencer != null ? observation.Sequencer.Snapshot.Revision : 0UL,
+                        observation.TargetBinding.Target, 0, observation.ScheduleSample,
+                        observation.AttackRange, now,
+                        observation.Sequencer != null ? observation.Sequencer.Snapshot.Phase : UnitActionPhase.Idle,
+                        attackerDead ? UnitActionReducerStatus.DeadTerminal : UnitActionReducerStatus.InvalidInput,
+                        attackerDead ? "attacker-dead" : "invalid-dispatch-sample",
+                        $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}, facingDeltaDegrees=NaN, aimDeltaDegrees=NaN, targetMoveDistanceWorld=NaN, dispatchDeltaMs={(now - observation.ScheduledImpactServerTime) * 1000d:F3}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={observation.BeginStatus}, commitStatus={observation.CommitStatus}, commitExecutionStatus={observation.CommitExecutionStatus}, markDeadStatus={observation.MarkDeadStatus}, markDeadExecutionStatus={observation.MarkDeadExecutionStatus}, advanceStatus={(attackerDead ? "not-run-attacker-dead" : "not-run-invalid-pose")}, evaluateStatus={(attackerDead ? "not-run-attacker-dead" : "not-run-invalid-pose")}, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}, dispatchPose=unavailable");
+                    return;
+                }
+
+                string advanceStatus = observation.AttackerDead
+                    ? "not-run-attacker-dead"
+                    : observation.Committed
+                    ? "not-run"
+                    : "not-run-commit-rejected";
+                string evaluateStatus = observation.AttackerDead
+                    ? "not-run-attacker-dead"
+                    : observation.Committed
+                    ? "not-run"
+                    : "not-run-commit-rejected";
+                UnitActionReducerStatus evaluate = observation.AttackerDead
+                    ? UnitActionReducerStatus.DeadTerminal
+                    : UnitActionReducerStatus.InvalidInput;
+                if (!observation.AttackerDead && observation.Committed && observation.Sequencer != null)
+                {
+                    UnitActionReducerStatus advance = observation.Sequencer.Advance(
+                        observation.Sequencer.Snapshot.Revision, now);
+                    advanceStatus = advance.ToString();
+                    if (advance == UnitActionReducerStatus.Accepted && targetState != "unobserved")
+                    {
+                        evaluate = observation.Sequencer.EvaluateImpact(
+                            observation.Sequencer.Snapshot.Revision, 0,
+                            PoseDirectDamageEffectKind, PoseSingleDirectResultOrdinal,
+                            observation.TargetBinding, targetAlive, targetValid,
+                            dispatchSample.TargetSquaredDistance, dispatchSample.FacingToAimYawDegrees,
+                            dispatchSample.TargetAimDirection, now, out ImpactAuthorization authorization);
+                        evaluateStatus = evaluate == UnitActionReducerStatus.Accepted
+                            && !authorization.Key.Equals(key)
+                            ? "ScopeMismatch-canonical-key"
+                            : evaluate.ToString();
+                    }
+                    else if (targetState == "unobserved")
+                    {
+                        evaluateStatus = "not-run-target-unobserved";
+                    }
+                    else
+                    {
+                        evaluateStatus = "not-run-advance-rejected";
+                    }
+                }
+
+                double facingDelta = UnitActionPoseSample.GetYawDegrees(
+                    observation.ScheduleSample.SimulationFacing, dispatchSample.SimulationFacing);
+                double aimDelta = UnitActionPoseSample.GetYawDegrees(
+                    observation.ScheduleSample.TargetAimDirection, dispatchSample.TargetAimDirection);
+                double targetDeltaX = dispatchSample.TargetPosition.X - observation.ScheduleSample.TargetPosition.X;
+                double targetDeltaZ = dispatchSample.TargetPosition.Z - observation.ScheduleSample.TargetPosition.Z;
+                double targetMoveDistance = System.Math.Sqrt(targetDeltaX * targetDeltaX + targetDeltaZ * targetDeltaZ);
+                double dispatchDeltaMs = (now - observation.ScheduledImpactServerTime) * 1000d;
+                UnitActionPhase phase = observation.Sequencer != null
+                    ? observation.Sequencer.Snapshot.Phase
+                    : UnitActionPhase.Idle;
+                ulong revision = observation.Sequencer != null
+                    ? observation.Sequencer.Snapshot.Revision
+                    : 0UL;
+                LogPose(
+                    "dispatch", observation.AttackerId,
+                    key.AttackerInstanceId, key.SequenceId, revision,
+                    observation.TargetBinding.Target, 0, dispatchSample, observation.AttackRange,
+                    now, phase, evaluate,
+                    observation.AttackerDead
+                        ? "attacker-dead"
+                        : observation.Committed ? "observed" : "commit-rejected-observed",
+                    $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}, facingDeltaDegrees={facingDelta:F3}, aimDeltaDegrees={aimDelta:F3}, targetMoveDistanceWorld={targetMoveDistance:F6}, dispatchDeltaMs={dispatchDeltaMs:F3}, rangeMode={(observation.UsesMeleeContactRange ? "fixed-contact" : "scaled-center")}, usesMeleeContact={observation.UsesMeleeContactRange}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={observation.BeginStatus}, commitStatus={observation.CommitStatus}, commitExecutionStatus={observation.CommitExecutionStatus}, markDeadStatus={observation.MarkDeadStatus}, markDeadExecutionStatus={observation.MarkDeadExecutionStatus}, advanceStatus={advanceStatus}, evaluateStatus={evaluateStatus}, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}");
+            }
+            catch (System.Exception exception)
+            {
+                LogPoseSafe($"event=skip, reason=dispatch-exception, attackerInstanceId={key.AttackerInstanceId.Value}, sequenceId={key.SequenceId.Value}, exception={exception.GetType().Name}");
+            }
+            finally
+            {
+                _poseObservations.Remove(key);
+            }
+        }
+
+        private IUnitActionPoseSource GetPoseSource(int unitId)
+        {
+            if (unitId < 0 || _services == null) return null;
+            GameObject owner = _services.GetUnitFactory()?.GetUnitObject(unitId);
+            if (owner == null)
+            {
+                _poseAdapters.Remove(unitId);
+                return null;
+            }
+
+            if (_poseAdapters.TryGetValue(unitId, out PoseAdapterCacheEntry cached)
+                && cached.Owner == owner && cached.Component != null && cached.Source != null)
+                return cached.Source;
+
+            // Unity의 GetComponent<T>()는 T가 Component여야 하므로 interface generic 호출 대신
+            // MonoBehaviour 배열을 한 번 훑고 interface 구현자를 찾는다. 이후 hot path는 위 cache를 사용한다.
+            MonoBehaviour[] components = owner.GetComponents<MonoBehaviour>();
+            for (int index = 0; index < components.Length; index++)
+            {
+                MonoBehaviour component = components[index];
+                if (component is IUnitActionPoseSource source)
+                {
+                    _poseAdapters[unitId] = new PoseAdapterCacheEntry
+                    {
+                        Owner = owner,
+                        Component = component,
+                        Source = source
+                    };
+                    return source;
+                }
+            }
+
+            _poseAdapters.Remove(unitId);
+            return null;
+        }
+
+        /// <summary>피해 판정 함수를 호출하지 않고 도메인 컬렉션에서 타겟 존재와 생존을 분리해 읽는다.</summary>
+        private void ReadTargetState(
+            EntityRef target,
+            out bool targetValid,
+            out bool targetAlive,
+            out string targetState)
+        {
+            targetValid = false;
+            targetAlive = false;
+            targetState = "unobserved";
+            if (_services == null || !target.IsValid) return;
+
+            if (target.Kind == EntityKind.Unit)
+            {
+                UnitSpawnUseCase spawn = _services.GetUnitSpawn();
+                if (spawn == null) return;
+                targetState = "observed";
+                targetValid = spawn.Units.TryGetValue(target.Id, out UnitData unit) && unit != null;
+                targetAlive = targetValid && unit.IsAlive;
+                return;
+            }
+
+            BuildingPlacementUseCase placement = _services.GetBuildingPlacement();
+            if (placement == null) return;
+            targetState = "observed";
+            targetValid = placement.Buildings.TryGetValue(target.Id, out BuildingData building)
+                && building != null;
+            targetAlive = targetValid && building.IsAlive;
+        }
+
+        private void AddPoseObservation(PoseObservation observation)
+        {
+            // 완료된 key도 queue에는 순서 표식으로 남을 수 있으므로 Dictionary 개수가 아니라
+            // queue 자체를 제한한다. 그래야 정상 dispatch가 계속되는 장기 경기에서도 메모리가 bounded다.
+            while (_poseObservationOrder.Count >= MaximumPoseObservationCount)
+            {
+                AttackResultKey oldest = _poseObservationOrder.Dequeue();
+                // 정상 dispatch가 이미 Dictionary에서 제거한 stale queue 표식은 조용히 버린다.
+                // 아직 pending인 실제 observation을 용량 때문에 제거할 때는 상관관계가 사라진
+                // 이유를 canonical full key와 함께 반드시 terminal skip으로 남긴다.
+                if (_poseObservations.TryGetValue(oldest, out PoseObservation evicted))
+                {
+                    LogPoseTerminalSkip(oldest, evicted, "capacity-evicted");
+                    _poseObservations.Remove(oldest);
+                }
+            }
+
+            _poseObservations[observation.Key] = observation;
+            _poseObservationOrder.Enqueue(observation.Key);
+        }
+
+        private void TryAbandonPoseObservation(AttackResultKey key, string reason)
+        {
+            if (!key.IsValid
+                || !_poseObservations.TryGetValue(key, out PoseObservation observation))
+                return;
+
+            LogPoseTerminalSkip(key, observation, reason);
+            _poseObservations.Remove(key);
+        }
+
+        private static void LogPoseTerminalSkip(
+            AttackResultKey key,
+            PoseObservation observation,
+            string reason)
+        {
+            LogPoseSafe(
+                $"event=skip, reason={reason}, attackerId={observation.AttackerId}, " +
+                $"attackerInstanceId={key.AttackerInstanceId.Value}, sequenceId={key.SequenceId.Value}, " +
+                $"hitIndex={key.HitIndex}, targetKind={(EntityKind)key.VictimKind}, targetId={key.VictimId}, " +
+                $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}");
+        }
+
+        private void MarkPoseObservationsDead(AttackerInstanceId attackerInstanceId)
+        {
+            if (!attackerInstanceId.IsValid || _poseObservations.Count == 0) return;
+
+            // 값은 reference type이므로 Dictionary 열거 중 key를 추가·삭제하지 않고도
+            // pending observation의 reducer만 Dead terminal로 전환할 수 있다.
+            foreach (PoseObservation observation in _poseObservations.Values)
+            {
+                if (observation.Key.AttackerInstanceId != attackerInstanceId) continue;
+
+                observation.AttackerDead = true;
+                if (observation.Sequencer == null)
+                {
+                    observation.MarkDeadStatus = UnitActionReducerStatus.InvalidInput;
+                    observation.MarkDeadExecutionStatus = "not-run-sequencer-missing";
+                    continue;
+                }
+
+                try
+                {
+                    observation.MarkDeadStatus = observation.Sequencer.MarkDead(
+                        observation.Sequencer.Snapshot.Revision);
+                    observation.MarkDeadExecutionStatus = "executed";
+                }
+                catch (System.Exception exception)
+                {
+                    // 진단 observer 예외가 기존 사망·피해 경로를 막아서는 안 된다.
+                    observation.MarkDeadStatus = UnitActionReducerStatus.InvalidInput;
+                    observation.MarkDeadExecutionStatus = $"exception-{exception.GetType().Name}";
+                }
+            }
+        }
+
+        private AttackResultKey LogPoseScheduleSkip(
+            int attackerId,
+            AttackerInstanceId instanceId,
+            AttackSequenceId sequenceId,
+            string reason)
+        {
+            LogPoseSafe($"event=skip, reason={reason}, attackerId={attackerId}, attackerInstanceId={instanceId.Value}, sequenceId={sequenceId.Value}");
+            return default;
+        }
+
+        private void LogPose(
+            string eventName,
+            int attackerId,
+            AttackerInstanceId instanceId,
+            AttackSequenceId sequenceId,
+            ulong revision,
+            EntityRef target,
+            int hitIndex,
+            UnitActionPoseSample sample,
+            float attackRange,
+            double serverTime,
+            UnitActionPhase phase,
+            UnitActionReducerStatus status,
+            string reason,
+            string extra)
+        {
+            double distance = System.Math.Sqrt(sample.TargetSquaredDistance);
+            string desiredDirection = sample.HasDesiredMoveDirection
+                ? $"({sample.DesiredMoveDirection.X:F4},{sample.DesiredMoveDirection.Z:F4})"
+                : "none";
+            LogPoseSafe(
+                $"event={eventName}, serverTime={serverTime:F6}, attackerId={attackerId}, attackerInstanceId={instanceId.Value}, sequenceId={sequenceId.Value}, revision={revision}, " +
+                $"targetKind={target.Kind}, targetId={target.Id}, delivery={AttackDeliveryKind.MeleeContact}, hitIndex={hitIndex}, " +
+                $"attackerPositionXZ=({sample.AttackerPosition.X:F4},{sample.AttackerPosition.Z:F4}), currentFacingXZ=({sample.SimulationFacing.X:F4},{sample.SimulationFacing.Z:F4}), " +
+                $"targetPositionXZ=({sample.TargetPosition.X:F4},{sample.TargetPosition.Z:F4}), targetAimDirectionXZ=({sample.TargetAimDirection.X:F4},{sample.TargetAimDirection.Z:F4}), hasDesiredMoveDirection={sample.HasDesiredMoveDirection}, desiredMoveDirectionXZ={desiredDirection}, " +
+                $"yawErrorDegrees={sample.FacingToAimYawDegrees:F3}, distanceWorld={distance:F6}, attackRangeStat={attackRange:F4}, phase={phase}, reducerStatus={status}, reason={reason}, {extra}");
+        }
+
+        private static void LogPoseSafe(string details)
+        {
+            try
+            {
+                RuntimeLogger.Log(
+                    LogLevel.Info, "Combat", "NetworkCombatController",
+                    "[UAS-POSE] server pose observer", details);
+            }
+            catch (System.Exception)
+            {
+                // 진단 writer 실패는 Legacy 공격을 막아서는 안 된다.
+            }
+        }
+
+        private static bool IsFinite(double value)
+            => !double.IsNaN(value) && !double.IsInfinity(value);
+
+        /// <summary>
+        /// SpearMan UnitData 참조에 대응하는 Tracer A 생성 개체 식별자를 반환한다.
+        /// 처음 관측한 참조에만 새 번호를 발급하며, 이 값은 서버 프로세스 내부 진단용이므로
+        /// 게임플레이 상태나 네트워크 메시지에는 기록하지 않는다.
+        /// </summary>
+        private AttackerInstanceId GetOrCreateShadowAttackerInstance(UnitData unit)
+        {
+            if (_shadowAttackerInstances.TryGetValue(unit, out AttackerInstanceId existing))
+                return existing;
+
+            if (_lastShadowAttackerInstanceValue == ulong.MaxValue)
+                return AttackerInstanceId.None;
+
+            var created = new AttackerInstanceId(++_lastShadowAttackerInstanceValue);
+            _shadowAttackerInstances.Add(unit, created);
+            return created;
+        }
+
+        /// <summary>
+        /// 서버에서 기록하는 Tracer A schedule/dispatch 시각의 기준인 NGO 서버 시간을 반환한다.
+        /// 네트워크가 아직 시작되지 않은 경우에만 Unity 실행 시간을 사용하며, 게임 판정에는 사용하지 않는다.
+        /// </summary>
+        private double GetAuthoritativeServerTime()
+        {
+#if UNITY_EDITOR
+            if (_attackPresentationFixtureClock != null) return _attackPresentationFixtureClock();
+#endif
+            return NetworkManager != null && NetworkManager.IsListening
+                ? NetworkManager.ServerTime.Time
+                : Time.timeAsDouble;
+        }
+
+#if UNITY_EDITOR
+        private System.Func<double> _attackPresentationFixtureClock;
+#endif
+
+        private void ObservePresentationEpoch(int id, string reason, string action, double epoch)
+        {
+            PistoleerTimingDiagnostics.Event(GetUnitView(id)?.UnitData, "EpochLifetime", default,
+                GetAuthoritativeServerTime(), $"reason={reason} action={action} epoch={unchecked((ulong)System.BitConverter.DoubleToInt64Bits(epoch))} epochTime={PistoleerTimingDiagnostics.Number(epoch)}");
+        }
+
+        private void RemovePresentationEpoch(int id, string reason)
+        {
+            if (_attackPresentationEpochServerTimes.TryGetValue(id, out double epoch))
+                ObservePresentationEpoch(id, reason, "remove", epoch);
+            _attackPresentationEpochServerTimes.Remove(id);
+        }
+
+        private void CloseLogicalPresentationEpoch(int id, string reason)
+        {
+            var view = GetUnitView(id);
+            var network = view != null ? view.GetComponent<NetworkUnit>() : null;
+            network?.CloseLogicalAttackScope();
+            if (network != null && network.TryGetLiveNativeAttackEpoch(out double epoch))
+                ObservePresentationEpoch(id, reason, "keep-native", epoch);
+            else RemovePresentationEpoch(id, reason);
+        }
+
+        private void RetireLogicalCombatPresentation(int id)
+        {
+            _committedAttackPhases.Remove(id);
+            _unitCombatTargets.Remove(id);
+            _combatAnimationSent.Remove(id);
+            _attackPresentationRestartPending.Remove(id);
+            CloseLogicalPresentationEpoch(id, "tick-no-active-target");
+            _completedAttackEntryReceipts.Remove(id);
         }
 
         // ====================================================================
@@ -775,7 +2490,7 @@ namespace Hexiege.Infrastructure
             // 1) [Phase 2] 애니메이션 상태를 Walk로 설정(레벨 동기화).
             //    클라이언트는 값 변경(OnValueChanged) 및 스폰 시 현재 값을 자동 적용하므로
             //    엣지 트리거 Walk RPC와 달리 스폰 레이스로 신호가 유실될 수 없다.
-            SetUnitAnimState(unitId, UnitAnimState.Walk);
+            ApplyMovementAnimationState(unitId);
 
             // 2) 전투 애니메이션 재전송 가드 해제 — 유지.
             //    _combatAnimationSent는 "애니메이션"이 아니라 OnUnitEnteredCombatHandler의
@@ -783,18 +2498,29 @@ namespace Hexiege.Infrastructure
             //    "기능" 가드다. 전투 이탈(Walk) 시 해제해야 다음 전투 재진입에서 첫 공격이 재실행된다.
             //    (Phase 2의 애니메이션 레벨 동기화와는 별개의 목적이므로 그대로 둔다.)
             _combatAnimationSent.Remove(unitId);
+            _attackPresentationRestartPending.Remove(unitId);
+            _completedAttackEntryReceipts.Remove(unitId);
+            ResetAttackAlignmentSample(unitId);
         }
 
         /// <summary>
         /// 힐러(BloomFairy) 힐 시전 시작 이벤트 핸들러(서버 전용).
-        /// 애니메이션 상태만 Attack(=힐 클립)으로 레벨 동기화하여 클라이언트가 힐 모션을 재생하게 한다.
+        /// 힐 전용 회차·시각·active snapshot을 복제한다. 일반 Attack scalar 정책은 유지한다.
         /// 데미지/타겟 RPC는 전송하지 않는다(힐러는 적 공격 흐름과 분리 — 규칙 28 확장).
         /// 회복 자체는 서버 TickTimedEffects가 처리하고 HP는 NetworkHealthSync가 동기화한다.
         /// </summary>
         /// <param name="unitId">힐 시전을 시작한 힐러 유닛의 Id.</param>
-        private void OnUnitHealCastStartedHandler(int unitId)
+        private void OnUnitHealCastStartedHandler(UnitHealCastPresentation state)
         {
-            SetUnitAnimState(unitId, UnitAnimState.Attack);
+            if (!IsSpawned || !IsServer || _combatStopped || _services == null) return;
+            GameObject obj = _services.GetUnitFactory()?.GetUnitObject(state.UnitId);
+            if (obj == null) return;
+            UnitView view = obj.GetComponent<UnitView>();
+            if (view == null || view.Data == null || !view.Data.IsHealer
+                || view.HealPresentation.Lifetime != state.Lifetime) return;
+            state.Priority = _frozenAnimationUnits.Contains(state.UnitId) ? (byte)3
+                : _heldMovementUnits.Contains(state.UnitId) ? (byte)4 : (byte)1;
+            obj.GetComponent<NetworkUnit>()?.PublishHealCast(state);
         }
 
         /// <summary>
@@ -806,7 +2532,32 @@ namespace Hexiege.Infrastructure
         /// <param name="e">(유닛 Id, 빙결 여부).</param>
         private void OnUnitFreezeChangedHandler(UnitFreezeChangedEvent e)
         {
-            SetUnitAnimState(e.UnitId, e.Frozen ? UnitAnimState.Frozen : UnitAnimState.Walk);
+            if (e.Frozen)
+                _frozenAnimationUnits.Add(e.UnitId);
+            else
+                _frozenAnimationUnits.Remove(e.UnitId);
+
+            ApplyMovementAnimationState(e.UnitId);
+        }
+
+        private void OnUnitMovementHeldChangedHandler(UnitMovementHeldChangedEvent e)
+        {
+            if (e.Held)
+                _heldMovementUnits.Add(e.UnitId);
+            else
+                _heldMovementUnits.Remove(e.UnitId);
+
+            ApplyMovementAnimationState(e.UnitId);
+        }
+
+        private void ApplyMovementAnimationState(int unitId)
+        {
+            UnitAnimState state = _frozenAnimationUnits.Contains(unitId)
+                ? UnitAnimState.Frozen
+                : _heldMovementUnits.Contains(unitId)
+                    ? UnitAnimState.Held
+                    : UnitAnimState.Walk;
+            SetUnitAnimState(unitId, state);
         }
 
         /// <summary>
@@ -843,6 +2594,10 @@ namespace Hexiege.Infrastructure
         private void OnGameEndHandler(GameEndEvent e)
         {
             _combatStopped = true;
+            _services?.GetCombatUseCase()?.CloseTorrentLaunches("game-end");
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitMovementAuthorityObserver.MarkGameplayEnded();
+#endif
 
             // 이미 예약된 데미지 지연 코루틴 정리(위 요약 참조).
             StopAllCoroutines();
@@ -893,29 +2648,27 @@ namespace Hexiege.Infrastructure
             NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
             if (networkUnit != null)
                 networkUnit.SetAnimState(state);
+
+            // NetworkUnit의 상태 콜백은 순수 클라이언트 전용이다. 호스트는 정렬 대기 동안
+            // 이동 코루틴이 멈췄는데 Walk가 계속 재생되는 제자리걸음을 막기 위해 Held만
+            // 로컬 UnitView에 직접 적용한다. Attack은 StartCombatClientRpc가 같은 커밋 경계에서,
+            // Walk는 기존 이동 코루틴이 각각 담당하므로 여기서 중복 재생하지 않는다.
+            if (state == UnitAnimState.Held)
+                unitObj.GetComponent<UnitView>()?.HoldMovementAnimation();
         }
 
         /// <summary>
         /// MoveAlongPath에서 적을 처음 감지했을 때 호출.
-        /// TickCombat 인터벌(최대 50ms)을 기다리지 않고 즉시 StartCombatClientRpc 전송.
+        /// TickCombat 인터벌(최대 50ms)을 기다리지 않고 타겟 후보와 Held 상태를 등록한다.
         ///
-        /// ※ 가드 조건: _combatAnimationSent로 판단 (_unitCombatTargets 미사용).
-        ///   이유: TickCombat(Update)이 코루틴(MoveAlongPath)보다 먼저 실행될 경우,
-        ///   같은 프레임에 TickCombat이 _unitCombatTargets를 먼저 등록하여
-        ///   ContainsKey 가드가 true를 반환 → RPC 미전송 버그 발생.
-        ///   → RPC 전송 여부를 _combatAnimationSent로 분리하여 이 경쟁 조건을 해소.
-        ///
-        /// ※ ExecuteAttack 동시 호출 (쿨다운=0인 경우):
-        ///   StartCombatClientRpc와 함께 바로 ExecuteAttack을 실행하면
-        ///   서버 공격 사이클이 T=0에서 시작 → 애니메이션 루프(T=0)와 동기화.
-        ///   그렇지 않으면 다음 TickCombat(T≈50ms)에서 ExecuteAttack이 처음 실행되어
-        ///   서버 사이클이 T=0.05에서 시작 → 쿨다운 만료 T=3.05 ≠ 애니메이션 루프 경계 T=3.0.
+        /// 실제 Attack 상태, StartCombatClientRpc와 ExecuteAttack은 서버 pose가 정지했고
+        /// 타겟 방향 5도 안에 들어온 TickCombat의 단일 경계에서만 시작한다.
         /// </summary>
-        private void OnUnitEnteredCombatHandler(int unitId)
+        private void OnUnitEnteredCombatHandler(UnitEnteredCombatEvent e)
         {
             // 이 오브젝트가 아직 네트워크에 살아 있고 서버일 때만 진행한다.
-            //   이 핸들러는 아래에서 StartCombatClientRpc 를 두 자리에서 전송하고 ExecuteAttack 도 실행한다.
-            //   이유는 Update() 진입부 가드와 같다 — Update() 위의 상세 주석 참조.
+            //   이 핸들러도 ChangeTargetClientRpc와 NetworkVariable을 쓸 수 있으므로
+            //   Update() 진입부와 같은 spawn/server 생명주기 가드를 사용한다.
             //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
             //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이이며 실기 로그 실측 27ms 다.)
             //
@@ -928,58 +2681,55 @@ namespace Hexiege.Infrastructure
             if (_services == null) return;
 
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
-            UnitCombatUseCase combat = _services.GetCombatUseCase();
-            if (unitSpawn == null || combat == null) return;
+            if (unitSpawn == null) return;
 
+            int unitId = e.UnitId;
             if (!unitSpawn.Units.TryGetValue(unitId, out UnitData unit)) return;
             if (!unit.IsAlive) return;
 
-            // StartCombatClientRpc를 이미 전송한 유닛이면 중복 전송 방지.
-            // _unitCombatTargets 대신 _combatAnimationSent를 사용하는 이유:
-            //   TickCombat(Update)과 코루틴(MoveAlongPath) 실행 순서 경쟁 조건 방지.
-            if (_combatAnimationSent.Contains(unitId)) return;
+            int targetId = e.TargetId;
+            bool targetIsUnit = e.TargetIsUnit;
 
-            // 타겟 탐색 — 쿨다운과 무관하게 사거리 내 첫 타겟 탐색
-            // TryFindTarget은 쿨다운 체크 포함이므로 쿨다운 중이어도 FindNearestEnemy로 확인
-            var attackResult = combat.TryFindTarget(unit);
-            if (!attackResult.HasValue)
+            // 이 이벤트는 이동 후보 위치에서 이미 확정된 타겟을 운반한다. 현재 Root는 아직
+            // 그 후보 위치로 이동하기 전일 수 있으므로, 여기서 사거리 기반 탐색을 다시 하면
+            // 근거리 유닛의 타겟이 사라지고 ACK가 반환되지 않는 순환 교착이 생긴다.
+            // 전달된 엔티티의 존재와 생존만 확인하고, 무효하면 다른 대상으로 대체하지 않는다.
+            // ACK 없이 반환하면 이동 commit이 보류되고 다음 정상 Tick이 새 타겟을 획득한다.
+            if (targetIsUnit)
             {
-                // TryFindTarget이 null인 경우: 쿨다운 중이거나 적이 없음.
-                // FindNearestEnemy로 쿨다운 없이 재탐색하여 실제 적 존재 여부와 타겟 ID 확인.
-                var nearestResult = combat.FindNearestEnemy(unit);
-                if (!nearestResult.HasValue) return; // 실제로 적이 없으면 종료
-
-                // 쿨다운 중이지만 적은 있음 → 즉시 StartCombatClientRpc 전송.
-                // 규칙 1: 적 감지 즉시 클라이언트에 알려야 하며, 쿨다운은 데미지 타이밍과 무관.
-                _unitCombatTargets[unitId] = (nearestResult.Value.id, nearestResult.Value.isUnit);
-                _combatAnimationSent.Add(unitId);
-                // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
-                SetUnitAnimState(unitId, UnitAnimState.Attack);
-                // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
-                // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨
-                //   (UnitView.StartCombatAnimation의 CrossFade는 클라이언트에서 스킵되도록 분기됨).
-                StartCombatClientRpc(unitId, nearestResult.Value.id, nearestResult.Value.isUnit);
-                return;
+                if (!unitSpawn.Units.TryGetValue(targetId, out UnitData targetUnit)
+                    || targetUnit == null
+                    || !targetUnit.IsAlive)
+                    return;
+            }
+            else
+            {
+                BuildingPlacementUseCase buildingPlacement =
+                    _services.GetBuildingPlacement();
+                if (buildingPlacement == null
+                    || !buildingPlacement.Buildings.TryGetValue(
+                        targetId, out BuildingData targetBuilding)
+                    || targetBuilding == null
+                    || !targetBuilding.IsAlive)
+                    return;
             }
 
-            int targetId = attackResult.Value.id;
-            bool targetIsUnit = attackResult.Value.isUnit;
-
-            // 전투 상태 등록 + StartCombatClientRpc 즉시 전송
+            // 사거리 진입 이벤트는 타겟 후보 등록과 서버 Action 회전 시작만 의미한다.
+            // 공격 표현·쿨다운·피해 예약은 TickCombat의 정지+5도 게이트가 같은 경계에서 시작한다.
+            bool targetChanged = !_unitCombatTargets.TryGetValue(unitId, out var current)
+                || current.targetId != targetId
+                || current.isUnit != targetIsUnit;
             _unitCombatTargets[unitId] = (targetId, targetIsUnit);
-            _combatAnimationSent.Add(unitId);
-            // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
-            SetUnitAnimState(unitId, UnitAnimState.Attack);
-            // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
-            // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨.
-            StartCombatClientRpc(unitId, targetId, targetIsUnit);
-
-            // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
-            // TickCombat에서 처음 실행되면 T≈50ms 오프셋이 생겨 쿨다운 만료 타이밍이
-            // 애니메이션 루프 경계와 어긋남 → 타겟 소멸 후 애니메이션이 루프 직후 도중에 전환되는 현상.
-            //
-            // [축 2] 이 경로는 적 감지 즉시(T=0) 실행되므로 격자 오버슈트가 없다 → overshoot=0f.
-            ExecuteAttack(unit, targetId, targetIsUnit, 0f);
+            if (targetChanged)
+            {
+                ResetAttackAlignmentSample(unitId);
+            }
+            // 전투 진입의 provisional Start가 Host target 적용과 원격 target 전달을
+            // 한 payload로 수행한다. 여기서 ChangeTarget을 먼저 공개하지 않는다.
+            BeginProvisionalAttackPresentation(
+                unitId, targetId, targetIsUnit,
+                requireAtomicHandoff: true);
+            ObserveAttackShadowIntent(unit, targetId, targetIsUnit);
         }
 
         /// <summary>
@@ -1005,6 +2755,7 @@ namespace Hexiege.Infrastructure
             if (e.Unit == null) return;
 
             int unitId = e.Unit.Id;
+            _committedAttackPhases.Remove(unitId);
 
             // 사망한 유닛의 전투 상태를 Dictionary에서 제거.
             // StopCombatClientRpc는 전송하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
@@ -1013,6 +2764,40 @@ namespace Hexiege.Infrastructure
             //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
             _unitCombatTargets.Remove(unitId);
             _combatAnimationSent.Remove(unitId);
+            _attackPresentationRestartPending.Remove(unitId);
+            _attackPresentationRevisions.Remove(unitId);
+            RemovePresentationEpoch(unitId, "attacker-death");
+            _completedAttackEntryReceipts.Remove(unitId);
+            ResetAttackAlignmentSample(unitId);
+            _frozenAnimationUnits.Remove(unitId);
+            _heldMovementUnits.Remove(unitId);
+            // 죽은 공격자의 adapter와 새 회차 발급 상태만 정리한다.
+            //
+            // 이미 예약된 A2 observation은 여기서 지우면 안 된다. 피해 지연 코루틴은
+            // 이 NetworkCombatController가 소유하므로 공격자 GameObject가 사라져도 계속 실행된다.
+            // observation을 먼저 지우면 코루틴의 TryDispatchPoseObservation은 조용히 끝나지만
+            // 바로 뒤 A0 Legacy dispatch는 기록되어 같은 공격 회차의 schedule/dispatch 쌍이 깨진다.
+            //
+            // pending observation은 먼저 reducer를 Dead terminal로 바꾸고, 코루틴이
+            // reason=attacker-dead dispatch를 기록한 뒤 finally에서 제거한다. GameObject가
+            // 프레임 끝까지 남아 유효한 pose가 읽혀도 Advance/Evaluate는 실행하지 않는다.
+            // 실제 Legacy 피해는 기존 ApplyAttackDamage의 attacker.IsAlive 가드가 그대로 차단한다.
+            if (_shadowAttackerInstances.TryGetValue(e.Unit, out AttackerInstanceId deadAttackerInstanceId))
+            {
+                if (AttackShadowCoordinatorEnabled)
+                {
+                    UnitActionSnapshot deadSnapshot = _attackShadowCoordinator.MarkDead(
+                        deadAttackerInstanceId);
+                    PublishAttackShadowSnapshot(unitId, deadSnapshot);
+                }
+                else
+                {
+                    MarkPoseObservationsDead(deadAttackerInstanceId);
+                }
+                _shadowAttackSequences.Forget(deadAttackerInstanceId);
+                _shadowAttackerInstances.Remove(e.Unit);
+            }
+            _poseAdapters.Remove(unitId);
 
             // [개발] 유닛이 죽을 때마다 찍히는 고빈도 로그(LogRules 1.14 금지 8).
             //   Dev 라서 릴리스에서는 호출과 문자열 보간까지 통째로 사라진다(1.7).
@@ -1057,6 +2842,13 @@ namespace Hexiege.Infrastructure
                     // (이미 다른 경로로 Despawn된 경우 중복 호출 시 NGO가 경고를 출력하므로 가드)
                     if (netObj != null && netObj.IsSpawned)
                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        // Retire B2 diagnostic state before NGO changes IsSpawned or recycles
+                        // NetworkObjectId. This is read-only observer lifecycle bookkeeping.
+                        UnitMovementShadowObserver.RetireUnit(
+                            unitId,
+                            netObj.NetworkObjectId);
+#endif
                         netObj.Despawn(destroy: true);
                     }
                 }
@@ -1140,6 +2932,253 @@ namespace Hexiege.Infrastructure
         // 전투 상태 ClientRpc — 서버 → 모든 클라이언트
         // ====================================================================
 
+        private UnitView GetUnitView(int unitId)
+        {
+            if (_services == null) return null;
+            IUnitFactory unitFactory = _services.GetUnitFactory();
+            GameObject unitObject = unitFactory != null
+                ? unitFactory.GetUnitObject(unitId)
+                : null;
+            return unitObject != null ? unitObject.GetComponent<UnitView>() : null;
+        }
+
+        /// <summary>
+        /// Host의 로컬 표현을 먼저 확정한다. 전용 서버는 표시 화면이 없으므로 로컬 적용
+        /// 없이 성공으로 간주하고 원격 Client 전송만 수행한다.
+        /// </summary>
+        private bool TryApplyHostCombatPresentation(
+            int unitId,
+            int targetId,
+            bool targetIsUnit,
+            bool restartAttackCycle,
+            ulong presentationRevision,
+            AttackPresentationImpactMode impactMode,
+            AttackPresentationScope presentationScope)
+        {
+            UnitView unitView = GetUnitView(unitId);
+            if (unitView == null || !unitView.IsServerCombatActionReady())
+                return false;
+            if (!IsHost) return true;
+            return unitView.TryApplyHostCombatPresentation(
+                    targetId,
+                    targetIsUnit,
+                    restartAttackCycle,
+                    presentationRevision,
+                    impactMode,
+                    presentationScope);
+        }
+
+        private bool TryPublishCombatTargetChange(
+            int unitId,
+            int targetId,
+            bool targetIsUnit)
+        {
+            UnitView serverView = GetUnitView(unitId);
+            bool serverActionReady = serverView != null
+                && serverView.IsServerCombatActionReady();
+            CombatTargetPublicationDecision publication =
+                UnitAttackPresentationPolicy.ResolveTargetPublication(
+                    serverActionReady,
+                    provisionalStartCarriesTarget: false);
+            if (publication == CombatTargetPublicationDecision.StageCandidateOnly)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveDeferredCombatTargetChange(
+                    unitId,
+                    "action-not-ready");
+#endif
+                return false;
+            }
+
+            bool serverTargetApplied = serverView.TryApplyServerCombatTarget(
+                targetId,
+                targetIsUnit);
+            if (!serverTargetApplied)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                    unitId,
+                    "target-change");
+#endif
+                return false;
+            }
+            ChangeTargetClientRpc(unitId, targetId, targetIsUnit);
+            if (_completedAttackEntryReceipts.TryGetValue(
+                    unitId, out CompletedAttackEntryReceipt receipt))
+            {
+                receipt.TargetId = targetId;
+                receipt.TargetIsUnit = targetIsUnit;
+            }
+            return true;
+        }
+
+        private void PublishAttackImpactSuppression(int unitId)
+        {
+            if (IsHost)
+                GetUnitView(unitId)?.SuppressPendingAttackImpactPresentation();
+            SuppressAttackImpactClientRpc(unitId);
+        }
+
+        private ulong NextAttackPresentationRevision(int unitId)
+        {
+            _attackPresentationRevisions.TryGetValue(unitId, out ulong current);
+            if (current == ulong.MaxValue)
+                throw new System.InvalidOperationException(
+                    $"Attack presentation revision exhausted for unit {unitId}.");
+            ulong next = current + 1UL;
+            _attackPresentationRevisions[unitId] = next;
+            return next;
+        }
+
+        /// <summary>
+        /// 최초 AlignToAttack에서 기존 Attack 클립을 선행 표현으로 시작한다.
+        /// impact=false가 같은 RPC payload에 들어가므로 Animation Event suppression이
+        /// 애니메이션 시작보다 늦게 도착하는 창이 없다. 이 메서드는 표현만 열며 서버
+        /// cooldown, Legacy 피해 예약, Shadow sequence는 5도 gate가 통과할 때까지 건드리지 않는다.
+        /// </summary>
+        private void BeginProvisionalAttackPresentation(
+            int unitId,
+            int targetId,
+            bool targetIsUnit,
+            bool requireAtomicHandoff)
+        {
+            UnitView serverView = GetUnitView(unitId);
+            if (serverView == null || !serverView.IsServerCombatActionReady())
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (requireAtomicHandoff)
+                    UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                        unitId,
+                        "provisional-not-ready");
+                else
+                    UnitMovementAuthorityObserver.ObserveDeferredCombatTargetChange(
+                        unitId,
+                        "provisional-action-not-ready");
+#endif
+                return;
+            }
+
+            bool presentationMarkedActive = _combatAnimationSent.Contains(unitId)
+                || _attackPresentationRestartPending.Contains(unitId);
+            bool receiptMatches = _completedAttackEntryReceipts.TryGetValue(
+                    unitId, out CompletedAttackEntryReceipt receipt)
+                && receipt.TargetId == targetId
+                && receipt.TargetIsUnit == targetIsUnit
+                && receipt.PresentationRevision != 0UL;
+            bool hostMatches = receiptMatches
+                && (!IsHost || serverView.IsServerCombatPresentationSatisfied(
+                    targetId, targetIsUnit, receipt.PresentationRevision));
+            AttackEntryHandoffDisposition disposition =
+                AttackEntryHandoffPolicy.Classify(
+                    presentationMarkedActive,
+                    receiptMatches,
+                    hostMatches);
+            if (disposition == AttackEntryHandoffDisposition.AcknowledgeSatisfied)
+            {
+                if (!serverView.ConfirmServerAttackEntryHandoff(
+                        receipt.PresentationRevision))
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                        unitId,
+                        "provisional-idempotent-ack");
+#endif
+                }
+                return;
+            }
+            if (disposition == AttackEntryHandoffDisposition.DeferConflict)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (requireAtomicHandoff)
+                    UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                        unitId,
+                        "provisional-conflict");
+                else
+                    UnitMovementAuthorityObserver.ObserveDeferredCombatTargetChange(
+                        unitId,
+                        "provisional-conflict");
+#endif
+                return;
+            }
+
+            ulong presentationRevision = NextAttackPresentationRevision(unitId);
+            var nativeOwner = serverView.GetComponent<NetworkUnit>();
+            bool nativeQualified = nativeOwner != null && serverView.CanUseNativeAttackPhase(serverView.UnitData);
+            bool createdEpoch = false;
+            bool nativeApplied = false;
+            if (nativeQualified)
+            {
+                if (nativeOwner.TryGetLiveNativeAttackEpoch(out double continuousEpoch))
+                    _attackPresentationEpochServerTimes[unitId] = continuousEpoch;
+                else
+                {
+                    RemovePresentationEpoch(unitId, "native-reentry");
+                    _attackPresentationEpochServerTimes[unitId] = GetAuthoritativeServerTime();
+                    createdEpoch = true;
+                }
+                nativeApplied = TryPublishAttackPhase(serverView.UnitData, targetId, targetIsUnit,
+                    presentationRevision, AttackPresentationImpactMode.Suppressed, default, out _);
+                if (!nativeApplied && createdEpoch) RemovePresentationEpoch(unitId, "native-entry-not-applied");
+            }
+            // OLD native order: Host Start before E; retained only on prequalified Legacy.
+            if (nativeQualified ? !nativeApplied : !TryApplyHostCombatPresentation(
+                    unitId,
+                    targetId,
+                    targetIsUnit,
+                    restartAttackCycle: false,
+                    presentationRevision: presentationRevision,
+                    impactMode: AttackPresentationImpactMode.Suppressed,
+                    presentationScope: default))
+            {
+                // TickCombat이 이동 코루틴보다 먼저 실행된 프레임은 정상적인 defer다.
+                // pending/epoch/animState를 선점하지 않아, BeginServerActionRotation 직후의
+                // OnUnitEnteredCombatHandler가 같은 전투 진입을 완성할 수 있게 한다.
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (requireAtomicHandoff)
+                    UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                        unitId,
+                        "provisional-apply");
+#endif
+                return;
+            }
+
+            _attackPresentationRestartPending.Add(unitId);
+            if (!_attackPresentationEpochServerTimes.ContainsKey(unitId))
+                _attackPresentationEpochServerTimes[unitId] = GetAuthoritativeServerTime();
+            ObservePresentationEpoch(unitId, "provisional-success", createdEpoch ? "create" : "keep",
+                _attackPresentationEpochServerTimes[unitId]);
+            SetUnitAnimState(unitId, UnitAnimState.Attack);
+            if (!nativeQualified) StartCombatClientRpc(
+                unitId,
+                targetId,
+                targetIsUnit,
+                restartAttackCycle: false,
+                presentationRevision: presentationRevision,
+                impactMode: AttackPresentationImpactMode.Suppressed,
+                attackerInstanceId: 0UL,
+                attackSequenceId: 0UL,
+                firstHitIndex: -1);
+
+            // Subject 발행원(UnitView)의 이동 commit callback은 이 ACK가 돌아와야만 마지막
+            // Chase 위치와 NoIntent를 커밋한다. 여기까지 왔으면 Host 로컬 적용과 원격
+            // target-in-Start RPC enqueue가 모두 끝났으므로 Root 정지가 먼저 보일 창이 없다.
+            if (!serverView.ConfirmServerAttackEntryHandoff(presentationRevision))
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                    unitId,
+                    "provisional-ack");
+#endif
+                return;
+            }
+            _completedAttackEntryReceipts[unitId] = new CompletedAttackEntryReceipt
+            {
+                TargetId = targetId,
+                TargetIsUnit = targetIsUnit,
+                PresentationRevision = presentationRevision
+            };
+        }
+
         /// <summary>
         /// 유닛이 전투 상태에 진입. 클라이언트에서 Attack 루프 시작 + 타겟 방향 회전.
         /// TickCombat에서 유닛이 처음 타겟을 발견했을 때 전송.
@@ -1151,17 +3190,77 @@ namespace Hexiege.Infrastructure
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
-        [ClientRpc]
-        private void StartCombatClientRpc(int unitId, int targetId, bool targetIsUnit)
+        private bool TryPublishAttackPhase(UnitData unit, int targetId, bool targetIsUnit,
+            ulong revision, AttackPresentationImpactMode mode, AttackPresentationScope scope, out bool qualified)
         {
-            // 주의: IsServer 분기를 추가하지 않는다.
-            // 서버(Host)도 이 RPC를 수신하여 동일한 애니메이션 처리가 필요하기 때문.
+            qualified = false;
+            if (unit == null || unit.IsHealer || mode == AttackPresentationImpactMode.LegacyFallback
+                || !_attackPresentationEpochServerTimes.TryGetValue(unit.Id, out double epoch)) return false;
+            var owner = _services.GetUnitFactory()?.GetUnitObject(unit.Id);
+            var network = owner != null ? owner.GetComponent<NetworkUnit>() : null;
+            var view = owner != null ? owner.GetComponent<UnitView>() : null;
+            // Decide transport eligibility before replacing StartCombatClientRpc.
+            // A queued payload is not evidence of View application success.
+            if (network == null || view == null || !view.CanUseNativeAttackPhase(unit)) return false;
+            qualified = true;
+            UnitAttackPhasePresentation value;
+            if (mode == AttackPresentationImpactMode.Scoped)
+            {
+                if (!_committedAttackPhases.TryGetValue(unit.Id, out value) || !value.Scope.Equals(scope)) return false;
+            }
+            else value = new UnitAttackPhasePresentation { UnitId = unit.Id, Active = true,
+                EpochServerTime = epoch, EpochId = unchecked((ulong)System.BitConverter.DoubleToInt64Bits(epoch)),
+                Duration = unit.AttackCooldown };
+            value.TargetId = targetId; value.TargetIsUnit = targetIsUnit;
+            value.PresentationRevision = revision; value.Mode = mode;
+            return network.PublishAttackPhase(value);
+        }
+
+        [ClientRpc]
+        private void StartCombatClientRpc(
+            int unitId,
+            int targetId,
+            bool targetIsUnit,
+            bool restartAttackCycle,
+            ulong presentationRevision,
+            AttackPresentationImpactMode impactMode,
+            ulong attackerInstanceId,
+            ulong attackSequenceId,
+            int firstHitIndex)
+        {
+            // Host 표현은 RPC 전송 전에 서버 로컬에서 원자적으로 적용했다. Host가 이
+            // 이벤트를 다시 소비하면 늦은 duplicate가 소유권/수명을 흔들 수 있으므로
+            // 이 RPC는 순수 원격 Client에만 전달한다.
+            if (IsServer) return;
             //
             // 이벤트 발행만 수행. UnitView가 OnNetworkCombatStarted를 구독해 자기 Id에 해당하면
             // StartCombatAnimation을 호출한다. 유닛 생성 직후 RPC가 도착해 UnitView가 아직 구독하지
             // 못한 경우라도, UnitView 측에서 OnEnable/OnNetworkSpawn 시점에 늦게 구독을 등록한 뒤
             // 다음 이벤트부터 처리한다(첫 Combat 이벤트는 다음 TickCombat에서 다시 발행됨).
-            GameEvents.OnNetworkCombatStarted.OnNext(new NetworkCombatStartedEvent(unitId, targetId, targetIsUnit));
+            GameEvents.OnNetworkCombatStarted.OnNext(
+                new NetworkCombatStartedEvent(
+                    unitId,
+                    targetId,
+                    targetIsUnit,
+                    restartAttackCycle,
+                    presentationRevision,
+                    impactMode,
+                    impactMode == AttackPresentationImpactMode.Scoped
+                        ? new AttackPresentationScope(
+                            new AttackerInstanceId(attackerInstanceId),
+                            new AttackSequenceId(attackSequenceId),
+                            firstHitIndex)
+                        : default));
+        }
+
+        /// <summary>
+        /// Attack 모션은 유지한 채 아직 커밋되지 않은 회차의 Animation Event 연출만 차단한다.
+        /// </summary>
+        [ClientRpc]
+        private void SuppressAttackImpactClientRpc(int unitId)
+        {
+            if (IsServer) return;
+            GameEvents.OnNetworkCombatImpactSuppressed.OnNext(unitId);
         }
 
         /// <summary>
@@ -1174,6 +3273,7 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void ChangeTargetClientRpc(int unitId, int newTargetId, bool newTargetIsUnit)
         {
+            if (IsServer) return;
             GameEvents.OnNetworkCombatTargetChanged.OnNext(
                 new NetworkCombatTargetChangedEvent(unitId, newTargetId, newTargetIsUnit));
         }
@@ -1187,6 +3287,7 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StopCombatClientRpc(int unitId)
         {
+            if (IsServer) return;
             GameEvents.OnNetworkCombatStopped.OnNext(new NetworkCombatStoppedEvent(unitId));
         }
 

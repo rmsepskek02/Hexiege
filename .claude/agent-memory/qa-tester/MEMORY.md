@@ -1,5 +1,110 @@
 # QA Tester Memory — Hexiege
 
+## Assault retry/receipt-phase evidence boundary (2026-10-11)
+
+- **2026-10-11 19_07 superseding saved-match boundary (Main/programmer handoff):** New Editor Host/Android Client matches show Coordinator/C2 zero failures and normal retry initialization, but both overall ENDs FAIL through invalid LegacyObservation attacker=-1/default-key admission into the Shadow diagnostic aggregate. Separate ResultPresentation EVIDENCE does not override overall FAIL or prove gameplay HP/text/VFX malfunction; exact per-tick originating unit/lookup failure remains unknown, not proven Inferno. Diagnostic scope/aggregation review is proposal-only OPEN. Prior00_46 had opposite roles, so new expiry/D0 cannot reproduce or prove resolution of the original Editor Client63 expiries; second Client suppressedNormal63 is not Expired63. No actual dead-abort/timeout retry case reproduced; local ROOT is not formal CrossAudit, counts are not exact payload/HP equality. Detailed evidence: `Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md`, “2026-10-11 19_07”. Preserve earlier history; no new implementation/build/Task/TC.
+
+- Main/programmer final static4 errors0 and CLR3 PASS include actual retry18 scenarios; this is received evidence, not a new QA/native/gameplay run. Native callbacks/NGO PlayerLoop/fresh UnitAction/ROOT/multiplayer HP/build NOT RUN; original63 cause/fix OPEN. Reusable gates: [patterns.md](patterns.md#bounded-clock-history-evidence-gates). Exact results/hashes remain in existing Assault10_55 Research; no new Task/TC/validator.
+
+## Common recovery analysis pointer (2026-10-02)
+
+- **2026-10-03 latest user test:**415 exactwave/VFX and MOVE failure0/Blocked0 support this-match movement/launch subset; prior366.5s trigger did not recur, no universalfix proof. Server/client contact320 but text320/319 exact missing wave1/impact2/unit4;32.959ms clock regression, HPdamage200/300 preserved. Separate clock/textOPEN, overallOPEN/UnresolvedLegacy; localROOTPASS not formalCrossAudit. Evidence/warning categories:23_45 Research/Plan §9. No new QA/TC/validator/code.
+
+- **2026-10-03 integration follow-up:** Shared recovery/Torrent approved launch correction is implemented; static4 errors0 and changed Unity Unit Action00:19:46/Root Pose00:20:28 menus PASS. Console errors0/compile warnings20/post-validation total25; attempted Build And Run reached JDK preflight only, not completion. Runtime fix/other-type equivalence remains OPEN; no new QA/TC/validator. Full boundaries/inventory:23_45 Research/Plan; prior diagnosis-only notes below are history.
+
+- Latest common recovery17_05 analysis:62 complete dumps/incomplete0 is recorder output completeness, not full causal coverage or fix PASS. Torrent24 resumed after ~366.5s;499 stationary-position samples are a separate population from spatial records.61 corridor episodes recovered; non-Torrent identical failure is not runtime-proven. Source/limits: `Assets/_Project/Docs/_Tasks/2026-10-02/15_25_common-post-combat-recovery-diagnosis/{Research,Plan}.md`. No new QA execution or TC.
+
+## 2026-09-30 LionKnight Client C3 Expired boundary
+
+- Shared Android Host/Editor Client match `a2d9c80e…c622225` covered LionKnight and LittleKnight only (2/25). Host C2 224 results/0 failures and C3 ready 224/0, required visuals 199/199. Client C2 224 accepted/0 rejected, but C3 had 7 Expired, ready/released 217/224, required visuals 192/192 within the ready subset. Both local ROOT summaries PASS; no formal CrossAudit Analyze result follows from that.
+- The first Expired attacker instance maps to LionKnight unitId 2. Do not label all remaining six failures LionKnight without per-instance identity proof. User reported no major visual problem alongside severe lag; neither FPS nor frame time was logged, so lag cause and causal link to expiration are unknown. Verdict for the focused LionKnight task is FAIL/OPEN until expiry resolution and retest; marker-to-damage exactness and full 25-type migration remain unverified. Source: `Assets/_Project/Docs/_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/{Research,Plan}.md`.
+
+## 2026-09-30 BearGuard 0:13 focused PASS; first-match ROOT boundary
+
+- Do not merge the first `cc278c50…b461819` match with retest `b986fbbc…61d7d94b`. The first Host/Client ROOT runs ended INCOMPLETE at 00:18:45/48 before the first LittleKnight/BearGuard appeared. It is not a BearGuard failure or a local ROOT PASS.
+- Retest Editor Host/Android Client produced BearGuard 11 and LittleKnight 49 (2/25). Match-wide Host results 641/0 failures match Client 641 accepted/0 rejected; both peers emitted 608/608 required visuals with zero failures and spatial mismatches. Host MOVE adapter/gate/stationary-Walk failures 0, recoverable repaths 5 with repeated/fatal 0; Client attack-entry gaps/order 0. Both local ROOT summaries PASS, coveragePassed=True, errors/logDrop 0, tracked units 60, stable endpoints and rotation evidence 58 each.
+- User visual acceptance makes only BearGuard's corrected 0:13 timing focused PASS/CLOSED. No BearGuard-only marker-to-damage delta or formal CrossAudit Analyze was obtained; the previous LittleKnight four Host MOVE adapter failures remain OPEN despite nonrecurrence. Design `1:20` cycle vs `1.2s` runtime cooldown, 25-type/role-swap/rollback/v2 completion also remain OPEN. Evidence: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
+## 2026-09-29 BoulderSpirit 1:10 focused log boundary (new session)
+
+- Android Host PID 8899 / Editor Client shared session `0f0bbb32…923eb60` followed the 30fps 1:10 (40/30s) marker/config change. Host produced 7 BoulderSpirit; coverage was BoulderSpirit + LittleKnight only (2/25). Match-wide Host 283 results/0 failures and 168 commits match Client 283 accepted/0 rejected; both peers emitted 265/265 required presentations with 0 spatial mismatches. Host MOVE adapter/core failures 0 and both local ROOT summaries PASS. Device PID 8899 Unity E/F and Editor 18:xx ERROR/FATAL/Exception were 0.
+- These totals do not measure BoulderSpirit-only marker-to-impact delta or visual timing; user visual acceptance of 1:10 is still absent. LittleKnight's earlier four Host MOVE adapter failures did not recur in this match, but cause/fix are unproven and remain OPEN. Stream/Fox timeline INCONCLUSIVE arose from zero production and is irrelevant here. Do not claim build completion, formal cross-audit, full-roster, role-swap, or rollback PASS.
+- **[2026-09-29 status update — original observation kept above:]** The user subsequently said the BoulderSpirit 1:10 strike looked fine on screen (“육안상 문제없었어”). Mark only the focused attack-timing task PASS/CLOSED. The match-wide 283 results and 265/265 presentations still do not establish Boulder-only marker-to-damage offset; the earlier LittleKnight MOVE failure, formal cross-audit, 25-type role-swap, and rollback remain OPEN. Source: user's post-log visual acceptance and BoulderSpirit Task Research/Plan.
+- **[2026-09-29 correction — original kept below:]** The prior section's “Current production marker/config is 1.50s” describes the earlier `06d034ab…e1a6c4` test, not the current 1:10 saved value; its visual acceptance remains historical only. Sources: `Assets/_Project/Docs/_Logs/2026-09-29/18_13_logcat/RuntimeLog_device.txt`, `Assets/_Project/Docs/_Logs/_editor/2026-09-29/RuntimeLog.txt`, BoulderSpirit Task Research/Plan.
+
+## 2026-09-29 BoulderSpirit focused visual acceptance; separate LittleKnight MOVE failure
+
+- Editor Host/Android Client shared session `06d034ab…e1a6c4`: BoulderSpirit production and Host Ready/accepted shadow commit are observed; user finds the hit slightly late but acceptable. Current production marker/config is 1.50s at 30fps with a 4s cycle.
+- Match-wide BoulderSpirit+LittleKnight attack totals are Host 453 results/0 failures, Client 453 accepted/0 rejected, and 414/414 required presentation on both peers; both local ROOT summaries PASS/errors 0. These totals do not measure BoulderSpirit-only cycles or exact 1.50s/subframe contact.
+- The same Host MOVE-AUTH terminal is FAIL with four adapter failures on LittleKnight UnitIds 16/19/21/26: `post-combat-no-safe-forward-center`, `RejectedInvalidPath/Unreachable`, `(5,15)→(6,15)`. Keep it separate from Boulder attack evidence and require diagnosis plus a new movement gate. No FPS/frame-time measurement links this failure to perceived lateness. Do not claim full-match PASS, formal cross-audit, 25-unit role-swap/rollback, or v2 completion.
+- Sources: `Assets/_Project/Docs/_Logs/_editor/2026-09-29/RuntimeLog.txt`, `Assets/_Project/Docs/_Logs/2026-09-29/12_47_logcat/RuntimeLog_device.txt`, BoulderSpirit 2026-09-29 Task Research/Plan.
+
+## 2026-09-22 InfernoSpirit focused verdict: PASS / CLOSED
+
+- Compare the corrected same-session pair `dc055118…46c8f`: Editor Host terminal raw 65/started 64/source-only 0/gate-suppressed 1/playback failure 0; Android Client raw 64/started 64/source-only 11/gate-suppressed 0/playback failure 0.
+- The Host-only extra event belongs to newly produced unit 29: AttackStart was provisional, the production gate reported Misaligned at 98.363°, and the marker was correctly suppressed before commit. It is not a lost committed VFX.
+- Actual started VFX counts and per-unit distribution match 64/64. Client's 11 Stop-before-marker cases reached active ParticleSystem playback as SourceOnly; no repeat, overflow, or asset/pool failure occurred.
+- User visual confirmation closes the focused movement/VFX task. This verdict does not pass InfernoSpirit LegacyFallback migration or the full 25-unit role-swap/rollback gate.
+
+## 2026-09-20 BattleAxe focused verdict: CONDITIONAL PASS / OPEN
+
+- Same-session Editor Host/Android Client `010f6e1b…c9bb` contains 14 BattleAxe units on each peer. Host 420 results/0 failures equals Client 420 accepted/0 rejected; both peers have ready 491 and expected/emitted visuals 440/440, AoE bundles 420/420, and spatial mismatch 0.
+- Unit 2 progressed AwaitingStationary→Ready at yaw 0→Accepted; unit 36 progressed AwaitingStationary→Misaligned at yaw 12.078→Ready at yaw 0→Accepted. Host movement 47,070 frames has zero gate/writer-selection/ownership/handoff/stationary-Walk/failure-detail/drop counts; ROOT passed on both peers.
+- Client WARN 181 is 100 UnitView initialization delays, 80 spawn retries, and one normal disconnect. Final viewUnavailable is 0; ERROR/FATAL/exceptions are 0, so this is recovered initialization timing rather than a BattleAxe attack failure.
+- Automatic production marker/config gates pass and the user saw no major visual issue. Severe lag prevented independent confirmation of exact 1.02s contact and Sweep ally/rear/out-of-range exclusion, so do not mark full PASS. Performance is deferred to a separate later defect. Do not extend the 4/25 scope to full roster, role-swap, or Legacy rollback.
+
+## 2026-09-14 QuakeSpirit focused Android log verdict
+
+- Same-session Editor Host/Android Client evidence (`9d43b8e…b3d75`) covers 10 QuakeSpirit units within 4/25 types. Host 770 results/0 failures equals Client 770 accepted/0 rejected; both peers emitted all 909 required visuals, released all 770 AoE bundles, and recorded no spatial mismatch.
+- Direct 200 plus splash 100 were observed together on unit/building victims. Movement, replication, and ROOT terminal evidence is clean; 123 client UnitView delays matched 123 completions with final viewUnavailable 0. Latest PID had no GameLog ERROR/FATAL, NullReference, or U+27F3 warning.
+- Verdict remains CONDITIONAL PASS/OPEN because logs cannot prove exact on-screen strike timing, ally/out-of-range exclusion, perceived long stalls, or control-unit visual regression. Never extend this 4/25 focused result to full roster, role-swap, or Legacy rollback completion.
+
+## 2026-09-14 QuakeSpirit automatic gate: CONDITIONAL PASS / OPEN
+
+- One-shot setup PASS verified the production Attack state/controller/both prefabs and one 1.667s marker, then saved runtime config 1.0→1.667 and removed the temporary script/meta.
+- Quake profile is Supported/MeleeContact/Impact1/secondary; manifest is 16 Supported, 8 Unresolved, 1 N/A. Permanent validation fails closed on marker/config/production-link divergence.
+- Unit Action A1/B2/C2/C3 and `Hexiege/Combat/Diagnostics/Self Validate Unit Root Pose Cross Audit` passed with errors 0.
+- Android Build And Run reached its starting screen around 01:20, but completion/install/device combat are unverified. Keep OPEN until the user confirms impact timing, direct+splash targets, repeat attacks, target transitions, and control-unit regression.
+
+## 2026-09-14 RhinoBreaker focused verdict: CONDITIONAL PASS
+
+- Evidence combines prior corrected-build Blue/Red Rhino unit attacks with Editor Host + Android Client `f9b842d9…35a8d0` building combat. Latest Host results 724/0 failures equal Client 724 accepted/0 rejected; both peers have ready 724 and expected/emitted visuals 692/692.
+- Duplicate, transport, presentation, spatial, movement gate/writer/handoff/stationary-Walk, target mismatch, error, and drop failures are 0. Rhino unit 0 accepted an attack against TrainingCamp building 11, which later died; LittleKnight 77-unit control showed no logged regression.
+- MULTI-1, MULTI-4, and MULTI-5 are PASS. MULTI-2 remains conditional for user-observed contact timing; MULTI-3 remains conditional for an explicitly observed individual post-death target transition. Overall task stays OPEN.
+- UnitView initialization delay 107/107 completed with retry failure/exhaustion 0. Root pose observer capped at 64 on both peers, so later units are outside root-pose coverage.
+- Two U+27F3 warnings came from the unchanged APK and are not evidence against the current source text. Check plain `새로고침` after the next integrated build.
+
+## 2026-09-13 Attack-entry seam focused regression PASS
+
+- Compare like-for-like scope: both the failing and corrected sessions intentionally covered the same 9/25 unit types. `9/25` is not a failure for this Task; the remaining roster belongs to the separate integrated regression.
+- Prior `993718…` had 87 handoff failures across LittleKnight, EmberSpirit, TideSpirit, DustSpirit, FlameSpirit, and SpearMan. Corrected `abe1fb66…f5c1` has accepted shadow commits for all six, handoff/stationary-Walk/failure-details/overflow/ignored counts 0, and only 2 expected deferred target changes.
+- Host C2 2,703/0 failures matches Client 2,703 accepted/0 rejected. Host/Client required visuals are 2,410/2,410; spatial samples 2,144/2,036 have 0 mismatches. Client attack starts 656 with 0 transport gaps/order violations; ROOT and error/drop pass; ERROR/FATAL/Exception 0.
+- Focused verdict is PASS/CLOSED. Keep full 25-unit, both role directions, and Legacy rollback as the next P0 integrated gate.
+
+## 2026-08-28 C2 Editor Host / Android Client 실기 FAIL
+- 동일 세션에서 Android 앱 ERROR/예외/FATAL 0과 Client result reject 0이어도 서버 Host C2 terminal이 FAIL이면 전체 공격 게이트는 FAIL이다.
+- 실제 gameplay 결함: Assault Unit 16→62, Unit 58→77에서 Shadow `AuthorizedMiss`, Legacy `Applied(10)`, yaw `0.192°/0.248°`. 동일 TargetId이므로 타겟 이전이 아니라 사거리 밖 피해다.
+- 결과 97 failure 분류: 실제 사거리 피해 2, `Applied+NotDue` 5, unavailable+NotDue 78, 정상 Accepted Miss 진단 오탐 12. 다음 QA는 이 네 부류를 별도 카운터/TC로 판정하고 aggregate FAIL 하나로 뭉개지 않는다.
+
+## 2026-08-24 blocked-start egress QA 교훈
+- `RequestMoveFrom(start,target)`처럼 임의 staged start를 받는 API에 blocked-start 예외를 넣으면 non-authoritative blocked waypoint가 중간 경로에 합성될 수 있다. 예외는 `UnitData.Position`을 직접 읽는 authoritative API에만 허용한다.
+- 회귀는 성공 경로뿐 아니라 staged blocked null, 최단 우선, Q/R tie-break, first edge 인접, 중간 blocked 제외, 무인접 fail-closed, blocked start==destination과 정상 경로 불변을 함께 고정한다.
+
+## 2026-08-24 B3 역할교대 실기 FAIL
+- self-validation 2종 PASS. Android Host/Editor Client `65ee1764...d691` ROOT와 rotation evidence는 Host 54/54, Client 53/53, drop/preflight 0이다.
+- Host MOVE terminal은 Unit 30 Red Pistoleer `repath-fail-closed` 6건과 `spatial-recoverable-repeated=1`로 FAIL했다. CrossAudit의 조기 중단은 정상 fail-closed이며 `hostFiles=0` 표시는 role 부재가 아니라 terminal 검사 전 집계 순서다.
+- 비인증 read-only 대조: overlap 48, rotation mismatch 7(`0.11~0.15°`), 위치 허용치 이내, phase+3 revisions 전건 동일. 공식 판정은 MOVE gate 교정 뒤 재경기로만 갱신한다.
+
+## 2026-08-23 B3 v9 최종 통합 정적 코드 게이트 / 런타임 검증 대기
+- v8 Android는 recoverable 공간 preflight 24건과 단일 SpearMan 후보 반복으로 FAIL했다. v9은 typed result와 동일 probe/final-stage seam, `CandidateUnsafe/RouteInvalidated → WaitingRepath`, fatal-only `Rejected`를 구현했다.
+- `origin/main` 60개 commit과 B3 의미 병합 완료, main 로그/종료 안전/research 수정과 B3 보존. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. staged accounting은 actual attempt 직전 planned, success 뒤 committed, END equality이며 recoverable history는 positive successful commit에서만 clear한다. lifecycle retire/reuse 회귀도 반영됐다.
+- evidence gate는 최신 device anchor + Editor daily, run role, shared key, production schema exact, 전체 BEGIN/END identity, EVIDENCE/FAIL, device/editor source를 검사한다. terminal은 26+5+1=32줄·최대 968 UTF-8 byte이며 manifest 27개/초과 길이 fail-closed, adapter는 stateful 64/65와 release `Conditional` 경계다.
+- 후속 Android v9 실제 경기의 MOVE·ROOT 증거는 확보했다. 다음은 RootCrossAudit SelfValidate와 동일 경기 Analyze 재실행이다. pre-merge UAS PASS는 재사용하지 않는다. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
+
+## 2026-08-23 RootCrossAudit false-INCONCLUSIVE 교정
+- 실제 `a0e690...8d8`: Editor Host·Android Client, MOVE full EVIDENCE, ROOT 양쪽 PASS. 수동 pose union55/overlap49/match49/mismatch0/coverage `.891`, max axis `.000982m`, max rot `0°`.
+- 기존 ROOT bucket 14/17 peer equality는 false-INCONCLUSIVE. validated MOVE `startedAt` delta `.733149초`를 사용하도록 교정했다. 경계 `2.000` 허용/`2.001` 거부, run 내부 bucket·stable overlap·identity/source/role/key/schema/EVIDENCE/FAIL은 계속 fail-closed다.
+- SelfValidation은 실제형, 시간 경계, 내부 bucket mismatch, BEGIN/END missing, `NaN`/`Infinity`를 포함한다. Editor Roslyn만 PASS했으며 사용자 SelfValidate/Analyze 전 공식 판정은 OPEN이다.
 ## 토픽 파일 인덱스
 
 | 토픽 파일 | 내용 |
@@ -173,3 +278,437 @@
 - HP: NetworkHealthSync로 양쪽 HP 일치하는지
 - 승패: AnnounceWinnerClientRpc로 양쪽 동일 결과 표시되는지
 
+## 스탯 적용 + 부유 HP 텍스트 QA (2026-04-12~13 완료)
+
+### 최종 판정: PASS (전 항목 실기 통과)
+
+### 핵심 발견 사항
+- `SyncHealthClientRpc` 클라이언트에서 `GameEvents.OnEntityDamaged` 미발행 → FloatingHpTextSpawner 미반응 버그 발견. NetworkHealthSync에서 TakeDamage 후 이벤트 재발행으로 수정.
+- `Camera.main` 매 이벤트 탐색 비용 → Initialize()에서 캐싱으로 수정.
+- `_prefab` null 체크 누락 → Initialize() 진입부 null 가드 추가.
+- `ReturnToPool`에서 SetActive(false) 중복 (FloatingHpText OnComplete에서도 수행) — 기능 영향 없음.
+- BuildingStats.GetMaxHp 단일 파라미터 버전이 Human으로 위임 — 하위 호환 정상.
+- Application 레이어에 GameRaceContext 직접 참조 없음 확인.
+
+### 체크리스트 추가 항목
+- [ ] 멀티플레이 전투 중 클라이언트 FloatingHpText 표시 여부 (NetworkHealthSync 재발행 확인)
+- [ ] BuildingStats.GetMaxHp 호출부 RaceId 미전달 누락 없는지 신규 건물 추가 시 확인
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/Testcase.md`
+`Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/Testcase.md`
+
+---
+
+## 종족 인게임 적용 QA (2026-04-07 완료)
+
+### 최종 판정: PASS (SINGLE-01~06, MULTI-01 실기 통과)
+
+### 핵심 발견 사항
+- `_bluePrefabs` / `_redPrefabs` 필드명이 BuildingFactory에도 동일하게 존재 → Grep 시 클래스명 함께 확인 필수
+- Inspector 필드 재연결이 필요한 작업은 에디터 설정 스크립트(`Hexiege/Setup/...`) 실행 여부 반드시 확인
+- BattleViewModel + GameBootstrapper 양쪽에서 GameRaceContext.Set() 중복 호출 — 동작 오류 없음 (Minor 잔존)
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/Testcase.md`
+
+## 생산 패널 전면 재작성 QA (2026-04-19) ✅ 실기 완료
+
+### 최종 판정: PASS (TC-001~018 전체)
+
+### 핵심 발견 사항
+- 구 구조(ManualQueue/AutoEntries/AutoEntry/AutoIndex/CurrentProducingIsAuto/isNormalAutoState) 모두 제거됨.
+- IsAutoMode 읽기 전용 프로퍼티 (`AutoTypes.Count > 0`) — 직접 대입 시도 없음.
+- SyncQueueStateClientRpc 파라미터 모두 int/bool 기본 타입 — NGO 직렬화 정상.
+- CancelAutoTypeIfNeeded 추가: 슬롯 클릭으로 자동 항목 취소 시 AutoTypes에서도 제거 + Rule 2 처리.
+- wasAuto 캡처는 state.CurrentIsAuto=false 초기화 이전 라인에서 반드시 수행해야 함.
+
+### 생산 큐 새 구조 핵심 (이후 QA 재검증 시 기준)
+- QueueSlot { Type, IsAuto, IsCharged } — 단일 구조체
+- PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2 불변식
+- IsCharged=false: 자동 항목 대기 중 (골드 미차감), ChargeVisibleSlots가 슬롯 진입 시 차감
+- ChargeVisibleSlots 호출 시점: TryStartNext 직후, CancelQueueAt(1/2) 직후, CompleteProduction 직후
+- 슬롯 클릭 취소: 자동 항목이면 CancelAutoTypeIfNeeded도 호출
+
+### 미해결 이슈
+- ~~TC-008 관련: 큐 비어있을 때 자동 등록 시 슬롯1에 1프레임 깜빡임~~ → **수정 완료 (2026-04-19)** `ToggleAutoProduction`에서 `!CurrentProducing.HasValue`이면 즉시 `TryStartNext` 호출로 해결
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/Testcase.md`
+
+## 이동/전투 재설계 QA (2026-04-30 정적 분석 완료, 실기 미완)
+
+### 정적 분석 판정
+- BUG-001 (Critical, FAIL): GameBootstrapper.SetupProduction()에서 TileMoveSlotManager를 UnitFactory에 미전달 → UnitFactory.CreateUnitObject()에서도 UnitView에 미전달. 슬롯 분산 전체 불작동.
+- BUG-002 (Major, FAIL): ResumeFromForwardTile()에서 _unitData.Position은 forwardTile로 갱신되지만 transform.position은 공격 슬롯 위치 그대로 → RunTileTraversal 재진입 시 Lerp 출발점 불일치로 순간이동 발생.
+- BUG-003 (Major, CONDITIONAL PASS): FindForwardAvailable 대기 루프 — 전방 타일 모두 가득 찬 교착 상황에서 무한 대기. 설계 의도(대기)와 일치하지만 교착 가능성은 실기 확인 필요.
+- BUG-004 (Minor, CONDITIONAL PASS): ClaimByApproach fallback 무제한 — MaxUnitsPerSlot 실제 차단 미구현. 대규모 전투 실기 확인 후 정책 결정.
+
+### 핵심 패턴 — 신규 매니저 추가 시 3곳 와이어링 필수
+1. GameBootstrapper.CreateUseCases() 에서 인스턴스 생성
+2. GameBootstrapper.SetupProduction() 에서 UnitFactory.SetDependencyReferences() 호출에 인자 추가
+3. UnitFactory.CreateUnitObject() / InitializeUnitView() 에서 unitView.SetDependencies() 호출에 인자 추가
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-30/02_29_movement-combat-redesign/Testcase.md`
+`Assets/_Project/Docs/_Logs/2026-04-30/02_29_movement-combat-redesign/Log.md`
+
+## 로비 SetActive→CanvasGroup 전환 실기 테스트 (2026-05-25~27) ✅ 완료
+
+### 판정: TC-SINGLE-001~014 전체 PASS / TC-SINGLE-015~016 SKIP (로그인 미구현)
+
+### 핵심 발견 사항
+- 로비 7개 뷰 모두 `CanvasGroup.alpha/blocksRaycasts/interactable` 패턴으로 전환 완료 + 실기 통과
+- `ProductionPanelUI.UpdateUpgradeButton()`에 `SetActive` 1건 잔존 (인게임 UI, 로비 작업 범위 밖, Minor — 향후 일관성 정리 권장)
+- TC-SINGLE-009/010 (방 만들기 에러 메시지): 초기 TC가 잘못된 전제(코드 입력란/확인 버튼 존재)로 작성됨 → 실제 구현(네트워크 오류 시 ErrorMessage 표시, StartHosting 재시도 시 초기화) 기준으로 수정 후 통과
+- TC-SINGLE-015/016 (프로필 로그인): Firebase Auth 구현은 존재하나 프로젝트에서 미사용 상태 → 추후 로그인 기능 활성화 시 재테스트
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-05-25/ui-rules-inspection/Testcase.md`
+
+---
+
+## 게임 화면 UI TC 작성 (2026-05-26) — 실기 테스트 대기 중
+
+### 총 62개 TC 작성 완료 (실기 미완)
+
+### 커버 범위
+- GameHudUI (7개): 골드/인구수/킬카운트 표시, 공성 게이지, 설정 버튼
+- BuildingPlacementUI (9개): 패널 표시/숨김, 건설 비용 갱신, 실패 피드백
+- ProductionPanelUI (22개): 수동/자동 생산, 큐 조작, 업그레이드, 랠리포인트
+- BuildingActionPanelUI (5개): 채굴소/타워 액션 패널
+- InGameSettingsUI (9개): 일시정지, 포기 확인, 설정 패널
+- GameEndUI (7개): 승패 표시, 재경기, 로비 복귀
+- 공통 (3개): 레이아웃, Safe Area
+
+### 정적 분석 발견 사항
+- `ProductionPanelUI.UpdateUpgradeButton()`에서 `_upgradeButton.gameObject.SetActive(...)` 1건 — Minor, 기능 영향 없음, Rule 5 일관성 정리 권장
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-05-26/game-ui-tc/Testcase.md`
+
+---
+
+## 사운드 시스템 QA 정적 분석 (2026-06-10) — PASS
+
+task 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/`
+
+정적 분석 결과: 전체 PASS (FAIL 0건)
+- 규칙 1~22 전체 준수 확인
+- 아키텍처 의존성 방향 준수 (SoundConfig=Infrastructure, AudioManager=Presentation)
+- VFX+SFX 쌍 호출 3곳 모두 확인 (UnitView×2, NetworkUnit×1)
+- BGM 크로스페이드 로직, SFX 풀, 볼륨 dB 변환 정상
+
+QA 수정 사항 (3건):
+- ReturnSfxAfterPlay: WaitForSeconds → WaitForSecondsRealtime (timeScale=0 대응)
+- Initialize() 재호출 시 SFX 풀 중복 생성 방지 코드 추가
+- 무음 전환 후 _activeBgmSource = fadeIn으로 상태 명확화
+
+실기 테스트: 완료 (2026-07-08) — 실기에서 버그 3종 발견 및 수정 (아래 참조)
+TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.md`
+
+### 실기 버그 3종 (2026-07-08 수정 완료)
+- **BUG-1 BGM 씬 전환 시 겹침**: `StartCrossfade()`가 `StopCoroutine`만 하고 페이드아웃 중이던 AudioSource를 `Stop()`하지 않아 이전 BGM이 계속 재생. → stale 채널 즉시 Stop으로 수정. **사운드/오디오 QA 시 크로스페이드 중단 경로에서 이전 채널의 AudioSource가 확실히 정지되는지 확인할 것.**
+- **BUG-2 볼륨 UI 규칙 위반**: 에디터 스크립트 생성 슬라이더의 고정 픽셀값(규칙 2 위반) + TMP 폰트 미지정(규칙 6 위반). → 앵커 비율 + Maplestory Bold SDF + `EditorUtility.SetDirty()`. **에디터 스크립트로 UI 생성하는 작업 QA 시 규칙 2(앵커)/규칙 6(폰트) + SetDirty 호출 여부 점검(전역 UI 시스템 QA 2026-06-18과 동일 패턴).**
+- **BUG-3 SFX 볼륨 미작동**: Exposed Parameter 이름은 정상이었음(추정 오류). `SetFloat` 실패 감지 로깅 추가. **AudioMixer.SetFloat은 실패 시 조용히 false 반환 → 반환값 확인 로직 유무 점검.**
+- task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/`
+
+---
+
+## AI 시나리오 ScriptableObject 개편 QA (2026-06-10 → 2차 완료 2026-06-11)
+
+### 종합 판정: CONDITIONAL PASS (정적 분석 전항목 PASS, 실기 대기)
+
+### 1차 QA (2026-06-10) 핵심 발견 사항
+- BuildOrderStep/AIActionType이 Infrastructure에 있어 Application→Infrastructure 직접 의존 발생
+  → 2차 작업에서 Domain/AI 레이어로 이동하여 해소
+- DifficultyLevel도 Infrastructure에 있어 BuildOrderStep.GetDelaySeconds()로 인한 연쇄 위반
+  → DifficultyLevel도 Domain으로 함께 이동하여 해소
+
+### 2차 QA (2026-06-11) 핵심 확인 사항
+- BuildOrderStep, AIActionType, DifficultyLevel 모두 Hexiege.Domain 네임스페이스로 이동 완료
+- 세 타입 모두 UnityEngine 의존 없음 ([Serializable]은 System.Serializable — 허용)
+- LoadScenarioBundleForRace(): 3종족 switch 완비, null/빈배열 방어 코드 존재
+- 레거시 Human_A/B/C.asset 실물 삭제 완료 (Glob 결과 0건)
+- 에셋 YAML: 3종족 9개 시나리오 모두 actionType(0~2), phaseIndex(0~3) 범위 내
+- NOTE-001(Minor): AIScenarioConfig.cs 주석/XML doc에 구버전 경로 예시 잔존 — 기능 무영향
+
+### AI 시나리오 현행 구조
+- 종족별 단일 에셋: Human/Spirit/Transcendence 각 1개
+- 각 에셋에 3개 ScenarioBundle 내장
+- Human: Rush/Tech/Balance, Spirit: Inferno/Torrent/Quake, Transcendence: Rush/Flora/Beast
+- 종족 결정: GameRaceContext.RedRace (AI는 항상 Red팀)
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
+
+---
+
+## Login UI 완성도 QA 정적 분석 (2026-06-11)
+
+### 종합 판정: FAIL (CanvasGroup Rule 5 위반)
+
+### 핵심 발견 사항
+- **[Rule 5 위반]** LoginRootView.SetActivePanel() / HideAll()에서 5개 패널 전환에 `SetActive()` 직접 사용 → CanvasGroup 패턴으로 교체 필요
+- **[Inspector 공유 이슈]** `_confirmPopup`(종료 팝업) 과 `_networkErrorPopup`이 동일한 ConfirmPopup 오브젝트(fileID: 422375806) 참조 → 두 팝업이 동시에 호출되면 Show() 재호출로 메시지/콜백 덮어쓰기 발생 가능 (Major)
+- **[Safe Area Rule 4]** Background가 Canvas 직속 자식으로 SafeAreaContainer 밖에 배치됨 → PASS
+- **[Inspector 연결]** LoginBootstrapper 7개 View 슬롯 전부 연결됨, `_loadingIndicator` 연결됨
+- `_headerText: {fileID: 0}` — null 허용(코드에서 Optional 처리됨), 문제 없음
+- AnonymousWarningPopup의 `_blockingOverlay.SetActive()` — Lobby 씬 별도 점검 예정 항목. `_panel.gameObject.SetActive(true)` 는 이미 제거됨(2026-06-15).
+
+### Login 씬 계층 구조 (확인 완료)
+- Canvas → [Background (Canvas 직속), SafeAreaContainer (Canvas 직속)]
+- SafeAreaContainer → [LoginRootView, ConfirmPopup, LoadingIndicator, AnonymousWarningPopup]
+- LoginRootView → [LoginSelectPanel, EmailLoginPanel, SignUpPanel, EmailVerifyPanel, PasswordResetPanel]
+
+### task 문서
+정적 분석만 수행 (플레이모드 실기 불가 — Firebase 미설정)
+
+---
+
+## Login UI CanvasGroup 전환 + NetworkErrorPopup 분리 QA (2026-06-11)
+
+### 종합 판정: CONDITIONAL PASS
+
+### 핵심 발견 사항
+- **[Rule 5 준수 확인]** `LoginRootView.cs` 전체에서 `GameObject.SetActive()` 패널 전환 호출 없음. `ShowGroup()`/`HideGroup()`으로 alpha/blocksRaycasts/interactable 3속성 모두 처리. 완전 준수.
+- **[Inspector 공유 이슈 해소]** `_confirmPopup`(종료 팝업)과 `_networkErrorPopup`이 별도 오브젝트로 분리. LoginUiSetup 에디터 스크립트로 자동 생성/연결.
+- **[Minor Bug-1]** `LoginUiSetup.cs`: `SafeAreaContainer` 미발견 시 NetworkErrorPopup이 씬 루트에 생성된 채 저장됨 — `LogWarning`만 출력, `DisplayDialog` 미사용 (186-190행).
+- **[Minor Bug-2]** `ShowNetworkErrorPopup()`이 `cancelLabel: string.Empty` 전달하지만 `ConfirmPopup.Show()`는 취소 버튼을 숨기지 않아 빈 버튼 노출 가능성 (`ConfirmPopup.cs` 175-179행).
+- **[LoginBootstrapper 호환]** CanvasGroup 타입 변경(GameObject → CanvasGroup)에 대해 LoginBootstrapper가 패널 슬롯 직접 참조 없음 — 영향 없음.
+- **[ConfirmPopup Show() 시그니처]** 5개 인자 모두 일치. LoginRootView 양쪽 호출부 모두 정상.
+
+### ConfirmPopup 재사용 패턴 주의
+- `cancelLabel: string.Empty` 전달 시 취소 버튼이 빈 텍스트로 노출됨 (버튼 숨김 로직 없음)
+- 단독 확인 버튼만 필요한 팝업은 취소 버튼을 Inspector에서 비활성화하거나, ConfirmPopup에 `cancelLabel` 빈 문자열 시 버튼 숨김 로직 추가 필요
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-11/00_31_login-ui-canvasgroup-popup-fix/Testcase.md`
+
+---
+
+## 전역 UI 시스템 QA (2026-06-18) ✅ 완료
+
+### 종합 판정: PASS (수정 후)
+
+### 발견 및 수정된 버그
+- **[Major, 수정완료] 규칙 1 위반**: `SetupUIManagerInScene.cs` `CanvasScaler.matchWidthOrHeight = 1f` → `0f` (가로 기준). UIManager Canvas / SplashOverlay Canvas 모두 해당.
+- **[Major, 수정완료] 규칙 4 위반**: SplashOverlay에 SafeAreaContainer 없어 StatusText/TapToStartText가 노치 영역에 가려질 수 있음 → SafeAreaContainer + SafeAreaFitter 추가, 텍스트를 그 안으로 이동. Background는 전체화면 요소이므로 SafeAreaContainer 밖(SplashOverlay 직속) 유지.
+- **[Major, 수정완료] 규칙 6 위반**: `SetupUIManagerInScene.cs`에서 에디터 스크립트로 생성하는 TextMeshProUGUI(StatusText/TapToStartText)에 Maplestory Light SDF 폰트 미적용 → `AssetDatabase.LoadAssetAtPath<TMP_FontAsset>` 로드 후 명시 적용.
+
+### Minor (미수정)
+- `LoginBootstrapper.cs:116` 주석에서 `(규칙 5)` 참조 부정확 — null-safe 패턴 설명인데 CanvasGroup 규칙 번호 기재됨. 기능 무영향.
+- `BattleViewModel.cs:222` `Task.Delay(2000)` 고정 2초 지연 — 씬 로딩 완료 타이밍과 무관한 하드코딩. 이번 작업 범위 외.
+
+### 핵심 교훈
+- 에디터 스크립트로 UI를 생성할 때 **폰트(규칙 6)** 와 **SafeAreaContainer(규칙 4)** 는 반드시 명시 설정
+- `matchWidthOrHeight`는 프로젝트 규칙 상 **0f(가로 기준)** 고정
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-16/12_25_global-ui-system/Testcase.md`
+
+---
+
+## BlockingOverlay UIManager 통합 QA (2026-06-21) — CONDITIONAL PASS
+
+### 종합 판정: CONDITIONAL PASS (Inspector 연결 미확인)
+
+### 핵심 구현 패턴 (이후 유사 작업 참조)
+- UIManager 단일 소유: `_blockingOverlay(CanvasGroup)` + `_blockingOverlayButton(Button)`
+- 참조 카운터(`_blockingOverlayRefCount`): 중첩 Show 지원, HideOverlay가 0이 될 때만 실제 숨김
+- 두 모드: Modal(onTap=null) vs Popup(onTap=콜백), Button.onClick으로 분기
+- RematchRequestPopup 전용 패턴: `_overlayShown` bool로 ShowOverlayOnce/HideOverlayOnce — 팝업 전환 시 중복 +1 방지
+
+### 발견된 잠재 문제 (Minor)
+- BUG-001: `BuildingPlacementUI.Show()`에서 `_popup?.Show()` 이후 `UIManager.Instance?.ShowBlockingOverlay(Close)` 호출 순서 — 팝업이 먼저 나타난 직후 오버레이 표시. `InGameSettingsUI.Show()`는 반대 순서(오버레이 먼저). 기능 차이는 없으나 순서 불일치.
+- BUG-002: `BuildingPanelBase.Show()`도 `_popup?.Show()` 이후 `ShowBlockingOverlay` 호출. `ConfirmPopup.Show()`와 `InGameSettingsUI.Show()`와 순서 불일치.
+- BUG-003: `SharedBackgroundButton.cs` 파일 자체는 테스트 통과 전이므로 아직 존재(정상). 그러나 Lobby씬/Game씬 프리팹에서 SharedBackgroundButton 컴포넌트가 완전히 제거됐는지는 Inspector 레벨에서만 확인 가능.
+- `BuildingPlacementUI.cs` line 468 주석이 과거 SharedBackgroundButton 언급 — 코드 주석 일관성 Minor 이슈.
+
+### ShowBlockingOverlay 호출 순서 패턴 (확인 필요)
+- 권장 순서: ShowBlockingOverlay 먼저 → 팝업 패널 Show. (오버레이가 먼저 표시돼야 팝업 아래에 정확히 배치됨)
+- ConfirmPopup, InGameSettingsUI: 오버레이 먼저 호출 (올바름)
+- BuildingPlacementUI, BuildingPanelBase: 팝업 Show 먼저 → 오버레이 나중 (Minor 불일치)
+
+### 에디터 스크립트 주의점
+- `MigrateBlockingOverlayToUIManager.cs`: Login.unity만 BlockingOverlay 생성, Game.unity는 RematchOverlay RaycastTarget만 비활성화
+- `SetSiblingIndex(0)`: BlockingOverlay를 SafeAreaContainer보다 Hierarchy 위에 배치 → 팝업보다 뒤에 렌더링 (올바름)
+
+### task 문서
+분석 대상: `Assets/_Project/Docs/_Tasks/` 내 해당 날짜 폴더
+
+## 참고 파일
+- [patterns.md](patterns.md) — 버그 패턴 상세
+- [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
+### 2026-07-16 - Profile/Ranking Cloud UI QA notes
+
+- User confirmed email sign-up reaches nickname setup after verification path changes.
+- User confirmed Profile tab click path and ProfileView enable path with temporary debug logs; debug logs were removed afterward.
+- Ranking/Profile/NicknameChangePopup UI is functionally visible; final fine layout tuning remains manual Inspector work.
+- Regression focus for next pass: Unity console compile errors, Profile tab refresh, Ranking tab refresh/empty state, nickname change validation, and email verification abandonment.
+
+### 2026-07-17 - TorrentSpirit 파도 AoE + 힐 서브시스템 QA (정적 분석, CONDITIONAL PASS)
+- 로직/이벤트/서버권위/레이어 규칙: 전부 PASS (TickWaves 이중 틱 없음, 힐 멀티 동기화 정상, Domain 순수성 유지).
+- **BUG-001급 발견 — "코드는 맞는데 데이터가 안 채워짐" 패턴**: UnitStatsConfig.asset에 unitType 18 항목 없음(범용 폴백로 동작) +
+  TorrentSpirit_Attack.anim에 OnAttackHit 이벤트 미주입(규칙 27) + UnitEffectConfig.asset의 attackPreset이 fileID 0(고아 VFX 프리팹).
+  신규 유닛 QA 시 항상 이 3종 데이터 배선을 grep으로 직접 확인할 것 — 상세 검사 루틴은 patterns.md 참조.
+- **구조적 버그 발견**: ReplacesPrimaryAttack=true(special-only) 유닛은 주 타깃이 건물이면 그 공격 사이클에 피해가 전혀 발생하지 않음
+  (주 타깃 단일피해 스킵 + AoE가 유닛만 순회). Castle 파괴가 승리조건인데 해당 유닛은 건물을 절대 못 부숨 — Major.
+- 상세: patterns.md "세션: 2026-07-17" 참조. task: `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/`
+
+### 2026-07-16 - Email verification flow cleanup QA
+
+- Required checks:
+  - signup verification screen shows the typed email instead of the placeholder.
+  - signup verification back -> confirm -> Firebase unverified user deleted.
+  - signup verification back -> continue verification -> stays on screen.
+  - existing unverified email login back -> Firebase sign-out and previous login panel, account remains.
+  - verified first login still routes through nickname setup.
+
+### 2026-07-18 - Email verification flow QA result
+
+- User confirmed PASS for signup email display, signup cancel popup, Firebase unverified user deletion, continue verification staying on screen, relaunch from verification returning to verification, and relaunch from nickname setup returning to nickname setup.
+- Regression focus if revisited: verified complete button path, existing unverified-login back sign-out path, and long-term stale unverified account cleanup remain policy/test follow-ups rather than current blockers.
+
+### 2026-07-19 - MushroomBomber(버섯폭격기) 착탄형 DoT QA (정적 분석, PASS)
+- 검증 범위: BlastAttackBehavior(신규), SpecialAttackRegistry/Context, UnitCombatUseCase의 DoT 초단위 틱 모드
+  (ActiveTimedEffect.TickInterval/TickAccumulator, TickDiscreteDamageEffect, ApplyOneDamageTick), SpecialAttackConfig
+  blast 필드, GameBootstrapper.Setup.cs 주입, UnitStatsConfig(26), 에디터 스크립트 2종. 이슈 0건 — 전 항목 PASS.
+- **DoT 초단위 틱 시스템의 정확성 보장 메커니즘(향후 InfernoSpirit/QuakeSpirit도 재사용 — 반드시 재확인)**:
+  `TickInterval>0`(discrete DoT) vs `TickInterval<=0`(연속 HoT diff)로 완전히 분기(같은 `TickTimedEffects` 루프
+  안에서 `if (effect.TickInterval > 0.0001f)`로 조기 분기 후 `continue`) — 힐 경로 회귀 없음.
+  discrete 틱은 "따라잡기 while 루프"(저프레임 대응) + "만료 시 잔여 1틱 강제 정산"(고프레임/누락 대응) 이중 안전망으로
+  프레임레이트 무관 총량 정확 보장. `ApplyOneDamageTick`이 `Min(TickAmount, remaining)`로 클램프하므로
+  총량 초과 불가능 — 이 두 안전망 존재 여부를 신규 DoT 유닛 QA 시 항상 확인.
+- **DoT 텍스트가 OnAttackHit 애니 이벤트 미주입과 무관하게 정상 동작하는 이유**: `ApplyTimedDamageToUnit`이
+  DoT 매틱마다 `EntityDamagedEvent(immediatePresentation: true)`를 발행 → `HitPresentationQueue.OnEntityDamaged`가
+  `evt.ImmediatePresentation` 체크로 큐잉을 완전히 우회하고 즉시 `Emit()`(규칙 26 확장, 파도와 동일 경로).
+  따라서 "매초 텍스트" 요구사항은 Attack 클립의 `OnAttackHit` 이벤트 주입 여부와 **무관**하게 항상 충족된다
+  (직접 단일 피해 쪽만 OnAttackHit 타이밍에 의존 — 미주입 시 타임아웃 안전망(쿨다운×1.5)까지 지연되나 이는
+  "연출 타이밍" 문제이지 DoT 로직 문제 아님. 향후 이런 착탄형 유닛 QA 시 "OnAttackHit 미주입 = 직접타격 텍스트만 지연,
+  DoT/파도류 즉시연출 텍스트는 영향 없음"을 구분해서 판단할 것).
+- **에디터 스크립트 필드명 검증 패턴 확인(기존 패턴 재확인)**: `RegisterMushroomBomberPrefabs.cs`/`WireFloraProductionLine.cs`
+  모두 `SerializedProperty.FindPropertyRelative` 대상 필드명(`type`/`blue`/`red`, `buildingType`/`blueUnits`/`redUnits`/
+  `type`/`portrait`/`requiredStage`)이 실제 struct 정의(`UnitFactory.UnitPrefabEntry`, `ProductionPanelUI.
+  BuildingUnitMapping`/`UnitPortraitEntry`)와 정확히 일치함을 grep으로 대조 완료. 멱등성(이미 있으면 no-op, 값
+  다르면 보정)도 코드상 확인됨 — 다만 Unity 에디터 부재로 실제 메뉴 실행/씬 반영 여부는 미검증(에디터 작업 영역,
+  task 지시상 범위 외).
+- **직접 10 + DoT 이중 적용/사망 시 배제 로직**: `ExecuteAttack`이 `ApplyDamageToVictim`(직접, 죽으면 `_unitSpawn`에서
+  즉시 제거) 실행 후 `special.Apply(ctx)` 호출 — `BlastAttackBehavior`는 `ctx.Units.Values`(생존자만)를 순회하므로
+  직접타격으로 죽은 주 타깃은 자연스럽게 DoT 수집에서 제외됨(별도 방어 코드 불필요, 데이터 흐름상 자동 보장).
+- task: `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`
+
+### 2026-07-20 - 유닛 전투 동기화 규칙 감사
+
+- 규칙 v2 완료 기준은 서버 ActionSequence/ImpactResult, Simulation Root/Visual Root, ActionMarkerOffset, Host/Client·Blue/Red·지연/지터/순서 역전/중복/늦은 스폰 검증을 모두 포함한다. Animation Event 존재만으로 PASS 처리하지 않는다.
+- 현재 25종 모두 v2 최종 멀티 검증 전이다. UnitStatsConfig는 QuakeSpirit 추가로 25/25가 됐지만 QuakeSpirit/RhinoBreaker/MushroomBomber/BloomFairy는 기본 Attack marker가 없다.
+- BattleAxe 1.1667/1.02, Pistoleer 2.0/0.8, Sniper 3.0/1.7333, Tank·Cannon 4.0/0.1667, Inferno 1.15/0.5, Stream 0.17/0.5, Fox 2.25/1.0 등 설정·marker 불일치를 구현 전 기준선으로 사용한다. **[🔴 2026-09-20 correction — original kept: BattleAxe mismatch is resolved at marker/config 1.02/1.02 and must no longer be used as an active mismatch baseline.]** **[🔴 2026-09-22 correction — original kept: InfernoSpirit mismatch is resolved at marker/config 0.50/0.50 and must no longer be used as an active mismatch baseline.]**
+- `hitPreset`과 `tracerPreset`은 0/25, `attackPreset`은 9/25다. 상세 단일 감사표는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`다.
+
+### 2026-07-22 - InfernoSpirit/QuakeSpirit main 반영 재감사
+
+- InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초는 사용자 실기 확인 범위에서 Legacy PASS다. 공격 방향 수정은 해당 작업에서 보류됐으며, 0.50초 marker/1.15초 설정 불일치와 권위 착탄·sequence 부재 때문에 v2 PASS가 아니다. **[🔴 2026-09-22 correction — original kept: marker/config mismatch and focused movement/direction/VFX defects are resolved; LegacyFallback migration and authoritative projectile/sequence remain open.]**
+- QuakeSpirit 직접 20 + 주변 적 유닛·적 건물 10은 Host/Client HP 로그 범위에서 PASS다. 기본 `OnAttackHit`이 없어 직접 피해 표현이 쿨다운×1.5 안전망(최대 7.5초)을 기다릴 수 있으므로 시각 동기화는 FAIL/Incomplete다.
+- Quake의 `ApplyFixedDamageToVictim`은 기존 공용 피해 경로와 별도 진입점이다. v2 QA 전 피해·이벤트·사망·네트워크 결과가 단일 writer/emitter에서 한 번만 발생하는지 반드시 검증한다.
+- `SpecialAttackConfig.asset` YAML에는 Quake 필드만 명시되고 Inferno/Blast 필드는 C# 폴백에 의존한다. Inspector 직렬화·씬 주입을 에디터에서 확인하기 전 데이터 배선을 PASS로 판정하지 않는다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A0 Shadow 검증 기준선
+
+- Editor self-validation PASS. 사용자 멀티 Host 로그는 scheduled 204 / dispatch 204 / unique 204, missing 0, duplicate 0, target mismatch 0, schedule↔dispatch facing change 0, Windup 전건 240ms다.
+- dispatch-scheduled는 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms. >16.667ms 27건, >33.333ms·50ms 0건이다.
+- Client 로그는 현재 계측 범위상 header only이므로 Host/Client 상관관계 PASS로 확대하지 않는다.
+- 판정은 “Tracer A0 Shadow 계측 통과”다. 기존 피해·RPC·VFX가 유지됐으며 이동/공격 방향, 시각 Impact, reducer·Root 분리·결과 복제는 당시 미검증/미완료였다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A1 검증 완료
+
+- 검증 대상은 Pure Application `UnitActionContracts`와 stateful `UnitActionSequencer`다. Unity Editor 메뉴 self-validation을 사용자가 실행해 PASS를 확인했다.
+- C# 9/Application compile PASS, Editor compile PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec 리뷰 P0~P3 지적 0건이다.
+- 검증 범위는 revision/time fail-closed, phase vocabulary, 5°/8° 공격 정렬, commit/cancel/dead, multi-hit 결정·확인, bounded dedupe/reorder, 사거리 규칙 차이 탐지다.
+- 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으므로 멀티플레이 행동 교정 PASS로 확대하지 않는다. 다음 QA 기준선은 A2 server-authoritative pose seam shadow다.
+
+### 2026-07-27 - Unit ActionSequence Tracer A2 런타임 PASS
+
+- 사용자 Unity Editor self-validation PASS. Host 최신 세션(18:04:04)은 `[UAS-POSE]` schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 예정 전 in-flight다. 완료 회차의 누락·중복은 0이다.
+- 공격자 사망 2건은 `MarkDead=Accepted`와 `DeadTerminal`로 닫혔고 `capacity-evicted` 및 예외는 0이다. Client 최신 세션(18:09:48)은 `[UAS-POSE]` 0으로 서버 전용 observer 경계를 통과했다.
+- A2 판정은 서버 권위 pose 관측 seam PASS다. 이동/바라보기·타겟/공격 방향·시각 Impact/실제 피해 시점 해결이나 권위 전환 PASS가 아니다. 다음 QA 기준선은 Tracer B Simulation Root / Visual Root 분리다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B0 read-only QA PASS
+
+- 대상 50개 프리팹은 Human 16 / Spirit 18 / Transcendence 16이고, 중복·누락 identity와 구조 오류는 0이다. 현재 VisualRoot 0, migration 예상 create 50 / reuse 0 / direct-child move 58이다.
+- 사용자 dry-run 연속 두 실행의 `[END][PASS]`가 모두 `prefabsLogged=50/50`, `errorsLogged=0`, `assetsModified=0`이다. aggregate manifest SHA-256도 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다.
+- prefab/scene Git diff와 mutation API 호출은 0이다. B0 QA 판정은 “결정적 read-only migration readiness PASS”이며 실제 migration·런타임 writer·세 증상은 미검증이다.
+- B1 QA는 50/50 원자적 적용, NetworkObject/NetworkTransform 식별자 보존, missing script/깨진 참조 0, 2회차 diff 0, 부분 저장 0과 rollback을 별도 검증해야 한다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B1 asset 적용 QA 경계
+
+- 사용자 Apply 재실행은 50개 모두 migrated state `[NO-OP]`이고 `SaveAsPrefabAsset`/`SaveAssets` 호출 0이다. migration journal completed와 함께 asset 적용·멱등성 범위는 PASS다.
+- 신규 구조의 필수 정적 검사: direct identity VisualRoot 1개, valid root projector 1개, root Animator/Renderer 0, Animator Root Motion off, Animator별 동일 GO `AnimationEventRelay` 1개, relay/Animator count 일치. Collider는 B1 검증 범위가 아니다.
+- 2026-07-27 당시 failure-injection rollback과 Host/Client·Blue/Red runtime smoke는 미수행이었다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
+- 신규 타입 추가 시 50 고정 validator가 실패하는 것은 정상 fail-closed다. Blue/Red pair, Matrix roster, 종족 수와 VFX 기준선을 의도적으로 함께 갱신한 뒤 전체 Validate/Dry Run·멀티 smoke를 수행한다.
+
+### 2026-07-29 - Unit ActionSequence Tracer B1 rollback QA PASS
+
+- graceful failure injection index 0/24/49 모두 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`로 PASS했다.
+- crash index 24는 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25를 확인했고, 별도 프로세스 `RecoverCrash` 뒤 primary 50 prefab + 50 meta가 100/100 복구되어 PASS했다.
+- primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS다.
+- 판정 범위는 B1 rollback 게이트 PASS다. Android 1대와 Unity Editor counterpart의 역할교대 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사는 pending이므로 B1 overall은 OPEN이며 B2를 시작하면 안 된다.
+
+### 2026-07-29 - Unit ActionSequence B1 Collider 가정 제거와 모바일 QA
+
+- Collider 존재·배치 조건은 B1 out-of-scope이며 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거한다. optional/root-only 판정도 하지 않는다.
+- 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 같은 실기 세션에서 역할교대한다. Match A는 Editor Host Blue `RuntimeLog_host.txt` + Android Client Red Logcat, Match B는 Android Host Blue Logcat + Editor Client Red `RuntimeLog_client.txt` 쌍이다.
+- 각 경기 sharedSessionKey는 동일하고 `unavailable`이 아니어야 하며 role/isFlipped가 배치와 일치해야 한다. 180초 안에 Blue/Red·2 types·2 moved units·3초 stable을 확보하고 양쪽 END coverage PASS/errors 0과 외부 stable cross-audit를 확인한다.
+- Unity Editor는 기존 test harness/counterpart로 허용한다. Windows/Standalone build는 사용하지 않으며 Android 2대는 release E2E·성능·호환성 권장 항목이지 B1 필수는 아니다. B1 overall은 OPEN이며 두 경기 교차 감사 전 B2를 시작하지 않는다.
+
+### 2026-07-30 - Unit ActionSequence B1 양방향 QA PASS
+
+- Match A는 34/39 coverage `0.872`, Match B는 29/38 coverage `0.763158`이며 겹치는 stable pose mismatch는 모두 0이다. Match B 양쪽 END PASS, drop/error 0을 확인했다.
+- 최대 축 오차는 Match A `0.000767m`, Match B `0.000491m`로 1mm 허용치 안이다. cross-audit self-validation은 비중첩·한쪽 누락을 union coverage로 처리하고 실제 pose mismatch만 FAIL한다.
+- B1 최종 판정은 PASS다. 이 판정은 공격 방향·Impact/피해 시점·ActionSequence 권위 전환 QA를 포함하지 않는다.
+
+### 2026-08-03 - Unit ActionSequence B2 모바일 QA PASS
+
+- 초기 Android 로그 유실 `droppedLogs=1233`은 lossless UTF-8 manifest v4로 교정했고, CannonCart endpoint false invalid 1건은 v5 `NoIntent` 정규화 뒤 재시험했다. 잘못된 브랜치 빌드로 B2 로그가 없던 5종 시험도 폐기하고 올바른 빌드로 재시험했다.
+- 6개 인정 경기에서 25/25종 Blue/Red를 확인했다. accepted decision 545,190회, manifest entry 420개이며 모든 인정 세션의 invalid/duplicate/stale/illegal/scope/unknown/client reducer/root write/exception/drop/preflight/overflow는 0, manifest와 SHA는 완전 일치했다.
+- 첫 4종은 observer v4, 나머지 21종은 v5다. Android Host 그룹의 근거는 수집 당시 Logcat 직접 검산이며 Editor RuntimeLog만으로 전체 25종을 재구성할 수 없다.
+- B2 QA 판정은 read-only Shadow/증거 PASS다. Legacy Align 중 이동 차이는 B3 전환 대상이며 실제 이동 방향 교정, 공격 방향, Impact/피해 적용 시점은 미완료다.
+
+### 2026-08-18 - B3 Android Host 정지 교정 QA 상태
+
+- 이전 Android Host 정지는 예외·ANR·OOM 없이 CPU가 상승하고 Unity 로그가 멈춘 형태였다. 높은 확률 원인은 `RepathRequired → RequestMove → yield 없는 continue`의 동기식 반복이다.
+- 유한 guard self-validation은 동일 path, A→B→A, invalid, 한 frame 2회째 거부, 다음-frame 수락과 진전 reset을 포함해 PASS했고 Unity Tundra compile도 성공했다.
+- 전체 B3 판정은 여전히 FAIL / OPEN이다. 새 Android Development Build에서 Android Host 경로 무효화/건물 배치가 포함된 경기로 정지·ANR·로그 폭주 0, fail-closed 유닛 외 다른 유닛과 경기 시간 진행을 먼저 확인한다.
+- 위 회귀 PASS 뒤에만 역할교대, 25종 전체와 다음 경기 Legacy rollback을 재개한다. 기존 21/25종은 정확성 기준선이지 새 구현 완료 증거가 아니다.
+
+### 2026-08-25 - B3 v10 집중 실기와 ROOT 채점기 PASS
+
+- Android Host/Editor Client 같은 경기에서 Host 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0을 확인했다. 양쪽 local ROOT endpoint/rotation evidence는 53/53 PASS다.
+- 기존 공식 INCONCLUSIVE는 Host ROOT 긴 terminal 절단 때문이며 개별 게임 증거 실패가 아니다. 과거 절단 파일은 추정 PASS로 승격하지 않는다.
+- compact terminal은 최악값 803 UTF-8 byte, 필수 CrossAudit 필드 보존, 초과 시 fail-closed다. Runtime/Editor Roslyn과 사용자 Unity `[UAS-DIAG]`·RootCrossAudit SelfValidate가 모두 PASS했다.
+- 채점기만을 위한 재빌드/재시험은 하지 않는다. 다음 Tracer C 새 빌드의 통합 회귀에서 공식 Analyze를 재사용하며, 25종·반대 역할·Legacy rollback 게이트는 유지한다.
+
+### 2026-08-26 - C1 공격 시작·타겟·방향 자동 검증 상태
+
+- 기존 로그의 정렬 전 Legacy 시작과 회차 타겟 불일치를 구현 문제로 확정하고, 서버 정지+5도 gate·회차 타겟 고정·멀티 Root 단일 writer로 교정했다.
+- Shadow observer v2는 정렬 전 시작을 local FAIL로 올리고 정상 상세 로그를 제한하며 production gate 카운터를 terminal에 보존한다.
+- Unity 실제 컴파일 오류 0건과 `[UAS-DIAG]` PASS만 확인됐다. Android/Editor 역할교대 멀티 실기는 아직이며 C1 전체 PASS로 기록하면 안 된다.
+
+### 2026-08-26 - C1 v3 회귀 기준
+
+- 회귀 fixture는 회차 1 Impact가 늦게 도착하기 전에 회차 2가 다른 TargetId로 시작하는 순서를 포함한다. 두 회차의 SequenceId/TargetId가 독립이고 이전 Impact가 수락되더라도 `ShouldPublish=false`, 최신 회차 Impact만 publish여야 한다.
+- `ScheduleLegacyAttack`은 sequence 0·Target mismatch를 거부하고, production Ready 뒤 결속 실패는 `correlationFailures>0`로 local FAIL이어야 한다.
+- 정상 Misaligned/Moving/첫 표본 대기는 `expectedDeferred`이며 `dropped`나 FAIL을 만들면 안 된다. 지원 불가 10종·힐러 1종도 manifest 분류만 유지한다.
+- GameEnd 전 adapter failure는 FAIL, GameEnd 뒤 callback은 `postGameAdapterFailuresSuppressed`만 증가해야 한다. Unity 자동 검증 PASS지만 Android/Editor v3 실기 전 전체 PASS 금지다.
+
+### 2026-08-27 - C1 실기 판정과 observer v5
+
+- 최신 Client는 Shadow 4,863건 수락·거부 0이었다. Host의 유일한 mismatch는 실제 예약 타겟·sequence·결과가 일치하고 display target만 `-1`인 진단기 오탐이었다.
+- v5 회귀는 display target 해제 정상 사례와 target/sequence/phase/result 실제 불일치 사례를 함께 고정한다.
+- C1 집중 실기는 PASS로 기록하되 25종·반대 역할은 다음 Snapshot/ImpactResult Shadow 빌드의 통합 회귀로 유지한다.
+
+### 2026-08-27 - C2 자동 회귀 기준
+
+- C2 결과 키에는 attacker instance, sequence, hit, victim kind/id, effect kind, result ordinal이 모두 있어야 한다. 같은 키의 같은 payload는 Duplicate, HP·outcome·Aim 등이 다르면 Conflict다.
+- 결과 완료 순서는 sequence 순서와 다를 수 있다. 역순이라는 이유만으로 거부하면 안 되며 despawn/다른 instance만 retire 경계로 거부한다.
+- 실기 terminal은 Host `serverResults>0`, `resultFailures=0`, Client `clientResultAccepted>0`, `clientResultRejected=0`, 양쪽 gameplayWrites=0을 요구한다. C1 END의 기존 오류 카운터도 동시에 0이어야 한다.
+- Unity 전체 self-validation은 PASS지만 Android/Editor 역할교대는 미실행이므로 C2 전체 PASS로 올리지 않는다.

@@ -4,6 +4,23 @@
 **최종 수정일:** 2026-10-13
 **작성자:** HANYONGHEE
 
+> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
+
+> **두 번째 fixture 보완 적용·Main 실제 소스 검토 완료:** actual config AutoTower/Spirit row로 temporary data 초기화·lethal preflight를 적용하고 finally 첫 단계에서 EXACT 기존 `_data` 참조를 복원한다. throwing subscriber/death/remove assertion은 유지, Production/Stats asset 변경 없음(Main/programmer 인계). 현재 Editor compile exit0/errors0/warnings0. 현행 fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변; 문서 담당 현재2해시도 일치. 이전93B11D…/1C196A…는 단계별 이력이다. fresh native 결과는 대기,16:32 RED→lifecycle 보완→16:37 tracer/impact/HP 경계 통과·후속 nullStats fixture FAIL→두 번째 보완 적용을 구분한다. ROOT16:33 PASS 별도·build 미시도·runtime/visual OPEN이며 전체 PASS로 쓰지 않는다.
+
+> **최신 native — Main16:37:26 인계:** fresh UnitAction에서 이전 missing manager/tracer 실패는 해소됐고 실제 tracer·impact/HP assertions 통과, 해당 END failures0을 확인했다. 이후 VfxConnections line256 `Expression subscriber exception cannot prevent death/remove workflow` assertion에서 새 FAIL이다. tower fixture의 attack applied0/HP1(nullStats 컨텍스트)은 관찰값이며 원인 확정이나 production death/remove 결함 증명이 아니다. programmer read-only 진단 대기, build 미시도·runtime/visual OPEN.16:32 RED→fixture lifecycle 보완→16:37 이전 경계 통과/후속 경계 FAIL을 분리하고 전체 PASS로 쓰지 않는다. ROOT16:33:29 PASS는 독립 이전 결과다. 아래 기존 대기/실패 문단은 당시 이력이다.
+
+> **16:32 RED 원인·최소 fixture 교정 적용(Main 실제6행 patch 검토):** EffectManager Instance는 private Awake에서만 등록되고 ExecuteInEditMode가 없다. fixture AddComponent/Initialize가 lifecycle을 누락했으며 tracer asset 참조 존재·event 전달은 확인됐다. 같은 existing VfxConnections 파일에 actual Awake 호출 + Require Instance==manager + tracer nonnull preflight를 적용했고 Main이 실제6행 patch를 검토했다. 최종 SHA256 `93B11DB06A043E3B86E8002BB1991F05016718F124BECABBA11AE22BC6AF9878`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1` 불변. 기존 actual tracer-play/HP assertion은 약화하지 않고 production 소스/asset 변경은 없다. 현재 Editor compile exit0/errors0/warnings0; Runtime 불변·이전 static4 성공은 별도다. 교정 후 새 native 결과는 인계 대기이며 Action16:32:17 RED는 보존한다. ROOT16:33:29 PASS(Main UIstatus/Editor.log)와 source2 frozen/protection match는 별도, build 미시도·runtime/visual OPEN.
+
+> **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
+
+현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
+
+## 2026-10-10 확정 VFX 표현 사양
+
+Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지면 damage zone을 표현하지 않는다. 실제 서버 DoT 3초는 유지하고 poison/burn은 실제 대상 효과 수명을 따른다. 같은 owner 갱신은 재시작하지 않고 기존 Damage 덮어쓰기 정책에 따라 이전 표현을 종료·교체한다. Human AutoTower는 Tank VFX를 별도 preset으로 재사용(shared Cannon preset의 prefab 참조만 승인 변경·구현/Main 검토 완료, 이름/SFX/offset·다른 필드 불변; 새 native/build/visual 대기), Spirit은 RuneSpire, Transcendence는 미지정이며 타 종족 fallback은 금지한다. 단일 AutoTower 타입 + Race로 선택한다. 피해·HP writer·공격 주기·범위·스탯을 변경하는 기획이 아니다. 구현 진행과 검증 결과는 [현재 상태](PROJECT_STATUS.md) 및 [VFX 목록](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계)을 따른다.
+
+
 > **이 문서는 기획문서다.** 구현 진행 상태(무엇이 만들어졌고 무엇이 남았는지)는 여기에 적지 않는다 —
 > 현재 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md), 시스템별 구현 계약과 상태는 각 `GameSystemRules/` 문서가 단일 소스다.
 > 여기에 상태를 병기하면 사본이 낡는다. 다만 **기획 상태**(`확정 기획` · `밸런싱 미확정` 등)는 기획문서의 정당한 내용이므로 이 문서가 계속 관리한다.
@@ -370,7 +387,7 @@
 
 ### 특수 유닛 능력 설계
 
-일반 유닛은 "타겟 1마리를 때린다"가 전부지만, **특수 유닛**은 그 위에 고유한 능력(범위 피해, 지속 피해, 회복 등)을 더한다. 이 절은 그 6종의 **능력이 무엇을·어떻게·왜 작동하는지를 기획 관점에서** 정리한 것이다. 정확한 판정 알고리즘·코드 구조·동기화 처리 같은 **구현 규칙**은 `GameSystemRules/GameSystemRules_Units.md`(규칙 23~43)가 단일 권위 소스이며, 이 절은 그 규칙 번호를 참조로 연결한다. 수치는 `StatsReference.md`(스탯 권위 소스)와 일치한다.
+일반 유닛은 "타겟 1마리를 때린다"가 전부지만, **특수 유닛**은 그 위에 고유한 능력(범위 피해, 지속 피해, 회복 등)을 더한다. 이 절은 그 6종의 **능력이 무엇을·어떻게·왜 작동하는지를 기획 관점에서** 정리한 것이다. 정확한 판정 의미는 `GameSystemRules/GameSystemRules_Units.md`의 `U-SPECIAL-*`, 멀티플레이 복제·시간·순서 계약은 `GameSystemRules/GameSystemRules_UnitCombatSynchronization.md`가 권위다. 과거 규칙 23~43 번호는 Legacy 작업 이력으로만 사용한다. 수치는 `StatsReference.md`와 런타임 설정의 불일치 여부를 함께 확인한다.
 
 특수 유닛은 능력의 판정 형태로 나누면 다음과 같다.
 
@@ -548,22 +565,20 @@
 **이동 불가 타일**:
 - 건물이 있는 타일 (`HasBuilding` — 이동 가능 여부는 여기서 자동으로 계산된다)
 - 금광 타일 (`MineKind != None`; 채굴소 건설 전후 모두 이동 불가)
-- 다른 유닛이 있는 타일 (아군/적군 무관)
-- **같은 팀** 유닛이 이동 중 선점한 타일 (ClaimedTile)
+- 다른 유닛의 현재 타일과 이동 중 선점 타일은 A* 차단 목록에 포함하지 않음 (유닛 겹침 허용)
 
 > 🔴 **2026-09-03 갱신 — 위 두 줄의 표기가 바뀐 이유.** 종전에는 「건물이 있는 타일 (`IsWalkable = false`)」처럼 **이동 가능 여부를 직접 끄는 값**으로 적었고, 금광 타일은 **런타임 표기와 무작위 맵 설계 표기가 서로 다르다**고 병기해 두 갈래로 갈라져 있었다. 무작위 맵 1단계로 그 두 갈래가 하나로 합쳐졌다 — 이동 가능 여부는 이제 저장되는 값이 아니라 타일의 세 가지 상태(지형 종류 · 광산 종류 · 건물 유무)로부터 **계산되는 결과**이므로, 이동 불가의 *이유*만 적고 결과는 적지 않는다. 판정식의 단일 소스는 `TechnicalDesignDocument.md` 「`HexTile` 런타임 상태 계약」 절이다.
 
-**적 팀 타일 경합**:
-- 적 유닛의 ClaimedTile은 차단하지 않음 → 같은 타일에 적이 진입 가능
-- 같은 타일에 적 유닛이 만나면 **전투**로 해결
+**유닛 타일 경합**:
+- 아군·적군의 현재 타일과 선점 타일은 경로를 차단하지 않음 → 여러 유닛이 같은 타일에 진입 가능
+- 적 유닛과 접근하면 월드 좌표 사거리 판정으로 **전투**에 진입
 - 타일 중앙 도착 = 전투 승리 = 점령 (패배 시 도달 불가)
 
 **유닛 생성 불가 타일**:
 - 건물이 있는 타일
 - 이미 유닛이 점유 중인 타일 (아군/적군 무관)
 
-> 경로탐색(A*) 시 모든 다른 유닛의 Position + 같은 팀 ClaimedTile이 차단 목록에 포함됩니다. 적 팀 ClaimedTile은 차단하지 않아 적과의 타일 경합이 자연스럽게 발생합니다.
-> 또한 이동 중 각 스텝마다 다음 타일의 가용성을 실시간 검증하여, 경로 계산 이후 같은 팀 유닛이 해당 타일을 점유/선점한 경우 자동으로 재탐색합니다.
+> 경로탐색(A*)은 건물과 정적 이동 불가 지형을 차단 정보로 사용하며, 다른 유닛의 현재 타일·선점 타일은 차단 정보로 사용하지 않습니다. 이동 중에는 다음 구간의 건물·이동 가능 여부를 실시간 검증하고, 경로 계산 이후 동적 건물로 구간이 막히면 현재 서버 권위 위치에서 재탐색합니다.
 
 ### 건설 불가 구역
 
@@ -587,9 +602,10 @@
 
 ### 건물로 경로가 완전히 막힌 경우 (확정 기획)
 
+- 동적 건물로 현재 경로가 무효화되면 서버가 현재 권위 위치에서 우회 경로를 먼저 재탐색하며, 유효한 우회 경로가 있으면 같은 이동 목표를 유지하고 다음 frame부터 이동을 계속함
 - 적 건물이 완전히 막으면 가장 가까운 차단 적 건물을 임시 공격 대상으로 삼고, 파괴 후 원래 목적지로 재경로
-- 아군 건물이 완전히 막으면 유닛은 길이 막힌 상태가 되어 걷기 첫 프레임에서 정지
-- 철거·파괴·랠리 변경으로 길이 열리면 복구 후 재경로
+- 아군 건물이 완전히 막으면 유닛은 `PathBlocked` 상태가 되어 걷기 첫 프레임에서 정지
+- 동일 경로 환경에서는 중복 이동 명령으로 `PathBlocked`를 재시작하지 않으며, 철거·파괴·랠리 변경으로 environment revision이 증가하면 같은 목표를 재평가
 - 건물 배치 시점의 선제적 연결성 검사는 두지 않음
 
 > **길이 막힌 상태의 정식 이름과 상세 동작은 단일 소스 문서 참조:** [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) 규칙 45
@@ -891,6 +907,7 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 | 1.12.0 | 2026-08-10 | **MistShrine 재설계 확정(기획 확정/구현 미착수) + 문서 오류 정정.** ① 정정: Transcendence 방어 타워는 MistShrine이 아니라 **VineTower**(`AutoTower`), MistShrine은 별도 힐 건물(`HealShrine`=6) — 건물 시스템 §4 및 종족 시스템 초월계 항목 수정. ② 건물 시스템에 **§5 MistShrine(물안개 신전)** 신설: 물안개 지속 힐, 아군 유닛+건물 대상(자기 자신·Castle 포함), 건물 중심 고정 원형 범위(조준 없음), 1초 discrete 틱 아우라(이탈 시 즉시 끊김), 물안개 지속 < 쿨다운, 시전 비용 없음, 파괴 시 물안개 즉시 제거, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 연구소 자연회복과는 중첩 적용, 자동/수동 시전(기본 OFF). ③ 기존 §5 연구소는 §6으로 번호 조정. 수치는 전부 밸런싱 미확정. |
 | 1.11.0 | 2026-07-31 | 연구소 유닛 강화 시스템 + 전투 스탯 ×10 스케일을 **구현 완료**로 상태 전환(기능·멀티플레이 실기 PASS). §5 연구소 표제를 '설계 확정 / 구현 예정' → '구현 완료'로 정정하고, 연구 패널 UI 2-레이어 설계(공통 건물 패널 프레임 + **매트릭스**: 인간·정령 3×3 / 초월 2×3 + 자연회복 버튼 ↔ **진행 게이지**: 이름·Lv X→X+1·게이지·남은시간·취소)를 본문에 추가. 동기화 규칙 정정: '상대 팀 연구 내용 비공개' → **진행 중 연구(트랙·타이머)만 비공개, 완료 레벨 효과는 양 클라 적용**. 본기지 HP 및 유닛 HP·공격력의 ×10 값을 '구현 예정' → config `.asset`에 커밋 반영 완료로 정정(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거). 후속 보류 명시: 연구 패널 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(당시 미구현)·싱글플레이 자연회복 실기. |
 | 1.10.0 | 2026-07-23 | 연구소(Research Lab) 유닛 강화 시스템 설계 확정 + 전투 스탯 ×10 스케일 개편 반영(당시 설계 확정 / 구현 예정). 기존 '5. 업그레이드 건물' 절을 **§5 연구소 — 유닛 강화 시스템**으로 전면 교체: 강화 스탯 공격력(레벨당 +8%, Lv1~5)·**방어력(신규 스탯, 전 유닛 기본 0, 연구로만 상승 0/8/16/24/32/40)**·이동속도(Lv5 +32%) 3종 + 초월계 전용 자연회복(Lv1 3.0 → Lv5 15.0 HP/s), 종족별 그룹×스탯 트랙 구조(인간·정령 9트랙 / 초월 7트랙), 복수 건설·건물 업그레이드 없음·트랙 단위 잠금·연구소 파괴 시 골드 100% 환불(완료 레벨 영구 유지)·서버 권위, 표준 트랙 비용 80/120/180/260/360(합계 1,000골드)과 연구 시간 15/25/35/50/70초, 그룹 비용 배율(초월 동물 ×2.0 / 자연회복 ×2.5 / 그 외 ×1.0) 명시. ×10 반영: 본기지 HP를 종족별 값(Castle 2000 / Nexus 1500 / ElderTree 3000)으로 교체, 인간계 기본 3종 HP 300/400/300·공격력 60/10/180으로 갱신(Sniper 공격력은 단순 ×10이 아닌 180으로 확정), 사거리·이동속도는 ×10 불변, 생산시간 행은 표에서 제거하고 `StatsReference.md`를 권위 소스로 일원화. 밸런스 확정 근거: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`. |
+| 1.9.1 | 2026-07-22 | InfernoSpirit·QuakeSpirit main 반영 후 특수 로직 구현 상태와 유닛 전투 동기화 규칙 완성도를 분리. Quake 스탯 등록·Legacy 피해 로그 PASS를 반영하되 marker/ImpactPoint/sequence 미완료를 명시하고 안정 규칙 ID `U-SPECIAL-*`로 참조 전환. |
 | 1.9.0 | 2026-07-20 | 유닛 시스템에 '특수 유닛 능력 설계' 절 신설. 특수 유닛 6종(BattleAxe 휩쓸기형 / TorrentSpirit 파도형+힐 / BloomFairy 힐러 / MushroomBomber 착탄형 DoT / InfernoSpirit 단일 DoT / QuakeSpirit 착탄형 즉발 2단계 AoE)의 능력·판정 형태·수치를 기획 관점 자연어로 기록. 구현 규칙은 GameSystemRules_Units 규칙 23~42 참조로 연결(역할 분리). QuakeSpirit은 건물도 스플래시 타격하는 차별점, BloomFairy 쿨다운 예외(실제 힐 주기 4.0s) 명문화. |
 | 1.8.0 | 2026-07-20 | 무작위 맵 문서 구현 계약 감사. `MapTestModeEnabled`가 초기 골드만 제어하고 ON=5000/OFF=광산 수 표를 사용하도록 확정했으며, 멀티 Host 권위와 양측 동일 실제 골드 적용을 명문화. 전체 내용은 확정 설계·미구현 상태. |
 | 1.7.0 | 2026-07-19 | 맵 전송 10초 timeout과 불완전 수신 한정 동일 nonce 전체 package 1회 재전송, 검증/버전/용량/연결 오류 즉시 실패를 확정. 최초 준비 실패 Retry/Leave 및 새 seed 재준비, NewMap 실패 시 이전 맵·결과 UI·전체 countdown·선택지 복원, 내부 정보 UI 비공개를 명문화. |

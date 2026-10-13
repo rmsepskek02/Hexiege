@@ -211,7 +211,13 @@ namespace Hexiege.Infrastructure
             _isEmittingToConsole = true;
             try
             {
-                switch (level)
+                // FileSink의 파일 쓰기는 위에서 이미 완료했다. 기존 finally 가드는 그대로 유지한다.
+                if (level == LogLevel.Info
+                    && className == Hexiege.Application.WavePresentationDiagnostics.LogClass
+                    && message == Hexiege.Application.WavePresentationDiagnostics.Prefix)
+                    Debug.LogFormat(LogType.Log,
+                        LogOption.NoStacktrace, null, "{0}", line);
+                else switch (level)
                 {
                     case LogLevel.Warn:
                         Debug.LogWarning(line);

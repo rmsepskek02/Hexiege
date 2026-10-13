@@ -181,10 +181,11 @@ DEFAULT_MEMORY_ROOT = ".claude/agent-memory"
 DEFAULT_CLAUDE_ROOT = ".claude"
 
 # `.claude/` 안에서도 검사하지 않을 하위 폴더 이름.
-#   skills/  · plugins/  → 외부에서 받아온 문서라 이 프로젝트가 내용을 관리하지 않는다.
+#   skills/ · plugins/ → 외부에서 받아온 문서라 이 프로젝트가 내용을 관리하지 않는다.
+#   worktrees/         → 다른 작업 복제본과 Library/PackageCache까지 포함하므로 현재 작업 문서가 아니다.
 #                          우리가 고칠 수 없는 문서를 문제로 집계하면 "0건 확인" 절차가 영구히 막힌다.
 # 폴더 이름만 비교하므로 `.claude/skills/...` 처럼 어느 깊이에 있어도 걸러진다.
-CLAUDE_EXCLUDE_DIRS = ("skills", "plugins")
+CLAUDE_EXCLUDE_DIRS = ("skills", "plugins", "worktrees")
 
 # 검사 [7] 의 기준값 파일 이름. 메모리 폴더 바로 아래에 둔다.
 # .md 가 아니라 .json 인 이유: "메모리 정리" 작업의 시야에 안 들어와서 같이 지워질 확률이 낮고,
@@ -244,7 +245,7 @@ def is_excluded(path):
 
 def is_excluded_claude_dir(path, claude_root):
     """
-    `.claude/` 안의 파일 중 **외부에서 받아온 문서**(skills/ · plugins/)인지 판정한다.
+    `.claude/` 안의 파일 중 현재 저장소가 직접 관리하지 않는 문서인지 판정한다.
 
     왜 별도 함수인가:
         `is_excluded()` 는 `_Tasks/` · `_Logs/`(= 이력 기록) 전용 판정이다.
@@ -255,6 +256,7 @@ def is_excluded_claude_dir(path, claude_root):
     판정 방법:
         `claude_root` 기준 상대경로의 **첫 번째 폴더 이름**만 본다.
         예) `.claude/skills/foo/SKILL.md` → 첫 폴더 `skills` → 제외
+            `.claude/worktrees/x/...`      → 첫 폴더 `worktrees` → 제외
             `.claude/agents/qa-tester.md`  → 첫 폴더 `agents` → 포함
     """
     rel = os.path.relpath(path, claude_root).replace(os.sep, "/")
@@ -267,8 +269,8 @@ def collect_claude_files(claude_root):
     `.claude/` 아래에서 참조 검사 대상으로 삼을 마크다운 파일 목록을 만든다.
 
     포함: `MEMORY.md` · `mistakes.md` · `agents/*.md` · `agent-memory/**/*.md`
-          (= skills/ · plugins/ 를 뺀 나머지 전부. 새 문서가 늘어도 자동으로 따라온다)
     제외: `skills/` · `plugins/`  → 외부 문서 (CLAUDE_EXCLUDE_DIRS)
+          `worktrees/`            → 다른 작업 복제본과 생성 산출물
           `_Tasks/` · `_Logs/`    → 이력 기록 (is_excluded, 파일 상단 「검사하지 않는 것」)
 
     🔴 이 함수는 **참조를 찾을 범위**만 넓힌다. 규칙 정의를 어디서 읽는지와는 무관하다.

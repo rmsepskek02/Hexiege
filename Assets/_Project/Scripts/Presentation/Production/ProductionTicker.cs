@@ -681,7 +681,7 @@ namespace Hexiege.Presentation
                 }
 
                 // 이동 중이면 스킵
-                if (unitView.IsMoving) continue;
+                if (unitView.IsMoving || unitView.HasActiveNavigationObjective) continue;
 
                 UnitData unit = unitView.Data;
 

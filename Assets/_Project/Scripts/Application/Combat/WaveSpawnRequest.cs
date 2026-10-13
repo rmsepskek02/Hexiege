@@ -49,8 +49,16 @@ namespace Hexiege.Application
         /// <summary> 아군 회복량(양수). </summary>
         public readonly int Heal;
 
+        /// <summary>진단에서만 사용하는 발사 당시 주 타깃. 판정·결과 키에는 사용하지 않는다.</summary>
+        public readonly int DiagnosticPrimaryTargetId;
+        public readonly bool DiagnosticPrimaryTargetIsUnit;
+        /// <summary>gameplay 발사 예약과 실제 wave의 진단 연결. C3/피해 키가 아니다.</summary>
+        public readonly ulong DiagnosticLaunchReservation;
+
         public WaveSpawnRequest(UnitData caster, Vector3 origin, Vector3 forward,
-            float width, float length, float travelTime, int heal)
+            float width, float length, float travelTime, int heal,
+            int diagnosticPrimaryTargetId = -1, bool diagnosticPrimaryTargetIsUnit = false,
+            ulong diagnosticLaunchReservation = 0)
         {
             Caster = caster;
             Origin = origin;
@@ -59,6 +67,9 @@ namespace Hexiege.Application
             Length = length;
             TravelTime = travelTime;
             Heal = heal;
+            DiagnosticPrimaryTargetId = diagnosticPrimaryTargetId;
+            DiagnosticPrimaryTargetIsUnit = diagnosticPrimaryTargetIsUnit;
+            DiagnosticLaunchReservation = diagnosticLaunchReservation;
         }
     }
 }

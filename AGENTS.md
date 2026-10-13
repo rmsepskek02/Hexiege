@@ -27,12 +27,15 @@
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 — 자원 시스템, 범위 공격 규칙, 유닛 강화(연구소) 시스템 스탯 포함 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
 | `Assets/_Project/Docs/LogRules.md` | 런타임 로그 + QA-Fix 로그(`Log.md`) 작성 규칙 (절 목록은 그 문서가 단일 소스) |
+| `Assets/_Project/Docs/LogHistory.md` | 로그 규칙의 과거 개정·구현·검증 이력 원문 — 현행 규범이 아님 |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 — **규칙 문서별 상세 요약의 단일 소스** (세부 규칙은 `GameSystemRules/` 하위 파일) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 유형별 생성·검증 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다: 화면·승패 기록·이탈 처리가 역할과 무관하게 일관), 이탈 시 승패 기록, 인게임 이탈 처리. 구조·구현 방법(Netcode, 동기화, 데이터 계약, 치팅 방어)은 이 문서가 아니라 TDD |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, MistShrine 패널, 건물 배치 패널, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동(건물로 경로가 막혔을 때의 동작 포함), 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동(건물 경로 차단 포함)·정렬·타겟·공격·피해 불변 규칙, 전투 연출·애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UnitCombatSynchronization.md` | 서버 권위 행동 회차·타격 결과·멀티플레이 표현 동기화 계약 |
+| `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md` | 25종 유닛 공격 에셋·설정·구현·검증 상태 감사표 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워, MistShrine 물안개 힐 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Skills.md` | 스킬 건물, 쿨다운/스킬 수 규칙, 3×3 스킬 UI, 스킬 메커니즘 타입, 발동 경로, 모바일 지점 조준 UX, 서버 권위 — 구체 스킬 목록·수치는 아직 미확정 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Upgrade.md` | 연구소 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI |
@@ -71,6 +74,7 @@
 |----------|------|----------|
 | `Assets/_Project/Docs/WORKFLOW.md` | 작업 사이클 운영 규칙 — **단일 권위 소스**. 말미에 **「검수·판정 작업과 수치 보고의 절차」**(코드 주석·문서의 사실 주장을 판정하거나 수치·목록을 보고하는 작업이 지킬 8개 절차) | ❌ 수동 |
 | `.claude/mistakes.md` | **AI 실수 기록** — AI가 이 프로젝트에서 저지른 실수의 누적 기록. **전문을 읽지 않는다** — 상단 목차를 훑고 이번 작업과 성격이 비슷한 항목만 펼쳐 읽는다. **읽는 법 · 적는 법 · 항목 형식은 그 문서 상단이 단일 소스**이며 이 자리에 옮겨 적지 않는다. 확인 시점은 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) 「작업 시작 전 확인」 | ❌ 수동 |
+| `.claude/mistakes/unit-action-correction.md` | **유닛 공격·이동 정밀 교정 전용 실패 기록** — 게임 규칙의 권위 원본이 아니라, 반복 실패의 원인·증거·교정 계약·회귀 gate·검증 상태를 누적한다. 관련 작업 전 `.claude/mistakes.md`의 참조 인덱스를 거쳐 필요한 사건만 읽는다. | ❌ 수동 |
 | `Tools/check_docs.py` | 문서 정합성 검사기(읽기 전용) — 규칙 번호·문서 링크·규칙 참조의 정합성과 **에이전트 메모리 보호**(고아 토픽 파일, 총합 행수 감소)를 찾아 목록만 출력한다. **검사 항목의 정확한 목록은 검사기 자신과 WORKFLOW.md [11]이 단일 소스**이며 이 자리에 옮겨 적지 않는다. 행수 감소 기준값은 `.claude/agent-memory/_baseline.json` — 직접 편집 금지, 갱신은 `--update-baseline`, 감소가 포함되면 `--reason` 필수. 문서 수정 후 `python3 Tools/check_docs.py`를 리포지토리 루트에서 실행해 **0건**을 확인한다. 🔴 **주의: 규칙을 `**규칙 N. 제목**` 굵은 글씨로 쓰지 않으면 그 문서의 규칙이 통째로 검사에서 빠지고, 검사기는 아무 경고 없이 0건을 낸다.** 실제로 몇 개 문서가 규칙 원본으로 읽히는지는 **검사기가 매 실행 시 출력하는 `[검사 범위]` 블록이 권위 소스**이며 이 자리에 숫자를 옮겨 적지 않는다. **검사 범위와 형식 규정은 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) [11]이 단일 소스** — 실행 결과를 해석하기 전에 그쪽을 볼 것 | ❌ 수동 |
 | `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/` | 작업별 Research / Plan / Testcase (사용자용) | — |
 | `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md` | QA-Fix 반복 이터레이션 로그 (에이전트용) | — |

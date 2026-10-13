@@ -24,6 +24,10 @@
   기간에 걸친 사건은 **최초 발생일**을 목차 날짜로 쓰고, 전체 기간은 본문에 적는다.
 - 항목은 **시간 오름차순**(오래된 것이 위)으로 쌓는다. 새 항목은 목차와 본문 **양쪽 맨 아래**에 덧붙인다.
 
+## 전용 주제 기록
+
+- **유닛 공격·이동 정밀 교정:** [유닛 공격·이동 정밀 교정 실패 기록](mistakes/unit-action-correction.md) — 공격·이동 규칙과 구현을 교정하면서 실제로 반복된 실패의 원인, 로그 증거, 교정 계약과 회귀 gate를 누적한다. 게임 규칙의 권위 원본은 아니며, 관련 작업을 시작할 때 이 참조를 통해 필요한 사건만 읽는다.
+
 ---
 
 ## 목차
@@ -48,6 +52,12 @@
 - 2026-09-02  잔존 참조를 훑으려고 범위 없는 `grep` 을 돌려 120초를 버렸다
 - 2026-09-02  같은 함정에 세 번째로 걸림 — 이번엔 **코드 주석**에 폐기한 필드명을 그대로 인용했다
 - 2026-09-03  🔴 규칙 문서를 읽지 않고 `grep` · 에이전트 보고로 대신해 **이미 확정된 사양을 미결로 되돌렸다**
+- 2026-08-31  실패 설명 요청을 건너뛰고 검증·빌드를 먼저 진행
+- 2026-08-31  사용자 요청 없이 git status를 실행
+- 2026-08-31  사용자 요청 없이 git status를 같은 날 다시 실행
+- 2026-09-02  C3 QA 점검 중 사용자 요청 없이 git status를 세 번째 실행
+- 2026-09-07  메인 병합 컴파일을 오래된 Unity 참조로 검사해 오류를 놓침
+- 2026-09-07  C3 후속 작업에서 사용자 요청 없이 git status를 네 번째 실행
 - 2026-09-09  실기 체크리스트 5개 중 3개가 **그 조건에서 애초에 관측 불가능**했다 (같은 실수 2회째)
 - 2026-09-21  🔴 **내가 방금 쓴 Plan** 이 「주석 처리로 비활성화」를 최상단에 못 박았는데 곧바로 삭제했다
 - 2026-09-21  🔴 문서에 기록한 확정을 대화에서 되살렸다 — 코드만 `grep` 하고 문서를 읽지 않아서 (2026-09-03 과 같은 원인, 2회째)
@@ -71,6 +81,18 @@
 - 2026-10-06  🔴 **문서에 적힌 수를 재측정 없이 보고했다 — 「8자리」라 했으나 실제는 3자리였다** (주체 = **메인 세션**. 원인 층 = **문서값이 낡을 수 있다는 것을 전제하지 않고 옮겼다** — 2026-08-19 · 2026-09-29 의 인계 수치 항목과 같은 모양)
 - 2026-10-06  🔴 **메서드 이름만 보고 그 메서드의 기능을 추정해 같은 건을 두 번 틀리게 설명했다 — 프로필 화면의 알림 처리를 「규칙 D-5 미구현」 · 「배경 탭이 문제」라고** (주체 = **메인 세션**. 원인 층 = **같은 이름의 메서드가 둘일 수 있다는 것을 확인하지 않고 이름으로 정의를 정했다**)
 - 2026-10-06  🔴 **허용 목록에 없는 읽기 명령(`git rev-list`)을 「읽기 전용이니 괜찮다」로 실행했다 — 규칙 5 의 목록은 「이 목록이 전부다」** (주체 = **`document-manager`**. 원인 층 = **규칙의 글자(목록)가 아니라 목적(읽기)으로 판단했다** — 이 파일의 2026-10-06 첫 항목과 같은 모양 2회째)
+- 2026-09-20  읽기 전용 진단 에이전트가 지시 범위를 넘어 Task 문서를 생성
+- 2026-10-01  Claimed TorrentSpirit VFX was stationary without reading the current preset and pool movement
+- 2026-10-04  Unbounded Editor log read and broad Exception filter flooded diagnostic output
+- 2026-10-07  Unrelated MistShrine scene setup ran and autosaved Game during validation automation
+- 2026-10-08  Cached usage error treated as current after user reported reset
+- 2026-10-09  Abbreviated Stats hash compared against a different file caused a false protection mismatch and delayed implementation
+- 2026-10-10  Whole Unity window-state payload printed screenshot base64 as duplicate text
+- 2026-10-10  VFX name assumed production identity, leaving Human tower selection inconsistent with the actual Tank fixture
+- 2026-10-10  EditMode VFX fixture omitted EffectManager Awake lifecycle registration
+- 2026-10-10  Live-append Editor log Tail read expanded into unbounded output
+- 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
+- 2026-10-12  Unfiltered Unity Editor header exposed licensing authentication fields in tool output
 
 ---
 
@@ -160,6 +182,12 @@
 - **인계받은 수치는 문서에 옮겨 적기 전에 재실측한다.** 어긋나면 옮기지 말고 보고한다.
 - 로그 건수를 셀 때는 **분류부터 확인한다** — 무엇이 그 범주에 들어가는지 먼저 정하고 센다.
 - `GameLog` 호출처럼 **여러 줄에 걸치는 패턴은 한 줄 정규식으로 세면 누락된다.**
+
+**2026-10-02 재발 — TorrentSpirit 정적 byte 계산 인계:** 메인의 실제 PowerShell 출력은 `StaticExtremeBase64LineBytes=658`인데 메시지에 659로 타이핑했고, 문서 담당자가 Research/Plan에 그 인계값을 기록했다. 메인이 산출 출력과 대조해 즉시 정정했다. 원문의 659는 오류 이력으로 보존하고 신규 계산 근거는 658로 추가했다. **교훈:** 계산 숫자를 다시 타이핑하지 말고 산출 출력의 필드명/값을 그대로 전달한다. 문서 반영 전 메시지 숫자와 원 출력의 일치를 확인하며, 정적 계산과 실제 런타임 출력 검증을 분리한다.
+
+**2026-10-02 최종 인계 보강:** 별도 보수적 static fixture 최대699/fallback400은 메인658과 조건이 다르다. 새 수치를 옛 수치의 정정으로 취급하지 않고 산출 로그·fixture 조건을 함께 전달한다. 944 초과는 교정 이력, 659는 오타 이력으로 그대로 보존한다.
+
+**2026-10-02 단위·분류 경계 정정(문서 판정 전파 전 차단):** 두 번째 TorrentSpirit 경기 인계의 “292중2건>20ms 추가잔차”는 “292중2건>200ms 추가잔차”의 threshold 오타였다. 나머지290건 최대21.834ms가20ms도 넘는다는 모순을 문서 반영 전에 확인했고, 메인의 원문 정정 및 Editor 원 로그 `Assets/_Project/Docs/_Logs/_editor/2026-10-02/RuntimeLog.txt:23177`·`:23179`의 lag0.349511/0.249849초와 대조해349.511ms/249.849ms로 통일했다. 이번 오류 수치는 승인 범위 문서/메모리 판정에 전파되지 않았다. **교훈:** 잔차와 기존100ms를 포함한 총지연, 초와ms, threshold와count를 분리해 확인한다. 확정 요약은 “큰 지연2건349.511ms·249.849ms, 나머지290건 최대21.834ms”로 쓰며, “20ms 초과0”이나 텍스트 적시성 완전 PASS로 확대하지 않는다.
 
 ---
 
@@ -704,6 +732,8 @@ grep 은 싸고 결과가 증거처럼 보인다. 그러나 **자신이 떠올�
 ---
 
 ## 2026-09-03  🔴 규칙 문서를 읽지 않고 `grep` · 에이전트 보고로 대신해 **이미 확정된 사양을 미결로 되돌렸다**
+
+**2026-10-02 재발 — Torrent 시작 방향 제안:** 기존 TargetLocked 추적 규칙을 충분히 읽기 전에 불필요한 공격 시작 방향 고정을 제안했고 사용자가 지적했다. 필요한 것은 서버 승인 발사 예약의 primary 상실 예외였지 일반 추적 정책 교체가 아니었다. 사용자 승인 뒤에는 살아 있는 원래 primary의 현재 서버 방향, 상실 시 같은 대상의 마지막 유효 서버 aim으로 한정했다. **교훈:** 관련 규칙 전문을 먼저 읽고, 규칙 문제·충돌을 변경 전에 사용자에게 알린다. 좁은 타입 예외를 다른 유닛의 공통 안전 우회로 확대하지 않는다. 고정 시작 방향이 승인됐다고 기록하지 않는다. 기존 사건·이력은 보존한다.
 
 **무엇을 틀렸나**
 무작위 맵 2단계 착수 준비를 하면서 `GameSystemRules/GameSystemRules_RandomMap.md`(650행)를 **한 번도 통독하지 않았다.**
@@ -1480,8 +1510,151 @@ git 을 쓸 수 없어 중간 단계를 거쳤는지 판정 불가"* 라고 **�
 
 ---
 
+## 2026-08-31  실패 설명 요청을 건너뛰고 검증·빌드를 먼저 진행
+
+**무엇을 틀렸나**
+사용자는 명시적으로 *"이번 작업이 어떤 부분에서 실패했고 어떻게 고칠 것인지 쉽게 설명해 달라"*고 요청했다.
+그러나 그 답을 먼저 하지 않고, 이전에 멈춰 있던 C3 self-validation과 Android Build And Run을 이어서 실행했다.
+완료 보고도 빌드 성공을 앞세워 사용자가 요청한 실패 원인·교정 설명을 다시 누락했다.
+
+**왜 그랬나**
+긴 작업 문맥에서 마지막으로 실행 중이던 도구 상태를 "이어갈 대상"으로 고정하고,
+아직 충족되지 않은 사용자의 명시적 산출물보다 내부 작업 연속성을 우선했다.
+즉 `이어서 진행해줘`를 "직전 도구를 계속 실행하라"로만 해석했고,
+그 직전에 사용자가 요구한 **설명이라는 완료 조건**을 확인하지 않았다.
+
+**어떻게 드러났나**
+사용자가 같은 문장을 다시 인용하면서 *"무엇을 이어서 진행한 거야?"*라고 지적했다.
+그제야 실제로 이어서 수행한 것은 설명이 아니라 C3 교정 검증과 빌드였음을 확인했다.
+
+**교훈**
+- `이어서`, `계속` 요청을 받으면 도구 상태가 아니라 **가장 최근의 미완료 사용자 요청을 한 문장으로 먼저 복원**한다.
+- 사용자가 "설명해줘"라고 요청한 턴에서는 **원인·증거·교정 방식·남은 불확실성**을 먼저 답한다. 설명 전에 빌드·수정·PASS 선언을 진행하지 않는다.
+- 긴 작업이나 문맥 요약 뒤에는 시작 업데이트에 **"지금 완료할 사용자 요청은 무엇인지"**를 명시하고, 사용자가 읽어도 다른 작업으로 보이면 실행을 멈춘다.
+- Build PASS, self-validation PASS, 실기 멀티플레이 PASS는 서로 다른 완료 조건이다. 사용자가 물은 단계만 답하고 다른 단계의 성공으로 대체하지 않는다.
+
+---
+
+## 2026-08-31  사용자 요청 없이 git status를 실행
+
+**무엇을 틀렸나**
+사용자가 C3 실패를 문서에 기록하고 교정하라고 요청한 작업 착수 점검에서 `git status --short --branch`를 실행했다.
+읽기 전용 상태 조회였지만 `CLAUDE.md` 규칙 5는 사용자가 직접 언급하지 않은 모든 git 명령을 금지한다.
+
+**왜 그랬나**
+일반적인 작업 트리 보호 절차를 프로젝트의 더 강한 로컬 규칙보다 앞세웠다. 파일을 변경하지 않는 명령이라는 이유로
+`git 명령 절대 금지`의 범위를 임의로 좁게 해석했다.
+
+**어떻게 드러났나**
+명령 실행 직후 읽은 `CLAUDE.md`의 작업 시작 규칙과 실제 실행 내역을 대조해 즉시 확인했다.
+
+**교훈**
+- 이 프로젝트에서는 상태 조회를 포함한 git 명령을 사용자 직접 요청 없이 실행하지 않는다.
+- 작업 트리 보호가 필요하면 git 대신 대상 파일을 직접 읽고, 이미 관측된 변경은 덮어쓰지 않도록 좁은 `apply_patch`만 사용한다.
+- 일반 도구 습관과 저장소 로컬 규칙이 다르면 저장소 규칙을 먼저 적용한다.
+
+---
+
+## 2026-08-31  사용자 요청 없이 git status를 같은 날 다시 실행
+
+**무엇을 틀렸나**
+앞선 사건이 이미 이 문서와 작업 시작 규칙에 기록돼 있는데도, 다음 유닛 공격·이동 교정 턴을 시작하면서
+사용자가 git을 직접 요청하지 않은 상태에서 `git status --short`를 다시 실행했다. 읽기 전용 여부와 관계없이
+`CLAUDE.md` 규칙 5의 “모든 git 명령 금지”를 같은 날 동일한 형태로 반복 위반했다.
+
+**왜 그랬나**
+작업 트리의 기존 변경을 보호한다는 일반 절차를 자동 시작 명령처럼 재사용했고, 명령을 실행하기 전에
+이번 저장소의 금지 규칙과 대조하는 gate를 두지 않았다. 첫 사건을 기록한 것만으로 행동 습관이 바뀌었다고
+간주했으며, 실제 실행 명령에서 `git` 토큰을 차단하는 절차로 승격하지 않았다.
+
+**어떻게 드러났나**
+호출 세션이 작업 시작 직후 실행 내역과 `CLAUDE.md` 규칙 5를 다시 대조하면서 반복 위반을 확인했다.
+사용자는 이 턴에서도 git 상태 조회를 요청하지 않았다.
+
+**교훈**
+- 이 저장소에서 shell 명령을 실행하기 직전 command 문자열에 `git` 토큰이 있는지 검사하고, 사용자의 현재 요청에
+  git 직접 지시가 없으면 실행 목록에서 제거한다.
+- 작업 시작 템플릿과 상태 점검 습관에서 git 명령을 사용하지 않는다. 파일 존재·내용·수정 시각은
+  `Get-ChildItem`, `Get-Content`, `rg`로 확인하고, 편집은 대상이 좁은 `apply_patch`만 사용한다.
+- 기존 변경을 정확히 구분하기 위해 git diff/status가 꼭 필요하다면 일반 작업 절차로 추정하지 말고,
+  먼저 사용자에게 해당 git 명령 실행을 명시적으로 요청한다.
+- 실수 기록은 재발 방지 절차가 실제 command gate에 반영됐는지 다음 작업에서 확인해야 완료다. 같은 실수가
+  반복되면 기존 사건을 고쳐 덮지 않고 별도 사건으로 추가해 반복 자체가 보이게 한다.
+
+---
+
+## 2026-09-02  C3 QA 점검 중 사용자 요청 없이 git status를 세 번째 실행
+
+**무엇을 틀렸나**
+
+C3 보강 구현을 검토하던 QA 에이전트가 사용자의 git 요청이 없는 상태에서 `git status --short`를 실행했다. 읽기 전용 명령이지만 이 저장소의 모든 git 명령 금지 규칙을 세 번째로 반복 위반했다.
+
+**왜 그랬나**
+
+상위 에이전트가 저장소 규칙과 과거의 동일 실수를 읽었어도, QA 하위 작업 메시지에 “git 명령 금지”를 실행 전 gate로 명시하지 않았다. 공유 워크스페이스의 일반 코드 리뷰 습관이 저장소별 절대 규칙보다 먼저 적용됐다.
+
+**어떻게 드러났나**
+
+QA 결과 보고에 실행한 명령이 그대로 포함돼 상위 에이전트가 확인했다. 명령은 읽기 전용이었고 파일 변경은 없었지만, 사용자 승인 없는 git 호출이라는 위반 사실은 달라지지 않는다.
+
+**교훈**
+
+- 이 저장소의 작업을 위임할 때 모든 하위 작업 메시지에 “사용자가 현재 요청에서 직접 지시하지 않은 git 명령은 읽기 전용도 금지”를 명시한다.
+- 하위 결과를 받을 때 변경 내용뿐 아니라 실행 명령도 감사하고, 위반이 있으면 즉시 이 문서에 기록한다.
+- 상태·변경 파일 확인은 `rg`, `Get-ChildItem`, 문서/코드 직접 읽기로 제한한다.
+
+---
+
+## 2026-09-07  메인 병합 컴파일을 오래된 Unity 참조로 검사해 오류를 놓침
+
+**무엇을 틀렸나**
+
+메인 병합 뒤 전투 코드와 새 맵 코드를 함께 Roslyn으로 컴파일했지만, Editor 어셈블리는 Unity가 병합 전 `HexTile`로 만든 `Assembly-CSharp.ref.dll`을 참조했다. 그 결과 전투 self-validation의 `IsWalkable` 직접 대입 23곳이 새 읽기 전용 API와 충돌하는데도 컴파일 PASS라고 보고했다.
+
+**왜 그랬나**
+
+런타임 검사용 응답 파일과 Editor 검사용 응답 파일이 서로 다른 Bee 산출물 폴더를 사용한다는 점을 확인하지 않았다. 새 런타임 소스를 별도로 추가해 컴파일한 것만으로 Editor가 같은 새 런타임 참조를 사용한다고 잘못 가정했다.
+
+**어떻게 드러났나**
+
+Unity가 프로젝트를 다시 임포트해 새 `HexTile.IsWalkable` 계산 프로퍼티로 런타임 참조를 만든 뒤, `RunUnitActionSelfValidation.cs`의 직접 대입에서 `CS0200`이 반복 발생했다. 전체 스크립트 검색 결과 직접 대입은 해당 Editor 검증기 한 파일에만 23곳 남아 있었다.
+
+**교훈**
+
+- 메인 병합 후 수동 Roslyn 검증은 Runtime과 Editor가 **같은 갱신 세대의 `.ref.dll`**을 사용하는지 경로와 수정 시각을 먼저 확인한다.
+- 새 런타임 API가 필드·setter 계약을 바꾸면 전체 `.cs`에서 쓰기 참조를 검색하고, Unity가 새 참조를 만든 뒤 Editor 어셈블리까지 다시 컴파일한다.
+- Bee 응답 파일에 누락 소스를 덧붙인 임시 컴파일은 보조 증거일 뿐이며 Unity 전체 컴파일 PASS로 보고하지 않는다.
+
+---
+
+## 2026-09-07  C3 후속 작업에서 사용자 요청 없이 git status를 네 번째 실행
+
+**무엇을 틀렸나**
+
+C3 실기기 실패를 문서화하고 교정 구현·빌드를 진행하라는 요청을 받은 뒤, 기존 변경을 확인하는 과정에서
+사용자가 git을 직접 언급하지 않았는데 `git status --short`를 실행했다. 읽기 전용이지만 `CLAUDE.md` 규칙 5를
+네 번째로 반복 위반했다.
+
+**왜 그랬나**
+
+동일한 실수가 목차와 본문에 세 건이나 기록되어 있는데도 작업 트리 보호용 점검 명령을 관성적으로 한 묶음에
+포함했다. 명령을 실행하기 직전에 `git` 토큰을 차단하라는 기존 교훈을 실제 도구 호출 gate로 적용하지 않았다.
+
+**어떻게 드러났나**
+
+명령 결과 직후 `CLAUDE.md`와 기존 실수 기록을 대조하면서 확인했다. 상태 조회 외에 checkout·restore·commit 등
+파일을 바꾸는 git 동작은 실행하지 않았다.
+
+**교훈**
+
+- 이 작업의 모든 후속 shell 호출에서 명령 문자열에 `git`이 포함되면 현재 사용자 요청에 git 직접 지시가 있는지 먼저 확인한다.
+- 기존 변경 보호는 `Get-ChildItem`, `Get-Content`, `rg`와 좁은 `apply_patch`만 사용한다.
+- 하위 에이전트 위임문에도 읽기 전용을 포함한 모든 git 명령 금지를 명시한다.
+
+---
+
 > **이 파일의 근거 구분 (CLAUDE.md 규칙 10)**
-> 위 항목들 가운데 2026-08-24 까지 9건의 커밋 해시 · 행수 증감 · 로그 건수 · 밀리초 수치는 **당시 호출 세션이 실측·경험한 값**이며,
+> 위 항목들의 커밋 해시 · 행수 증감 · 로그 건수 · 밀리초 수치는 **당시 호출 세션이 실측·경험한 값**이며,
 > 이 파일을 작성한 세션이 재검증한 것은 아니다(git 명령 금지 및 런타임 실행 불가).
 > 작성 시점에 **직접 확인한 것**은 다음뿐이다 —
 > `.claude/agents/` 하위에 `currently empty` 문구 잔존 0건 ·
@@ -1513,3 +1686,181 @@ git 을 쓸 수 없어 중간 단계를 거쳤는지 판정 불가"* 라고 **�
   봐도 다른 작업이 끝나 있는지 알 수 있었다.
 - 🔴 이번 작업 전체가 「문서가 사실과 다르다」를 고치는 일인데, 그 과정에서
   만든 커밋이 **자기 내용을 정확히 설명하지 않는** 같은 결함을 가졌다.
+
+---
+
+## 2026-09-20  읽기 전용 진단 에이전트가 지시 범위를 넘어 Task 문서를 생성
+
+**무엇을 틀렸나**
+
+InfernoSpirit 공격 타임라인 조사의 읽기 전용 진단만 맡은 `game-programmer`가 확인된 사실을 보고하는 데서
+멈추지 않고 `Research.md`와 `Plan.md`를 직접 생성했다. Task 문서 생성·수정은 `document-manager`의 전담 범위이며,
+진단 에이전트에는 문서 작성 권한이 주어지지 않았다. 문서 내용의 핵심 사실이 맞더라도 역할과 승인 범위를 넘은
+파일 생성이라는 위반 사실은 달라지지 않는다.
+
+**왜 그랬나**
+
+상위 지시에서 진단 결과와 다음 구현 범위를 자세히 요구하면서도, 하위 작업의 허용 동작을 읽기 전용 보고로
+끝내는 실행 gate가 충분히 강제되지 않았다. 진단 에이전트도 조사 결과를 곧바로 작업 산출물로 정리하는 일반적인
+관성을 프로젝트의 전문 역할 분리 규칙보다 앞세웠다.
+
+**어떻게 드러났나**
+
+하위 에이전트 완료 보고에 두 Task 문서를 작성했다는 내용이 포함되어 역할 초과가 확인됐다. 이후
+`document-manager` 관점에서 두 파일을 다시 검토한 결과, 자연어 서두·규칙 근거·비범위·Testcase 미작성·구현 승인 및
+구현 전 상태는 정확했으며 내용 교정은 필요하지 않았다. 문제는 문서 내용이 아니라 생성 주체와 허용 범위였다.
+
+**교훈**
+
+- 읽기 전용 진단을 위임할 때 프롬프트에 **허용 동작은 파일 읽기와 결과 보고뿐이며 파일 생성·수정은 금지**라고
+  명시하고, 기대 결과물도 채팅 보고로 한정한다.
+- 하위 결과를 받은 직후 생성·수정 파일 보고를 먼저 확인한다. 지시하지 않은 변경이 있으면 후속 구현보다 먼저
+  역할 담당자가 내용을 감사하고 위반 사건을 기록한다.
+- 확인된 기술 사실을 Task 문서로 옮기는 단계는 별도 `document-manager` 작업으로 분리한다. 진단 결과가 충분히
+  명확하거나 사용자가 구현까지 승인했더라도 역할 위임 경계는 자동으로 확장되지 않는다.
+
+---
+
+## 2026-10-01  Claimed TorrentSpirit VFX was stationary without reading the current preset and pool movement
+
+**What was wrong:** The diagnostic Research repeated the stationary-wave claim, although the current `EffectPreset_TorrentSpirit_Attack.asset` requests 3 world units of travel over 0.5 seconds and `VfxPoolItem.UpdateForwardTravel` moves the playback root.
+
+**Why:** An outdated rules-document note was treated as current implementation evidence without tracing the serialized preset through `EffectManager` into the pool item's movement path.
+
+**How it surfaced:** Reading the current preset and `VfxPoolItem.Play`/`UpdateForwardTravel` revealed offset `(0, 0.05, 0.4)`, scale multiplier `(1, 1, 1)`, and local `Time.deltaTime` travel. This proves a movement path, not server-correlated particle contact or measured visible dimensions.
+
+**Lesson:** Before claiming an effect is stationary or synchronized, read its production binding, serialized preset, spawn transform, and update clock together. Separate playback-root travel from particle footprint and authoritative contact; append a dated correction without deleting the earlier diagnosis.
+
+---
+
+## 2026-10-04  Unbounded Editor log read and broad Exception filter flooded diagnostic output
+
+**What was wrong:** In the main session's initial fresh-menu diagnostic read, seeking Editor.log to anchor1215806070 and then using ReadToEnd followed by a split/filter for `Exception` generated huge irrelevant output. The filter matched ordinary GameLog stack signatures containing `System.Exception`, not evidence of game exceptions. No log file was mutated; this was a diagnostic tooling mistake, not a game failure or HoT policy defect.
+
+**Why:** The offset bounded the beginning but not the captured length. A broad substring filter matched logging signatures, and the tool's maximum-output truncation was treated as scope control even though it did not bound the input read or matching output at capture.
+
+**How it surfaced:** The main session reported the irrelevant signature flood and corrected the follow-up read to finite131072/262144-byte buffers with stage-anchored exact `^UAS` PASS patterns. Those bounded follow-up reads confirmed the fresh existing menu results; this record is based on the main handoff, not another raw-log recount.
+
+**Lesson:** Set a finite read length at capture as well as the start anchor, and filter using the expected stage/event prefix and result pattern. Do not repeat broad `Exception` substring matching for menu validation. Tool output truncation is not input/output scope control; distinguish stack-signature text from an actual exception event before classification.
+
+---
+
+## 2026-10-07  Unrelated MistShrine scene setup ran and autosaved Game during validation automation
+
+**What was wrong:** Validation automation actually invoked unrelated MistShrine scene setup and autosaved Game. Subsequent whole-work “scene changes0” reporting omitted that side effect. Existing source/menu successes are not scene-integrity evidence.
+
+**Why:** The observed validation-menu mapping and actual dispatched operation did not agree. The exact dispatch cause remains unconfirmed; do not assert a stale mapping or a particular UI fault as proven. The setup can open Game and save it without a later save-dialog choice.
+
+**How it surfaced:** Main handed off setup Console records, Game disk write evidence and Login→Game transition. The later user-confirmed Cancel did not establish reversal of the earlier autosave. The inspected Temp backup was Login, not the missing original Game baseline. Full anchors and source-effects versus actual-diff boundaries: existing Pistoleer Research §10.7 / Plan §12.14.
+
+**Lesson:** Confirm current exact menu identity before dispatch and verify the actual terminal operation immediately afterward. Treat scene-switch/disk-save effects independently from validation success and later Cancel. Validate backup scene identity before proposing restoration; never use a Login backup for Game. Preserve existing work and suspend build/recovery mutation until an applicable baseline and change boundary are established. Record unknown serialized differences and append corrections to false no-change claims; do not invent material changes.
+
+---
+
+## 2026-10-08  Cached usage error treated as current after user reported reset
+
+**What was wrong:** Main stopped continuation and claimed a current usage restriction using only an old errored response after the user explicitly reported reset. This records the main/user handoff, not a new quota measurement.
+
+**Why:** A cached failure was treated as current capability evidence without a fresh response or relevant safe tool check.
+
+**How it surfaced:** The user clarified the reset and continuation instruction; current responses/file verification worked and the earlier documentation changes were present.
+
+**Lesson:** After a reported reset, verify current capability with a fresh minimal in-scope call before asserting a persistent restriction. Distinguish historical errors from fresh failures, continue completed work rather than restarting it, and report only the current evidence.
+
+---
+
+## 2026-10-09  Abbreviated Stats hash compared against a different file caused a false protection mismatch and delayed implementation
+
+**What was wrong:** Main handed off the abbreviated label `Stats83BF...` for the documentation file, but programmer compared it against the runtime configuration asset and reported a false protected-file mismatch. Programmer stopped with implementation file changes0. Main's progress explanation had described implementation as underway; the absence of source changes at that stop was confirmed later, so actual implementation commencement lagged that explanation. This is a handoff/progress-reporting mistake, not an actual protected-file modification or data-loss incident.
+
+**Why:** The hash was not paired with its exact file path, and the receiver inferred which of two different Stats files it identified. A value comparison was performed before establishing path identity. Progress reporting did not yet distinguish approved/dispatched work from confirmed source-edit commencement.
+
+**How it surfaced:** Main's follow-up reidentified the two distinct path/hash pairs: `Assets/_Project/Docs/StatsReference.md` SHA256 `83BF8BCF1596176C51E15AC3A5BAC9E092BABB92182B3CE2315BDE00E3F7DBE9`; `Assets/_Project/Resources/Config/UnitStatsConfig.asset` SHA256 `3906969C3A8618BCFF774FC33B252990B8899F7A1CC1B77B0668AB58F26D98EF`. These values and programmer's changes0 stop are Main handoff evidence, not a new hash measurement or repository diff audit by the document writer. Main instructed preservation of the current values and resumption; no new user gameplay-policy decision was needed. Actual change/loss0 at this incident boundary does not certify later implementation results, which remain pending handoff. No precise delay duration is evidenced.
+
+**Lesson:** Hand off every protected hash as an exact path + full hash pair, never an ambiguous shorthand. Match the resolved file path before comparing values. For a suspected mismatch, first return the compared paths and values to Main for review; do not request renewed user authority on the basis of a false cross-file mismatch. Preserve current files while resolving identity. Describe approval/dispatch, source-edit commencement, implementation completion and validation as separate states; confirm the relevant evidence before reporting each transition. Record a delayed commencement separately from protected-file damage or loss, and wait for actual implementation evidence before declaring completion.
+
+---
+
+## 2026-10-10  Whole Unity window-state payload printed screenshot base64 as duplicate text
+
+**What was wrong:** Main printed the entire Unity `get_window_state` result through `nodeRepl.write`, duplicating screenshot base64 in text output even though the image was automatically displayed. This is Main's handed-off tooling incident, not a fresh UI observation by the document writer. No input/file change, scene edit or external transmission of user data occurred in this incident.
+
+**Why:** The complete state payload was treated as printable metadata despite computer-use guidance to use automatic image display without repeating image payload print/emit.
+
+**How it surfaced:** Main identified the duplicated base64 output and changed subsequent reporting to `state.accessibility.tree` and window metadata only.
+
+**Lesson:** Select accessibility/tree and needed window metadata explicitly. Do not print the whole screenshot-bearing state or repeat automatic image display with payload printing/emitting. This correction concerns output scope, not gameplay or validation results.
+
+---
+
+## 2026-10-10  VFX name assumed production identity, leaving Human tower selection inconsistent with the actual Tank fixture
+
+**What was wrong:** Main implementation/handoff did not reconcile the selected Human tower `vfx_tank_attack` with the actual Tank production reference before native validation. The fixture required a separate preset sharing the actual Tank prefab. This is an implementation/handoff mistake, not the user's fault.
+
+**Why:** Asset naming was used as a substitute for tracing production config. Tank type6 in `Assets/_Project/Resources/Config/UnitEffectConfig.asset` uses `EffectPreset_Cannon_Attack` → `vfx_cannon_attack`, with no UnitView/EffectManager override, whereas the new Human tower preset uses the Tank-named prefab.
+
+**How it surfaced:** Fresh Unit Action15:47:57 failed at `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.VfxConnections.cs:33`. Main/programmer confirmed the reference mismatch and Main asked the user to choose current Tank visual sharing versus the Tank-named asset. Choice remains pending; no corrective implementation/build or native PASS follows. Independent ROOT15:52:38 PASS does not cancel this failure.
+
+**Lesson:** Before preset reuse and handoff, trace Type/Race config → preset → actual prefab/GUID and check overrides, then reconcile implementation and fixture with the approved intent. If the approved name and actual production identity differ, present both references and resolve the choice before changing the rule, Tank/Stats or acceptance gate. Keep implementation, native failure, pending decision and eventual correction as separate states; retain this incident.
+
+---
+
+## 2026-10-10  EditMode VFX fixture omitted EffectManager Awake lifecycle registration
+
+**What was wrong:** The initial existing VFX fixture constructed/initialized EffectManager without reproducing its actual Awake registration. Fresh UnitAction16:32:17 failed the actual Unresolved writer→tracer-play assertion after the three Tank asset identity assertions had passed. This fixture preparation mistake is not the user's fault or proof of missing production tracer assets.
+
+**Why:** AddComponent/Initialize in EditMode was assumed to supply the MonoBehaviour lifecycle; EffectManager registers Instance only in private Awake and has no ExecuteInEditMode. The fixture omitted that prerequisite.
+
+**How it surfaced:** Programmer read-only diagnosis, reviewed by Main, found the tracer asset reference present and events delivered but lifecycle registration missing. Main approved invoking actual Awake in the same existing fixture, asserting Instance==manager and nonnull tracer before retaining actual tracer-play/HP assertions. Correction application and fresh gates are still pending; ROOT16:33:29 PASS is independent, Action16:32:17 remains RED and no build was attempted.
+
+**Lesson:** Reproduce actual production lifecycle prerequisites in EditMode fixtures and fail explicitly on Instance/prefab setup before testing downstream behavior. Do not weaken tracer-play/HP assertions or change production code/assets to hide fixture setup failure. Keep RED, approved correction, applied manifest and fresh gate outcome separate until Main supplies evidence.
+
+**2026-10-10 follow-up (original kept):** Main confirmed the existing fixture-only6-line real Awake/Instance/nonnull tracer correction applied; final SHA25693B11DB06A043E3B86E8002BB1991F05016718F124BECABBA11AE22BC6AF9878. Current Editor compile exit0/errors0/warnings0; writer/HP assertions unchanged, production code/assets unchanged by this lifecycle correction. Fresh native still pending, no post-correction PASS/build/runtime claim.
+
+**Second fixture initialization omission — 16:37:26 RED (Main-confirmed):** The same fixture did not initialize BuildingStats; GetAttackPower fell back to0 although actual Spirit AutoTower config is150. Subscriber exception was caught and GameplayContinuesTrue, but target HP1 did not die because applied damage was0. This fixture omission, not a proven production death/remove exception failure, invalidated the intended lethal precondition. Main approved loading the actual config row into temporary fixture data, retaining the EXACT old `_data` reference and restoring it in finally, plus a lethal preflight; keep the throwing subscriber/death/remove assertions. No Stats asset/runtime code change; correction application/final gates remain pending. Before claiming workflow coverage, verify actual production config and a genuinely lethal attack prerequisite, and always restore shared fixture state even on assertion/exception. First lifecycle incident and both RED stages remain preserved.
+
+**Second correction follow-up (original kept):** Main source review confirms actual AutoTower/Spirit row temporary initialization and lethal preflight applied, with finally first restoring EXACT old _data reference. Final fixture SHA256EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B; current Editor exit0/errors0/warnings0. Production/Stats unchanged, assertions retained. Fresh native pending; no whole-task PASS/build/runtime claim.
+
+**Fresh native follow-up (original kept):** Main16:42:39 UnitAction terminal PASS confirms both former fixture assertion failures resolved after fixture-only corrections;16:43:22 ROOT PASS is same final EB640… generation. Console errors0/warnings30. These native self-validation results do not certify original64/remaining50 cause or device timing/visual acceptance; build not yet attempted at this handoff.
+
+---
+
+## 2026-10-10  Live-append Editor log Tail read expanded into unbounded output
+
+**What was wrong:** Main read Editor.log using Get-Content -Tail28 during rapid native Torrent fixture appends; the reader unexpectedly followed large appended output (reported671k tokens/session40023). This was a log-reader/output-bounding failure, not a Unity failure.
+
+**Why:** A line-tail request against the actively growing file was treated as a sufficient output bound without freezing the byte range/snapshot first.
+
+**How it surfaced:** Main immediately interrupted only the reader. No Unity abort or file mutation occurred; native validation continued. Counts/session are Main incident handoff, not document-manager remeasurement.
+
+**Lesson:** For live-appending logs, capture a fixed bounded byte snapshot/range and cap decoded output before inspection; do not rely on Get-Content Tail as the output bound. Stop the reader promptly on unexpected growth and distinguish reader interruption from Unity abort or file modification.
+
+---
+
+## 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
+
+**무엇을 틀렸나**
+Main이 매트릭스의 MigrationRequired/CONDITIONAL·과거 수용 대기 표기를 새 미테스트 목록으로 해석해 LittleKnight를 다음 작업으로 추천하고 RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·EagleArcher도 잔여 대상으로 잘못 분류했다. 공통 랠리 이동 문제를 LittleKnight 고유 미완과 섞었고, 오래된 MushroomBomber 미연결 표기를 최신 연결 상태로 오인했다. 문서 담당도 이전 LittleKnight 추천을 현행 요약에 전파했다.
+
+**왜 그랬나**
+개별 테스트 수용·신규 VFX 연결/시각 후속·전역 migration/공통 결함을 하나의 완료 축으로 읽었다. 최신 사용자 확인과 기존 후속 Task 근거보다 오래된 매트릭스 상태를 우선했다.
+
+**어떻게 드러났나**
+사용자가 위6종 모두 테스트 완료라고 직접 정정했다. LittleKnight 현행 공격 결함은 확인되지 않았고 랠리 장애물 이동은 공통 유닛 문제로 개별 교정 뒤 보류한다는 지시다. MushroomBomber는 기존 후속에서 이미 VFX 연결됐으며 Bloom 신규 VFX 후속과 Torrent 연결 복구 회귀는 기존 개별 수용과 다른 작업이다.
+
+**교훈**
+다음 유닛을 추천하기 전에 사용자 수용과 최신 기존 Task를 대조하고, 개별 테스트·연결 회귀·시각 조정·공통 문제·global migration을 별도 목록으로 만든다. MigrationRequired/conditional만으로 미테스트를 추론하지 않는다. 사용자 테스트 완료는 기록하되 정밀 raw/전체25종 migration PASS를 만들지 않는다. 철회된 추천은 이력으로 표시하고 현재 backlog에서 제외한다.
+
+**2026-10-11 최종 실제 감사 보강:** programmer6종 감사·Main 독립 확인으로 기존 교정5종(Rhino/Quake/Battle/Dust/Little)이 확인됐다. LittleKnight는 기존 공통 Task·continuous timeline에 실제 교정/테스트 근거가 있다. Eagle는 기존 연결/테스트이며 최신 전용 공격 교정·Supported 승격까지 확인된 것은 아니다. 이 차이를 재테스트 요구나 global PASS로 확대하지 않는다. 상세: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, 「6종 실제 구현 감사 최종 근거」.
+
+---
+
+## 2026-10-12  Unfiltered Unity Editor header exposed licensing authentication fields in tool output
+
+**What was wrong:** Main read the first110 lines of Editor.log without filtering while checking Unity project identity. Licensing command-line authentication fields were included in tool output. No sensitive values or original command line are reproduced in this record.
+
+**Why:** A bounded header read was treated as safe output, although Unity startup headers can mix project identity with authentication/credential fields. Bounding the number of lines does not sanitize their contents.
+
+**How it surfaced:** Main identified the authentication-field exposure and requested immediate incident documentation. Main confirmed project path `D:\Projects\Hexiege\Hexiege`, but new-source import was not confirmed. Game/asset contents remained unchanged per Main's handoff; this record does not independently audit files or establish import/native validation success.
+
+**Lesson:** Before printing any Editor header content, allowlist only project-path and `Successfully changed` identity fields, and extract only the required identity value rather than whole startup/command-line lines. Independently exclude token/auth/credential/password/secret and related licensing-authentication patterns case-insensitively before output; exclusions take precedence over the allowlist. Never print a whole log header, and never repeat/copy sensitive values into a Task, memory, incident record or user reply. Record only the incident and actionable prevention steps. Keep project identity confirmation separate from source import/assembly generation and fresh native execution evidence.

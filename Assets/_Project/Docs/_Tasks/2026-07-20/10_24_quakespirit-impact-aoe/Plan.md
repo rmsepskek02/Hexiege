@@ -121,6 +121,10 @@
 - 구현 후 검증 → **qa-tester**(위 포인트, TC 문서 없이).
 - 설계 판단 충돌 시 → 사용자 확인(규칙 12).
 
-## 특수 유닛 마무리
-QuakeSpirit 완료 시 **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) + InfernoSpirit DoT** 전부 완료.
-(잔여 이슈: 멀티 원거리 facing 버그 — 별도 보류 작업.)
+## 실제 구현 결과와 남은 조건 (2026-07-22 재감사)
+
+- Legacy 피해 로직은 반영됐다. 주 타깃 20, 반경 내 다른 적 유닛·적 건물 10이 적용되며 Host/Client HP 로그에서 결과를 확인했다.
+- QuakeSpirit UnitStatsConfig도 등록됐다. 다만 `hitFrameTimes=1.00`은 실측 marker가 아닌 placeholder다.
+- 기본 Attack 클립에 `OnAttackHit`이 없어 직접 피해 표현이 타임아웃 안전망까지 지연될 수 있다. 따라서 “연출 동시 방출”과 완전한 시각 동기화는 PASS가 아니다.
+- 현재 착탄 중심은 실행 시점의 타깃 현재 위치이며 권위 `ImpactPoint`, `AttackSequenceId + HitIndex`, 결과 순번이 없다. 규칙 v2 이전과 지연·지터 멀티 QA 전에는 Complete로 판정하지 않는다.
+- Inferno/Quake를 포함한 특수 피해 의미는 보존하되, 전 유닛 공격 방향 문제는 별도 v2 작업으로 다룬다.

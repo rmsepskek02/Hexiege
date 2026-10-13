@@ -45,6 +45,67 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
 
+        private long _retryGeneration;
+        private bool _retryLifetimeOpen;
+        private bool _retryMatchEnded;
+        private System.IDisposable _retryGameEndSubscription, _retryGameStartSubscription;
+        private readonly System.Collections.Generic.List<UnitViewRetryOwner> _retryOwners = new();
+
+        // 같은 서비스가 다음 경기에도 재사용될 수 있다. 대기 후에는 회차와
+        // 실제 UnitData 객체까지 확인하여 예전 작업이 새 유닛에 적용되지 않게 한다.
+        public sealed class UnitViewRetryOwner
+        {
+            public readonly long Generation;
+            public readonly IGameServices Services;
+            public readonly UnitSpawnUseCase Spawn;
+            public readonly IUnitFactory Factory;
+            public readonly UnitData Unit;
+            private readonly System.Func<long> _generation;
+            private readonly System.Func<bool> _controllerAlive, _sessionActive;
+            private readonly System.Func<IGameServices> _services;
+            private readonly System.Action<string, float> _terminal;
+            public bool Finished { get; private set; }
+            public float Elapsed { get; internal set; }
+            public UnitViewRetryOwner(long generation, IGameServices services, UnitSpawnUseCase spawn,
+                IUnitFactory factory, UnitData unit, System.Func<long> readGeneration,
+                System.Func<bool> controllerAlive, System.Func<bool> sessionActive,
+                System.Func<IGameServices> readServices, System.Action<string, float> terminal)
+            {
+                Generation = generation; Services = services; Spawn = spawn; Factory = factory; Unit = unit;
+                _generation = readGeneration; _controllerAlive = controllerAlive;
+                _sessionActive = sessionActive; _services = readServices; _terminal = terminal;
+            }
+            public string ClosedReason()
+            {
+                if (Finished) return "already-terminal";
+                if (_generation() != Generation) return "owner-generation-replaced";
+                if (!_controllerAlive()) return "controller-retired";
+                if (!_sessionActive()) return "session-ended";
+                if (Services == null || !ReferenceEquals(_services(), Services)) return "services-replaced";
+                if (Spawn == null || !ReferenceEquals(Services.GetUnitSpawn(), Spawn)) return "spawn-service-replaced";
+                if (Factory == null || !ReferenceEquals(Services.GetUnitFactory(), Factory)) return "factory-replaced";
+                if (Unit == null || !Unit.IsAlive) return "unit-dead";
+                var current = Spawn.GetUnit(Unit.Id);
+                if (current == null) return "unit-retired";
+                if (!ReferenceEquals(current, Unit)) return "unit-identity-replaced";
+                return null;
+            }
+            public void Finish(string reason)
+            {
+                if (Finished) return;
+                Finished = true;
+                _terminal?.Invoke(reason, Elapsed);
+            }
+        }
+
+        private void CloseRetryLifetime(string reason)
+        {
+            _retryLifetimeOpen = false;
+            _retryGeneration++;
+            // 종료 콜백은 자기 작업만 제거한다. 목록 복사로 순회 중 변경을 피한다.
+            foreach (var owner in _retryOwners.ToArray()) owner.Finish(reason);
+        }
+
         /// <summary> OnUnitProduced 구독 해제용 Disposable. </summary>
         private System.IDisposable _unitProducedSubscription;
 
@@ -65,6 +126,23 @@ namespace Hexiege.Infrastructure
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
+
+            CloseRetryLifetime("controller-respawn");
+            _retryMatchEnded = false;
+            _retryLifetimeOpen = true;
+            _retryGameEndSubscription?.Dispose();
+            _retryGameStartSubscription?.Dispose();
+            _retryGameEndSubscription = GameEvents.OnGameEnd.Subscribe(_ =>
+            {
+                _retryMatchEnded = true;
+                CloseRetryLifetime("game-end");
+            });
+            _retryGameStartSubscription = GameEvents.OnGameStarted.Subscribe(_ =>
+            {
+                // 살아 있는 경기의 중복 시작 알림은 회차를 바꾸지 않는다.
+                _retryMatchEnded = false;
+                if (!_retryLifetimeOpen) { _retryGeneration++; _retryLifetimeOpen = true; }
+            });
 
             _services = GameServicesLocator.Current;
             if (_services == null)
@@ -152,6 +230,9 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            CloseRetryLifetime("controller-despawn");
+            _retryGameEndSubscription?.Dispose(); _retryGameEndSubscription = null;
+            _retryGameStartSubscription?.Dispose(); _retryGameStartSubscription = null;
             base.OnNetworkDespawn();
             _unitProducedSubscription?.Dispose();
             _unitProducedSubscription = null;
@@ -159,6 +240,16 @@ namespace Hexiege.Infrastructure
             _productionStartedSubscription = null;
             _queueChangedSubscription?.Dispose();
             _queueChangedSubscription = null;
+        }
+
+        public override void OnDestroy()
+        {
+            // 비활성화 중에도 GameEnd를 놓치지 않도록 구독은 유지하지만,
+            // 파괴 시에는 반드시 해제한다. NGO의 자체 정리도 생략하지 않는다.
+            CloseRetryLifetime("controller-destroyed");
+            _retryGameEndSubscription?.Dispose(); _retryGameEndSubscription = null;
+            _retryGameStartSubscription?.Dispose(); _retryGameStartSubscription = null;
+            base.OnDestroy();
         }
 
         // ====================================================================
@@ -580,19 +671,9 @@ namespace Hexiege.Infrastructure
             // NetworkUnit.OnNetworkSpawn()에서 RegisterUnitObject()로 이미 딕셔너리에 등록됨
             if (unitFactory != null)
             {
-                bool initialized = unitFactory.InitializeUnitView(unit);
-                if (!initialized)
-                {
-                    // NetworkUnit.OnNetworkSpawn()이 아직 호출되지 않은 경우
-                    // (NGO 프리팹 전달이 SpawnUnitClientRpc보다 늦게 도착)
-                    // → 재시도 코루틴으로 대기
-                    // 재시도 코루틴으로 복구를 시도하므로 Warn 이고, 끝내 실패하면
-                    // RetryInitializeUnitView 가 운영 로그를 남긴다 → 여기는 개발(원칙 1 — 최종 지점은 그쪽).
-                    GameLog.Dev.Warn("Network", nameof(NetworkProductionController),
-                                     "SpawnUnitClientRpc — UnitView 초기화 지연. 재시도 대기",
-                                     $"UnitId={unitId}");
-                    StartCoroutine(RetryInitializeUnitView(unitFactory, unit));
-                }
+                // StartCoroutine executes up to the first yield immediately. Both the
+                // initial attempt and later retries now use the same owner guard.
+                StartCoroutine(RetryInitializeUnitView(unitFactory, unit));
             }
 
             // 랠리포인트 재구성
@@ -617,28 +698,77 @@ namespace Hexiege.Infrastructure
         /// <param name="unitData">초기화할 UnitData</param>
         private System.Collections.IEnumerator RetryInitializeUnitView(IUnitFactory unitFactory, UnitData unitData)
         {
-            float elapsed = 0f;
-            float maxWait = 3f; // 최대 3초 대기
-
-            while (elapsed < maxWait)
-            {
-                yield return null;
-                elapsed += UnityEngine.Time.deltaTime;
-
-                if (unitFactory.InitializeUnitView(unitData))
+            var network = NetworkManager;
+            UnitViewRetryOwner owner = null;
+            owner = new UnitViewRetryOwner(_retryGeneration, _services, _services?.GetUnitSpawn(),
+                unitFactory, unitData, () => _retryGeneration,
+                () => this != null && isActiveAndEnabled && IsSpawned && _retryLifetimeOpen,
+                () => NetworkContext.IsNetworkActive && network != null
+                    && ReferenceEquals(NetworkManager, network) && network.IsListening
+                    && !network.ShutdownInProgress && network.IsConnectedClient && !IsServer,
+                () => ReferenceEquals(_services, GameServicesLocator.Current) ? _services : null,
+                (reason, elapsed) =>
                 {
-                    GameLog.Dev.Info("Network", nameof(NetworkProductionController), "RetryInitializeUnitView — 초기화 성공",
-                                     $"UnitId={unitData.Id}, WaitSeconds={elapsed:F2}");
-                    yield break;
-                }
-            }
+                    _retryOwners.Remove(owner);
+                    string data = $"UnitId={unitData.Id}, UnitType={(int)unitData.Type}, Generation={owner.Generation}, Reason={reason}, WaitSeconds={elapsed:F3}, MaxWaitSeconds=3";
+                    if (reason == "timeout")
+                        GameLog.Ops.Error(LogEvent.UnitViewInitializeTimeout, "Network", nameof(NetworkProductionController),
+                            "RetryInitializeUnitView — live exact owner timed out awaiting UnitView", data);
+                    else
+                        GameLog.Dev.Info("Network", nameof(NetworkProductionController), "UnitView retry terminal", data);
+                });
+            _retryOwners.Add(owner);
+            return RunUnitViewInitializationRetry(owner, () => UnityEngine.Time.deltaTime);
+        }
 
-            // 재시도를 모두 소진한 뒤의 최종 실패라 복구 경로가 없다.
-            // 조치 방법(Network Prefabs List 확인)을 메시지에 남긴다 — 이 줄이 사라지면 원인 추적 수단이 없다.
-            GameLog.Ops.Error(LogEvent.UnitViewInitializeTimeout, "Network", nameof(NetworkProductionController),
-                              "RetryInitializeUnitView — 대기 시간 초과로 UnitView 초기화 실패. " +
-                              "NetworkManager 의 Network Prefabs List 에 유닛 프리팹이 등록되어 있는지 확인할 것",
-                              $"UnitId={unitData.Id}, MaxWaitSeconds={maxWait}");
+        // 실제 생산 경로와 기존 회귀 검증이 같은 IEnumerator를 실행한다.
+        // 검증에서 대기 시간만 바꾸어도 객체 수명 검사는 건너뛰지 않는다.
+        public static System.Collections.IEnumerator RunUnitViewInitializationRetry(
+            UnitViewRetryOwner owner, System.Func<float> deltaTime)
+        {
+            try
+            {
+                string initial = owner.ClosedReason();
+                if (initial != null) { owner.Finish(initial); yield break; }
+                if (owner.Factory.InitializeUnitView(owner.Unit))
+                { owner.Finish("initialized"); yield break; }
+                while (owner.Elapsed < 3f)
+                {
+                    string closed = owner.ClosedReason();
+                    if (closed != null) { owner.Finish(closed); yield break; }
+                    yield return null;
+                    closed = owner.ClosedReason();
+                    if (closed != null) { owner.Finish(closed); yield break; }
+                    float delta = deltaTime();
+                    if (float.IsNaN(delta) || float.IsInfinity(delta) || delta < 0)
+                    { owner.Finish("invalid-wait-clock"); yield break; }
+                    owner.Elapsed += delta;
+                    if (owner.Factory.InitializeUnitView(owner.Unit))
+                    { owner.Finish("initialized"); yield break; }
+                }
+                string terminal = owner.ClosedReason();
+                owner.Finish(terminal ?? "timeout");
+            }
+            finally { if (!owner.Finished) owner.Finish("coroutine-disposed"); }
+        }
+
+        private void OnDisable() => CloseRetryLifetime("controller-disabled");
+
+        // 단순 비활성화는 이전 작업만 닫는다. 같은 경기에서 다시 켜면 새 작업을
+        // 받을 수 있지만, 경기 종료 후 Enable만으로는 경기를 다시 열지 않는다.
+        public static bool CanResumeUnitViewRetry(bool matchEnded, bool spawned, bool sessionActive)
+            => !matchEnded && spawned && sessionActive;
+
+        private void OnEnable()
+        {
+            var network = NetworkManager;
+            if (!_retryLifetimeOpen && CanResumeUnitViewRetry(_retryMatchEnded, IsSpawned,
+                NetworkContext.IsNetworkActive && network != null && network.IsListening
+                && !network.ShutdownInProgress && network.IsConnectedClient && !IsServer))
+            {
+                _retryGeneration++;
+                _retryLifetimeOpen = true;
+            }
         }
 
         // ====================================================================

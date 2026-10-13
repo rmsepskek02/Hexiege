@@ -1,0 +1,31 @@
+{
+    "asset": "7cfdeb2ee28ba424490b981ffb4111ec",
+    "fileName": "01a11ebc-7eb7-7324-a371-81f42a8c2397.png",
+    "prompt": "A stylized cartoon game VFX sprite of a single flower petal, top-down flat view, soft pastel pink color with smooth gradient to white at the tip, clean simple curved silhouette, delicate organic leaf shape, mobile game VFX asset style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}

@@ -42,6 +42,11 @@ namespace Hexiege.Presentation
         [Tooltip("공격 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
         public EffectPreset attackPreset;
 
+        [Tooltip("실제 Bloom HoT 대상의 지속 힐 표현. 공격 marker와 독립인 슬롯")]
+        public EffectPreset healPreset;
+        public EffectPreset timedDamagePreset;
+        public EffectPreset impactPreset;
+
         [Tooltip("사망 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
         public EffectPreset deathPreset;
 
@@ -74,6 +79,10 @@ namespace Hexiege.Presentation
         /// EffectManager.Initialize()에서 호출.
         /// 여러 번 호출되어도 안전하도록 매번 새로 빌드한다.
         /// </summary>
+        public EffectPreset GetTimedDamage(UnitType sourceType)
+        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.timedDamagePreset : null; }
+        public EffectPreset GetImpact(UnitType sourceType)
+        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.impactPreset : null; }
         public void Initialize()
         {
             _cache = new Dictionary<UnitType, UnitEffectEntry>(_entries.Count);
@@ -97,6 +106,9 @@ namespace Hexiege.Presentation
             if (_cache == null) return null;
             return _cache.TryGetValue(type, out UnitEffectEntry entry) ? entry.attackPreset : null;
         }
+
+        public EffectPreset GetHeal(UnitType type) => _cache != null
+            && _cache.TryGetValue(type, out UnitEffectEntry entry) ? entry.healPreset : null;
 
         /// <summary>
         /// 지정한 유닛 타입의 사망 이펙트 프리셋을 반환.

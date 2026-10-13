@@ -29,10 +29,11 @@ namespace Hexiege.Presentation
         /// <summary>
         /// Attack 애니메이션의 타격 프레임에서 Animation Event로 호출.
         /// </summary>
-        public void OnAttackHit()
+        public void OnAttackHit(AnimationEvent marker)
         {
+            if (_unitView == null) _unitView = GetComponentInParent<UnitView>();
             if (_unitView != null)
-                _unitView.OnAttackHit();
+                _unitView.OnAttackHit(marker);
         }
     }
 }

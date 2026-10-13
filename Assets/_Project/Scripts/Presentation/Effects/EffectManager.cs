@@ -37,6 +37,38 @@ using Hexiege.Domain;
 namespace Hexiege.Presentation
 {
     /// <summary>
+    /// 유닛 공격 VFX가 어느 경계까지 진행됐는지 나타내는 읽기 전용 결과.
+    /// 기존 재생 흐름을 바꾸지 않고 InfernoSpirit 간헐 누락 진단에만 사용한다.
+    /// </summary>
+    public enum UnitAttackVfxPlaybackStatus
+    {
+        Started = 0,
+        PresetUnavailable = 1,
+        PrefabUnavailable = 2,
+        PoolItemUnavailable = 3,
+        ParticleSystemUnavailable = 4,
+        PlaybackInactive = 5,
+    }
+
+    /// <summary>유닛 공격 VFX 1회 재생 시도의 불변 진단 결과.</summary>
+    public readonly struct UnitAttackVfxPlaybackResult
+    {
+        public UnitAttackVfxPlaybackStatus Status { get; }
+        public int ParticleSystemCount { get; }
+        public bool PlaybackActive { get; }
+
+        public UnitAttackVfxPlaybackResult(
+            UnitAttackVfxPlaybackStatus status,
+            int particleSystemCount,
+            bool playbackActive)
+        {
+            Status = status;
+            ParticleSystemCount = particleSystemCount;
+            PlaybackActive = playbackActive;
+        }
+    }
+
+    /// <summary>
     /// 게임 전체 VFX/SFX를 통합 관리하는 매니저.
     /// Game씬 전용 static Instance (DontDestroyOnLoad 없음).
     /// </summary>
@@ -171,9 +203,104 @@ namespace Hexiege.Presentation
         /// <param name="type">공격한 유닛의 타입.</param>
         /// <param name="pos">재생할 월드 좌표 (보통 총구 또는 유닛 위치).</param>
         /// <param name="rot">재생할 월드 회전 (VFX 발사 방향). 방향성이 없는 VFX는 영향 없음.</param>
-        public void PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
+        public UnitAttackVfxPlaybackResult PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
         {
-            Play(_unitConfig?.GetAttack(type), pos, rot);
+            EffectPreset preset = _unitConfig?.GetAttack(type);
+            if (preset == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PresetUnavailable,
+                    0,
+                    false);
+            }
+
+            if (preset.VfxPrefab == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PrefabUnavailable,
+                    0,
+                    false);
+            }
+
+            VfxPoolItem item = GetOrCreateVfx(preset.VfxPrefab);
+            if (item == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
+                    0,
+                    false);
+            }
+
+            item.Play(
+                pos,
+                rot,
+                preset.LocalPositionOffset,
+                preset.EulerRotationOffset,
+                preset.ScaleMultiplier,
+                preset.ForwardTravelDistance,
+                preset.ForwardTravelDuration);
+
+            int particleSystemCount = item.ParticleSystemCount;
+            bool playbackActive = item.IsPlaybackActive;
+            UnitAttackVfxPlaybackStatus status = particleSystemCount <= 0
+                ? UnitAttackVfxPlaybackStatus.ParticleSystemUnavailable
+                : playbackActive
+                    ? UnitAttackVfxPlaybackStatus.Started
+                    : UnitAttackVfxPlaybackStatus.PlaybackInactive;
+            return new UnitAttackVfxPlaybackResult(status, particleSystemCount, playbackActive);
+        }
+
+        /// <summary>서버에서 실제 생성된 파도만 재생한다. 기존 marker 공격 API와 소유권을 섞지 않는다.</summary>
+        public bool WavePresentationReady => _unitConfig?.GetAttack(UnitType.TorrentSpirit)?.VfxPrefab != null;
+
+        public bool BloomPresentationReady => _unitConfig?.GetHeal(UnitType.BloomFairy)?.VfxPrefab != null;
+        public VfxPoolItem StartTimedDamageEffect(Hexiege.Application.TimedDamageEffectPresentation state, Transform pose,
+            Hexiege.Application.TimedDamageEffectChannel channel)
+        {
+            if (!state.IsValid || !state.Active || (state.Visual != Hexiege.Application.TimedDamageVisual.Burn
+                && state.Visual != Hexiege.Application.TimedDamageVisual.Poison)) return null;
+            var type = state.Visual == Hexiege.Application.TimedDamageVisual.Burn ? UnitType.InfernoSpirit : UnitType.MushroomBomber;
+            var preset = _unitConfig?.GetTimedDamage(type);
+            if (pose == null || preset?.VfxPrefab == null) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            try { item.PlayTimedDamage(state, pose, preset, channel); }
+            catch { item.RejectTimedDamageAcquire(); throw; }
+            // Sound15: recipient poison/burn SFX is not authored; no invented sound fallback.
+            return item;
+        }
+
+        public VfxPoolItem StartBloomEffect(Hexiege.Application.BloomHealEffectPresentation state, Transform pose
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            , Hexiege.Application.BloomHealEffectDiagnostics diagnostics
+#endif
+            )
+        {
+            var preset = _unitConfig?.GetHeal(UnitType.BloomFairy);
+            if (pose == null || preset?.VfxPrefab == null) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            try
+            {
+                if (!item.BeginBloomAcquire()) throw new System.InvalidOperationException("Bloom pool checkout already owned");
+                if (item.PlayBloomLoop(state, pose, preset
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                , diagnostics
+#endif
+                    ) == 0) { item.RejectBloomAcquire(); return null; }
+            }
+            catch { item.RejectBloomAcquire(); throw; } // 최종 운영 예외 기록은 presenter 경계에서 수행한다.
+            // Sound15: Bloom heal SFX는 미제작이다. current/refresh 복구에서 임의 사운드를 만들지 않는다.
+            return item;
+        }
+
+        public VfxPoolItem PlayWave(Hexiege.Application.WavePresentationSpawn spawn, System.Func<double> clock)
+        {
+            var preset = _unitConfig?.GetAttack(UnitType.TorrentSpirit);
+            if (preset == null || preset.VfxPrefab == null || !spawn.IsValid) return null;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            if (item == null) return null;
+            item.PlayWave(spawn, clock, preset.LocalPositionOffset, preset.EulerRotationOffset,
+                preset.ScaleMultiplier, WaveVisualCalibration.Production);
+            return item;
         }
 
         /// <summary>
@@ -196,13 +323,31 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표 (보통 피격 유닛 위치).</param>
         public void PlayUnitHit(UnitType type, Vector3 pos)
         {
-            // 피격 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
-            //   프리셋이 미설정(GetHit == null)이면 Play(null)이 내부에서 조용히 스킵한다.
-            Play(_unitConfig?.GetHit(type), pos, Quaternion.identity);
+            TryPlayUnitHit(type, pos);
 
             // 피격 SFX 없음 — SoundConfig에 피격 SFX 엔트리가 아직 없어 이번 작업에서 추가하지 않는다.
             //   추후 피격 효과음 에셋 확보 시, 이 줄 바로 아래에 AudioManager.Instance?.PlayUnitHitSfx(type)
             //   짝을 추가한다 (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
+        }
+
+        /// <summary>
+        /// 유닛 피격 VFX가 실제로 설정되어 재생을 시작했는지 반환한다. 확정 결과 표현기는
+        /// 이 반환값으로 "API를 호출했지만 프리셋이 없어 화면에는 아무것도 없었던 경우"를
+        /// 성공으로 잘못 집계하지 않는다.
+        /// </summary>
+        public bool TryPlayUnitHit(UnitType type, Vector3 pos)
+        {
+            EffectPreset preset = _unitConfig?.GetHit(type);
+            if (preset == null || preset.VfxPrefab == null) return false;
+            Play(preset, pos, Quaternion.identity);
+            return true;
+        }
+
+        /// <summary>피격 VFX 프리팹이 실제로 배선되어 있는지 재생 전에 확인한다.</summary>
+        public bool CanPlayUnitHit(UnitType type)
+        {
+            EffectPreset preset = _unitConfig?.GetHit(type);
+            return preset != null && preset.VfxPrefab != null;
         }
 
         /// <summary>
@@ -245,6 +390,39 @@ namespace Hexiege.Presentation
             //   AudioManager.Instance?.PlayBuildingAttackSfx(type) 짝을 추가한다
             //   (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
         }
+        public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
+        public bool PlayConfirmedMushroomTracer(Vector3 source, Vector3 impact, double remaining)
+        {
+            if (double.IsNaN(remaining) || double.IsInfinity(remaining) || remaining <= 0d) return false;
+            var prefab = _unitConfig?.GetTracer(UnitType.MushroomBomber)?.VfxPrefab;
+            if (prefab == null) return false;
+            var tracer = GetOrCreateTracer(prefab);
+            tracer.Launch(source, impact, null, (float)remaining, true); // callback has no HP/result authority.
+            bool started = false;
+            foreach (var ps in tracer.GetComponentsInChildren<ParticleSystem>(true)) started |= ps.isPlaying;
+            return tracer.gameObject.activeInHierarchy && started;
+        }
+        public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome)
+        {
+            outcome = "InvalidSnapshotOrVisual";
+            if (!s.IsValid || (s.Visual != Hexiege.Application.AttackEffectVisual.Tower && s.Visual != Hexiege.Application.AttackEffectVisual.MushroomImpact)) return false;
+            if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Transcendence) { outcome = "UnspecifiedTranscendence"; return false; }
+            EffectPreset preset = s.Visual == Hexiege.Application.AttackEffectVisual.Tower
+                ? _buildingConfig?.GetAttack(BuildingType.AutoTower, s.Race) : _unitConfig?.GetImpact(UnitType.MushroomBomber);
+            if (preset?.VfxPrefab == null) { outcome = "MissingConfiguredPreset"; return false; }
+            Vector3 direction = impact - source; direction.y = 0f;
+            var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            var item = GetOrCreateVfx(preset.VfxPrefab);
+            var systems = item.GetComponentsInChildren<ParticleSystem>(true);
+            if (systems.Length == 0) { outcome = "ParticleSystemUnavailable"; item.RejectTimedDamageAcquire(); return false; }
+            foreach (var ps in systems) { var main = ps.main; main.stopAction = ParticleSystemStopAction.None; }
+            item.Play(s.Visual == Hexiege.Application.AttackEffectVisual.Tower ? source : impact, rotation,
+                preset.LocalPositionOffset, preset.EulerRotationOffset, preset.ScaleMultiplier, preset.ForwardTravelDistance, preset.ForwardTravelDuration);
+            bool started = false; foreach (var ps in systems) started |= ps.isPlaying;
+            outcome = started ? "AuthoritySnapshotStarted" : "PlaybackInactive";
+            // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
+            return started;
+        }
 
         /// <summary>
         /// UI 이펙트 재생 (주로 SFX). 위치 개념이 없으므로 Vector3.zero에서 재생.
@@ -272,7 +450,8 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). 발사 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 1회 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
-        public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive)
+        public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive,
+            float authoritativeDuration = -1f)
         {
             EffectPreset preset = _unitConfig?.GetTracer(type);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
@@ -287,7 +466,7 @@ namespace Hexiege.Presentation
 
             // Pool에서 트레이서를 꺼내(또는 새로 만들어) 발사.
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(start, target, onArrive);
+            tracer.Launch(start, target, onArrive, authoritativeDuration);
         }
 
         // ====================================================================

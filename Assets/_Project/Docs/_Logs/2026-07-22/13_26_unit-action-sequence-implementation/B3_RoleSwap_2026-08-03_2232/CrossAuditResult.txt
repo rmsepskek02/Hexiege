@@ -1,0 +1,26 @@
+[UAS-ROOT-CROSS-AUDIT][PASS]
+auditedAtLocal=2026-08-03
+sharedSessionKey=3a0f8b4c97d874b2d5204e64e1ad5be517fb853dc6418fe77b86e7b2ac19fd8f
+hostRunId=2dbb71aa542a40e2bbcaec7912b99e16
+clientRunId=b4c43dba09d745a5a8d16b1216bf531e
+matchedUnits=33
+auditableIdentityCount=39
+identitiesWithBothEndpoints=35
+matchedCoverageRatio=0.846
+overlappingWindowPairs=33
+temporalUnpairedPairs=2
+hostOnlyEndpoints=4
+clientOnlyEndpoints=0
+poseMismatches=0
+maxQualifiedTimeDeltaSeconds=0.872
+maxAxisDelta=0.000000
+maxDistance=0.000000
+maxRotationDeltaDeg=0.000000
+minimumMatchedCoverageRatio=0.500
+positionTolerancePerAxis=0.001000
+rotationToleranceDeg=0.100000
+
+Notes:
+- RuntimeLog_host.txt and RuntimeLog_client.txt are the preserved Android Host / Editor Client role-swap evidence.
+- The cross-audit self-validation passed before this audit.
+- Identical preserved copies of the same run are deduplicated by BEGIN/END/endpoint signature.

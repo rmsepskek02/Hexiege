@@ -30,6 +30,7 @@ using UnityEngine;
 using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Infrastructure
 {
@@ -57,6 +58,36 @@ namespace Hexiege.Infrastructure
 
         /// <summary>Red 팀(Client)이 선택한 종족. 서버에서만 사용.</summary>
         private int _redRace = 0;
+
+        [Header("B3 이동 권위 전환")]
+        [Tooltip("서버가 다음 경기 전체에 고정할 이동 writer. 안전 기본값은 Legacy입니다.")]
+        [SerializeField]
+        private UnitMovementPipelineMode _serverMovementPipelineMode =
+            UnitMovementPipelineMode.Legacy;
+        private UnitMovementPipelineMode _selectedMovementPipelineMode =
+            UnitMovementPipelineMode.Legacy;
+
+        private const int UnitMovementSchemaRevision =
+            UnitMovementReducer.ContractSchemaRevision;
+        private const int SupportedMovementModeMask =
+            (1 << (int)UnitMovementPipelineMode.Legacy)
+            | (1 << (int)UnitMovementPipelineMode.ReducerAuthoritative);
+
+        [Header("C3 공격 표현 파이프라인")]
+        [Tooltip("서버가 다음 경기 전체에 고정할 공격 표현 mode. Legacy/PresentationShadow는 기존 emitter를 유지하고, ResultPresentation은 지원 공격만 서버 완결 결과 기반 단일 emitter를 사용합니다.")]
+        [SerializeField]
+        private CombatPipelineMode _serverCombatPipelineMode = CombatPipelineMode.PresentationShadow;
+        private CombatPipelineMode _selectedCombatPipelineMode = CombatPipelineMode.Legacy;
+        private string _combatProfileHash;
+        private const int CombatSchemaRevision =
+            UnitAttackShadowProfileResolver.PresentationContractSchemaRevision;
+        private const int SupportedCombatModeMask =
+            (1 << (int)CombatPipelineMode.Legacy)
+            | (1 << (int)CombatPipelineMode.PresentationShadow)
+            | (1 << (int)CombatPipelineMode.ResultPresentation);
+
+        private readonly System.Collections.Generic.HashSet<ulong> _readyClients =
+            new System.Collections.Generic.HashSet<ulong>();
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -89,6 +120,40 @@ namespace Hexiege.Infrastructure
             // [개발] 진입 흔적.
             GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "네트워크 스폰",
                              $"IsServer={IsServer}, IsHost={IsHost}");
+
+            if (IsServer)
+            {
+                if (!UnitMovementPipelineModeLatch.IsSupported(
+                    _serverMovementPipelineMode))
+                {
+                    GameLog.Dev.Error(
+                        "Network",
+                        nameof(NetworkGameFlow),
+                        "지원하지 않는 서버 이동 mode입니다 — 게임 시작을 거부합니다",
+                        $"Mode={_serverMovementPipelineMode}");
+                    return;
+                }
+
+                _selectedMovementPipelineMode = _serverMovementPipelineMode;
+
+                if (!CombatPipelineContractLatch.IsSupported(_serverCombatPipelineMode))
+                {
+                    GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                        "지원하지 않는 서버 공격 표현 mode입니다 — 게임 시작을 거부합니다",
+                        $"Mode={_serverCombatPipelineMode}");
+                    return;
+                }
+                _selectedCombatPipelineMode = _serverCombatPipelineMode;
+            }
+
+            if (!UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(
+                    out _combatProfileHash, out string combatHashReason))
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "공격 프로필 manifest hash 생성 실패 — 게임 시작을 거부합니다",
+                    $"Reason={combatHashReason}");
+                return;
+            }
 
             // 게임이 이미 진행 중이면 재스폰으로 인한 중복 시작 차단
             // (NetworkObject가 Despawn → Respawn될 때 _gameStarted/_readyCount가 리셋되는 것 방지)
@@ -130,7 +195,13 @@ namespace Hexiege.Infrastructure
 
             // 로비에서 선택한 종족을 int로 캐스팅하여 서버에 전송
             int myRace = (int)LocalPlayerRace.Current;
-            RequestReadyServerRpc(myRace);
+            RequestReadyServerRpc(
+                myRace,
+                UnitMovementSchemaRevision,
+                SupportedMovementModeMask,
+                CombatSchemaRevision,
+                SupportedCombatModeMask,
+                _combatProfileHash);
             yield break;
         }
 
@@ -141,14 +212,66 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 클라이언트가 게임 준비 완료를 서버에 알림.
         /// 로비에서 선택한 종족 정보(int)를 함께 전송.
-        /// 2명 모두 준비되면 StartGameClientRpc(blueRace, redRace) 호출.
+        /// 2명 모두 준비되면 양 팀 종족과 합의된 이동 mode/schema를
+        /// StartGameClientRpc로 함께 전달한다.
         /// </summary>
         /// <param name="race">로비에서 선택한 종족. (int)RaceId로 캐스팅하여 전송.</param>
         [ServerRpc(RequireOwnership = false)]
-        public void RequestReadyServerRpc(int race, ServerRpcParams rpcParams = default)
+        public void RequestReadyServerRpc(
+            int race,
+            int movementSchemaRevision,
+            int supportedMovementModeMask,
+            int combatSchemaRevision,
+            int supportedCombatModeMask,
+            string combatProfileHash,
+            ServerRpcParams rpcParams = default)
         {
-            _readyCount++;
             ulong senderId = rpcParams.Receive.SenderClientId;
+            int selectedModeBit = 1 << (int)_selectedMovementPipelineMode;
+            bool validSelection =
+                UnitMovementPipelineModeLatch.IsSupported(
+                    _selectedMovementPipelineMode);
+            bool compatible = validSelection
+                && movementSchemaRevision == UnitMovementSchemaRevision
+                && (supportedMovementModeMask & selectedModeBit) != 0;
+            if (!compatible)
+            {
+                GameLog.Dev.Error(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "이동 파이프라인 호환 실패 — 게임 시작을 거부합니다",
+                    $"ClientId={senderId}, ServerMode={_selectedMovementPipelineMode}, " +
+                    $"ServerSchema={UnitMovementSchemaRevision}, " +
+                    $"ClientSchema={movementSchemaRevision}, " +
+                    $"ClientModeMask={supportedMovementModeMask}");
+                if (senderId != NetworkManager.ServerClientId)
+                    NetworkManager.DisconnectClient(senderId);
+                return;
+            }
+
+            int selectedCombatBit = 1 << (int)_selectedCombatPipelineMode;
+            bool combatCompatible =
+                CombatPipelineContractLatch.IsSupported(_selectedCombatPipelineMode)
+                && combatSchemaRevision == CombatSchemaRevision
+                && (supportedCombatModeMask & selectedCombatBit) != 0
+                && string.Equals(combatProfileHash, _combatProfileHash,
+                    System.StringComparison.Ordinal);
+            if (!combatCompatible)
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "공격 표현 파이프라인 호환 실패 — 게임 시작을 거부합니다",
+                    $"ClientId={senderId}, ServerMode={_selectedCombatPipelineMode}, " +
+                    $"ServerSchema={CombatSchemaRevision}, ClientSchema={combatSchemaRevision}, " +
+                    $"ClientModeMask={supportedCombatModeMask}");
+                if (senderId != NetworkManager.ServerClientId)
+                    NetworkManager.DisconnectClient(senderId);
+                return;
+            }
+
+            if (!_readyClients.Add(senderId))
+                return;
+
+            _readyCount = _readyClients.Count;
             // [개발] RPC 수신 덤프. 의도된 흐름이고 에디터 2인 구성으로 그대로 재현된다.
             GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "준비 신호 수신",
                              $"ClientId={senderId}, Race={race}, ReadyCount={_readyCount}, ExpectedPlayers=2");
@@ -169,9 +292,21 @@ namespace Hexiege.Infrastructure
             {
                 _gameStarted = true;
                 // [개발] 의도된 흐름. 시작 실패는 씬 전환이 일어나지 않는 것으로 드러난다.
-                GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "모든 플레이어 준비 완료 — 게임 시작 명령 전송",
-                                 $"BlueRace={_blueRace}, RedRace={_redRace}");
-                StartGameClientRpc(_blueRace, _redRace);
+                GameLog.Dev.Info(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "모든 플레이어 준비 완료 — 게임 시작 명령 전송",
+                    $"BlueRace={_blueRace}, RedRace={_redRace}, " +
+                    $"UnitMovementPipelineMode={_selectedMovementPipelineMode}, " +
+                    $"MovementSchemaRevision={UnitMovementSchemaRevision}");
+                StartGameClientRpc(
+                    _blueRace,
+                    _redRace,
+                    (int)_selectedMovementPipelineMode,
+                    UnitMovementSchemaRevision,
+                    (int)_selectedCombatPipelineMode,
+                    CombatSchemaRevision,
+                    _combatProfileHash);
             }
         }
 
@@ -188,11 +323,70 @@ namespace Hexiege.Infrastructure
         /// <param name="blueRace">Blue 팀(Host)이 선택한 종족. (int)RaceId.</param>
         /// <param name="redRace">Red 팀(Client)이 선택한 종족. (int)RaceId.</param>
         [ClientRpc]
-        private void StartGameClientRpc(int blueRace, int redRace)
+        private void StartGameClientRpc(
+            int blueRace,
+            int redRace,
+            int movementPipelineMode,
+            int movementSchemaRevision,
+            int combatPipelineMode,
+            int combatSchemaRevision,
+            string combatProfileHash)
         {
+            UnitMovementPipelineMode selectedMovementMode =
+                (UnitMovementPipelineMode)movementPipelineMode;
+            if (movementSchemaRevision != UnitMovementSchemaRevision
+                || !UnitMovementPipelineModeLatch.IsSupported(selectedMovementMode)
+                || !NetworkContext.TryBeginUnitMovementPipelineMatch(
+                    selectedMovementMode))
+            {
+                GameLog.Dev.Error(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "게임 시작 이동 계약 불일치 — 로컬 게임 시작을 거부합니다",
+                    $"Mode={movementPipelineMode}, Schema={movementSchemaRevision}");
+                return;
+            }
+
+            CombatPipelineMode selectedCombatMode = (CombatPipelineMode)combatPipelineMode;
+            bool localHashValid = UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(
+                out string localProfileHash, out string hashReason);
+            if (combatSchemaRevision != CombatSchemaRevision
+                || !CombatPipelineContractLatch.IsSupported(selectedCombatMode)
+                || !localHashValid
+                || !string.Equals(combatProfileHash, localProfileHash, System.StringComparison.Ordinal)
+                || !NetworkContext.TryBeginCombatPipelineMatch(
+                    selectedCombatMode, combatSchemaRevision, combatProfileHash))
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "게임 시작 공격 표현 계약 불일치 — 로컬 게임 시작을 거부합니다",
+                    $"Mode={combatPipelineMode}, Schema={combatSchemaRevision}, HashReason={hashReason}");
+                return;
+            }
+
+            UnitAttackResultPresentationShadowBridge.BeginMatch(
+                selectedCombatMode == CombatPipelineMode.PresentationShadow
+                    || selectedCombatMode == CombatPipelineMode.ResultPresentation,
+                NetworkManager.ServerTime.Time,
+                UnityEngine.Time.realtimeSinceStartupAsDouble);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitAttackShadowObserver.RecordCombatContractLatched();
+#endif
+
             // [개발] RPC 수신 덤프. 결과(맵 로드)가 화면에 즉시 나타난다.
-            GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "게임 시작 ClientRpc 수신",
-                             $"Team={LocalPlayerTeam.Current}, BlueRace={blueRace}, RedRace={redRace}");
+            GameLog.Dev.Info(
+                "Network",
+                nameof(NetworkGameFlow),
+                "게임 시작 ClientRpc 수신",
+                $"Team={LocalPlayerTeam.Current}, BlueRace={blueRace}, RedRace={redRace}, " +
+                $"UnitMovementPipelineMode={selectedMovementMode}, " +
+                $"MovementSchemaRevision={movementSchemaRevision}");
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (selectedMovementMode == UnitMovementPipelineMode.ReducerAuthoritative)
+                UnitMovementAuthorityObserver.BeginSession(NetworkManager, IsServer);
+            else
+                UnitMovementShadowObserver.BeginSession(NetworkManager, IsServer);
+#endif
 
             // 양 팀 종족 정보를 전역 홀더에 저장 — 인게임에서 종족별 초기화에 사용
             GameRaceContext.Set((RaceId)blueRace, (RaceId)redRace);

@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Application
 {
@@ -84,19 +85,197 @@ namespace Hexiege.Application
         /// <returns>경로 리스트(시작점 포함). 이동 불가 시 null.</returns>
         public List<HexCoord> RequestMove(UnitData unit, HexCoord target)
         {
+            if (unit == null) return null;
+            return RequestMoveCore(
+                unit.Position,
+                target,
+                allowBlockedAuthoritativeStartEgress: true);
+        }
+
+        /// <summary>
+        /// 전투 추격이 타겟의 현재 타일까지 접근할 때 사용하는 서버 경로다.
+        /// 타겟 타일이 건물처럼 이동 불가여도 FlowField의 목적지 인접 seed를 사용해
+        /// 마지막 접촉 타일까지 경로를 만들며, 중간의 건물과 완전 차단 지형은 통과하지 않는다.
+        /// 실제 이동과 공격 사거리 진입 판정은 UnitView의 단일 Authoritative Locomotion이
+        /// 담당하므로 이 메서드는 UnitData나 Root를 변경하지 않는다.
+        /// </summary>
+        public List<HexCoord> RequestCombatApproachPath(
+            UnitData unit,
+            HexCoord target)
+            => RequestMove(unit, target);
+
+        /// <summary>
+        /// 도메인 유닛 상태를 변경하지 않고 명시한 출발 타일에서 목표까지 경로만 계산한다.
+        /// 이동 중 Root보다 앞선 타일의 후속 경로를 준비할 때 사용하며, 이 메서드 호출만으로
+        /// UnitData.Position, 위치 역인덱스 또는 이동 이벤트가 바뀌어서는 안 된다.
+        /// 이 staged 출발점은 권위 위치임을 증명할 수 없으므로 non-walkable start egress를
+        /// 허용하지 않는다. 해당 예외는 UnitData.Position을 직접 읽는 RequestMove에만 한정한다.
+        /// 실제 위치 커밋은 waypoint 소비와 독립적으로, UnitView가 관측한 Root 경계 통과를
+        /// 공용 spatial transition API에 전달해 수행한다.
+        /// </summary>
+        /// <param name="start">경로 계산에만 사용할 명시적 출발 타일</param>
+        /// <param name="target">목표 타일 좌표</param>
+        /// <returns>start를 포함한 경로. 이동 불가 또는 이미 도착한 경우 null.</returns>
+        public List<HexCoord> RequestMoveFrom(HexCoord start, HexCoord target)
+            => RequestMoveCore(
+                start,
+                target,
+                allowBlockedAuthoritativeStartEgress: false);
+
+        /// <summary>
+        /// 재탐색 시 권위 논리 타일, 현재 Simulation Root 타일, 호출자가 관측한 최신
+        /// walkability revision을 한 경계에서 검증한다. 성공 경로의 첫 타일은 항상
+        /// UnitData.Position이며 Root가 현재/인접 진행 구간을 벗어나면 스냅 없이 거부한다.
+        /// </summary>
+        public UnitPathRequestResult RequestAuthoritativeRepath(
+            UnitData unit,
+            Vector3 simulationRootDomain,
+            HexCoord target,
+            ulong environmentRevision)
+        {
+            HexCoord authoritativeStart = unit != null ? unit.Position : default;
+            HexCoord rootTile = _mapper != null
+                ? _mapper.WorldToHex(simulationRootDomain)
+                : default;
+            if (unit == null || !unit.IsAlive || _grid == null || _mapper == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (!_grid.HasTile(authoritativeStart)
+                || !_grid.HasTile(rootTile)
+                || HexCoord.Distance(authoritativeStart, rootTile) > 1)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.InvalidStart, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (!_grid.HasTile(target))
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.InvalidGoal, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (authoritativeStart == target)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.EmptySameTile, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (_flowFieldService == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            HexFlowField field = _flowFieldService.GetOrComputeAtRevision(
+                target, environmentRevision);
+            if (field == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            List<HexCoord> path = field.GetPath(authoritativeStart);
+            if (path == null)
+                path = TryBuildBlockedStartEgressPath(field, authoritativeStart);
+            if (path == null || path.Count < 2)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.Unreachable, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (path[0] != authoritativeStart)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            return new UnitPathRequestResult(
+                UnitPathRequestStatus.Success, path,
+                authoritativeStart, rootTile, target,
+                _flowFieldService.WalkabilityRevision);
+        }
+
+        private List<HexCoord> RequestMoveCore(
+            HexCoord start,
+            HexCoord target,
+            bool allowBlockedAuthoritativeStartEgress)
+        {
             // FlowFieldService 미주입 방어 — Bootstrap 와이어링 누락 시 명시적 null 반환.
             if (_flowFieldService == null) return null;
 
             HexFlowField field = _flowFieldService.GetOrCompute(target);
             if (field == null) return null;
 
-            List<HexCoord> path = field.GetPath(unit.Position);
+            List<HexCoord> path = field.GetPath(start);
+
+            // 건물 생성으로 유닛이 현재 점유 중인 권위 타일만 non-walkable이 될 수 있다.
+            // FlowField는 walkable 타일만 키로 가지므로 일반 조회는 이 경우 null이지만,
+            // 현재 타일에서 인접 walkable 타일로 빠져나가는 첫 edge는 이동 규칙상 허용된다.
+            // 중간 차단 타일을 허용하지 않도록 인접 타일부터는 기존 FlowField 경로만 사용한다.
+            if (path == null && allowBlockedAuthoritativeStartEgress)
+                path = TryBuildBlockedStartEgressPath(field, start);
 
             // 경로가 없거나 1칸짜리(이미 도착)라면 이동 불가로 처리.
             // 단, target이 non-walkable이고 경로 끝에 target이 덧붙여진 경우(길이 2 이상)는 정상.
             if (path == null || path.Count < 2) return null;
 
             return path;
+        }
+
+        private List<HexCoord> TryBuildBlockedStartEgressPath(
+            HexFlowField field,
+            HexCoord start)
+        {
+            if (_grid == null)
+                return null;
+
+            HexTile startTile = _grid.GetTile(start);
+            if (startTile == null || startTile.IsWalkable)
+                return null;
+
+            List<HexCoord> neighbors = _grid.GetWalkableNeighborCoords(start);
+            List<HexCoord> bestPath = null;
+            HexCoord bestNeighbor = default;
+            bool hasBestNeighbor = false;
+
+            for (int index = 0; index < neighbors.Count; index++)
+            {
+                HexCoord neighbor = neighbors[index];
+                List<HexCoord> candidate = field.GetPath(neighbor);
+                if (candidate == null || candidate.Count == 0)
+                    continue;
+
+                bool isShorter = bestPath == null
+                    || candidate.Count < bestPath.Count;
+                bool isCoordinateFirst = bestPath != null
+                    && candidate.Count == bestPath.Count
+                    && (!hasBestNeighbor
+                        || neighbor.Q < bestNeighbor.Q
+                        || (neighbor.Q == bestNeighbor.Q
+                            && neighbor.R < bestNeighbor.R));
+                if (!isShorter && !isCoordinateFirst)
+                    continue;
+
+                bestPath = candidate;
+                bestNeighbor = neighbor;
+                hasBestNeighbor = true;
+            }
+
+            if (bestPath == null)
+                return null;
+
+            var egressPath = new List<HexCoord>(bestPath.Count + 1)
+            {
+                start
+            };
+            egressPath.AddRange(bestPath);
+            return egressPath;
         }
 
         /// <summary>
@@ -113,8 +292,166 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 경로 상의 타일 하나를 이동 처리.
-        /// UnitView의 코루틴에서 타일→타일 Lerp 이동이 끝날 때마다 호출.
+        /// 호출자 버퍼에 담긴 공간 전이가 현재 커밋 타일부터 끊김 없이 인접하는지 검사한다.
+        /// 컬렉션을 생성하거나 유닛 상태를 변경하지 않는 순수 검증 seam이다.
+        /// </summary>
+        public static bool IsValidSpatialTransitionChain(
+            HexCoord committedTile,
+            IReadOnlyList<HexCoord> transitions,
+            int transitionCount)
+        {
+            if (transitions == null
+                || transitionCount < 0
+                || transitionCount > transitions.Count)
+            {
+                return false;
+            }
+
+            HexCoord previous = committedTile;
+            for (int index = 0; index < transitionCount; index++)
+            {
+                HexCoord next = transitions[index];
+                if (HexCoord.Distance(previous, next) != 1)
+                    return false;
+
+                previous = next;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 공간 전이 전체를 커밋 전에 검사한다. 실패하거나 성공해도 이 단계에서는
+        /// UnitData, 위치 인덱스, 이동 이벤트를 변경하지 않는다.
+        /// </summary>
+        public bool TryPreflightSpatialTransitions(
+            UnitData unit,
+            IReadOnlyList<HexCoord> transitions,
+            int transitionCount)
+            => PreflightSpatialTransitions(
+                unit, transitions, transitionCount).IsSuccess;
+
+        public UnitSpatialPreflightResult PreflightSpatialTransitions(
+            UnitData unit,
+            IReadOnlyList<HexCoord> transitions,
+            int transitionCount)
+        {
+            if (unit == null || !unit.IsAlive || _grid == null || _unitSpawn == null)
+            {
+                return new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.InvalidUnitOrDependency,
+                    default,
+                    -1);
+            }
+            if (transitions == null
+                || transitionCount < 0
+                || transitionCount > transitions.Count)
+            {
+                return new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.InvalidChain,
+                    default,
+                    -1);
+            }
+
+            HexCoord previous = unit.Position;
+            for (int index = 0; index < transitionCount; index++)
+            {
+                HexCoord next = transitions[index];
+                if (HexCoord.Distance(previous, next) != 1)
+                {
+                    return new UnitSpatialPreflightResult(
+                        UnitSpatialPreflightStatus.InvalidChain,
+                        next,
+                        index);
+                }
+                previous = next;
+            }
+
+            for (int index = 0; index < transitionCount; index++)
+            {
+                HexTile tile = _grid.GetTile(transitions[index]);
+                UnitSpatialPreflightResult tileResult = ClassifySpatialTile(
+                    tile != null,
+                    tile != null && tile.IsWalkable,
+                    transitions[index],
+                    index);
+                if (!tileResult.IsSuccess)
+                    return tileResult;
+            }
+
+            return UnitSpatialPreflightResult.Success();
+        }
+
+        /// <summary>
+        /// grid 조회 자체와 typed 의미를 분리한 순수 seam이다. Missing/NonWalkable의
+        /// offending tile/index 보존을 Unity scene 없이 결정적으로 검증할 수 있다.
+        /// </summary>
+        public static UnitSpatialPreflightResult ClassifySpatialTile(
+            bool tileExists,
+            bool tileWalkable,
+            HexCoord tile,
+            int transitionIndex)
+        {
+            if (!tileExists)
+            {
+                return new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.MissingTile,
+                    tile,
+                    transitionIndex);
+            }
+            if (!tileWalkable)
+            {
+                return new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.NonWalkable,
+                    tile,
+                    transitionIndex);
+            }
+            return UnitSpatialPreflightResult.Success();
+        }
+
+        /// <summary>
+        /// 바로 앞에서 성공한 preflight 결과를 커밋한다. 모든 Position/위치 역인덱스를 먼저
+        /// 순서대로 반영한 뒤 OnUnitMoved 이벤트를 두 번째 순회에서 발행한다.
+        /// 입력 실패 반환 경로는 없으며 예상 밖 예외는 호출자가 기록하고 다시 던진다.
+        /// </summary>
+        public void CommitPreflightedSpatialTransitionsPreservingFacing(
+            UnitData unit,
+            IReadOnlyList<HexCoord> transitions,
+            int transitionCount)
+        {
+            HexCoord source = unit.Position;
+            HexDirection preservedFacing = unit.Facing;
+            try
+            {
+                for (int index = 0; index < transitionCount; index++)
+                {
+                    HexCoord from = index == 0
+                        ? source
+                        : transitions[index - 1];
+                    HexCoord to = transitions[index];
+                    unit.Position = to;
+                    _unitSpawn.NotifyUnitMoved(unit, from, to);
+                }
+
+                for (int index = 0; index < transitionCount; index++)
+                {
+                    HexCoord from = index == 0
+                        ? source
+                        : transitions[index - 1];
+                    HexCoord to = transitions[index];
+                    GameEvents.OnUnitMoved.OnNext(
+                        new UnitMovedEvent(unit.Id, from, to));
+                }
+            }
+            finally
+            {
+                unit.Facing = preservedFacing;
+            }
+        }
+
+        /// <summary>
+        /// Legacy waypoint 의미로 경로 상의 타일 하나를 이동 처리한다.
+        /// ReducerAuthoritative 경로는 이 메서드가 아니라 공간 전이 preflight/commit API를 사용한다.
         ///
         /// 처리 내용:
         ///   1. 이동 방향 계산 → UnitData.Facing 업데이트
@@ -215,6 +552,114 @@ namespace Hexiege.Application
 
             // 3) forward 후보 없으면 nearestTile 그대로 (이미 앞쪽이거나 그리드 끝).
             return foundForward ? bestTile : nearestTile;
+        }
+
+        /// <summary>
+        /// 전투로 중심 경로를 벗어난 유닛이 복귀할 안전한 전방 중심을 찾는다.
+        /// 단순히 가까운 타일을 반환하지 않고, walkable·전방성·현재 권위 타일에서의
+        /// 실제 경로 도달 가능성을 모두 확인한다. 후보가 없으면 false를 반환하여 호출자가
+        /// 현재 타일을 성공으로 오인하거나 위치를 스냅하지 못하게 한다.
+        /// </summary>
+        public bool TryFindReachableForwardRejoinTile(
+            UnitData unit,
+            Vector3 unitWorldPosDomain,
+            HexCoord finalTarget,
+            out HexCoord rejoinTile,
+            IReadOnlyList<HexCoord> authoritativeRoute = null)
+        {
+            rejoinTile = default;
+            if (unit == null || !unit.IsAlive || _grid == null || _mapper == null)
+                return false;
+
+            HexCoord nearestTile = _mapper.WorldToHex(unitWorldPosDomain);
+            if (!_grid.HasTile(nearestTile))
+                return false;
+
+            // 전투 종료 시 논리 위치(UnitData.Position)는 이미 finalTarget이지만 Simulation
+            // Root만 타일 중심 밖에 남을 수 있다. 이때 A*의 null/빈 경로는 도달 불가가
+            // 아니라 "추가 logical tile 전이가 필요 없음"을 뜻한다. walkable 권위 타일을
+            // 그대로 반환하면 호출자는 기존 corridor/sweep preflight를 거쳐 중심까지 걷고,
+            // 실제 중심 도달 뒤 정상 완료한다. 차단 타일은 아래 분기로 우회시키지 않고
+            // fail-closed하여 기존 WaitingRepath/Blocked 생명주기를 보존한다.
+            if (finalTarget == unit.Position)
+            {
+                HexTile authoritativeTile = _grid.GetTile(unit.Position);
+                if (authoritativeTile != null && authoritativeTile.IsWalkable)
+                {
+                    rejoinTile = unit.Position;
+                    return true;
+                }
+                return false;
+            }
+
+            // 기존 A*의 전방 hop은 목표 거리가 동률이어도 유효한 우회다.
+            // 여기서는 중심 후보만 제공하며 실제 이동은 기존 corridor writer가 검증한다.
+            if (authoritativeRoute != null && nearestTile == unit.Position)
+            {
+                for (int index = 0; index + 1 < authoritativeRoute.Count; index++)
+                {
+                    if (authoritativeRoute[index] != unit.Position) continue;
+                    HexCoord next = authoritativeRoute[index + 1];
+                    HexTile nextTile = _grid.GetTile(next);
+                    if (HexCoord.Distance(unit.Position, next) == 1
+                        && nextTile != null && nextTile.IsWalkable)
+                    {
+                        rejoinTile = next;
+                        return true;
+                    }
+                    break;
+                }
+            }
+
+            int currentDistanceToGoal = HexCoord.Distance(nearestTile, finalTarget);
+            var candidates = new List<(HexCoord coord, float distanceSquared)>();
+            foreach (KeyValuePair<HexCoord, HexTile> pair in _grid.Tiles)
+            {
+                HexTile tile = pair.Value;
+                if (tile == null || !tile.IsWalkable)
+                    continue;
+                if (HexCoord.Distance(nearestTile, pair.Key) != 1)
+                    continue;
+                if (HexCoord.Distance(pair.Key, finalTarget) >= currentDistanceToGoal)
+                    continue;
+
+                Vector3 center = _mapper.HexToWorld(pair.Key);
+                float dx = center.x - unitWorldPosDomain.x;
+                float dz = center.z - unitWorldPosDomain.z;
+                candidates.Add((pair.Key, dx * dx + dz * dz));
+            }
+
+            candidates.Sort((left, right) =>
+            {
+                int distanceOrder = left.distanceSquared.CompareTo(
+                    right.distanceSquared);
+                if (distanceOrder != 0) return distanceOrder;
+                int qOrder = left.coord.Q.CompareTo(right.coord.Q);
+                return qOrder != 0 ? qOrder : left.coord.R.CompareTo(right.coord.R);
+            });
+
+            for (int index = 0; index < candidates.Count; index++)
+            {
+                HexCoord candidate = candidates[index].coord;
+                List<HexCoord> route = RequestMoveCore(
+                    unit.Position,
+                    candidate,
+                    allowBlockedAuthoritativeStartEgress: true);
+                // 이 반환값은 호출자가 Root에서 후보 중심까지 한 개 corridor segment로
+                // 사용할 수 있어야 한다. 우회가 필요한 후보(route.Count > 2)를 direct-safe로
+                // 오인하지 않으며, 그런 경우 호출자는 최종 objective의 서버 A*로 복구한다.
+                if (candidate == unit.Position
+                    || (route != null
+                        && route.Count == 2
+                        && route[0] == unit.Position
+                        && route[1] == candidate))
+                {
+                    rejoinTile = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

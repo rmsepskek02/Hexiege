@@ -50,6 +50,12 @@ namespace Hexiege.Application
         // 같은 목적지(예: 적 성)에 대한 모든 유닛 요청이 동일한 인스턴스를 공유한다.
         private readonly Dictionary<HexCoord, HexFlowField> _cache = new Dictionary<HexCoord, HexFlowField>();
 
+        // 건물 생성·파괴로 walkability가 바뀔 때마다 증가한다. UnitView가 관측한 revision보다
+        // 오래된 cache를 반환하지 않기 위한 서버 내부 단조 버전이며 네트워크 복제값이 아니다.
+        private ulong _walkabilityRevision;
+
+        public ulong WalkabilityRevision => _walkabilityRevision;
+
         // GameEvents 구독 해제용 Disposable. 게임 종료 시 Dispose로 정리.
         private CompositeDisposable _subscriptions;
 
@@ -68,6 +74,7 @@ namespace Hexiege.Application
             _subscriptions?.Dispose();
             _subscriptions = new CompositeDisposable();
             _cache.Clear();
+            _walkabilityRevision = 0UL;
 
             // 건물 배치 → walkable 변경 가능 → 모든 캐시 무효화.
             GameEvents.OnBuildingPlaced
@@ -107,6 +114,23 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 호출자가 이미 관측한 walkability revision 이상으로 cache를 맞춘 뒤 경로장을 반환한다.
+        /// 이벤트 구독 순서 때문에 eager repath가 cache invalidation보다 먼저 실행되더라도 오래된
+        /// field를 재사용하지 않는다. 더 최신인 service revision은 절대 되돌리지 않는다.
+        /// </summary>
+        public HexFlowField GetOrComputeAtRevision(
+            HexCoord destination,
+            ulong observedEnvironmentRevision)
+        {
+            if (observedEnvironmentRevision > _walkabilityRevision)
+            {
+                _cache.Clear();
+                _walkabilityRevision = observedEnvironmentRevision;
+            }
+            return GetOrCompute(destination);
+        }
+
+        /// <summary>
         /// 모든 캐시를 폐기. 건물 배치/파괴 등으로 walkable이 변경됐을 때 호출.
         ///
         /// 즉시 재계산하지 않는 이유:
@@ -116,6 +140,8 @@ namespace Hexiege.Application
         public void InvalidateAll()
         {
             _cache.Clear();
+            if (_walkabilityRevision < ulong.MaxValue)
+                _walkabilityRevision++;
         }
 
         /// <summary>
@@ -127,6 +153,7 @@ namespace Hexiege.Application
             _subscriptions?.Dispose();
             _subscriptions = null;
             _cache.Clear();
+            _walkabilityRevision = 0UL;
             _grid = null;
         }
     }

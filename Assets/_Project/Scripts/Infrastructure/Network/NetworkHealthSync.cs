@@ -29,6 +29,7 @@ using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Infrastructure
 {
@@ -157,7 +158,15 @@ namespace Hexiege.Infrastructure
             // (Phase 2 — 축 3)
             // ImmediatePresentation(파도 등 이동형 AoE)도 전파하여 클라이언트도 즉시 방출하게 한다(규칙 26).
             SyncHealthClientRpc(entityId, e.IsUnit, e.CurrentHp, e.AttackerId, e.AttackerIsUnit,
-                e.ImmediatePresentation);
+                e.ImmediatePresentation,
+                e.PresentationResultKey.AttackerInstanceId.Value,
+                e.PresentationResultKey.SequenceId.Value,
+                e.PresentationResultKey.HitIndex,
+                e.PresentationResultKey.VictimKind,
+                e.PresentationResultKey.VictimId,
+                e.PresentationResultKey.EffectKind,
+                e.PresentationResultKey.ResultOrdinal,
+                e.WavePresentationKey.Epoch, e.WavePresentationKey.Id);
         }
 
         /// <summary>
@@ -200,7 +209,7 @@ namespace Hexiege.Infrastructure
             //     - HoT 틱(ShowText=false): 클라도 HP만 동기화하고 텍스트는 안 뜬다.
             //     - HoT 완료(ShowText=true): 클라도 "현재 HP" 텍스트를 1회 뜨게 한다(HP 차이가 0이어도).
             SyncHealClientRpc(unit.Id, e.CurrentHp, e.HealerId, e.HealerIsUnit,
-                e.ShowText);
+                e.ShowText, e.WavePresentationKey.Epoch, e.WavePresentationKey.Id);
         }
 
         // ====================================================================
@@ -220,7 +229,10 @@ namespace Hexiege.Infrastructure
         /// <param name="immediatePresentation">파도 등 이동형 AoE 피해면 true — 클라이언트도 즉시 방출(규칙 26).</param>
         [ClientRpc]
         private void SyncHealthClientRpc(int entityId, bool isUnit, int serverHp,
-            int attackerId, bool attackerIsUnit, bool immediatePresentation)
+            int attackerId, bool attackerIsUnit, bool immediatePresentation,
+            ulong attackerInstanceId, ulong attackSequenceId, int hitIndex,
+            int victimKind, int victimId, int effectKind, int resultOrdinal,
+            ulong waveEpoch, ulong waveId)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -236,13 +248,19 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            var presentationResultKey = new AttackResultKey(
+                new AttackerInstanceId(attackerInstanceId),
+                new AttackSequenceId(attackSequenceId),
+                hitIndex, victimKind, victimId, effectKind, resultOrdinal);
             if (isUnit)
             {
-                SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit, immediatePresentation);
+                SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit,
+                    immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
             }
             else
             {
-                SyncBuildingHealth(entityId, serverHp, attackerId, attackerIsUnit);
+                SyncBuildingHealth(entityId, serverHp, attackerId, attackerIsUnit,
+                    presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
             }
         }
 
@@ -258,7 +276,7 @@ namespace Hexiege.Infrastructure
         /// <param name="showText">부유 힐 텍스트 표시 여부(HoT 틱=false, 즉발/파도/HoT 완료=true). 표시 형식은 모두 현재 HP.</param>
         [ClientRpc]
         private void SyncHealClientRpc(int unitId, int serverHp, int healerId, bool healerIsUnit,
-            bool showText)
+            bool showText, ulong waveEpoch, ulong waveId)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -271,7 +289,7 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            SyncUnitHeal(unitId, serverHp, healerId, healerIsUnit, showText);
+            SyncUnitHeal(unitId, serverHp, healerId, healerIsUnit, showText, new WaveDeliveryKey(waveEpoch, waveId));
         }
 
         /// <summary>
@@ -314,7 +332,7 @@ namespace Hexiege.Infrastructure
         /// 현재 HP와 서버 HP의 차이를 데미지로 적용.
         /// </summary>
         private void SyncUnitHealth(int unitId, int serverHp, int attackerId, bool attackerIsUnit,
-            bool immediatePresentation)
+            bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -354,7 +372,8 @@ namespace Hexiege.Infrastructure
                 // 파도 피해는 immediatePresentation=true를 전달해 큐 보류 없이 즉시 방출된다(규칙 26).
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
-                    immediatePresentation: immediatePresentation));
+                    immediatePresentation: immediatePresentation,
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
             }
         }
 
@@ -365,7 +384,7 @@ namespace Hexiege.Infrastructure
         /// HoT 완료 텍스트는 HP 차이가 0이어도 표시해야 하므로, HP 동기화와 텍스트 재발행을 분리해 처리한다.
         /// </summary>
         private void SyncUnitHeal(int unitId, int serverHp, int healerId, bool healerIsUnit,
-            bool showText)
+            bool showText, WaveDeliveryKey waveKey = default)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -403,7 +422,7 @@ namespace Hexiege.Infrastructure
             {
                 GameEvents.OnEntityHealed.OnNext(new EntityHealedEvent(unit, unit.Hp, isUnit: true,
                     healerId: healerId, healerIsUnit: healerIsUnit,
-                    showText: true));
+                    showText: true, wavePresentationKey: waveKey));
             }
         }
 
@@ -456,7 +475,9 @@ namespace Hexiege.Infrastructure
         /// (2026-08-10: BuildingData에 Heal이 추가되어 "TakeDamage를 통해서만 변경 가능"하던 서술은
         ///  더 이상 맞지 않는다. 회복은 위 SyncBuildingHeal이 담당한다.)
         /// </summary>
-        private void SyncBuildingHealth(int buildingId, int serverHp, int attackerId, bool attackerIsUnit)
+        private void SyncBuildingHealth(
+            int buildingId, int serverHp, int attackerId, bool attackerIsUnit,
+            AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
         {
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
@@ -487,7 +508,9 @@ namespace Hexiege.Infrastructure
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
                 // RPC로 받은 공격자 정보를 그대로 전달한다. (Phase 2 — 축 3)
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
-                    attackerId: attackerId, attackerIsUnit: attackerIsUnit));
+                    attackerId: attackerId, attackerIsUnit: attackerIsUnit,
+                    immediatePresentation: false,
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
             }
         }
     }

@@ -15,7 +15,9 @@
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 유형별 생성·광산·건설 제한·seed·폴백·검증 (유형 목록과 개수는 3장 「유형별 사양」이 단일 소스) |
 | [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다), 이탈 시 승패 기록, 인게임 이탈 처리 (구조·구현 방법은 이 문서가 아니라 `TechnicalDesignDocument.md` 「🌐 네트워크 설계」) |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템(건물로 경로가 막혔을 때의 동작 포함), 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 (특수 공격 확장의 목록과 개수는 「특수 공격 시스템 규칙」 절이 단일 소스) |
+| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동(건물 경로 차단 포함)·정렬·타겟·공격·피해 불변 규칙, 전투 연출·애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 (특수 공격 확장의 목록과 개수는 「특수 공격 시스템 규칙」 절이 단일 소스) |
+| [GameSystemRules_UnitCombatSynchronization.md](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) | 서버 권위 행동 회차, 시간, 방향, 타격 결과 및 멀티플레이 표현 동기화 계약 |
+| [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md) | 25종 유닛 공격 프로필·클립·이벤트·VFX·구현 및 검증 상태 감사표 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 |
 | [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 메커니즘 타입, 발동 경로, 모바일 지점 조준 UX, 서버 권위, 추후 데이터로 확정할 항목 (건물과 타입의 목록·개수는 「스킬 건물 3종 정의」·「스킬 메커니즘 타입」 절이 각각 단일 소스) |
 | [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI |
@@ -82,14 +84,26 @@
 
 ### 유닛 관련 작업
 → [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md)
-- A* 이동, 공유 타일 상태, 경로 재계산
-- 상태 머신 (A* 이동 / 전투 이동 / 공격)
-- 감지/공격 사거리, 타겟 선택, AoE
+- A* 이동, AlignToMove, 공유 타일 상태, 경로 재계산, 유닛 겹침 허용
+- Acquire/Align/Windup/Impact/Recovery 상태와 결정적 타겟 선택
+- MeleeContact / Hitscan / ProjectileImpact / TravelingArea
+- TorrentSpirit 전용 서버 승인 발사 예약의 primary 상실 예외 — `GameSystemRules_Units.md` 규칙 29·`U-IMPACT-INDEPENDENT` 및 동기화 문서 `NET-DELIVERY-TRAVELING`·`NET-CANCEL-004`·`NET-PRESENT-003` 참조. 다른 유닛의 일반 안전 계약으로 확대하지 않는다.
 - 전투 연출 동기화 (타격 프레임 단일 소스, 피격 표현 큐, 원거리 트레이서, 애니메이션 상태 값 기반 동기화)
 - 특수 공격 시스템 (전략 핸들러 구조, 휩쓸기 월드 부채꼴 판정, SpecialAttackConfig 튜닝, AoE 연출 동시 방출)
 - 🔴 같은 「특수 공격 시스템 규칙」 섹션에 **힐과 지속 효과 규칙이 함께 들어 있다** — 힐(회복) 서브시스템, 힐러 전용 경로, 부상 아군 탐색, HoT/DoT 공용 시간 지속 효과, 힐러 유휴 감시, 힐러 쿨다운 예외, HoT 힐 텍스트 집계, 착탄형·단일 대상 DoT 확장 (`GameSystemRules_Units.md` 규칙 30~37 · 40~42)
 - 방어력 데미지 감쇄 — 공식·상수·삽입 지점의 단일 소스는 `GameSystemRules_Units.md` 규칙 44
 - 건물로 경로가 완전히 막혔을 때의 유닛 동작 — 2026-08-26 에 맵 문서에서 이관돼 온 규칙이다. 단일 소스는 `GameSystemRules_Units.md` 규칙 45
+
+→ [GameSystemRules_UnitCombatSynchronization.md](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md)
+- Simulation Root / Visual Root 책임 분리
+- AttackSequenceId + HitIndex + 서버 시간 기반 결과·표현 상관관계
+- 늦은 참가, 순서 역전, 중복, 취소, 사망, 발사체·파도 동기화
+- 기존 공격자 FIFO와 클라이언트 Network Root 보정의 대체 계약
+
+→ [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md)
+- 25종 Blue/Red 프리팹, Controller, Attack 클립과 Animation Event 감사
+- 설계 목표와 현재 런타임 전달 방식 분리
+- 미완성·마이그레이션·멀티 검증 상태
 
 ### 건물 관련 작업
 → [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md)

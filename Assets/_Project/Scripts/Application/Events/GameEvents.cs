@@ -32,9 +32,30 @@
 using System;
 using UniRx;
 using Hexiege.Domain;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Application
 {
+    /// <summary>Gameplay 예약을 변경하지 않는 원자 공격 표현 값. Provisional에는 Hits/scope가 없다.</summary>
+    public struct UnitAttackPhasePresentation
+    {
+        public ulong Lifetime, EpochId, PresentationRevision, ActionRevision;
+        public int UnitId, TargetId;
+        public bool TargetIsUnit, Active;
+        public double EpochServerTime, Duration, CommitServerTime;
+        public AttackPresentationImpactMode Mode;
+        public AttackPresentationScope Scope;
+        // 발행자가 생성한 배열만 보관하고 wire/View 경계에서는 복사한다.
+        public AttackSourceOccurrence[] Hits;
+    }
+
+    public struct AttackSourceOccurrence
+    {
+        public int HitIndex;
+        public long Loop;
+        public double MarkerOffset, MarkerServerTime, ImpactServerTime;
+    }
+
     /// <summary>
     /// 타일 선택 이벤트 데이터.
     /// </summary>
@@ -108,6 +129,22 @@ namespace Hexiege.Application
         {
             UnitId = unitId;
             Frozen = frozen;
+        }
+    }
+
+    /// <summary>
+    /// 이동 목표는 유지되지만 해당 프레임에 실제 변위가 없어 걷기 모션을 정지해야 함을 알린다.
+    /// 빙결과는 원인이 다르며, 서버가 두 상태의 우선순위를 합성해 복제한다.
+    /// </summary>
+    public readonly struct UnitMovementHeldChangedEvent
+    {
+        public readonly int UnitId;
+        public readonly bool Held;
+
+        public UnitMovementHeldChangedEvent(int unitId, bool held)
+        {
+            UnitId = unitId;
+            Held = held;
         }
     }
 
@@ -212,6 +249,14 @@ namespace Hexiege.Application
         /// </summary>
         public readonly bool ImmediatePresentation;
 
+        /// <summary>
+        /// C3 read-only 표현 비교가 이 피해를 서버 권위 결과와 정확히 연결할 때만 사용하는 키다.
+        /// 유효하지 않으면 기존 특수/타워/싱글 경로이며 피해와 표현 동작은 그대로 유지된다.
+        /// </summary>
+        public readonly AttackResultKey PresentationResultKey;
+        /// <summary>writer가 소유하는 독립 파도 표현 키. 유효할 때만 Legacy 텍스트를 억제한다.</summary>
+        public readonly WaveDeliveryKey WavePresentationKey;
+
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit)
             : this(entity, currentHp, isUnit, attackerId, attackerIsUnit, immediatePresentation: false)
@@ -220,6 +265,14 @@ namespace Hexiege.Application
 
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit, bool immediatePresentation)
+            : this(entity, currentHp, isUnit, attackerId, attackerIsUnit,
+                immediatePresentation, default)
+        {
+        }
+
+        public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
+            int attackerId, bool attackerIsUnit, bool immediatePresentation,
+            AttackResultKey presentationResultKey, WaveDeliveryKey wavePresentationKey = default)
         {
             Entity = entity;
             CurrentHp = currentHp;
@@ -227,6 +280,53 @@ namespace Hexiege.Application
             AttackerId = attackerId;
             AttackerIsUnit = attackerIsUnit;
             ImmediatePresentation = immediatePresentation;
+            PresentationResultKey = presentationResultKey;
+            WavePresentationKey = wavePresentationKey;
+        }
+    }
+
+    /// <summary>
+    /// 로컬 Attack Animation Event가 가리키는 정확한 서버 공격 회차다.
+    ///
+    /// 예전에는 공격자 Id만 전달했기 때문에, 결과보다 marker가 먼저 온 경우 그 신호를
+    /// 버렸다가 다음 공격 회차의 결과를 잘못 꺼내는 FIFO 문제가 생겼다. 멀티플레이에서는
+    /// 이 DTO의 <see cref="PresentationScope"/>가 결과와 표현을 결합하는 유일한 키다.
+    /// 싱글플레이는 서버 회차가 없으므로 scope가 비어 있어도 기존 공격자별 표현 경로를 쓴다.
+    /// </summary>
+    public readonly struct LocalAttackHitPresentationEvent
+    {
+        public readonly int AttackerId;
+        public readonly AttackPresentationScope PresentationScope;
+        public readonly AttackPresentationReplicatedSnapshot ReplicatedSnapshot;
+
+        public bool HasPresentationScope => PresentationScope.IsValid;
+
+        public LocalAttackHitPresentationEvent(
+            int attackerId,
+            AttackPresentationScope presentationScope = default,
+            AttackPresentationReplicatedSnapshot replicatedSnapshot = default)
+        {
+            AttackerId = attackerId;
+            PresentationScope = presentationScope;
+            ReplicatedSnapshot = replicatedSnapshot;
+        }
+    }
+
+    /// <summary>
+    /// UnitView가 타겟 변경·사망·Stop으로 닫은 정확한 로컬 공격 회차다.
+    /// HitPresentationQueue는 이 값을 받아 결과가 없는 signal-only 상태까지 폐기한다.
+    /// </summary>
+    public readonly struct LocalAttackPresentationScopeRetiredEvent
+    {
+        public readonly int AttackerId;
+        public readonly AttackPresentationScope PresentationScope;
+
+        public LocalAttackPresentationScopeRetiredEvent(
+            int attackerId,
+            AttackPresentationScope presentationScope)
+        {
+            AttackerId = attackerId;
+            PresentationScope = presentationScope;
         }
     }
 
@@ -251,6 +351,8 @@ namespace Hexiege.Application
     /// </summary>
     public readonly struct EntityHealedEvent
     {
+        /// <summary>서버 writer가 확정한 파도 전용 표현 소유권이다.</summary>
+        public readonly WaveDeliveryKey WavePresentationKey;
         /// <summary> 회복된 엔티티(유닛 또는 건물). 건물은 MistShrine 물안개 힐에서 사용한다. </summary>
         public readonly IDamageable Entity;
 
@@ -293,7 +395,7 @@ namespace Hexiege.Application
         /// 표시 문자열은 모두 CurrentHp로 통일한다(GameSystemRules_Units.md 「특수 공격 시스템 규칙」 규칙 37 — 형식 통일).
         /// </summary>
         public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
-            int healerId, bool healerIsUnit, bool showText)
+            int healerId, bool healerIsUnit, bool showText, WaveDeliveryKey wavePresentationKey = default)
         {
             Entity = entity;
             CurrentHp = currentHp;
@@ -301,6 +403,7 @@ namespace Hexiege.Application
             HealerId = healerId;
             HealerIsUnit = healerIsUnit;
             ShowText = showText;
+            WavePresentationKey = wavePresentationKey;
         }
     }
 
@@ -558,6 +661,31 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 멀티플레이 서버의 이동 루프가 공격 진입을 요청할 때 전달하는 불변 데이터.
+    ///
+    /// 이동 루프는 "다음 이동 후보 위치"에서 이미 공격할 대상을 확정한다. 이 값을
+    /// 유닛 Id만 있는 이벤트로 보내면 수신 측이 이동 확정 전의 현재 위치에서 대상을
+    /// 다시 찾아야 하므로, 특히 사거리가 짧은 근거리 유닛이 공격 직전에 멈출 수 있다.
+    /// 따라서 공격자와 그 순간 확정한 대상을 하나의 값으로 묶어 끝까지 그대로 전달한다.
+    /// </summary>
+    public readonly struct UnitEnteredCombatEvent
+    {
+        /// <summary>공격 진입을 요청한 유닛의 Id.</summary>
+        public readonly int UnitId;
+        /// <summary>이동 후보 위치에서 확정한 타겟 엔티티의 Id.</summary>
+        public readonly int TargetId;
+        /// <summary>true면 유닛, false면 건물 타겟.</summary>
+        public readonly bool TargetIsUnit;
+
+        public UnitEnteredCombatEvent(int unitId, int targetId, bool targetIsUnit)
+        {
+            UnitId = unitId;
+            TargetId = targetId;
+            TargetIsUnit = targetIsUnit;
+        }
+    }
+
+    /// <summary>
     /// 전투 타겟 변경 이벤트 데이터 (싱글플레이 전용).
     /// UnitCombatUseCase.TryAttack()에서 전투 중 타겟이 바뀔 때 발행.
     /// UnitView가 구독하여 ChangeTarget() 호출 — 회전만 업데이트.
@@ -602,12 +730,42 @@ namespace Hexiege.Application
         public readonly int TargetId;
         /// <summary> true=유닛, false=건물. </summary>
         public readonly bool TargetIsUnit;
+        /// <summary>
+        /// 명시적으로 Attack 클립을 처음부터 다시 재생해야 하는지 여부.
+        /// 멀티플레이의 정상 후속 공격 회차는 scope만 갱신하고 클립은 이어가므로 false다.
+        /// </summary>
+        public readonly bool RestartAttackCycle;
+        /// <summary>같은 유닛 네트워크 수명 안에서 단조 증가하는 표현 회차 revision.</summary>
+        public readonly ulong PresentationRevision;
+        /// <summary>
+        /// 로컬 Impact/VFX/SFX marker의 상호 배타적 허가 모드.
+        /// provisional은 Suppressed, C3 지원 타입은 Scoped, 아직 이관되지 않은 타입은
+        /// 기존 표현만 보존하는 LegacyFallback을 전달한다.
+        /// </summary>
+        public readonly AttackPresentationImpactMode ImpactMode;
+        public bool ImpactEnabled => ImpactMode == AttackPresentationImpactMode.Scoped;
+        /// <summary>
+        /// Scoped 모드와 같은 RPC payload에서 전달된 정확한 서버 권위 공격 회차다.
+        /// 별도 NetworkVariable의 도착 순서에 의존하지 않는다.
+        /// </summary>
+        public readonly AttackPresentationScope PresentationScope;
 
-        public NetworkCombatStartedEvent(int unitId, int targetId, bool targetIsUnit)
+        public NetworkCombatStartedEvent(
+            int unitId,
+            int targetId,
+            bool targetIsUnit,
+            bool restartAttackCycle,
+            ulong presentationRevision,
+            AttackPresentationImpactMode impactMode,
+            AttackPresentationScope presentationScope = default)
         {
             UnitId = unitId;
             TargetId = targetId;
             TargetIsUnit = targetIsUnit;
+            RestartAttackCycle = restartAttackCycle;
+            PresentationRevision = presentationRevision;
+            ImpactMode = impactMode;
+            PresentationScope = presentationScope;
         }
     }
 
@@ -767,6 +925,8 @@ namespace Hexiege.Application
     /// </summary>
     public static class GameEvents
     {
+        public static readonly Subject<AttackEffectPresentation> OnAttackEffectConfirmed = new Subject<AttackEffectPresentation>();
+        public static readonly Subject<AttackEffectPresentation> OnAttackEffectReceived = new Subject<AttackEffectPresentation>();
         // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================
@@ -840,7 +1000,8 @@ namespace Hexiege.Application
         public static readonly Subject<EntityHealedEvent> OnEntityHealed = new();
 
         /// <summary>
-        /// 공격자(유닛)의 로컬 타격 프레임(Animation Event OnAttackHit)이 발생했을 때 발행. 유닛 Id를 전달.
+        /// 공격자(유닛)의 로컬 타격 프레임(Animation Event OnAttackHit)이 발생했을 때 발행한다.
+        /// 멀티플레이는 공격자 Id와 정확한 AttackPresentationScope를 함께 전달한다.
         /// 발행: UnitView.OnAttackHit (모든 클라이언트에서 로컬로 실행되는 Animation Event)
         /// 구독: HitPresentationQueue (해당 공격자의 보류 큐에서 피격 연출 1건을 방출)
         ///
@@ -849,7 +1010,14 @@ namespace Hexiege.Application
         ///   공격자가 실제로 칼을 휘두르는 순간(로컬 애니메이션의 타격 프레임)에 맞춰 터뜨려야 자연스럽다.
         ///   이 이벤트가 그 "타격 순간" 신호 역할을 한다. (전투 타격 타이밍 동기화 Phase 2 — 축 3)
         /// </summary>
-        public static readonly Subject<int> OnLocalAttackHit = new Subject<int>();
+        public static readonly Subject<LocalAttackHitPresentationEvent> OnLocalAttackHit = new();
+
+        /// <summary>
+        /// 멀티플레이 로컬 표현 회차가 타겟 변경·사망·Stop으로 닫힐 때 발행한다.
+        /// 서버 공격 writer가 아니라 표현 큐 수명만 닫는 read-only/presentation seam이다.
+        /// </summary>
+        public static readonly Subject<LocalAttackPresentationScopeRetiredEvent>
+            OnLocalAttackPresentationScopeRetired = new();
 
         /// <summary>
         /// 유닛이 사망했을 때 발행.
@@ -969,6 +1137,12 @@ namespace Hexiege.Application
         /// </summary>
         public static readonly Subject<UnitFreezeChangedEvent> OnUnitFreezeChanged = new Subject<UnitFreezeChangedEvent>();
 
+        /// <summary>
+        /// 유효한 이동 목표를 유지한 채 재경로를 기다리거나 막혀 실제 변위가 0인 상태를 동기화한다.
+        /// </summary>
+        public static readonly Subject<UnitMovementHeldChangedEvent> OnUnitMovementHeldChanged =
+            new Subject<UnitMovementHeldChangedEvent>();
+
         // OnUnitWalkStopped 제거 — Idle 상태가 없으므로 Walk 정지 이벤트 불필요.
         // Walk→Attack: StartCombatClientRpc에서 직접 처리.
 
@@ -978,20 +1152,27 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>
-        /// 멀티플레이 서버에서 유닛이 이동 중 처음으로 사거리 내 적을 감지했을 때 발행. 유닛 Id를 전달.
+        /// 멀티플레이 서버에서 유닛이 이동 중 처음으로 사거리 내 적을 감지했을 때 발행.
+        /// 이동 후보 위치에서 확정한 공격자와 타겟을 하나의 불변 값으로 전달한다.
         /// MoveAlongPath에서 HasEnemyInRange가 true가 되는 첫 순간에만 발행.
         /// NetworkCombatController가 구독하여 즉시 StartCombatClientRpc를 전송.
         /// TickCombat을 기다리지 않고 공격 애니메이션을 즉시 시작하기 위함.
         /// </summary>
-        public static readonly Subject<int> OnUnitEnteredCombat = new Subject<int>();
+        public static readonly Subject<UnitEnteredCombatEvent> OnUnitEnteredCombat =
+            new Subject<UnitEnteredCombatEvent>();
 
         /// <summary>
-        /// 힐러(BloomFairy)가 힐 시전을 시작했을 때 서버 UnitView가 발행. 유닛 Id를 전달.
-        /// NetworkCombatController(서버)가 구독하여 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화한다.
+        /// 힐러가 시전을 시작할 때 서버 UnitView가 발행하는 회차·시각·aim의 불변 값이다.
+        /// NetworkCombatController가 힐 전용 atomic NetworkVariable로 게시한다.
         /// OnUnitEnteredCombat과 달리 데미지(ExecuteAttack)는 유발하지 않는다 — 순수 힐 애니메이션 동기화용.
         /// (싱글플레이에서는 UnitView가 Animator를 직접 CrossFade하므로 이 이벤트를 구독하지 않는다.)
         /// </summary>
-        public static readonly Subject<int> OnUnitHealCastStarted = new Subject<int>();
+        public static readonly Subject<UnitHealCastPresentation> OnUnitHealCastStarted =
+            new Subject<UnitHealCastPresentation>();
+
+        /// <summary>같은 힐 회차의 표현 종료다. 부여된 HoT 효과를 취소하지 않는다.</summary>
+        public static readonly Subject<UnitHealCastPresentation> OnUnitHealCastEnded =
+            new Subject<UnitHealCastPresentation>();
 
         /// <summary>
         /// 유닛이 전투 상태에 진입했을 때 발행.
@@ -1037,6 +1218,13 @@ namespace Hexiege.Application
         /// </summary>
         public static readonly Subject<NetworkCombatTargetChangedEvent> OnNetworkCombatTargetChanged
             = new Subject<NetworkCombatTargetChangedEvent>();
+
+        /// <summary>
+        /// 멀티플레이 공격 표현은 유지하되, 서버가 다음 공격 회차를 커밋하기 전까지
+        /// Attack Animation Event가 VFX/SFX/로컬 타격 신호를 만들지 않게 한다.
+        /// </summary>
+        public static readonly Subject<int> OnNetworkCombatImpactSuppressed
+            = new Subject<int>();
 
         /// <summary>
         /// 멀티플레이 서버에서 클라이언트에 전투 종료 명령 전파 시 발행.

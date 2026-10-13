@@ -50,10 +50,10 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 유닛/건물의 월드 좌표를 반환하는 프로바이더.
-        /// UnitWorldPositionProvider가 구현체이며, GameBootstrapper에서 생성.
+        /// 로컬 화면에 그려지는 유닛/건물 좌표를 반환하는 프로바이더.
+        /// Simulation용 IEntityPositionProvider와 분리하여 전투 계산 좌표를 변경하지 않는다.
         /// </summary>
-        private IEntityPositionProvider _positionProvider;
+        private IPresentationPoseProvider _presentationPoseProvider;
 
         /// <summary>
         /// 부유 텍스트 오브젝트들의 부모 컨테이너(월드 공간의 빈 GameObject).
@@ -103,6 +103,15 @@ namespace Hexiege.Presentation
 
         /// <summary>OnEntityHealed 구독 해제용 Disposable. 재초기화/파괴 시 정리.</summary>
         private System.IDisposable _healedSubscription;
+        private System.Func<bool> _waveOwnerReady;
+        /// <summary>조합 루트에서 로컬 wave 소비자 준비 조건을 전달한다.</summary>
+        public void SetWaveOwnerReady(System.Func<bool> ready) => _waveOwnerReady = ready;
+
+        /// <summary>
+        /// 확정 결과 표현기가 실제 HP 텍스트를 만들 수 있는지 사전에 확인하는 읽기 전용 상태다.
+        /// 초기화되지 않은 스포너를 호출하고도 "표시 성공"으로 집계하는 일을 막는다.
+        /// </summary>
+        public bool IsReadyForDamagePresentation => _container != null && _prefab != null;
 
         // ====================================================================
         // 초기화
@@ -112,18 +121,19 @@ namespace Hexiege.Presentation
         /// 스포너 초기화. GameBootstrapper에서 호출.
         /// 의존성 저장, 풀 사전 생성, 이벤트 구독을 순서대로 수행.
         /// </summary>
-        /// <param name="positionProvider">유닛/건물 월드 좌표 제공자.</param>
+        /// <param name="presentationPoseProvider">유닛/건물 표현 좌표 제공자.</param>
         /// <param name="container">부유 텍스트가 배치될 월드 공간 부모 Transform.</param>
         /// <param name="prefab">FloatingHpText 프리팹.</param>
         public void Initialize(
-            IEntityPositionProvider positionProvider,
+            IPresentationPoseProvider presentationPoseProvider,
             Transform container,
             FloatingHpText prefab)
         {
             // 필수 의존성 null 체크. 비어 있는 채로 진행하면 결과가 인자마다 다르다.
             //   · 프리팹이 비면 풀 생성(CreateInstance())의 Instantiate 에서 예외가 난다.
-            //   · 컨테이너나 좌표 제공자가 비면 예외는 나지 않지만, ShowDamage·ShowHeal 맨 앞의
-            //     null 가드에 걸려 텍스트가 한 번도 뜨지 않는다(조용한 실패라서 더 찾기 어렵다).
+            //   · 컨테이너나 좌표 제공자가 비면 예외는 나지 않지만, 표시 메서드 맨 앞의
+            //     null 가드(또는 IsReadyForDamagePresentation)에 걸려 텍스트가 한 번도 뜨지 않는다
+            //     (조용한 실패라서 더 찾기 어렵다).
             //
             // 🔴 2026-10-05 실측 정정 — 세 인자의 null 원인이 같지 않다.
             //    · 컨테이너와 프리팹: 조합 루트의 Inspector 슬롯에서 온다 → 배선 누락이 원인이다.
@@ -133,7 +143,10 @@ namespace Hexiege.Presentation
             //         적었는데 그 "~에서만"이 좌표 제공자에는 성립하지 않는다.
             //    ⚠️ 아래 경고 문구 자체는 이번에 고치지 않았다(문자열 리터럴 변경은 별도 승인 대상).
             //       그래서 그 문구는 여전히 Inspector 만 가리킨다 — 읽을 때 이 주석을 함께 볼 것.
-            if (positionProvider == null || container == null || prefab == null)
+            //    ⚠️ 2026-10-13 병합 — 이 주석이 가리키는 "좌표 제공자"는 main 쪽 작업에서
+            //       표현 전용 제공자(IPresentationPoseProvider)로 바뀌었다. 전달 경로(조합 루트가
+            //       코드에서 직접 만들어 넘긴다)는 그대로이므로 위 설명은 그 이름에도 그대로 성립한다.
+            if (presentationPoseProvider == null || container == null || prefab == null)
             {
                 // [개발] Warn + 개발.
                 //   종전에는 더 높은 심각도(오류 수준)로 찍었으나 Warn 으로 낮췄다.
@@ -144,12 +157,12 @@ namespace Hexiege.Presentation
                 GameLog.Dev.Warn("UI", nameof(FloatingHpTextSpawner),
                                  "Initialize() 실패 — 필수 의존성이 null 이다. " +
                                  "GameBootstrapper Inspector 에서 모든 슬롯이 연결됐는지 확인해야 한다",
-                                 $"PositionProviderNull={positionProvider == null}, " +
+                                 $"PresentationPoseProviderNull={presentationPoseProvider == null}, " +
                                  $"ContainerNull={container == null}, PrefabNull={prefab == null}");
                 return;
             }
 
-            _positionProvider = positionProvider;
+            _presentationPoseProvider = presentationPoseProvider;
             _container = container;
             _prefab = prefab;
 
@@ -189,15 +202,50 @@ namespace Hexiege.Presentation
         /// <param name="evt">피격 이벤트 데이터. Entity(피격 대상), CurrentHp, IsUnit 포함.</param>
         public void ShowDamage(EntityDamagedEvent evt)
         {
-            if (_positionProvider == null || _container == null) return;
+            TryShowDamage(evt);
+        }
+
+        /// <summary>
+        /// 기존 피해 텍스트 표시 경로를 실행하고 풀 오브젝트의 Play 호출 성공 여부를 반환한다.
+        /// false는 의존성/대상 위치 부재 등의 기존 조기 종료이며 화면 픽셀 가시성은 측정하지 않는다.
+        /// </summary>
+        public bool TryShowDamage(EntityDamagedEvent evt)
+        {
+            if (evt.Entity == null || _presentationPoseProvider == null) return false;
 
             // 피격 엔티티의 월드 좌표 조회 — IsUnit이면 유닛, 아니면 건물
             Vector3 worldPos = evt.IsUnit
-                ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
-                : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
+                ? _presentationPoseProvider.GetUnitPosition(evt.Entity.Id)
+                : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);
 
             // Vector3.zero = GameObject가 이미 파괴된 경우 (소멸 후 이벤트 도달)
-            if (worldPos == Vector3.zero) return;
+            if (worldPos == Vector3.zero) return false;
+
+            return TryShowDamageAt(evt, worldPos);
+        }
+
+        /// <summary>
+        /// 서버가 확정한 Impact 위치에 HP 텍스트를 표시한다. 피격 View가 이미 Despawn된
+        /// 경우에도 확정 결과의 위치 증거를 사용할 수 있으며, 실제 풀/프리팹이 준비되지
+        /// 않았다면 false를 반환해 호출자가 key를 소비하지 않게 한다.
+        /// </summary>
+        public bool TryShowDamageAt(EntityDamagedEvent evt, Vector3 worldPos)
+        {
+            if (evt.Entity == null) return false;
+            return TryShowDamageAt(evt.CurrentHp, evt.Entity.Team, worldPos);
+        }
+
+        /// <summary>
+        /// C3 확정 결과의 self-contained 스냅샷만으로 피해 HP를 표시한다.
+        /// 피해자 Domain/View가 이미 제거된 뒤에도 서버가 확정한 팀·결과 HP·Impact 위치는
+        /// 변하지 않으므로, 별도 OnEntityDamaged 이벤트를 기다리지 않는다.
+        /// </summary>
+        public bool TryShowDamageAt(int resultingHp, TeamId team, Vector3 worldPos)
+        {
+            if (resultingHp < 0 || !IsReadyForDamagePresentation
+                || float.IsNaN(worldPos.x) || float.IsNaN(worldPos.y) || float.IsNaN(worldPos.z)
+                || float.IsInfinity(worldPos.x) || float.IsInfinity(worldPos.y) || float.IsInfinity(worldPos.z))
+                return false;
 
             // 피격 지점 머리 위 월드 좌표 계산
             Vector3 spawnPos = worldPos + Vector3.up * _yOffset;
@@ -208,11 +256,13 @@ namespace Hexiege.Presentation
             // 컨테이너의 자식으로 설정 (worldPositionStays=false: 부모 변경 시 로컬 좌표 유지)
             hpText.transform.SetParent(_container, false);
 
-            // 피격 대상 팀에 따라 텍스트 색상 결정.
+            // 피격 대상 팀에 따라 텍스트 색상 결정 — Blue=연두, Red=노랑, 그 외=흰색.
             //   팀별 두 색은 Inspector 직렬화 값이 정한다 — 아래 필드의 코드 기본값은
             //   씬에 저장된 값에 덮이므로, 실제 화면 색은 Game 씬의 이 컴포넌트에서 확인해야 한다.
             //   팀이 Blue/Red 둘 다 아닌 경우만 코드가 흰색으로 고정한다.
-            TeamId team = evt.Entity.Team;
+            //   ⚠️ 2026-10-13 병합 — 팀 값을 여기서 피격 이벤트에서 꺼내던 줄은 main 쪽 작업에서
+            //      사라졌다. 지금은 호출자가 team 인자로 넘겨 준다(피해자가 이미 Despawn 된 뒤에도
+            //      서버가 확정한 팀 값을 쓸 수 있어야 하기 때문이다).
             Color textColor = team switch
             {
                 TeamId.Blue => _blueTeamColor,
@@ -222,9 +272,10 @@ namespace Hexiege.Presentation
 
             // 남은 HP를 텍스트로 표시 — 월드 좌표 전달
             hpText.Play(
-                $"{evt.CurrentHp}",
+                $"{resultingHp}",
                 spawnPos,
                 color: textColor);
+            return true;
         }
 
         /// <summary>
@@ -240,7 +291,8 @@ namespace Hexiege.Presentation
         /// <param name="evt">회복 이벤트 데이터. Entity(회복 대상), CurrentHp 포함.</param>
         public void ShowHeal(EntityHealedEvent evt)
         {
-            if (_positionProvider == null || _container == null) return;
+            if (evt.WavePresentationKey.IsValid && _waveOwnerReady?.Invoke() == true) return;
+            if (_presentationPoseProvider == null || _container == null) return;
             if (evt.Entity == null) return;
 
             // [힐 텍스트 정리 — 2026-07-19] 텍스트 억제 이벤트(HoT 틱 등)는 여기서 걸러 낸다.
@@ -265,8 +317,8 @@ namespace Hexiege.Presentation
             //      다시 시작해서 그 번호가 UI 문서에서는 전혀 다른 조항(아이콘 미제작)을 가리켰다.
             //      그래서 번호를 새 번호로 바꾸지 않고 문서명 + 절 이름으로 가리킨다.
             Vector3 worldPos = evt.IsUnit
-                ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
-                : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
+                ? _presentationPoseProvider.GetUnitPosition(evt.Entity.Id)
+                : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);
 
             // Vector3.zero = GameObject가 이미 파괴된 경우
             if (worldPos == Vector3.zero) return;
@@ -286,6 +338,16 @@ namespace Hexiege.Presentation
                 label,
                 spawnPos,
                 color: _healColor);
+        }
+
+        /// <summary>사라진 피해자/공격자 조회 없이 확정 파도 스냅샷에서 치유 텍스트를 표시한다.</summary>
+        public bool TryShowHealAt(int hp, Vector3 position)
+        {
+            if (hp < 0 || !IsReadyForDamagePresentation || !WavePresentationSpawn.Finite(position)) return false;
+            var text = GetFromPool();
+            text.transform.SetParent(_container, false);
+            text.Play($"{hp}", position + Vector3.up * _yOffset, color: _healColor);
+            return true;
         }
 
         // ====================================================================

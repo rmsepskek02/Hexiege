@@ -275,11 +275,13 @@ namespace Hexiege.Bootstrap
         private UnitProductionUseCase _unitProduction;
         private GameEndUseCase _gameEnd;
         private IEntityPositionProvider _positionProvider;
+        private IPresentationPoseProvider _presentationPoseProvider;
 
         // [피격 표현 큐] 피격 연출(HP 텍스트·VFX·타격 반응)을 공격자의 로컬 타격 프레임에 맞춰 방출.
         // 씬 수동 배치 없이 LoadMap()에서 이 GameObject에 AddComponent 후 Initialize한다.
         // 맵 재로드 시 중복 부착을 막기 위해 참조를 캐시하여 재사용한다. (Phase 2 — 축 3)
         private HitPresentationQueue _hitPresentationQueue;
+        private UnitAttackResultPresentationShadow _unitAttackResultPresentationShadow;
 
         // [AI 시스템] 싱글플레이 AI 컨트롤러. InitializeAI()에서 생성, 매 프레임 Update()에서 Tick.
         // 싱글플레이 + AIConfig.enableAI=true일 때만 생성된다. 멀티플레이에서는 항상 null.
@@ -529,6 +531,8 @@ namespace Hexiege.Bootstrap
             LogSessionOwner.EnsureInitialized();
 
             GameServicesLocator.Register(this);
+            // 싱글/멀티 모두 종료 사건에서 미래 발사 허가를 먼저 닫는다.
+            GameEvents.OnGameEnd.Subscribe(_ => _unitCombat?.CloseTorrentLaunches("game-end")).AddTo(this);
         }
 
         /// <summary>
@@ -544,6 +548,7 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void OnDestroy()
         {
+            _unitCombat?.CloseTorrentLaunches("bootstrap-destroy");
             GameServicesLocator.Unregister();
         }
 
@@ -613,6 +618,7 @@ namespace Hexiege.Bootstrap
             if (!IsNetworkMode() && _unitCombat != null)
             {
                 _unitCombat.TickCooldowns(Time.deltaTime);
+                _unitCombat.TickTorrentLaunches(Time.timeAsDouble);
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
                 _unitCombat.TickPendingHits(Time.deltaTime);

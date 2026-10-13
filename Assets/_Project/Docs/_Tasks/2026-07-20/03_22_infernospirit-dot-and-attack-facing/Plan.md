@@ -1,4 +1,4 @@
-# Plan — InfernoSpirit DoT 구현 + 공격 방향 버그 수정
+# Plan — InfernoSpirit DoT 구현 + 공격 방향 진단(수정 보류)
 
 ## 이 작업이 무엇인지 (자연어 설명)
 
@@ -6,7 +6,7 @@
 1. **InfernoSpirit DoT** — 이미 완성된 원거리 유닛 InfernoSpirit에, 스펙에만 있고 코드엔 없던 특수 능력
    "때린 적 유닛에게 3초간 초당 5(총 15) 지속 피해"를 구현합니다. MushroomBomber에서 만든 **DoT 초 단위 틱
    시스템(규칙 40)을 단일 대상으로 재사용**하므로 아주 단순합니다(핸들러 1개 + 등록 1줄 + 튜닝값).
-2. **공격 방향 버그** — 유닛이 공격할 때 타겟을 제대로 안 바라보는 현상을 재현·진단해 최소 수정합니다.
+2. **공격 방향 버그** — 유닛이 공격할 때 타겟을 제대로 안 바라보는 현상을 진단하되, 공통 수정은 규칙 v2 작업으로 보류합니다.
 
 관련 규칙(`GameSystemRules_Units.md`): **규칙 23**(전략 핸들러) · **25**(튜닝 파라미터) · **34/40**(DoT 초 단위 틱).
 기본 규칙 16(아군 무피해)·18(서버 권위 타이밍) 전제.
@@ -79,7 +79,7 @@
 | `Application/Combat/SpecialAttackContext.cs` / `UnitCombatUseCase.cs` | InfernoSpirit DoT 진입점(5/3), 튜닝 주입 | 수정 |
 | `Infrastructure/Config/SpecialAttackConfig.cs` (+asset) | inferno DoT 필드 | 수정/에셋 |
 | `Bootstrap/GameBootstrapper.Setup.cs` | inferno DoT 주입 | 수정 |
-| `Presentation/Unit/UnitView.cs` 또는 InfernoSpirit 프리팹 | 공격 방향 버그 수정(진단 결과에 따라) | 수정(진단) |
+| `Presentation/Unit/UnitView.cs` 또는 InfernoSpirit 프리팹 | 공격 방향 진단만 수행, 수정은 별도 v2 작업으로 보류 | 무변경 |
 
 **무변경 재사용**: DoT 초단위 틱(규칙 40)·특수공격 전략 구조(규칙 23)·`ExecuteAttack`/`ApplyDamageToVictim`/피해·사망·데미지 텍스트. InfernoSpirit 에셋/생산/VFX/OnAttackHit.
 
@@ -89,7 +89,7 @@
 1. **MushroomBomber DoT 회귀** — InfernoSpirit이 자기 값(5/3)을 쓰되 MushroomBomber(2/3) 경로를 건드리지 말 것. `ApplyDot` 공유 시 유닛별 값 분리 확인.
 2. **건물 DoT 제외** — 주 타깃 건물이면 DoT 없음(유닛만). 직접 25는 건물에 적용(공성).
 3. **직접+DoT** — 주 타깃 유닛은 직접 25 + DoT. 직접 25 사망 시 DoT 스킵.
-4. **공격 방향 수정의 광범위 영향** — 회전 로직이 공통이면 전 유닛에 영향 → 회귀 테스트 필수. 유닛 특정이면 국소.
+4. **공격 방향 수정의 광범위 영향** — 공통 회전/권위 루트 문제라 이번 작업에서 수정하지 않고 v2 ActionSequence 작업으로 이관.
 5. **멀티 회전 동기화** — 서버 권위/NetworkTransform 구조 유지(클라 직접 회전 금지).
 6. **에셋≠배선**(규칙 25) — inferno DoT 값·`_specialAttackConfig` 배선 확인.
 
@@ -100,15 +100,21 @@
 - 건물 대상: 직접 25만, DoT 없음. 아군 무피해.
 - DoT 갱신(리셋), 중첩 없음. DoT로 사망 시 정상 처리.
 - 멀티: 서버 틱 1회, 클라 HP·텍스트 동기화(이중 없음).
-- **공격 방향**: 유닛이 공격 시 타겟을 정확히 바라봄(스냅/추적). 근접·원거리·힐러·기타 유닛 회귀 없음.
+- **공격 방향**: 이번 PASS 기준에서 제외. 별도 v2 멀티플레이 검증 항목으로 유지.
 - MushroomBomber(2/3)·BloomFairy 힐·파도·기존 공격 회귀 없음.
 
 ---
 
 ## 에이전트 위임 (CLAUDE.md 규칙 3)
-- 코드 구현(InfernoSpirit DoT 핸들러·튜닝) + 공격 방향 버그 진단·수정 → **game-programmer**.
+- 코드 구현(InfernoSpirit DoT 핸들러·튜닝) + 공격 방향 버그 진단만 → **game-programmer**. 방향 수정은 보류.
 - 구현 후 검증 → **qa-tester**(위 포인트, TC 문서 없이).
 - 버그가 광범위 로직 수정으로 번지거나 설계 판단 필요 시 → 사용자 확인(규칙 12).
 
 ## 남은 특수 유닛(참고)
 InfernoSpirit 이후 잔여: **QuakeSpirit**(착탄형 — MushroomBomber 원형 반경 판정 규칙 38 재사용). 특수 유닛 마무리 단계.
+
+## 2026-07-22 문서 정합성 보정
+
+- InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초는 Legacy 경로에서 사용자 실기 확인됐다.
+- 공격 방향 공통 수정은 실제 작업 범위에서 제외됐으므로 이 Plan의 완료 조건에서도 제외한다.
+- marker 0.50초/설정 1.15초 불일치와 권위 AttackSequence/ImpactPoint는 후속 v2 작업으로 남는다.

@@ -29,6 +29,34 @@
 > instructions for a live agent. The delegation patterns and required-context checklist
 > below still describe how this project delegates — the main session is now the caller.
 
+## 2026-08-28 C2 통합 실기 FAIL / 다음 P0
+- Editor Host·Android Client에서 Host C2 `942/97 FAIL`; Android 오류·Client reject 0. 사거리 밖 Legacy 피해 2건, `Applied+NotDue` 5건, unavailable NotDue 78건, Miss 진단 오탐 12건으로 분리했다.
+- 예약 TargetId 결속과 B3 MOVE/ROOT는 이번 범위에서 유지됐다. 다음 P0는 Legacy 단일 writer의 공통 Impact preflight, due 생명주기, observer Miss/Cancelled 교정이다.
+- 서버 권위·Legacy gameplay writer·기존 RPC/VFX를 유지하고 Unity 전체 PASS와 새 Android 역할교대 전 Phase 5 Presentation을 시작하지 않는다.
+
+## 2026-08-24 B3 blocked-start 최소 교정 상태
+- 동적 건물로 대체 경로가 있어도 Unit48/59/69/96이 멈춘 직접 원인은 non-walkable authoritative start가 FlowField에서 빠져 `RequestMove`가 null이 된 계약 공백이다.
+- 최소 slice는 `UnitMovementUseCase`의 authoritative-only 인접 egress와 Editor self-validation이며 UnitView/HexFlowField/NetworkTransform/prefab/package는 보존했다.
+- 독립 QA 최초 P1(비권위 staged start까지 예외 확산)을 API 권한 분리로 닫고 Q/R 회귀까지 보강했다. 다음 gate는 Unity `[UAS-DIAG]` PASS→Android 재빌드→집중 실기/역할교대 MOVE·ROOT·CrossAudit. Unit30/회전은 별도 OPEN.
+
+## 프로젝트 현재 상태 (2026-08-24)
+
+### B3 회전 계측 PASS / 역할교대 MOVE terminal FAIL
+- Unity self-validation 2종과 `root-rotation-replication-v1` 완전성 PASS. 역할교대 세션은 Android Host 54/54, Editor Client 53/53 endpoint evidence, drop/preflight 0이다.
+- Unit 30 Red Pistoleer adapter failure 6·repeated recoverable repath 1로 Host MOVE terminal FAIL하여 공식 CrossAudit 중단. read-only 동일 revision 회전 잔차 7(`0.11~0.15°`)은 원인 분리 근거일 뿐 공식 pose 판정이 아니다.
+- 다음 순서: Unit 30 반복 repath 최소 재현·교정 → 새 역할교대 공식 CrossAudit → NetworkTransform final convergence 교정. 25종/Legacy rollback 보류, B3 FAIL/OPEN.
+
+### B3 v9 최종 통합 정적 코드 게이트 / 메뉴·실기 대기
+- v8 Android recoverable preflight 반복을 typed 결과와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 교정했다. corridor probe/final stage는 같은 seam을 쓰고 fatal만 `Rejected`다.
+- commit accounting은 actual attempt 직전 planned, success 뒤 committed, END equality다. recoverable history는 positive successful commit에서만 clear하고 lifecycle retire는 server/client baseline·recoverable 이력을 제거한다.
+- `origin/main` 60개 commit과 B3 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3를 모두 보존했다.
+- observer `b3-movement-authority-v9`, post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. terminal 32줄·최대 968 UTF-8 byte, adapter 64/65와 release `Conditional` 경계다.
+- 후속 Android v9 실제 경기는 확보했지만 RootCrossAudit가 false-INCONCLUSIVE여서 공식 판정은 OPEN이다. pre-merge UAS PASS는 재사용하지 않으며 사용자 RootCrossAudit 재실행 전 B3 FAIL/OPEN·역할교대/25종 회귀 금지다. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
+
+### RootCrossAudit false-INCONCLUSIVE 교정 / 공식 재감사 OPEN
+- `a0e690...8d8` 실제 Editor Host·Android Client의 MOVE full EVIDENCE·ROOT PASS와 수동 49/49 match를 확보했다. ROOT bucket 14/17 peer 비교는 공유 시간축이 없어 false-INCONCLUSIVE였다.
+- 진단기만 validated MOVE `startedAt <=2.000초`로 교정하고 run 내부 bucket·stable overlap·fail-closed를 유지했다. Editor Roslyn PASS. 다음은 사용자 RootCrossAudit SelfValidate → 동일 경기 Analyze이며 전까지 B3 FAIL/OPEN이다.
+
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)
@@ -140,4 +168,162 @@ Assets/_Project/
 - ~~생산 큐 클라이언트 UI 동기화~~ → 완료 (2026-03-01): SyncQueueStateClientRpc로 즉시 갱신
 - ~~Siege/AI 이동 서버·클라이언트 독립 실행 (화면 불일치)~~ → 완료 (2026-03-07): BroadcastServerMove + BroadcastMoveClientRpc로 서버 권위 동기화
 
+## 2026-03-14 완료 작업 (비-네트워크)
+- **팀별 피아식별 + Assault/Sniper 코드 연동 완료**:
+  - `UnitType.cs`: Pistoleer=0, Assault=1, Sniper=2
+  - `UnitFactory.cs`: `UnitTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀+타입별 분기
+  - `BuildingFactory.cs`: `BuildingTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀별 분기
+  - `ProductionPanelUI.cs`: Assault/Sniper 버튼+초상화+생산 로직
+  - `UnitStats.cs`: Pistoleer HP=30/ATK=6, Assault HP=50/ATK=1, Sniper HP=30/ATK=10
+  - `UnitProductionStats.cs`: Pistoleer 5초/50골드, Assault 10초/100골드, Sniper 15초/200골드
+- **팀별 초상화 동적 업데이트**: ProductionPanelUI/BuildingPlacementUI — Show() 시 팀별 스프라이트 교체
+- **전투 범위 epsilon 제거**: `UnitCombatUseCase` +0.1f 제거 → `AttackRange * HexMetrics.TileHeight` (타일 점령 버그 수정)
+- **공격 애니메이션-타격 동기화 (Animation Event 방식)**:
+  - `AnimationEventRelay.cs` 신규 생성 (Animator 자식에 부착, OnAttackHit 릴레이)
+  - `UnitView.cs`: OnAttackHit() + HitReactionCoroutine() 추가 (scale punch, 순수 비주얼)
+  - Attack.anim 3개에 Animation Event 추가 (타격 프레임에 OnAttackHit)
+  - 프리팹 6개에 AnimationEventRelay 부착, Root Motion OFF 확인
+- **유닛 스탯 재조정** (ATK 값 변경):
+  - Pistoleer ATK 3→6 (DPS=3, cooldown≈2.0s)
+  - Assault ATK 6→1 (DPS=5, cooldown≈0.2s)
+  - Sniper ATK 20→10 (DPS≈3.3, cooldown≈3.0s)
+- **유닛 메시 방향 보정**:
+  - Assault/Sniper 하위 Mesh 오브젝트 Y 회전 30° 설정 (이동 방향 보정)
+  - _meshYOffset: 공격 방향 보정 전용 (CalculateAttackAngle만 영향, 추후 테스트 조정 예정)
+
+## 3D 전환 시 수정된 파일 (참고)
+- Phase 1: `HexMetrics.cs`, `ViewConverter.cs`, `CameraController.cs`, `GameBootstrapper.cs`, `InputHandler.cs`
+- Phase 2: `BuildingFactory.cs`, `UnitFactory.cs`, `UnitView.cs` (삭제: `FrameAnimator.cs`, `UnitAnimationData.cs`, `PistoleerAnimData.asset`)
+- Phase 3: `CameraController.cs` (tilt), `GameBootstrapper.cs` (Z오프셋)
+- Phase 4: Meshy.ai 에셋 통합 예정
+### 2026-07-16 - Lobby profile/ranking cloud feature status
+
+- Profile/Ranking cloud integration is ready to merge to main as a completed vertical slice: Firebase verified login -> nickname setup -> lobby profile/ranking display.
+- Scope includes Cloud Save profile, Leaderboards ranking, nickname setup/change UI, editor setup scripts, scene wiring, package additions, and default UI layout pass.
+- Known deferred item: email verification flow robustness. The verification screen currently relies on current Firebase user email and lacks explicit handling for sign-up users who abandon verification. Next task should add explicit email display state, distinguish fresh sign-up vs existing unverified login, and define account deletion/sign-out behavior.
+### 2026-07-16 - Email verification flow cleanup
+
+- Current branch: `codex/email-verification-flow-cleanup`.
+- Scope: email verification display/context/back behavior, not UI layout polish and not server-side stale unverified account cleanup.
+- Manual verification needed in Unity Editor: compile, signup email display, signup cancel deletes unverified Firebase user, existing unverified login back signs out without deletion.
+
+### 2026-07-18 - Email verification flow completed
+
+- User device PASS: email display, signup cancel popup, Firebase unverified user deletion, continue verification, verification relaunch, nickname setup relaunch.
+- Completion docs updated in task Plan/Testcase, `AuthSystemRules.md`, `PROJECT_STATUS.md`, `ROADMAP.md`, and `WORK_HISTORY.md`.
+- Remaining separate concern: long-term stale `emailVerified=false` account cleanup policy is not implemented in this slice.
+
+### 2026-07-20 - 유닛 이동·공격 동기화 문서 기준선
+
+- 브랜치 `codex/unit-movement-attack-sync-audit`에서 규칙 문서만 일괄 개정했다. 코드·프리팹·애니메이션 에셋은 미수정이다.
+- 구현 순서는 계측 기준선 → Simulation/Visual Root 분리 → 서버 UnitActionSnapshot/AttackImpactResult → Legacy FIFO와 shadow 비교 → 25종 AttackProfile 이전 → 멀티 검증 → Legacy 제거다.
+- 전환 중 경기 단위 `CombatSchemaRevision + AttackProfileHash + CombatPipelineMode`를 고정하고 single-writer/single-emitter를 지킨다. 같은 경기에서 유닛별 Legacy/v2 권위를 혼합하거나 진행 중 rollback하지 않는다.
+- 권위 규칙은 `GameSystemRules_Units.md`와 `GameSystemRules_UnitCombatSynchronization.md`, 구현·에셋 차단 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+
+### 2026-07-22 - Inferno/Quake 병합 후 전투 기준선
+
+- main의 InfernoSpirit/QuakeSpirit 핸들러는 서버 피해 의미를 구현한 Legacy adapter다. v2 구현 완료 수는 여전히 0/25다.
+- 우선순위는 Quake marker 주입/실측, Inferno marker 교정, 단일 피해 writer 복구, 권위 ActionSequence/ImpactResult 이전, Simulation/Visual Root 분리, 멀티 지연 QA 순으로 유지한다.
+- 사용자 폰트 변경과 Quake 로그 `.meta`는 전투 문서 작업 범위 밖이므로 보존한다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A0 게이트
+
+- Shadow Melee Sequence 구현과 사용자 멀티 Host 계측 완료. Editor self-validation PASS, scheduled/dispatch/unique 204/204/204, 누락·중복·타겟·facing 불일치 0, Windup 240ms 전건 일치다.
+- dispatch 지연은 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms이고 33.333ms 이상은 0이다. Client 로그는 header only다.
+- 기존 서버 피해·RPC·VFX를 유지한 Shadow 단계다. 당시 순수 sequencer는 후속이었으며 아래 A1에서 완료됐다.
+- 이동/공격 방향과 시각 Impact 문제를 해결 완료로 승격하지 않는다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A1 게이트
+
+- Pure Application `UnitActionContracts`와 stateful `UnitActionSequencer` 구현 완료. runtime-independent 상태·타임라인·사거리·결과 권한 계약과 revision/time fail-closed reducer를 제공한다.
+- 사용자 Unity Editor 메뉴 PASS, C# 9/Application 및 Editor compile PASS, reflection `Validate*` 10 PASS, 최종 Standards/Spec P0~P3 지적 0건이다.
+- 런타임 pose/result seam 및 피해·RPC·VFX는 미연결이므로 세 사용자 증상과 v2 전환은 미완료다.
+- 다음 조율 게이트는 A2 server-authoritative pose seam shadow다. 기존 피해·RPC·VFX single-writer/single-emitter를 유지한다.
+
+### 2026-07-27 - Unit ActionSequence Tracer A2 게이트
+
+- pure pose 계약, `UnitView` read-only Legacy adapter와 서버/SpearMan one-cycle reducer Shadow를 구현·검증했다. 공격자 사망은 pending observer 삭제가 아니라 `MarkDead`/`DeadTerminal`, 용량 초과는 canonical `capacity-evicted` terminal skip으로 닫는다.
+- 사용자 Editor self-validation PASS. Host 18:04:04 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 terminal, eviction·예외 0. schedule 429 / dispatch 428의 차이 1건은 로그 종료 시 Impact 전 in-flight다. Client 18:09:48 observer 0.
+- 기존 피해·HP·RPC·VFX·이동 writer와 서버 권위 Legacy 분기는 유지했다. A2 런타임 게이트 PASS 후 다음 조율 게이트는 Tracer B Simulation Root / Visual Root 분리다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B0 게이트
+
+- 50개 프리팹(Human 16 / Spirit 18 / Transcendence 16)의 read-only 구조 감사와 rollback manifest 생성이 PASS했다. 예상 migration은 VisualRoot create 50 / reuse 0 / direct-child move 58이다.
+- 사용자 dry-run 연속 2회가 각각 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다. prefab/scene Git diff와 mutation API 호출은 0이다.
+- 전체 직렬화 상태가 아니라 NGO 의미 설정 allowlist를 결정적으로 해시하고, Unity Console 절단에 견디도록 프리팹별 로그와 종합 digest를 분리한다.
+- B1은 50개 프리팹 원자적 migration과 rollback 검증이며, B2 Shadow/B3 경기 단위 writer 전환 전에 완료해야 한다. B0 PASS를 실제 Root 분리나 세 증상 해결로 확대하지 않는다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B1 조건부 게이트
+
+- 50개 프리팹 asset migration, journal completed와 Apply 재실행 `[NO-OP]`는 PASS다. `VisualRootProjector`/`PresentationPoseProvider` seam과 클라이언트 Simulation Root write 제거도 구현됐다.
+- 2026-07-27 당시 B1 전체 게이트는 열려 있었다. rollback failure injection과 Host/Client·Blue/Red runtime smoke가 미완료였으며, 후속 판정은 아래 2026-07-29 항목을 따른다.
+- 신규·교체 프리팹 authoring 권위는 `NET-ROOT-004` + Asset Matrix 체크리스트 + fail-closed validator다. 50개용 bulk migration은 반복하지 않으며, 존재하지 않는 Legacy `SetupNewUnitPrefabs.cs`를 현행 도구로 안내하지 않는다.
+- validator는 root Animator/Renderer 0, Animator별 동일 GO relay와 Root Motion off, 파일명과 Blue/Red pair·roster 기준을 강제한다. Collider는 B1 검증 범위가 아니다.
+
+### 2026-07-29 - Unit ActionSequence Tracer B1 rollback 게이트 PASS
+
+- graceful failure injection index 0/24/49는 모두 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`다.
+- crash index 24 강제 종료 후 별도 프로세스 `RecoverCrash`가 PASS했다. 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25였고 복구 후 primary 50 prefab + 50 meta가 100/100 원상복구됐다.
+- primary Unity compile Tundra success와 `[UAS-DIAG]` self-validation PASS를 함께 확인했다.
+- B1 overall은 아직 OPEN이다. Android 1대와 Unity Editor counterpart의 역할교대 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사 전에는 B2 서버 이동·방향 Shadow를 시작하지 않는다.
+
+### 2026-07-29 - Unit ActionSequence B1 Collider 진단 가정 제거
+
+- 2026-07-27 B1에서 근거 없이 추가된 Collider 존재·배치 조건은 B1 out-of-scope다. 공통 계약, runtime observer, Editor validator와 self-validation에서 완전히 제거하고 optional/root-only 계약도 남기지 않는다.
+- B1 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
+- 최종 게이트는 Android 1대와 같은 코드 리비전의 Unity Editor counterpart를 역할교대하는 두 경기다. Match A는 Editor Host Blue file + Android Client Red Logcat, Match B는 Android Host Blue Logcat + Editor Client Red file을 짝지어 분석한다.
+- 각 경기의 동일·available sharedSessionKey, role/isFlipped, 180초 coverage, END PASS/errors 0과 외부 stable cross-audit가 필요하다. Windows/Standalone build는 사용하지 않으며 Android 2대는 release E2E·성능·호환성 권장 항목이다. B1 overall OPEN과 B2 시작 금지를 유지한다.
+
+### 2026-07-30 - Unit ActionSequence B1 게이트 종료
+
+- Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 두 경기에서 양쪽 로컬 PASS와 cross-pose mismatch 0을 확인했다. B1은 COMPLETE이며 B2 서버 이동·SimulationFacing Shadow가 다음 활성 게이트다.
+- B1 완료 범위는 Root 분리, NetworkTransform 안정 수렴, 50개 프리팹 migration·멱등성·rollback이다.
+- B3 writer 전환, 공격 방향, Impact/피해 타이밍, result seam, 25종 이전·멀티 QA와 Legacy 제거는 계속 P0 미완료다.
+
+### 2026-08-03 - Unit ActionSequence B2 게이트 종료
+
+- B2 서버 이동·SimulationFacing read-only Shadow는 6개 인정 멀티플레이 경기에서 25/25 UnitType의 Blue/Red 누적 표본을 확보해 COMPLETE다. accepted decision 545,190회, manifest entry 420개이며 인정 세션의 decision/scope/authority/log-integrity 오류 카운터는 모두 0이다.
+- 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5다. reducer schema는 모두 `b2-movement-reducer-v1`이며 각 유닛을 Host/Client 양 역할에서 각각 검증한 것은 아니다.
+- B2는 진단·분류 완료다. 실제 이동·바라보기 writer 교정은 B3 전까지 미완료이고, `legacyMovedWhileShadowAlign`은 B3가 필요한 직접 근거다.
+- 다음 활성 게이트는 B3 경기 단위 25종 이동·SimulationFacing single-writer 전환이다. 공격 방향과 Impact/피해 타이밍은 Tracer C/D 이후까지 미완료다.
+
+### 2026-08-18 - B3 최신 main 통합과 진행성 교정
+
+- `origin/main`의 연구·상태효과·스킬·MistShrine·빙결/둔화를 B3 서버 권위 이동과 merge했다. merge commit은 `9dd9b627`, 안전 stash `277a3ea54e91cd778829943491e7f4827f9649db`는 유지한다.
+- B3 유한 재탐색 guard 구현과 Unity compile/self-validation, 문서 정합성 검사는 PASS다. 전체 상태는 Android Host 회귀 전까지 FAIL / OPEN이다.
+- 다음 순서: 새 Android Development Build → Android Host 정지 재현 회귀와 다른 유닛/경기 진행 확인 → Editor/Android 역할교대 → 25종 전체 → 다음 경기 Legacy rollback.
+- 공격 타겟/공격 방향과 시각 Impact/실제 피해 시점은 이번 교정 범위 밖이며 후속 Tracer에서 별도로 진행한다.
+
+### 2026-08-25 - B3 집중 교정 종료와 Tracer C 진입 게이트
+
+- B3 v10 중심 이동·건물 안전 Chase·전방 중심 복귀는 focused multiplayer PASS다. 25종·반대 역할·Legacy rollback은 제거하지 않고 Tracer C 이후 권위 전환 전 통합 회귀로 이관한다.
+- ROOT CrossAudit의 긴 Android terminal 절단은 compact END(최악값 803 UTF-8 byte)와 production preflight로 교정했다. Runtime/Editor Roslyn 및 Unity self-validation 2종 PASS다.
+- 기존 절단 로그는 INCONCLUSIVE 이력으로 보존하고 재판정하지 않는다. 진단기만을 위한 별도 빌드/실기는 생략하며 다음 새 빌드부터 교정된 채점기를 사용한다.
+- 다음 활성 단계는 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 TargetId/AimDirection·AlignToAttack 5°/8°다. Shadow 동안 Legacy 피해·HP·RPC·VFX writer는 유지하고 이중 writer를 금지한다.
+
+### 2026-08-26 - Tracer C1 Legacy 공격 시작 경계 교정
+
+- `origin/main` 병합 커밋 `ada617db` 뒤 양측 로그 체계와 B3/C1 변경을 보존했다.
+- 멀티플레이 Legacy 공격은 연속 정지 표본과 5도 정렬을 통과한 서버 Tick에서만 시작한다. Attack 상태·RPC·쿨다운·피해 예약은 같은 경계다.
+- 예약 회차 TargetId는 다음 시작 경계까지 고정하며 멀티 Root 즉시 스냅과 피해 시점의 별도 `UnitData.Facing` writer는 제거했다. 싱글플레이 Legacy는 보존한다.
+- Shadow observer v2와 Unity `[UAS-DIAG]`는 PASS다. Android/Editor 역할교대 실기 전까지 C1 전체 상태는 OPEN이다.
+
+### 2026-08-26 - Tracer C1 v3 2차 교정 게이트
+
+- 1차 멀티 FAIL의 stale Shadow target 31건은 공격자당 단일 Shadow 회차가 겹친 Legacy 회차를 표현하지 못한 구조 결함이었다. 정상 Deferred 반복 출력은 observer drop 733의 별도 원인이었다.
+- v3는 실제 Legacy 시작마다 독립 회차를 원자 Commit하고 예약별 Sequencer를 보존한다. 게임플레이 서버 권위·피해·HP·RPC·VFX writer는 유지한다.
+- GameEnd 뒤 38ms B3 adapter failure는 종료 후 observer callback으로 분리해 suppress하고, 종료 전 실패는 계속 fail-closed다.
+- 자동 게이트는 Runtime/Editor 컴파일과 Unity self-validation PASS다. 새 Android/Editor 동일 경기에서 v3 terminal 오류 0을 확인하기 전 C1 전체는 OPEN이다.
 > 여기 있던 「2026-03-14 완료 작업 (비-네트워크)」 · 「3D 전환 시 수정된 파일 (참고)」 · 2026-07-16/07-18 인증 플로우 진행 기록은 2026-08-24에 [project-history.md](project-history.md) 로 옮겼다. 모두 지나간 시점의 기록이라 현재 상태와 섞이면 오해를 만든다.
+
+### 2026-08-27 - C1 집중 게이트 종료
+
+- Editor Host/Android Client 최신 경기의 실제 예약 TargetId·SequenceId·결과 불일치는 0이며 Client 거부도 0이다. 표시 후보 `-1`을 비교한 Host mismatch 1건은 observer false positive로 확정했다.
+- observer v5와 Unity 회귀 검증이 PASS했으며 게임 동작과 Legacy 권위 writer는 변경하지 않았다.
+- 다음 활성 작업은 Tracer C Phase 4 Snapshot/ImpactResult Shadow다. 서버 TargetId·AimDirection과 전달 방식별 Impact 결과를 복제·비교한 뒤 Phase 5 결과 키 Presentation으로 진행한다.
+
+### 2026-08-27 - C2 구현 게이트
+
+- C2 Snapshot/ImpactResult Shadow는 구현과 Unity 자동 검증을 통과했다. Legacy writer는 유지하고 결과만 별도 Reliable 메시지로 감사한다.
+- 현재 상태는 Editor PASS / Android·Editor 역할교대 실기 OPEN이다. C2를 실제 공격·피해 시점 교정 완료로 기록하지 않는다.
+- 새 schema는 `c2-attack-impact-result-shadow-v6`이며 C1 `END`와 C2 `result-END`를 한 세션에서 함께 채점한다. 다음 단계는 실기 증거 뒤 Phase 5 결과 키 Presentation이다.
