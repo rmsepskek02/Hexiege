@@ -15,130 +15,327 @@ MonoBehaviour:
   _entries:
   - unitType: 0
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 1
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 2
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 3
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 4
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 5
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 6
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 7
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 10
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 11
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 12
-    timedDamagePreset: {fileID: 11400000, guid: 131df3ac0231ef3db1a8064f3704b8dc, type: 2}
     attackPreset: {fileID: 11400000, guid: f87a957ad29c6b84c91a10de1bf97fe4, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 11400000, guid: 131df3ac0231ef3db1a8064f3704b8dc, type: 2}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 13
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 14
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 15
     attackPreset: {fileID: 11400000, guid: 03d1d55cf026a8346a268bb3c5d88d51, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 16
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 17
     attackPreset: {fileID: 11400000, guid: 381cd1a1fe7f6e34497904a1ffbe495c, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 18
     attackPreset: {fileID: 11400000, guid: 06aeda7f35f745a9b948be020f6acdc0, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 20
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 21
     attackPreset: {fileID: 11400000, guid: b32662a6201b75c49bc2c1fa466d4fdc, type: 2}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 22
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 23
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 24
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 25
     attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 26
+    attackPreset: {fileID: 0}
+    healPreset: {fileID: 0}
     timedDamagePreset: {fileID: 11400000, guid: 4c3cf03d25aac512e4c05e9a532ad4b0, type: 2}
     impactPreset: {fileID: 11400000, guid: 81f44d5e98ec404eb5f1ec2d2b40688b, type: 2}
-    attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 11400000, guid: 2b444bba2ac5a62242587ced59635d85, type: 2}
   - unitType: 27
     attackPreset: {fileID: 0}
     healPreset: {fileID: 11400000, guid: e248f616d9334275a75e6a08405219ac, type: 2}
+    timedDamagePreset: {fileID: 0}
+    impactPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
+  _recipientFits:
+  - unitType: 0
+    radius: 0.47790378
+    height: 1.7118616
+    footOffset: {x: -0.007699549, y: -0.0972138, z: 0.054976895}
+    manualScale: 0
+  - unitType: 1
+    radius: 0.8523251
+    height: 1.4783878
+    footOffset: {x: 0.00000023841858, y: -0.00000007304981, z: 0.000000014901161}
+    manualScale: 0
+  - unitType: 2
+    radius: 0.800777
+    height: 1.7
+    footOffset: {x: -0.00000011920929, y: -0.000000012197174, z: -0.00000013411045}
+    manualScale: 0
+  - unitType: 3
+    radius: 0.67728734
+    height: 1.6703831
+    footOffset: {x: -0.0121717155, y: -0.016793052, z: 0.12240185}
+    manualScale: 0
+  - unitType: 4
+    radius: 0.5914103
+    height: 1.6876966
+    footOffset: {x: -0.0011410564, y: -0.026476078, z: 0.021403223}
+    manualScale: 0
+  - unitType: 5
+    radius: 0.73671293
+    height: 1.7599986
+    footOffset: {x: -0.0037777126, y: -0.06560155, z: 0.08204819}
+    manualScale: 0
+  - unitType: 7
+    radius: 0.40547904
+    height: 0.5301163
+    footOffset: {x: 0.000107474625, y: -0.2677598, z: -0.000078231096}
+    manualScale: 0
+  - unitType: 6
+    radius: 0.41331026
+    height: 0.5212989
+    footOffset: {x: -0.00036100298, y: -0.2586546, z: 0.0007262379}
+    manualScale: 0
+  - unitType: 10
+    radius: 0.7170803
+    height: 1.516103
+    footOffset: {x: -0.011184484, y: -0.11128764, z: 0.066147886}
+    manualScale: 0
+  - unitType: 11
+    radius: 0.7762076
+    height: 1.7324313
+    footOffset: {x: -0.029677272, y: -0.12952457, z: 0.15770335}
+    manualScale: 0
+  - unitType: 12
+    radius: 0.9128777
+    height: 1.4222345
+    footOffset: {x: -0.001616329, y: -0.07299738, z: 0.12442681}
+    manualScale: 0
+  - unitType: 13
+    radius: 0.94306517
+    height: 1.4654351
+    footOffset: {x: 0.014996886, y: -0.08656633, z: 0.15227717}
+    manualScale: 0
+  - unitType: 14
+    radius: 0.883588
+    height: 1.5105748
+    footOffset: {x: 0.022527754, y: -0.10341772, z: 0.26083523}
+    manualScale: 0
+  - unitType: 15
+    radius: 0.8298858
+    height: 1.5277171
+    footOffset: {x: -0.18828264, y: -0.012071122, z: 0.35068715}
+    manualScale: 0
+  - unitType: 16
+    radius: 0.6774017
+    height: 1.7165917
+    footOffset: {x: 0.03212665, y: -0.052653138, z: 0.09698388}
+    manualScale: 0
+  - unitType: 17
+    radius: 0.6668816
+    height: 1.6628375
+    footOffset: {x: 0.049453348, y: -0.0029070794, z: 0.1781801}
+    manualScale: 0
+  - unitType: 18
+    radius: 0.76881576
+    height: 1.6999996
+    footOffset: {x: 0.0000002682209, y: 0.0000001898289, z: -0.00000008940697}
+    manualScale: 0
+  - unitType: 20
+    radius: 0.73370063
+    height: 1.767784
+    footOffset: {x: -0.010810792, y: -0.19508462, z: 0.005780846}
+    manualScale: 0
+  - unitType: 21
+    radius: 0.87515825
+    height: 1.5344496
+    footOffset: {x: -0.016828954, y: -0.8463474, z: -0.88670284}
+    manualScale: 0
+  - unitType: 22
+    radius: 0.90571827
+    height: 1.679947
+    footOffset: {x: -0.058752, y: -0.07762241, z: 0.049129948}
+    manualScale: 0
+  - unitType: 23
+    radius: 0.8299205
+    height: 1.6959922
+    footOffset: {x: 0.008523315, y: -0.035580456, z: 0.1250557}
+    manualScale: 0
+  - unitType: 24
+    radius: 0.7840124
+    height: 1.8661877
+    footOffset: {x: -0.024914116, y: -0.13326815, z: 0.11601353}
+    manualScale: 0
+  - unitType: 25
+    radius: 0.44681633
+    height: 1.777741
+    footOffset: {x: 0.010869011, y: -0.13426906, z: 0.013596773}
+    manualScale: 0
+  - unitType: 26
+    radius: 0.78346676
+    height: 1.9401472
+    footOffset: {x: -0.024548382, y: -0.31235415, z: 0.05746135}
+    manualScale: 0
+  - unitType: 27
+    radius: 0.5224576
+    height: 1.7377468
+    footOffset: {x: 0.013535991, y: -0.038323034, z: 0.08445224}
+    manualScale: 0
