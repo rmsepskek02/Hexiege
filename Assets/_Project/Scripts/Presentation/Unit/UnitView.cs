@@ -1503,6 +1503,10 @@ _slot = _nextEviction;
             PistoleerTimingDiagnostics.Event(_unitData, "Unavailable", _pistoleerTimingScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime, "reason=view-disable");
             EndHealPresentation("disable", terminal: true);
+            // [2026-10-13 R2-1] 유닛 GameObject가 파괴·디스폰·비활성화되면(= 화면에서 제거) 이 유닛의
+            //   기 모으기(charge) 이펙트도 즉시 끈다. 멀티 Client는 사망 시 NetworkUnit 디스폰으로 여기에 온다.
+            //   씬 정리 중 EffectManager가 먼저 사라졌으면 Instance가 null이라 아무것도 하지 않는다.
+            EffectManager.Instance?.StopCasterOwnedAttackEffects(this, "CasterRemoved");
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             PostCombatTraceEvent("view-disable", retire: true);
             RetireInfernoMotionJumpEvidence();
@@ -1772,6 +1776,11 @@ _slot = _nextEviction;
                         // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
                         ClearUnitActionShadowDesiredTarget();
                         CloseAttackPhasePresentation("attacker-death");
+
+                        // [2026-10-13 R2-1] 기 모으기(charge) 도중 죽으면 그 이펙트를 즉시 끈다.
+                        //   아래의 "멀티 클라이언트는 여기서 반환" 분기보다 "앞"에 둬야 Host·Client·싱글 모두에서 실행된다.
+                        //   이 유닛에게 귀속된 공격 이펙트만 멈추며, 바로 아래에서 재생하는 사망 이펙트는 영향받지 않는다.
+                        EffectManager.Instance?.StopCasterOwnedAttackEffects(this, "CasterDeath");
 
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
@@ -7018,8 +7027,11 @@ _slot = _nextEviction;
 #endif
             PistoleerTimingDiagnostics.Event(_unitData, "VfxAttempt", sourceOnlyPresentation ? _pistoleerTimingScope : markerScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime, "coldPool=unknown");
+            // [2026-10-13 R2-1] 마지막 인자 this = "이 이펙트의 시전자는 나다".
+            //   기 모으기(charge)처럼 시전자 귀속으로 표시된 프리셋만 이 정보를 써서, 내가 죽거나 사라지면 즉시 멈춘다.
+            //   귀속 표시가 없는 공격 이펙트(Pistoleer·Cannon 등)는 예전과 완전히 같게 끝까지 재생된다.
             UnitAttackVfxPlaybackResult vfxResult = effectManager != null
-                ? effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot)
+                ? effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot, this)
                 : new UnitAttackVfxPlaybackResult(
                     UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
                     0,

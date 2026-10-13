@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: EffectPreset_RuneSpire_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
   _vfxPrefab: {fileID: 2896529719792382386, guid: a1406d4f5b9f0544cab305479195055f, type: 3}
-  _localPositionOffset: {x: 0, y: 0, z: 0}
+  _localPositionOffset: {x: 0, y: 0.65, z: 0}
   _eulerRotationOffset: {x: 0, y: 0, z: 0}
   _scaleMultiplier: {x: 1, y: 1, z: 1}
   _forwardTravelDistance: 0

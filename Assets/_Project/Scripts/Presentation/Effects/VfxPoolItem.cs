@@ -470,6 +470,11 @@ namespace Hexiege.Presentation
             }
             if (!_active) return;
 
+            // [2026-10-13 R2-1] 시전자 귀속 이펙트(기 모으기 등)의 안전망.
+            //   시전자가 죽었거나 사라졌으면 여기서 즉시 정지·반환하고 이번 프레임 처리를 끝낸다.
+            //   귀속되지 않은 이펙트는 곧바로 false라 아래 기존 흐름이 그대로 실행된다(VfxPoolItem.CasterOwned.cs).
+            if (PollCasterOwnership()) return;
+
             if (_bloomLoop)
             {
                 // 활성 loop는 particle gap으로 반환하지 않는다. scaled pause 중 tail도 유지한다.
@@ -531,6 +536,9 @@ namespace Hexiege.Presentation
             //   Play/PlayWave/PlayTimedDamage/PlayBloomLoop 시작과 Return 모두 이 메서드를 거치므로,
             //   풀 재사용 때 이전 번개 길이나 옛 유닛 참조가 남지 않는다(VfxPoolItem.TowerBolt.cs).
             ResetTowerBolt();
+            // [2026-10-13 R2-1] 시전자 귀속 상태도 재생별 상태다. 새 재생·풀 반환 때 옛 시전자 참조를 비운다.
+            //   (BeginCasterOwnership은 Play 뒤에 호출되므로, Play 안의 이 초기화가 새 귀속을 지우지 않는다.)
+            ResetCasterOwnership();
         }
 
         /// <summary>

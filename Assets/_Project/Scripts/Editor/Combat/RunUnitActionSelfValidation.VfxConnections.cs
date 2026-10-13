@@ -72,6 +72,132 @@ namespace Hexiege.Editor.Combat
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
+            ValidateCasterOwnedChargeVfx(units, buildings);
+        }
+
+        /// <summary>
+        /// [2026-10-13 R2-1] 기 모으기(charge) 공격 이펙트가 시전자 사망·제거 시 즉시 멈추는지 확인한다.
+        /// (a) 설정 계약: FoxMagician·InfernoSpirit 공격 프리셋에 시전자 귀속이 켜져 있고, 켜진 프리셋은 전부 charge 프리팹이며,
+        ///     사망·트레이서·착탄·지속(화상/독)·힐 프리셋에는 켜져 있지 않다.
+        /// (b) 실제 EffectManager 경로: 시전자별 즉시 정지(남은 파티클 삭제 + 풀 반환), 다른 시전자·소유자 없는 재생·
+        ///     사망 이펙트는 영향 없음, 매 프레임 안전망(사망/파괴 감지), 풀 재사용 시 옛 귀속이 남지 않음.
+        /// EditMode에서는 Update가 자동으로 돌지 않으므로 안전망 메서드를 리플렉션으로 직접 호출한다.
+        /// </summary>
+        private static void ValidateCasterOwnedChargeVfx(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            // (a) 설정 계약
+            var fox = units.GetAttack(UnitType.FoxMagician);
+            var inferno = units.GetAttack(UnitType.InfernoSpirit);
+            Require(fox?.VfxPrefab != null && inferno?.VfxPrefab != null
+                && AssetDatabase.GetAssetPath(fox.VfxPrefab).EndsWith("vfx_foxmagician_charge.prefab")
+                && AssetDatabase.GetAssetPath(inferno.VfxPrefab).EndsWith("vfx_infernospirit_charge.prefab"),
+                "FoxMagician/InfernoSpirit attack presets use the actual charge prefabs.");
+            Require(fox.StopWhenCasterDies && inferno.StopWhenCasterDies,
+                "FoxMagician and InfernoSpirit charge presets are caster-owned (stop when the caster dies).");
+            foreach (UnitType type in Enum.GetValues(typeof(UnitType)))
+            {
+                var attack = units.GetAttack(type);
+                if (attack != null && attack.StopWhenCasterDies)
+                    Require(attack.VfxPrefab != null && AssetDatabase.GetAssetPath(attack.VfxPrefab).Contains("_charge"),
+                        "Only charge-type attack prefabs are caster-owned: " + type);
+                foreach (var detached in new[] { units.GetDeath(type), units.GetTracer(type), units.GetImpact(type),
+                    units.GetTimedDamage(type), units.GetHeal(type), units.GetHit(type) })
+                    Require(detached == null || !detached.StopWhenCasterDies,
+                        "Death/tracer/impact/timed/heal/hit presets are never caster-owned: " + type);
+            }
+
+            // (b) 실제 EffectManager 재생·정지 경로
+            var root = new GameObject("CasterOwnedChargeFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var foxGo = new GameObject("CasterOwnedFox") { hideFlags = HideFlags.HideAndDontSave };
+            var infernoGo = new GameObject("CasterOwnedInferno") { hideFlags = HideFlags.HideAndDontSave };
+            var removedGo = new GameObject("CasterOwnedRemoved") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                var poll = typeof(VfxPoolItem).GetMethod("PollCasterOwnership", VfxFields);
+                Require(poll != null, "Caster-owned per-frame safety-net method exists for the lifecycle fixture.");
+                UnitView Caster(GameObject go, UnitData data)
+                {
+                    var view = go.AddComponent<UnitView>();
+                    typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, data);
+                    return view;
+                }
+                var foxData = VfxUnit(98020, UnitType.FoxMagician, TeamId.Blue);
+                var infernoData = VfxUnit(98021, UnitType.InfernoSpirit, TeamId.Blue);
+                var foxView = Caster(foxGo, foxData);
+                var infernoView = Caster(infernoGo, infernoData);
+                // 방금 재생해 활성 상태인 아이템 중 아직 고르지 않은 것을 원본 프리팹으로 찾는다.
+                var picked = new List<VfxPoolItem>();
+                VfxPoolItem Latest(GameObject prefab)
+                {
+                    foreach (var candidate in root.GetComponentsInChildren<VfxPoolItem>(true))
+                        if (candidate.SourcePrefab == prefab && candidate.gameObject.activeSelf && !picked.Contains(candidate))
+                        { picked.Add(candidate); return candidate; }
+                    return null;
+                }
+                void FillParticles(VfxPoolItem item)
+                { foreach (var ps in item.GetComponentsInChildren<ParticleSystem>(true)) ps.Emit(3); }
+                bool Cleared(VfxPoolItem item)
+                {
+                    foreach (var ps in item.GetComponentsInChildren<ParticleSystem>(true)) if (ps.particleCount != 0) return false;
+                    return true;
+                }
+
+                manager.PlayUnitAttack(UnitType.FoxMagician, Vector3.zero, Quaternion.identity, foxView);
+                var foxItem = Latest(fox.VfxPrefab);
+                manager.PlayUnitAttack(UnitType.InfernoSpirit, Vector3.one, Quaternion.identity, infernoView);
+                var infernoItem = Latest(inferno.VfxPrefab);
+                // 소유자 없이 부른 재생(에디터 테스트 스포너 경로)은 예전처럼 귀속되지 않는다.
+                manager.PlayUnitAttack(UnitType.FoxMagician, Vector3.zero, Quaternion.identity);
+                var unownedFox = Latest(fox.VfxPrefab);
+                var deathPreset = units.GetDeath(UnitType.FoxMagician);
+                Require(deathPreset?.VfxPrefab != null, "FoxMagician death preset exists for the detached-effect check.");
+                manager.PlayUnitDeath(UnitType.FoxMagician, Vector3.zero);
+                var deathItem = Latest(deathPreset.VfxPrefab);
+                Require(foxItem != null && foxItem.CasterOwned && infernoItem != null && infernoItem.CasterOwned,
+                    "Charge playback is owned by the caster that played it.");
+                Require(unownedFox != null && !unownedFox.CasterOwned && deathItem != null && !deathItem.CasterOwned,
+                    "Caster-less charge and death VFX are not caster-owned.");
+                FillParticles(foxItem); // 남은 파티클까지 지우는지 보려고 정지 전에 입자를 채워 둔다.
+
+                // 즉시 정지: 해당 시전자의 charge만, 남은 파티클까지 지우고 풀로 반환한다.
+                int stopped = manager.StopCasterOwnedAttackEffects(foxView, "CasterDeath");
+                Require(stopped == 1 && !foxItem.gameObject.activeSelf && !foxItem.CasterOwned && Cleared(foxItem),
+                    "Caster death immediately stops its charge, clears particles and returns it to the pool.");
+                Require(infernoItem.gameObject.activeSelf && infernoItem.CasterOwned,
+                    "Another caster's charge keeps playing.");
+                Require(unownedFox.gameObject.activeSelf && deathItem.gameObject.activeSelf,
+                    "Caster-less charge and the death VFX are not affected by the caster stop.");
+                Require(manager.StopCasterOwnedAttackEffects(foxView, "CasterRemoved") == 0,
+                    "Repeated stop (death then removal) is a no-op.");
+
+                // 안전망: 살아 있는 시전자는 유지, 시전자 사망을 매 프레임 확인에서 감지하면 스스로 정지한다.
+                Require(!(bool)poll.Invoke(infernoItem, null) && infernoItem.CasterOwned, "Live caster keeps its charge.");
+                infernoData.TakeDamage(99999);
+                Require((bool)poll.Invoke(infernoItem, null) && !infernoItem.gameObject.activeSelf && !infernoItem.CasterOwned,
+                    "Per-frame safety net stops the charge of a dead caster.");
+
+                // 풀 재사용 + 시전자 GameObject 파괴(디스폰) 감지. 같은 아이템이 재사용돼도 옛 귀속은 남지 않는다.
+                var removedView = Caster(removedGo, VfxUnit(98022, UnitType.InfernoSpirit, TeamId.Red));
+                picked.Remove(infernoItem);
+                manager.PlayUnitAttack(UnitType.InfernoSpirit, Vector3.zero, Quaternion.identity, removedView);
+                var reusedItem = Latest(inferno.VfxPrefab);
+                Require(ReferenceEquals(reusedItem, infernoItem) && reusedItem.CasterOwned
+                    && !reusedItem.IsOwnedByCaster(infernoView) && reusedItem.IsOwnedByCaster(removedView),
+                    "Pooled charge reuse carries only the new caster ownership.");
+                UnityEngine.Object.DestroyImmediate(removedGo);
+                Require((bool)poll.Invoke(reusedItem, null) && !reusedItem.gameObject.activeSelf,
+                    "Per-frame safety net stops the charge when the caster object is destroyed (despawn).");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(foxGo);
+                UnityEngine.Object.DestroyImmediate(infernoGo);
+                if (removedGo != null) UnityEngine.Object.DestroyImmediate(removedGo);
+            }
         }
 
         /// <summary>두 벡터가 부동소수 오차 안에서 같은지(검증 전용).</summary>
@@ -116,8 +242,23 @@ namespace Hexiege.Editor.Combat
                     && missing.SafeFootOffset == Vector3.zero,
                     "Missing unit type falls back to identity (scale 1, no offset).");
                 Require(Mathf.Approximately(default(RecipientFit).UniformScale, 1f), "default(RecipientFit) is identity.");
+
+                // [2026-10-13 R2-2] 타워 번개 가슴 높이 = 크기 표 키(균등 배율 × 기준 키) × 비율(기본 0.6), 표에 없으면 0.6m.
+                Require(Mathf.Approximately(probe.ChestHeightRatio, UnitEffectConfig.DefaultChestHeightRatio),
+                    "Fresh config uses the default chest height ratio.");
+                Require(Mathf.Approximately(probe.GetChestHeight(UnitType.Tank), 2f * UnitEffectConfig.RecipientReferenceHeight
+                    * UnitEffectConfig.DefaultChestHeightRatio), "Chest height = recipient fit height × ratio.");
+                Require(Mathf.Approximately(probe.GetChestHeight(UnitType.LittleKnight), UnitEffectConfig.RecipientReferenceHeight
+                    * UnitEffectConfig.DefaultChestHeightRatio), "Reference-height recipient chest height is 0.6 × reference height.");
+                Require(Mathf.Approximately(probe.GetChestHeight(UnitType.Pistoleer), UnitEffectConfig.FallbackChestHeight)
+                    && Mathf.Approximately(probe.GetChestHeight(UnitType.Sniper), UnitEffectConfig.FallbackChestHeight),
+                    "Missing/invalid fit row uses the 0.6 world-unit fallback chest height.");
+                typeof(UnitEffectConfig).GetField("_chestHeightRatio", VfxFields).SetValue(probe, float.NaN);
+                Require(Mathf.Approximately(probe.ChestHeightRatio, UnitEffectConfig.DefaultChestHeightRatio),
+                    "Invalid Inspector chest ratio falls back to the default ratio.");
             }
             finally { UnityEngine.Object.DestroyImmediate(probe); }
+            Require(units.ChestHeightRatio >= 0f, "Actual UnitEffectConfig chest height ratio is usable.");
 
             // (2) 실제 에셋 표: 들어 있는 줄은 쓸 수 있는 값이어야 하고(실패), 빠진 유닛은 경고만 한다.
             var missingTypes = new List<string>();
@@ -320,28 +461,51 @@ namespace Hexiege.Editor.Combat
                     && outcome.Contains("Endpoint=Tracked"), "Spirit tower bolt resolves the original target and tracks it.");
                 var item = root.GetComponentsInChildren<VfxPoolItem>(true)[0];
                 var bolt = item.transform.Find("Bolt");
-                // 기대값은 실제 preset 보정값(현재 offset 0 / euler 0 / scale 1)을 그대로 반영해 계산한다.
-                //   → 사용자가 나중에 preset을 조정해도 계약(거리=길이, XZ 방향)만 검사한다.
-                Quaternion Facing(Vector3 endpoint) { var d = endpoint - s.Source; d.y = 0f; return Quaternion.LookRotation(d); }
-                Vector3 RootAt(Vector3 endpoint) => s.Source + Facing(endpoint) * rune.LocalPositionOffset;
-                Vector3 ForwardAt(Vector3 endpoint) => Facing(endpoint) * Quaternion.Euler(rune.EulerRotationOffset) * Vector3.forward;
-                float LengthAt(Vector3 endpoint)
-                { var span = endpoint - RootAt(endpoint); span.y = 0f; return span.magnitude / item.transform.lossyScale.z; }
-                bool BoltMatches(Vector3 endpoint) => Mathf.Abs(bolt.localScale.z - LengthAt(endpoint)) < 1e-4f
-                    && VfxApprox(item.transform.forward, ForwardAt(endpoint)) && VfxApprox(item.transform.position, RootAt(endpoint));
+                // [2026-10-13 R2-2 비활성화] 높이를 무시한 XZ 기대값. 아래 3D 기대값으로 대체. 최종 삭제는 사용자 테스트 통과 후.
+                // Quaternion Facing(Vector3 endpoint) { var d = endpoint - s.Source; d.y = 0f; return Quaternion.LookRotation(d); }
+                // Vector3 RootAt(Vector3 endpoint) => s.Source + Facing(endpoint) * rune.LocalPositionOffset;
+                // Vector3 ForwardAt(Vector3 endpoint) => Facing(endpoint) * Quaternion.Euler(rune.EulerRotationOffset) * Vector3.forward;
+                // float LengthAt(Vector3 endpoint)
+                // { var span = endpoint - RootAt(endpoint); span.y = 0f; return span.magnitude / item.transform.lossyScale.z; }
+                // bool BoltMatches(Vector3 endpoint) => Mathf.Abs(bolt.localScale.z - LengthAt(endpoint)) < 1e-4f
+                //     && VfxApprox(item.transform.forward, ForwardAt(endpoint)) && VfxApprox(item.transform.position, RootAt(endpoint));
 
-                // 시작 시점: 스냅샷 Impact(0,0,2)가 아니라 대상의 현재 위치(3,0,4)까지 맞춘다.
+                // [R2-2] 기대값은 실제 preset 보정값(크리스탈 높이 offset 등)과 실제 config의 가슴 높이를 그대로 반영해 계산한다.
+                //   → 사용자가 나중에 preset·비율·크기 표를 조정해도 "계약"(시작=타워+yaw 보정, 끝=발밑+가슴, 3D 조준, 길이=3D 거리)만 검사한다.
+                //   대상은 LittleKnight라 크기 표 값(또는 0.6m 대체값)이 그대로 쓰인다. 해석 실패(대상 데이터 없음)는 0.6m 대체값.
+                float trackedChest = units.GetChestHeight(data.Type);
+                Vector3 Chest(Vector3 feet, float h) => feet + Vector3.up * h;
+                Quaternion Yaw(Vector3 endpoint) { var d = endpoint - s.Source; d.y = 0f; return Quaternion.LookRotation(d); }
+                Vector3 RootAt(Vector3 endpoint) => s.Source + Yaw(endpoint) * rune.LocalPositionOffset;
+                Quaternion Aim(Vector3 endpoint) => Quaternion.LookRotation(endpoint - RootAt(endpoint));
+                Vector3 ForwardAt(Vector3 endpoint) => Aim(endpoint) * Quaternion.Euler(rune.EulerRotationOffset) * Vector3.forward;
+                float LengthAt(Vector3 endpoint) => (endpoint - RootAt(endpoint)).magnitude / item.transform.lossyScale.z;
+                bool BoltMatchesEndpoint(Vector3 endpoint) => Mathf.Abs(bolt.localScale.z - LengthAt(endpoint)) < 1e-4f
+                    && VfxApprox(item.transform.forward, ForwardAt(endpoint)) && VfxApprox(item.transform.position, RootAt(endpoint));
+                // 추적 대상(LittleKnight)의 발밑 위치를 넣으면 가슴 높이 끝점으로 바꿔 검사한다.
+                bool BoltMatches(Vector3 feet) => BoltMatchesEndpoint(Chest(feet, trackedChest));
+
+                // [R2-2] preset이 시작점을 크리스탈 높이로 올리고, 그 보정은 yaw로만 돌아 Y가 그대로 월드 높이가 된다.
+                Require(rune.LocalPositionOffset.y > 0f, "RuneSpire preset raises the bolt source to the crystal height.");
+                Require(trackedChest > 0f, "Tracked recipient chest height is above the feet.");
+
+                // 시작 시점: 스냅샷 Impact(0,0,2)가 아니라 대상의 현재 위치(3,0,4)의 가슴 높이까지 맞춘다.
                 Vector3 first = targetGo.transform.position;
                 Require(item.TowerBoltTracking && BoltMatches(first)
                     && Mathf.Approximately(bolt.localScale.x, authoredBoltScale.x) && Mathf.Approximately(bolt.localScale.y, authoredBoltScale.y),
-                    "Bolt Z scale equals XZ distance and only Z changes; root faces the target.");
+                    "Bolt Z scale equals 3D crystal-to-chest distance and only Z changes; root aims at the chest.");
+                Require(Mathf.Abs(item.transform.position.y - (s.Source.y + rune.LocalPositionOffset.y)) < 1e-4f,
+                    "Bolt source height = tower position + preset offset Y (yaw-only offset rotation).");
 
-                // (b) 대상이 움직이면 길이·방향이 따라간다(높이 차는 무시하고 XZ만).
+                // (b) 대상이 움직이면 길이·방향이 따라간다. 이번에는 높이 차(대상 Y=1)까지 3D로 반영되어야 한다.
                 targetGo.transform.position = new Vector3(0f, 1f, -6f);
                 Vector3 moved = targetGo.transform.position;
                 lateUpdate.Invoke(item, null);
                 Require(item.TowerBoltTracking && BoltMatches(moved),
-                    "Moving original target updates bolt length/direction; source stays fixed.");
+                    "Moving original target updates bolt 3D length/direction; source stays fixed.");
+                Vector3 movedAim = Chest(moved, trackedChest) - RootAt(Chest(moved, trackedChest));
+                Require(Mathf.Abs(movedAim.y) < 1e-4f || Mathf.Sign(item.transform.forward.y) == Mathf.Sign(movedAim.y),
+                    "Bolt root pitches toward the chest when the endpoint height differs from the crystal.");
 
                 // (c) 대상 사망 → 마지막 끝점에서 영구 고정, 이후 이동해도 따라가지 않는다.
                 data.TakeDamage(99999);
@@ -375,9 +539,11 @@ namespace Hexiege.Editor.Combat
 
                 // (e) 해석 실패 → 추적 없이 스냅샷 Impact까지 길이만 맞춘다.
                 var s3 = s; s3.Sequence = 3;
+                // [R2-2] 대상 데이터가 없으니 가슴 높이는 0.6m 대체값을 쓴다.
                 Require(manager.PlayAttackEffect(s3, s3.Source, s3.Impact, out outcome, default, "TargetViewMissing")
                     && outcome.Contains("Endpoint=Untracked(TargetViewMissing)") && !item.TowerBoltTracking
-                    && BoltMatches(s3.Impact), "Unresolved target plays to the snapshot Impact without tracking.");
+                    && BoltMatchesEndpoint(Chest(s3.Impact, UnitEffectConfig.FallbackChestHeight)),
+                    "Unresolved target plays to the snapshot Impact at the fallback chest height without tracking.");
                 item.Return();
 
                 // (f) Human 타워는 추적·길이 맞춤 경로를 타지 않는다(현행 유지).

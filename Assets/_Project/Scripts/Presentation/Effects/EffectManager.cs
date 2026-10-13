@@ -130,6 +130,16 @@ namespace Hexiege.Presentation
         private readonly Dictionary<GameObject, Queue<TracerProjectile>> _tracerPools
             = new Dictionary<GameObject, Queue<TracerProjectile>>();
 
+        /// <summary>
+        /// [2026-10-13 R2-1] 지금 재생 중인 "시전자 귀속" 공격 이펙트 목록(기 모으기 charge 등).
+        /// 시전자 사망·제거 시 그 시전자의 이펙트만 골라 즉시 끄기 위해 기억해 둔다.
+        /// 아이템이 풀로 돌아오면(OnVfxReturn) 목록에서 빠진다. 귀속 이펙트는 몇 개뿐이라 순회 비용이 작다.
+        /// </summary>
+        private readonly HashSet<VfxPoolItem> _casterOwnedItems = new HashSet<VfxPoolItem>();
+
+        /// <summary>StopCasterOwnedAttackEffects에서 순회 중 목록 변경을 피하려고 재사용하는 임시 버퍼(매번 new 하지 않음).</summary>
+        private readonly List<VfxPoolItem> _casterStopBuffer = new List<VfxPoolItem>();
+
         // SOUND_SYSTEM_REFACTOR: SFX 풀 상태는 AudioManager로 이전 완료. 검증 후 삭제 예정.
         // /// <summary> SFX Pool — 모든 사운드가 공유하는 AudioSource 큐. </summary>
         // private readonly Queue<AudioSource> _sfxPool = new Queue<AudioSource>();
@@ -155,6 +165,8 @@ namespace Hexiege.Presentation
         {
             if (Instance == this)
                 Instance = null;
+            // 씬 정리 중에는 귀속 이펙트도 함께 파괴되므로 참조만 놓아 준다.
+            _casterOwnedItems.Clear();
         }
 
         // ====================================================================
@@ -203,7 +215,11 @@ namespace Hexiege.Presentation
         /// <param name="type">공격한 유닛의 타입.</param>
         /// <param name="pos">재생할 월드 좌표 (보통 총구 또는 유닛 위치).</param>
         /// <param name="rot">재생할 월드 회전 (VFX 발사 방향). 방향성이 없는 VFX는 영향 없음.</param>
-        public UnitAttackVfxPlaybackResult PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
+        /// <param name="caster">
+        /// [2026-10-13 R2-1] 공격한 유닛의 UnitView. 프리셋의 StopWhenCasterDies가 켜져 있으면(기 모으기 charge 등)
+        /// 이 유닛이 죽거나 제거될 때 이펙트를 즉시 멈춘다. null이면(에디터 테스트 스포너 등) 예전처럼 끝까지 재생.
+        /// </param>
+        public UnitAttackVfxPlaybackResult PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot, UnitView caster = null)
         {
             EffectPreset preset = _unitConfig?.GetAttack(type);
             if (preset == null)
@@ -240,6 +256,12 @@ namespace Hexiege.Presentation
                 preset.ForwardTravelDistance,
                 preset.ForwardTravelDuration);
 
+            // [R2-1] 시전자 귀속 프리셋(현재 FoxMagician·InfernoSpirit 기 모으기)만 시전자에게 묶는다.
+            //   반드시 Play() 뒤에 묶는다 — Play가 이전 재생의 귀속 상태를 먼저 지우기 때문이다.
+            //   진단 결과(status·개수·재생 여부) 계산은 아래 기존 코드 그대로다.
+            if (preset.StopWhenCasterDies && caster != null && item.BeginCasterOwnership(caster, caster.Data))
+                _casterOwnedItems.Add(item);
+
             int particleSystemCount = item.ParticleSystemCount;
             bool playbackActive = item.IsPlaybackActive;
             UnitAttackVfxPlaybackStatus status = particleSystemCount <= 0
@@ -248,6 +270,33 @@ namespace Hexiege.Presentation
                     ? UnitAttackVfxPlaybackStatus.Started
                     : UnitAttackVfxPlaybackStatus.PlaybackInactive;
             return new UnitAttackVfxPlaybackResult(status, particleSystemCount, playbackActive);
+        }
+
+        /// <summary>
+        /// [2026-10-13 R2-1] 이 시전자에게 귀속된 공격 이펙트(기 모으기 charge 등)를 모두 즉시 멈추고 풀에 반환한다.
+        /// UnitView가 사망 이벤트와 OnDisable(파괴·디스폰)에서 호출한다. Host·Client 각자 자기 화면에서 실행된다.
+        /// 사망 이펙트·트레이서·착탄·타워 번개·지속 이펙트처럼 귀속되지 않은 이펙트는 건드리지 않는다.
+        /// </summary>
+        /// <param name="caster">사망·제거되는 유닛의 UnitView(파괴 중이어도 같은 객체 참조로 찾는다).</param>
+        /// <param name="reason">정지 사유(진단용 짧은 토큰).</param>
+        /// <returns>실제로 정지한 이펙트 수.</returns>
+        public int StopCasterOwnedAttackEffects(UnitView caster, string reason)
+        {
+            if (caster is null || _casterOwnedItems.Count == 0) return 0;
+            // 정지하면 Return → OnVfxReturn이 목록에서 빼므로, 순회 중 변경을 피하려고 먼저 버퍼에 골라 담는다.
+            _casterStopBuffer.Clear();
+            foreach (VfxPoolItem item in _casterOwnedItems)
+            {
+                // 파괴된 아이템(씬 정리 등)은 건드리면 예외가 나므로 제외한다(아래에서 목록에서도 정리).
+                if (item != null && item.IsOwnedByCaster(caster)) _casterStopBuffer.Add(item);
+            }
+            int stopped = 0;
+            for (int i = 0; i < _casterStopBuffer.Count; i++)
+                if (_casterStopBuffer[i].StopCasterOwned(reason)) stopped++;
+            _casterStopBuffer.Clear();
+            // 파괴된 아이템 참조가 남아 있으면 정리한다(사망 시점에만 실행되므로 비용 무시 가능).
+            _casterOwnedItems.RemoveWhere(owned => owned == null);
+            return stopped;
         }
 
         /// <summary>서버에서 실제 생성된 파도만 재생한다. 기존 marker 공격 API와 소유권을 섞지 않는다.</summary>
@@ -494,11 +543,24 @@ namespace Hexiege.Presentation
             // [2026-10-13 B] 정령 타워만: 번개 길이를 실제 거리에 맞추고 원래 맞은 유닛을 끝점으로 추적한다.
             //   Human 타워(현행 유지)와 MushroomImpact는 이 분기를 타지 않아 동작이 이전과 같다.
             //   Type+Race 선택(위 preset 조회)과 Transcendence 미지정 no-fallback은 그대로다.
+            // [R2-2] 끝점 높이 = 맞은 유닛의 가슴 높이(UnitEffectConfig 크기 표의 키 × 비율, 표에 없으면 0.6m).
+            //   대상 데이터를 모르면(해석 실패) 같은 대체값 0.6m를 쓴다. 화면 표현 전용 값이다.
             if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
                 outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
-                    preset.EulerRotationOffset, boltTarget, boltUntrackedReason);
+                    preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
             // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
             return started;
+        }
+
+        /// <summary>
+        /// [2026-10-13 R2-2] 타워 번개가 맞을 가슴 높이(발밑 기준 월드 미터)를 정한다.
+        /// 대상 유닛 타입을 알면 UnitEffectConfig.GetChestHeight, 모르거나 설정이 없으면 0.6m 대체값.
+        /// </summary>
+        /// <param name="target">원래 맞은 유닛의 Domain 데이터. 해석 실패면 null.</param>
+        private float ResolveBoltChestHeight(UnitData target)
+        {
+            if (target == null || _unitConfig == null) return UnitEffectConfig.FallbackChestHeight;
+            return _unitConfig.GetChestHeight(target.Type);
         }
 
         /// <summary>
@@ -657,6 +719,9 @@ namespace Hexiege.Presentation
         private void OnVfxReturn(VfxPoolItem item)
         {
             if (item == null || item.SourcePrefab == null) return;
+
+            // [R2-1] 풀로 돌아온 아이템은 더 이상 어떤 시전자에게도 귀속돼 있지 않다(자연 종료든 강제 정지든).
+            _casterOwnedItems.Remove(item);
 
             if (!_vfxPools.TryGetValue(item.SourcePrefab, out Queue<VfxPoolItem> queue))
             {

@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: EffectPreset_InfernoSpirit_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
   _vfxPrefab: {fileID: 3741427366836967180, guid: 386d8a4487b796b47b4baba5fe8cc565, type: 3}
+  _stopWhenCasterDies: 1

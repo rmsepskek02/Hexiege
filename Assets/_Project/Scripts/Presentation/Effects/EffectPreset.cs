@@ -55,6 +55,17 @@ namespace Hexiege.Presentation
         [Min(0f)]
         [SerializeField] private float _forwardTravelDuration;
 
+        // [2026-10-13 R2-1] 시전자(공격한 유닛)에게 "귀속"되는 이펙트인지 표시하는 체크박스.
+        //   예: FoxMagician·InfernoSpirit의 "기 모으기(charge)" 이펙트는 공격 동작 앞부분에 시작해
+        //   1~2초 동안 시전자 앞에서 재생된다. 그 사이에 시전자가 죽으면 이펙트만 혼자 남아 어색하다.
+        //   이 값을 켠 프리셋은 시전자가 죽거나(사망) 화면에서 사라지면(제거·디스폰) 즉시 멈추고 풀로 돌아간다.
+        //   기본값 false — 트레이서·착탄·사망 이펙트처럼 "이미 시전자에게서 떨어져 나간" 이펙트는 그대로 끝까지 재생된다.
+        //   화면 표현 전용이다. 피해·타겟·서버 판정과 무관하다.
+        [Header("Caster Ownership")]
+        [Tooltip("켜면 이 이펙트는 공격한 유닛(시전자)에게 귀속된다. 시전자가 죽거나 제거되면 즉시 멈추고 사라진다. "
+            + "기 모으기(charge)처럼 시전자 몸 앞에서 재생되는 공격 이펙트에만 켠다. 트레이서·착탄·사망 이펙트에는 켜지 않는다.")]
+        [SerializeField] private bool _stopWhenCasterDies;
+
         /// <summary> 재생할 파티클 시스템 프리팹. 없으면 null. </summary>
         public GameObject VfxPrefab => _vfxPrefab;
 
@@ -76,6 +87,12 @@ namespace Hexiege.Presentation
 
         /// <summary>VFX가 전진 거리에 도달하는 시간(초).</summary>
         public float ForwardTravelDuration => _forwardTravelDuration;
+
+        /// <summary>
+        /// 시전자 귀속 이펙트인지. true면 EffectManager가 시전자 사망/제거 시 이 이펙트를 즉시 멈추고 풀에 반환한다.
+        /// 현재 공격 이펙트(UnitEffectConfig.attackPreset) 재생 경로에서만 읽는다.
+        /// </summary>
+        public bool StopWhenCasterDies => _stopWhenCasterDies;
 
         // SOUND_SYSTEM_REFACTOR: SFX는 AudioManager + SoundConfig로 이전 완료.
         // 검증(실기 테스트) 통과 전까지 기존 SFX 필드/프로퍼티를 주석으로 비활성화한다.

@@ -155,6 +155,42 @@ namespace Hexiege.Presentation
         /// <summary>크기 표 조회 캐시. Initialize()에서 빌드.</summary>
         private Dictionary<UnitType, UnitRecipientFitEntry> _fitCache;
 
+        // ── [2026-10-13 R2-2] 정령 타워 번개가 맞는 "가슴 높이" ──
+        //   번개 끝점 = 맞은 유닛 발밑 + 위쪽 × (그 유닛 키 × 이 비율).
+        //   키는 바로 위 「상태 이펙트 크기 맞춤」 표를 그대로 쓴다(같은 표 하나로 유닛 크기를 관리).
+
+        /// <summary>가슴 높이 비율 기본값. 유닛 키의 60% 높이 ≈ 가슴.</summary>
+        public const float DefaultChestHeightRatio = 0.6f;
+
+        /// <summary>크기 표에 그 유닛 줄이 없을 때 쓰는 가슴 높이(월드 미터). 기준 키 1.0 × 0.6과 같은 값.</summary>
+        public const float FallbackChestHeight = 0.6f;
+
+        [Header("타워 번개 조준 높이")]
+        [Tooltip("정령 타워(RuneSpire) 번개가 맞는 높이 = 맞은 유닛 키(위 크기 표) × 이 비율. 0.6 ≈ 가슴. "
+            + "0이면 발밑, 1이면 머리 꼭대기. 크기 표에 없는 유닛은 0.6m 높이를 쓴다")]
+        [Min(0f)]
+        [SerializeField] private float _chestHeightRatio = DefaultChestHeightRatio;
+
+        /// <summary>
+        /// Inspector의 가슴 높이 비율. 음수·NaN·무한대처럼 쓸 수 없는 값이면 기본값 0.6을 돌려준다.
+        /// (옛 에셋에 이 필드가 없으면 Unity가 위 초기값 0.6을 그대로 쓴다.)
+        /// </summary>
+        public float ChestHeightRatio => _chestHeightRatio >= 0f && !float.IsNaN(_chestHeightRatio)
+            && !float.IsInfinity(_chestHeightRatio) ? _chestHeightRatio : DefaultChestHeightRatio;
+
+        /// <summary>
+        /// 이 유닛 종류의 "가슴 높이"(발밑 기준, 월드 미터)를 돌려준다. 정령 타워 번개 끝점에 쓴다.
+        /// = 크기 표 조회(TryGetRecipientFit)가 주는 키(균등 배율 × 기준 키 1.0) × ChestHeightRatio.
+        /// 표에 그 유닛이 없거나 값이 쓸 수 없으면 FallbackChestHeight(0.6m).
+        /// </summary>
+        /// <param name="type">번개를 맞는 유닛 타입.</param>
+        public float GetChestHeight(UnitType type)
+        {
+            if (!TryGetRecipientFit(type, out RecipientFit fit)) return FallbackChestHeight;
+            // UniformScale은 이미 [0.1, 10]으로 제한된 값이라 키가 터무니없이 커지지 않는다.
+            return fit.UniformScale * RecipientReferenceHeight * ChestHeightRatio;
+        }
+
         /// <summary>
         /// 이 유닛 종류에 쓸 상태 이펙트 크기 맞춤 값을 반환한다.
         /// 표에 없거나 값이 쓸 수 없으면 false + Identity(배율 1, 보정 0).

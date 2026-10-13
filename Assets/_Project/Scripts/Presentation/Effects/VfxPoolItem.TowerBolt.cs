@@ -21,6 +21,15 @@
 //   - 그 유닛이 죽거나 사라지거나 다른 데이터로 바뀌면 마지막으로 알던 끝점에 "영구 고정"한다.
 //   - 피해·타겟 선택·HP·서버 경로는 전혀 건드리지 않는다. 오직 이 이펙트 오브젝트의 Transform만 바꾼다.
 //
+// 높이 규칙 (2026-10-13 재작업 R2-2 — 사용자 1차 테스트 피드백):
+//   예전에는 높이를 무시하고 XZ 평면으로만 겨눴다. 그래서 시작점을 타워 위쪽 수정(크리스탈)으로 올리면
+//   번개가 수평으로 날아가 유닛 머리 위를 지나갔고, 끝점도 유닛 발밑이었다.
+//   - 시작점 = 타워 위치 + 프리셋 Local Position Offset. 이 보정은 "좌우 방향(yaw)으로만" 회전시킨다
+//     → Y 값은 그대로 월드 위쪽 높이가 된다(프리셋 Y = 크리스탈 높이, Inspector에서 조정).
+//   - 끝점 = 맞은 유닛 발밑 + 위쪽 × 가슴 높이(UnitEffectConfig 크기 표의 키 × 비율, 표에 없으면 0.6m).
+//   - 루트는 시작점에서 끝점을 "3D로" 바라본다(위아래 기울기 허용) → Bolt 로컬 +Z가 정확히 가슴을 향한다.
+//   - Bolt Z 스케일 = 시작점→끝점 3D 거리(높이 차 포함).
+//
 // Presentation 레이어 — Unity 의존 (MonoBehaviour, Transform).
 // ============================================================================
 
@@ -69,7 +78,9 @@ namespace Hexiege.Presentation
             if (Projector != null) endpoint = Projector.PresentationPosition;
             else if (Pose != null && Pose.gameObject.activeInHierarchy) endpoint = Pose.position;
             else { reason = "PoseUnavailable"; return false; }
+            // [R2-2] 이제 높이(Y)도 끝점 계산에 쓰므로 Y까지 유한한 값인지 확인한다.
             if (float.IsNaN(endpoint.x) || float.IsInfinity(endpoint.x)
+                || float.IsNaN(endpoint.y) || float.IsInfinity(endpoint.y)
                 || float.IsNaN(endpoint.z) || float.IsInfinity(endpoint.z))
             { reason = "PoseNotFinite"; return false; }
             reason = null;
@@ -81,7 +92,10 @@ namespace Hexiege.Presentation
     {
         /// <summary>번개 길이가 0이 되어 메시가 사라지거나 0으로 나누는 일을 막는 최소 길이(로컬 단위).</summary>
         private const float MinBoltLength = 0.01f;
-        /// <summary>방향 계산에 쓰기엔 너무 짧은 XZ 거리(제곱). EffectManager의 기존 기준과 같은 값.</summary>
+        /// <summary>
+        /// 방향 계산에 쓰기엔 너무 짧은 거리(제곱). EffectManager의 기존 기준과 같은 값.
+        /// [R2-2] XZ 방향(yaw)과 3D 조준 방향 둘 다 이 기준으로 판단한다.
+        /// </summary>
         private const float MinDirectionSqr = 0.0001f;
 
         // ── 프리팹 구조 캐시 (최초 1회) ──
@@ -95,7 +109,11 @@ namespace Hexiege.Presentation
         private bool _boltTracking;   // 매 프레임 대상 유닛을 따라가는 중인가
         private TowerBoltTarget _boltTarget;
         private Vector3 _boltSource, _boltEndpoint, _boltOffset, _boltEuler;
-        private Quaternion _boltRotation;
+        // [R2-2] _boltRotation = 좌우 방향(yaw)만 담은 회전. 프리셋 위치 보정(크리스탈 높이)을 돌릴 때만 쓴다.
+        //        _boltAim      = 시작점→끝점 3D 방향(위아래 기울기 포함). 루트의 실제 회전에 쓴다.
+        private Quaternion _boltRotation, _boltAim;
+        // [R2-2] 끝점에 더할 가슴 높이(월드 미터). 재생 시작 때 1번 정해 저장하고 매 프레임 그대로 쓴다.
+        private float _boltChestHeight;
         private Hexiege.Application.AttackEffectPresentation _boltSnapshot; // 고정(Frozen) 진단 기록용
 
         /// <summary>읽기 전용 진단/검증용: 지금 대상 유닛을 따라가는 중인지.</summary>
@@ -112,9 +130,14 @@ namespace Hexiege.Presentation
         /// <param name="eulerRotationOffset">프리셋 회전 보정(Play와 같은 값).</param>
         /// <param name="target">원래 맞은 유닛 참조. 해석 실패면 default.</param>
         /// <param name="untrackedReason">target이 default일 때 그 사유(로그용). null 허용.</param>
+        /// <param name="chestHeight">
+        /// [R2-2] 끝점에 더할 가슴 높이(발밑 기준 월드 미터). EffectManager가 크기 표로 정해 넘긴다.
+        /// 음수·NaN이면 0(발밑)으로 취급한다.
+        /// </param>
         /// <returns>진단용 끝점 상태 문자열: "Tracked" / "Untracked(사유)".</returns>
         public string BeginTowerBolt(Hexiege.Application.AttackEffectPresentation snapshot, Vector3 source, Vector3 snapshotImpact,
-            Vector3 localPositionOffset, Vector3 eulerRotationOffset, TowerBoltTarget target, string untrackedReason)
+            Vector3 localPositionOffset, Vector3 eulerRotationOffset, TowerBoltTarget target, string untrackedReason,
+            float chestHeight)
         {
             ResetTowerBolt();
             if (!CacheBoltStructure())
@@ -124,9 +147,12 @@ namespace Hexiege.Presentation
             _boltSource = source;
             _boltOffset = localPositionOffset;
             _boltEuler = eulerRotationOffset;
+            // 잘못된 값이 들어와도 번개가 땅속/하늘로 튀지 않게 0 이상 유한한 값만 쓴다.
+            _boltChestHeight = chestHeight > 0f && !float.IsInfinity(chestHeight) ? chestHeight : 0f;
             // 방향을 못 정하는 0거리 대비 — Play가 정한 "방향" 회전을 기본값으로 둔다(회전 보정은 빼 둔다:
             //   ApplyTowerBoltPose가 보정을 다시 곱하므로 두 번 곱해지지 않게).
             _boltRotation = transform.rotation * Quaternion.Inverse(Quaternion.Euler(eulerRotationOffset));
+            _boltAim = _boltRotation; // [R2-2] 3D 조준 기본값도 같은 방향(처음 계산이 실패할 때만 쓰인다)
 
             string state;
             string reason = null;
@@ -135,13 +161,15 @@ namespace Hexiege.Presentation
             {
                 _boltTarget = target;
                 _boltTracking = true;
-                _boltEndpoint = live;
+                // [R2-2] 발밑이 아니라 가슴 높이를 겨눈다.
+                _boltEndpoint = live + Vector3.up * _boltChestHeight;
                 state = "Tracked";
             }
             else
             {
                 // 대상 해석 실패/이미 사망 → 추적 없이 "공격 순간 위치"를 끝점으로 길이만 맞춘다.
-                _boltEndpoint = snapshotImpact;
+                //   [R2-2] 스냅샷 Impact도 발밑 좌표이므로 같은 가슴 높이를 더한다.
+                _boltEndpoint = snapshotImpact + Vector3.up * _boltChestHeight;
                 state = "Untracked(" + (target.HasReference ? reason : untrackedReason ?? "NoTarget") + ")";
             }
             ApplyTowerBoltPose();
@@ -157,7 +185,7 @@ namespace Hexiege.Presentation
             if (!_active || !_boltTracking) return;
             if (_boltTarget.TryReadEndpoint(out Vector3 live, out string reason))
             {
-                _boltEndpoint = live;
+                _boltEndpoint = live + Vector3.up * _boltChestHeight; // [R2-2] 발밑 + 가슴 높이
                 ApplyTowerBoltPose();
                 return;
             }
@@ -169,17 +197,34 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 시작점(고정)과 현재 끝점으로 번개의 위치·회전·길이를 맞춘다.
-        /// 높이 차는 기존 규칙(EffectManager.PlayAttackEffect)처럼 무시하고 XZ 평면만 쓴다.
+        /// [R2-2] 시작점 보정은 좌우 방향(yaw)으로만 돌리고, 루트 회전·길이는 높이 차를 포함한 3D로 계산한다.
         /// </summary>
         private void ApplyTowerBoltPose()
         {
-            Vector3 direction = _boltEndpoint - _boltSource; direction.y = 0f;
-            if (direction.sqrMagnitude > MinDirectionSqr) _boltRotation = Quaternion.LookRotation(direction);
-            transform.SetPositionAndRotation(_boltSource + _boltRotation * _boltOffset,
-                _boltRotation * Quaternion.Euler(_boltEuler));
+            // [R2-2 비활성화 — 2026-10-13] 높이를 무시한(XZ 평면) 옛 조준·길이 계산.
+            //   시작점을 크리스탈 높이로 올리면 번개가 수평으로 날아가 유닛 머리 위를 지나갔다.
+            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+            // Vector3 direction = _boltEndpoint - _boltSource; direction.y = 0f;
+            // if (direction.sqrMagnitude > MinDirectionSqr) _boltRotation = Quaternion.LookRotation(direction);
+            // transform.SetPositionAndRotation(_boltSource + _boltRotation * _boltOffset,
+            //     _boltRotation * Quaternion.Euler(_boltEuler));
+            // // 실제 루트 위치(오프셋 반영)에서 끝점까지의 XZ 거리 = 번개가 보여야 할 월드 길이.
+            // Vector3 span = _boltEndpoint - transform.position; span.y = 0f;
+            // float worldLength = span.magnitude;
 
-            // 실제 루트 위치(오프셋 반영)에서 끝점까지의 XZ 거리 = 번개가 보여야 할 월드 길이.
-            Vector3 span = _boltEndpoint - transform.position; span.y = 0f;
+            // (1) 좌우 방향(yaw): 높이를 뺀 XZ 방향. 프리셋 위치 보정을 이 회전으로만 돌리므로
+            //     보정의 Y(크리스탈 높이)는 기울기 없이 그대로 "월드 위쪽"으로 더해진다.
+            Vector3 flat = _boltEndpoint - _boltSource; flat.y = 0f;
+            if (flat.sqrMagnitude > MinDirectionSqr) _boltRotation = Quaternion.LookRotation(flat);
+            Vector3 rootPosition = _boltSource + _boltRotation * _boltOffset;
+
+            // (2) 3D 조준: 루트(크리스탈)에서 끝점(가슴)까지의 실제 방향. 위아래 기울기(pitch)를 허용한다.
+            //     너무 짧아 방향을 못 정하면 직전 값을 유지한다(0으로 LookRotation하면 경고가 난다).
+            Vector3 span = _boltEndpoint - rootPosition;
+            if (span.sqrMagnitude > MinDirectionSqr) _boltAim = Quaternion.LookRotation(span);
+            transform.SetPositionAndRotation(rootPosition, _boltAim * Quaternion.Euler(_boltEuler));
+
+            // (3) 길이: 루트→끝점 3D 거리 = 번개가 보여야 할 월드 길이(높이 차 포함).
             float worldLength = span.magnitude;
             // Bolt 스케일은 루트 기준 "로컬" 값이다. 루트가 프리셋 배율로 커져 있으면 그만큼 나눠야
             // 화면 길이가 정확히 worldLength가 된다(현재 RuneSpire 프리셋 배율은 1).
@@ -231,7 +276,8 @@ namespace Hexiege.Presentation
             _boltTarget = default;
             _boltSnapshot = default;
             _boltSource = _boltEndpoint = _boltOffset = _boltEuler = Vector3.zero;
-            _boltRotation = Quaternion.identity;
+            _boltRotation = _boltAim = Quaternion.identity;
+            _boltChestHeight = 0f;
         }
     }
 }

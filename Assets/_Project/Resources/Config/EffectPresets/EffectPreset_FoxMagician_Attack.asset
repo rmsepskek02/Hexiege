@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: EffectPreset_FoxMagician_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
   _vfxPrefab: {fileID: 894981956241179606, guid: 8da00a8b0eb6c154395554f8b3604771, type: 3}
+  _stopWhenCasterDies: 1

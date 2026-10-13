@@ -156,3 +156,40 @@
 | U-4 | Bolt 메시 파티클이 `Bolt.localScale.z = d`에서 실제로 0→d 길이로 보이는가(파티클 startSize·3D 크기 설정 영향) | game-programmer + 사용자 육안 |
 | U-5 | 유닛별 VisualRoot 위치가 발밑인지(`HexMetrics.UnitYOffset` 적용 여부), 유닛 루트 스케일 값 | game-programmer |
 | U-6 | 25종 유닛의 실제 렌더 크기(반경·키) | game-programmer(에디터 측정) |
+
+---
+
+## 8. 1차 사용자 테스트 결과 (2026-10-13 추가 — 위 1~7절은 구현 전 조사 원문으로 보존)
+
+### 8-0. 쉬운 설명
+
+A·B·C 구현을 사용자가 처음으로 직접 플레이해 보았다. 버섯 착탄은 그대로 승인됐지만, 화상·힐 이펙트의 위치·크기, 독 이펙트 모양, 정령 타워 번개의 끝점이 사용자가 원한 모습과 달랐고, **유닛이 기를 모으다(차지) 죽으면 차지 이펙트가 계속 남는 버그**가 새로 발견됐다. 이 절은 무엇이 보였고 왜 그런지를 기록한다. 고치는 계획은 `Plan.md` 「재작업 R2」.
+
+### 8-1. 테스트 대상과 근거 수준
+
+- 대상: 브랜치 `claude/vfx-code-followups`, `88f60e38` **이후** 구현 커밋 [전달]. 테스트 환경·매치 구성 세부는 전달받지 않았다.
+- 근거 표기는 1절과 같다. 이 절의 원인 분석은 메인 세션이 확인해 전달한 것이며 [전달], document-manager가 2026-10-13 직접 다시 읽은 부분만 [직접]으로 표시한다. 행 번호는 이 시점 작업 트리 기준이며 메서드 이름을 함께 적는다.
+
+### 8-2. 항목별 결과
+
+| # | 대상 | 사용자 관찰 | 판정 | 원인 |
+|---|---|---|---|---|
+| T-1 | 화상 (InfernoSpirit) | 유닛에서 더 **아래**에 붙고, 조금 **더 작아야** 한다 | 조정 필요 | [전달] `vfx_infernospirit_burn.prefab`의 `Flame_Haze`가 로컬 y 0.45, 크기 0.55이며, 이 값 전체에 C의 대상 맞춤 배율(recipient fit scale)이 곱해진다. [직접] 프리팹에 `Flame_Haze` 오브젝트 존재 확인. |
+| T-2 | 힐 (BloomFairy) | 크기는 괜찮지만 **너무 높이 올라간다** | 조정 필요 | [전달] `Rising_Petals`·`Sparkle_Motes`가 수명 동안 속도(velocity over lifetime)로 1.2~1.5초 상승하고, 그 높이도 맞춤 배율로 함께 커진다. |
+| T-3 | 버섯 착탄 (MushroomBomber impact) | 문제 없음 | **사용자 승인** | — |
+| T-4 | 독 (MushroomBomber poison) | 여전히 주변 6칸으로 **퍼져 보인다** | 재설계 필요 | [전달, 메인 세션 확인] `Poison_Bubbles`가 Circle 형태에서 Start Speed 0.55~0.75로 바깥 방향으로 방출되고 수명 약 1.2초 → 약 0.9 월드 단위 바깥까지 나간다(인접 칸 거리 약 0.87). **사용자 의도:** 독이 퍼지는 연출이 아니라 "**이 유닛이 중독됐다**"를 보여 주는 표시로, 유닛 중심에 모여 있어야 한다. 해결은 프리팹 변경이며 사용자가 Unity AI 프롬프트로 직접 한다. |
+| T-5 | **버그** — 차지 VFX | 유닛이 차지 중에 죽어도 차지 이펙트가 끝까지 재생된다 | **결함** | [전달] FoxMagician `vfx_foxmagician_charge`(2초), InfernoSpirit `vfx_infernospirit_charge`(1초)가 각 유닛의 공격 preset(`EffectPreset_FoxMagician_Attack` / `EffectPreset_InfernoSpirit_Attack`)을 통해 재생되는데, 유닛 사망 시 이를 멈추는 코드가 없다. [직접] 두 preset 파일 존재 확인. 이번 A·B·C 변경이 만든 결함인지 기존 결함인지는 전달받지 않았다(미확인). |
+| T-6 | 정령 타워 (RuneSpire) 번개 | 끝점이 유닛에 닿지 않는다. 유닛 **가슴 높이**를 맞혀야 하고, 시작점은 **타워 꼭대기 크리스털**이어야 한다 | 재작업 필요 | 아래 8-3 |
+
+### 8-3. T-6 정령 타워 번개 — 오프셋만으로는 고칠 수 없는 이유
+
+- [직접] `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs`
+  - `ApplyTowerBoltPose` 약 176행 `Vector3 direction = _boltEndpoint - _boltSource; direction.y = 0f;` — 조준 방향의 **높이 성분을 0**으로 만든다(수평 조준만).
+  - 같은 메서드 약 182행 `Vector3 span = _boltEndpoint - transform.position; span.y = 0f;` — 번개 길이도 **수평 거리만** 쓴다.
+  - `TryReadEndpoint` 약 70행 `endpoint = Projector.PresentationPosition;` — 끝점이 대상 유닛의 **루트 위치(발밑)** 다.
+- [전달] preset의 `Local Position Offset`은 **시작점만** 옮긴다. 시작점을 크리스털 높이로 올리면 번개는 그 높이에서 **수평으로** 뻗으므로 유닛 위를 지나가 버린다. 즉 오프셋 조정만으로는 "크리스털에서 가슴으로" 내려꽂히는 모양을 만들 수 없고, **코드에서 조준·길이를 3D로 계산하고 끝점을 가슴 높이로 올려야** 한다.
+- 이 수평 처리는 원래 4-B 설계("높이 차는 기존처럼 무시")를 그대로 구현한 결과다 — 구현 오류가 아니라 설계가 사용자 의도와 달랐던 것이다.
+
+### 8-4. 다음 단계
+
+- 수정 계획: `Plan.md` 「재작업 R2 — 1차 테스트 반영」(코드 R2-1·R2-2, 사용자 Inspector 조정 R2-3, 사용자 프리팹 재제작 R2-4).

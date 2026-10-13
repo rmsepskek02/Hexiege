@@ -217,3 +217,76 @@
 - 공통: 피해 숫자·HP바·힐 텍스트 시점이 이전과 같다.
 
 **문서:** [7] 확인 후 document-manager가 반영하고 `python3 Tools/check_docs.py` 0건 확인.
+
+---
+
+## 10. 재작업 R2 — 1차 테스트 반영 (2026-10-13 추가, WORKFLOW [6] 재작업 — 0~9절은 원 계획으로 보존)
+
+### 10-0. 쉬운 설명
+
+1차 실기 결과(`Research.md` 8절)를 반영해 네 갈래로 추가 수정한다. 코드로만 고칠 수 있는 두 가지(**차지 이펙트가 유닛 사망 후에도 남는 버그**, **정령 타워 번개를 크리스털에서 유닛 가슴으로 꽂히게 하기**)는 game-programmer가 고친다. 숫자만 바꾸면 되는 **화상·힐 위치·크기**는 사용자가 Inspector에서 직접 맞추고, **독 표시 모양**은 사용자가 Unity AI로 프리팹을 다시 만든다. 이번에도 피해·회복·HP·쿨다운·타겟 선택 같은 게임 규칙은 바꾸지 않는다.
+
+> **사용자 승인: 2026-10-13.** 사용자 원문: "기존 문서에 테스트 결과 반영하고 추가 수정 작업 진행해야해". 이 승인은 R2 착수 허가이며 구현 완료·검사 통과·실기 수용을 뜻하지 않는다. 버섯 착탄(Research 8-2 T-3)은 사용자 승인으로 이번 재작업 대상이 아니다.
+
+### 10-1. 🔴 기존 로직 제거·비활성화 항목 (WORKFLOW [4])
+
+| # | 대상 | 처리 | 안전한 근거 |
+|---|---|---|---|
+| R2-X1 | `VfxPoolItem.TowerBolt.cs` `ApplyTowerBoltPose`의 수평 조준 `direction.y = 0f;`(약 176행)·수평 길이 `span.y = 0f;`(약 182행) | 삭제하지 않고 **주석 비활성화** 후 3D 계산으로 대체 | 표현 전용 값이며 서버 피해·타겟 판정과 무관(Buildings 「방어 타워 시스템」 규칙 9). Spirit 타워 추적 모드에서만 쓰이는 경로라 Human 타워에 영향이 없다. |
+| R2-X2 | `VfxPoolItem.TowerBolt.cs` `TryReadEndpoint`의 끝점 = 대상 루트(발밑) 위치(약 70행) | 주석 비활성화 후 "발밑 + 가슴 높이"로 대체 | 위와 같음. 위치 원천(Projector/Pose)과 동일 객체·생존 확인 로직은 그대로 유지한다. |
+
+- R2-1은 **추가**만 한다(제거 항목 없음 — 예정). programmer가 기존 정지 로직을 바꿔야 한다고 판단하면 착수 전에 메인 세션에 보고한다.
+- 주석 처리분 최종 삭제 시점은 0~9절과 같다([6] 통과 후, [7] 전).
+
+### 10-2. 수정 항목
+
+| ID | 종류 · 담당 | 내용 | 근거 규칙 |
+|---|---|---|---|
+| **R2-1** | 코드 · game-programmer | **차지 VFX 사망 정지.** 차지 VFX를 재생 중인 유닛이 죽거나(또는 제거되면) 그 차지 VFX를 멈추고 풀에 반환한다. 적용 대상은 차지형 공격 VFX를 쓰는 **모든 유닛** — 최소 FoxMagician(`vfx_foxmagician_charge`, `EffectPreset_FoxMagician_Attack`)·InfernoSpirit(`vfx_infernospirit_charge`, `EffectPreset_InfernoSpirit_Attack`)이며, **programmer가 나머지 유닛을 코드·preset에서 검색해 목록을 인계한다.** 표현 전용 — 게임플레이 변경 없음. | Units 규칙 17(FoxMagician 예외: 1.00초 marker는 charge VFX를 시작하는 **표현** marker, 피해는 서버 예약) · Units 규칙 19(공격자 사망은 미승인 미래 marker 허가를 닫는 입력이지만 **이미 서버가 확정한 결과를 취소하지 않는다**) · `GameSystemRules_UnitCombatSynchronization.md` NET-AUTH-001(VFX는 결과 입력이 아님). → 차지 VFX 정지가 서버 확정 결과·피해·착탄/HP 텍스트 표현을 취소하거나 바꾸면 안 된다. 차지 정지 자체를 정한 조항은 **없다**. |
+| **R2-2** | 코드 · game-programmer | **정령 타워 번개 크리스털→가슴.** ① 시작점 = 타워 위치 + preset `Local Position Offset`(크리스털 높이를 Inspector에서 조정 가능). programmer가 RuneSpire 건물 프리팹의 크리스털/꼭대기 높이를 실측해 **초깃값을 preset에 설정**하고 값과 측정 근거를 인계한다. ② 조준 방향과 길이는 **3D 전체**로 계산해 대상의 가슴 지점을 향한다. ③ 가슴 지점 = 대상 발밑 + 가슴 높이. 가슴 높이는 C에서 만든 `UnitEffectConfig` 「상태 이펙트 크기 맞춤」 표의 키(height)에서 유도한다(예: 약 0.6 × 키). 표에 항목이 없으면 안전한 기본값으로 떨어진다(값은 programmer가 제안). ④ 4-B의 추적·고정(사망/교체 시 마지막 끝점 고정, ID로 재조회하지 않음) 동작은 **그대로 유지**. ⑤ Human 타워는 **변경 없음**. | Buildings 「방어 타워 시스템」 규칙 9 · 규칙 12(D-5 해석 a 유지 — 원래 대상의 화면 표현 추적만, 현재 target 재조회 없음) · NET-AUTH-001 · NET-PRESENT-003(대상 해석 실패 시 스냅샷 Impact로 재생) |
+| **R2-3** | 데이터 · 사용자(Inspector) | **화상·힐 위치·크기 조정.** `EffectPreset_InfernoSpirit_Burn.asset` / `EffectPreset_BloomFairy_Heal.asset`의 `Local Position Offset` Y·`Scale Multiplier`, 그리고 유닛별 `UnitEffectConfig.asset` → 「상태 이펙트 크기 맞춤」의 `manualScale`·`footOffset`. **코드 변경 없음.** | 크기·위치를 정한 규칙 조항 **없음**(0~9절 3절 C 행과 같음). 수명·수치·갱신 정책 불변(Units 규칙 34·40·42). |
+| **R2-4** | 프리팹 · 사용자(Unity AI) | **독 표시 재설계.** 퍼지는 독 연출이 아니라 "이 유닛이 중독됐다"를 보여 주는, **유닛 중심에 모인** 표시로 `vfx_mushroombomber_poison` 계열 프리팹을 다시 만든다(원인: Research 8-2 T-4의 `Poison_Bubbles` 바깥 방출). 기존 TimedDamage 재생 계약(전 시스템 loop ON·stopAction None 등, Research 4-2)은 지켜야 재생된다. | 모양을 정한 규칙 조항 **없음**. 독 DoT 수치·수명 불변(Units 규칙 34·41). |
+
+### 10-3. R2-1 · R2-2 구현 시 지켜야 할 것
+
+- **R2-1:** 정지는 해당 유닛이 소유한 차지 VFX에만 적용한다(같은 preset을 쓰는 다른 유닛 인스턴스를 멈추지 않는다). 이미 끝나 반환된 풀 아이템을 다시 반환하지 않는다(중복 반환 방지). 사망 VFX·피격 VFX·착탄 VFX 등 다른 표현 채널은 건드리지 않는다(Units 규칙 19 본문: 사망 VFX는 별도 수명). Host·Client 각 화면에서 같은 사망 사건으로 정지한다.
+- **R2-1 확인 사항:** 2026-09-22 InfernoSpirit focused PASS에 "marker 전 Stop 시 source VFX 보존" 동작이 포함돼 있다(document-manager 메모리 기록). 이번 정지는 **사망·제거**에만 적용하고 일반 Stop(상태 전환)에는 적용하지 않는지를 programmer가 코드로 확인해 인계한다.
+- **R2-2:** 끝점 높이 계산은 각 화면 로컬 표현이며 서버 데이터·RPC·스냅샷 구조를 바꾸지 않는다. Client 화면 반전 시 시작점·가슴 지점이 같은 좌표계인지 확인(K-4와 같음). 기존 검증기 (b)~(e) 단언은 3D 기준으로 갱신하고, 가슴 높이·표 미등록 기본값 단언을 추가한다.
+
+### 10-4. 변경 파일 (예상 — 최종 manifest는 game-programmer 인계로 확정)
+
+| 파일 | R2-1 | R2-2 | R2-3 | R2-4 |
+|---|---|---|---|---|
+| `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs` | | ● | | |
+| `Assets/_Project/Scripts/Presentation/Effects/EffectManager.cs` / `HitPresentationQueue.cs` | ●(필요 시) | ●(필요 시) | | |
+| 차지 VFX 재생·유닛 사망 처리 경로(programmer가 검색으로 확정, 예: `UnitView` 계열) | ● | | | |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_RuneSpire_Attack.asset` (`Local Position Offset` 초깃값) | | ● | | |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation*.cs` | ● | ● | | |
+| `EffectPreset_InfernoSpirit_Burn.asset` · `EffectPreset_BloomFairy_Heal.asset` · `UnitEffectConfig.asset` | | | ●(사용자) | |
+| 독 VFX 프리팹 | | | | ●(사용자) |
+
+- 0~9절의 「바꾸지 않는 것」 중 "모든 VFX 프리팹·preset 자산"은 R2에서 **`EffectPreset_RuneSpire_Attack.asset`의 offset 초깃값(R2-2)과 사용자가 직접 하는 R2-3·R2-4에 한해** 예외가 된다. 그 밖의 서버·수치·RPC 무변경 원칙은 그대로다.
+
+### 10-5. 범위 밖 (변경 없음)
+
+8절 범위 밖 목록을 그대로 유지한다(Tank/CannonCart VFX 누락 진단, InfernoSpirit 공격 타이밍, 모든 SFX, `VFXSFXList.md`, 레거시 `PlayTowerAttackVfx` 정리, TimedDamage 계약 강화, Human 타워 추적). 버섯 착탄 VFX는 승인됐으므로 손대지 않는다.
+
+### 10-6. 진행 순서와 점검
+
+1. game-programmer: R2-1(차지 VFX 대상 유닛 검색 결과 포함) → R2-2 구현, 변경 manifest·정적 컴파일 4종 결과·RuneSpire 크리스털 높이 실측값 인계.
+2. 메인 세션: diff 검토(표현 전용, 서버·수치 경로 무변경), Unity 자기 검증 메뉴 실행.
+3. 사용자: R2-3 Inspector 조정, R2-4 독 프리팹 재제작(R2-1·R2-2와 병행 가능).
+4. 사용자 2차 실기(WORKFLOW [6]) — 실제로 눈으로 확인 가능한 항목:
+   - FoxMagician·InfernoSpirit(및 programmer가 찾은 다른 차지형 유닛)이 기를 모으는 중에 죽으면 차지 이펙트가 그 자리에서 사라진다. 죽지 않은 경우 차지·공격 이펙트는 이전과 같다.
+   - 정령 타워 번개가 타워 꼭대기 크리스털에서 나와 움직이는 적의 가슴 높이에 꽂힌다(Host·Client 화면 각각). 인간 타워 이펙트는 이전과 같다.
+   - 화상이 유닛 아래쪽에 알맞은 크기로, 힐이 유닛 위로 지나치게 솟지 않게 보인다.
+   - 독 표시가 주변 칸으로 퍼지지 않고 중독된 유닛에 모여 있다.
+   - 공통: 피해 숫자·HP바·힐 텍스트 시점이 이전과 같다.
+
+---
+
+## 11. 계획 변경 이력
+
+| 날짜 | 변경 | 이유 |
+|---|---|---|
+| 2026-10-13 | 10절 「재작업 R2 — 1차 테스트 반영」 추가(R2-1~R2-4) | 1차 사용자 실기(Research 8절)에서 ① 차지 VFX가 유닛 사망 후에도 남는 **새 결함**이 발견됐고, ② 정령 타워 번개는 4-B 원 설계("높이 차 무시, XZ 평면만")대로 구현돼 발밑을 수평으로 겨누므로 사용자가 원하는 "크리스털→가슴" 모양을 preset 오프셋만으로는 만들 수 없음이 확인됐다(Research 8-3) — 그래서 4-B의 수평 조준 설계를 3D 조준으로 바꾼다. ③ 화상·힐은 코드가 아닌 값 조정으로, ④ 독은 사용자 의도("중독 표시")에 맞는 프리팹 재제작으로 해결하기로 했다. 사용자 승인 원문: "기존 문서에 테스트 결과 반영하고 추가 수정 작업 진행해야해". |
