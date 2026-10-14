@@ -93,6 +93,10 @@
 - 2026-10-10  Live-append Editor log Tail read expanded into unbounded output
 - 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
 - 2026-10-12  Unfiltered Unity Editor header exposed licensing authentication fields in tool output
+- 2026-10-14  live regression 산출물의 이전내용을 실행결과로 오인해 RED를 잘못인계
+- 2026-10-14  View lifecycle incorrectly treated as authoritative pending-hit cancellation
+- 2026-10-14  숫자 enum 타입을 낡은 요약으로 해석해 에이전트에게 잘못 인계
+- 2026-10-14  과거 승인 계약 감사 요청을 현재 config 실행 확인으로 대신함
 
 ---
 
@@ -1835,6 +1839,20 @@ InfernoSpirit 공격 타임라인 조사의 읽기 전용 진단만 맡은 `game
 
 **Lesson:** For live-appending logs, capture a fixed bounded byte snapshot/range and cap decoded output before inspection; do not rely on Get-Content Tail as the output bound. Stop the reader promptly on unexpected growth and distinguish reader interruption from Unity abort or file modification.
 
+**2026-10-14 재발 — 원문 보존(Main 사건 전달):**
+
+**무엇을 틀렸나**
+Main이 17:28 RuntimeLog의 metadata 크기869bytes를 읽기 안전 보증으로 취급해 tool `25f90b`에서 제한 없는 Get-Content를 사용했다. 파일은 live append로 2425행/약239744 output tokens까지 커졌고 출력은 budget1800으로 잘렸다. 수치는 Main 전달값이며 원시 로그를 재출력하지 않는다.
+
+**왜 그랬나**
+읽기 전 크기는 그 시점의 metadata일 뿐인데 실제 읽는 bytes가 고정된 스냅샷이라고 간주했다. 이전 live-append 읽기 실패와 같은 형태의 AI 출력 범위 실수이지 사용자 게임 버그가 아니다.
+
+**어떻게 드러났나**
+실제 tool 반환의 대량 출력·truncation으로 드러났다. 이 사건으로 게임 타이밍 원인이나 로그 전체 검증을 주장하지 않는다.
+
+**교훈**
+작아 보이는 파일도 먼저 source copy/고정 byte 범위로 스냅샷을 만들고, 그 고정 입력만 행·열/byte 상한을 둬 읽는다. metadata 크기와 출력 token budget은 입력 읽기 상한을 대신하지 못한다. 민감값과 원시 로그는 사건 기록에 복제하지 않는다.
+
 ---
 
 ## 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
@@ -1864,3 +1882,67 @@ Main이 매트릭스의 MigrationRequired/CONDITIONAL·과거 수용 대기 표�
 **How it surfaced:** Main identified the authentication-field exposure and requested immediate incident documentation. Main confirmed project path `D:\Projects\Hexiege\Hexiege`, but new-source import was not confirmed. Game/asset contents remained unchanged per Main's handoff; this record does not independently audit files or establish import/native validation success.
 
 **Lesson:** Before printing any Editor header content, allowlist only project-path and `Successfully changed` identity fields, and extract only the required identity value rather than whole startup/command-line lines. Independently exclude token/auth/credential/password/secret and related licensing-authentication patterns case-insensitively before output; exclusions take precedence over the allowlist. Never print a whole log header, and never repeat/copy sensitive values into a Task, memory, incident record or user reply. Record only the incident and actionable prevention steps. Keep project identity confirmation separate from source import/assembly generation and fresh native execution evidence.
+
+---
+
+## 2026-10-14  live regression 산출물의 이전내용을 실행결과로 오인해 RED를 잘못인계
+
+**무엇을 틀렸나**
+Main이 RED 단계 script/Regression.cs를 읽은 뒤 programmer에게 「Main 독립 RED exit 1」이라고 잘못 전달했다. 실제 live Regression.exe 실행은 다른 에이전트의 GREEN 갱신 뒤였으며 반환값은 GREEN/exit 0이었다(Main 사건 전달 근거).
+
+**왜 그랬나**
+읽은 source 스냅샷을 실행 시점의 산출물 세대와 동일시하고, 실제 도구 반환값 대신 이전 내용으로 exit를 추정했다.
+
+**어떻게 드러났나**
+Main이 실제 tool 결과 GREEN/exit 0을 확인해 다음 메시지에서 즉시 정정했다. 사용자에게 RED 주장을 보내지는 않았다. Main 독립 확인은 GREEN만이며 RED 근거는 programmer 원본 tool 실행으로 구분한다.
+
+**교훈**
+실행 전에 executable/source의 해시·생성 세대·시각을 고정해 같은 실행에 묶고, 실제 도구 반환값으로만 실행 판정과 exit를 인계한다. source/script를 읽은 결과는 관측 내용으로 표시하며 실행 결과로 바꾸지 않는다.
+
+---
+
+## 2026-10-14  View lifecycle incorrectly treated as authoritative pending-hit cancellation
+
+**무엇을 틀렸나**
+programmer 중간 패치가 OnDisable/Initialize에서 terminal:true로 ownerRetired를 설정해, 살아 있는 현재 Domain 유닛의 이미 커밋된 HP 타격까지 TickPendingHits에서 취소했다(Main source 검토 사건 근거; 사용자 실기 발생 주장 아님).
+
+**왜 그랬나**
+표현 playback의 종료·재바인딩을 gameplay 소유권 폐기로 취급해 View 수명과 Domain identity/life를 혼동했다.
+
+**어떻게 드러났나**
+Main이 최종 전 source 검토에서 발견했다. CloseSoloAttackPlayback의 alive/current Domain guard로 수정하고 기존 pending을 보존했으며, 실제 production core의 alive View-close HP 적용과 Domain death/removal/reuse CLR assertions가 GREEN이었다(Main 독립 실행 포함).
+
+**교훈**
+presentation playback close와 authoritative owner retire를 분리하고 Domain identity/life만 pending 취소를 허용하게 한다. flag만 검사하지 말고 실제 production 피해 writer를 실행해 살아 있는 owner의 커밋 HP 보존과 진짜 Domain 폐기의 취소를 각각 검증한다. 이 근거를 native/사용자 경기 수용이나 새 게임 규칙으로 승격하지 않는다.
+
+---
+
+## 2026-10-14  숫자 enum 타입을 낡은 요약으로 해석해 에이전트에게 잘못 인계
+
+**무엇을 틀렸나**
+Main이 raw type21을 낡은 요약으로 해석해 에이전트 프롬프트에서 Inferno로 잘못 불렀다(Main 사건 전달). 실제 현재 UnitType.cs는 Inferno12/FoxMagician21이며 게임 버그가 아니라 숫자 타입 인계 오류다.
+
+**왜 그랬나**
+로그의 숫자 타입을 현재 enum 원본과 대조하지 않고 이전 요약의 이름을 재사용했다.
+
+**어떻게 드러났나**
+Main이 UnitType.cs를 직접 읽어 실제 매핑을 확인하고 사용자 보고 전에 에이전트에게 즉시 철회·정정했다. 사전에 잡혔어도 잘못된 인계 사건은 보존하며 게임 테스트 기록에 잘못된 이름을 전파하지 않는다.
+
+**교훈**
+분석마다 숫자 로그 타입을 현재 enum 원본에서 직접 매핑한 뒤 전달한다. 이전 요약·하드코딩된 이름으로 숫자를 해석하지 말고, 오인 인계는 정정 수신자와 시점을 구분해 남긴다.
+
+---
+
+## 2026-10-14  과거 승인 계약 감사 요청을 현재 config 실행 확인으로 대신함
+
+**무엇을 틀렸나**
+사용자가 과거 교정·수용 계약과 현재 구현 비교를 요청했는데 Main은 먼저 현재2.25초 timer 실행을 확인하고 historical-contract 감사 전에 peer 테스트를 제안했다(Main 사건 전달). 현재 설정대로 실행된 사실을 과거 결정의 정확성 판단에 대신 사용한 절차 오류다.
+
+**왜 그랬나**
+현재 config를 correctness oracle로 삼아 실행 정합성과 사용자 승인 의도를 같은 질문으로 취급했다.
+
+**어떻게 드러났나**
+사용자가 요청은 이전 교정과 현재의 비교라고 정정했다. 따라서 전 유닛의 최종 과거 clip/config/Factory 승인·수용 결정부터 수집하는 감사로 순서를 바로잡았다. enum 오인 사건과 별개이며 실제 게임 원인을 확정한 기록이 아니다.
+
+**교훈**
+로그를 해석하거나 비교 실기를 제안하기 전에 최신 historical accepted 결정과 변경 날짜에서 expected 계약을 도출한다. 현재 config는 비교 대상이지 정확성 기준이 아니다. 서로 다른 날짜의 결정·설정·실행·사용자 수용을 분리하고 primary 근거가 없으면 미확정으로 남긴다.

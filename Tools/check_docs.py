@@ -161,6 +161,11 @@ import os
 import re
 import sys
 import glob
+import html
+import unicodedata
+from dataclasses import dataclass
+from collections import Counter
+from urllib.parse import unquote, urlsplit
 
 # ─────────────────────────────────────────────────────────────
 # 설정
@@ -212,7 +217,7 @@ RE_RULE_MENTION = re.compile(r"규칙\s*(\d+)(?:\s*[~-]\s*(\d+))?\s*(?:[(（]([^
 REF_MAX_DISTANCE = 80
 
 
-def extract_refs(line):
+def _legacy_extract_refs(line):
     """
     한 줄에서 (문서명, 시작번호, 끝번호, 병기내용) 목록을 뽑는다.
 
@@ -307,7 +312,7 @@ def collect_files(root, claude_root=None):
     return sorted(set(found))
 
 
-def parse_rule_docs(root):
+def _legacy_parse_rule_docs(root):
     """
     규칙 문서를 훑어 {파일명: 정보} 를 만든다.
 
@@ -883,6 +888,450 @@ def update_baseline(memory_root, memory, reason=None, today=None):
     return 0
 
 
+# ── 현행 문서 판정 ──────────────────────────────────────────
+# 전체 ID를 문자열로 보관한다. 20-1은 범위가 아니며 30-A도 30과 다르다.
+RULE_ID = r"(?:\d+(?:-[A-Za-z0-9]+)*|[MDL]-\d+|R\d+|(?:NET|U)-[A-Z0-9]+(?:-[A-Z0-9]+)*)"
+RE_DEFINITION = re.compile(
+    rf"^(?:\*\*규칙\s+({RULE_ID})[.\s]+(.+?)\*\*|"
+    rf"###\s+(?:규칙\s+({RULE_ID})|((?:NET|U)-[A-Z0-9]+(?:-[A-Z0-9]+)*))(?:[.\s—–]+(.+))?$)")
+RE_CANDIDATE = re.compile(r"^(?:\*\*규칙\s*|규칙\s+[A-Z0-9-]+[.:]\s|#{1,6}\s+규칙\s|###\s+(?:NET|U)-)")
+RE_SUBDEFINITION = re.compile(r"^\*\*(\d+(?:-[A-Za-z0-9]+)+)\.\s+(.+?)\*\*")
+RE_ID = re.compile(RULE_ID)
+RE_NAMED_ID = re.compile(r"\b(?:NET|U)-[A-Z0-9]+(?:-[A-Z0-9]+)*\b(?:\*)?")
+
+
+@dataclass
+class Rule:
+    identifier: str
+    section: str
+    title: str
+    line: int
+    body: str = ""
+    forwarding: str = ""
+
+
+@dataclass
+class Reference:
+    doc: str
+    identifiers: list
+    context: str
+    label: str = ""
+    error: str = ""
+
+
+def markdown_lines(text):
+    """코드 fence와 HTML 주석을 빈 줄로 바꿔 원래 행 번호를 유지한다.
+
+    Inline code는 문서명/ID 인용에 쓰이므로 지우지 않는다. fence 내부의
+    문법 예시를 실제 정의나 참조로 등록하면 가짜 규칙이 생기므로 제외한다.
+    """
+    text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group().count("\n"), text,
+                  flags=re.S)
+    fence = None
+    for line in text.splitlines():
+        marker = re.match(r"^\s{0,3}(`{3,}|~{3,})", line)
+        if fence:
+            if marker and marker.group(1)[0] == fence[0] and len(marker.group(1)) >= len(fence):
+                fence = None
+            yield ""
+        elif marker:
+            fence = marker.group(1)
+            yield ""
+        else:
+            yield line
+
+
+def markdown_links(line):
+    """Inline Markdown 목적지를 추출한다(괄호 경로/angle 경로/선택 title).
+
+    외부 URL과 .md가 아닌 UI 예시를 판정하는 일은 호출부가 담당한다.
+    이 함수는 기존 메모리 링크 해석과 달리 Markdown의 괄호 깊이를 센다.
+    """
+    for match in re.finditer(r"(?<!!)\[[^\]\n]*\]\(", line):
+        start = match.end()
+        if start < len(line) and line[start] == "<":
+            end = line.find(">", start + 1)
+            if end >= 0 and re.match(r"(?:\s+['\"].*?['\"])?\s*\)", line[end + 1:]):
+                yield line[start + 1:end]
+            continue
+        depth, end = 1, start
+        while end < len(line) and depth:
+            if line[end] == "\\":
+                end += 2
+                continue
+            depth += (line[end] == "(") - (line[end] == ")")
+            end += 1
+        if not depth:
+            target = re.sub(r"\s+(['\"]).*?\1\s*$", "", line[start:end - 1]).strip()
+            yield re.sub(r"\\([() ])", r"\1", target)
+
+
+def heading_slug(title):
+    """GitHub 스타일 제목 slug: 소문자, 공백→-, 구두점/기호 제거.
+
+    한글/문자/숫자/결합문자는 보존하고 -/_도 보존한다. Emoji 및 variation
+    selector는 제거한다. 렌더러별 자동 slug 차이는 명시 HTML id로 해결한다.
+    """
+    title = re.sub(r"!?(\[([^\]]*)\])\([^)]*\)", r"\2", title)
+    title = html.unescape(re.sub(r"<[^>]*>", "", title)).lower().strip()
+    title = "".join(c for c in title if c in "-_" or
+                    (unicodedata.category(c)[0] not in "PSC" and c not in "\ufe0e\ufe0f"))
+    return re.sub(r"\s", "-", title)
+
+
+def markdown_anchors(text):
+    anchors, seen = set(), Counter()
+    lines = list(markdown_lines(text))
+    for i, line in enumerate(lines):
+        anchors.update(html.unescape(m.group(1) or m.group(2)) for m in
+                       re.finditer(r"<(?:a|[a-z][\w-]*)\b[^>]*\b(?:id|name)\s*=\s*(?:\"([^\"]+)\"|'([^']+)')", line, re.I))
+        match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
+        title = match.group(1) if match else None
+        if not title and line.strip() and i + 1 < len(lines) and re.match(r"^\s{0,3}(?:=+|-+)\s*$", lines[i + 1]):
+            title = line.strip()
+        if title:
+            base = heading_slug(title)
+            suffix = seen[base]
+            anchor = f"{base}-{suffix}" if suffix else base
+            # A literal heading 'A-1' can collide with a generated duplicate A-1.
+            while anchor in anchors:
+                suffix += 1
+                anchor = f"{base}-{suffix}"
+            seen[base] = suffix + 1
+            anchors.add(anchor)
+    return anchors
+
+
+def parse_rule_docs(root):
+    """규칙 폴더의 모든 문서를 등록하고 해석 실패도 문서 정보에 보존한다."""
+    docs = {}
+    for path in sorted(glob.glob(os.path.join(root, "GameSystemRules", "*.md"))):
+        with open(path, encoding="utf-8") as stream:
+            lines = list(markdown_lines(stream.read()))
+        rules, candidates, section, current = [], [], "", None
+        for number, line in enumerate(lines, 1):
+            h2 = RE_H2.match(line)
+            definition = RE_DEFINITION.match(line)
+            subdefinition = RE_SUBDEFINITION.match(line)
+            if RE_CANDIDATE.match(line) and not definition:
+                candidates.append((number, line))
+            if h2:
+                section = h2.group(1)
+                current = None
+            elif definition or subdefinition:
+                identifier = (definition.group(1) or definition.group(3) or definition.group(4)) if definition else subdefinition.group(1)
+                title = (definition.group(2) or definition.group(5) or "") if definition else subdefinition.group(2)
+                current = Rule(identifier, section, title, number)
+                rules.append(current)
+            else:
+                if current:
+                    current.body += line + "\n"
+        for rule in rules:
+            # Explicit, short forwarding contract. A long body merely citing an
+            # original stays an original; otherwise its gameplay text could vanish.
+            body_lines = [s.strip() for s in rule.body.splitlines() if s.strip() and s.strip() != "---" and not re.match(r"^#{3,6}\s", s)]
+            if body_lines and len(body_lines) <= 2 and re.match(r"^[^:]+원본:\s*\[", body_lines[0]):
+                links = list(markdown_links(body_lines[0]))
+                if len(links) == 1:
+                    rule.forwarding = links[0]
+        docs[os.path.basename(path)] = {"path": path, "rules": rules, "candidates": candidates}
+    return docs
+
+
+def expand_identifiers(expression):
+    """쉼표·중점·슬래시 목록과 ~ 범위를 전체 ID 목록으로 확장한다.
+
+    NET-AUTH-001/002의 생략 접두사는 앞 ID에서 가져온다. 숫자 11-1은
+    하나의 ID다. 정수·같은 문자접두사의 숫자 suffix 범위만 허용한다.
+    """
+    result, consumed, error = [], 0, ""
+    token = re.match(RULE_ID, expression)
+    if not token:
+        return [], 0, "규칙 ID를 해석할 수 없음"
+    previous = token.group()
+    result.append(previous)
+    consumed = token.end()
+    while True:
+        separator = re.match(r"\s*([~～·,/]|및|와|과)\s*(?:규칙\s*)?", expression[consumed:])
+        if not separator:
+            break
+        offset = consumed + separator.end()
+        following = re.match(RULE_ID, expression[offset:])
+        if not following:
+            # Korean prose after '와/과' is not a malformed list. Explicit
+            # punctuation after the ID is only a list when followed by an ID.
+            if separator.group(1) in "~～":
+                error = "범위 끝 ID 없음"
+            break
+        value = following.group()
+        if value.isdigit() and previous.startswith(("NET-", "U-", "M-", "D-", "L-")):
+            value = re.sub(r"\d+$", value, previous)
+        if separator.group(1) in "~～":
+            left = re.fullmatch(r"(.*?)(\d+)", previous)
+            right = re.fullmatch(r"(.*?)(\d+)", value)
+            if not left or not right or left[1] != right[1] or int(left[2]) > int(right[2]):
+                error = f"잘못된 범위 {previous}~{value}"
+            elif int(right[2]) - int(left[2]) > 1000:
+                error = "범위가 1000개 초과"
+            else:
+                width = len(left[2]) if left[2].startswith("0") else 0
+                result.extend(left[1] + str(n).zfill(width) for n in range(int(left[2]) + 1, int(right[2]) + 1))
+        else:
+            result.append(value)
+        previous = value
+        consumed = offset + following.end()
+    return result, consumed, error
+
+
+def extract_refs(line, default_doc=""):
+    """문서 언급 경계 안에서 참조마다 별도 문맥을 묶는다."""
+    mentions = list(RE_DOC_MENTION.finditer(line))
+    segments = []
+    if default_doc:
+        segments.append((default_doc, line[:mentions[0].start()] if mentions else line))
+    for index, mention in enumerate(mentions):
+        end = mentions[index + 1].start() if index + 1 < len(mentions) else len(line)
+        segments.append((mention.group(), line[mention.end():end]))
+    refs = []
+    for doc, segment in segments:
+        # A filename mention does not claim every later rule in a long paragraph.
+        # Period/sentence and the established 80-character proximity bound end
+        # this explicit-reference clause. Following prose remains unbound.
+        segment = re.split(r"\.\s+", segment, maxsplit=1)[0]
+        starts = list(re.finditer(r"규칙\s+(?=" + RULE_ID + r")|\b(?:NET|U)-", segment))
+        covered = 0
+        previous_end, inherited_context = 0, ""
+        for index, start in enumerate(starts):
+            if start.start() > REF_MAX_DISTANCE or start.start() < covered:
+                continue
+            boundary = starts[index + 1].start() if index + 1 < len(starts) else len(segment)
+            offset = start.end() if start.group().startswith("규칙") else start.start()
+            # A named ID within a '규칙 ID' expression is not a second reference.
+            if boundary == offset:
+                boundary = starts[index + 2].start() if index + 2 < len(starts) else len(segment)
+            identifiers, count, error = expand_identifiers(segment[offset:boundary])
+            covered = offset + count
+            if identifiers and identifiers[0].startswith(("NET-", "U-")) and (identifiers[0].count("-") == 1 or segment[covered:covered + 1] == "*"):
+                continue
+            tail = segment[covered:boundary]
+            label = re.match(r"\s*[(（]([^)）]{2,80})[)）]", tail)
+            # Section belongs to this clause, not any other rule mention on line.
+            before = segment[previous_end:start.start()]
+            if re.search(r"[;；→]", before):
+                inherited_context = ""
+                before = re.split(r"[;；→]", before)[-1]
+            context = inherited_context + before + "규칙" + (label.group() if label else "")
+            inherited_context += before + "규칙"
+            previous_end = covered + (label.end() if label else 0)
+            refs.append(Reference(doc, identifiers, context, label.group(1) if label else "", error))
+    return refs
+
+
+def resolve_reference(ref, docs):
+    """정확한 섹션/ID로 정의를 선택한다. 최대번호로 존재 여부를 추정하지 않는다."""
+    if ref.error:
+        return [], ref.error
+    if ref.doc not in docs:
+        return [], f"알 수 없는 규칙 문서 {ref.doc}"
+    rules = docs[ref.doc]["rules"]
+    # The nearest explicitly named section owns this reference. A prior reference
+    # on the same line cannot exempt this one by naming some unrelated section.
+    section_positions = [(ref.context.rfind(r.section), r.section) for r in rules
+                         if r.section and r.section in ref.context]
+    named_sections = {max(section_positions)[1]} if section_positions else set()
+    quoted = re.search(r"[「『]([^」』]+)[」』]\s*규칙\s*$", ref.context)
+    if quoted and not named_sections:
+        return [], f"알 수 없는 섹션 {quoted.group(1)}"
+    selected, errors = [], []
+    for identifier in ref.identifiers:
+        matches = [r for r in rules if r.identifier == identifier and
+                   (not named_sections or r.section in named_sections)]
+        if not matches:
+            errors.append(f"없는 규칙 {identifier}" + (f" / {next(iter(named_sections))}" if named_sections else ""))
+        elif len(matches) > 1:
+            errors.append(f"모호한 규칙 {identifier}: 섹션명을 지정할 것")
+        else:
+            selected.append(matches[0])
+    return selected, "; ".join(errors)
+
+
+def forwarding_destination(rule, info, docs):
+    """안내가 가리키는 실제 경로와 동일 ID의 단일 원본을 검증한다."""
+    target_path = unquote(urlsplit(rule.forwarding).path)
+    destination = docs.get(os.path.basename(target_path))
+    expected = os.path.abspath(os.path.join(os.path.dirname(info["path"]), target_path))
+    if not destination or os.path.abspath(destination["path"]) != expected:
+        return []
+    choices = [r for r in destination["rules"] if r.identifier == rule.identifier and not r.forwarding]
+    if len(choices) > 1:
+        fragment = unquote(urlsplit(rule.forwarding).fragment)
+        choices = [r for r in choices if r.section == rule.section or (fragment and heading_slug(r.section) == fragment)]
+    return choices
+
+
+def inspect_documents(root, files):
+    """읽기 전용 판정 API. (문서정보, 진단 목록, 실제 검사 카운터)를 반환한다."""
+    docs, problems, stats = parse_rule_docs(root), [], Counter()
+    def issue(kind, path, number, message):
+        problems.append((kind, path, number, message))
+    if not os.path.isdir(os.path.join(root, "GameSystemRules")):
+        issue("범위", root, 0, "GameSystemRules 폴더 없음")
+    if not docs or not any(d["rules"] for d in docs.values()):
+        issue("범위", root, 0, "규칙 정의 검사 범위가 비어 있음")
+    global_ids = {}
+    for name, info in docs.items():
+        for rule in info["rules"]:
+            global_ids.setdefault(rule.identifier, []).append((name, rule))
+            stats["안내" if rule.forwarding else "원본"] += 1
+            family = "숫자" if rule.identifier.isdigit() else "소번호" if rule.identifier[0].isdigit() else rule.identifier.split("-")[0]
+            stats[family] += 1
+        for number, line in info["candidates"]:
+            issue("형식", info["path"], number, f"미지원 규칙 정의: {line}")
+        if not info["rules"]:
+            stats["정의없는문서"] += 1
+            # Scenario documents intentionally specify scripts rather than rule IDs.
+            if not name.startswith("GameSystemRules_AI_Scenario_"):
+                issue("범위", info["path"], 0, "규칙 문서에 해석된 정의 없음")
+        buckets = {}
+        repeated = len([r.identifier for r in info["rules"] if r.identifier.isdigit()]) != len({r.identifier for r in info["rules"] if r.identifier.isdigit()})
+        keys = Counter((r.section, r.identifier) for r in info["rules"])
+        for (section, identifier), count in keys.items():
+            if count > 1:
+                issue("번호", info["path"], 0, f"같은 섹션 중복 {section} / {identifier} ({count}개)")
+        for rule in info["rules"]:
+            if re.fullmatch(r"\d+(?:-[A-Za-z0-9]+)+", rule.identifier):
+                parent = rule.identifier.rsplit("-", 1)[0]
+                if not any(r.identifier == parent and r.section == rule.section for r in info["rules"]):
+                    issue("번호", info["path"], rule.line, f"소조항 {rule.identifier}의 부모 규칙 {parent} 없음")
+        for rule in info["rules"]:
+            if rule.identifier.isdigit():
+                buckets.setdefault(rule.section if repeated else "문서 전체", set()).add(int(rule.identifier))
+            if rule.forwarding:
+                choices = forwarding_destination(rule, info, docs)
+                if len(choices) != 1:
+                    issue("안내", info["path"], rule.line, f"원본 목적지의 동일 ID를 특정할 수 없음: {rule.forwarding} / {rule.identifier}")
+        for section, present in buckets.items():
+            gaps = sorted(set(range(1, max(present) + 1)) - present)
+            if gaps:
+                issue("번호", info["path"], 0, f"{section}: 결번 {gaps}")
+    anchor_cache = {}
+    for path in files:
+        with open(path, encoding="utf-8") as stream:
+            text = stream.read()
+        annotations = {}
+        for number, raw in enumerate(text.splitlines(), 1):
+            if "docs-check: historical-section" not in raw:
+                continue
+            marker = re.fullmatch(r"<!-- docs-check: historical-section (GameSystemRules_\w+\.md) \| ([^|]+) \| ([^|]+) -->", raw.strip())
+            if not marker:
+                issue("이력보정", path, number, "잘못된 historical-section 주석 형식")
+                continue
+            identifiers, consumed, error = expand_identifiers(marker[2].strip())
+            valid_section = marker[1] in docs and any(r.section == marker[3].strip() for r in docs[marker[1]]["rules"])
+            if error or consumed != len(marker[2].strip()) or not valid_section:
+                issue("이력보정", path, number, "보정 ID 구문 또는 원본 섹션 없음")
+                continue
+            annotations[number + 1] = (marker[1], set(identifiers), marker[3].strip(), number)
+        used_annotations = set()
+        for number, line in enumerate(markdown_lines(text), 1):
+            for link in markdown_links(line):
+                parsed = urlsplit(link)
+                if parsed.scheme or parsed.netloc:
+                    continue
+                local_path = unquote(parsed.path)
+                if local_path and not local_path.lower().endswith(".md"):
+                    continue
+                if not local_path and not parsed.fragment:
+                    continue
+                target = os.path.normpath(os.path.join(os.path.dirname(path), local_path)) if local_path else path
+                stats["링크"] += 1
+                if not os.path.isfile(target):
+                    issue("링크", path, number, f"파일 없음: {link}")
+                elif parsed.fragment:
+                    stats["앵커"] += 1
+                    if target not in anchor_cache:
+                        with open(target, encoding="utf-8") as stream:
+                            anchor_cache[target] = markdown_anchors(stream.read())
+                    if unquote(parsed.fragment) not in anchor_cache[target]:
+                        issue("앵커", path, number, f"앵커 없음: {link}")
+            if RE_DEFINITION.match(line) or RE_SUBDEFINITION.match(line):
+                continue
+            references = extract_refs(line)
+            for ref in references:
+                annotation = annotations.get(number)
+                if annotation and ref.doc == annotation[0] and set(ref.identifiers) == annotation[1]:
+                    # Historical text remains verbatim. Only its section identity
+                    # is supplied externally; every original ID is still checked.
+                    ref.context = annotation[2]
+                    used_annotations.add(number)
+                stats["참조"] += len(ref.identifiers)
+                selected, error = resolve_reference(ref, docs)
+                if error:
+                    issue("참조", path, number, f"{ref.doc}: {error}")
+                elif ref.label and len(selected) == 1:
+                    words = [w for w in re.split(r"[\s·,/()+]+", ref.label) if len(w) >= 2]
+                    rule = selected[0]
+                    if rule.forwarding:
+                        originals = forwarding_destination(rule, docs[ref.doc], docs)
+                        if len(originals) == 1:
+                            rule = originals[0]
+                    if words and not any(w in rule.title or w in rule.body for w in words):
+                        issue("내용힌트", path, number, f"{ref.doc} / {rule.identifier}: '{ref.label}' 낱말 겹침 없음 (의미 판정 아님)")
+            # Named IDs also occur without '규칙' or a document filename.
+            for match in RE_NAMED_ID.finditer(line):
+                identifiers, count, error = expand_identifiers(line[match.start():])
+                identifier = match.group().rstrip("*")
+                if any(identifier in ref.identifiers for ref in references):
+                    continue
+                if match.group().endswith("*") or (identifier.count("-") == 1):
+                    # Namespace/wildcard is a group, never claimed as exact-ID validation.
+                    stats["그룹인용"] += 1
+                    continue
+                for identifier in identifiers:
+                    stats["명명ID참조"] += 1
+                    matches = global_ids.get(identifier, [])
+                    if not matches:
+                        issue("참조", path, number, f"없는 명명 ID {identifier}")
+                    elif len(matches) > 1:
+                        issue("참조", path, number, f"모호한 명명 ID {identifier}: 문서명 필요")
+                if error:
+                    issue("참조", path, number, error)
+        for number, annotation in annotations.items():
+            if number not in used_annotations:
+                issue("이력보정", path, annotation[3], "다음 한 행에 정확한 문서/ID 집합 참조가 없어 보정 미적용")
+            else:
+                stats["이력보정"] += 1
+    return docs, problems, stats
+
+
+def run_document_checks(args, files, claude_root):
+    docs, problems, stats = inspect_documents(args.root, files)
+    print("=" * 68)
+    print("[검사 범위] 규칙·참조·Markdown 링크/앵커")
+    print(f"  규칙 문서 탐색 {len(docs)}개 / 정의 해석 {sum(bool(d['rules']) for d in docs.values())}개")
+    print(f"  원본 {stats['원본']}개 / 이전 위치 안내 {stats['안내']}개 / 정의 없는 시나리오 {stats['정의없는문서']}개")
+    print(f"  형식별 정의: {dict((k, v) for k, v in sorted(stats.items()) if k in ('숫자', '소번호', 'M', 'D', 'L', 'NET', 'U') or k.startswith('R'))}")
+    print(f"  참조 검색 대상 {len(files)}개 .md / .claude {len(collect_claude_files(claude_root)) if claude_root else 0}개")
+    print(f"  검사한 참조 {stats['참조']}개 + 명명 ID {stats['명명ID참조']}개 / 링크 {stats['링크']}개 / 앵커 {stats['앵커']}개")
+    print(f"  그룹·namespace 인용 {stats['그룹인용']}개는 정확 ID 검사에서 제외")
+    print(f"  원문보존 섹션 보정 {stats['이력보정']}개 (바로 다음 한 행의 문서/ID 집합만; 존재 검사는 유지)")
+    print("  제외: _Tasks/ · _Logs/ 및 .claude 외부 skills/plugins/worktrees")
+    print("  한계: Inline Markdown 링크와 제목/HTML id 앵커 검사. 외부 URL·raw 출처·참조식 링크는 검사하지 않음.")
+    print("  내용힌트는 낱말 겹침 보조 진단이며 문서 의미·구현 일치 판정이 아님.")
+    for kind, path, number, message in problems:
+        print(f"[{kind}] {path}:{number} → {message}")
+    issues = len(problems)
+    if os.path.isdir(args.memory_root):
+        memory = collect_memory_files(args.memory_root)
+        baseline, baseline_error = load_baseline(args.memory_root)
+        issues += check_orphan_topics(memory, baseline)
+        issues += check_folder_line_totals(memory, baseline, baseline_error)
+    else:
+        print(f"[6]·[7] 건너뜀 — 메모리 폴더 없음: {args.memory_root}")
+    print(f"총 {issues}건의 문제를 찾았다." if issues else "문제 없음.")
+    return 1 if issues else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Hexiege 문서 정합성 검사")
     ap.add_argument("--root", default="Assets/_Project/Docs",
@@ -946,7 +1395,10 @@ def main():
     # 규칙 정의를 읽는 곳(parse_rule_docs)은 지금까지와 똑같이 --root 뿐이다 — 여기는 손대지 않는다.
     claude_root = None if args.no_claude_docs else args.claude_root
     files = collect_files(args.root, claude_root)
-    docs = parse_rule_docs(args.root)
+    # 승인된 새 판정 경로. 아래 구형 경로는 사용자 검증 전 보존하며 실행하지 않는다.
+    return run_document_checks(args, files, claude_root)
+
+    docs = _legacy_parse_rule_docs(args.root)
     issues = 0
 
     # 어디까지 봤는지 먼저 알린다. 검사 결과가 "이상 없음" 일 때,

@@ -976,6 +976,8 @@ namespace Hexiege.Editor.Combat
             ValidateB3CorridorSamplePolicy();
             ValidateB3CorridorTerminalEvidence();
             ValidateB3TrajectoryCorridorResolver();
+            ValidateSoloPursuitCheckpointProgress();
+            ValidateSoloTimingAuthority();
             ValidateB3ContinuousLocomotionPlanner();
             ValidateB3FiniteRepathGuard();
             ValidateB3PostCombatRecoveryPlanner();
@@ -4008,6 +4010,233 @@ namespace Hexiege.Editor.Combat
                     && formatted.Contains("allowedPathIndices:0-2|")
                     && formatted.EndsWith("sampleResult:OutsideCorridor"),
                 "Corridor terminal evidence must remain a lossless single-line Root/Domain/UnitData/path/sample record.");
+        }
+
+        private sealed class SoloTimingMapper : IHexCoordinateMapper
+        {
+            public float TileHeight => .866f;
+            public Vector3 HexToWorld(HexCoord h) => new Vector3(h.Q, 0, h.R);
+            public HexCoord WorldToHex(Vector3 p) => new HexCoord((int)p.x, (int)p.z);
+            public Vector3 NormalizeToDomainPosition(Vector3 p) => p;
+        }
+
+        public static void ValidateSoloTimingAuthority()
+        {
+            Require(!UnityEngine.Application.isPlaying, "SOLO timing fixture must run outside a live match.");
+            ValidateSoloTimingAuthorityCore();
+        }
+
+        // CLR runner는 native isPlaying 호출 없이 이 경계를 사용한다. Editor 메뉴는
+        // 위 guard를 반드시 거치며, 모든 변경한 전역 상태/구독은 finally에서 복원한다.
+        internal static void ValidateSoloTimingAuthorityCore()
+        {
+            var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+            var oldStats = (IReadOnlyDictionary<UnitType, UnitStats.StatValues>)dataField.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
+            object oldId = idField.GetValue(null);
+            UnitSpawnUseCase spawn = null; UnitCombatUseCase combat = null;
+            UnitData attacker = null, victim = null;
+            double now = 0; int starts = 0, changes = 0;
+            var hits = new List<double>();
+            IDisposable start = null, changed = null, damage = null;
+            try
+            {
+                NetworkContext.Set(false, false);
+                UnitStats.Initialize(new Dictionary<UnitType, UnitStats.StatValues> {
+                    { UnitType.SpearMan, new UnitStats.StatValues { MaxHp = 100000, AttackPower = 1,
+                        AttackRange = 5, DetectRange = 5, MoveSpeed = 1, AttackCooldown = 2,
+                        HitFrameTimes = new[] { .5f, 1.5f } } }
+                });
+                Action<float[]> reset = offsets => {
+                    var grid = new HexGrid(3, 3, HexOrientation.FlatTop);
+                    spawn = new UnitSpawnUseCase(grid);
+                    attacker = spawn.SpawnUnitWithId(9900, UnitType.SpearMan, TeamId.Blue, new HexCoord(0, 0));
+                    victim = spawn.SpawnUnitWithId(9901, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                    attacker.HitFrameTimes = offsets;
+                    combat = new UnitCombatUseCase(grid, spawn, new BuildingPlacementUseCase(grid), null, new SoloTimingMapper());
+                    now = 0; starts = changes = 0; hits.Clear();
+                };
+                // 실제 production Start callback -> 재생 epoch 확정 API 경계다.
+                // Animator 자체를 만들거나 native 실행 성공을 가정하지 않는다.
+                start = GameEvents.OnCombatStarted.Subscribe(e => {
+                    if (attacker != null && e.UnitId == attacker.Id) {
+                        starts++; combat.ConfirmSoloAttackPlayback(attacker, now);
+                    }
+                });
+                changed = GameEvents.OnCombatTargetChanged.Subscribe(e => { if (attacker != null && e.UnitId == attacker.Id) changes++; });
+                damage = GameEvents.OnEntityDamaged.Subscribe(e => hits.Add(now));
+                Action<double> pump = at => {
+                    float dt = (float)(at - now); now = at;
+                    combat.TickCooldowns(dt, now); combat.TickPendingHits(dt, now);
+                };
+
+                foreach (int fps in new[] { 30, 60, 45 })
+                {
+                    reset(new[] { .8333333f });
+                    Require(combat.TryAttack(attacker, now).HasValue, "SOLO first production attack must commit.");
+                    for (int frame = 1; frame <= fps * 120; frame++) { pump((double)frame / fps); combat.TryAttack(attacker, now); }
+                    Require(starts == 1 && changes == 0 && hits.Count == 100000 - victim.Hp,
+                        "SOLO repeated native-start callback count and direct HP writer count must agree.");
+                    for (int i = 0; i < hits.Count; i++)
+                        Require(hits[i] >= i * 2d + .8333333f && hits[i] - (i * 2d + .8333333f) <= 1d / fps + 1e-6,
+                            "SOLO repeated occurrences may be one frame late, never cumulatively late or early.");
+                }
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now); pump(.5);
+                UnitData oldTarget = victim; oldTarget.Position = new HexCoord(100, 100);
+                victim = spawn.SpawnUnitWithId(9902, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                pump(2.25); Require(combat.TryAttack(attacker, now).HasValue, "SOLO retarget commits a future occurrence.");
+                pump(2.49); Require(victim.Hp == 100000, "Retarget must not receive retroactive/old target damage.");
+                pump(2.5); Require(victim.Hp == 99999 && oldTarget.Hp == 99998 && starts == 1 && changes == 1,
+                    "SOLO retarget keeps playback anchor 0, old reservations and next occurrence 2.5; no fresh playback epoch.");
+
+                reset(new[] { .5f, .5f, 1.5f }); combat.TryAttack(attacker, now); pump(.5);
+                Require(victim.Hp == 99998, "SOLO positive duplicate markers retain two distinct HitIndex writes.");
+                pump(1.5); Require(victim.Hp == 99997, "SOLO final multihit remains exactly one write.");
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now); pump(10.75);
+                Require(victim.Hp == 99998 && combat.TryAttack(attacker, now).HasValue
+                    && !combat.TryAttack(attacker, now).HasValue, "SOLO long frame drains finite old reservations and commits at most once.");
+                pump(11.49); Require(victim.Hp == 99998, "SOLO missed uncommitted marker is not backfilled.");
+                pump(11.5); Require(victim.Hp == 99997, "SOLO long frame chooses future original HitIndex occurrence.");
+
+                foreach (StatusEffectKind kind in new[] { StatusEffectKind.Freeze, StatusEffectKind.AttackDisabled })
+                {
+                    reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now);
+                    var status = new StatusEffectSystem(); combat.SetStatusEffectSystem(status);
+                    status.Apply(attacker.Id, new StatusEffect(kind, 1, 10, TeamId.Red));
+                    combat.ClearCombatState(attacker.Id); pump(1.5);
+                    Require(victim.Hp == 99998 && !combat.TryAttack(attacker, now).HasValue,
+                        "SOLO Freeze/CC/Stop do not cancel or pause committed HP; CC blocks only new commits.");
+                }
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now);
+                combat.ObserveSoloAttackPause(attacker, .2, true); pump(2);
+                Require(victim.Hp == 99998 && !combat.TryAttack(attacker, now).HasValue,
+                    "SOLO authority-commanded playback pause keeps committed DueAt unchanged.");
+                combat.ObserveSoloAttackPause(attacker, 3.2, false); pump(5);
+                Require(combat.TryAttack(attacker, now).HasValue, "SOLO resume permits the next future occurrence.");
+                pump(5.5); Require(victim.Hp == 99997, "SOLO future phase shifts by pause duration without retroactive HP.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now);
+                combat.CloseSoloAttackPlayback(attacker, terminal: true); pump(.5);
+                Require(victim.Hp == 99999, "SOLO View-disable/rebind-equivalent cannot retire a current alive Domain HP owner.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); attacker.TakeDamage(100000); pump(.6);
+                Require(victim.Hp == 100000, "SOLO Domain death discards unexecuted hits.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); spawn.RemoveUnit(attacker.Id);
+                attacker = spawn.SpawnUnitWithId(9900, UnitType.SpearMan, TeamId.Blue, new HexCoord(0, 0));
+                pump(.6); Require(victim.Hp == 100000, "SOLO reused attacker ID cannot inherit old owner's hit.");
+                Require(combat.TryAttack(attacker, now).HasValue && starts == 2, "SOLO replacement UnitData opens an actual new Start callback.");
+                pump(1.1); Require(victim.Hp == 99999, "SOLO new lifetime hits normally; retiring old owner cannot remove current owner.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); spawn.RemoveUnit(victim.Id);
+                victim = spawn.SpawnUnitWithId(9901, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                pump(.6); Require(victim.Hp == 100000, "SOLO reused target ID never receives previous captured target's reservation.");
+
+                reset(new[] { 0f }); combat.TryAttack(attacker, now);
+                double last = 0; int commits = 1;
+                for (int frame = 1; frame <= 1800; frame++)
+                {
+                    pump(frame / 30d);
+                    if (combat.TryAttack(attacker, now).HasValue) {
+                        Require(now - last >= 2 && now - last < 2.1, "SOLO zero-marker fallback preserves existing cadence, never halves it.");
+                        last = now; commits++;
+                    }
+                }
+                Require(!SoloAttackPlaybackClock.Supports(2, new[] { 0f }) && commits >= 29
+                    && hits.Count == 100000 - victim.Hp, "Zero marker is explicit preserved Legacy fallback, not corrected occurrence PASS.");
+                reset(new[] { .5f });
+                Require(!combat.TryAttack(attacker, double.NaN).HasValue
+                    && !combat.TryAttack(attacker, double.PositiveInfinity).HasValue
+                    && !combat.TryAttack(attacker, -1).HasValue && victim.Hp == 100000,
+                    "SOLO invalid authority clock cannot commit or invent HP.");
+                var clock = new SoloAttackPlaybackClock();
+                Require(!clock.Restart(-1, 2) && !clock.Restart(double.NaN, 2)
+                    && !clock.Restart(0, double.PositiveInfinity) && clock.Restart(0, 2)
+                    && clock.TryCommit(0, new[] { .5f }, out _)
+                    && !clock.TryCommit(0, new[] { .5f }, out _)
+                    && clock.TryCommit(2, new[] { .5f }, out _)
+                    && !clock.TryCommit(1, new[] { .5f }, out _),
+                    "SOLO clock rejects invalid/backward/same-frame commits without new occurrence.");
+                Require(!SoloAttackPlaybackClock.Supports(2, new[] { -.1f })
+                    && !SoloAttackPlaybackClock.Supports(2, new[] { float.NaN })
+                    && !SoloAttackPlaybackClock.Supports(2, new[] { 1.5f, .5f }),
+                    "Invalid/unsorted markers are explicit unsupported Legacy fallback, not corrected coverage.");
+            }
+            finally
+            {
+                start?.Dispose(); changed?.Dispose(); damage?.Dispose();
+                UnitStats.Initialize(oldStats); idField.SetValue(null, oldId);
+                NetworkContext.Set(oldServer, oldActive);
+            }
+        }
+
+        public static void ValidateSoloPursuitCheckpointProgress()
+        {
+            // 생산 후보 계산 -> 실제 도착 결과 -> 생산 checkpoint 소비 조합이다.
+            // 첫 중간 지점을 지나야 두 번째 타겟 지점으로 진행할 수 있다.
+            var checkpoint = new UnitPathCheckpointTracker();
+            double x = 0d, z = 0d;
+            int index = 1;
+            for (int frame = 0; frame < 4; frame++)
+            {
+                UnitSoloPursuitStep.Plan(x, z, 1d, 0d, .25d, out x, out z);
+                bool reached = UnitSoloPursuitStep.Reached(x, z, 1d, 0d, .25d);
+                if (UnitSoloPursuitStep.TryConsume(checkpoint, index, true, reached,
+                        acquired: false, direct: false, routeCurrent: true)) index++;
+            }
+            Require(index == 2 && checkpoint.NextWaypointIndex == 2,
+                "SOLO first nonterminal pursuit waypoint must be consumed after four real movement frames.");
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, true),
+                "SOLO a consumed index cannot advance twice.");
+            UnitSoloPursuitStep.Plan(x, z, 2d, 0d, 8d, out x, out z);
+            Require(x == 2d && z == 0d
+                && UnitSoloPursuitStep.TryConsume(checkpoint, 2, true,
+                    UnitSoloPursuitStep.Reached(x, z, 2d, 0d, 8d), false, false, true),
+                "SOLO second waypoint clamps remaining distance and consumes exactly once.");
+            checkpoint.Reset();
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 1, false, true, false, false, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, true, false, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, true, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, false)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 2, true, true, false, false, true)
+                && checkpoint.NextWaypointIndex == 1,
+                "SOLO Held/acquired/direct/stale-route/skipped index never consumes a checkpoint.");
+            // 타겟 타일/환경 변경 때 production이 Reset한 새 경로의 첫 지점만 소비한다.
+            checkpoint.Reset();
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 2, true, true, false, false, true)
+                && UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, true),
+                "SOLO target/environment route replacement rejects the old index and starts at one.");
+            foreach (double budget in new[] { 0d, -1d, double.NaN, double.PositiveInfinity })
+            {
+                UnitSoloPursuitStep.Plan(0d, 0d, 1d, 1d, budget, out x, out z);
+                Require(x == 0d && z == 0d
+                    && !UnitSoloPursuitStep.Reached(1d, 1d, 1d, 1d, budget),
+                    "SOLO frozen/invalid travel budget neither moves nor reports arrival.");
+            }
+            UnitSoloPursuitStep.Plan(.9999d, .9999d, 1d, 1d, 10d, out x, out z);
+            Require(x == 1d && z == 1d && UnitSoloPursuitStep.Reached(x, z, 1d, 1d, 10d),
+                "SOLO short diagonal final distance cannot overshoot or oscillate.");
+            Require(!UnitSoloPursuitStep.Reached(double.NaN, 0d, 1d, 1d, 1d),
+                "SOLO invalid pose cannot report arrival.");
+            int emitted = 0, omitted = 0, capMarkers = 0;
+            for (int attempt = 0; attempt < 70; attempt++)
+            {
+                bool accepted = UnitSoloPursuitStep.TakeEvidence(ref emitted, ref omitted,
+                    out bool firstOmission);
+                if (firstOmission) capMarkers++;
+                Require(accepted == (attempt < 64), "SOLO evidence detail cap must be exact.");
+            }
+            Require(emitted == 64 && omitted == 6 && capMarkers == 1,
+                "SOLO evidence cap has one incomplete marker and preserves omitted count, never fake PASS.");
+            Require(UnitSoloPursuitStep.FitsEvidence(new string('a', 600))
+                && !UnitSoloPursuitStep.FitsEvidence(new string('a', 601))
+                && UnitSoloPursuitStep.FitsEvidence(new string('한', 200))
+                && !UnitSoloPursuitStep.FitsEvidence(new string('한', 201)),
+                "SOLO evidence preflight counts UTF8 bytes, preserves envelope budget and rejects oversized records.");
         }
 
         private static void ValidateB3TrajectoryCorridorResolver()
