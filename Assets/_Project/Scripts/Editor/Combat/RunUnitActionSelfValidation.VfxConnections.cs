@@ -273,6 +273,71 @@ namespace Hexiege.Editor.Combat
                 GameLog.Dev.Warn("Combat", "RunUnitActionSelfValidation",
                     "상태 이펙트 크기 표에 없는 유닛이 있다 — 해당 유닛은 배율 1(예전 크기)로 재생된다. 메뉴 Hexiege/Effects/Measure Unit Recipient Fit 실행 필요",
                     "Missing=" + missingTypes.Count + ", Types=" + string.Join("|", missingTypes));
+
+            // (3) [2026-10-13 스케일 버그] 실제 에셋 표에 비정상 크기(키 > 1.2m / 반경 > 0.43m / 키 < 0.1m)가
+            //     남아 있으면 경고한다. 실패(Require)로 두지 않는 이유: 표는 사용자가 측정 메뉴를 다시 돌려야 고쳐지므로,
+            //     수정 직후 아직 재측정 전인 상태에서 검증 전체를 막으면 안 된다. 대신 "다시 돌려야 한다"를 눈에 띄게 알린다.
+            WarnImplausibleRecipientFitRows(units);
+
+            // (4) 측정 도구 자체 회귀 검사: 실제 프리팹을 같은 코드로 재서 크기가 말이 되는지 확인한다.
+            ValidateRecipientFitMeasurement();
+        }
+
+        /// <summary>
+        /// 실제 UnitEffectConfig 표의 측정값(height/radius) 중 비정상 범위인 줄을 모아 경고 1줄로 남긴다.
+        /// manualScale 과 무관하게 "측정값" 자체를 본다(측정 도구 회귀를 알리는 것이 목적).
+        /// </summary>
+        private static void WarnImplausibleRecipientFitRows(UnitEffectConfig units)
+        {
+            // 원시 표는 private 필드라 읽기 전용 SerializedObject 로 본다(값을 바꾸거나 저장하지 않는다).
+            SerializedProperty table = new SerializedObject(units).FindProperty("_recipientFits");
+            if (table == null || !table.isArray) return;
+            var suspicious = new List<string>();
+            for (int i = 0; i < table.arraySize; i++)
+            {
+                SerializedProperty row = table.GetArrayElementAtIndex(i);
+                float height = row.FindPropertyRelative("height").floatValue;
+                float radius = row.FindPropertyRelative("radius").floatValue;
+                if (height > Hexiege.EditorTools.UnitRecipientFitMeasureTool.SuspiciousMaxHeight
+                    || radius > Hexiege.EditorTools.UnitRecipientFitMeasureTool.SuspiciousMaxRadius
+                    || (height > 0f && height < Hexiege.EditorTools.UnitRecipientFitMeasureTool.SuspiciousMinHeight))
+                    suspicious.Add(((UnitType)row.FindPropertyRelative("unitType").intValue).ToString());
+            }
+            if (suspicious.Count > 0)
+                GameLog.Dev.Warn("Combat", "RunUnitActionSelfValidation",
+                    "상태 이펙트 크기 표에 비정상 크기 줄이 있다 — 측정 도구 수정 후 메뉴 Hexiege/Effects/Measure Unit Recipient Fit 재실행 필요",
+                    "Suspicious=" + suspicious.Count + ", Types=" + string.Join("|", suspicious));
+        }
+
+        /// <summary>
+        /// [2026-10-13] 측정 도구가 스킨드 유닛의 중간 스케일(Unit_xxx_Mesh 0.2~0.3)을 반영하는지 실제 프리팹으로 확인한다.
+        /// - Pistoleer(스킨드 경로): 화면 키 ≈ 0.34m. 0.2~0.6m 범위 밖이면 실패(예전 버그는 1.71m).
+        /// - Tank(MeshRenderer 경로) 가 Pistoleer 보다 커야 한다 → 두 경로가 같은 좌표계로 재는지 교차 확인.
+        /// Play 모드에서는 프리팹 격리 로드를 피하려고 건너뛴다(경고 없이 정보 로그만).
+        /// </summary>
+        private static void ValidateRecipientFitMeasurement()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
+                    "Play 모드라 유닛 몸 크기 측정 검사를 건너뛴다", "Check=RecipientFitMeasurement");
+                return;
+            }
+            var pistoleerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Units/Human/Unit_Pistoleer_Blue.prefab");
+            var tankPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Prefabs/Units/Human/Unit_Tank_Blue.prefab");
+            Require(pistoleerPrefab != null && tankPrefab != null, "Pistoleer/Tank Blue production prefabs exist for recipient fit measurement.");
+
+            var pistoleer = Hexiege.EditorTools.UnitRecipientFitMeasureTool.Measure(pistoleerPrefab);
+            var tank = Hexiege.EditorTools.UnitRecipientFitMeasureTool.Measure(tankPrefab);
+            Require(pistoleer.Ok && tank.Ok, "Recipient fit measurement succeeds for Pistoleer and Tank: "
+                + pistoleer.Failure + "/" + tank.Failure);
+            Require(pistoleer.Height >= 0.2f && pistoleer.Height <= 0.6f,
+                "Skinned recipient height includes intermediate mesh scale (Pistoleer expected about 0.34m, got "
+                + pistoleer.Height.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + ").");
+            Require(!Hexiege.EditorTools.UnitRecipientFitMeasureTool.IsImplausible(pistoleer, out string reason),
+                "Pistoleer measured size is within unit sanity bounds: " + reason);
+            Require(tank.Height > pistoleer.Height,
+                "Skinned and MeshRenderer measurement paths share one space (Tank taller than Pistoleer).");
         }
 
         private static void ValidateDamageCurrentState()

@@ -424,6 +424,9 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 
 > **[2026-09-14 후속 교정 — 위 QuakeSpirit 미주입/1.0초 문장은 당시 기록으로 보존]:** production Attack clip의 `OnAttackHit` 1개가 실제 타격 시점 1.667초에 있음을 확인하고 `UnitStatsConfig.hitFrameTimes`를 1.0초에서 1.667초로 정렬했다. 실제 Attack state clip·Controller·Blue/Red 프리팹 연결도 함께 검증했으며, 영구 Unit Action self-validation은 이 production marker/config 연결이 어긋나면 Supported 승격을 fail-closed한다. Unity 자동 게이트는 PASS했으나 Android 사용자 실기 전이므로 최종 완료가 아니다.
 
+> **[2026-10-13 MushroomBomber 사실 정정 — 위 「MushroomBomber는 클립에 `OnAttackHit` 1개 주입 완료(2026-07-19)」는 원문 유지]:** 2026-10-09 실측에서 `MushroomBomber_Attack.anim`의 이벤트는 **0건**이었다(`_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/Research.md` 4절) — 2026-07-19 주입이 그 시점 파일에는 남아 있지 않았다. 이후 2026-10-10 VFX 연결 작업(`_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/`)이 **1.0초 `OnAttackHit` 1개**를 추가했다. 2026-10-13 실측 현재: 이 클립(3초, 30fps)의 `m_Events`는 `time: 1`·`OnAttackHit` 1개이고, `MushroomBomber.controller`의 Attack 상태가 이 클립을 쓰며, `UnitStatsConfig`의 MushroomBomber `hitFrameTimes`는 `[1]`·`attackCooldown` 3이다. 그래서 「1개」라는 현재 상태는 파일과 맞는다.
+> 같은 연결 작업으로 이 marker의 **역할이 바뀌었다**: MushroomBomber의 1.0초 marker는 이제 로컬 트레이서를 발사하지 않고(옛 호출은 주석 비활성화) 기존 레거시 HP·텍스트 맞춤 신호만 낸다. 포자 폭탄 트레이서와 착탄 이펙트는 서버 writer가 확정한 공격 표현 스냅샷 하나가 함께 소유한다(남은 비행 시간 동안 트레이서, 예정 시각에 착탄 1회 — `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs`의 MushroomBomber 분기). 피해는 그대로 규칙 18의 서버 타이머다. 규칙 20의 "원거리 유닛은 `OnAttackHit` 시점에 트레이서를 재생한다"는 MushroomBomber에 한해 이 스냅샷 소유 방식으로 대체돼 있다(Unresolved/Legacy 유지, C3 Supported 승격 없음).
+
 ---
 
 ### 특수 공격 시스템 규칙 — 확장 (2026-07-17, TorrentSpirit 파도형 이동 AoE + 힐 구현)
@@ -464,6 +467,12 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 
 > **2026-10-02 최신 실기 참고(규칙 변경 없음):** 메인 최종 epoch463c2fb49e473595 분석에서 wave53 수신/VFX 재생 성공 및 publish144 양쪽text exact key 누락·초과·충돌0, noDelta32 전량 만피 회복 정상. 옆 경계 outside→collected는 규칙 29의 전선 지난 직사각 영역 진입 사례이며 thin-front/swept 변경 근거가 아니다. 원본 VFX/clip·서버 판정 불변, raw particle 접촉 좌표·정확 윤곽/접촉 시각·성능은 미확정, 전체 OPEN/C3 Unresolved 유지. 기존 Task Research/Plan 최신 테스트 절을 따르며 아래 실기 전 상태는 이력이다.
 VFX 프리팹이 "빈 루트 + 여러 형제 파티클 시스템"으로 구성된 경우(예: TorrentSpirit 파도 — Main_Water_Surge / Ground_Impact_Ripples / Front_Foam_Crest), `ParticleSystem.Play()`는 형제를 재생하지 않으므로 풀 아이템(`VfxPoolItem`)이 **직속 자식 시스템 전부를 각각 재생**해야 한다(하나만 재생하면 일부만 보인다). 루트에 파티클이 있는 프리팹은 기존대로 루트 하나만 `Play(true)`로 하위까지 재생한다. 유닛 공격 VFX는 `EffectPreset`(vfx 프리팹을 감싸는 ScriptableObject)을 만들어 `UnitEffectConfig`의 해당 UnitType `attackPreset`에 연결한다.
+
+> **2026-10-13 추가 — EffectPreset 「Stop When Caster Dies」(시전자 귀속 공격 VFX):** `EffectPreset`에 이 옵션이 생겼다. 켜면 그 preset으로 재생한 **공격 VFX**는 공격한 유닛(시전자)에게 귀속돼, 시전자가 **죽거나 제거(파괴·디스폰·비활성화)되면 즉시 정지**하고(새 파티클 생성 중지 + 이미 나온 파티클도 즉시 삭제) 풀로 돌아간다. 기를 모으는 차지처럼 시전자 몸 앞에서 재생되는 연출에만 켠다. 현재 켜진 preset: `EffectPreset_FoxMagician_Attack`(`vfx_foxmagician_charge`)·`EffectPreset_InfernoSpirit_Attack`(`vfx_infernospirit_charge`).
+> - 읽는 경로는 `UnitEffectConfig` `attackPreset` 재생뿐이다. 트레이서·착탄·사망 VFX, 타워 번개, 화상·독·힐 상태 이펙트는 이 옵션의 영향을 받지 않는다(규칙 19 본문대로 사망 VFX는 별도 수명).
+> - 정지는 그 시전자가 소유한 이펙트에만 적용되며 같은 preset을 쓰는 다른 유닛의 이펙트는 멈추지 않는다. 각 화면이 자기 유닛 화면 컴포넌트로 정지한다(사망 이벤트 + 제거 시점 즉시 정지, 그리고 매 프레임 시전자 상태 확인 안전망).
+> - **표현 전용이다.** 서버가 이미 확정한 결과·피해·착탄/HP 텍스트 표현을 취소하거나 바꾸지 않는다(규칙 19 「이미 서버가 확정한 결과를 취소하지 않는다」, `GameSystemRules_UnitCombatSynchronization.md` NET-AUTH-001).
+> - 상태: 구현 2026-10-13(`Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.CasterOwned.cs`), 사용자 실기 확인 PASS(2026-10-13 2차 실기). 상세: `_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md` 10절 R2-1.
 
 > **이전 구현 참고 — 2026-10-01 갱신 전 이력:** 파도 VFX는 현재 시전자 위치에서 1회 재생되며 서버 전선처럼 전방 이동하지는 않는다(시각적 이동감은 파티클 프리팹 튜닝 또는 별도 이동 로직으로 보강 가능). 규칙 29의 **데미지/힐 판정은 서버 전선**이 권위이며 VFX와 독립적이다.
 >
@@ -512,7 +521,7 @@ BloomFairy는 지금까지의 특수 유닛과 근본적으로 다른 **힐러**
 - 우선순위: **잃은 체력 비율 `(MaxHp − Hp) / MaxHp` 최대** 우선, **동률이면 거리 최소**.
 
 **규칙 34. HoT/DoT 공용 시간 지속 효과 시스템 (서버 권위 diff 틱)**
-> **구현 상태 추가(2026-10-09, 정책 변경 없음):** Bloom HoT는 서버의 실제 recipient 효과 레코드에서 provenance/current-state를 쓰고 `NetworkBloomHealEffectState`가 현재값을 복제한다. `BloomHealEffectPresenter` 단일 presenter가 실제 대상의 all5PS loop를 소유하며 동일 owner refresh는 restart 없이 유지한다. 실제 종료 후 StopEmitting → tail natural drain → lease 반환을 구분하고 late-ready/lifecycle 및 bounded diagnostics가 연결됐다. 기존 HP writer·동종 효과 갱신/종료·수치와 다른 유닛의 규칙은 불변이다. native self-validation PASS와 실제 양 peer 로그 확보는 구현/관측 근거이며 전체·visual 수용은 OPEN이다. 강제 teardown cleanup은 자연 종료 PASS가 아니고 Client C3 failures64 FAIL은 별도 원인 분석 중이다. 상세 집계·신규 에셋 연결 상태는 [VFXSFXList](../Assets/VFXSFXList.md#bloom-hot-최신-관측-근거)를 따른다. 아래 공용 정책과 과거 참고를 변경하지 않는다.
+> **구현 상태 추가(2026-10-09, 정책 변경 없음):** Bloom HoT는 서버의 실제 recipient 효과 레코드에서 provenance/current-state를 쓰고 `NetworkBloomHealEffectState`가 현재값을 복제한다. `BloomHealEffectPresenter` 단일 presenter가 실제 대상의 프리팹 전 파티클 시스템 loop를 소유하며 *(2026-10-14 정정: 종전 표기 「all5PS」는 옛 프리팹(5개, `Bloom_Ring` 포함) 기준이었다. 현재 계약은 `VfxPoolItem.PlayBloomLoop`가 파티클 시스템 **0개일 때만** 거부하고, 각 시스템마다 loop ON · Stop Action None · Local 시뮬레이션 · burst 0 · unscaled time 아님을 검사해 하나라도 어기면 재생 전에 거부한다. 개수 고정은 없다. 프리팹 `vfx_bloomfairy_heal.prefab`은 2026-10-13 사용자 결정으로 `Bloom_Ring`을 빼 현재 4개다 — 커밋 `d3f9abb1`, `_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md` 4-A)* 동일 owner refresh는 restart 없이 유지한다. 실제 종료 후 StopEmitting → tail natural drain → lease 반환을 구분하고 late-ready/lifecycle 및 bounded diagnostics가 연결됐다. 기존 HP writer·동종 효과 갱신/종료·수치와 다른 유닛의 규칙은 불변이다. native self-validation PASS와 실제 양 peer 로그 확보는 구현/관측 근거이며 전체·visual 수용은 OPEN이다. 강제 teardown cleanup은 자연 종료 PASS가 아니고 Client C3 failures64 FAIL은 별도 원인 분석 중이다. 상세 집계·신규 에셋 연결 상태는 [VFXSFXList](../Assets/VFXSFXList.md#bloom-hot-최신-관측-근거)를 따른다. 아래 공용 정책과 과거 참고를 변경하지 않는다.
 
 "유닛에 붙는 시간 지속 효과"(회복 HoT / 피해 DoT)를 서버 권위로 관리하는 공용 시스템. BloomFairy(HoT) + 후속 DoT 유닛이 공용으로 재사용한다.
 - 배치 레이어: `Application`(규칙 29 파도 틱과 대칭). 파도(`ActiveWave`/`TickWaves`)와 동일한 소유·틱 패턴을 따른다.

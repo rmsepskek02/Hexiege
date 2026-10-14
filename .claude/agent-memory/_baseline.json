@@ -38,23 +38,23 @@
     },
     "document-manager": {
       "files": 2,
-      "lines": 4244
+      "lines": 4943
     },
     "game-design-lead": {
       "files": 3,
-      "lines": 315
+      "lines": 338
     },
     "game-programmer": {
       "files": 20,
-      "lines": 6663
+      "lines": 8830
     },
     "project-orchestrator": {
       "files": 3,
-      "lines": 617
+      "lines": 804
     },
     "qa-tester": {
       "files": 3,
-      "lines": 805
+      "lines": 1393
     }
   },
   "_known_orphans_란": [

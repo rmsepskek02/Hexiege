@@ -1,5 +1,7 @@
 # document-manager 누적 지식
 
+- **Converging older list Plans after later work touched the same table (2026-10-13, VFXSFXList heal/Mushroom plans):** Re-run each old Plan's own check table, keep the list in its *current* truth (later approved rows such as Inferno burn stay; row counts follow the latest plan that foresaw them), and record every expectation-vs-reality difference in a dated top note of the old Plan instead of bending the list to stale expectations. Verify "connected" by the two-hop GUID chain prefab→EffectPreset→config asset, not by prefab existence. Handed-over per-unit figures can carry swapped labels (Tank/CannonCart) — always key them by the enum value in the asset.
+
 - **Private archive receipt boundary:** Keep source-of-truth policy in LogRules §1.10 and operational names/hashes/gates in the current archive Task. [doc-conventions.md](doc-conventions.md#normative-history-separation-and-archive-custody) distinguishes verified custody/index state from commit/main publication and immutable initial manifests.
 
 - **Delivery versus pending recovery:** A successful full-key receive/text join can pass that match's scoped delivery while a zero-pending natural recovery branch stays unexecuted/OPEN. Keep anomaly recovery and normal teardown separate; current wave Research owns the figures. Durable boundary: [doc-conventions.md](doc-conventions.md#preventive-exception-isolation-and-staged-validation-evidence).

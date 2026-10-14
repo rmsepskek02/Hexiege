@@ -193,3 +193,57 @@ A·B·C 구현을 사용자가 처음으로 직접 플레이해 보았다. 버�
 ### 8-4. 다음 단계
 
 - 수정 계획: `Plan.md` 「재작업 R2 — 1차 테스트 반영」(코드 R2-1·R2-2, 사용자 Inspector 조정 R2-3, 사용자 프리팹 재제작 R2-4).
+
+---
+
+## 9. 2차 사용자 테스트 결과 (2026-10-13 추가 — 1~8절은 당시 기록으로 보존)
+
+### 9-0. 쉬운 설명
+
+R2 수정(커밋 `a840a152`)과 사용자가 다시 만든 독 프리팹(커밋 `10a38cc0`)으로 두 번째 실기를 했다. **차지 이펙트가 시전자 사망 시 사라지는 것**과 **정령 타워 번개가 크리스털에서 시작하는 것**은 사용자가 확인했다. 그런데 독·힐 이펙트가 유닛에 비해 **너무 높고 크게** 보였다. 메인 세션이 원인을 찾았다 — 유닛 크기 표를 채우는 **측정 도구가 사람형(스킨드 메시) 유닛의 키를 약 5배 크게 재서** 표에 넣었다. 이 표가 상태 이펙트 크기와 정령 타워 번개의 "가슴 높이"를 함께 정하므로, 표가 고쳐지기 전에는 이 둘을 제대로 판정할 수 없다. 고치는 계획은 `Plan.md` 「재작업 R3 — 측정 도구 스케일 버그」.
+
+### 9-1. 근거 수준
+
+- 근거 표기는 1·8절과 같다. 사용자 관찰과 원인 진단은 메인 세션 전달값 **[전달]**, document-manager가 2026-10-13 작업 트리(`a840a152`, 측정 도구는 programmer가 동시에 수정 중이라 읽지 않음)에서 직접 다시 확인한 값은 **[직접]**.
+- 이번 절에서 쓴 git 명령은 읽기 전용(`git show --stat`)뿐이다.
+
+### 9-2. 항목별 결과
+
+| # | 대상 | 사용자 관찰 [전달] | 판정 |
+|---|---|---|---|
+| R2-1 | 차지 VFX 사망 정지 (FoxMagician·InfernoSpirit) | 기를 모으는 도중 시전자가 죽으면 차지 이펙트가 사라진다 | **PASS (사용자 확인)** |
+| R2-2 ① | 정령 타워(RuneSpire) 번개 시작점 | 번개가 타워 꼭대기 크리스털에서 시작한다 | **PASS (사용자 확인)** |
+| R2-2 ③ | 번개 끝점의 가슴 높이 조준 | — | **미판정** — 가슴 높이가 아래 9-3의 부풀려진 표 값에서 나오므로 표 수정 전에는 판정 불가 |
+| R2-4 | 독 (MushroomBomber, 사용자 재제작 프리팹 `10a38cc0`) | 프리팹 자체 모양은 맞다. 하지만 유닛에 붙으면 **너무 높고 크게** 보인다(힐과 같은 증상) | 모양 OK · **크기 미판정**(9-3 원인) |
+| R2-3 | 화상·힐 Inspector 조정 | — | **미진행** — 표 수정 전에 조정하면 잘못된 배율 위에 값을 맞추게 된다 |
+
+- [직접] 독 프리팹 `Assets/_Project/Prefabs/VFX/Units/vfx_mushroombomber_poison.prefab`: GameObject 4개(`vfx_mushroombomber_poison` 루트·`Poison_Bubbles`·`Poison_Aura`·`Toxic_Drips`), ParticleSystem 4개.
+
+### 9-3. 원인 — 측정 도구가 스킨드 메시 유닛의 크기를 약 5배 크게 잰다
+
+- [전달 + 표 값 직접] 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`(도구 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs`)이 채운 `Assets/_Project/Resources/Config/UnitEffectConfig.asset`의 `_recipientFits` 표(커밋 `10a38cc0`에 포함)를 직접 읽은 값:
+
+| 유닛 (UnitType 값) | 렌더러 경로 [전달] | height | radius |
+|---|---|---|---|
+| Pistoleer (0) | SkinnedMeshRenderer | 1.7118616 | 0.47790378 |
+| MushroomBomber (26) | SkinnedMeshRenderer | 1.9401472 | 0.78346676 |
+| Tank (6) | MeshRenderer | 0.5212989 | 0.41331026 |
+| CannonCart (7) | MeshRenderer | 0.5301163 | 0.40547904 |
+
+  - ⚠️ 전달값은 「Tank 0.53 · CannonCart 0.52」였으나 표의 실제 값은 **Tank 0.521 · CannonCart 0.530** 으로 두 이름이 서로 바뀌어 있다(UnitType 6=Tank, 7=CannonCart — `Scripts/Domain/Unit/UnitType.cs`). 두 값 모두 약 0.52~0.53 이라는 결론은 그대로다.
+- [직접] `Assets/_Project/Prefabs/Units/Human/Unit_Pistoleer_Blue.prefab`: `VisualRoot`(scale 1) 아래 `Unit_Pistoleer_Blue_Mesh`의 localScale = **(0.2, 0.2, 0.2)**, 그 아래 `char1`에 SkinnedMeshRenderer(scale 1). → 실제 화면 키 ≈ 1.71 × 0.2 ≈ **0.34**. 표의 1.71은 중간 Transform의 0.2 배율이 빠진 값으로 보인다(측정 코드 자체는 읽지 않았다 — 진단은 [전달]).
+- 영향 [직접 — 코드 확인]:
+  - 상태 이펙트(화상·독·힐) 크기 = 원본 × preset 배율 × **맞춤 배율(= 키 ÷ 기준 키 1.0)** (Plan 4-C-2 3번). Pistoleer라면 약 0.34배여야 할 것이 **1.71배**가 된다.
+  - 정령 타워 번개 끝점 = 발밑 + **키 × 0.6**(`UnitEffectConfig.GetChestHeight` = 균등 배율 × 기준 키 1.0 × `ChestHeightRatio` 기본 0.6, 표에 없으면 0.6m). Pistoleer라면 약 0.21m여야 할 것이 **약 1.03m**가 된다.
+  - MeshRenderer 경로(Tank·CannonCart)는 값이 작아 이 부풀림의 영향이 없는 것으로 보인다(전달 진단과 표 값이 일치).
+- 따라서 사용자가 본 "독·힐이 너무 높고 크다"는 R2-4 프리팹이나 R2-3 값의 문제가 아니라 **표 값의 문제**로 설명된다. 1차 테스트(8-2 T-1·T-2)의 화상·힐 크기 관찰도 같은 표 위에서 나온 것이므로 R3 이후 다시 본다.
+
+### 9-4. 아직 테스트하지 못한 것 (R3 수정·표 재측정 뒤로 미룸)
+
+1. 정령 타워 번개의 가슴 높이 조준(R2-2 ②·③).
+2. 화상·힐 위치·크기 조정(R2-3).
+3. 독이 유닛 위에서 알맞은 크기로 보이는지(R2-4의 크기 부분).
+
+### 9-5. 다음 단계
+
+- `Plan.md` 「재작업 R3 — 측정 도구 스케일 버그」. 사용자 승인(2026-10-13): "측정 도구를 수정해야 나머지가 정상적으로 테스트될거같아 / 문서 정리도 같이 진행해".

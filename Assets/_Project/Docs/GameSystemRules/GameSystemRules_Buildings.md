@@ -182,15 +182,28 @@ Spirit(RuneSpire), Transcendence(VineTower)는 이 규칙을 따르지 않는다
 
 **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
 
-현재 Human 공격 prefab identity는 Tank와 CannonCart의 승인 참조와 같은 실제 Tank root다. Type+Race 선택·Spirit RuneSpire·Transcendence 미지정/no fallback·Human 별도 tower preset을 유지한다. 아래 “Tank 기존 preset/값 불변”은 이전 결정이며 최신 승인에서는 shared preset의 prefab 참조만 변경할 수 있다. [승인 addendum](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md).
+현재 Human 공격 prefab identity는 Tank와 CannonCart의 승인 참조와 같은 실제 Tank root다. Type+Race 선택·Spirit RuneSpire·Transcendence 미지정/no fallback·Human 별도 tower preset을 유지한다. 아래 “Tank 기존 preset/값 불변”은 이전 결정이며 최신 승인에서는 shared preset의 prefab 참조만 변경할 수 있다. [승인 addendum](../_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md).
 
 > **2026-10-10 현재 source freeze 후속(Main hash 재대조 완료):** programmer44파일 snapshot의 현재 SHA256을 Main이 재확인해 Files44/Mismatches0/ChangedPaths=null(tool39f796), 보호6 baseline 모두 일치를 확인했다. 정적4 exit0(09:53:38 programmer 보고)과 기존 UnitAction/AuthoritativeAttackPresentation fixture 코드 연결까지다. Root gate 자체 변경없음·native Action/ROOT 미실행(UI activation2 timeout), build미시도·visual/runtime OPEN. capacity/mode/deadline/NaN/forced/wire 자동 assertion 범위는 미완이다. HP·actual DoT3초·주기·범위·Stats 권위는 유지하며 기존 C3 FAIL64 fix/PASS로 확대하지 않는다. [현재 기술·tuning·검증 경계](../Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계). 아래 승인/구현 중·인계 대기는 당시 이력이다.
-**2026-10-10 사용자 확정 / 구현 승인·진행 중 / native·build·runtime 대기:** 종족별 타워는 단일 `BuildingType.AutoTower`를 유지하고 발사 프리셋 선택 키는 **BuildingType + Race**로 한다. Human CannonTower는 기존 Tank VFX 프리팹을 **별도 타워 preset**으로 재사용하며 Tank의 기존 preset/값은 변경하지 않는다. Spirit RuneSpire는 제작된 RuneSpire attack VFX를 연결한다. Transcendence VineTower VFX는 미지정이므로 다른 종족 프리셋으로 fallback하지 않는다. 아래 즉발 피해·서버 권위·공격 결과 식별·쿨다운·범위 계약은 불변이며 연결 승인과 실제 연결/검증 완료는 구분한다. Main 기술 Plan 검토·programmer 구현 허가 인계 완료. 확정 공격 identity·Impact 위치/시각·Race snapshot의 표현 전달을 보강하며 현재 target 재조회·tracer 도착 피해 지연은 금지한다. 새 결과·실제 inventory는 최종 인계 대기다.
+**2026-10-10 사용자 확정 / 구현 승인·진행 중 / native·build·runtime 대기:** 종족별 타워는 단일 `BuildingType.AutoTower`를 유지하고 발사 프리셋 선택 키는 **BuildingType + Race**로 한다. Human CannonTower는 기존 Tank VFX 프리팹을 **별도 타워 preset**으로 재사용하며 Tank의 기존 preset/값은 변경하지 않는다. Spirit RuneSpire는 제작된 RuneSpire attack VFX를 연결한다. Transcendence VineTower VFX는 미지정이므로 다른 종족 프리셋으로 fallback하지 않는다. 아래 즉발 피해·서버 권위·공격 결과 식별·쿨다운·범위 계약은 불변이며 연결 승인과 실제 연결/검증 완료는 구분한다. Main 기술 Plan 검토·programmer 구현 허가 인계 완료. 확정 공격 identity·Impact 위치/시각·Race snapshot의 표현 전달을 보강하며 현재 target 재조회·tracer 도착 피해 지연은 금지한다. 새 결과·실제 inventory는 최종 인계 대기다. *(2026-10-13: 「현재 target 재조회」와 원래 맞은 유닛의 화면 표현 추적의 관계는 이 규칙 끝의 2026-10-13 블록)*
 
 방어 타워는 즉발 데미지를 유지한다(히트 딜레이를 도입하지 않는다).
 서버가 공격 이벤트를 발행할 때 각 클라이언트 로컬에서 발사 VFX(`BuildingEffectConfig.attackPreset`)를 재생한다.
 맞은 유닛의 피격 표현은 서버의 동일 타워 공격 결과 ID와 Impact 시각에 연결해 즉시 재생한다. 유닛 공격자 FIFO나 Animation Event를 사용하지 않는다. 타워 공격도 중복·순서 역전 시 멱등하게 식별할 수 있는 결과 ID를 가져야 한다.
 발사 VFX에는 사운드 규칙 15(VFX+SFX 쌍)를 준수한다.
+
+**2026-10-13 추가 — Spirit(RuneSpire) 번개의 화면 표현 추적 (사용자 승인: Plan D-5 해석 a, 2026-10-13):**
+위 2026-10-10 블록의 「현재 target 재조회 금지」는 **타워가 지금 노리는 대상을 다시 찾는 것**을 금지한다. 서버가 공격 순간에 확정한 **원래 맞은 유닛**을 발사 VFX가 보이는 동안 **화면 표현으로만** 따라가는 것은 이 금지에 해당하지 않는다.
+- **적용 범위:** Race가 Spirit인 AutoTower(RuneSpire)의 발사 VFX만. Human(별도 preset)·Transcendence(미지정, fallback 없음)는 바뀌지 않는다.
+- **추적 기간:** 발사 VFX 오브젝트가 재생 중인 동안(모든 파티클이 사라져 풀로 돌아갈 때까지).
+- **누구를 따라가나:** 재생 시작 때 한 번 해석해 고정한 원래 대상 객체(화면 컴포넌트 + 그 유닛 데이터 객체)만. 매 프레임 ID로 다시 찾지 않는다. 같은 화면 컴포넌트에 다른 유닛 데이터가 들어오면(재사용) 그 대상은 이미 사라진 것으로 본다.
+- **멈춤:** 원래 대상이 죽거나, 제거·비활성화되거나, 다른 유닛으로 바뀌거나, 위치를 읽을 수 없게 되면 번개 끝은 **마지막으로 알던 지점에 고정**되고 그 재생이 끝날 때까지 **다시 추적하지 않는다**(다른 유닛으로 옮겨 가지 않는다).
+- **추적 불가로 시작할 때:** 재생 시작 때 원래 대상을 찾지 못하면 추적 없이 서버 스냅샷의 Impact 위치(공격 순간의 대상 위치)를 끝점으로 쓴다.
+- **시작점:** 타워 위치 + 발사 preset의 위치 보정. 보정은 좌우 방향으로만 돌리므로 보정의 Y 값이 그대로 위쪽 높이가 된다(현재 `EffectPreset_RuneSpire_Attack`의 Y 0.65 = 꼭대기 크리스털 높이, Inspector에서 조정).
+- **끝점 높이:** 맞은 유닛 발밑 + 가슴 높이. 가슴 높이 = 유닛 크기 표(`UnitEffectConfig` 「상태 이펙트 크기 맞춤」)에서 나온 키 × 비율(기본 0.6). 표에 그 유닛이 없으면 0.6m.
+- **조준·길이:** 시작점에서 끝점까지 높이 차를 포함한 3D 방향으로 겨누고, 번개 길이도 3D 거리로 맞춘다.
+- **바꾸지 않는 것:** 방어 타워 시스템 규칙 9의 서버 권위(타겟 선택·사거리·피해), 즉발 피해, 쿨다운·범위, 공격 결과 식별, 스냅샷·RPC. 추적 위치는 어떤 판정의 입력도 되지 않는다(`GameSystemRules_UnitCombatSynchronization.md` NET-AUTH-001).
+- **상태 (2026-10-13):** 구현됨(`Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs`). 크리스털 시작점은 사용자 실기 확인 PASS. **가슴 높이 조준은 미판정** — 크기 표를 채우는 측정 도구가 사람형 유닛의 키를 약 5배 크게 재 표 값이 부풀려져 있어, 도구 수정·재측정(재작업 R3) 뒤 다시 본다. 이동하는 원래 대상 추적 자체의 육안 수용도 그때 함께 본다. 상세: [Plan](../_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md) 2절 D-5·10절 R2-2·12절 R3.
 
 ---
 

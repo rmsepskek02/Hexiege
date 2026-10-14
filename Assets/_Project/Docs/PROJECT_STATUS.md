@@ -412,6 +412,6 @@ Presentation
 
 ## 2026-10-09 Assault bounded clock-history readiness 추가 기록
 
-이전 source 미구현/Unity 메뉴 대기는 당시 이력이며 현재는 승인4 source 구현 및 diagnostic gate 완료다. [Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)의 “Clock-history 최종 파일 인벤토리 (2026-10-09)”에 전체 source4·Temp38·문서/기준값 목록과 정확한 근거를 연결했다. Main 실제 Unity Action13:41:11→13:41:36 overall/C2/C3 PASS, Root13:44:44 PASS; errors0/warnings27. static4 errors0, Main CLR3 exit0. Main frozen4 manifest hash 및 protected Game/Login/Stats/Assault anim baseline 동일 확인; 빌드/씬 저장 없음.
+이전 source 미구현/Unity 메뉴 대기는 당시 이력이며 현재는 승인4 source 구현 및 diagnostic gate 완료다. [Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)의 “Clock-history 최종 파일 인벤토리 (2026-10-09)”에 전체 source4·Temp38·문서/기준값 목록과 정확한 근거를 연결했다. Main 실제 Unity Action13:41:11→13:41:36 overall/C2/C3 PASS, Root13:44:44 PASS; errors0/warnings27. static4 errors0, Main CLR3 exit0. Main frozen4 manifest hash 및 protected Game/Login/Stats/Assault anim baseline 동일 확인; 빌드/씬 저장 없음.
 
 실제00_10 Expired4/source-marker/PhaseClockRegression/실기기 오류/timing/pixel/성능/NGO native query count는 OPEN. 다음은 사용자 새 Development 빌드→경기 종료→로비 복귀→저장(EndSession dump); 강제 종료/종료 전 reset 시 누락 가능. 구현은 원인 분석용 numeric ring/frozen history이지 오류 해결 판정이 아니다.

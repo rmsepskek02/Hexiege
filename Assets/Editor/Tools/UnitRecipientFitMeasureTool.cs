@@ -28,6 +28,20 @@
 //   radius     = 몸통 XZ 가운데에서 가장 먼 점까지 거리
 //   footOffset = (몸통 XZ 가운데 X, 최저점 Y, 몸통 XZ 가운데 Z) — 이펙트 pivot을 "발밑 가운데"로 옮기는 보정
 //
+// 좌표계 하나로 통일 (2026-10-13 스케일 버그 수정):
+//   모든 유닛(스킨드든 차량이든)을 "프리팹 루트를 원점·무회전에 둔 상태의 실제 월드 크기"로 잰 뒤
+//   VisualRoot 기준으로 옮긴다. 런타임도 이펙트 위치를 `VisualRoot 위치 + VisualRoot 회전 × footOffset`
+//   (VfxPoolItem.TimedDamage.cs FollowTimedDamage / VfxPoolItem.cs Bloom)으로 계산하고 스케일은 곱하지 않으므로,
+//   여기서도 "회전만 되돌리고 월드 미터 그대로" 재야 같은 공간이 된다.
+//   🔴 예전 버그: 스킨드 메시는 굽기(BakeMesh) 결과를 "렌더러 자기 로컬 공간"으로 받는데, 그 위에 위치·회전만
+//   더하고 스케일을 빼먹었다. 생산 유닛은 `Unit_xxx_Mesh` 오브젝트가 0.2~0.3 배로 줄여져 있어서
+//   (뼈대 Armature 도 그 아래에 있으므로 실제 화면 크기는 0.2~0.3 배) 키·반경이 3~5배 크게 기록됐다.
+//   → 지금은 렌더러의 localToWorldMatrix(위치·회전·스케일 전부)로 옮긴다. 차량(MeshRenderer) 경로는 원래 이렇게 했다.
+//
+// 이상값 경고:
+//   측정 키가 1.2m 를 넘거나, 반경이 0.43m(헥스 타일 폭의 절반)를 넘거나, 키가 0.1m 보다 작으면 경고를 남긴다.
+//   유닛이 타일보다 크거나 손톱만 하면 거의 확실히 좌표계/스케일 회귀이므로, 표에는 쓰되 눈에 띄게 알린다.
+//
 // 안전:
 //   - 프리팹은 LoadPrefabContents 로 격리해 읽고 저장하지 않고 닫는다(프리팹 수정 0).
 //   - 쓰는 에셋은 UnitEffectConfig.asset 하나뿐이며, 실행 전에 확인 창을 띄운다.
@@ -58,8 +72,19 @@ namespace Hexiege.EditorTools
         /// <summary>Blue/Red 측정값 차이를 경고로 남기는 비율(5%).</summary>
         private const float TeamMismatchRatio = 0.05f;
 
+        // ── 이상값 경고 기준 (2026-10-13 스케일 버그 재발 감지용) ──
+        //   헥스 타일 한 칸의 폭은 약 0.87m 다. 유닛은 타일 위에 서므로 "반경 > 타일 폭의 절반" 이면 옆 칸까지
+        //   삐져나오는 크기라 측정이 잘못됐을 가능성이 높다. 키도 같은 이유로 1.2m 를 넘으면 의심한다.
+        //   반대로 0.1m 보다 작으면 스케일을 두 번 곱한 반대 방향의 회귀일 수 있다.
+        /// <summary>이 키(미터)를 넘으면 경고.</summary>
+        internal const float SuspiciousMaxHeight = 1.2f;
+        /// <summary>이 반경(미터, 헥스 타일 폭의 절반)을 넘으면 경고.</summary>
+        internal const float SuspiciousMaxRadius = 0.43f;
+        /// <summary>이 키(미터)보다 작으면 경고.</summary>
+        internal const float SuspiciousMinHeight = 0.1f;
+
         /// <summary>한 유닛 프리팹의 측정 결과.</summary>
-        private struct Measurement
+        internal struct Measurement
         {
             public bool Ok;
             public float Height, Radius;
@@ -109,6 +134,8 @@ namespace Hexiege.EditorTools
                     continue;
                 }
                 WarnIfTeamsDiffer(row.Type, blue, row.Red);
+                // 이상값이어도 표에는 쓴다(측정 자체는 성공) — 대신 경고로 눈에 띄게 남겨 회귀를 바로 알 수 있게 한다.
+                WarnIfImplausible(row.Type, blue);
                 results.Add((row.Type, blue));
             }
 
@@ -172,8 +199,11 @@ namespace Hexiege.EditorTools
 
         /// <summary>
         /// 프리팹 하나를 격리 로드해 VisualRoot 기준 몸통 크기를 잰다. 프리팹은 저장하지 않고 닫는다.
+        /// (internal: 자체 검증 RunUnitActionSelfValidation 이 같은 측정 코드를 그대로 재사용한다.)
         /// </summary>
-        private static Measurement Measure(GameObject prefab)
+        /// <param name="prefab">잴 유닛 프리팹 에셋.</param>
+        /// <returns>측정 결과(실패 시 Ok=false, Failure 에 사유).</returns>
+        internal static Measurement Measure(GameObject prefab)
         {
             var result = new Measurement();
             string path = prefab != null ? AssetDatabase.GetAssetPath(prefab) : null;
@@ -181,6 +211,11 @@ namespace Hexiege.EditorTools
             GameObject contents = PrefabUtility.LoadPrefabContents(path);
             try
             {
+                // 런타임에 유닛을 생성하는 것과 같은 조건을 만든다: 루트를 원점·무회전에 둔다.
+                //   루트 스케일은 손대지 않는다 — 런타임 Instantiate 도 프리팹 루트 스케일을 그대로 쓰기 때문이다
+                //   (현재 25종 루트 스케일은 모두 1). 이 변경은 격리 로드본에만 적용되고 저장하지 않으므로 프리팹은 그대로다.
+                //   (VisualRoot 기준으로 다시 옮기므로 결과에는 영향이 없지만, "한 기준에서 잰다"를 코드로 보장해 둔다.)
+                contents.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
                 Transform visualRoot = ResolveVisualRoot(contents);
                 var points = new List<Vector3>(4096);
                 result.Method = CollectBodyPoints(visualRoot, points, out result.RendererCount);
@@ -281,11 +316,22 @@ namespace Hexiege.EditorTools
             var baked = new Mesh { hideFlags = HideFlags.HideAndDontSave };
             try
             {
-                // useScale=true: 렌더러 Transform 의 스케일까지 반영해 굽는다 → 위치·회전만 더하면 월드 좌표.
+                // [버그 수정 2026-10-13] 굽기 결과를 "렌더러 로컬 공간"으로 받고, 렌더러의 전체 변환으로 월드에 옮긴다.
+                //
+                //   스킨드 메시는 뼈를 따라 실제 화면(월드)에 그려진 뒤, BakeMesh 가 그 결과를 렌더러 Transform 의
+                //   로컬 공간으로 되돌려 준다. useScale=true 이면 렌더러(와 부모들)의 스케일까지 "되돌린" 값,
+                //   즉 이 Transform 아래 MeshFilter 로 다시 그리면 화면과 똑같이 보이는 순수 로컬 좌표다.
+                //   그래서 월드로 보내려면 위치·회전뿐 아니라 스케일까지 포함한 localToWorldMatrix 를 곱해야 한다.
+                //
+                //   예: Pistoleer 는 Unit_Pistoleer_Blue_Mesh(스케일 0.2) 아래에 몸통 char1 과 뼈대 Armature 가 있다.
+                //       화면 키 ≈ 0.34m 인데, 예전 코드는 스케일을 빼고 옮겨서 로컬 키 1.71 을 그대로 기록했다(5배).
+                //       차량(Tank/CannonCart) 경로는 처음부터 localToWorldMatrix 를 써서 값이 정상이었다.
                 smr.BakeMesh(baked, true);
                 Vector3[] vertices = baked.vertices;
                 if (vertices.Length == 0) throw new InvalidOperationException("EmptyBake");
-                Matrix4x4 placement = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
+                // [버그 — 2026-10-13 주석 처리] 스케일(1)을 강제로 넣어 중간 부모 스케일 0.2~0.3 이 빠졌다.
+                // Matrix4x4 placement = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
+                Matrix4x4 placement = smr.transform.localToWorldMatrix;
                 foreach (Vector3 v in vertices) points.Add(placement.MultiplyPoint3x4(v));
                 return true;
             }
@@ -315,6 +361,32 @@ namespace Hexiege.EditorTools
 
         private static string Combine(string current, string next) =>
             current == "None" || current == next ? next : current.Contains(next) ? current : current + "+" + next;
+
+        /// <summary>
+        /// 측정값이 유닛으로서 말이 안 되는 크기인지 판정한다(키 &gt; 1.2m, 반경 &gt; 0.43m, 키 &lt; 0.1m).
+        /// </summary>
+        /// <param name="m">측정 결과.</param>
+        /// <param name="reason">이상하면 사유 토큰(여러 개면 '|' 로 잇는다 — LogRules: 값 안에 ", " 금지).</param>
+        /// <returns>이상값이면 true.</returns>
+        internal static bool IsImplausible(Measurement m, out string reason)
+        {
+            reason = null;
+            if (m.Height > SuspiciousMaxHeight) reason = "HeightAboveMax";
+            if (m.Height < SuspiciousMinHeight) reason = "HeightBelowMin";
+            if (m.Radius > SuspiciousMaxRadius) reason = reason == null ? "RadiusAboveHalfTile" : reason + "|RadiusAboveHalfTile";
+            return reason != null;
+        }
+
+        /// <summary>측정값이 이상하면(IsImplausible) 경고를 남긴다. 표 기록은 막지 않는다.</summary>
+        private static void WarnIfImplausible(UnitType type, Measurement m)
+        {
+            if (!IsImplausible(m, out string reason)) return;
+            GameLog.Dev.Warn("Combat", LogClass,
+                "측정한 유닛 몸 크기가 비정상 범위다 — 스케일/좌표계 회귀 의심(표에는 기록함)",
+                string.Format(CultureInfo.InvariantCulture,
+                    "Type={0}, Reason={1}, Height={2:0.###}, Radius={3:0.###}, MaxHeight={4:0.###}, MaxRadius={5:0.###}, MinHeight={6:0.###}, Method={7}",
+                    type, reason, m.Height, m.Radius, SuspiciousMaxHeight, SuspiciousMaxRadius, SuspiciousMinHeight, m.Method));
+        }
 
         /// <summary>Red 프리팹 측정값이 Blue 와 5% 넘게 다르면 경고를 남긴다(표에는 Blue 값을 쓴다).</summary>
         private static void WarnIfTeamsDiffer(UnitType type, Measurement blue, GameObject redPrefab)

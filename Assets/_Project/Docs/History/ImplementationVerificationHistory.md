@@ -98,7 +98,7 @@
 
 <a id="record-536867305e785789"></a>
 
-현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
+현행 결정·구체 계획: [기존00_19 Plan](../_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
 
 <a id="record-87211882465800d3"></a>
 
@@ -322,7 +322,7 @@
 
 <a id="record-28494d0fb86bed06"></a>
 
-상세 근거: [기존 Assault Research](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 과거 날짜별 기록 및 기존 VFX44 native/coverage OPEN은 보존한다. 다음은 Main hash 확인→별도 VFX native 실패 교정/새 gate→승인 빌드 시도 및 사용자 runtime 수용이며 전체 PASS로 닫지 않는다.
+상세 근거: [기존 Assault Research](../_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 과거 날짜별 기록 및 기존 VFX44 native/coverage OPEN은 보존한다. 다음은 Main hash 확인→별도 VFX native 실패 교정/새 gate→승인 빌드 시도 및 사용자 runtime 수용이며 전체 PASS로 닫지 않는다.
 
 <a id="record-e97e4f2d01d25b0e"></a>
 
@@ -3219,13 +3219,13 @@ Mushroom 착탄은 짧은 포자 확산 burst이며 3초 남는 독구름·지�
 
 > **2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
 
-현행 결정·구체 계획: [기존00_19 Plan](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
+현행 결정·구체 계획: [기존00_19 Plan](../_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md). 아래 날짜별 보호/선택 대기 서술은 이전 단계 이력이다.
 
 > **15:47 native blocker 원인 확정·사용자 선택 대기:** 현재 Tank production `UnitEffectConfig` type6는 `EffectPreset_Cannon_Attack`→`vfx_cannon_attack`이며 UnitView/EffectManager override 없음(Main/programmer 인계). 새 Human tower preset은 `vfx_tank_attack`이어서 actual Tank 공유 fixture와 다르다. 현재 Tank 시각 공유 versus Tank 이름의 새 asset 사용은 Main이 사용자에게 질문한 선택 대기다. 선택 전 Human 계약/Tank/Stats/소스 변경·빌드 없음. ROOT는 독립 결과 대기이며 Assault5 freeze/CLR 성공은 유지한다.
 
 > **2026-10-10 Assault canonical Tick 최신:** 승인5소스 적용·최종freeze 보고, static4 errors0/exit0 및 Replay/Dev/Release CLR exit0 수신.12:51 canonical Tick/bounds fixture PASS, actual endpoint14 Ready/50 Expired. all-retained Tick33 Ready/31 Expired는 synthetic preseed이며 추가19건의 실제 교정 증명이 아니다. 원64 pending/lifecycle 입력 부족·나머지50 원인/runtime OPEN. Main 최종 freeze check22항목 mismatch0/VFX unexpected0 확인 인계, freeze 이후 source 변경 없음. fresh Unit Action15:47:57은 Human tower 별preset의 Tank prefab 공유를 거부한 VFX connection fixture로 FAIL; Assault CLR 성공과 별도다. fresh ROOT15:52:38 실제 PASS(Main UI/Editor.log 확인), Unit Action FAIL·사용자 선택 대기·빌드 미시도. VFX44는 Map＋기존fixture host2변경/다른42불변의 programmer 보고이며 보호6＋Assault clip 불변.
 
-상세 근거: [기존 Assault Research](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 과거 날짜별 기록 및 기존 VFX44 native/coverage OPEN은 보존한다. 다음은 Main hash 확인→별도 VFX native 실패 교정/새 gate→승인 빌드 시도 및 사용자 runtime 수용이며 전체 PASS로 닫지 않는다.
+상세 근거: [기존 Assault Research](../_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md). 과거 날짜별 기록 및 기존 VFX44 native/coverage OPEN은 보존한다. 다음은 Main hash 확인→별도 VFX native 실패 교정/새 gate→승인 빌드 시도 및 사용자 runtime 수용이며 전체 PASS로 닫지 않는다.
 
 
 > **2026-10-10 현재 freeze / 정적 보고까지·전체 OPEN:** programmer44파일 snapshot(추가24/수정20)과 09:53:38 Runtime/Editor/Development/Release static4 exit0 보고 수신. Main SourceHash44 재확인 완료(Files44/Mismatches0/ChangedPaths=null, tool39f796), 보호6파일은 Bloom clip baseline 포함 모두 일치 인계다. UnitAction·AuthoritativeAttackPresentation 기존 fixture 확장은 연결됐으나 실행 전이고 Root 기존 gate는 불변이다. capacity·clock deadline/NaN·mode matrix·forced teardown·wire assertion 범위는 미완이다. native Action/ROOT 미실행(UI activation2 timeout)·빌드 미시도·실기/visual 미확인. writer-owned remaining-flight tracer와 immutable due impact, local Legacy HP marker·서버 즉시 타워 피해·actual DoT3초·Stats/cycle/range를 유지했다는 구현 보고와 실제 수용은 별개다. 최대 약0.8초 초기 정상 visual tail 설정은 실제 pixel 종료시간 PASS가 아니다. 기존 미인계/수정 중 단계와 다른 작업 PASS는 dated history다. [현재 구현·coverage·Task manifest](../Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계).

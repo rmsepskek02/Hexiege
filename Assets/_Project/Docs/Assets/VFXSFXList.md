@@ -3,7 +3,7 @@
 이 문서는 VFX/SFX의 제작·연결·수용 상태 목록이다. 제작 방법은 [VFXSFXGuide](VFXSFXGuide.md), 유닛별 구조 이행과 개별 테스트 수용은 [전투 감사표](UnitCombatAssetMatrix.md)를 기준으로 한다.
 
 - HumanTower는 별도 preset의 prefab 참조를 actual Assault VFX로 교체했다. Tank/CannonCart는 actual Tank를 유지한다. Human-only 변경의 정적 검증과 이전 세대 native PASS는 구분하며 새 native/실기 시각 수용은 미확인이다.
-- Mushroom/Bloom 새 VFX는 연결된 상태로 시각 후속이 남는다. Inferno burn fitting·Spirit 원래 대상 endpoint·Tank/Cannon 간헐 diagnostics는 보류다. 최신 Inferno 타격 수치는 [StatsReference](../StatsReference.md)를 따른다.
+- Mushroom/Bloom/Inferno burn 새 VFX와 RuneSpire 타워 번개는 연결된 상태로 시각 후속이 남는다. 상태 이펙트(화상·독·힐)의 대상 유닛 크기 맞춤, RuneSpire 번개의 원래 맞은 유닛 끝점 추적·크리스털→가슴 조준, 차지 VFX의 시전자 사망 정지는 2026-10-13 구현됐다([Plan](../_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md)). 차지 정지·크리스털 시작점은 사용자 확인 PASS이고, 크기 표를 채우는 측정 도구의 스케일 버그(재작업 R3) 수정·재측정 전이라 **상태 이펙트 크기와 번개 가슴 높이의 시각 수용은 미판정**이다. Tank/Cannon 간헐 diagnostics는 보류다. 최신 Inferno 타격 수치는 [StatsReference](../StatsReference.md)를 따른다. *(2026-10-13 갱신: 종전 「Inferno burn fitting·Spirit 원래 대상 endpoint … 보류」는 위 구현으로 해소)*
 
 날짜별 인계와 이전 계약 원문: [상세 이력](../History/ImplementationVerificationHistory.md#vfx-list-handoff).
 
@@ -22,7 +22,7 @@
 ### 1. 제작 및 수용 상태
 
 > 프리팹 실물은 존재한다. **제작됨 / 게임 연결됨 / 자동 검증 / 실기·visual 수용**은 별도 상태이며, 제작 완료를 게임 전체 PASS로 취급하지 않는다. 아래 목록의 행별 상태를 따른다.
-> **2026-10-09 최신:** Bloom recipient HoT VFX는 코드·설정 연결과 native self-validation 후 Match5638580898903259950의 실제 양 peer playback/종료 로그를 확보했다. Publish/Receive 차이는 같은 frame revision 전환, Client Play 차이는 수신 후 LocalDeath 취소로 구분됐다. 강제 cleanup을 자연 종료로 확대하지 않으며 Client C3 failures64 FAIL·전체/visual 수용 OPEN을 유지한다. 신규 Mushroom3·Inferno burn·RuneSpire attack은 실물 제작됨·GUID 참조 미검출·게임 미연결로 구분한다. 이전 시각별 인계는 아래 이력이며 최신은 이 요약과 「Bloom HoT 최신 관측 근거」가 우선한다.
+> **2026-10-09 최신:** Bloom recipient HoT VFX는 코드·설정 연결과 native self-validation 후 Match5638580898903259950의 실제 양 peer playback/종료 로그를 확보했다. Publish/Receive 차이는 같은 frame revision 전환, Client Play 차이는 수신 후 LocalDeath 취소로 구분됐다. 강제 cleanup을 자연 종료로 확대하지 않으며 Client C3 failures64 FAIL·전체/visual 수용 OPEN을 유지한다. 신규 Mushroom3·Inferno burn·RuneSpire attack은 **2026-10-13 실측으로 모두 preset·config에 연결돼 있다**(아래 「신규 프리팹 연결 실측」의 2026-10-13 갱신. 종전 「GUID 참조 미검출·게임 미연결」은 2026-10-09 시점 값). 이전 시각별 인계는 아래 이력이며 최신은 이 요약과 「Bloom HoT 최신 관측 근거」가 우선한다.
 
 ---
 
@@ -30,35 +30,39 @@
 
 #### 유닛 공격 이펙트
 
+> **2026-10-14 실측 연결 상태(프리팹 → 프리셋 → `UnitEffectConfig` 2단계 GUID 참조로 확인):** 공격 VFX가 실제로 연결된 유닛은 Pistoleer·Assault·Sniper(셋 다 `vfx_pistoleer_attack`), Tank·CannonCart(`vfx_tank_attack`), InfernoSpirit·FoxMagician(각 `_charge`), QuakeSpirit·StreamSpirit·TorrentSpirit, MushroomBomber(tracer·impact)뿐이다. 나머지 행(LittleKnight·SpearMan·BattleAxe·EmberSpirit·FlameSpirit·DustSpirit·BoulderSpirit·TideSpirit·BearGuard·LionKnight·RhinoBreaker·EagleArcher·RabbitTrickster)은 그 파일명의 프리팹이 없고 attackPreset도 비어 있는 **제작 예정** 행이다. 미사용 프리팹: `vfx_cannon_attack.prefab`(참조 0건). 연결은 시각 수용과 별개다.
+
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
-| Human | Pistoleer | `vfx_pistoleer_attack.prefab` | 권총 발사 |
-| Human | Assault | `vfx_assault_attack.prefab` | 돌격소총 연사 |
-| Human | Sniper | `vfx_sniper_attack.prefab` | 저격 발사 |
+| Human | Pistoleer | `vfx_pistoleer_attack.prefab` | 권총 발사. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_Pistoleer_Attack` → `UnitEffectConfig` attackPreset. 같은 프리팹을 Assault·Sniper·Human 타워도 쓴다)* |
+| Human | Assault | `vfx_assault_attack.prefab` | 돌격소총 연사. *(2026-10-14 실측: 이 이름의 프리팹은 없다. 실제 연결은 Pistoleer와 공유하는 `vfx_pistoleer_attack.prefab` — `EffectPreset_Pistoleer_Attack` → `UnitEffectConfig` attackPreset)* |
+| Human | Sniper | `vfx_sniper_attack.prefab` | 저격 발사. *(2026-10-14 실측: 이 이름의 프리팹은 없다. 실제 연결은 Pistoleer와 공유하는 `vfx_pistoleer_attack.prefab` — `EffectPreset_Pistoleer_Attack` → `UnitEffectConfig` attackPreset)* |
 | Human | LittleKnight | `vfx_littleknight_attack.prefab` | 검 베기 |
 | Human | SpearMan | `vfx_spearman_attack.prefab` | 창 찌르기 |
 | Human | BattleAxe | `vfx_battleaxe_attack.prefab` | 도끼 내려치기 |
-| Human | Tank | `vfx_tank_attack.prefab` | shared Cannon preset 실제 prefab 참조 적용·Main 검토 완료; UnitAction16:42:39 전 경계 PASS·ROOT16:43:22 PASS·errors0/warnings30; 이전 fixture RED 이력 보존, build16:43:57 1회 시작 관찰·완료/visual OPEN |
-| Human | CannonCart | `vfx_tank_attack.prefab` | Tank와 실제 prefab 공유 유지; HumanTower 최신 승인 참조는 별도 Assault 교체 예정. 기존16:42 Action·16:43 ROOT PASS는 당시 이력; 간헐 효과 누락 원인·visual OPEN/diagnostics 보류. 기존 `vfx_cannoncart_attack.prefab` 제작/존재 이력 보존·현재 미선택 |
+| Human | Tank | `vfx_tank_attack.prefab` | shared Cannon preset 실제 prefab 참조 적용·Main 검토 완료; UnitAction16:42:39 전 경계 PASS·ROOT16:43:22 PASS·errors0/warnings30; 이전 fixture RED 이력 보존, build16:43:57 1회 시작 관찰·완료/visual OPEN *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_Cannon_Attack` → `UnitEffectConfig` Tank attackPreset. 같은 preset을 CannonCart도 쓴다)* |
+| Human | CannonCart | `vfx_tank_attack.prefab` | Tank와 실제 prefab 공유 유지; HumanTower 최신 승인 참조는 별도 Assault 교체 예정. 기존16:42 Action·16:43 ROOT PASS는 당시 이력; 간헐 효과 누락 원인·visual OPEN/diagnostics 보류. 기존 `vfx_cannoncart_attack.prefab` 제작/존재 이력 보존·현재 미선택 *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
 | Spirit | EmberSpirit | `vfx_emberspirit_attack.prefab` | 불 오브 발사 |
 | Spirit | FlameSpirit | `vfx_flamespirit_attack.prefab` | 화염 방출 |
-| Spirit | InfernoSpirit | `vfx_infernospirit_attack.prefab` | 인페르노 폭발 |
+| Spirit | InfernoSpirit | `vfx_infernospirit_attack.prefab` | 인페르노 폭발. *(2026-10-13 실측: 실제 연결된 공격 VFX는 이 이름이 아니라 `vfx_infernospirit_charge.prefab`(차지, `EffectPreset_InfernoSpirit_Attack` → `UnitEffectConfig` attackPreset). 이 preset은 「Stop When Caster Dies」가 켜져 시전자 사망·제거 시 즉시 정지 — 사용자 확인 PASS 2026-10-13. 화상 상태 이펙트는 아래 「유닛 특수 효과 이펙트」)* |
 | Spirit | DustSpirit | `vfx_dustspirit_attack.prefab` | 흙먼지 공격 |
 | Spirit | BoulderSpirit | `vfx_boulderspirit_attack.prefab` | 바위 투척 |
-| Spirit | QuakeSpirit | `vfx_quakespirit_attack.prefab` | 지진 광역 |
+| Spirit | QuakeSpirit | `vfx_quakespirit_attack.prefab` | 지진 광역. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_QuakeSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
 | Spirit | TideSpirit | `vfx_tidespirit_attack.prefab` | 물 튀김 |
-| Spirit | StreamSpirit | `vfx_streamspirit_attack.prefab` | 물줄기 |
-| Spirit | TorrentSpirit | `vfx_torrentspirit_attack.prefab` | 급류 |
-| Transcendence | FoxMagician | `vfx_foxmagician_attack.prefab` | 마법 섬광 |
+| Spirit | StreamSpirit | `vfx_streamspirit_attack.prefab` | 물줄기. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_StreamSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
+| Spirit | TorrentSpirit | `vfx_torrentspirit_attack.prefab` | 급류. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_TorrentSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
+| Transcendence | FoxMagician | `vfx_foxmagician_attack.prefab` | 마법 섬광. *(2026-10-13 실측: 실제 연결된 공격 VFX는 이 이름이 아니라 `vfx_foxmagician_charge.prefab`(차지, `EffectPreset_FoxMagician_Attack` → `UnitEffectConfig` attackPreset). 이 preset은 「Stop When Caster Dies」가 켜져 시전자 사망·제거 시 즉시 정지 — 사용자 확인 PASS 2026-10-13)* |
 | Transcendence | BearGuard | `vfx_bearguard_attack.prefab` | 강타 |
 | Transcendence | LionKnight | `vfx_lionknight_attack.prefab` | 발톱 베기 |
 | Transcendence | RhinoBreaker | `vfx_rhinobreaker_attack.prefab` | 돌진 충격파 |
 | Transcendence | EagleArcher | `vfx_eaglearcher_attack.prefab` | 화살 발사 |
 | Transcendence | RabbitTrickster | `vfx_rabbittrickster_attack.prefab` | 단검 베기 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_tracer.prefab` | **프리팹 제작 확인(10-09) · 연결 source/config freeze·Main hash 일치(10-10)** — 비행 동안 루프 재생하는 포자 폭탄. 실제 발사·착탄 연동 및 실기 수용 미검증 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_impact.prefab` | **프리팹 제작 실물 확인(2026-10-09) · 10-10 교정/연결 source freeze·Main hash 일치** — 짧은 포자 확산 burst/fade·StopAction None 계약. 과거 독구름 표현은 superseded; 3초 지면 damage zone 없음. actual DoT 3초 유지. 최종 연결/native/실기 수용 대기 |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_tracer.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Tracer` → `UnitEffectConfig` tracerPreset)** — 비행 동안 루프 재생하는 포자 폭탄. 서버가 확정한 공격 표현 스냅샷이 남은 비행 트레이서와 착탄을 함께 소유한다(10-10 연결). 트레이서 단독의 시각 수용은 별도 확인 기록 없음 |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_impact.prefab` | **프리팹 제작 실물 확인(2026-10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Impact` → `UnitEffectConfig` impactPreset) · 사용자 시각 승인(2026-10-13 1차 실기, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 8-2 T-3)** — 짧은 포자 확산 burst/fade·StopAction None 계약. 과거 독구름 표현은 superseded; 3초 지면 damage zone 없음. actual DoT 3초 유지 |
 
 #### 유닛 사망 이펙트
+
+> **2026-10-14 실측:** 아래 유닛별 파일은 아직 없다. 현재 25종 모두 공용 `EffectPreset_Unit_Death_Common` → `vfx_unit_death.prefab`(`UnitEffectConfig` deathPreset)을 쓴다.
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
@@ -69,7 +73,7 @@
 | Human | SpearMan | `vfx_spearman_death.prefab` | |
 | Human | BattleAxe | `vfx_battleaxe_death.prefab` | |
 | Human | Tank | `vfx_tank_death.prefab` | |
-| Human | CannonCart | `vfx_cannoncart_death.prefab` | |
+| Human | CannonCart | `vfx_cannoncart_death.prefab` | *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
 | Spirit | EmberSpirit | `vfx_emberspirit_death.prefab` | |
 | Spirit | FlameSpirit | `vfx_flamespirit_death.prefab` | |
 | Spirit | InfernoSpirit | `vfx_infernospirit_death.prefab` | |
@@ -93,12 +97,16 @@
 > BloomFairy 치료는 아군 1명에게 거는 **지속 회복(HoT)**이다 — 규칙: [GameSystemRules_Units.md](../GameSystemRules/GameSystemRules_Units.md) **규칙 34**.
 > 공격 순간 1회 재생되는 「유닛 공격 이펙트」와 달리 **치료받는 아군에 붙어 회복이 이어지는 동안 루프 재생**되므로 이 절에 따로 둔다.
 > 꽃요정의 `attackPreset` 칸에 연결하지 않는다 — 그 칸은 치료하는 꽃요정 자신의 위치에서 1회 재생한다.
+> MushroomBomber 독 상태 이펙트는 착탄 반경 안에서 **지속 피해**(DoT)를 받는 **적 유닛 각각에 붙어** 피해가 이어지는 동안 루프 재생된다 — 규칙: `GameSystemRules_Units.md` 규칙 34 · 규칙 40. 착탄 지점의 폭발·독구름(1회 재생)은 「유닛 공격 이펙트」 표에 있다.
+> ⚠️ 버섯폭격기의 `attackPreset`·`hitPreset` 칸에 연결하지 않는다 — `hitPreset` 은 **맞은 유닛의 종류**로 고르는 칸이라 버섯폭격기가 **맞았을 때** 재생된다.
+> InfernoSpirit 화상 상태 이펙트도 같은 부류다 — 단일 대상 on-hit DoT를 받는 적 유닛에 붙어 피해가 이어지는 동안 루프 재생된다(규칙: `GameSystemRules_Units.md` 규칙 34 · 규칙 41). 화상·독은 `UnitEffectConfig`의 `timedDamagePreset`, 힐은 `healPreset` 칸에 연결돼 있다(2026-10-13 실측).
+> **2026-10-13 대상 크기 맞춤:** 세 이펙트는 붙는 유닛의 크기 표(`UnitEffectConfig` 「상태 이펙트 크기 맞춤」, 에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움)에서 정한 균등 배율로 크기가 바뀐다. 현재 표 값은 측정 도구 스케일 버그로 사람형 유닛에서 약 5배 커서 **재작업 R3 수정·재측정 전에는 크기 시각 수용을 판정하지 않는다**([Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 9절).
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
-| Spirit | InfernoSpirit | `vfx_infernospirit_burn.prefab` | **프리팹 제작 확인(10-09) · 연결 source/config freeze·Main hash 일치(10-10)** — burn 루프 표현. 기존 attack VFX와 별개이며 DoT 부여·refresh·종료 연동 및 실기 수용 미검증 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_poison.prefab` | **프리팹 제작 확인(10-09) · 연결 source/config freeze·Main hash 일치(10-10)** — DoT 대상 적 유닛을 따라가는 루프 표현. 부여·refresh·종료 신호 및 same-owner refresh noRestart·overwrite 종료교체·drain/lease 연결 검증은 대기; 건물 DoT를 신설하지 않음 |
-| Transcendence | BloomFairy | `vfx_bloomfairy_heal.prefab` | **프리팹·연동코드/설정 구현됨 · native Action/Root self-validation PASS · 실제 양 peer 로그 확보 / 전체·visual 수용 OPEN** — recipient all5PS loop·동일 HoT refresh no restart·실제 종료 StopEmitting/natural drain/lease 연결. Client NotStarted는 수신 후 LocalDeath 취소로 확인(미수신·MissingAsset 아님). 강제 cleanup은 자연 종료로 확대하지 않으며 별도 Client C3 failures64 FAIL 원인 분석 중. 빌드 시도1의 JDK preparation 관찰은 완료·성공·설치 확인이 아님 |
+| Spirit | InfernoSpirit | `vfx_infernospirit_burn.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_InfernoSpirit_Burn` → `UnitEffectConfig` timedDamagePreset) · 프리팹 모양 사용자 승인 · 위치·크기 조정 필요(1차 실기 「더 아래·조금 더 작게」) / R3 재측정 뒤 재확인** — burn 루프 표현. PS 2개(루트·`Flame_Haze`). 기존 attack(차지) VFX와 별개 |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_poison.prefab` | **프리팹 사용자 재제작(커밋 `10a38cc0`, PS 4개) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Poison` → `UnitEffectConfig` timedDamagePreset) · 모양 OK(2차 실기) / 유닛 위 크기·높이 과대 — R3 재측정 뒤 재확인** — "이 유닛이 중독됐다"를 보여 주는, 유닛 중심에 모인 루프 표시(1차 실기의 「주변 칸으로 퍼짐」은 재제작으로 대체). DoT 만료·대상 사망 시 방출 정지(남은 입자는 자연 소멸), 재부여 시 끊지 않고 유지. 건물에는 붙지 않는다 |
+| Transcendence | BloomFairy | `vfx_bloomfairy_heal.prefab` | **프리팹·연동코드/설정 구현됨 · native Action/Root self-validation PASS · 실제 양 peer 로그 확보 / 전체·visual 수용 OPEN** — recipient 전 PS loop·동일 HoT refresh no restart·실제 종료 StopEmitting/natural drain/lease 연결. *(2026-10-13 갱신: 프리팹은 사용자 결정으로 `Bloom_Ring`을 빼 **PS 4개**이며, 코드의 「정확히 5개」 검사는 「1개 이상 + 시스템별 계약」으로 완화됐다(커밋 `d3f9abb1`). 종전 「all5PS」 표기는 옛 프리팹 기준. 1차 실기 「크기는 괜찮지만 너무 높이 올라간다」 → R2-3 조정·R3 재측정 대기)* Client NotStarted는 수신 후 LocalDeath 취소로 확인(미수신·MissingAsset 아님). 강제 cleanup은 자연 종료로 확대하지 않으며 별도 Client C3 failures64 FAIL 원인 분석 중. 빌드 시도1의 JDK preparation 관찰은 완료·성공·설치 확인이 아님 |
 
 #### Bloom HoT 최신 관측 근거
 
@@ -138,6 +146,16 @@ Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 c
 | Inferno burn | `32b8d45a8ebc4984485a467f6b7cbda3` |
 | RuneSpire attack | `a1406d4f5b9f0544cab305479195055f` |
 
+> **[2026-10-13 갱신 — 위 2026-10-09 실측은 원문 유지]** 같은 방법(`.meta` GUID를 `Assets` 안 `.asset/.unity/.prefab/.cs`에서 검색)으로 다시 재면 다섯 GUID가 모두 각 preset에서 참조되고, 그 preset들은 다시 설정 자산에서 참조된다 — 즉 **현재는 모두 게임 연결 상태**다. native 재생·시각 수용 판정은 각 행 비고를 따른다.
+>
+> | 프리팹 | 참조하는 preset | preset을 참조하는 설정 칸 |
+> |---|---|---|
+> | Mushroom tracer | `EffectPreset_MushroomBomber_Tracer` | `UnitEffectConfig` MushroomBomber tracerPreset |
+> | Mushroom impact | `EffectPreset_MushroomBomber_Impact` | `UnitEffectConfig` MushroomBomber impactPreset |
+> | Mushroom poison | `EffectPreset_MushroomBomber_Poison` | `UnitEffectConfig` MushroomBomber timedDamagePreset |
+> | Inferno burn | `EffectPreset_InfernoSpirit_Burn` | `UnitEffectConfig` InfernoSpirit timedDamagePreset |
+> | RuneSpire attack | `EffectPreset_RuneSpire_Attack` | `BuildingEffectConfig` AutoTower 공격 목록의 Spirit(race 1) 행 |
+
 #### Bloom 자동 검증·빌드·초기 FAIL 이력
 
 아래 시각별 기록은 각 시점의 이력이며 최신 판정은 위 관측 근거를 따른다. 기존 Research/Plan은 원문 보존·갱신하지 않는다.
@@ -162,7 +180,7 @@ Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 c
 | 종족 | 건물명 | 파일명 | 비고 |
 |------|--------|--------|------|
 | Human | CannonTower (AutoTower + Human) | actual Assault production vfx_pistoleer_attack 재사용 | Human 별도 preset _vfxPrefab ONLY 적용·Main2파일 검토 완료. GUID badc7c96fdc06564fb9f9af71d1ddf68/root5594113295059828660. Editor static exit0/errors0/warnings0, 새 native/build/visual 미검증. Tank/Cannon=Tank 유지·SFX/offset/다른 값 불변; 이전 Tank 계약/native는 이력 |
-| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | **프리팹 제작 확인(10-09) · 연결 source/config freeze·Main hash 일치(10-10)** — 타워 공격 표현. BuildingEffectConfig 연결·실제 재생·SFX 대응 및 실기 수용 미검증; 즉발 서버 피해 정책은 불변 |
+| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_RuneSpire_Attack` → `BuildingEffectConfig` AutoTower Spirit 행) · 크리스털 시작점 사용자 확인 PASS(2026-10-13 2차 실기) / 가슴 높이 조준은 R3 재측정 뒤 판정** — 타워 공격 번개. 2026-10-13부터 번개가 보이는 동안 **원래 맞은 유닛만** 화면 표현으로 따라가고(사망·제거·교체 시 마지막 지점에 고정, 다른 유닛으로 옮겨 가지 않음), 시작점 = 타워 + preset 위치 보정(현재 Y 0.65 = 크리스털 높이), 끝점 = 맞은 유닛 발밑 + 가슴 높이(크기 표의 키 × 0.6, 표에 없으면 0.6m), 조준·길이는 3D. 규칙: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12의 2026-10-13 블록. 즉발 서버 피해·타겟 선택 불변. SFX 미제작 |
 | Transcendence | VineTower (AutoTower + Transcendence) | 미지정 | 타 종족 fallback 금지. VFX 미지정이 기존 서버 피해를 차단·변경하지 않음 |
 
 #### 건물 파괴 이펙트
@@ -327,7 +345,7 @@ Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 c
 | Human | SpearMan | `sfx_spearman_attack.wav` | 창 찌르는 소리 |
 | Human | BattleAxe | `sfx_battleaxe_attack.wav` | 도끼 내려치는 소리 |
 | Human | Tank | `sfx_tank_attack.wav` | 포탄 발사음 |
-| Human | CannonCart | `sfx_cannoncart_attack.wav` | 범위 포격음 |
+| Human | CannonCart | `sfx_cannoncart_attack.wav` | 범위 포격음 *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
 | Spirit | EmberSpirit | `sfx_emberspirit_attack.wav` | 불 마법음 |
 | Spirit | FlameSpirit | `sfx_flamespirit_attack.wav` | 화염 방출음 |
 | Spirit | InfernoSpirit | `sfx_infernospirit_attack.wav` | 인페르노 폭발음 |
@@ -356,7 +374,7 @@ Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 c
 | Human | SpearMan | `sfx_spearman_death.wav` | |
 | Human | BattleAxe | `sfx_battleaxe_death.wav` | |
 | Human | Tank | `sfx_tank_death.wav` | |
-| Human | CannonCart | `sfx_cannoncart_death.wav` | |
+| Human | CannonCart | `sfx_cannoncart_death.wav` | *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
 | Spirit | EmberSpirit | `sfx_emberspirit_death.wav` | |
 | Spirit | FlameSpirit | `sfx_flamespirit_death.wav` | |
 | Spirit | InfernoSpirit | `sfx_infernospirit_death.wav` | |
