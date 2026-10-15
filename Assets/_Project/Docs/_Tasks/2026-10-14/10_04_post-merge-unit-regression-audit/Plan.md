@@ -2,13 +2,13 @@
 
 # Plan — SOLO 추격 진행 및 타격 타이밍 교정
 
-## 사용자 승인 main 반영 계획 — Main 진행 중
+## 사용자 승인 main 반영 — 병합·원격 push 완료
 
-기존 교정 focused PASS/CLOSED를 유지한 채 사용자 승인 순서대로 **기존 Task 병합 기록→현재20변경 커밋→최신 main fetch→main 전환·merge→원격 main push**를 Main이 수행한다. 원시 테스트 로그는 제외한다.20변경은 승인 인계 시점의 전달값이며 최종 변경·제외 목록은 Main 결과 영수증으로 확인한다. 문서 담당은 Git·충돌 조율·코드 수정·새 Task 작성을 하지 않는다.
+Main 실제 결과 인계에 따라 기존 교정 focused PASS/CLOSED를 유지한 채 feature20파일 commit `dbc48a8c`→main `88f60e38` fast-forward→no-ff merge `21897ddc`→원격 main push(`88f60e38..21897ddc`)를 완료했다. 원시 로그 tracked/staged0·로컬 untracked 로그/meta 보존을 확인했다는 Main 전달 근거이며 문서 담당의 Git 재확인이 아니다. 문서 담당은 Git·충돌 조율·코드 수정·새 Task 작성을 하지 않는다.
 
-이 계획 승인은 실행 성공이나 원격 반영 완료가 아니다. Main의 실제 단계별 결과·최종 commit/원격 상태·로그 제외·검증 경계를 받은 뒤 [Research의 동일 병합 기록](Research.md#main-merge-publication)에 완료 영수증을 반영한다. 병합·게시를 새로운 native/gameplay 수용 또는 전체 동등성 PASS로 확대하지 않는다.
+상세 충돌 해결·보호 비교·정적 검사·checker·로그 제외·잠금 정리는 [Research의 완료 영수증](Research.md#main-merge-publication) 한 곳에 기록했다. native self-validation·build 신규 실행은 없고 병합·게시를 새 gameplay 수용 또는 전체 동등성 PASS로 확대하지 않는다. 이번 Research·Plan 영수증 수정 자체의 추가 commit·push는 Main 후속 예정으로, 기존 push 완료와 구분한다.
 
-**Main 사전 확인 수령:** fetch 성공·ref 변경 없음, 공통 기반에서 feature 보존/main VFX 각1commit 분기이며 merge는 미실행이다. main 측 C# 무변경과 VFX·prefab·meta 범위, Docs meta add/add 예상 및20 dirty files의 로그/meta 제외 경계는 Research 한 곳에 기록했다. 문서 반영 완료 후 Main이 명시적 파일 stage·commit→main fast-forward origin/main→feature merge를 진행한다. 예상 충돌을 이미 발생·해결한 것으로 기록하지 않으며 push 완료는 별도 receipt 대기다.
+**사전 계획 이력의 후속:** 당시 fetch·분기 확인과 예상 meta 충돌은 Research에 원문을 보존했다. 이후 실제11충돌 main GUID 보존 해결·보호 diff0·병합 tree 정적 errors0·checker23 tests OK를 수령했다. 문서 참조 기존6오류와 meta 빈 필드 whitespace는 한계로 유지하며 전체 무오류로 바꾸지 않는다. 추가 문서 검사·Git은 Main 담당이다.
 
 ## 2026-10-15 공통 이동 복귀 — SOLO focused PASS/CLOSED
 

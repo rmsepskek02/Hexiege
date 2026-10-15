@@ -4,19 +4,32 @@
 
 <a id="main-merge-publication"></a>
 
-## 사용자 승인 Git 반영 — Main 진행 중 / 결과 영수증 대기
+## 사용자 승인 Git 반영 — main 병합·원격 push 완료 / 문서 영수증 게시 별도
 
 사용자가 기존 Task에 병합 결과를 기록하고 현재20변경을 커밋한 뒤 최신 main fetch→main 전환·merge→원격 main push를 진행하도록 명시 승인했다.20변경은 승인 인계 시점의 전달값이며 문서 담당이 Git으로 재집계하거나 고정 staging manifest로 확정한 수가 아니다. 원시 테스트 로그는 제외한다. Main이 Git 조작·충돌 조율을 담당하며 문서 담당은 Git·코드 수정·새 Task 생성을 하지 않는다.
 
-현재 Main의 fetch 성공·읽기 확인 결과를 수령했으며 merge는 아직 실행하지 않았다. commit/전환/merge/push 완료 영수증은 대기다. 최종 commit·병합 상태·원격 반영·로그 제외와 검증 범위는 Main 실제 결과 수령 후 이 절에 기록한다. 게시·병합 성공을 추가 native 실행·새 gameplay 검증·전25종/멀티/global PASS로 해석하지 않는다. 기존 SOLO 공통 복귀 focused PASS/CLOSED는 유지한다.
+Main의 실제 commit·병합·원격 push 완료 영수증을 수령했다. 아래 실행값은 Main 전달 근거이며 문서 담당은 Git 재실행·독립 측정을 하지 않았다. 기존 SOLO 공통 복귀 focused PASS/CLOSED를 유지하고 병합·게시를 새 native/gameplay·전25종/멀티/global PASS로 확대하지 않는다. 이번 두 문서의 완료 영수증 수정분은 기존 push 이후의 변경이며 Main이 별도 추가 commit·push할 예정이다. 그 후속 게시 완료까지 선행 영수증에 포함하지 않는다.
 
-### Main 병합 전 읽기·fetch 인계 — merge 미실행
+### 최종 병합·원격 반영 및 검증 영수증
+
+- **실행 순서·결과:** feature20파일 commit `dbc48a8c` 성공(원시 로그 미포함)→fetch 성공(origin/main `88f60e38` 동일)→main 전환·`88f60e38`까지 fast-forward→feature no-ff merge commit `21897ddc`→`git push origin main` 성공(`88f60e38..21897ddc`).
+- **충돌 해결:** 문서 meta11개의 add/add 충돌은 main GUID를 유지해 해결했다. feature GUID 외부 참조 없음과 해결 파일의 origin/main blob 동일을 확인했다. 코드 충돌은 없었다.
+- **독립 보호 확인:** 병합 tree의 소스/Animations/Resources/Config는 feature 대비 diff0, main VFX4폴더는 origin/main 대비 diff0다. 비교 범위를 넘어 전체 저장소 byte 동일이나 새 runtime 수용을 주장하지 않는다.
+- **병합 tree 검사:** 정적 C# Runtime errors0/warnings23, Editor errors0. checker unit tests23 OK는 TEMP를 workspace로 지정한 재실행 결과다. 최초 sandbox temp 접근 WinError5와 이후 성공을 분리하며 최초 시도를 성공으로 바꾸지 않는다. check_docs는 기존 참조 오류6건 그대로, orphan/decrease0이다.
+- **편집 형식:** `.meta` 제외 `diff --check`는0이다. Unity 생성 신규 meta8개의 빈 필드에 trailing-space24개만 남아 있어 미변경 보존했다. 이를 전체 파일 whitespace0으로 보고하지 않는다.
+- **잠금 정리:** Main은 Git 프로세스0과 stale·empty 상태를 확인한 뒤 임시 `index.lock`을 제거했다. 문서 담당은 삭제·Git 작업을 수행하지 않았다.
+- **로그 보존·제외:** 원본 RuntimeLog tracked/staged0이며 로컬 untracked10/15 로그·meta는 보존했다. 추적 제외는 로컬 삭제가 아니며 원시 로그를 이번 commit/push에 넣지 않았다.
+- **실행·수용 한계:** 신규 Native Unity self-validation·build 실행은 없었다. 기존 두 경기의 scoped acceptance는 그대로 유지한다. 게임 규칙·소스 변경이나 추가 테스트 수용을 문서 영수증 작성으로 만들지 않는다.
+
+### Main 병합 전 읽기·fetch 인계 당시 이력 — 당시 merge 미실행
 
 아래는 Main 전달값이며 문서 담당의 Git 재확인 결과가 아니다. feature HEAD=`532e2033`, local main=`a36ff2f7`, origin/main=`88f60e38`(2026-10-13T22:52:17+09)이다. fetch는 성공했고 원격 ref 변경은 없었다. 공통 `a36ff2f7`에서 feature 보존 commit1개와 main VFX commit1개가 각각 갈라졌다.
 
 Main 확인상 main 측 C# 변경은 없고 VFX png/mat 추가, Bloom/Mushroom 관련3 prefab 변경, Docs/log meta 정리다. 같은 경로에 양쪽이 추가한 신규 Docs meta는 add/add 충돌이 예상되지만 아직 실제 충돌 발생·해결을 뜻하지 않는다. 현재20 dirty files는 모두 명시적 파일 staging·commit 예정이며 원시 로그는 미추적 상태로 제외하고 그 meta도 이번에 추가하지 않는다. 이 수는 Main 확인 당시의 전달값이다.
 
 문서 반영 완료 뒤 Main은 명시적 파일 stage·commit→main을 origin/main으로 fast-forward→feature merge를 진행한다. 문서 담당은 Git·staging·충돌 해결을 실행하지 않으며 최종 적용 파일·보호·원격 결과 영수증을 기다린다.
+
+**[2026-10-15 완료 갱신 — 위 당시 원문 유지: 예상했던 meta 충돌11개를 해결했고 상단 최종 영수증과 같이21897ddc의 원격 main push가 완료됐다. 위 예정·대기는 병합 전 시점 기록이지 현행 상태가 아니다.]**
 
 <a id="solo-return-repath-open"></a>
 
