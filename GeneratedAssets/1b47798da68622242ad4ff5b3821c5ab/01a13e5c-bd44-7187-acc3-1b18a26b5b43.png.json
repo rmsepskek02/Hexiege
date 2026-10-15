@@ -1,0 +1,31 @@
+{
+    "asset": "1b47798da68622242ad4ff5b3821c5ab",
+    "fileName": "01a13e5c-bd44-7187-acc3-1b18a26b5b43.png",
+    "prompt": "A stylized cartoon game VFX sprite of ragged earthquake ground dust and rubble plume, seen from slightly above. Wispy torn irregular edges, grainy texture with scattered tiny specks of dirt and small pebble fragments, NOT a round fluffy cloud ball, NOT a sphere puff. Dark earthy brown and charcoal gray tones, semi-transparent organic dust blast, isolated on pure black background, generous empty padding around edges with nothing touching the texture border, mobile RTS game art style",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
