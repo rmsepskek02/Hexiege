@@ -86,7 +86,7 @@
 
 ## 토픽 파일 인덱스
 
-> 아래 19개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외).
+> 아래 20개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외). *(2026-10-15: 19 → 20, `vfx-presentation.md` 추가)*
 
 ### 먼저 읽어야 하는 것
 
@@ -118,6 +118,11 @@
   패스파인딩, 카메라, URP RT 잔상, `HexTile` 상태 계약, 무작위 맵 1~3단계(결정적 PRNG · 격자 전환 ·
   투영 · 판정 조건 전환 · 함수 분할)와 그 정정 블록, Domain 레이어 단독 컴파일 절차.
   🔴 **타일 상태 · 건설/점령 판정 · 맵 생성 작업은 여기부터 읽는다** — 세부는 그 파일 맨 앞의 목차 참조.
+- [vfx-presentation.md](vfx-presentation.md) — VFX presentation (2026-10-15): `BakeMesh(true)` output is renderer-local
+  (use `localToWorldMatrix` — the measuring tool once inflated skinned units 3~5x), code-enforced particle contracts
+  (Bloom / burn / poison), status-VFX fitting via `UnitEffectConfig` recipient table + presets, RuneSpire bolt
+  3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」.
+  🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

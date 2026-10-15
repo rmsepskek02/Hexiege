@@ -93,6 +93,7 @@
 - 2026-10-10  Live-append Editor log Tail read expanded into unbounded output
 - 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
 - 2026-10-12  Unfiltered Unity Editor header exposed licensing authentication fields in tool output
+- 2026-10-13  Measuring tool treated BakeMesh output as world-scaled, inflating skinned unit sizes 3~5x
 
 ---
 
@@ -1864,3 +1865,15 @@ Main이 매트릭스의 MigrationRequired/CONDITIONAL·과거 수용 대기 표�
 **How it surfaced:** Main identified the authentication-field exposure and requested immediate incident documentation. Main confirmed project path `D:\Projects\Hexiege\Hexiege`, but new-source import was not confirmed. Game/asset contents remained unchanged per Main's handoff; this record does not independently audit files or establish import/native validation success.
 
 **Lesson:** Before printing any Editor header content, allowlist only project-path and `Successfully changed` identity fields, and extract only the required identity value rather than whole startup/command-line lines. Independently exclude token/auth/credential/password/secret and related licensing-authentication patterns case-insensitively before output; exclusions take precedence over the allowlist. Never print a whole log header, and never repeat/copy sensitive values into a Task, memory, incident record or user reply. Record only the incident and actionable prevention steps. Keep project identity confirmation separate from source import/assembly generation and fresh native execution evidence.
+
+---
+
+## 2026-10-13  Measuring tool treated BakeMesh output as world-scaled, inflating skinned unit sizes 3~5x
+
+**What was wrong:** The editor tool `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` (written by the programmer agent in the same task) baked each skinned body with `SkinnedMeshRenderer.BakeMesh(mesh, true)` and moved the vertices to world space with `Matrix4x4.TRS(position, rotation, Vector3.one)`. The bake result is in the renderer's local space with scale undone, so the intermediate `Unit_xxx_Mesh` scale (0.2~0.3) was dropped. The recipient table in `UnitEffectConfig.asset` (commit `10a38cc0`) got skinned heights 3~5x too large (Pistoleer 1.71 instead of ~0.34). Status VFX size and the RuneSpire bolt chest height both derive from that table.
+
+**Why:** The comment assumed "useScale=true already applied scale, so only position and rotation are left". The MeshRenderer path used `localToWorldMatrix` and looked right, and no check compared the two paths or compared a value against the prefab hierarchy.
+
+**How it surfaced:** In the second field test (2026-10-13) the user saw the remade poison and the heal sitting far too big and high on units. Main traced it to the table and the Pistoleer prefab's 0.2 mesh scale. It first looked like a prefab or preset problem; tuning presets on top of it would have hidden the bug. Fixed in `84b6ff2a` (`localToWorldMatrix`, implausibility warnings, self-validation Pistoleer 0.2~0.6 m + Tank taller than Pistoleer). The user re-measured and confirmed sizes in the third test (2026-10-15).
+
+**Lesson:** Before trusting any `BakeMesh` / bounds / vertex-space conversion, read the API's output space and transform with the renderer's full `localToWorldMatrix`. When a tool has two measurement paths, add a real-prefab assertion that relates them (one known unit's expected range + a cross-path ordering). When a fitted visual looks wrong in a field test, check the data table against the prefab hierarchy before asking the user to retune values. Details: `.claude/agent-memory/game-programmer/vfx-presentation.md` §1; task `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md` §9-3.

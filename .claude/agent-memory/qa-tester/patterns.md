@@ -107,3 +107,23 @@
 - Separate numeric layout/allocation, ring/window limits, formatter envelope bounds, policy non-interference, Unity adapter/menu execution and new-match causal evidence. CLR cannot certify native NGO query counts when Unity ECall prevents execution; static early gates are not measured runtime/performance proof. Full GameLog envelope budgets exclude platform prefixes/stack/separators.
 - Require same-ticket TickExit freeze, explicit unknown for missing/invalid/suppressed/truncated samples, generation isolation and lifecycle/subscriber cleanup; preserve insufficient overflow input and preliminary compile-reference failures before the final existing-fixture PASS. NCC binds accepted RPC keys; observer manages lifecycle. Hook success does not imply pixel acceptance; Console warnings remain warnings.
 - New Development match evidence needs match end→lobby→save/EndSession; forced termination can lose history. Diagnostic readiness never closes existing expiry/source/clock/performance causes. No separate QA/TC is inferred from fixture reinforcement. Evidence and complete inventory: [existing Assault Research](../../../Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md).
+
+## VFX presentation checks (2026-10-15, vfx-code-followups)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md` §8~10 (3 user field rounds).
+Programmer-side details: `.claude/agent-memory/game-programmer/vfx-presentation.md`.
+
+- **"Too big / too high" on a fitted effect → check the data table before the prefab or preset.** Round 2 blamed
+  nothing in the remade poison prefab; the cause was the editor measuring tool writing skinned unit sizes 3~5x too
+  large (intermediate 0.2~0.3 mesh scale dropped). Compare one table row against the prefab hierarchy scale
+  (Pistoleer: `Unit_Pistoleer_Blue_Mesh` 0.2 → rendered height ~0.34, not 1.71) and against a MeshRenderer unit.
+- **A missing VFX can be a code contract rejection, not a missing asset.** Bloom heal stopped playing because the code
+  required exactly 5 ParticleSystems and the user's new prefab had 4. Grep the play path for count/flag checks
+  (`RecursivePSContract` fault) before suspecting the pool or the prefab GUID.
+- **Death-at-impact is its own case for tracked endpoints.** The tower deals damage before it publishes the effect
+  snapshot, so a lethal hit always begins with a dead target and takes the snapshot-position branch (RuneSpire bolt
+  endpoint slightly off — OPEN, cause unverified). Test "target dies from this very hit" separately from "target dies
+  during the effect".
+- **Caster-owned VFX:** test "caster dies mid-charge" (FoxMagician 2 s, InfernoSpirit 1 s charge) — the effect must vanish
+  for that caster only. Data values committed to the branch may lag the user's local re-measure/tuning: say which
+  revision the numbers came from.

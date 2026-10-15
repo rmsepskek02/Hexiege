@@ -344,3 +344,128 @@
 |---|---|---|
 | 2026-10-13 | 10절 「재작업 R2 — 1차 테스트 반영」 추가(R2-1~R2-4) | 1차 사용자 실기(Research 8절)에서 ① 차지 VFX가 유닛 사망 후에도 남는 **새 결함**이 발견됐고, ② 정령 타워 번개는 4-B 원 설계("높이 차 무시, XZ 평면만")대로 구현돼 발밑을 수평으로 겨누므로 사용자가 원하는 "크리스털→가슴" 모양을 preset 오프셋만으로는 만들 수 없음이 확인됐다(Research 8-3) — 그래서 4-B의 수평 조준 설계를 3D 조준으로 바꾼다. ③ 화상·힐은 코드가 아닌 값 조정으로, ④ 독은 사용자 의도("중독 표시")에 맞는 프리팹 재제작으로 해결하기로 했다. 사용자 승인 원문: "기존 문서에 테스트 결과 반영하고 추가 수정 작업 진행해야해". |
 | 2026-10-13 | 12절 「재작업 R3 — 측정 도구 스케일 버그」 추가(R3-1~R3-4) | 2차 사용자 실기(Research 9절): R2-1 차지 정지·R2-2 크리스털 시작점은 PASS. 그러나 독(재제작 프리팹 `10a38cc0`)·힐이 유닛보다 너무 크고 높게 보였고, 메인 세션 진단으로 측정 도구가 채운 크기 표가 스킨드 메시 유닛에서 약 5배 큼(Pistoleer 키 1.71, 중간 Transform 배율 0.2 미반영)이 확인됐다. 이 표가 상태 이펙트 배율(키 ÷ 1.0)과 번개 가슴 높이(키 × 0.6)를 함께 정하므로 도구를 먼저 고친다. 사용자 승인 원문: "측정 도구를 수정해야 나머지가 정상적으로 테스트될거같아 / 문서 정리도 같이 진행해". 절 번호는 기존 11절(이 표) 뒤 번호를 이어 12로 했으며 위치는 이 표 앞이다. |
+| 2026-10-15 | 13절 「최종 결과 — 여기까지의 기록」 추가(문서 끝) | 3차 사용자 실기(Research 10절) 결과 기록. 계획 변경이 아니라 결과 기록이며, 남은 결함 1건(타워 번개 사망 시 끝점 어긋남)은 별도 승인 대상으로 남겼다. 사용자 지시 원문: "우선 여기까지 작업한 것을 기록하자". |
+
+---
+
+## 13. 최종 결과 — 여기까지의 기록 (2026-10-15 추가 — 0~12절은 계획 원문으로 보존)
+
+### 13-0. 쉬운 설명
+
+세 번의 실기를 거쳐 이 작업에서 고치려던 것은 **하나만 빼고 모두 사용자가 확인했다.** 꽃요정 힐 이펙트가 다시 나오고, 정령 타워 번개는 크리스털에서 나와 움직이는 적의 가슴에 꽂히며, 화상·독·힐은 유닛 크기에 맞춰 붙고 프리셋 값으로 크기·높이를 조정할 수 있다. 차지 이펙트는 시전자가 죽으면 사라진다. **남은 것은 「번개가 맞는 순간 대상이 죽으면 끝점이 살짝 어긋나는」 결함 하나**이고, 원인은 아직 확인하지 않았다(가설만 있다). 상태 이펙트 값 다듬기는 사용자가 계속하는 데이터 조정이다. 사용자 지시(2026-10-15): "우선 여기까지 작업한 것을 기록하자" — 이 절은 그 시점의 기록이다.
+
+### 13-1. 항목별 최종 상태
+
+| 항목 | 커밋 | 최종 상태 | 근거 |
+|---|---|---|---|
+| A. Bloom 힐 개수 계약(1개 이상 + 시스템별 계약) | `d3f9abb1` | ✅ **사용자 실기 PASS** (PS 4개 프리팹 재생) | Research 10-2 |
+| B. RuneSpire 번개 원래 대상 추적 | `d3f9abb1` | ✅ 살아 있는 대상 PASS · ⚠️ **맞는 순간 사망 시 끝점 어긋남 OPEN** | Research 10-2 · 10-4 |
+| C. 상태 이펙트 대상 크기 맞춤 | `d3f9abb1` · 재측정 표·프리셋 `91371e55` | ✅ R3 재측정 뒤 **의도대로 조정됨** (사용자 화면 확인) · 값 미세 조정 진행 중 | Research 10-2 · 10-3 |
+| R2-1 차지 VFX 시전자 사망 정지 | `a840a152` | ✅ **사용자 실기 PASS** (2차·3차) | Research 9-2 · 10-2 |
+| R2-2 크리스털→가슴 3D 조준 | `a840a152` | ✅ 크리스털 시작·가슴 높이 PASS · 사망 시 예외는 B 행과 같은 결함 | Research 10-2 |
+| R2-3 화상·힐 값 조정 | (사용자 데이터) | ⏳ **진행 중** — 코드 항목 아님 | Research 10-5 |
+| R2-4 독 프리팹 재제작 | `10a38cc0` | ✅ **사용자 승인** | Research 10-2 |
+| R3 측정 도구 스케일 버그 | `84b6ff2a` | ✅ **수정 · 재측정 · 실기 확인** | Research 10-2 |
+| T-3 버섯 착탄 | — (변경 없음) | ✅ **사용자 승인** (1차) | Research 8-2 |
+
+### 13-2. 미해결과 남은 항목
+
+1. 🔴 **OPEN — 타워 번개 사망 시 끝점 어긋남.** 코드 사실·가설(⚠️ 미검증)·다음 단계 제안은 Research 10-4가 단일 소스다. 요지: 대상이 이미 죽은 상태로 재생이 시작되면 추적을 켜지 않고 서버 스냅샷 Impact + 가슴 높이를 끝점으로 쓴다(`HitPresentationQueue.cs` 278행 → `VfxPoolItem.TowerBolt.cs` 172행). 이때 가슴 높이는 크기 표가 아니라 0.6m 고정값이다 — 다음 작업 인계는 아래 13-4. *(2026-10-15 정정: 첫 판은 이 판정 자리를 `VfxPoolItem.TowerBolt.cs` 76행으로 적었다 — 76행은 추적 도중 사망 확인이다)* 제안된 수정(화면 위치를 쓰는 방향)은 `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 2026-10-13 블록 「추적 불가로 시작할 때」 문구와 맞닿으므로 **규칙 변경 전에 사용자 승인**이 필요하다.
+2. ⏳ **데이터 조정 계속** — 화상·독·힐 프리셋 값(사용자, 반복 테스트). 현재 값은 커밋 `91371e55`에 있다: 재측정 표(Pistoleer 키 0.342 · 최대 키 약 0.53 · 최대 반경 약 0.41 · `manualScale` 없음), Heal·Poison Scale Multiplier 2, Burn 1, 오프셋 모두 0(Research 10-3). *(2026-10-15 정정: 첫 판의 「`84b6ff2a`에는 없다 — 사용자 PC의 커밋되지 않은 작업으로 보인다」는 사용자가 `91371e55`로 올려 해소)*
+3. **주석 비활성화한 옛 로직 — 지금은 남겨 둔다(사용자 결정, 2026-10-15: 작업이 끝나지 않았으므로).** 최종 삭제는 아래 13-4의 RuneSpire 번개 사망 시 끝점 결함이 사용자 테스트를 통과한 뒤에만 한다(WORKFLOW [4] 「[6] 통과 후 · [7] 전」). 현재 남아 있는 자리 [직접]: R-1 `VfxPoolItem.cs` 164행 · R-5 `VfxPoolItem.cs` 210행 · R-4 `VfxPoolItem.TimedDamage.cs` 42행 · R-3 `RunUnitActionSelfValidation.cs` 1385행 · R2-X1 `VfxPoolItem.TowerBolt.cs` 204행 · R3 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` 332행. (R2-X2 끝점 계산은 주석 블록이 아니라 호출 쪽에 가슴 높이를 더하는 방식으로 바뀌었다 — 같은 파일 165·172·188행.)
+4. **이 작업의 범위 밖으로 남은 VFX 후속**(8절·10-5절 범위 밖 목록에서 이어짐): MushroomBomber 트레이서 **포물선 궤적**(현재 `TracerProjectile.cs` 161행 직선 `Lerp`, 사용자가 이전 작업에서 나중으로 미룸 — `_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/Plan.md` 5절 4번) · 새 VFX의 **SFX**(상태 이펙트·힐·타워 착탄은 `EffectManager.cs`의 `Sound15:` 주석대로 미제작) · `VFXSFXList.md`의 **미연결·제작 예정 VFX**(같은 문서 「2026-10-14 실측 연결 상태」 블록이 단일 소스). 모두 `ROADMAP.md`에 등록했다.
+5. **`Testcase.md` 없음** — TC 작성을 요청받지 않아(WORKFLOW [5-1]) 만들지 않았다. WORKFLOW [8](Testcase 결과 갱신)은 해당 없음이며 실기 결과는 Research 8~10절과 이 절이 담는다.
+
+### 13-3. 변경 파일 리스트업 (WORKFLOW [12] — `git diff --name-status 88f60e38..HEAD` + 2026-10-15 문서 반영분)
+
+**[추가]**
+- `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs` (+ `.meta`)
+- `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.CasterOwned.cs` (+ `.meta`)
+- `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` (+ `.meta`)
+
+**[수정] 코드**
+- `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/EffectManager.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/EffectPreset.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/HitPresentationQueue.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/TimedDamageEffectPresenter.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/BloomHealEffectPresenter.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/UnitEffectConfig.cs`
+- `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs`
+- `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs`
+- `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.VfxConnections.cs`
+
+**[수정] 프리팹·에셋**
+- `Assets/_Project/Prefabs/VFX/Units/vfx_mushroombomber_poison.prefab` (사용자 재제작, `10a38cc0`)
+- `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_FoxMagician_Attack.asset` (Stop When Caster Dies)
+- `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Attack.asset` (Stop When Caster Dies)
+- `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_RuneSpire_Attack.asset` (위치 보정 Y 0.65)
+- `Assets/_Project/Resources/Config/UnitEffectConfig.asset` (`10a38cc0` 첫 측정 표 → `91371e55` 재측정 표, 사용자)
+- `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_BloomFairy_Heal.asset` · `EffectPreset_MushroomBomber_Poison.asset` (Scale Multiplier 2, 사용자, `91371e55`)
+- *(2026-10-15 정정: 첫 판은 `88f60e38..84b6ff2a` 기준이라 `91371e55`의 사용자 데이터 커밋이 빠져 있었다. 이 목록은 이제 `88f60e38..91371e55` 기준이며, 그 커밋의 로그 `.meta` 2개는 아래 작업 문서 항목에 더했다)*
+
+**[수정] 상시 문서**
+- `Assets/_Project/Docs/Assets/VFXSFXList.md` (2026-10-15 2차: VineTower 공격 VFX 계획 블록)
+- `Assets/_Project/Docs/Assets/VFXSFXGuide.md` (2026-10-15 2차: 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 추가)
+- `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
+- `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md`
+- `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md`
+- `Assets/_Project/Docs/History/ImplementationVerificationHistory.md`
+- `Assets/_Project/Docs/PROJECT_STATUS.md`
+- `Assets/_Project/Docs/ROADMAP.md`
+- `Assets/_Project/Docs/WORK_HISTORY.md`
+
+**[추가·수정] 에이전트 메모리·기록 (`.claude/`)**
+- 추가: `.claude/agent-memory/game-programmer/vfx-presentation.md`
+- 수정: `.claude/MEMORY.md` · `.claude/mistakes.md` · `.claude/agent-memory/_baseline.json` · `.claude/agent-memory/game-programmer/MEMORY.md` · `.claude/agent-memory/game-programmer/logging.md` · `.claude/agent-memory/document-manager/MEMORY.md` · `.claude/agent-memory/qa-tester/patterns.md` · `.claude/agent-memory/asset-prompt-crafter/MEMORY.md`
+
+**[작업 문서 — 별도]**
+- 추가: `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md` · `Plan.md` (+ 각 `.meta`, 폴더 `.meta`)
+- 수정: `Assets/_Project/Docs/_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/Plan.md` · `Assets/_Project/Docs/_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/Plan.md` (VFXSFXList 정리 때 상단 메모 추가)
+- 추가(로그 `.meta`): `Assets/_Project/Docs/_Logs/_editor/2026-10-13/RuntimeLog.txt.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-14.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-14/RuntimeLog.txt.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-15.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-15/RuntimeLog.txt.meta` (뒤 두 개는 `91371e55`)
+
+### 13-4. 🔴 다음 작업 인계 — RuneSpire 번개: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋난다 (OPEN, 2026-10-15 사용자 지시로 추가)
+
+이 블록만 읽고 다음 작업을 시작할 수 있게 정리했다. 분석의 원본은 Research 10-4, 같은 내용의 programmer용 요약은 `.claude/agent-memory/game-programmer/vfx-presentation.md` §4-1, 로드맵 행은 `ROADMAP.md` 「VFX 후속 ①」.
+
+**증상 [사용자 관찰, 2026-10-15]:** 타워 번개 한 방에 대상이 죽으면, 번개 끝이 유닛 위치에서 살짝 벗어난다. 살아 있는 대상(맞고도 사는 경우, 이동 중 추적)은 정상이다.
+
+**코드로 확인한 사실 [직접, `84b6ff2a` 기준 행 번호 — 고치기 전에 다시 읽을 것]:**
+1. 서버 순서 — `Assets/_Project/Scripts/Application/UseCases/TowerCombatUseCase.cs` `ExecuteTowerAttack`: 223~226행에서 표현용 시작점·맞은 위치를 읽고(`GetBuildingWorldPosition` / `GetUnitWorldPosition(target.Id)`, 값이 0이면 헥스 중심 `HexToWorld`), 241행 `target.TakeDamage(damage)`로 피해를 적용한 뒤, 245행 `_effectIdentity.Create(…, effectSource, effectImpact, …)`로 스냅샷을 만들고 248행 `OnAttackEffectConfirmed`로 발행한다. → 치명타면 스냅샷이 화면에 도착할 때 대상은 이미 죽어 있다(서버·Host·싱글. Client의 HP 반영과 스냅샷 수신 순서는 추적하지 않았다).
+2. 화면 쪽, 대상 해석 — `Assets/_Project/Scripts/Presentation/Effects/HitPresentationQueue.cs` `ResolveTowerBoltTarget`(267행~): **278행 `if (!data.IsAlive) { reason = "TargetDead"; return default; }`** — 재생 시작 때 대상이 이미 죽었으면 여기서 **빈 대상(`default`, `Data == null`)** 을 돌려준다. 호출은 246행.
+3. 화면 쪽, 번개 — `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs` `BeginTowerBolt`: 대상 참조가 없으므로 추적을 켜지 않고 약 172행 `_boltEndpoint = snapshotImpact + Vector3.up * _boltChestHeight;`로 끝점을 고정한다(기록 `Untracked(TargetDead)`). 살아 있으면 약 165행 `live + 가슴 높이`이고 `live` = `VisualRootProjector.PresentationPosition`(없으면 VisualRoot `Pose.position`). 같은 파일 약 76행 `TryReadEndpoint`의 `TargetDead`는 **추적 도중** 죽은 경우(LateUpdate → 고정)에 걸리는 확인이다.
+4. 🔴 **가슴 높이도 이 경우 달라진다** — `EffectManager.cs` 550행이 `ResolveBoltChestHeight(boltTarget.Data)`를 부르고, 560~563행은 `target == null`이면 **`UnitEffectConfig.FallbackChestHeight`(0.6m)** 를 돌려준다. 즉 「맞는 순간 죽은」 대상은 크기 표(`GetChestHeight` = 균등 배율 × 기준 키 1.0 × 0.6)가 아니라 **항상 0.6m**를 받는다. `91371e55` 표 기준 예: Pistoleer(키 0.342) 표 가슴 높이 약 0.21m ↔ 사망 시 0.6m(약 0.4m 위), 표 최대 키 약 0.53 유닛도 약 0.32m ↔ 0.6m.
+5. 스냅샷 Impact의 원천 — `Assets/_Project/Scripts/Infrastructure/UnitWorldPositionProvider.cs` `GetUnitWorldPosition`(35행~)은 유닛 GameObject **루트** `transform.position`(파괴됐으면 `Vector3.zero` → 헥스 중심 폴백)을 준다. 살아 있는 대상의 끝점은 **VisualRoot 투영 위치**다 — 두 원천이 다르다(값 차이는 재지 않았다).
+6. Client 반전 화면에서는 `HitPresentationQueue.cs` 235~236행이 스냅샷 Source/Impact를 `ViewConverter.ToView`로 바꿔 넘긴다.
+
+**가설 — ⚠️ 모두 미검증 (위 4·5번은 코드 사실이지만, 그것이 관찰된 어긋남의 원인인지는 재지 않았다):**
+- H0. 가슴 높이가 크기 표 대신 0.6m 고정값으로 들어가 끝점이 위로 뜬다(위 4번). 작은 유닛일수록 차이가 크다 — 사용자가 본 어긋남이 「위쪽」이면 가장 먼저 확인할 후보.
+- H1. 스냅샷 Impact(서버 시점의 유닛 GameObject 루트 위치 — 위 5번)와 그 순간 화면에 그려진 위치(보간·Visual Root 투영)가 다르다.
+- H2. 스냅샷 Impact가 발밑이 아니다(예: 높이가 이미 들어 있거나 헥스 중심 폴백) → 가슴 높이가 이중으로 더해지거나 수평 위치가 셀 중심으로 간다.
+- H3. Client 반전 변환 또는 Red 시점에서만 어긋난다(관찰이 어느 화면·어느 팀 시점이었는지 전달받지 않았다).
+
+**첫 진단 단계 (구현 전 — 승인 후 실행):**
+1. `BeginTowerBolt`의 「추적 불가로 시작」 갈래에서 진단 기록 한 줄을 남긴다: 스냅샷 Impact, 그 순간 읽을 수 있는 화면 위치(View가 아직 활성이면 `Projector.PresentationPosition`과 `Pose.position` 둘 다 — 이 갈래에는 대상 참조가 없으므로 `s.TargetId`로 View를 따로 읽어야 한다), 사용한 가슴 높이와 그 유닛의 표 가슴 높이(`GetChestHeight(type)`), 사유(`TargetDead` 등). 기존 `AttackEffectIdentity.Record` outcome 문자열에 덧붙이면 새 로그 채널이 필요 없다(4-B 5번과 같은 방식, Dev 빌드·에디터만).
+2. Host 화면과 Client 화면 각각, **Blue 시점과 Red(반전) 시점** 각각에서 「한 방에 죽는」 대상을 맞혀 위 값을 모은다(역할을 바꿔 한 번 더).
+3. 차이(수평·수직)가 사용자가 본 어긋남과 맞는지로 H1~H3을 가린다. 원인이 확정되기 전에는 동작 코드를 바꾸지 않는다.
+
+**후보 수정과 규칙 문구 영향 (⚠️ 어느 것도 승인되지 않았다):**
+| 후보 | 내용 | `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 (2026-10-13 블록) 영향 |
+|---|---|---|
+| F0 | (H0이 원인일 때) 대상이 죽었어도 스냅샷 `TargetId`의 유닛 타입으로 크기 표 가슴 높이를 구해 넘긴다(추적은 그대로 끄고 스냅샷 Impact 사용) | 문구 변경 **없음으로 보인다** — 규칙의 「끝점 높이: 발밑 + 가슴 높이(크기 표의 키 × 비율, 표에 없으면 0.6m)」에 오히려 맞춰지는 수정이다. 그래도 Plan에 적고 승인 후 구현 |
+| F1 | 재생 시작 때 대상이 죽었어도 View가 아직 활성이고 같은 데이터 객체면 **그 순간의 화면 위치**를 끝점으로 쓰고 추적 없이 고정. 읽을 수 없을 때만 스냅샷 Impact | 「추적 불가로 시작할 때: … 서버 스냅샷의 Impact 위치를 끝점으로 쓴다」 문구를 바꿔야 한다 → **규칙 변경 전 사용자 승인 필요** |
+| F2 | 스냅샷 Impact 쪽을 바로잡는다(발밑 기준으로 맞추거나 반전 변환 수정 등 — H2·H3이 원인일 때) | 문구는 그대로 둘 수 있다(스냅샷 Impact를 쓰는 규칙 유지). 단 서버 스냅샷 생성 코드를 건드리면 표현 데이터 계약 변경이므로 범위를 Plan에서 다시 정한다 |
+| F3 | 치명타일 때만 사망 처리 직전 위치를 따로 넘기는 등 스냅샷 구조 확장 | 스냅샷·RPC 구조 변경 — 이번 작업이 「바꾸지 않는 것」으로 둔 영역이라 별도 설계·승인 |
+피해·타겟 선택·HP·쿨다운은 어느 후보도 바꾸지 않는다(규칙 9 서버 권위, NET-AUTH-001).
+
+**주석 비활성화 블록 6곳 — 이 결함이 사용자 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정):**
+| # | 파일 (`84b6ff2a` 기준 행) | 꺼 둔 옛 로직 |
+|---|---|---|
+| R-1 | `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.cs` 약 164행 | Bloom 「정확히 5개」 거부 |
+| R-5 | 같은 파일 약 210행 | Bloom 대상 `lossyScale` 곱셈 |
+| R-4 | `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs` 약 42행 | 화상·독 고정 배율 |
+| R-3 | `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` 약 1385행 | 검증기 개수 5 단언 |
+| R2-X1 | `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs` 약 204행 | 번개 XZ 평면 조준·길이 |
+| R3 | `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` 약 332행 | 스케일 1을 강제한 `TRS` 배치 행렬 |
+찾을 때는 `[R… 비활성화` / `[버그 — 2026-10-13 주석 처리]` 표식으로 검색한다(행 번호는 바뀐다).

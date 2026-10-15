@@ -155,6 +155,33 @@ Assets/_Project/
 - Normal 맵: 파란색 단색이면 사용 가능, 흰/회색 단색이면 사용 금지
 - Roughness 맵: URP 미지원 → 무시 (Smoothness 슬라이더로 대체)
 
+## Unity AI VFX prompt lessons — unit-attached status effects (2026-10-15)
+
+> **Standing rule source (2026-10-15):** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 — status effects, one-shot impacts (Looping OFF, Stop Action None, ≤ ~1 s, pooled), impact placement (ground at target, single target ≈ radius 0.3), length-adjustable beams (author over local Z 0→1, code scales Z only). That guide section wins if it differs from the notes below.
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md` §2, §4-2, §8-2 T-4, §10;
+contracts verified in `VfxPoolItem.cs` / `VfxPoolItem.TimedDamage.cs` at commit `84b6ff2a`.
+User-approved prefabs that follow these rules: `vfx_infernospirit_burn`, `vfx_mushroombomber_poison` (remade by the
+user with Unity AI, commit `10a38cc0`), `vfx_bloomfairy_heal`.
+
+- **State the particle contract explicitly in the prompt** — the game code refuses to play a prefab that breaks it
+  (heal checks Looping / Stop Action / Local / no Burst / not unscaled; burn and poison check Looping + Stop Action):
+  every ParticleSystem (root included) Looping ON, Stop Action None, Simulation Space Local, no Burst (rate-over-time
+  only), not unscaled time — plus Scaling Mode Hierarchy so the game's uniform fit scale resizes the whole effect.
+  Ask for all of them on every status effect. Do not ask for a fixed number of particle systems — the code
+  accepts any count >= 1 (the heal VFX once disappeared because an old check required exactly 5).
+- **Forbid outward Start Speed for effects that sit on a unit.** The first poison prefab emitted `Poison_Bubbles` from a
+  circle at Start Speed 0.55~0.75 with ~1.2 s lifetime, so particles travelled ~0.9 world units — past the next hex
+  (~0.87) — and read as "poison spreading to 6 tiles". The user's intent was a marker that "this unit is poisoned",
+  gathered on the unit. Ask for near-zero start speed / inward or upward drift only, and a short rise.
+- **Keep the pivot at the unit's feet, contained in a radius-0.25 cylinder, ~1.0 tall** (the creation standard). The game
+  then scales the whole prefab uniformly to each unit's size and offsets it by a per-unit foot offset; a pivot not at the
+  feet or an oversized footprint cannot be corrected by that uniform scale.
+- **Avoid long upward velocity-over-lifetime travel** for heal-type effects — the first heal rose too high (1.2~1.5 s of
+  upward velocity), and that height is multiplied by the unit fit scale too.
+- Size/height fine-tuning after import is data work done by the user through the EffectPreset fields
+  (`Local Position Offset`, `Scale Multiplier`) and the `UnitEffectConfig` recipient table — not a reason to regenerate.
+
 ## 알려진 제약사항
 - **Meshy.ai 생성 모델은 리메시 후 약 3,000 tri로 제작** (건물/오브젝트 공통 기준)
 - 모바일 최적화: 3,000 tri 이하 유지 (유닛 포함 동일 기준)

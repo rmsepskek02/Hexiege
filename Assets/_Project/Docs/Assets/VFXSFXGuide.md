@@ -210,6 +210,32 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 | 골드 채집 이펙트 | 루프 |
 | 게임 시작/승리/패배 | 2.0초 ~ 4.0초 |
 
+### Unity AI 프롬프트 작성 규칙 — 코드 계약 (2026-10-15 추가)
+
+게임 코드는 프리팹의 파티클 설정을 **재생 전에 검사**하고, 어기면 그 이펙트를 아예 재생하지 않는다(예: 꽃요정 힐은 「파티클 묶음 정확히 5개」 검사 때문에 4개짜리 새 프리팹이 한 번도 재생되지 않았다). 그래서 Unity AI 프롬프트에는 아래 계약을 **매번 글로 적어** 넣는다. 출처: `_Tasks/2026-10-13/13_53_vfx-code-followups/`(Research 2·4-2·8-2·9-3·10절), `_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/`, `_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/`. 연결·수용 상태는 [VFX 목록](VFXSFXList.md)이 관리한다.
+
+**1. 파티클 계약을 명시한다**
+
+| 종류 | 프롬프트에 적을 계약 | 코드 근거 |
+|---|---|---|
+| 상태 이펙트(화상·독·힐처럼 유닛에 붙어 반복 재생) | **모든** Particle System(루트 포함) Looping ON · Stop Action None · Simulation Space Local · Burst 없음(Rate over Time만) · Unscaled Time 아님 · Scaling Mode Hierarchy · 커스텀 스크립트 없음. 파티클 묶음 **개수는 정하지 않는다**(1개 이상이면 된다) | 힐: `VfxPoolItem.PlayBloomLoop`가 0개만 거부하고 묶음마다 Looping·Stop Action·Local·Burst·Unscaled를 검사. 화상·독: `VfxPoolItem.PlayTimedDamage`가 1개 이상 + Looping·Stop Action을 검사. Hierarchy는 게임이 유닛 크기에 맞춰 프리팹 전체를 한 배율로 키우고 줄이기 위해 필요하다. 「커스텀 스크립트 없음」은 사용자·메인 세션이 정한 제작 규칙이다(재생·정지·반환은 풀 코드가 맡는다) |
+| 1회성 착탄(공격이 맞는 순간 한 번) | Looping OFF · Stop Action None · 길이 약 1초 이하 · 풀에서 재사용됨을 전제(스스로 파괴하지 않는다) | 공격 VFX 재생 경로(`EffectManager.PlayAttackEffect`)가 재생 직전 모든 하위 시스템의 Stop Action을 None으로 덮어쓰고, 풀은 파티클이 모두 사라지면 반환한다. 버섯 착탄 승인본은 비루프·Stop Action None·꼬리 약 0.8초다 |
+
+**2. 유닛에 붙는 상태 이펙트의 모양**
+
+- 루트 pivot = **유닛 발밑**. 모든 파티클이 **반경 0.25 원기둥 안, 높이 약 1.0까지**에 머물게 한다(제작 기준).
+- 🔴 **Circle·Sphere 형태에서 바깥으로 나가는 Start Speed를 주지 않는다** — 위로 움직임이 필요하면 **Velocity over Lifetime의 Y만** 쓴다. 첫 독 프리팹은 Start Speed 0.55~0.75 · 수명 약 1.2초로 약 0.9 월드 단위까지 나가 옆 칸(약 0.87)을 넘었고, 「주변 6칸으로 퍼지는 독」으로 보였다. 의도는 「이 유닛이 중독됐다」는 표시였다.
+- **오래 솟구치는 상승을 피한다** — 첫 힐은 1.2~1.5초 동안 위로 올라가 너무 높았다(그 높이도 유닛 크기 배율로 함께 커진다).
+- 크기·위치는 가져온 뒤 **EffectPreset**(`Local Position Offset` · `Scale Multiplier`)과 유닛별 **`UnitEffectConfig` 「상태 이펙트 크기 맞춤」 표**(에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움)로 맞춘다. 크기가 조금 안 맞는 것은 프리팹을 다시 만들 이유가 아니다.
+
+**3. 착탄 배치**
+
+- 착탄 이펙트는 **대상 위치의 지면**에 놓이는 것을 전제로 만든다. 단일 대상 착탄은 **반경 약 0.3** 안에 들게 한다(사용자·메인 세션이 정한 제작 기준 — 코드 검사 항목은 아니다).
+
+**4. 길이가 바뀌는 빔(번개 등)**
+
+- 빔 본체(예: RuneSpire의 `Bolt`)는 **로컬 Z 0→1 길이**로 만든다. 코드는 그 오브젝트의 **Z 스케일만** 실제 거리로 바꾸고 X·Y는 그대로 둔다(`VfxPoolItem.TowerBolt.cs`). 끝점 불꽃(`Impact_Sparks`)은 빔 오브젝트의 **자식으로 로컬 Z = 1**에 두면 자동으로 끝점을 따라간다 — 따로 위치를 움직이게 만들지 않는다.
+
 ---
 
 ### SFX 프롬프트 추가 원칙

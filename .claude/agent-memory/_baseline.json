@@ -34,19 +34,19 @@
   "folders": {
     "asset-prompt-crafter": {
       "files": 1,
-      "lines": 166
+      "lines": 193
     },
     "document-manager": {
       "files": 2,
-      "lines": 4943
+      "lines": 4947
     },
     "game-design-lead": {
       "files": 3,
       "lines": 338
     },
     "game-programmer": {
-      "files": 20,
-      "lines": 8830
+      "files": 21,
+      "lines": 8952
     },
     "project-orchestrator": {
       "files": 3,
@@ -54,7 +54,7 @@
     },
     "qa-tester": {
       "files": 3,
-      "lines": 1393
+      "lines": 1413
     }
   },
   "_known_orphans_란": [
