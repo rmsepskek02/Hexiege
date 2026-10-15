@@ -3394,7 +3394,9 @@ Recipient는 실제 writer의 `(target lifetime, TimedEffectKind.Damage)` 단일
 | 쿨다운 스킬 안내 토스트 (2026-08-04) | ✅ 완료 (2026-08-04) | 쿨다운 중 스킬 탭 시 조용히 무시하던 것을 안내. 기존 ToastUI(에셋 기반)에 `ToastKey.SkillOnCooldown` 추가 + `ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다"(`BuildingSkillPanelUI`에서 `ToastUI.Show`) |
 | 멀티플레이 / 서버 권위 | ✅ 완료 | `Infrastructure/Network/NetworkSkillController.cs`(NetworkBehaviour). 좌표만 전송 + 서버 재검증(건물 생존·글로벌 쿨다운·맵 경계 안 점). 발동 성공 시 `SkillActivatedClientRpc`로 양 클라 쿨다운 미러. 쿨다운 틱=싱글 GameBootstrapper.Update / 멀티 서버 NetworkCombatController.TickCombat / 순수 클라 오버레이 미러 감소(이중 틱 금지). 규칙 25·26 |
 | 건물 파괴 시 패널/조준 UI 원복 | ✅ 완료 (2026-08-08, 실기 PASS) | 스킬 포함 4개 건물 패널(생산/건물액션/스킬/연구) 공통 갭 해소. `BuildingPanelBase`가 `GameEvents.OnBuildingDied` 구독 → 파괴 건물이 현재 표시/조준 중인 건물(`_currentBuilding.Id` 매칭, 조준 중엔 `IsOpen=false`라 IsOpen 아닌 Id로 판정)이면 `Close()` → 각 패널 `OnBeforeClose`로 조준 취소(`CancelAim`)·랠리 마커 숨김 자동 연계. **코드 변경 `BuildingPanelBase.cs` 1파일**(자식 무변경). 구독 해제=`.AddTo(this)`(자식 `ResearchPanelUI` 자체 `OnDestroy`가 베이스 은닉하는 회귀 회피). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행으로 커버. 커밋 `8c7fa01` |
+<!-- docs-check: historical-section GameSystemRules_UI.md | 11 | 공통 UI 규칙 -->
 | 문서 | ✅ 완료 | `GameSystemRules/GameSystemRules_Skills.md`(규칙 1~26, 조준 좌표화 정정 17·19·22·22-1·24·26 반영·구현 상태 갱신) + 건물 파괴 원복은 공통 UI 규칙(`GameSystemRules_UI.md` 팝업 규칙 11) 명문화 |
+| 참조 보정 | 2026-10-15 | 위 원문의 건물 파괴 원복 참조는 [GameSystemRules_UI.md](../GameSystemRules/GameSystemRules_UI.md#공통-ui-규칙) 「공통 UI 규칙」 규칙 11이다. 원문과 기존 SHA 기록은 보존하고 섹션만 명확히 했다. |
 
 > **✅ 타입 C Phase 2 완료(2026-08-05):** `SkillMechanicType.GlobalStatusChange` 실행기(`GlobalStatusChangeExecutor`)와 상태효과 시스템(`StatusEffectSystem`) 구현·실기+멀티(클라) PASS. 유효 스탯 접근자에 상태 배율을 연구 강화 배율과 곱연산 합성(무상태면 회귀 안전). 업그레이드 연동은 이 곱연산 합성으로 확정됨.
 >
