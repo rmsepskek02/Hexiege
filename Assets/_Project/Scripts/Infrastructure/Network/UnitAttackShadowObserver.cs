@@ -341,7 +341,7 @@ namespace Hexiege.Infrastructure
         private const int MaximumFoxMagicianTimelineFlows = 256;
         private const int MaximumFoxMagicianTimelineDetailLines = 64;
         private const double MaximumFoxMagicianTimelineIncompleteAgeSeconds = 8d;
-        private const double FoxMagicianExpectedImpactSeconds = 2.25d;
+        private const double FoxMagicianExpectedImpactSeconds = 85d / 30d;
         private const int MaximumInfernoMotionJumpUnits = 64;
         private const int MaximumInfernoMotionJumpEventsPerUnit = 8;
         private const int MaximumInfernoMotionJumpKeys = 128;
@@ -1344,7 +1344,8 @@ namespace Hexiege.Infrastructure
                 $"serverTime={now:F6}, fromStart={fromStart:F6}, {outcomeData}, gameplayWrites=0");
         }
 
-        public const string FoxMagicianTimelineSchema = "foxmagician-production-timeline-v1";
+        // v2의 marker/차이 통계는 charge를 뜻한다. native 피해 marker는 별도 읽기 전용 detail이다.
+        public const string FoxMagicianTimelineSchema = "foxmagician-production-timeline-v2";
 
         public static bool ShouldObserveFoxMagicianTimelineForValidation(
             UnitType unitType,
@@ -1541,7 +1542,23 @@ namespace Hexiege.Infrastructure
             flow.MarkerObserved = true;
             flow.MarkerServerTime = ReadServerTime();
             Increment(ref _foxMagicianTimelineMarkers);
-            LogFoxMagicianFlowStage(flow, "marker", flow.MarkerServerTime, "outcome=observed");
+            LogFoxMagicianFlowStage(flow, "charge-marker", flow.MarkerServerTime, "outcome=observed, markerOffset=1.000");
+        }
+
+        /// <summary>
+        /// native 피해 표식은 관측만 한다. charge flow의 lease·완료·TimerImpact를 소비하거나
+        /// 재결속하지 않으므로 권위 피해와 source VFX에 새 실행 권한을 주지 않는다.
+        /// </summary>
+        internal static void RecordFoxMagicianNativeImpactMarker(
+            int unitId, UnitType unitType, ulong presentationRevision, double markerOffset, bool native)
+        {
+            if (!_active || unitType != UnitType.FoxMagician || !native
+                || double.IsNaN(markerOffset) || double.IsInfinity(markerOffset)) return;
+            LogFoxMagician(LogLevel.Info, "foxmagician-timeline",
+                $"schema={FoxMagicianTimelineSchema}, role={(_isServer ? "host" : "client")}, " +
+                $"stage=native-impact-marker, unitId={unitId}, revision={presentationRevision}, " +
+                $"markerOffset={markerOffset:G17}, expectedImpactOffset={FoxMagicianExpectedImpactSeconds:G17}, " +
+                "authority=TimerImpact, gameplayWrites=0, sourceEmits=0");
         }
 
         internal static void RecordFoxMagicianTimelineVfxAttempt(
@@ -3383,7 +3400,7 @@ namespace Hexiege.Infrastructure
                 "streamspirit-timeline-END", streamSpiritTimelineDecorated);
 
             string foxMagicianTimelineData =
-                $"role=client, schema={FoxMagicianTimelineSchema}, starts=2147483647, markers=2147483647, " +
+                $"role=client, schema={FoxMagicianTimelineSchema}, starts=2147483647, charges=2147483647, " +
                 "vfxAttempts=2147483647, vfxStarted=2147483647, vfxFailures=2147483647, " +
                 "particlePositive=2147483647, playbackActive=2147483647, maxParticleSystems=2147483647, " +
                 "timerImpacts=2147483647, complete=2147483647, retiredComplete=2147483647, incomplete=2147483647, " +
@@ -3391,7 +3408,7 @@ namespace Hexiege.Infrastructure
                 "unmatchedTimer=2147483647, duplicates=2147483647, overflow=2147483647, dropped=2147483647, " +
                 "expired=2147483647, cappedDetails=2147483647, " +
                 "maxStartMarker=2147483647.000000, maxStartTimer=2147483647.000000, " +
-                "maxMarkerTimerDelta=2147483647.000000, expectedImpactOffset=2.250, gameplayWrites=0, verdict=FAIL";
+                "maxMarkerTimerDelta=2147483647.000000, expectedImpactOffset=2.833, gameplayWrites=0, verdict=FAIL";
             string foxMagicianTimelineDecorated = Decorate(foxMagicianTimelineData);
             int foxMagicianTimelineBytes = Encoding.UTF8.GetByteCount(
                 FormatFullLine("foxmagician-timeline-END", foxMagicianTimelineDecorated));
@@ -3905,7 +3922,7 @@ namespace Hexiege.Infrastructure
                     : "INCONCLUSIVE";
             return
                 $"role={(_isServer ? "host" : "client")}, schema={FoxMagicianTimelineSchema}, " +
-                $"starts={_foxMagicianTimelineStarts}, markers={_foxMagicianTimelineMarkers}, " +
+                $"starts={_foxMagicianTimelineStarts}, charges={_foxMagicianTimelineMarkers}, " +
                 $"vfxAttempts={_foxMagicianTimelineVfxAttempts}, vfxStarted={_foxMagicianTimelineVfxStarted}, " +
                 $"vfxFailures={_foxMagicianTimelineVfxFailures}, " +
                 $"particlePositive={_foxMagicianTimelineParticlePositiveResults}, " +

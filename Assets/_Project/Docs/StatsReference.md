@@ -4,7 +4,7 @@
 >
 > 날짜별 타격 교정·native·실기 인계 원문 및 TorrentSpirit 표현 교정 기록은 [구현·검증 이력](History/ImplementationVerificationHistory.md#stats-handoff)에 보존했다.
 
-**최종 수정일:** 2026-10-13
+**최종 수정일:** 2026-10-14
 
 이 문서는 현재 구현 수치를 사람이 읽도록 정리한 스탯 미러다. 유닛 기본 스탯은 `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, 타격·주기는 실제 UnitFactory 생산 연결과 선택된 Attack 클립의 소비 결과를 기준으로 한다. 사용자 지시에 따라 현재 구현값으로 사본을 맞추며 스탯 밸런싱은 추후 진행한다. 공격 의미는 `GameSystemRules/GameSystemRules_Units.md`, 멀티플레이 동기화 계약은 `GameSystemRules/GameSystemRules_UnitCombatSynchronization.md`, 유닛별 에셋·구현 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
@@ -56,7 +56,7 @@
 ## 유닛 — 인간계 (Human)
 
 > **시간 컬럼**: 권위 타격·발사·힐 발동 offset과 실제 생산 주기를 분리해 초 단위로 기록한다. `원래 시간 표기`는 과거 사본 보존용이다. 콜론을 일괄 환산하지 않고 현재 연결된 클립의 저장 초 값·소비 경로를 확인했다. EagleArcher의 클립 열거 선택 경계는 아래 구현 근거 절에 명시한다.
-> 시간은 권위 행동 회차 시작부터 해당 사건까지의 offset이다. 일반 공격은 권위 피해 예약 시점, TorrentSpirit는 파도 발사 시점(대상별 피해·힐은 그 뒤 전선 접촉), BloomFairy는 힐 발동 시점이다. FoxMagician의 피해 예약 2.25초와 charge VFX marker 1초는 서로 다르며, 모든 `OnAttackHit` 이벤트를 실제 피해 시점과 동일시하지 않는다. `초:프레임(30fps)` 마커는 `초 + 프레임/30`으로 환산한다.
+> 시간은 권위 행동 회차 시작부터 해당 사건까지의 offset이다. 일반 공격은 권위 피해 예약 시점, TorrentSpirit는 파도 발사 시점(대상별 피해·힐은 그 뒤 전선 접촉), BloomFairy는 힐 발동 시점이다. FoxMagician은 피해 `OnAttackHit @ 85/30초`와 charge `OnAttackCharge @ 1초`를 구분하며 로컬 이벤트가 HP를 적용하지 않는다. `초:프레임(30fps)` 마커는 `초 + 프레임/30`으로 환산한다.
 > **HP·공격력은 ×10 스케일 값(구현 완료 — config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)).** 이동속도·사거리·쿨다운·생산시간·골드비용·인구는 불변.
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 타격·발동 시점 (초) | 전체 주기 (초) | 원래 시간 표기 | 생산 시간 | 골드 비용 | 인구 | 비고 |
@@ -90,7 +90,7 @@
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 타격·발동 시점 (초) | 전체 주기 (초) | 원래 시간 표기 | 생산 시간 | 골드 비용 | 인구 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FoxMagician | 200 | 150 | 3 | 3 | 0.5 | 2.25 (피해; VFX 1) | 4 | 2:25(4:00) | 5초 | 70 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
+| FoxMagician | 200 | 150 | 3 | 3 | 0.5 | 2.8333333 (피해; charge 1) | 4 | 2:25(4:00) | 5초 | 70 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | BearGuard | 1000 | 60 | 0.5 | 1 | 1 | 0.43333334 | 1.6666666 | 0:13(1:20) | 25초 | 300 | 1 | [원문 비고](#bearguard-원문-비고) · [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | LionKnight | 500 | 90 | 0.5 | 1 | 2 | 0.6, 1.4333333 | 2 | 0:18,1:13(3:00) | 15초 | 200 | 1 | [원문 비고](#lionknight-원문-비고) · [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | RhinoBreaker | 600 | 100 | 0.5 | 1 | 2 | 1.05 | 2 | 1:05(2:00) | 20초 | 200 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
@@ -107,7 +107,9 @@
 
 ### 생산 타임라인 구현 근거
 
-일반 공격의 타격은 선택된 Attack 클립의 `OnAttackHit` 이벤트를 추출한다. 주기는 선택된 클립 길이로 덮어쓴다. Fox는 피해 offset 2.25를 설정에서 유지하고 클립의 1초 이벤트는 충전 VFX용이다. Bloom은 marker 1초 뒤 **발동 후 쿨다운 3초**를 세므로 명목 주기는 4초이며 클립 길이와 같은 이유로 일반 공격 규칙을 적용한 값이 아니다. Torrent의 2.3333333은 파도 발사이며 실제 피해·힐은 이후 대상 접촉 시점이다.
+일반 공격의 타격은 선택된 Attack 클립의 `OnAttackHit` 이벤트를 추출한다. 주기는 선택된 클립 길이로 덮어쓴다. Fox도 SOLO/server/client Factory 생성에서 피해 `OnAttackHit @ 85/30초`를 추출하며 type21 설정 fallback은2.8333333초다. 별도 `OnAttackCharge @ 1초`는 source VFX/SFX만 시작하고 피해 offset에 포함하지 않는다. Bloom은 marker 1초 뒤 **발동 후 쿨다운 3초**를 세므로 명목 주기는 4초이며 클립 길이와 같은 이유로 일반 공격 규칙을 적용한 값이 아니다. Torrent의 2.3333333은 파도 발사이며 실제 피해·힐은 이후 대상 접촉 시점이다.
+
+**2026-10-14 Fox 원래 의도 복원:** 사용자 원래 `2:25@30fps`는85/30초다. 이전2.25초 표기는 잘못된 환산·mirror baseline이며이번 변경은 새 밸런스 튜닝이 아니다. source8파일 manifest·문서 담당 해시 일치와 구현 담당 writer RED→GREEN에 더해 **Main 새 Runtime/Editor/Probe compile 및 controlled Mono Probe exit0**가 인계됐다. YAML2.83333325로2.25초 HP200을 유지하고 첫 serialized due2.8333332538604736에 피해1회·immediateTrue, 실제 Factory predicate=True·기존 validator authority core PASS를 확인한 범위다(Main 전달값). native asset 추출/Animator/relay fixture·멀티 경기·시각 수용·빌드 실행은 NOT RUN이며 curve prefix Main 보존 확인은 완료됐다(2026-10-15 갱신). 최신8manifest와25종 artifact 최종 감사·Main 일반23종 controlled 실행을 모두 수령해 반영 감사를 종결했다. 추가 확정 누락은 없다. 상세 수치·manifest·실행 한계는 [현행 Fox Task](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#fox8파일-적용-receipt--구현-담당-검증과-main-독립-검증-분리)를 따른다. 원래8종 표기 차이는 자동 수정 목록이 아니며 전체 SOLO 완료 아님.
 
 실제 연결·클립 GUID·SHA 및 소비 코드 근거는 [현재 문서 정리 Research](_Tasks/2026-10-13/19_03_main-docs-organization/Research.md#실제-구현값-기준-후속-정정)에 기록했다. 새 Unity 실행·실기 타이밍 측정은 하지 않았다.
 

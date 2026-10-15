@@ -4,6 +4,16 @@
 
 날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](History/ImplementationVerificationHistory.md#status-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
+### 사용자 싱글 경기 관측 (2026-10-15)
+
+**공통 이동 복귀 SOLO focused PASS/CLOSED:** 사용자 새 싱글2경기 육안 정상과 Main runtime 분석으로 이번 복귀 범위를 수용했다. 미종결 episode는 후속 재교전·사망·종료 문맥으로 분류하며 false FAIL로 세지 않는다. 기존 소스·타격·멀티·규칙 수치는 유지한다. native 메뉴 PASS·전25종·전체 동등성/global PASS는 아니며 랠리·광산은 사용자 명시 제외다. [단일 상세 결과·관측 한계](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-return-two-match-acceptance).
+
+복원 뒤 초월8종 싱글1경기에서 권위 타격·Fox 예약·UI 같은 frame 수신/방출 및 Bloom 힐 시간의 관측 범위 기술 검증을 통과했고, Fox 조기 피해·근접 불발의 재발 근거는 없었다. 진단 cap·종료 경고·표현 미관측은 남아 있어 경기 전체·25종·멀티·픽셀/시각 수용 PASS는 아니다. 이 경기 분석 자체는 코드 변경 없이 수행됐으며 이후 공통 복귀 교정은 위 별도 상태로 구분한다. 상세 통계와 한계는 [기존 Task](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-match-2026-10-15)에 둔다.
+
+### 경기 전 원래 교정 반영 감사 종결 (2026-10-15)
+
+25종 에셋·설정·코드 반영 감사와 입증된 누락 복원을 완료했으며 추가 확정 누락은 없다. Fox 원래2:25 복원·기존 승인된 SOLO clock/pursuit 보존, 일반23종·25후보 controlled 실행과 기존2fixture PASS, Torrent·Bloom 정적 연결을 확인했다. 상세 근거는 [기존 Task](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#artifact-restoration-audit)에 둔다. native·실기 최종 수용은 미실행이며 기존 개별 수용은 유지한다. 신규 gate·lease·overlap 정책이나 global migration 완료를 뜻하지 않고 전체25종 재테스트를 필수 후속으로 추가하지 않는다.
+
 ### 현행 진행 경계 (2026-10-13 문서 정리)
 
 - 사용자 추가 결정에 따라 유닛 스탯·공격 시간·건물 현재 기능 문서를 실제 구현값 기준으로 정정했다. 밸런싱은 추후이며, 생산 클립 조사와 기존 사용자 공격 교정 수용을 새 전체 migration·실기 정밀 검증으로 확대하지 않는다. EagleArcher 클립 열거 순서의 제한된 확인 경계는 [StatsReference](StatsReference.md#생산-타임라인-구현-근거), AI 시나리오 재논의는 [ROADMAP](ROADMAP.md#ai-시나리오-재논의-사용자-추가-결정-2026-10-13)을 따른다.

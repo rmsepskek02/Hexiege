@@ -1761,7 +1761,7 @@ namespace Hexiege.Application
             bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
             if (!replacesPrimary)
             {
-                // 여우마법사의 Legacy 표식(1초)은 VFX 시작이며 피해 확정(2.25초)보다 먼저다.
+                // 여우마법사의 charge 표식(1초)은 VFX 시작이며 피해 확정(30fps의 2:25)보다 먼저다.
                 // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
                 // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
                 // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.

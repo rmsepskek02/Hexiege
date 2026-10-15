@@ -1,14 +1,376 @@
-main 병합 뒤 싱글플레이 유닛 문제의 기존 감사·추격 교정 근거를 보존하고, 추가 타격 타이밍 교정의 적용·Main 독립 검증 인계를 기록한다. 광산·랠리는 제외한다. 코드/CLR 검증 완료와 실제 화면·경기 해결 수용은 다른 판정이다.
+이번 SOLO 공통 이동 복귀 교정은 **사용자 2회 싱글 테스트 육안 수용과 runtime 증거에 한정해 focused PASS/CLOSED**다. 기존 controlled 검증·소스 보존과 별도로 아래 두 경기 분석을 반영했다. RETURN 미종결14개는 후속 재교전·사망·종료 문맥으로 분류하며 자동 이동 실패로 세지 않는다. native 메뉴 실행 PASS는 이 로그로 입증할 수 없고 전체25종·멀티 동등성·global PASS도 아니다. 랠리·광산은 사용자 명시로 이번 범위에서 제외한다.
 
 # Research — 병합 후 유닛 회귀 감사
 
-## 전 유닛 과거 승인 계약 감사 — 25종 보고·Main 검토 완료 / 한계 명시
+<a id="main-merge-publication"></a>
+
+## 사용자 승인 Git 반영 — Main 진행 중 / 결과 영수증 대기
+
+사용자가 기존 Task에 병합 결과를 기록하고 현재20변경을 커밋한 뒤 최신 main fetch→main 전환·merge→원격 main push를 진행하도록 명시 승인했다.20변경은 승인 인계 시점의 전달값이며 문서 담당이 Git으로 재집계하거나 고정 staging manifest로 확정한 수가 아니다. 원시 테스트 로그는 제외한다. Main이 Git 조작·충돌 조율을 담당하며 문서 담당은 Git·코드 수정·새 Task 생성을 하지 않는다.
+
+현재 Main의 fetch 성공·읽기 확인 결과를 수령했으며 merge는 아직 실행하지 않았다. commit/전환/merge/push 완료 영수증은 대기다. 최종 commit·병합 상태·원격 반영·로그 제외와 검증 범위는 Main 실제 결과 수령 후 이 절에 기록한다. 게시·병합 성공을 추가 native 실행·새 gameplay 검증·전25종/멀티/global PASS로 해석하지 않는다. 기존 SOLO 공통 복귀 focused PASS/CLOSED는 유지한다.
+
+### Main 병합 전 읽기·fetch 인계 — merge 미실행
+
+아래는 Main 전달값이며 문서 담당의 Git 재확인 결과가 아니다. feature HEAD=`532e2033`, local main=`a36ff2f7`, origin/main=`88f60e38`(2026-10-13T22:52:17+09)이다. fetch는 성공했고 원격 ref 변경은 없었다. 공통 `a36ff2f7`에서 feature 보존 commit1개와 main VFX commit1개가 각각 갈라졌다.
+
+Main 확인상 main 측 C# 변경은 없고 VFX png/mat 추가, Bloom/Mushroom 관련3 prefab 변경, Docs/log meta 정리다. 같은 경로에 양쪽이 추가한 신규 Docs meta는 add/add 충돌이 예상되지만 아직 실제 충돌 발생·해결을 뜻하지 않는다. 현재20 dirty files는 모두 명시적 파일 staging·commit 예정이며 원시 로그는 미추적 상태로 제외하고 그 meta도 이번에 추가하지 않는다. 이 수는 Main 확인 당시의 전달값이다.
+
+문서 반영 완료 뒤 Main은 명시적 파일 stage·commit→main을 origin/main으로 fast-forward→feature merge를 진행한다. 문서 담당은 Git·staging·충돌 해결을 실행하지 않으며 최종 적용 파일·보호·원격 결과 영수증을 기다린다.
+
+<a id="solo-return-repath-open"></a>
+
+## 2026-10-15 대상 소실 후 공통 이동 복귀 — SOLO focused PASS/CLOSED
+
+최초 사용자는 대상 소실 뒤 Rabbit·RhinoBreaker·LionKnight 등의 정지를 보고했다. 아래 수정 전 분석과 구현 영수증은 당시 근거로 보존한다. 이후 사용자 2회 싱글 테스트·Main 최종 분석으로 이번 복귀 focused 범위를 수용했다. 과거 타격·UI 성공만으로 복귀를 통과시킨 것이 아니다.
+
+<a id="solo-return-two-match-acceptance"></a>
+
+### 2026-10-15 새 싱글 2경기 최종 분석·사용자 수용
+
+**근거 구분:** 아래 행·시각·집계·분류는 Main 직접 분석 및 Main+coder 독립 후속 분류의 **전달값**이다. 문서 담당 재집계·원시 로그 독립 분석값이 아니며 옛 문서 수치에서 역산하지 않았다. 사용자는 두 번 테스트했고 육안상 문제가 없었다고 확인했다. 원본은 [Editor RuntimeLog](../../../_Logs/_editor/2026-10-15/RuntimeLog.txt), SHA256 `56667171184293663D8E6EE78F9F2EFA81BDC4934E8ADB2386E72874BA7BAB0F`, 2,335,707bytes다. 오전 교정 전 경기 append 구간은 이번 판정에서 제외한다. 새 session은 L1951/18:21:47이다.
+
+| 경기 | 구간·종료 경계 | RETURN행 | start | resume-success | provider | end 개체 | terminal Open |
+|---|---|---:|---:|---:|---:|---:|---:|
+| M1 | bootstrap L1971; END L2990/18:24:19.694; 로비 L2994 | 56 | 14 | 14 | 19 | 9 | 0 |
+| M2 | bootstrap L3043; END L5529/18:26:26.568; 로비 L5542 | 93 | 33 | 19 | 20 | 21 | 14 |
+
+Main 최종값은 **RETURN 총149행**이다.147이라는 중간 후보값은 사용하지 않는다.149행 전부 Distance0/Coverage=bounded/Omitted0/FormatRejected0이며 cap0·blocked0·InvalidStart0다. 양쪽 terminal Completed0/Blocked0이고 총47start/33resume/14미종결이다. 미종결은 재교전이나 종료로 진단 episode가 resume-success 없이 끝난 상태일 수 있어 이를 false FAIL14로 해석하지 않는다.
+
+**미종결14개의 후속 분류:** 12개는 실제 이동 뒤 재교전, Unit47은 실제 이동 증거 없이 즉시 재교전 뒤 HP 적용·사망, Unit54는 경기 END 뒤 진입했다. terminal 기준으로는 재교전 상태 경기 종료10개+사망3개+종료 후 진입1개다. 두 집계는 다른 분류 축이며 하나를 다른 하나의 실패 수로 바꾸지 않는다. Unit31은 L5419 RootZ -4.308649→L5441 -4.039527로 실제0.2691 전진했고 L5442 attack-entry는 END L5529 전이다.
+
+아래는 M2 pending 전체 자리 목록(Main 전달값)이다. Key는 Unit,Episode이며 마지막 stage는 모두 end다. Root는 마지막 RootHex이고 이동 성공 표시가 아니다.
+
+| Key | Type | start 행·시각 | 마지막 end 행·시각 | Root | terminal 후속 분류 |
+|---|---:|---|---|---|---|
+| 29,2 | 15 | 4344 /18:26:03.702 | 5572 /18:26:29.214 | 6;-1 | 재교전 상태 경기 종료 |
+| 31,2 | 17 | 5420 /18:26:23.255 | 5574 /18:26:29.214 | 6;1 | 재교전 상태 경기 종료 |
+| 33,1 | 16 | 3504 /18:25:43.564 | 3802 /18:25:53.020 | 6;1 | 사망: L3803 fatal HP20→0 |
+| 35,1 | 11 | 4039 /18:25:57.534 | 5578 /18:26:29.215 | 6;-1 | 재교전 상태 경기 종료 |
+| 36,1 | 14 | 4153 /18:26:00.844 | 5582 /18:26:29.218 | 6;-1 | 재교전 상태 경기 종료 |
+| 37,1 | 13 | 4270 /18:26:01.941 | 5586 /18:26:29.220 | 6;-1 | 재교전 상태 경기 종료 |
+| 41,1 | 13 | 5064 /18:26:16.717 | 5590 /18:26:29.222 | 6;-1 | 재교전 상태 경기 종료 |
+| 44,1 | 16 | 4618 /18:26:08.970 | 5598 /18:26:29.225 | 6;-1 | 재교전 상태 경기 종료 |
+| 46,1 | 4 | 3891 /18:25:54.245 | 4033 /18:25:57.531 | 7;1 | 사망: L4034 wave apply HP190→0 |
+| 47,1 | 0 | 3884 /18:25:53.890 | 4141 /18:26:00.287 | 6;1 | 사망: L4142 fatal HP40→0 |
+| 49,1 | 16 | 4943 /18:26:14.392 | 5610 /18:26:29.231 | 6;-1 | 재교전 상태 경기 종료 |
+| 53,1 | 16 | 5000 /18:26:16.231 | 5618 /18:26:29.236 | 6;-1 | 재교전 상태 경기 종료 |
+| 54,1 | 13 | 5533 /18:26:26.571 | 5621 /18:26:29.238 | 6;-1 | END L5529 뒤 진입 |
+| 58,2 | 16 | 5399 /18:26:22.031 | 5625 /18:26:29.240 | 6;-1 | 재교전 상태 경기 종료 |
+
+**타입별 RETURN episode 분포(Main 전달값; 타입명 임의 환산 없음):** M1 type17=9(Units15/13/16/8),20=1(Unit4),22=1(Unit5),23=1(Unit9),24=1(Unit10),26=1(Unit7). M2 type0=1(Unit47),10=1(Unit32),11=3(Units35/43/48),12=5(Unit28),13=5(Units37/41/50/45/54),14=1(Unit36),15=2(Unit29),16=6(Units33/44/49/53/58),17=2(Unit31),18=6(Unit27),4=1(Unit46). 분포의 episode와 고유 개체 수를 혼동하지 않는다.
+
+**공간·전투 관측:** Root 위치가 있는 Pursuit 표본은 M1 147/M2 439=586으로 모두 RootTile=UnitTile다. 전체 Pursuit640 중 Root 없는 terminal54행은 이 정합 모집단에서 제외했다. checkpoint10건 모두 Reached/Consume10, attack-entry149다. M1 Lion Unit5·Rhino Unit9는 RETURN 직접 resume 사례다. Rabbit Unit11/19의 pursuit8표본은 정합 정상이나 별도 target-loss resume 표본은 없다. 이 미관측을 위해 강제 재시험을 요구하거나 이번 focused 결과를 전체 FAIL로 넓히지 않는다.
+
+일반 HP dispatch M1 133/M2 130=263은 모두 Applied/full-key 중복0/negativeLate0이며 최대 지연42.2269968092/92.2595979185ms다. timing detail cap4(M1 Unit8/13, M2 Unit28/31) 뒤 타격은 전체 완전 관측이 아니며 RETURN/Pursuit cap0의 이번 복귀 판정과 분리한다. 공격 정밀 시각·native marker 전체 동등성을 이 숫자로 입증하지 않는다.
+
+**경고 원인 정정·분리:** ERROR/Exception0, WARN은 M1 3/M2 8=11이며 timingcap4+TimedDamageEffectChannel staleDrop7이다. M2의 BurnDrop6개(L3227/3320/3484/3554/4035/4529)는 같은 key의 앞선 LocalDeath 닫힘 뒤 발생했다. M1 L2861은 Match0/defaultDamageState이며 Bloom Target14 LocalDeath L2844/2845와 HealStop→BindingRejected/StopBeforeReady L2858~2860에 인접한 기존 heal cleanup 기본 damage 관측 잡음이다. 일곱 건 모두 유효 damage 동일-key 중복 Stop이라고 쓰지 않는다. 이번 공통 이동 실패와 혼동하지 않으며 기록만 하고 수정하지 않았다.
+
+**최종 판정:** 사용자 육안 정상과 위 runtime 증거에 한정해 **이번 SOLO 공통 이동 복귀 focused PASS/CLOSED**다. RuntimeLog에 native 메뉴 PASS 근거가 없다는 것은 메뉴 미실행의 증명이 아니므로 실행 여부를 단정하지 않는다. 이번 수용은 Unity self-validation native PASS, 전25종 검증, 멀티 동등성, global PASS가 아니다. 랠리·광산은 사용자 명시 제외다. 코드 source3EB17/validator6367 세대는 변경하지 않았고 추가 코드·빌드·TC·새 Task·Git·원시 로그 변경 없이 문서만 갱신한다. 문서 검사와 baseline은 Main 담당이다.
+
+### 승인 상태와 구현 인계 완료
+
+사용자는 기존 Research·Plan 갱신 후 SOLO 추격 위치 정합, 대상 소실 후 이동 재개, 이를 확인할 싱글 로그 구현에 「그렇게 진행해」로 승인했다. 아래 원인 분석·provider 재현은 수정 전 근거로 보존한다. 이번 승인은 기존 공격 타이밍·멀티 동작이나 광산·랠리포인트·성능·VFX 세부 조정의 변경 승인이 아니다. 구체 계획·Main 검토 승인에 이어 최종 구현 receipt와 Main 직접 검증을 수령했다. 아래 최종 결과가 현행 상태이며 중간 검사·초기 실패는 당시 이력으로 보존한다.
+
+**계획 수령 당시 이력:** SOLO Legacy 공통 이동 적용에서 기존 공간 후보 평가·전이 policy·preflight를 통과한 실제 타일 경계를 순차 commit하고, endpoint의 중복 ProcessStep/OnEntered를 막는 계획을 수령했다. A*·Chase·복귀 align을 대상으로 하되 멀티 Legacy 분기, 복귀 planner·InvalidStart·blocked budget·공격 ownership·nonwalkable terminal contact는 보존한다. bounded SOLO 개발 로그는 실제 비영 이동과 정합을 확인한 resume-success를 다른 전이와 구분한다. 당시에는 실제 policy·commit·역 index·provider 및 거부/중복/비인접 경계 검증, actual View native gate 준비, Runtime/Editor compile이 예정이었고 receipt를 기다렸다. 예정 코드는 UnitView.cs와 RunUnitActionSelfValidation.cs의 총 2파일이며 정확한 경로는 Plan 4항에 명시했다. 이후 적용·최신 receipt 대기는 해소됐고 현행 결과는 아래 영수증을 따른다. native·실기는 여전히 미실행이며 추가 규칙 변경은 없다.
+
+**2026-10-15 Main 독립 검토 인계:** 문서 담당의 「UnitView와 SelfValidation 파일 2개」 오독은 Plan 4항에서 총 2파일로 정정했다. 나머지 계획은 적합 판정이며 코더 조건부 GO가 전달된 상태다. 이 승인은 구현 완료·검증 PASS의 receipt가 아니다.
+
+<a id="solo-return-final-receipt"></a>
+
+### 2026-10-15 구현·controlled 검증 영수증 — Coverage 보완 후 현행 세대
+
+**최신 상태:** RETURN 일반 줄의 Coverage 조건이 `_soloRecoveryOmitted > 0 || _soloRecoveryFormatRejected > 0`으로 보완돼 포맷 거부 이력 뒤 정상 짧은 줄도 incomplete를 유지한다. 문서 담당은 최신 UnitView·validator SHA256과 해당 조건을 직접 확인했다. 게임플레이 변경 없이 로그 조건 하나만 보완한 세대이며, 아래 1차 세대의7B7/5234 hash·compile을 현행으로 사용하지 않는다.
+
+#### 현행 receipt — 2026-10-15 Coverage 보완 후
+
+| 구분 | SHA256 / 실행 결과 |
+|---|---|
+| `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` | `3EB17C328CA8DA1D352EBB6F5DB49BF30D28CF32A5E30BE9ED39A62B18A9D6C9` — 직접 일치 확인 |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | `6367A1599272D6DFAA069B76D6178E57AF5F521FA733B6F0FB2A88011C0011C5` — 직접 일치 확인·변경 없음 |
+| worker Runtime DLL | `E9A7D35484AF4A4AB1FF7981ADC3A0FA48EC44FFC6EED39EB600DBD4C0756739` |
+| worker Editor DLL | `402DA412832BF346D2ACC7DE5FEAA5DF6423FE7B2F3AFD22AA3DFF94EAE602F6` |
+| Main fresh Runtime compile | `91839c` exit0/errors0/warnings23 |
+| Main fresh Editor compile | `ce8fe0` exit0/errors0/warnings0 |
+| Main managed 실제 policy/preflight/commit/index/events/provider | `b20bbb` 두 case exit0 |
+| Main 독립 IL current | `9157ac` — 실제 로드 worker Runtime hash E9A7…6739 일치, stageTrue/exit0 |
+| Main-check Runtime DLL | `46A6EF747A1E42F52CDE07F9621BB73B97DB31449D31539F3BF3E19BAE85A234` |
+| Main-check Editor DLL | `5FB9FDF2996F006D4F9E4C3F27013C3C930954633284B6A458EEF1E927FB3EC5` |
+
+source 일치·조건 검토 외 실행값은 Main 직접 검증 전달값이며 문서 담당 독립 실행은 아니다. Before의 기존 `c0571f`/D276…E038/stageFalse 대조군은 계속 유효하다. 현행 current와 함께 **SOLO stage 호출 연결만의 RED/GREEN**이며 View 움직임·전체 coroutine 실행은 아니다. worker와 Main-check DLL은 별도 산출물로 구분한다. 보호668의 앞선 최종 changed0/added0 비교는 이후 로그 조건 코드만 수정했으므로 Main이 유효함을 재확인했다. 클립·씬·config·멀티·타격·규칙 수치의 변경은 없고 Library 덮어쓰기·Unity native·사용자 실기·빌드는 없다. 기존 programmer 메모리 hash/교훈은 아래1차 인계와 동일하며 메모리 성장 baseline은 Main 담당이다.
+
+#### 보완 전 1차 최종 시점 이력 — 아래 hash·compile을 현행으로 사용하지 않음
+
+**[🔴 2026-10-15 정정 — 원문 유지: 아래7B7 source·5234 IL 및 DAFA Main-check Runtime은 Coverage 보완 전 세대다. 이후 최신값은 바로 위 현행 receipt로 대체됐다. 당시 검증 사실은 보존하지만 새 세대 검증으로 재사용하지 않는다.]**
+
+최종 코드 2파일과 기존 programmer 메모리 1파일의 SHA256은 문서 담당이 직접 읽어 아래 전달값과 일치를 확인했다. source 내용 검토는 독립 compile/native 실행과 다르다. 실행 ID·exit·시간·보호 집계는 Main 직접 실행 인계이며 문서 담당 재실행값이 아니다.
+
+| 파일 | 최종 SHA256 |
+|---|---|
+| `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` | `7B7E2F379BB1F7FC7B9D8EDD44CEF41F93361AB5FC5E3F110058525A7D7887F1` |
+| `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | `6367A1599272D6DFAA069B76D6178E57AF5F521FA733B6F0FB2A88011C0011C5` |
+| `.claude/agent-memory/game-programmer/combat-fixes.md` | `24FCCF3DCD08F7C03DF28D8A9874B8D86B90CD2737FB585C57CBC86A334285CD` |
+
+**실제 코드 반영:** SOLO Legacy의 공통 `ApplyMovementAuthorityFrame`에 기존 공간 후보 평가·policy·preflight 후 Root와 순차 spatial commit이 연결됐다. A* 중간 경계에서 추격으로 전환되는 경우도 포함하며, SOLO endpoint `ProcessStep`/`OnEntered` 중복을 막고 `prevActualTile`을 committed 상태에서 읽는다. 멀티 Legacy 기존 endpoint 분기는 유지한다. 새 private `TryStageSoloSpatialCommit`은 이미 최종 nonwalkable contact 타일 안에 있고 논리 위치가 인접 마지막 walkable 타일인 제한 조건의 반복 contact를 보존한다. 중간 차단·비인접 이동·경로 밖 진입을 수용하거나 InvalidStart/blocked budget을 완화하는 변경이 아니다. 복귀 planner·공격 ownership·타격·멀티 계약·규칙 동작 수치는 변경하지 않는다.
+
+**RETURN 로그 직접 검토:** `[UAS-SOLO-RETURN]`은 UNITY_EDITOR/DEVELOPMENT_BUILD의 개발 로그다. start/provider/blocked/resume-success/completed/end와 최초 cap을 구분하며 detail64 뒤 cap1, end는 detail 예산과 별도로 기록한다. 누적 Started/Resumed/Blocked/Completed/Open/Omitted/FormatRejected는 상세 출력 예산과 별개다. 일반 상세 필드는 Stage/Unit/Type/Mode/Episode/RootHex/LogicalHex/Distance/Provider/Reason/Frame과 누적값이며, cap 및 포맷 거부 fallback은 축약 필드와 Coverage=incomplete를 사용하므로 모든 줄이 full 필드라고 쓰지 않는다. `resume-success`는 pending 복귀가 실제 A* 비영 이동을 했고 pursuit/Chase가 아니며 RootHex와 논리 타일이 일치할 때만 닫힌다. 이미 목적 중심인 completed는 걸어서 재개한 성공과 분리한다. detail cap 이후 집계가 남더라도 모든 사건 상세가 관측됐다는 뜻은 아니다. 매 frame 출력은 없다.
+
+**Main 직접 검증·보호 영수증:**
+
+- 실제 managed `policy → preflight → commit → index/events → provider` 두 case는 최종 독립 실행 `74e090` exit0다. 앞선 `b3357b`는 중간 실행 이력으로 구분한다.
+- 수정한 독립 IL Probe는 실제 로드 세대를 확인했다. before DLL `D2768709C5573A0CCE1A79EEE00740CF4711F601237A94ED8364CC9B2FD9E038`는 stageFalse/비영 exit(`c0571f`), current DLL `5234D1DDD34D4DE14B0A37F6D3C8727E8A9F26DEEACDA052EBBA772EC18D6114`는 stageTrue/exit0(`5118b0`)다. 이는 **SOLO stage 호출 연결만의 RED/GREEN**이며 View 움직임·전체 coroutine 실행이 아니다. 아래 초기 `244042` wiring 결과를 대체하며 그 값은 계속 근거에서 제외한다. Mono identity 통합 의심을 확정 원인으로 승격하지 않는다.
+- fresh compile Runtime `01b1ca` exit0/errors0/warnings23, Editor `849cf3` exit0/errors0/warnings0. Main 최종 source hash 두 개도 위 값과 일치했다. Main-check Runtime DLL SHA256 `DAFA5B7B590AB3388BFE33F5316DD861A2FE9C7525CC5E97F79A464B0477A928`(17:44:35), Editor DLL `5FB9FDF2996F006D4F9E4C3F27013C3C930954633284B6A458EEF1E927FB3EC5`(17:44:39)는 최종 UnitView source17:41:53·validator17:38:04 이후 산출물이다. IL 검사 DLL hash와 별도 compile 산출물 hash를 같은 파일로 취급하지 않는다. Library 덮어쓰기는 없다.
+- Main 최종 보호668파일 SHA 비교 changed0/added0: 클립·프리팹·씬·config 및 CombatUseCase/Factory/Relay/AttackShadowObserver를 포함한다. 이는 해당 보호 manifest 범위이지 리포지토리 모든 파일 무변경 주장이나 gameplay 수용이 아니다. Main `git diff --check` exit0도 별도 형식 검사다.
+
+**검증 경계:** 기존 SelfValidation에 actual View를 호출하는 `ValidateSoloSpatialRecoveryBoundary` gate가 준비됐다. 코드상 경계 commit·역 index/events·provider·중복 endpoint·중간 차단 거부/무변경·최종 nonwalkable 반복 contact를 검증하지만, gate 코드 존재/compile을 native 실행으로 바꾸지 않는다. 전체 actual View/coroutine·Unity native 메뉴·사용자 실기·빌드는 NOT RUN이다. 다음은 Unity 검증과 대상 소실 후 실제 이동 복귀·RETURN 로그를 확인하는 실기이며, 현재 판정은 구현 완료·controlled 검증 통과/실기 OPEN이다. 기존 개별 수용은 보존하고 전체25종·전체 동등성·global PASS를 선언하지 않는다.
+
+**문서·메모리 경계:** 상세 영수증은 이 절만 사용하며 상태 문서는 요약 링크를 둔다. programmer 기존 combat-fixes에는 공통 SOLO 경계 commit·endpoint 중복 방지·native와 managed 증거 분리 교훈 한 항목이 추가됐다. 같은 교훈을 공용 MEMORY에 중복 복제하지 않으며 문서 구조 변경이 없어 document-manager 메모리는 생략한다. 최종 문서 검사와 메모리 성장 baseline 갱신은 Main 담당이다.
+
+**[2026-10-15 후속 수용 — 위 구현 인계 당시 원문 유지: 위 「실기 OPEN/NOT RUN/다음은 실기」는 구현 인계 시점의 기록이다. 이후 사용자2경기 육안 수용과 runtime 분석으로 이번 SOLO 복귀는 상단과 같이 focused PASS/CLOSED다. native 메뉴 실행 여부는 저장 로그로 미확인일 뿐이며 이번 closure의 blocker나 재시험 필수 조건이 아니다. RETURN149행·Pursuit 공간586표본은 별도 모집단이며 타격 상세 cap4를 이 표본의 cap으로 옮기지 않는다.]**
+
+<a id="solo-return-interim-validation"></a>
+
+### 2026-10-15 Main 중간 검사 당시 이력 — managed 한정 성공 / 초기 wiring 근거 제외
+
+아래는 Main 직접 실행·검토의 전달 결과이며 문서 담당이 실행하거나 독립 재측정한 결과가 아니다. 최종 수정 receipt는 아직 수령하지 않았다.
+
+- **Actual managed 경로:** Main tool `b3357b`에서 실제 managed `policy → preflight → commit → index/event → provider`의 두 case가 exit0였다. 해당 실행 경계의 성공이며 actual View native 실행, 전체 수용, 사용자 경기에서의 정지 해결은 증명하지 않는다.
+- **IL wiring negative control 실패:** Main tool `244042`에서 coder의 초기 IL wiring Probe가 `Before.dll`에도 True를 반환했다. 수정 전 대조군을 구별하지 못했으므로 초기 wiring 값으로 RED/GREEN이나 교정 연결 성공을 기록하지 않는다. 이 실패는 검증 중 잡은 false positive이며 게임 코드 오작동의 추가 증거가 아니다.
+- **원인·후속:** Mono assembly identity 통합은 의심 단계이지 확정 원인이 아니다. Main은 coder에게 별도 runtime 참조가 없는 IL probe와 실제 로드 위치·해시 확인을 즉시 요청했다. 수정 probe·유효한 대조군·최종 실행 결과의 receipt를 기다린다. 앞선 managed 두 case 결과와 실패한 wiring 증거 축을 섞지 않는다.
+
+### 확인된 정적 결함과 실제 provider 재현
+
+Main 정적 확인상 SOLO Legacy 추격은 UnitView2172~2220/5712에서 Root 월드 이동·checkpoint 소비를 갱신하지만 논리 `UnitData.Position`은 갱신하지 않는다. Reducer 경로에는 실제 spatial commit이 있으며 두 경로를 동일시하지 않는다. Root와 DomainXZ 월드 좌표 일치도 논리 타일 일치와 다르다. SOLO의 RequestLatestAuthoritativeRepath는 공용 RequestAuthoritativeRepath를 호출하고, UnitView3584~3620 및 UnitMovementUseCase134~156의 시작점 거리 guard가 이 불일치를 거절한다.
+
+Main 실제 RepathProbe 실행 `cef5dd`는 exit0이다. [Probe 소스](../../../../../../Temp/unit-closure/RepathProbe.cs)의 actual RequestAuthoritativeRepath+FlowField에 로그 RootTile 분류 mapper를 주입하고32×40 walkable fixture를 사용했다. 문서 담당은 소스·exe 해시 일치를 직접 확인했으며 아래 실행 결과는 Main 직접 실행 인계다.
+
+| 원본 입력 | 논리 타일 | 주입 RootTile | 거리 | 실제 provider 결과 | 경로 수 |
+|---|---|---|---:|---|---:|
+| L1393 Unit22 Rabbit | 6;12 | 6;14 | 2 | InvalidStart | 0 |
+| 같은 입력의 대조군 | 6;12 | 6;13 | 1 | Success | 4 |
+| L1724 Unit27 Rabbit | 6;13 | 5;15 | 2 | InvalidStart | 0 |
+| 같은 입력의 대조군 | 6;13 | 6;14 | 1 | Success | 4 |
+
+네 경우 모두 LogicalUnchanged=True다. Probe source SHA256은 `CA19EEE5DCED648AB6E4F0278BF783DD4D4707770AB7AC2687BA53CFC912D2F0`, exe는 `68F94B103F6647AB19BE5C73AC27C5EB3B036A22BCE8590C75C14C8DF41B2AD0`다. 이는 실제 provider의 guard 거절과 거리1 대조군 성공을 증명하지만 실제 맵·native 좌표 mapper·A* forward candidate loop·Unity coroutine 전체 정지 재현은 아니다. 대조군의 mapper 변경을 게임 수정이나 스냅 해결책으로 제안하지 않는다.
+
+### 후속 경로의 한계·현재 판정
+
+Main 정적 경로는 outer4471의 fallback null→guardRejectedInvalidPath→navigationBlocked4020/4031에서 환경·pending 변화 대기를 가리킨다. 그러나 BeginPostCombatTrace635의 NetworkActive/Server gate 때문에 SOLO 후속 return trace가 없으므로 이번 실제 사건이 navigationBlocked 뒤 어느 분기를 지났는지는 확정할 수 없다. Rhino/Lion도 같은 원인이라고 개체별 단정하지 않는다. 공격 종료 Action 반환·cooldown 대기는 b657 기준과 같고 활성 clock은 비paused·Remaining 유한으로 확인돼, 고정 대기 시간 자체가 새 원인으로 입증된 것은 아니다.
+
+확인된 결함은 **SOLO chase의 실좌표·논리 타일 불일치가 복귀 repath guard 거절을 일으킨다**는 것이다. 기존 checkpoint29건·stall0는 추격 중 관측일 뿐 post-close 복귀 정상 보장이 아니다. 공통 복귀 결함을 OPEN으로 재개하며 기존228 HP·타이밍/UI 결과는 해당 범위의 참인 근거로 보존한다. **2026-10-15 상태 갱신:** 당시 분석만 승인됐으나 이후 사용자가 상단의 한정 교정 범위를 승인했다. 새 스냅·대기 시간 제거·사거리/guard 완화는 선택된 해결책이 아니며 실제 gameplay 패치 결과·새 Task/TC·빌드 증거는 없다.
+
+<a id="solo-match-2026-10-15"></a>
+
+## 2026-10-15 초월8종 싱글1경기 — 관측 범위 기술 통과·전체 수용은 별도
+
+이번 분석은 새 코드 교정이 아니라 사용자 경기에서 기존 복원 결과가 어떻게 나타났는지 기록한다. 근거는 [Editor 원본 로그](../../../_Logs/_editor/2026-10-15/RuntimeLog.txt), SHA256 `CEE86E5E45D344B23A555151A24539652DC18572B42997567575696FDD9A62CC`다. 문서 담당은 파일 해시를 직접 확인했고 아래 통계·인과 구분은 Main 전체 분석 및 Main이 검토한 Fox 담당 독립 분석의 최종 인계다. 물리1954행/비공백1953행이며 초기1953은 비공백 행수였다. 경기10:59:39~11:01:18, 로비 복귀11:01:31, type20~27 초월8종이다. 전체 파일 시작·종료 시각과 경기 구간을 혼동하지 않는다.
+
+### 일반 권위 타격·추격 관측
+
+일반 timing/pursuit30개체와 Bloom1개체로 총31개체가 관측됐다. 일반 hp-dispatch228건은 모두 StatusApplied, 전체 키 `Unit:ReservedEpoch:Seq:Hit` 중복0, `now < due` 조기 적용0이다. 아래 값은 관측된 dispatch만 집계하며 로그 cap 뒤 전체 정상 건수를 확정하지 않는다. 전체 최대 지연은 Unit8/Eagle의71.52659289761232ms(원본 L482)이며 표의71.53은 반올림값이다. 일시 지연 관측이지 프레임 정체·기기 성능·렉의 원인이 확정된 것은 아니다.
+
+| 유닛(type) | 적용 건수 | 최대 지연(ms) |
+|---|---:|---:|
+| BearGuard(20) | 6 | 8.45 |
+| FoxMagician(21) | 37 | 22.975845 |
+| LionKnight(22) | 27 | 8.323176 |
+| RhinoBreaker(23) | 3 | 4.19 |
+| EagleArcher(24) | 91 | 71.53 |
+| RabbitTrickster(25) | 61 | 21.64 |
+| MushroomBomber(26) | 3 | 4.72 |
+
+추격 checkpoint29건은 모두 Reached/ConsumeTrue이며 attack-entry72, stall/cap0이다. close-post-combat-detect-lost48·reselect2·close-detect-lost2는 구분해 유지한다. 이 관측은 Root/Domain 전역 정합성이 모두 정상이라는 판정이 아니다. ERROR/Exception0, WARN14는 SOLO-TIME cap6와 TimedDamageChannel staleDrop8이다. cap 대상은 Eagle Unit8/13/15/19와 Fox Unit1/2이며 cap 이후 관측 완전성은 보장되지 않는다.
+
+### Fox 예약·권위 피해·native metadata
+
+5개체44예약은 Applied37+owner 취소7, 관측 예약 미결0·중복0·HP 차감 불일치0이다. 44건 모두 `Due−Anchor−Loop×4 = 2.8333332538604736초`로 일치했다. 조기 적용0, 적용 지연0.087147~22.975845ms다. 원래2:25 의도를 따른 예약·피해의 이번 관측 범위는 통과이며 새로운 피해 writer나 코드 변경은 없다.
+
+native metadata41건 모두85/30이다. 36건은 unit/epoch/Now가 HP와 같고 나머지5건은 현재 문맥에서 취소된 예약과 관련된다. 다만 `ReservationJoin=unassigned`이므로 정확한 native↔예약 owner 상관관계가 입증됐다고 쓰지 않는다. HP37건 중 native 행 미관측1건은 Unit1/2 상한에 인접하며 VFX 누락으로 판정하지 않는다. charge1초 source VFX/SFX 시작·종료 로그가 없어 재생 여부는 판정할 수 없다.
+
+**Fox UI 독립 검토 최종 확정:** 80행=received40/emitted40이며 도착 순서의 `attacker/victim/isUnit/hp/frame` tuple은40쌍 모두 같은 frame, 키·순서 불일치0이다. 모든 dispatch는 text-played다. 같은 localTime 시계 안의 수신→방출 차이는0.517~1.334ms, 음수0이며 최대 사례는 원본 L1184→L1185의 attacker1/victim12(건물), HP1050/frame100347이다. HitPresentationQueue localTime(realtime)과 authorityNow(scaled)를 서로 뺀 값이 아니다.
+
+관측된 권위 HP37행 모두 대상·HP 기준 UI 대응이 있다. 추가 UI3건은 L1776(Unit1/HP2100), L1854(Unit2/HP1950), L1869(Unit1/HP1800)이며 상세 상한 뒤에도 UI가 계속됐다는 관측이다. 이3건의 Due는 검증할 수 없으므로 권위 타이밍 통과 모집단에 더하지 않는다. 같은 frame의 수신·방출/text-played는 해당 로그 경계의 성공이며 실제 픽셀 표시나 charge VFX/SFX 수용을 측정한 것은 아니다.
+
+### Bloom 힐·종료 관측과 진단 경고
+
+Bloom Unit6은 Starts10·Plays10·dispatch10=Applied7/TargetUnavailable3이다. 준비 시간은1.0007004~1.0097898초, 완료된 post-dispatch cooldown9회는3.0013572~3.0108354초이며10번째는 caster 사망으로 종료됐다. HoT7결과 중 Expired4건은 각 ActualHealed200, 대상 소실 중단3건은 각각15/58/10이다. 자기 힐seq10의 markerNearZeroPreserveYaw는 baseline0→0·drift0이다. 방향 벡터가 정해지지 않는 경우에 정상 각도를 새로 정의하거나 전체 시각 부드러움 PASS로 확장하지 않는다.
+
+Bloom END의 Grant/Play/Stop/Drain/Return은 각7, Overflow/Fault0이지만 UnknownTrue가 남는다. Main 소스 확인상 UnitHealCastDiagnostics.cs63의 `CountDrop != 0` 조건이며 이번 target death Drop3에 따른 표시다. 이 경고만으로 회복 누락을 확정하거나 모든 자연 drain·전체 표현 수용 완료로 바꾸지 않는다. staleDrop8 중7건은 힐 HoT4건 만료·3건 대상 소실 뒤 cleanup이 ObserveDamageStop을 무조건 호출하면서 default damage state 참조에 invalid channelStop 경고를 남긴 경로다(Main 소스 확인: UnitCombatUseCase2637, TimedDamageEffectPresentation68). 나머지1건은 PoisonTarget18의 LocalDeath AttachmentClosed 뒤 같은 state 재Stop이 거부된 것이다. 피해 누락 증거는 아니지만 진단 잡음은 남아 있다. writer/UI 시각 PASS를 주장하거나 이를 수정한 것으로 기록하지 않는다.
+
+### 이번 판정·후속 경계
+
+원래 Fox 조기 피해·근접 불발은 타격 관측 범위에서 재발 근거가 없으며, 기록된 권위 타격·예약·추격 중 checkpoint 및 힐 시간의 기술 범위는 통과다. 다만 사용자 보고의 대상 소실 후 정지와 실제 provider 재현으로 공통 이동 복귀 결함은 상단과 같이 OPEN이다. cap·unassigned·UnknownTrue와 표현 미관측이 있어 경기 전체 PASS, 모든 native 실행 완료,25종 전체 테스트·멀티 동등성·시각 최종 수용은 선언하지 않는다. 기존 개별 수용을 취소하지 않는다. 코드 교정·새 Task/TC·추가 로그·빌드·강제 재실기는 요청·수행하지 않았으며 문서 검사는 Main이 실행한다.
+
+## 2026-10-14 구현 인계 당시 목표·Fox 원래 의도 정정 — 경기 전 controlled GREEN 이력
+
+현재 목표는 **마지막 사용자 수용 교정의 실제 SOLO 반영**이다. 아래 전 유닛 감사는 비교 근거 이력이며, original 표기 차이 8종은 자동 수정 목록도 모든 버그 목록도 아니다. 현재 config나 옛 Task의 잘못 환산된 literal을 정답으로 삼아 사용자의 보고를 기각하지 않는다.
+
+**현행 범위 정정 — 원래 복원만, 제안한 범위 확장은 철회:** 사용자 재확인에 따라 General23 gate 통합·native occurrence lease 이행·멀티 gate 복사·새 overlap 규칙은 원래 복원의 잔여 작업이 아니다. 이들은 미구현 제안이며 Main이 이를 필수 정책 선택처럼 질문한 범위 확장 판단을 철회한다. 기존 멀티의 zeroAim/InvalidPose와 SOLO Legacy의 공격 허용 차이는 기존 구현 차이의 관측이지 새 사용자 정책 결정이 필요한 복원 blocker가 아니다. 이 차이를 없애는 generic source 쓰기 승인은 없고 새 ZeroException 미래 사양도 작성하지 않는다.
+
+**복원 판정 범위:** Fox85/30 source8 적용·Main fresh compile/actual controlled HP GREEN은 확인됐다. native Animator/relay fixture·AssetDatabase/메뉴·멀티/시각/build는 NOT RUN이다. 기존 pursuit/clock 적용·검증은532e2033에 보존된 별도 근거로 유지한다.25종 기존 에셋/GUID 연결 보존 감사는 모든25종 현재 실행·시각 해결을 증명하지 않는다. 따라서 「모든 원래 교정 소실」이나 「모든 유닛 현재 실행 완료」 어느 쪽도 선언하지 않으며 original8 표기 차이를 미반영 수정8건으로 바꾸지 않는다. Fox 현행 수치 문서는 실제 사용자 원래2:25 명확화와 적용 source에 근거한 정당한 복원 기록으로 유지한다.
+
+**FoxMagician 원래 피해 기대값은 사용자 재확인 `2:25@30fps = 85/30 = 2.8333333초`다.** 사용자는 잘못 적용된 2.25초 때문에 클립을 바꿨다고 설명했다. 따라서 이를 「기존 2.25초 정책에서 새 값으로 변경」이라고 설명한 Main의 판단은 철회한다. 아래 옛 Task 인용·2.25초 timer 관측·당시 수용 기록은 그때 저장·실행된 사실의 이력이지 원래 frame 의도를 증명하는 현행 권위가 아니다. 이전 「승인된 2.25초보다 이르지 않다」는 비교도 사용자 기대 충족 판정으로 사용하지 않는다.
+
+Fox 현행 source 계약은 **charge `OnAttackCharge @ 1초` / damage `OnAttackHit @ 85/30초` / 권위 HP 적용**이다. Main 코드 GO 후 구현 담당8파일 적용·freeze receipt와 문서 담당8해시 일치를 확인했고, 이제 Main 새 scratch compile/Mono Probe exit0까지 인계됐다. charge는 기존 lease→source VFX/SFX만, OnHit는 metadata만 처리한다. Factory Fox 제외 조건 제거·type21 fallback/observer/gate 정합화가 적용됐다. UnitCombatUseCase 주석-only 보존은 구현 담당 receipt이며 writer/Immediate/range/Root는 변경하지 않는 계약이다. full8 manifest와 정확한 Main 실행 범위는 아래 receipt 절을 따른다. 문서 담당 hash/source 확인은 독립 컴파일 실행이 아니며 Main controlled GREEN도 native/멀티 수용이 아니다. Main curve prefix 보존은 확인됐다(2026-10-15 상태 갱신, Main 실행 인계). Set fixture 수정 후 최신8manifest는 갱신됐다. Spirit9 감사는 수령됐으며Main 기존23종/25후보 harness EXIT0는 수령됐고16종 최종 인계도 수령해 합본 감사를 완료했다.
+
+**컴파일 준비·실행 경계:** 실제 D Unity Roslyn/참조 remap 준비 후 구현 담당 Runtime/Editor/Probe scratch compile exit0와 writer RED→GREEN에 더해 Main은 별도 `Temp/fox-main-audit`에서 새 Runtime/Editor/Probe compile exit0 및 실제 Mono Probe exit0를 인계했다. 문서 담당은 실행하지 않았으며 exact 참조별 매핑을 임의로 조립하지 않는다. Library 덮어쓰기·native/AssetDatabase/menu·멀티/빌드 실행을 이 결과로 주장하지 않는다. 자세한 Main 출력·미검증 경계는 아래 절을 따른다.
+
+### 브랜치 이전·보존 receipt — 새 SOLO 복원 구현과 분리
+
+- Main 인계: 사용자 승인으로 오래된 미사용 `index.lock`만 제거하고 raw txt/log/zip을 staging에서 제외해 보존 커밋을 만들었다. `git switch codex/unit-movement-attack-sync-audit` 및 `git merge --ff-only codex/docs-checker-maintenance`가 성공했으며 직후 작업 트리는 clean이었다. lock 제거·staging·switch/merge는 Main 실행 기록이고 문서 담당이 재실행하지 않았다.
+- 문서 담당 현재 읽기 전용 확인: 작업 브랜치는 `codex/unit-movement-attack-sync-audit`; HEAD와 두 브랜치 ref가 모두 `532e2033448cff2332bc63f3809705239bb15a67`이다. 해당 보존 커밋의 변경 파일은 37개이며 이 문서 편집 전 `git status --short` 출력은 비어 있었다. 보존 커밋은 기존 작업의 이동이지 새 복원 patch 완료 증거가 아니다. Push 없음은 Main 인계이며 이 작업도 Git 쓰기를 하지 않는다.
+- Main byte-preservation 전달값: 37파일 중 exact 10 / line-ending-only 27 / other 0 / missing 0. FF 후 Windows CRLF 변환에 따른 줄바꿈 차이이며 내용 소실 없음이라는 Main 검증이다. 문서 담당 독립 byte 비교는 하지 않았으므로 전달값으로 유지한다.
+
+기존 [Plan](Plan.md)의 승인된 Fox8파일 계획은 코드 GO·적용 receipt까지 인계됐다. Main은 실제 적용 후 관련 Fox 현행 문서 갱신을 승인했으며 이번에는 Research/Plan과 StatsReference·Units·CombatSync·Matrix의 Fox 항목만 반영한다. VFXSFXList의 Fox 행에는 기존 타이밍 숫자가 없어 변경하지 않는다. 옛 Task 전체를 소급 재작성하지 않으며 코드·다른 유닛·다른 Task·TC/QA·새 메모리는 수정하지 않는다. 이전 `for-each-ref` 사건 기록은 사용자 개별 요청이 아니라 Main 인계·WORKFLOW 기록 의무에 따른 것으로 유지한다. 실제 새 문서 검사는 구현 검증과 별도로 보고한다.
+
+### Fox8파일 적용 receipt — 구현 담당 검증과 Main 독립 검증 분리
+
+원본은 [구현 담당 receipt](../../../../../../Temp/fox-plan-red/Receipt.md) 「Final Fox implementation / source freeze」다. 아래 표는 최초 적용 세대에서 문서 담당8개 해시가 receipt와 일치했던 이력이다. **2026-10-15 갱신:** anim empty-data 형식 및 validator Set fixture3호출 수정으로2hash가 바뀌었으므로 이 표를 현재 final generation으로 재사용하지 않는다. 당시8manifest를 그대로 보존하며 최신8manifest는 아래 별도 표를 따른다. General4파일 source 적용 근거가 아니다.
+
+| 적용 파일 (`Assets/_Project/` 기준) | SHA256 |
+|---|---|
+| `Animations/Units/FoxMagician/FoxMagician_Attack.anim` | `3946C435B3109A04D5A9A0EAB40E7EEFB3484A4C225BF143CCECF80995ADAB9A` |
+| `Scripts/Presentation/Unit/AnimationEventRelay.cs` | `7F3013FC7E08B67157B3E410EC626880C8DF5A8292E09B13D7F982E70B86796A` |
+| `Scripts/Presentation/Unit/UnitView.cs` | `DDA788254323C49BB9A22DFCFA2465DA5D2AF360109C10BB7C2154F78A1FB2CB` |
+| `Scripts/Infrastructure/Factories/UnitFactory.cs` | `53AD89CB705FC531165317FB2F8DD89288B2C3C2B9D8E1DA81A7198332F79396` |
+| `Resources/Config/UnitStatsConfig.asset` | `947854E7D6ACEA1FFC235D784281FD5799467F44406B5D33DF34C95A067B58E6` |
+| `Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs` | `85A96E783D24425EA4EBAB72B377226EF8A7344F348773B0D71981E2A4573D72` |
+| `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | `CC46AA1355168C8BE4CF8CD6830CC2A9F56CA0934A058F2AA064A959D68CECDE` |
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | `CBBA975EEF34E85128B3F371A87BC64F170A30BD6CE4E378915F19E1CF471167` |
+
+#### Main 새 독립 compile·Mono Probe — controlled GREEN 한정
+
+##### 2026-10-15 최신 Fox8 manifest·curve prefix 확인
+
+Main이 확인한 최신 anim/validator2hash를 문서 담당이 현재 파일에서 다시 계산해 일치 확인했다. 나머지6파일도 직접 계산했고 최초 표와 동일하다. 변경은 Main 인계상 empty-data 형식 수정과 `NetworkContext.Set(isServer, isActive)` fixture3호출 교정뿐이며 production gameplay/HP writer 변화가 아니다. 최신 Editor compile exit0는 Main 직접 실행 인계다. 아래 최신 세대의 Main 기존23종/25후보 harness tool7add8d EXIT0·artifact4 frozenTrue를 수령했다. 이전 Probe와 이 실제 실행은 별도 출처/세대로 기록한다.
+
+| 최신 파일 (`Assets/_Project/` 기준) | SHA256 |
+|---|---|
+| `Animations/Units/FoxMagician/FoxMagician_Attack.anim` | `129B0FEE44A2EA1D53A69CF63CAA1B44FC3931AC8E75F86E98A09DD475823C02` |
+| `Scripts/Presentation/Unit/AnimationEventRelay.cs` | `7F3013FC7E08B67157B3E410EC626880C8DF5A8292E09B13D7F982E70B86796A` |
+| `Scripts/Presentation/Unit/UnitView.cs` | `DDA788254323C49BB9A22DFCFA2465DA5D2AF360109C10BB7C2154F78A1FB2CB` |
+| `Scripts/Infrastructure/Factories/UnitFactory.cs` | `53AD89CB705FC531165317FB2F8DD89288B2C3C2B9D8E1DA81A7198332F79396` |
+| `Resources/Config/UnitStatsConfig.asset` | `947854E7D6ACEA1FFC235D784281FD5799467F44406B5D33DF34C95A067B58E6` |
+| `Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs` | `85A96E783D24425EA4EBAB72B377226EF8A7344F348773B0D71981E2A4573D72` |
+| `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | `959E7B8DD91DFC8FCF22514B083445D2FB230EFF170405AFB6171783CADBDEFD` |
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | `CBBA975EEF34E85128B3F371A87BC64F170A30BD6CE4E378915F19E1CF471167` |
+
+Main은 event 밖 curve prefix SHA256 `4C130FFAE806709D7EB8C03ECEBC871A9D10BE937FF690E77BCA1E27576EB4B0` 보존을 이미 실제 확인했다(Main 인계, 문서 담당 독립 재실행 아님). 현행11곳의 대기 표시는 이 사실로 정정한다. 이것은 native Animator/AssetDatabase/relay fixture·메뉴/멀티/시각/build 실행 PASS가 아니며 새 overlap 규칙도 아니다.
+
+Main이 이번 generation을 `Temp/fox-main-audit`의 별도 출력으로 새 Runtime/Editor/Probe 컴파일해 모두 exit0, 실제 Mono Probe도 exit0로 인계했다. 문서 담당은 해당 디렉터리의 DLL/rsp/Probe 파일 존재만 확인했으며 실행 출력은 아래와 같이 **Main 직접 실행 전달값**으로 구분한다. coder8 manifest는 당시 적용 세대의 표로 유지하며 Main curve prefix 보존 확인을 수령했다. 최신8manifest는 아래에 갱신했고 이전 표는 최초 세대 이력으로 유지한다. Spirit9·Main 기존23종 harness 결과는 수령됐으며16종 최종 결과도 수령해 합본 감사를 완료했다.
+
+| Main 실제 독립 관측 | 결과·범위 |
+|---|---|
+| actual YAML 입력 | `2.83333325` — 원하는 rational을 Probe 입력에 주입한 결과가 아님 |
+| 권위 HP·첫 dispatch | `hpBefore=200`, `hpAt2.25=200`, `firstDamageAt=2.8333332538604736`, `events=1`, `immediate=True` |
+| 실제 Factory predicate | `True`; native Factory 인스턴스·AnimationClip/AssetDatabase 추출 실행은 아님 |
+| 기존 validator authority core | PASS — 실제 YAML/typed metadata 입력이며 AssetDatabase/native fixture PASS 아님 |
+| 실제 formatter | `valid=True`, `maxBytes=995`, schema=`c3-authoritative-result-presentation-shadow-v12` |
+| 미실행·대기 | native Animator/relay fixture/AssetDatabase·실제 메뉴·멀티 gameplay·시각·build NOT RUN. curve prefix Main 보존 확인 완료; Set fixture 수정 후 최신8manifest 갱신; Spirit9·Main 기존23종 harness 수령;25종 반영 감사 완료 |
+
+Main GREEN은 실제 controlled writer 한정 독립 실행이며 Main 독립 RED는 아니다. 구현 담당 초기 RED·final GREEN은 별도 출처로 아래 보존한다. 기존 event/config의85/30 의미와 charge1초·native HP writer 금지 계약은 그대로이며 source4 General plan이나 전체 SOLO 해결로 확대하지 않는다.
+
+#### 구현 담당 최초 인계의 실행·보존 이력 — 당시 Main 재실행 전
+
+**다음 실행 근거는 구현 담당 전달값이며 위 Main 독립 실행과 별개다:**
+
+- 실제 authority RED exit1: actual YAML2.25 입력에서 HP200→2.25초 HP50, Factory 실제 predicate Fox=False. Probe는 actual config를 읽고 실제 UnitSpawnUseCase/UnitCombatUseCase의 TryAttack/TickCooldowns/TickPendingHits를 실행했으며 원하는 offset을 입력에 주입하지 않았다. 최초 UniRx resolution/native console 문제는 BLOCKED 준비 이력으로 RED와 구분한다.
+- final GREEN exit0: YAML2.83333325 입력에서2.25초 HP200 유지, 첫 damage=`2.8333332538604736`, damage events1/immediate=True, Factory 실제 predicate=True. rational85d/30과 serialized85f/30의 표현 차이는 약79ns이며1µs 비교 허용은 float 표현 경계다. 실제2.25초 조기 피해와 동일 원인으로 취급하지 않는다. actual native Factory/AnimationClip 추출은 실행하지 않았다.
+- 최종 Runtime/Editor/Probe scratch compile exit0. Runtime에는 기존 deprecation/unused-field 경고가 있으며 warning-zero runtime 주장 없음. 실제 D Unity Roslyn/Bee responses와 fresh scratch Runtime 참조를 Editor에 사용했고 Library DLL을 덮어쓰지 않았다는 구현 담당 보고다. Main 독립 compile/run·최종 승인 대기다.
+- 실제 formatter preflight `valid=True, manifest=True, maxBytes=995`, schema=`c3-authoritative-result-presentation-shadow-v12`. 기존 validator의 actual Fox authority core(YAML admission)는 PASS. typed hit data 입력이며 AssetDatabase/AnimationUtility/native relay/View fixture 실행은 아니다.
+- 중간 formatter1001bytes는 실제 validation FAIL이었다. wrapper의 BLOCKED 표기는 그 실패를 바꾸지 않는다. Fox timeline schema v2의 `charges` 사용 후995가 final이며 callback fixture compile namespace 교정 이력도 receipt에 보존한다.
+
+**보존·미검증:** clip event 밖 CRLF 정규화 prefix SHA256 `4C130FFAE806709D7EB8C03ECEBC871A9D10BE937FF690E77BCA1E27576EB4B0` 보존·config Fox 한 값만 변경·UnitCombatUseCase 주석만 변경·일반 marker false 분기 보존은 구현 담당 before/after 비교다. 문서 담당은 이를 해시/읽기 확인과 구분하고 전체 non-Fox runtime 수용을 주장하지 않는다. Root·range·HP writer/Immediate·VFX/SFX asset·resolver/Unresolved/LegacyFallback은 보존 계약이다. native asset 재로드/추출·callback fixture·메뉴·Host/Client TimerImpact gameplay·멀티·시각·빌드 실행은 NOT RUN. General4파일은 여전히 확인 사항 대기·미승인 patch이며 원래8종을 자동 수정하지 않는다. 기존 SOLO pursuit/clock 근거도 이번 Fox 결과로 재분류하지 않는다.
+
+### 이번 실제 문서 검사 — 과거 결과 재사용 아님
+
+**Fox 현행 문서 반영 뒤 새 실행(2026-10-14):** tool7390f3의 실제 완료exit1, 기존 참조6건·신규 오류 없음, 고아/감소 없음이다. 새 상시4문서→현행 Task receipt 앵커4개는 이번 검사에서 통과했다. 기준선 증가 안내는+3662이며 메모리/기준선은 이 범위에서 수정하지 않는다. 아래 초기 실행 환경 오류·이전 검사 결과는 당시 이력이다.
+
+문서 담당 새 실행 `python3 Tools/check_docs.py`는 WindowsApps 실행 연결 오류로 시작되지 않았다. 앱 번들 Python으로 실행한 첫 시도는 cp949 출력에서 UnicodeEncodeError로 중단돼 전체 검사 결과로 사용하지 않는다. `PYTHONIOENCODING=utf-8` 및 `-X utf8`로 다시 실행한 검사(tool25218a)는 **실제 완료 exit1 / 참조 오류6건**이다. 아래 「문서 검사 경계 — Main 전달」의 여섯 위치·ID와 일치하며 새 오류는 없다. 고아 토픽/메모리 행수 감소는 이상 없음, 기존 기준선 증가 안내는 실제+3662행이다. 이번에는 메모리/기준선을 수정하지 않는다. 오류가 남은 문서는 현행 편집 범위 밖이며 검사0건/PASS를 주장하지 않는다.
+
+Task는 검사 제외이므로 새로 사용한 Research/Plan 상대 링크와 Units 링크의 파일 존재를 별도로 확인했고 `git diff --check`도 exit0이다. 이 검사는 문서 참조/편집 형식의 범위이며 Fox 구현·타이밍·시각 수용 검증이 아니다.
+
+<a id="artifact-restoration-audit"></a>
+
+### 2026-10-15 마지막 artifact 반영 감사 — 25종 반영 감사 완료·추가 누락 없음
+
+이번 판정은 사용자 기존 지시와 마지막 수용 의도가 기존 artifact/Factory/정규special 경로에 반영돼 있는지 확인하는 것이다. 새 native 이행·MP gate 복사·overlap 정책을 구현하는 감사가 아니다. 아래25행은 Spirit9종과16종 최종 receipt를 합친 반영 감사 결과다. 미수령은 복원 실패나 사용자 수용 철회를 뜻하지 않는다. 이전 old8 표기/역사 계보 질문과 이 반영 감사를 섞지 않고 모든 유닛 재테스트를 요구하지 않는다.
+
+Spirit 담당 최종 read-only 감사와 Main 실제25clip 재추출 대조는 `b65751c6` 대비 Spirit9 artifact·Factory mapping 보존, 확정 missing0이다(Main 인계). Torrent는 일반 SOLO clock 제외가 누락이 아니라 정규special 경로이며 `TryReserveTorrentLaunch → Bootstrap Tick → SpawnWave → TickWaves → damage/heal` 연결의 **코드 반영 감사 완료**다. native 미실행은 이 코드 closure를 취소하지 않는다. 최신Fox source·Main controlled writer 및 기존 pursuit/clock 보존 근거는 위에서 별도로 유지한다.
+
+| 유닛(ID) | 수령된 marker/주기(초) | artifact 반영 감사 |
+|---|---|---|
+| Pistoleer(0) | .8 /2 | 명시 clip·공통 pending/clock 보존; 추가 확정 누락 없음 |
+| Assault(1) | .16666667 /.33333334 (fallback .2) | 수용된0:05·명시 clip 보존; 추가 확정 누락 없음 |
+| Sniper(2) | 1.7333333 /3 | 수용된1:22·명시 clip 보존; 추가 확정 누락 없음 |
+| LittleKnight(3) | .25,1.15 /3.0000002 (fallback3) | 기존2hit·반복 실행 보존; 새 frame 환산 없음; 추가 확정 누락 없음 |
+| SpearMan(4) | .8333333 /2 | 수용된0:25·첫/반복 실행 통과; 추가 확정 누락 없음 |
+| BattleAxe(5) | 1.02 /3.1666667 (fallback3.05) | primary·Sweep 연결 보존; AoE 제외 조건 미검사; 추가 확정 누락 없음 |
+| Tank(6) | .16666667 /4 | 기존 damage branch·preset 보존; 추가 확정 누락 없음 |
+| CannonCart(7) | .16666667 /4 | 기존 damage branch·공유 preset 보존; 추가 확정 누락 없음 |
+| FlameSpirit(10) | `20/30,35/30,43/30,50/30,57/30,63/30` /3 | 보존·mapping 확인·확정 missing0 |
+| EmberSpirit(11) | 1 /2.6667 | 보존·mapping 확인·확정 missing0 |
+| InfernoSpirit(12) | 1.5 /3 | 보존·mapping 확인·확정 missing0 |
+| DustSpirit(13) | 1.04 /3 | 보존·mapping 확인·확정 missing0 |
+| BoulderSpirit(14) | `40/30` /4 | 보존·mapping 확인·확정 missing0 |
+| QuakeSpirit(15) | 1.667 /5 | 보존·mapping 확인·확정 missing0 |
+| TideSpirit(16) | 1.5 /3 | 보존·mapping 확인·확정 missing0 |
+| StreamSpirit(17) | .5 /1.5 | 보존·mapping 확인·확정 missing0 |
+| TorrentSpirit(18) | launch `70/30` /4 | artifact·정규special damage/heal 연결 code closed |
+| BearGuard(20) | .43333334 /1.6666666 (fallback1.2) | 수용된0:13·양 모드 clip-derived 주기 보존; 추가 확정 누락 없음 |
+| FoxMagician(21) | charge1 /hit85/30 /cycle4 | 원래2:25 복원·source-only charge·권위 hit·Immediate 보존; 추가 확정 누락 없음 |
+| LionKnight(22) | .6,1.4333333 /2 (fallback3) | 수용된2hit 보존; fallback과 실효 주기 구분; 추가 확정 누락 없음 |
+| RhinoBreaker(23) | 1.05 /2 (Attack·Attack2 동일) | 두 후보 실행 통과; native 선택은 기존 미확인 한계; 추가 확정 누락 없음 |
+| EagleArcher(24) | Attack .1 /1; Attack2 fallback .1 /.700000048 | 두 후보 실행 통과; native 선택 미확인은 누락 증거 아님; 추가 확정 누락 없음 |
+| RabbitTrickster(25) | .6666667 /2 | 수용된0:20·첫/반복 실행 통과; 추가 확정 누락 없음 |
+| MushroomBomber(26) | 1 /3 | primary·Blast/DoT 연결 보존; secondary/drain/시각 미검사; 추가 확정 누락 없음 |
+| BloomFairy(27) | heal marker1 /post-dispatch3 /clip4 | SOLO 권위·공통 heal loop·TimedEffects 정적 연결 확인; 추가 확정 누락 없음 |
+
+**Spirit9 근거 요약:** Main은 실제25clip 재추출로 담당 결과를 대조했다. 기준 커밋 대비9종 artifact·Factory mapping 보존과 확정 누락0을 확인했고 Torrent 정규special damage/heal 연결도 확인했다.
+
+#### Main 독립 existing23종/25후보 closure harness — 실제 exit0
+
+Main 실제 tool `7add8d`의 standalone Mono 실행은 EXIT0, 실행 전후 artifact4 frozenTrue다(Main 직접 실행 인계; 문서 담당 재실행 아님). actual YAML·현재 Factory policy 복사 입력과 durable 적 대상 fixture/placement가 구분됨을 Main이 확인했다.23type/25candidate의 first+repeat와 기존 `ValidateSoloTimingAuthorityCore`·`ValidateSoloPursuitCheckpointProgress`가 PASS했으며 서로 다른 context도 복원했다. 새 General23 gate·native lease migration·overlap 정책을 적용한 결과가 아니라 **기존 implementation closure 검증**이다. 이 초기 실행 세대와 아래 최종 컴파일·실행 세대는 구분한다.
+
+| 후보 경계 | Main 실제 인계 | 단정하지 않는 것 |
+|---|---|---|
+| RhinoBreaker | controller2clips 모두 marker1.05 /cycle2, first/repeat PASS | 이번에 새 타격값을 만든 작업 아님 |
+| EagleArcher Attack | marker.1 /cycle1, first/repeat PASS | native가 유일하게 이 clip을 선택했다는 증거 아님 |
+| EagleArcher Attack2 | marker 부재 시 fallback hit.1 /cycle.700000048, first/repeat PASS | fallback candidate 검증을 marker 보유나 native 선택 확정으로 바꾸지 않음 |
+| 실행 제한 | Time/frameCount internal-call 경고 있음; assetInstantiation·timedEffectDrain NOT RUN | 경고를 Unity 설치/게임 오류로 확정하지 않고 cleanNative PASS도 선언하지 않음 |
+
+**최종 독립 실행 근거:** [16종 최종 receipt](../../../../../../Temp/unit-closure/Receipt.md)를 수령했다. Main은 Runtime(`583e8c`, exit0/경고23), Editor(`c621d7`, exit0/경고0), Probe(`f48a05`, exit0)를 새로 컴파일했고 실제 Mono 실행(`36d81e`, exit0)에서23종·25후보 첫/반복 타격 및 기존 타이밍·추격 fixture2개가 PASS했다. 불균등 초기 context를 복원했고 source8+Probe.cs9의 실행 전후 freeze는 동일했다. 최신 diff 형식 검사(`590d54`)도 exit0이다.
+
+Main 최신 SHA256: Probe.exe `49753627E1D1752F417FCDDC7ACC03E2322DBF791310B73644F8235E145F7588`, Runtime `86DD65505C171097E84E4DE046C53A0572CFB382ADAC2BDD5E0593162266877A`, Editor `BA5D5620ACABC09C71E500808D30405C317C82EEC49199786935F04175E97B44`. Probe.cs는 `99D9B86E59D6F691B751E9BA5A429D3FD7085F11EC696D11529ADCBAAB844695`로 불변이다. receipt의 Probe.exe `4D2B3B45C33D1E7E886E44CE92E82241254CB0D63586CFA281087EDE338C432D`는 구현 담당 앞선 세대 이력이며 Main 최신 산출물과 혼용하지 않는다. 최신 prefix 비교(`6d6690`)도 위 전체 `4C130…` 해시의 보존을 확인했다.
+
+Bloom은 일반23종 harness 밖이다. Main 정적 trace는 SOLO 권위 허용→공통 heal loop→시작 시각+marker1→CastHeal→실제 dispatch 뒤3초 cooldown→Bootstrap TimedEffects 연결을 확인했다. Torrent와 함께 특수2종 연결 완료 근거이며 native coroutine 실행은 아니다. secondary AoE/DoT·TimedEffectDrain·에셋 인스턴스 생성·native 메뉴·멀티/시각·빌드는 미실행이다. Mono Time/frameCount 경고는 standalone 한계이며 clean native PASS를 뜻하지 않는다.
+
+25종 반영 감사와 일반23종 실행의 최종 인계를 수령해 이 표를 종결했다. 기존 개별 수용은 유지하며 native 미실행을 복원 실패나 전체 재테스트 요구로 바꾸지 않는다. 상태3문서는 요약·링크만 반영한다. 최종 문서 검사는 Main이 실행하며 중복 실행·기준선 갱신은 하지 않는다.
+
+### 이번 문서 변경 목록 — 실제 diff 기준
+
+2026-10-15 최종 읽기 전용 diff의 문서 변경은 아래10개다. 전체 dirty 파일은19개로 문서10개·구현 담당 Fox8개(위 최신 manifest)·Main이 도구로 갱신한 `.claude/agent-memory/_baseline.json` 1개다. VFXSFXList에는 Fox 타이밍 숫자가 없어 변경하지 않았다. 새 Task·TC/QA·메모리 파일은 생성하지 않았고 메모리 본문 추가·문서 담당 코드 편집도 없다.
+
+Main 최종 실제 문서 검사 `86bb19`는 exit1/이전 `ae94b5`와 정확히 같은 기존 참조6건·신규0, 메모리 고아·행수 감소0이며 기준선 낡음 경고는 해소됐다. Main의 증가 전용 기준선 갱신 `d7302d`는 exit0, 5개 agent 총+3662행 증가만 반영했다(삭제0·새 메모리 내용 편집0). 문서 담당은 기준선을 직접 편집하지 않았다. Main 최종 diff 형식 검사 `b45b56`는 exit0이며 source8+Probe.cs9의 freeze도 완전히 동일했다. 사용자 실기 수용은 미완료이며 native 실행·새 빌드 GO는 없다. 이번 기록 반영 외 추가 문서·구현 변경이나 검사 실행은 하지 않았다.
+
+- `.claude/mistakes.md`
+- `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
+- `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UnitCombatSynchronization.md`
+- `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md`
+- `Assets/_Project/Docs/StatsReference.md`
+- `Assets/_Project/Docs/PROJECT_STATUS.md`
+- `Assets/_Project/Docs/ROADMAP.md`
+- `Assets/_Project/Docs/WORK_HISTORY.md`
+- 기존 Task `Research.md`
+- 기존 Task `Plan.md`
+
+## 이전 전 유닛 과거 승인 계약 감사 — 25종 보고·Main 검토 이력 / Fox 현행 기준은 위 정정
 
 사용자가 전 유닛의 **기존 교정·사용자 수용 계약을 먼저 복원한 뒤 현재 구현과 비교**하도록 승인했다. 현재 config/Stats/UnitCombatAssetMatrix/status만으로 과거 기대값을 정하지 않는다. UnitType.cs의 실제 이름·ID를 기준으로 Human8/Spirit9/Transcendence8의 각 유닛을 빠짐없이 조사한다(현재 enum 직접 읽기 기준). 타격 marker `ss:ff@30fps`, 권위 피해 offset 예외, 전체 cycle, 모델 offset/rotation, VFX 전달·종료·전투 후 복구를 별도 축으로 기록한다.
 
 기대 계약은 옛 Task의 최종 승인/수용 문단과 후속 사용자 변경에서 추출해 경로·행/절·날짜를 기록했다. Human/Transcendence programmer 및 Spirit Copernicus 최종 감사는 Main 검토 완료다. 아래 두25행 표는 당시 수집·비교 초안으로 보존하고, 말미 「전 유닛 감사 최종 판정」이 현재 한정된 결론이다. 과거 수용 primary가 부족한 이름별 항목은 그대로 미확정이며 현재 config로 메우지 않는다. 이번 감사는 새 구현·Stats/규칙 동기화 승인이 아니다. 기존 pursuit·SOLO timing·Fox 실제 로그 근거도 보존한다.
 
-## 범위와 현재 판정
+## 이전 감사 범위와 판정 — 현행 목표·Fox 의도는 상단 정정 우선
 
 ### Historical expected 수집 초안 — 25종 / Main 현재 비교 검토용
 
@@ -89,7 +451,7 @@ Main 전달 현재 clips는 Little .25/1.15, Battle1.02, Rhino1.05, Stream.5, Ta
 - 2026-10-14 10:04는 Main이 측정해 전달한 작업 기준 시각이다. 사용자 후속 「기존 Task 갱신」과 SOLO impact timing 구현 요청을 명시 승인으로 받았다. 같은 Task를 유지하며 document-manager는 이 Research와 [Plan](Plan.md), 별도 승인된 `.claude/mistakes.md` 사건의 목차·본문 추가만 편집한다. 광산·랠리는 제외한다.
 - **최신 사용자 확인: 재현 환경은 SINGLEPLAYER(싱글플레이).** SOLO 분기 분석이 우선이다. 멀티 B3 보존은 SOLO 실행 경로의 안전성 증명이 아니다.
 - 기존 pursuit 적용·Main 독립 검토 및 타이밍 후속 소스5/CLR 근거는 유지한다. 현재 FoxMagician(type21) SOLO 실제 로그 focused 분석 인계를 완료했으나 사용자 시각 reportedMismatch/수용/원인은 OPEN이다. 비교 멀티는 이전 빌드이며 현재 빌드의 동일 조건 peer 비교가 아니다. 한 종족 근접이 괜찮다는 제한 관측은 전체 PASS가 아니다. 에이전트 native 메뉴·빌드는 NOT RUN, CLR 결과도 실기 시각 PASS가 아니다.
-- 기준: fetch된 `origin/main=88f60e38cf9f7a8dce0c8cc498fe89dfd09f06b6`, final 교정 비교 `0de4f868`, 원래 비교 `b65751c6`. 현재 checkout은 `codex/docs-checker-maintenance`이며 최신 main 파일 적용·병합을 의미하지 않는다.
+- 감사 기준: fetch된 `origin/main=88f60e38cf9f7a8dce0c8cc498fe89dfd09f06b6`, final 교정 비교 `0de4f868`, 원래 비교 `b65751c6`. 현행 checkout은 `codex/unit-movement-attack-sync-audit`이며 보존 커밋 `532e2033`까지 FF 이전 완료다(2026-10-14 Main 인계 및 문서 담당 ref 확인; 이전 checkout은 `codex/docs-checker-maintenance`). 이것은 새로운 SOLO 복원 patch 완료를 뜻하지 않는다.
 - 기존 dirty 검사기·Skills 규칙·다른 Task·tests·삭제된 meta는 보호한다. programmer 후속 승인 범위는 SOLO impact timing/targeted bounded 진단이며 경로·네트워크·Stats·클립·프리팹·씬은 제외한다. 문서 담당은 소스/에셋/메모리·다른 Task를 쓰지 않고 fetch/merge/checkout/bisect/build/Unity/원시 Editor.log 접근·TC/QA도 하지 않는다.
 
 ### 2026-10-14 17:28 후속 부분 테스트 — 사용자 보고와 focused 분석 완료
@@ -250,7 +612,7 @@ Main 실행 `check_docs`는 exit 1, 기존 상시 참조 문제 6건이다(전�
 
 새 `_Tasks`는 검사 대상에서 제외된다. Main은 이 Task의 `../../../` 링크 경로를 수동 확인했다. 따라서 검사 PASS·Task 자동 검증·게임플레이 정상 판정을 선언하지 않는다. 메모리 기준선 증가 알림 `+3662`도 Main 전달값이며 기존 변경에 관한 것으로, 이번 메모리 편집이나 기준선 갱신은 없다.
 
-## 전 유닛 감사 최종 판정 — Main 검토 완료 / 읽기 전용 보고
+## 이전 전 유닛 감사 최종 판정 — Main 검토 이력 / Fox 원래 의도는 상단 정정 우선
 
 **현재25종의 과거 교정 marker artifact는 유지된다. 그러나 original ss:ff와 현재 literal 초값의 차이는8종에 남아 있으며 「전부 정확/정상」 결론은 아니다.** 위25행 historical 출처와25행 current 값 표를 Main이 검토 승인했다. 표의 초안/추가인계 대기는 당시 단계로 보존하며 이 절이 현재 최종 한정 판정이다. 숫자는 현재 enum/Stats 원문 열과 Task 출처를 대조했다. Stats10/13의 구현값 mirror를 historical correctness 기준으로 삼지 않았다.
 
