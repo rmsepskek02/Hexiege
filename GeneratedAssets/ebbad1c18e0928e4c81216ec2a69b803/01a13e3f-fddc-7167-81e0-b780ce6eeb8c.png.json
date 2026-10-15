@@ -1,0 +1,31 @@
+{
+    "asset": "ebbad1c18e0928e4c81216ec2a69b803",
+    "fileName": "01a13e3f-fddc-7167-81e0-b780ce6eeb8c.png",
+    "prompt": "A stylized cartoon game VFX decal sprite of earthquake ground fissures radiating outward from the center into exactly 6 directions at 60-degree intervals, top-down flat view. One fissure points straight north up (+Z). Jagged zig-zagging dark stone crevices tearing open with deep fiery red-orange molten glow inside the cracks, tapering to sharp faded tips. Empty fully transparent area between fissures, only a small shattered stone crater at the very center. All fissure tips fade out cleanly with generous empty margins, perfectly isolated on pure black background, no border, no square edges, mobile RTS game art style",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
