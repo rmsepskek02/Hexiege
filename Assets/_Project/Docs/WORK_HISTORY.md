@@ -28,6 +28,7 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-10-15 | VFX 코드 후속(2026-10-13~15) — Bloom 힐 개수 계약·RuneSpire 번개 크리스털→가슴 조준·상태 이펙트 크기 맞춤·차지 사망 정지·측정 도구 스케일 버그, 사용자 실기 확인. 번개 사망 시 끝점 어긋남 OPEN [상세 원문](History/ImplementationVerificationHistory.md#milestone-1437a37849308e14) |
 | 2026-10-13 | 멀티 최초 경기 맵 준비 실패 안내(규칙 M-2) [상세 원문](History/ImplementationVerificationHistory.md#milestone-3e8fb934896bb20e) |
 | 2026-10-04 | BloomFairy §18 최종 자동 gate/빌드 시도 인계 동기화 [상세 원문](History/ImplementationVerificationHistory.md#milestone-0f2c538f07439ea8) |
 | 2026-10-04 | BloomFairy §18 최종 코드/정적 인계 문서화 [상세 원문](History/ImplementationVerificationHistory.md#milestone-f00e1ac0a080e387) |

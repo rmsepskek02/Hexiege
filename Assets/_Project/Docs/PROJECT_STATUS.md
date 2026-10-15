@@ -4,8 +4,9 @@
 
 날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](History/ImplementationVerificationHistory.md#status-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
-### 현행 진행 경계 (2026-10-13 문서 정리)
+### 현행 진행 경계 (2026-10-13 문서 정리 · 2026-10-15 VFX 후속 추가)
 
+- **VFX 코드 후속 (2026-10-13~15, 브랜치 `claude/vfx-code-followups`, 최신 `84b6ff2a`) — 사용자 실기 3회차까지 기록:** ✅ BloomFairy 힐 PS 4개 재생 · ✅ 차지 VFX(FoxMagician·InfernoSpirit) 시전자 사망 시 정지 · ✅ RuneSpire 번개 크리스털 시작·살아 있는 대상 가슴 높이 조준 · ✅ 측정 도구 스케일 버그 수정 뒤 화상·독·힐 크기·높이가 프리셋으로 조정됨 · ✅ 버섯 착탄·새 독 프리팹 승인. ⚠️ **과대 표기 금지 — 아직 완료가 아닌 것:** 맞는 순간 대상이 죽으면 번개 끝점이 살짝 어긋남(OPEN, 원인 미검증) · 상태 이펙트 값 미세 조정(사용자 데이터 작업 진행 중 — 현재 값은 커밋 `91371e55`: 재측정 표 + Heal·Poison Scale Multiplier 2) · 주석 비활성화한 옛 로직 6곳은 번개 사망 시 결함이 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정). *(2026-10-15 정정: 첫 판의 「재측정한 크기 표·조정한 프리셋 값은 이 체크아웃에 커밋돼 있지 않음」은 `91371e55`로 해소)* 서버 피해·타겟·HP·RPC는 바뀌지 않았다. 단일 소스: [Research 10절](_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) · [Plan 13절](_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md).
 - 사용자 추가 결정에 따라 유닛 스탯·공격 시간·건물 현재 기능 문서를 실제 구현값 기준으로 정정했다. 밸런싱은 추후이며, 생산 클립 조사와 기존 사용자 공격 교정 수용을 새 전체 migration·실기 정밀 검증으로 확대하지 않는다. EagleArcher 클립 열거 순서의 제한된 확인 경계는 [StatsReference](StatsReference.md#생산-타임라인-구현-근거), AI 시나리오 재논의는 [ROADMAP](ROADMAP.md#ai-시나리오-재논의-사용자-추가-결정-2026-10-13)을 따른다.
 
 - RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher의 사용자 개별 수용을 유지한다. Mushroom/Bloom 새 VFX·HumanTower 표현 후속, Tank/Cannon 세부 조정·Torrent 복구 회귀·공통 랠리 보류는 감사표의 현행 목록으로 구분한다. LittleKnight 다음 추천은 철회됐으며 MigrationRequired는 미테스트를 뜻하지 않는다.
