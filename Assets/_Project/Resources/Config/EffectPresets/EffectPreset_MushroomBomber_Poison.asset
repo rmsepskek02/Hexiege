@@ -15,6 +15,7 @@ MonoBehaviour:
   _vfxPrefab: {fileID: 1417173321000833334, guid: b26778bdfea3e174791e8fc01a003ffd, type: 3}
   _localPositionOffset: {x: 0, y: 0, z: 0}
   _eulerRotationOffset: {x: 0, y: 0, z: 0}
-  _scaleMultiplier: {x: 1, y: 1, z: 1}
+  _scaleMultiplier: {x: 2, y: 2, z: 2}
   _forwardTravelDistance: 0
   _forwardTravelDuration: 0
+  _stopWhenCasterDies: 0

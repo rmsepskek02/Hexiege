@@ -215,34 +215,34 @@ MonoBehaviour:
     tracerPreset: {fileID: 0}
   _recipientFits:
   - unitType: 0
-    radius: 0.47790378
-    height: 1.7118616
-    footOffset: {x: -0.007699549, y: -0.0972138, z: 0.054976895}
+    radius: 0.09558075
+    height: 0.34237233
+    footOffset: {x: -0.0015399083, y: -0.09944276, z: 0.010995381}
     manualScale: 0
   - unitType: 1
-    radius: 0.8523251
-    height: 1.4783878
-    footOffset: {x: 0.00000023841858, y: -0.00000007304981, z: 0.000000014901161}
+    radius: 0.25569752
+    height: 0.44351634
+    footOffset: {x: 0.000000074505806, y: -0.00000002673398, z: 0.000000011175871}
     manualScale: 0
   - unitType: 2
-    radius: 0.800777
-    height: 1.7
-    footOffset: {x: -0.00000011920929, y: -0.000000012197174, z: -0.00000013411045}
+    radius: 0.2402331
+    height: 0.51000005
+    footOffset: {x: -0.000000022351742, y: -0.000000005427175, z: -0.000000044703484}
     manualScale: 0
   - unitType: 3
-    radius: 0.67728734
-    height: 1.6703831
-    footOffset: {x: -0.0121717155, y: -0.016793052, z: 0.12240185}
+    radius: 0.13545747
+    height: 0.3340766
+    footOffset: {x: -0.0024343468, y: -0.0033586104, z: 0.024480373}
     manualScale: 0
   - unitType: 4
-    radius: 0.5914103
-    height: 1.6876966
-    footOffset: {x: -0.0011410564, y: -0.026476078, z: 0.021403223}
+    radius: 0.14785257
+    height: 0.42192414
+    footOffset: {x: -0.0002852641, y: -0.0066190143, z: 0.005350806}
     manualScale: 0
   - unitType: 5
-    radius: 0.73671293
-    height: 1.7599986
-    footOffset: {x: -0.0037777126, y: -0.06560155, z: 0.08204819}
+    radius: 0.18417826
+    height: 0.43999964
+    footOffset: {x: -0.0009444207, y: -0.016400393, z: 0.020512052}
     manualScale: 0
   - unitType: 7
     radius: 0.40547904
@@ -255,87 +255,88 @@ MonoBehaviour:
     footOffset: {x: -0.00036100298, y: -0.2586546, z: 0.0007262379}
     manualScale: 0
   - unitType: 10
-    radius: 0.7170803
-    height: 1.516103
-    footOffset: {x: -0.011184484, y: -0.11128764, z: 0.066147886}
+    radius: 0.17927007
+    height: 0.3790258
+    footOffset: {x: -0.002796121, y: -0.10282191, z: 0.016536966}
     manualScale: 0
   - unitType: 11
-    radius: 0.7762076
-    height: 1.7324313
-    footOffset: {x: -0.029677272, y: -0.12952457, z: 0.15770335}
+    radius: 0.1552415
+    height: 0.34648627
+    footOffset: {x: -0.005935475, y: -0.105904914, z: 0.03154067}
     manualScale: 0
   - unitType: 12
-    radius: 0.9128777
-    height: 1.4222345
-    footOffset: {x: -0.001616329, y: -0.07299738, z: 0.12442681}
+    radius: 0.27386332
+    height: 0.4266704
+    footOffset: {x: -0.0004849136, y: -0.091899216, z: 0.037328035}
     manualScale: 0
   - unitType: 13
-    radius: 0.94306517
-    height: 1.4654351
-    footOffset: {x: 0.014996886, y: -0.08656633, z: 0.15227717}
+    radius: 0.18861303
+    height: 0.293087
+    footOffset: {x: 0.0029993653, y: -0.017313262, z: 0.030455437}
     manualScale: 0
   - unitType: 14
-    radius: 0.883588
-    height: 1.5105748
-    footOffset: {x: 0.022527754, y: -0.10341772, z: 0.26083523}
+    radius: 0.220897
+    height: 0.3776437
+    footOffset: {x: 0.0056319386, y: -0.025854427, z: 0.06520881}
     manualScale: 0
   - unitType: 15
-    radius: 0.8298858
-    height: 1.5277171
-    footOffset: {x: -0.18828264, y: -0.012071122, z: 0.35068715}
+    radius: 0.24896576
+    height: 0.4583151
+    footOffset: {x: -0.05648478, y: -0.0036213426, z: 0.10520615}
     manualScale: 0
   - unitType: 16
-    radius: 0.6774017
-    height: 1.7165917
-    footOffset: {x: 0.03212665, y: -0.052653138, z: 0.09698388}
+    radius: 0.13548034
+    height: 0.3433183
+    footOffset: {x: 0.0064253397, y: -0.01053063, z: 0.019396774}
     manualScale: 0
   - unitType: 17
-    radius: 0.6668816
-    height: 1.6628375
-    footOffset: {x: 0.049453348, y: -0.0029070794, z: 0.1781801}
+    radius: 0.1667204
+    height: 0.41570938
+    footOffset: {x: 0.012363337, y: -0.00072676985, z: 0.044545025}
     manualScale: 0
   - unitType: 18
-    radius: 0.76881576
-    height: 1.6999996
-    footOffset: {x: 0.0000002682209, y: 0.0000001898289, z: -0.00000008940697}
+    radius: 0.19220394
+    height: 0.4249999
+    footOffset: {x: 0.00000008195639, y: 0.00000005058647, z: -0.000000022351742}
     manualScale: 0
   - unitType: 20
-    radius: 0.73370063
-    height: 1.767784
-    footOffset: {x: -0.010810792, y: -0.19508462, z: 0.005780846}
+    radius: 0.2201102
+    height: 0.53033525
+    footOffset: {x: -0.0032432452, y: -0.12852539, z: 0.0017342567}
     manualScale: 0
   - unitType: 21
-    radius: 0.87515825
-    height: 1.5344496
-    footOffset: {x: -0.016828954, y: -0.8463474, z: -0.88670284}
+    radius: 0.17503163
+    height: 0.3068899
+    footOffset: {x: -0.0033657923, y: -0.16926947, z: -0.17734057}
     manualScale: 0
   - unitType: 22
-    radius: 0.90571827
-    height: 1.679947
-    footOffset: {x: -0.058752, y: -0.07762241, z: 0.049129948}
+    radius: 0.22642957
+    height: 0.41998678
+    footOffset: {x: -0.014688, y: -0.09440561, z: 0.012282487}
     manualScale: 0
   - unitType: 23
-    radius: 0.8299205
-    height: 1.6959922
-    footOffset: {x: 0.008523315, y: -0.035580456, z: 0.1250557}
+    radius: 0.24897616
+    height: 0.5087977
+    footOffset: {x: 0.0025569946, y: -0.010674139, z: 0.037516706}
     manualScale: 0
   - unitType: 24
-    radius: 0.7840124
-    height: 1.8661877
-    footOffset: {x: -0.024914116, y: -0.13326815, z: 0.11601353}
+    radius: 0.1960031
+    height: 0.46654692
+    footOffset: {x: -0.006228529, y: -0.03331704, z: 0.02900339}
     manualScale: 0
   - unitType: 25
-    radius: 0.44681633
-    height: 1.777741
-    footOffset: {x: 0.010869011, y: -0.13426906, z: 0.013596773}
+    radius: 0.08936326
+    height: 0.3555481
+    footOffset: {x: 0.0021738, y: -0.026853805, z: 0.0027193576}
     manualScale: 0
   - unitType: 26
-    radius: 0.78346676
-    height: 1.9401472
-    footOffset: {x: -0.024548382, y: -0.31235415, z: 0.05746135}
+    radius: 0.15669334
+    height: 0.38802946
+    footOffset: {x: -0.0049096644, y: -0.062470827, z: 0.0114922635}
     manualScale: 0
   - unitType: 27
-    radius: 0.5224576
-    height: 1.7377468
-    footOffset: {x: 0.013535991, y: -0.038323034, z: 0.08445224}
+    radius: 0.1306144
+    height: 0.4344367
+    footOffset: {x: 0.0033839904, y: -0.009580765, z: 0.021113072}
     manualScale: 0
+  _chestHeightRatio: 0.6
