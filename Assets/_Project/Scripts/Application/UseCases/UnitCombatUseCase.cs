@@ -243,6 +243,13 @@ namespace Hexiege.Application
             public bool TargetIsUnit;
             /// <summary>남은 딜레이(초). 0 이하가 되면 데미지 적용.</summary>
             public float RemainingDelay;
+            public bool AbsoluteSolo;
+            public double DueAt;
+            public SoloAttackOwner Owner;
+            public IDamageable CapturedTarget;
+            public ulong Epoch, Sequence;
+            public long Loop;
+            public int HitIndex;
         }
 
         /// <summary>
@@ -250,6 +257,112 @@ namespace Hexiege.Application
         /// TickPendingHits()에서 매 프레임 타이머를 감소시켜 만료된 항목을 실제 데미지로 전환.
         /// </summary>
         private readonly List<PendingHit> _pendingHits = new List<PendingHit>();
+
+        private sealed class SoloAttackOwner
+        {
+            public UnitData Unit;
+            public readonly SoloAttackPlaybackClock Clock = new SoloAttackPlaybackClock();
+            public bool Retired, NativeConfirmed;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            public int Lines, Omitted, FormatRejected;
+#endif
+        }
+        private readonly Dictionary<int, SoloAttackOwner> _soloAttackOwners = new Dictionary<int, SoloAttackOwner>();
+
+        private SoloAttackOwner SoloOwner(UnitData unit)
+        {
+            if (!_soloAttackOwners.TryGetValue(unit.Id, out SoloAttackOwner owner)
+                || !ReferenceEquals(owner.Unit, unit) || owner.Retired)
+            {
+                if (owner != null) RetireSoloOwner(owner);
+                _combatTargets.Remove(unit.Id);
+                owner = new SoloAttackOwner { Unit = unit };
+                _soloAttackOwners[unit.Id] = owner;
+            }
+            return owner;
+        }
+
+        // 실제 CrossFade 시작에서만 호출한다. 타겟 교체/반복 커밋은 이 경계를 호출하지 않는다.
+        public void ConfirmSoloAttackPlayback(UnitData unit, double now)
+        {
+            if (NetworkContext.IsNetworkActive || unit == null || unit.IsHealer || unit.Type == UnitType.TorrentSpirit) return;
+            SoloAttackOwner owner = SoloOwner(unit);
+            if (!SoloAttackPlaybackClock.Supports(unit.AttackCooldown, unit.HitFrameTimes))
+            {
+                owner.Clock.Close();
+                SoloTimingTrace(owner, "legacy-offset-fallback", now, "UnsupportedOccurrence=true, ExistingTimersPreserved=true");
+                return;
+            }
+            owner.NativeConfirmed = owner.Clock.Restart(now, unit.AttackCooldown);
+            SoloTimingTrace(owner, "playback-start", now, "NativeCommand=" + owner.NativeConfirmed);
+        }
+
+        // 실제 재생 정지 관측은 미래 신규 occurrence만 이동시킨다. 기존 PendingHit의 DueAt은 불변이다.
+        public void ObserveSoloAttackPause(UnitData unit, double now, bool paused)
+        {
+            if (NetworkContext.IsNetworkActive || unit == null
+                || !_soloAttackOwners.TryGetValue(unit.Id, out SoloAttackOwner owner)
+                || !ReferenceEquals(owner.Unit, unit) || owner.Retired) return;
+            bool changed = owner.Clock.Paused != paused;
+            owner.Clock.ObservePause(now, paused);
+            if (changed && owner.Clock.Paused == paused)
+                SoloTimingTrace(owner, paused ? "playback-pause" : "playback-resume", now, "PendingDueUnchanged=true");
+        }
+
+        public void CloseSoloAttackPlayback(UnitData unit, bool terminal)
+        {
+            if (NetworkContext.IsNetworkActive || unit == null
+                || !_soloAttackOwners.TryGetValue(unit.Id, out SoloAttackOwner owner)
+                || !ReferenceEquals(owner.Unit, unit)) return;
+            // View의 disable/rebind는 Domain 수명 종료가 아니다. 현재 살아 있는 객체의
+            // 기예약 HP는 presentation 종료 뒤에도 원래 타겟/시각대로 처리한다.
+            if (terminal && (!unit.IsAlive || !ReferenceEquals(_unitSpawn.GetUnit(unit.Id), unit))) RetireSoloOwner(owner);
+            else { owner.Clock.Close(); SoloTimingTrace(owner, "playback-close", double.NaN, "PendingDueUnchanged=true"); }
+        }
+
+        private void RetireSoloOwner(SoloAttackOwner owner)
+        {
+            if (owner.Retired) return;
+            owner.Retired = true; owner.Clock.Close();
+            if (_soloAttackOwners.TryGetValue(owner.Unit.Id, out SoloAttackOwner current)
+                && ReferenceEquals(current, owner)) _soloAttackOwners.Remove(owner.Unit.Id);
+            SoloTimingTrace(owner, "owner-retired", double.NaN, "FutureOwnerInvalid=true");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[UAS-SOLO-TIME] 수명 종료",
+                $"Stage=end, Unit={owner.Unit.Id}, Detail={owner.Lines}, Omitted={owner.Omitted}, FormatRejected={owner.FormatRejected}, Coverage={(owner.Omitted > 0 || owner.FormatRejected > 0 ? "incomplete" : "bounded")}");
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void SoloTimingTrace(SoloAttackOwner owner, string stage, double now, string detail)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!UnitSoloPursuitStep.TakeEvidence(ref owner.Lines, ref owner.Omitted, out bool firstOmission))
+            {
+                if (firstOmission) GameLog.Dev.Warn("Combat", nameof(UnitCombatUseCase), "[UAS-SOLO-TIME] 상세 상한 도달",
+                    $"Stage=cap, Unit={owner.Unit.Id}, Limit=64, Omitted={owner.Omitted}, Coverage=incomplete");
+                return;
+            }
+            string data = System.FormattableString.Invariant($"Stage={stage}, Unit={owner.Unit.Id}, Type={(int)owner.Unit.Type}, Solo=true, Epoch={owner.Clock.Epoch}, Sequence={owner.Clock.Sequence}, Loop={owner.Clock.LastLoop}, Anchor={owner.Clock.Anchor:G17}, Now={now:G17}, NativeCommand={owner.NativeConfirmed}, Paused={owner.Clock.Paused}, Detail={owner.Lines}, {detail}, Coverage=bounded");
+            if (!UnitSoloPursuitStep.FitsEvidence(data))
+            {
+                owner.FormatRejected++;
+                data = $"Stage={stage}, Unit={owner.Unit.Id}, FormatRejected={owner.FormatRejected}, Coverage=incomplete";
+            }
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[UAS-SOLO-TIME] 권위/표현 시각 관측", data);
+#endif
+        }
+
+        // marker는 관측만 한다. 이 경계는 예약·HP·회차를 변경하지 않는다.
+        public void ObserveSoloAttackMarker(UnitData unit, double now, double marker, double normalized, double rate,
+            bool genuineEvent, int stateHash, int clipId)
+        {
+            if (NetworkContext.IsNetworkActive || unit == null
+                || !_soloAttackOwners.TryGetValue(unit.Id, out SoloAttackOwner owner)
+                || !ReferenceEquals(owner.Unit, unit) || owner.Retired) return;
+            SoloTimingTrace(owner, "native-marker", now,
+                System.FormattableString.Invariant($"Marker={marker:G17}, Normalized={normalized:G17}, Rate={rate:G17}, CallbackSource={(genuineEvent ? "event" : "fallback-current-state")}, StateHash={stateHash}, ClipId={clipId}, ReservationJoin=unassigned, ReadOnly=true"));
+        }
 
         /// <param name="sweepReach">
         ///   도끼병 휩쓸기 전방 부채꼴 판정의 월드 반경. SpecialAttackConfig에서 주입.
@@ -517,8 +630,13 @@ namespace Hexiege.Application
         /// </summary>
         /// <returns>공격 성공 시 (타겟 Id, 타겟이 유닛인지 여부) 튜플, 실패 시 null</returns>
         public (int id, bool isUnit)? TryAttack(UnitData attacker)
+            => NetworkContext.IsNetworkActive ? null : TryAttack(attacker, Time.timeAsDouble);
+
+        /// <summary>싱글 권위 시각을 명시한다. native 이벤트는 이 시각/피해 writer를 대체하지 않는다.</summary>
+        public (int id, bool isUnit)? TryAttack(UnitData attacker, double now)
         {
             if (attacker == null || !attacker.IsAlive) return null;
+            if (double.IsNaN(now) || double.IsInfinity(now) || now < 0) return null;
 
             // 멀티플레이 모드에서는 서버/클라이언트 구분 없이 TryAttack 완전 차단.
             // 네트워크 모드에서 데미지는 NetworkCombatController가 단독으로 처리하며,
@@ -528,6 +646,12 @@ namespace Hexiege.Application
 
             // [스킬] 빙결/기절 상태면 공격 불가(규칙 13). 무상태면 항상 통과 → 기존과 동일.
             if (!CanAttack(attacker)) return null;
+
+            bool absoluteSolo = attacker.Type != UnitType.TorrentSpirit && !attacker.IsHealer
+                && SoloAttackPlaybackClock.Supports(attacker.AttackCooldown, attacker.HitFrameTimes);
+            SoloAttackOwner soloOwner = absoluteSolo ? SoloOwner(attacker) : null;
+            if (absoluteSolo && soloOwner.Clock.Active)
+                attacker.AttackCooldownRemaining = (float)soloOwner.Clock.Remaining(now);
 
             // 쿨다운 중이면 공격 불가
             if (attacker.AttackCooldownRemaining > 0f) return null;
@@ -542,7 +666,7 @@ namespace Hexiege.Application
             // 싱글도 표시 시작/cooldown 전에 실제 파도 예약을 확보한다.
             bool torrentReserved = attacker.Type == UnitType.TorrentSpirit;
             if (torrentReserved && !TryReserveTorrentLaunch(
-                    attacker, targetId, targetIsUnit, Time.timeAsDouble, 0d))
+                    attacker, targetId, targetIsUnit, now, 0d))
                 return null;
 
             // --- 싱글플레이 전투 상태 변화 감지 및 이벤트 발행 ---
@@ -571,6 +695,21 @@ namespace Hexiege.Application
             }
 
             // 다중 히트 예약:
+            SoloAttackOccurrence occurrence = default;
+            if (absoluteSolo)
+            {
+                // 정상 View는 위 Start 이벤트의 실제 CrossFade에서 이미 epoch를 열었다.
+                // View 부재는 기존 SOLO 피해를 막지 않되 NativeCommand=false로 관측 한계를 기록한다.
+                if (!soloOwner.Clock.Active)
+                {
+                    soloOwner.NativeConfirmed = false;
+                    if (!soloOwner.Clock.Restart(now, attacker.AttackCooldown)) return null;
+                }
+                long previousLoop = soloOwner.Clock.LastLoop;
+                if (!soloOwner.Clock.TryCommit(now, attacker.HitFrameTimes, out occurrence)) return null;
+                SoloTimingTrace(soloOwner, "commit", now,
+                    System.FormattableString.Invariant($"Target={targetId}, TargetIsUnit={targetIsUnit}, FirstHit={occurrence.FirstHit}, Hits={occurrence.Due.Length}, FirstDue={occurrence.Due[0]:G17}, ReadyAt={occurrence.ReadyAt:G17}, SkippedLoops={System.Math.Max(0, occurrence.Loop - previousLoop - 1)}"));
+            }
             // 공격 애니메이션 사이클 안의 각 히트 프레임마다 PendingHit을 등록한다.
             // 예) FlameSpirit은 6개 타이머가 예약되어 각각 독립적으로 데미지 적용.
             //
@@ -589,7 +728,8 @@ namespace Hexiege.Application
             }
             else
             {
-                for (int i = 0; i < hitTimes.Length; i++)
+                int firstHit = absoluteSolo ? occurrence.FirstHit : 0;
+                for (int i = firstHit; i < hitTimes.Length; i++)
                 {
                     _pendingHits.Add(new PendingHit
                     {
@@ -597,13 +737,20 @@ namespace Hexiege.Application
                         TargetId = targetId,
                         TargetIsUnit = targetIsUnit,
                         // 타이머는 0 이하에서 실행되므로, 0f인 경우 최소 1프레임 뒤 실행되도록 아주 작은 양수로 보정.
-                        RemainingDelay = hitTimes[i] > 0f ? hitTimes[i] : 0.0001f
+                        RemainingDelay = hitTimes[i] > 0f ? hitTimes[i] : 0.0001f,
+                        AbsoluteSolo = absoluteSolo,
+                        DueAt = absoluteSolo ? occurrence.Due[i - firstHit] : 0d,
+                        Owner = soloOwner,
+                        CapturedTarget = absoluteSolo ? target : null,
+                        Epoch = occurrence.Epoch, Sequence = occurrence.Sequence,
+                        Loop = occurrence.Loop, HitIndex = i
                     });
                 }
             }
 
             // 공격 성공 → 쿨다운 시작 (TryAttack에서 한 번만 리셋)
-            attacker.AttackCooldownRemaining = attacker.AttackCooldown;
+            attacker.AttackCooldownRemaining = absoluteSolo
+                ? (float)soloOwner.Clock.Remaining(now) : attacker.AttackCooldown;
 
             return (targetId, targetIsUnit);
         }
@@ -891,10 +1038,28 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="dt">경과 시간 (초). 일반적으로 Time.deltaTime을 전달.</param>
         public void TickCooldowns(float dt)
+            => TickCooldowns(dt, Time.timeAsDouble);
+
+        public void TickCooldowns(float dt, double now)
         {
+            // View가 없는 수명도 Domain 제거/교체 시 정리한다. PendingHit은 옛 owner를
+            // 잠시 보유할 수 있지만 현재 ID의 새 owner를 제거하지 않는다.
+            if (!NetworkContext.IsNetworkActive)
+            {
+                List<SoloAttackOwner> retired = null;
+                foreach (SoloAttackOwner owner in _soloAttackOwners.Values)
+                    if (!owner.Unit.IsAlive || !ReferenceEquals(_unitSpawn.GetUnit(owner.Unit.Id), owner.Unit))
+                        (retired ??= new List<SoloAttackOwner>()).Add(owner);
+                if (retired != null) foreach (SoloAttackOwner owner in retired) RetireSoloOwner(owner);
+            }
             foreach (var unit in _unitSpawn.Units.Values)
             {
-                if (unit.AttackCooldownRemaining > 0f)
+                if (!NetworkContext.IsNetworkActive
+                    && SoloAttackPlaybackClock.Supports(unit.AttackCooldown, unit.HitFrameTimes)
+                    && _soloAttackOwners.TryGetValue(unit.Id, out SoloAttackOwner owner)
+                    && ReferenceEquals(owner.Unit, unit) && !owner.Retired && owner.Clock.Active)
+                    unit.AttackCooldownRemaining = (float)owner.Clock.Remaining(now);
+                else if (unit.AttackCooldownRemaining > 0f)
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - dt);
             }
         }
@@ -914,11 +1079,34 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="dt">경과 시간 (초). 일반적으로 Time.deltaTime을 전달.</param>
         public void TickPendingHits(float dt)
+            => TickPendingHits(dt, Time.timeAsDouble);
+
+        public void TickPendingHits(float dt, double now)
         {
             // 역순 순회: 중간에 원소를 제거해도 남은 인덱스가 흔들리지 않음.
             for (int i = _pendingHits.Count - 1; i >= 0; i--)
             {
                 PendingHit hit = _pendingHits[i];
+                if (hit.AbsoluteSolo)
+                {
+                    if (!hit.Attacker.IsAlive) RetireSoloOwner(hit.Owner);
+                    // CC/Stop은 기존 커밋된 피해를 취소/정지하지 않는다. 객체 교체와 사망만 분리한다.
+                    if (hit.Owner.Retired || !ReferenceEquals(_unitSpawn.GetUnit(hit.Attacker.Id), hit.Attacker)
+                        || !ReferenceEquals(FindTargetById(hit.TargetId, hit.TargetIsUnit), hit.CapturedTarget))
+                    {
+                        SoloTimingTrace(hit.Owner, "cancel-owner", now,
+                            $"Target={hit.TargetId}, TargetIsUnit={hit.TargetIsUnit}, ReservedEpoch={hit.Epoch}, ReservedSequence={hit.Sequence}, Hit={hit.HitIndex}");
+                        _pendingHits.RemoveAt(i); continue;
+                    }
+                    if (double.IsNaN(now) || double.IsInfinity(now) || now < hit.DueAt) continue;
+                    int hpBefore = hit.CapturedTarget.Hp;
+                    AttackDamageObservation applied = ApplyAttackDamageCore(hit.Attacker,
+                        hit.TargetId, hit.TargetIsUnit, updateLegacyDomainFacing: true,
+                        presentationResultKey: default);
+                    SoloTimingTrace(hit.Owner, "hp-dispatch", now,
+                        System.FormattableString.Invariant($"Target={hit.TargetId}, TargetIsUnit={hit.TargetIsUnit}, ReservedEpoch={hit.Epoch}, ReservedSequence={hit.Sequence}, Loop={hit.Loop}, Hit={hit.HitIndex}, Due={hit.DueAt:G17}, LateMs={(now - hit.DueAt) * 1000:G17}, HpBefore={hpBefore}, HpAfter={applied.ResultingHp}, Status={applied.Status}, Damage={applied.AppliedAmount}"));
+                    _pendingHits.RemoveAt(i); continue;
+                }
                 hit.RemainingDelay -= dt;
 
                 if (hit.RemainingDelay > 0f)
@@ -1573,7 +1761,7 @@ namespace Hexiege.Application
             bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
             if (!replacesPrimary)
             {
-                // 여우마법사의 Legacy 표식(1초)은 VFX 시작이며 피해 확정(2.25초)보다 먼저다.
+                // 여우마법사의 charge 표식(1초)은 VFX 시작이며 피해 확정(30fps의 2:25)보다 먼저다.
                 // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
                 // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
                 // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.

@@ -976,6 +976,9 @@ namespace Hexiege.Editor.Combat
             ValidateB3CorridorSamplePolicy();
             ValidateB3CorridorTerminalEvidence();
             ValidateB3TrajectoryCorridorResolver();
+            ValidateSoloPursuitCheckpointProgress();
+            ValidateSoloSpatialRecoveryBoundary();
+            ValidateSoloTimingAuthority();
             ValidateB3ContinuousLocomotionPlanner();
             ValidateB3FiniteRepathGuard();
             ValidateB3PostCombatRecoveryPlanner();
@@ -4008,6 +4011,323 @@ namespace Hexiege.Editor.Combat
                     && formatted.Contains("allowedPathIndices:0-2|")
                     && formatted.EndsWith("sampleResult:OutsideCorridor"),
                 "Corridor terminal evidence must remain a lossless single-line Root/Domain/UnitData/path/sample record.");
+        }
+
+        private sealed class SoloTimingMapper : IHexCoordinateMapper
+        {
+            public float TileHeight => .866f;
+            public Vector3 HexToWorld(HexCoord h) => new Vector3(h.Q, 0, h.R);
+            public HexCoord WorldToHex(Vector3 p) => new HexCoord((int)p.x, (int)p.z);
+            public Vector3 NormalizeToDomainPosition(Vector3 p) => p;
+        }
+
+        public static void ValidateSoloTimingAuthority()
+        {
+            Require(!UnityEngine.Application.isPlaying, "SOLO timing fixture must run outside a live match.");
+            ValidateSoloTimingAuthorityCore();
+        }
+
+        // CLR runner는 native isPlaying 호출 없이 이 경계를 사용한다. Editor 메뉴는
+        // 위 guard를 반드시 거치며, 모든 변경한 전역 상태/구독은 finally에서 복원한다.
+        internal static void ValidateSoloTimingAuthorityCore()
+        {
+            var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+            var oldStats = (IReadOnlyDictionary<UnitType, UnitStats.StatValues>)dataField.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
+            object oldId = idField.GetValue(null);
+            UnitSpawnUseCase spawn = null; UnitCombatUseCase combat = null;
+            UnitData attacker = null, victim = null;
+            double now = 0; int starts = 0, changes = 0;
+            var hits = new List<double>();
+            IDisposable start = null, changed = null, damage = null;
+            try
+            {
+                NetworkContext.Set(false, false);
+                UnitStats.Initialize(new Dictionary<UnitType, UnitStats.StatValues> {
+                    { UnitType.SpearMan, new UnitStats.StatValues { MaxHp = 100000, AttackPower = 1,
+                        AttackRange = 5, DetectRange = 5, MoveSpeed = 1, AttackCooldown = 2,
+                        HitFrameTimes = new[] { .5f, 1.5f } } }
+                });
+                Action<float[]> reset = offsets => {
+                    var grid = new HexGrid(3, 3, HexOrientation.FlatTop);
+                    spawn = new UnitSpawnUseCase(grid);
+                    attacker = spawn.SpawnUnitWithId(9900, UnitType.SpearMan, TeamId.Blue, new HexCoord(0, 0));
+                    victim = spawn.SpawnUnitWithId(9901, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                    attacker.HitFrameTimes = offsets;
+                    combat = new UnitCombatUseCase(grid, spawn, new BuildingPlacementUseCase(grid), null, new SoloTimingMapper());
+                    now = 0; starts = changes = 0; hits.Clear();
+                };
+                // 실제 production Start callback -> 재생 epoch 확정 API 경계다.
+                // Animator 자체를 만들거나 native 실행 성공을 가정하지 않는다.
+                start = GameEvents.OnCombatStarted.Subscribe(e => {
+                    if (attacker != null && e.UnitId == attacker.Id) {
+                        starts++; combat.ConfirmSoloAttackPlayback(attacker, now);
+                    }
+                });
+                changed = GameEvents.OnCombatTargetChanged.Subscribe(e => { if (attacker != null && e.UnitId == attacker.Id) changes++; });
+                damage = GameEvents.OnEntityDamaged.Subscribe(e => hits.Add(now));
+                Action<double> pump = at => {
+                    float dt = (float)(at - now); now = at;
+                    combat.TickCooldowns(dt, now); combat.TickPendingHits(dt, now);
+                };
+
+                foreach (int fps in new[] { 30, 60, 45 })
+                {
+                    reset(new[] { .8333333f });
+                    Require(combat.TryAttack(attacker, now).HasValue, "SOLO first production attack must commit.");
+                    for (int frame = 1; frame <= fps * 120; frame++) { pump((double)frame / fps); combat.TryAttack(attacker, now); }
+                    Require(starts == 1 && changes == 0 && hits.Count == 100000 - victim.Hp,
+                        "SOLO repeated native-start callback count and direct HP writer count must agree.");
+                    for (int i = 0; i < hits.Count; i++)
+                        Require(hits[i] >= i * 2d + .8333333f && hits[i] - (i * 2d + .8333333f) <= 1d / fps + 1e-6,
+                            "SOLO repeated occurrences may be one frame late, never cumulatively late or early.");
+                }
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now); pump(.5);
+                UnitData oldTarget = victim; oldTarget.Position = new HexCoord(100, 100);
+                victim = spawn.SpawnUnitWithId(9902, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                pump(2.25); Require(combat.TryAttack(attacker, now).HasValue, "SOLO retarget commits a future occurrence.");
+                pump(2.49); Require(victim.Hp == 100000, "Retarget must not receive retroactive/old target damage.");
+                pump(2.5); Require(victim.Hp == 99999 && oldTarget.Hp == 99998 && starts == 1 && changes == 1,
+                    "SOLO retarget keeps playback anchor 0, old reservations and next occurrence 2.5; no fresh playback epoch.");
+
+                reset(new[] { .5f, .5f, 1.5f }); combat.TryAttack(attacker, now); pump(.5);
+                Require(victim.Hp == 99998, "SOLO positive duplicate markers retain two distinct HitIndex writes.");
+                pump(1.5); Require(victim.Hp == 99997, "SOLO final multihit remains exactly one write.");
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now); pump(10.75);
+                Require(victim.Hp == 99998 && combat.TryAttack(attacker, now).HasValue
+                    && !combat.TryAttack(attacker, now).HasValue, "SOLO long frame drains finite old reservations and commits at most once.");
+                pump(11.49); Require(victim.Hp == 99998, "SOLO missed uncommitted marker is not backfilled.");
+                pump(11.5); Require(victim.Hp == 99997, "SOLO long frame chooses future original HitIndex occurrence.");
+
+                foreach (StatusEffectKind kind in new[] { StatusEffectKind.Freeze, StatusEffectKind.AttackDisabled })
+                {
+                    reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now);
+                    var status = new StatusEffectSystem(); combat.SetStatusEffectSystem(status);
+                    status.Apply(attacker.Id, new StatusEffect(kind, 1, 10, TeamId.Red));
+                    combat.ClearCombatState(attacker.Id); pump(1.5);
+                    Require(victim.Hp == 99998 && !combat.TryAttack(attacker, now).HasValue,
+                        "SOLO Freeze/CC/Stop do not cancel or pause committed HP; CC blocks only new commits.");
+                }
+
+                reset(new[] { .5f, 1.5f }); combat.TryAttack(attacker, now);
+                combat.ObserveSoloAttackPause(attacker, .2, true); pump(2);
+                Require(victim.Hp == 99998 && !combat.TryAttack(attacker, now).HasValue,
+                    "SOLO authority-commanded playback pause keeps committed DueAt unchanged.");
+                combat.ObserveSoloAttackPause(attacker, 3.2, false); pump(5);
+                Require(combat.TryAttack(attacker, now).HasValue, "SOLO resume permits the next future occurrence.");
+                pump(5.5); Require(victim.Hp == 99997, "SOLO future phase shifts by pause duration without retroactive HP.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now);
+                combat.CloseSoloAttackPlayback(attacker, terminal: true); pump(.5);
+                Require(victim.Hp == 99999, "SOLO View-disable/rebind-equivalent cannot retire a current alive Domain HP owner.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); attacker.TakeDamage(100000); pump(.6);
+                Require(victim.Hp == 100000, "SOLO Domain death discards unexecuted hits.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); spawn.RemoveUnit(attacker.Id);
+                attacker = spawn.SpawnUnitWithId(9900, UnitType.SpearMan, TeamId.Blue, new HexCoord(0, 0));
+                pump(.6); Require(victim.Hp == 100000, "SOLO reused attacker ID cannot inherit old owner's hit.");
+                Require(combat.TryAttack(attacker, now).HasValue && starts == 2, "SOLO replacement UnitData opens an actual new Start callback.");
+                pump(1.1); Require(victim.Hp == 99999, "SOLO new lifetime hits normally; retiring old owner cannot remove current owner.");
+
+                reset(new[] { .5f }); combat.TryAttack(attacker, now); spawn.RemoveUnit(victim.Id);
+                victim = spawn.SpawnUnitWithId(9901, UnitType.SpearMan, TeamId.Red, new HexCoord(1, 0));
+                pump(.6); Require(victim.Hp == 100000, "SOLO reused target ID never receives previous captured target's reservation.");
+
+                reset(new[] { 0f }); combat.TryAttack(attacker, now);
+                double last = 0; int commits = 1;
+                for (int frame = 1; frame <= 1800; frame++)
+                {
+                    pump(frame / 30d);
+                    if (combat.TryAttack(attacker, now).HasValue) {
+                        Require(now - last >= 2 && now - last < 2.1, "SOLO zero-marker fallback preserves existing cadence, never halves it.");
+                        last = now; commits++;
+                    }
+                }
+                Require(!SoloAttackPlaybackClock.Supports(2, new[] { 0f }) && commits >= 29
+                    && hits.Count == 100000 - victim.Hp, "Zero marker is explicit preserved Legacy fallback, not corrected occurrence PASS.");
+                reset(new[] { .5f });
+                Require(!combat.TryAttack(attacker, double.NaN).HasValue
+                    && !combat.TryAttack(attacker, double.PositiveInfinity).HasValue
+                    && !combat.TryAttack(attacker, -1).HasValue && victim.Hp == 100000,
+                    "SOLO invalid authority clock cannot commit or invent HP.");
+                var clock = new SoloAttackPlaybackClock();
+                Require(!clock.Restart(-1, 2) && !clock.Restart(double.NaN, 2)
+                    && !clock.Restart(0, double.PositiveInfinity) && clock.Restart(0, 2)
+                    && clock.TryCommit(0, new[] { .5f }, out _)
+                    && !clock.TryCommit(0, new[] { .5f }, out _)
+                    && clock.TryCommit(2, new[] { .5f }, out _)
+                    && !clock.TryCommit(1, new[] { .5f }, out _),
+                    "SOLO clock rejects invalid/backward/same-frame commits without new occurrence.");
+                Require(!SoloAttackPlaybackClock.Supports(2, new[] { -.1f })
+                    && !SoloAttackPlaybackClock.Supports(2, new[] { float.NaN })
+                    && !SoloAttackPlaybackClock.Supports(2, new[] { 1.5f, .5f }),
+                    "Invalid/unsorted markers are explicit unsupported Legacy fallback, not corrected coverage.");
+            }
+            finally
+            {
+                start?.Dispose(); changed?.Dispose(); damage?.Dispose();
+                UnitStats.Initialize(oldStats); idField.SetValue(null, oldId);
+                NetworkContext.Set(oldServer, oldActive);
+            }
+        }
+
+        /// <summary>
+        /// 실제 SOLO View writer를 통해 A* 중간 경계→추격→복귀 경로의 공간 커밋을 검사한다.
+        /// GameObject/Transform 실행이 필요하므로 CLR 정책 검사와 native 실행을 구분한다.
+        /// </summary>
+        public static void ValidateSoloSpatialRecoveryBoundary()
+        {
+            bool oldActive = NetworkContext.IsNetworkActive;
+            bool oldServer = NetworkContext.IsNetworkServer;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
+            object oldId = idField.GetValue(null);
+            var grid = new HexGrid(16, 16, HexOrientation.FlatTop);
+            var flow = new FlowFieldService(); flow.Initialize(grid);
+            var spawn = new UnitSpawnUseCase(grid);
+            var mapper = new HexMetricsCoordinateMapper();
+            var movement = new UnitMovementUseCase(grid, spawn, flow, mapper);
+            GameObject go = null;
+            IDisposable moved = null, entered = null;
+            try
+            {
+                NetworkContext.Set(false, false);
+                var route = new List<HexCoord> { new HexCoord(0, 2), new HexCoord(1, 2),
+                    new HexCoord(2, 2), new HexCoord(3, 2), new HexCoord(4, 2) };
+                UnitData unit = spawn.SpawnUnit(UnitType.RabbitTrickster, TeamId.Blue, route[0]);
+                Require(unit != null, "SOLO spatial fixture must create a registered living unit.");
+                go = new GameObject("SoloSpatialRecoveryFixture");
+                var view = go.AddComponent<Hexiege.Presentation.UnitView>();
+                Type type = view.GetType();
+                type.GetField("_unitData", flags).SetValue(view, unit);
+                type.GetField("_movementUseCase", flags).SetValue(view, movement);
+                type.GetField("_isAStarMoving", flags).SetValue(view, true);
+                MethodInfo writer = type.GetMethod("ApplyMovementAuthorityFrame", flags);
+                MethodInfo resume = type.GetMethod("ResumeFromForwardTileV3", flags);
+                int moves = 0, enters = 0;
+                moved = GameEvents.OnUnitMoved.Subscribe(e => { if (e.UnitId == unit.Id) moves++; });
+                entered = GameEvents.OnUnitEnteredTile.Subscribe(e => { if (e.UnitId == unit.Id) enters++; });
+                go.transform.position = ViewConverter.ToView(mapper.HexToWorld(route[0]));
+                for (int i = 1; i <= 3; i++)
+                {
+                    type.GetField("_isAStarMoving", flags).SetValue(view, i == 1);
+                    // 첫 edge는 A* 중간 경계에서 추격으로 전환한다. 중심 도착 갱신으로
+                    // 우연히 정합되는 테스트를 피하려고 먼저 75% 지점에서 커밋을 확인한다.
+                    Vector3 center = ViewConverter.ToView(mapper.HexToWorld(route[i]));
+                    Vector3 candidate = i == 1 ? Vector3.Lerp(go.transform.position, center, .75f) : center;
+                    object result = writer.Invoke(view, new object[] { center, candidate, Quaternion.identity,
+                        i == 1 ? UnitMovementIntentReason.AStarPath : UnitMovementIntentReason.Chase,
+                        false, null, 100f, route, i, null, null });
+                    Require(result.ToString() == "Advanced" && unit.Position == route[i]
+                        && spawn.GetUnitAt(route[i]) == unit && spawn.GetUnitAt(route[i - 1]) == null,
+                        "SOLO actual writer must commit each crossed adjacent boundary and reverse index before checkpoint arrival.");
+                }
+                Require(moves == 3 && enters == 1,
+                    "SOLO spatial move events occur on all edges; congestion entry events occur only while A* navigating.");
+                Require(movement.RequestAuthoritativeRepath(unit,
+                    ViewConverter.FromView(go.transform.position), route[4], 0UL).IsSuccess,
+                    "SOLO chase over multiple tiles must leave an accepted authoritative repath start.");
+                type.GetField("_isAStarMoving", flags).SetValue(view, true);
+                object resumed = resume.Invoke(view, new object[] { route[4], unit.Position });
+                Require(resumed is List<HexCoord> && moves == 3 && enters == 1,
+                    "SOLO resume after an already committed center must not duplicate logical moves or tile events.");
+                grid.GetTile(route[4]).HasBuilding = true;
+                Vector3 before = go.transform.position;
+                // 이동 불가 타일을 중간 경유로 둔다. 최종 non-walkable contact 예외와 다르다.
+                var unsafeRoute = new List<HexCoord> { route[3], route[4], new HexCoord(5, 2) };
+                object rejected = writer.Invoke(view, new object[] { ViewConverter.ToView(mapper.HexToWorld(route[4])),
+                    ViewConverter.ToView(mapper.HexToWorld(route[4])), Quaternion.identity,
+                    UnitMovementIntentReason.Chase, false, null, 100f, unsafeRoute, 1, null, null });
+                Require(rejected.ToString() != "Advanced" && go.transform.position == before
+                    && unit.Position == route[3] && moves == 3 && enters == 1,
+                    "SOLO unsafe candidate must leave Root, logical position, index and events unchanged.");
+                var terminalRoute = new List<HexCoord> { route[3], route[4] };
+                Vector3 terminal = ViewConverter.ToView(mapper.HexToWorld(route[4]));
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    object contact = writer.Invoke(view, new object[] { terminal, terminal, Quaternion.identity,
+                        UnitMovementIntentReason.AStarPath, false, null, 100f, terminalRoute, 1, null, null });
+                    Require(contact.ToString() == "Advanced" && unit.Position == route[3]
+                        && go.transform.position == terminal && moves == 3 && enters == 1,
+                        "SOLO nonwalkable final contact must remain unoccupied and allow its repeated endpoint without a logical jump.");
+                }
+            }
+            finally
+            {
+                moved?.Dispose(); entered?.Dispose();
+                if (go != null) { var v = go.GetComponent<Hexiege.Presentation.UnitView>();
+                    v.GetType().GetField("_unitData", flags).SetValue(v, null); UnityEngine.Object.DestroyImmediate(go); }
+                flow.Dispose(); idField.SetValue(null, oldId); NetworkContext.Set(oldServer, oldActive);
+            }
+        }
+
+        public static void ValidateSoloPursuitCheckpointProgress()
+        {
+            // 생산 후보 계산 -> 실제 도착 결과 -> 생산 checkpoint 소비 조합이다.
+            // 첫 중간 지점을 지나야 두 번째 타겟 지점으로 진행할 수 있다.
+            var checkpoint = new UnitPathCheckpointTracker();
+            double x = 0d, z = 0d;
+            int index = 1;
+            for (int frame = 0; frame < 4; frame++)
+            {
+                UnitSoloPursuitStep.Plan(x, z, 1d, 0d, .25d, out x, out z);
+                bool reached = UnitSoloPursuitStep.Reached(x, z, 1d, 0d, .25d);
+                if (UnitSoloPursuitStep.TryConsume(checkpoint, index, true, reached,
+                        acquired: false, direct: false, routeCurrent: true)) index++;
+            }
+            Require(index == 2 && checkpoint.NextWaypointIndex == 2,
+                "SOLO first nonterminal pursuit waypoint must be consumed after four real movement frames.");
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, true),
+                "SOLO a consumed index cannot advance twice.");
+            UnitSoloPursuitStep.Plan(x, z, 2d, 0d, 8d, out x, out z);
+            Require(x == 2d && z == 0d
+                && UnitSoloPursuitStep.TryConsume(checkpoint, 2, true,
+                    UnitSoloPursuitStep.Reached(x, z, 2d, 0d, 8d), false, false, true),
+                "SOLO second waypoint clamps remaining distance and consumes exactly once.");
+            checkpoint.Reset();
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 1, false, true, false, false, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, true, false, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, true, true)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, false)
+                && !UnitSoloPursuitStep.TryConsume(checkpoint, 2, true, true, false, false, true)
+                && checkpoint.NextWaypointIndex == 1,
+                "SOLO Held/acquired/direct/stale-route/skipped index never consumes a checkpoint.");
+            // 타겟 타일/환경 변경 때 production이 Reset한 새 경로의 첫 지점만 소비한다.
+            checkpoint.Reset();
+            Require(!UnitSoloPursuitStep.TryConsume(checkpoint, 2, true, true, false, false, true)
+                && UnitSoloPursuitStep.TryConsume(checkpoint, 1, true, true, false, false, true),
+                "SOLO target/environment route replacement rejects the old index and starts at one.");
+            foreach (double budget in new[] { 0d, -1d, double.NaN, double.PositiveInfinity })
+            {
+                UnitSoloPursuitStep.Plan(0d, 0d, 1d, 1d, budget, out x, out z);
+                Require(x == 0d && z == 0d
+                    && !UnitSoloPursuitStep.Reached(1d, 1d, 1d, 1d, budget),
+                    "SOLO frozen/invalid travel budget neither moves nor reports arrival.");
+            }
+            UnitSoloPursuitStep.Plan(.9999d, .9999d, 1d, 1d, 10d, out x, out z);
+            Require(x == 1d && z == 1d && UnitSoloPursuitStep.Reached(x, z, 1d, 1d, 10d),
+                "SOLO short diagonal final distance cannot overshoot or oscillate.");
+            Require(!UnitSoloPursuitStep.Reached(double.NaN, 0d, 1d, 1d, 1d),
+                "SOLO invalid pose cannot report arrival.");
+            int emitted = 0, omitted = 0, capMarkers = 0;
+            for (int attempt = 0; attempt < 70; attempt++)
+            {
+                bool accepted = UnitSoloPursuitStep.TakeEvidence(ref emitted, ref omitted,
+                    out bool firstOmission);
+                if (firstOmission) capMarkers++;
+                Require(accepted == (attempt < 64), "SOLO evidence detail cap must be exact.");
+            }
+            Require(emitted == 64 && omitted == 6 && capMarkers == 1,
+                "SOLO evidence cap has one incomplete marker and preserves omitted count, never fake PASS.");
+            Require(UnitSoloPursuitStep.FitsEvidence(new string('a', 600))
+                && !UnitSoloPursuitStep.FitsEvidence(new string('a', 601))
+                && UnitSoloPursuitStep.FitsEvidence(new string('한', 200))
+                && !UnitSoloPursuitStep.FitsEvidence(new string('한', 201)),
+                "SOLO evidence preflight counts UTF8 bytes, preserves envelope budget and rejects oversized records.");
         }
 
         private static void ValidateB3TrajectoryCorridorResolver()
@@ -7285,7 +7605,7 @@ namespace Hexiege.Editor.Combat
         private static void ValidateFoxMagicianProductionTimelineDiagnostics()
         {
             Require(UnitAttackShadowObserver.FoxMagicianTimelineSchema
-                    == "foxmagician-production-timeline-v1",
+                    == "foxmagician-production-timeline-v2",
                 "FoxMagician production timeline diagnostic schema must remain exact.");
             Require(UnitAttackShadowObserver.ShouldObserveFoxMagicianTimelineForValidation(
                         UnitType.FoxMagician,
@@ -7326,18 +7646,18 @@ namespace Hexiege.Editor.Combat
                     && !UnitAttackShadowObserver.FoxMagicianCorrelationBindingsHaveCapacityForValidation(
                         1, 0, capacity),
                 "FoxMagician exact ticket dictionaries must remain paired and inside the bounded flow capacity.");
-            Require(Math.Abs(UnitAttackShadowObserver.FoxMagicianExpectedImpactSecondsForValidation() - 2.25d)
+            Require(Math.Abs(UnitAttackShadowObserver.FoxMagicianExpectedImpactSecondsForValidation() - 85d / 30d)
                         < 0.000001d
                     && UnitAttackShadowObserver.FoxMagicianCorrelationTicketMatchesForValidation(17UL, 17UL)
                     && !UnitAttackShadowObserver.FoxMagicianCorrelationTicketMatchesForValidation(17UL, 18UL)
                     && !UnitAttackShadowObserver.FoxMagicianCorrelationTicketMatchesForValidation(0UL, 0UL)
                     && UnitAttackShadowObserver.FoxMagicianTimerImpactBoundaryIsExactForValidation(
-                        1, 2.25d, 4d)
+                        1, 85d / 30d, 4d)
                     && !UnitAttackShadowObserver.FoxMagicianTimerImpactBoundaryIsExactForValidation(
-                        2, 2.25d, 4d)
+                        2, 85d / 30d, 4d)
                     && !UnitAttackShadowObserver.FoxMagicianTimerImpactBoundaryIsExactForValidation(
                         1, 4d, 4d),
-                "FoxMagician TimerImpact must use an exact diagnostic ticket with a single hit at 2.250 seconds inside the 4.000-second cooldown.");
+                "FoxMagician TimerImpact retains one exact ticket at 85/30 seconds inside the 4-second cycle; serialized floats are compared with tolerance.");
 
             string unitViewPath = Path.Combine(
                 UnityEngine.Application.dataPath,
@@ -7351,6 +7671,7 @@ namespace Hexiege.Editor.Combat
             string controllerSource = File.ReadAllText(controllerPath);
             Require(unitViewSource.Contains("RecordFoxMagicianTimelineStart(")
                     && unitViewSource.Contains("RecordFoxMagicianTimelineMarker(")
+                    && unitViewSource.Contains("RecordFoxMagicianNativeImpactMarker(")
                     && unitViewSource.Contains("RecordFoxMagicianTimelineVfxAttempt(")
                     && unitViewSource.Contains("RecordFoxMagicianTimelineVfxResult(")
                     && controllerSource.Contains("ReserveFoxMagicianTimelineCorrelationTicket(")
@@ -7361,14 +7682,14 @@ namespace Hexiege.Editor.Combat
             string terminal = UnitAttackShadowObserver.BuildFoxMagicianTimelineTerminalDataForValidation();
             string[] requiredTerminalFields =
             {
-                "schema=foxmagician-production-timeline-v1", "starts=", "markers=",
+                "schema=foxmagician-production-timeline-v2", "starts=", "charges=",
                 "vfxAttempts=", "vfxStarted=", "vfxFailures=", "timerImpacts=",
                 "particlePositive=", "playbackActive=", "maxParticleSystems=",
                 "complete=", "incomplete=", "unmatchedMarker=", "unmatchedVfxAttempt=",
                 "unmatchedVfxResult=", "unmatchedTimer=", "duplicates=", "overflow=",
                 "dropped=", "expired=", "cappedDetails=",
                 "maxStartMarker=", "maxStartTimer=", "maxMarkerTimerDelta=",
-                "expectedImpactOffset=2.250", "gameplayWrites=0", "verdict="
+                "expectedImpactOffset=2.833", "gameplayWrites=0", "verdict="
             };
             for (int index = 0; index < requiredTerminalFields.Length; index++)
                 Require(terminal.Contains(requiredTerminalFields[index]),
@@ -7435,7 +7756,7 @@ namespace Hexiege.Editor.Combat
 
         /// <summary>
         /// FoxMagician의 현재 production은 권위 발사체나 tracer 없이 TimerImpact를 사용한다.
-        /// VFX 시작 marker 1.00초와 서버 피해 2.25초를 분리하고, projectile 계약을 Supported로
+        /// charge 1.00초와 서버 피해 30fps의 2:25를 분리하고, projectile 계약을 Supported로
         /// 승격하지 않도록 production 연결과 Unresolved 경계를 함께 확인한다.
         /// </summary>
         private static void ValidateFoxMagicianProductionTimeline()
@@ -7452,7 +7773,7 @@ namespace Hexiege.Editor.Combat
             const string clipGuid = "2a61dae4330eb7c418f33f773a87978f";
             const string vfxPrefabGuid = "8da00a8b0eb6c154395554f8b3604771";
             const float vfxMarkerTime = 1.00f;
-            const float damageImpactTime = 2.25f;
+            const float damageImpactTime = 85f / 30f;
             const float tolerance = 0.0001f;
 
             UnitStatsConfig config = AssetDatabase.LoadAssetAtPath<UnitStatsConfig>(configPath);
@@ -7473,18 +7794,18 @@ namespace Hexiege.Editor.Combat
                     && Mathf.Abs(foxEntry.hitFrameTimes[0] - damageImpactTime) <= tolerance
                     && vfxMarkerTime < damageImpactTime
                     && damageImpactTime < foxEntry.attackCooldown,
-                "FoxMagician explicit unitType=21 must retain the 1.00-second VFX marker and later 2.25-second damage impact inside the cooldown.");
-            Require(!UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.FoxMagician, 1)
+                "FoxMagician type21 retains charge at 1 second and authoritative impact at 85/30 seconds.");
+            Require(UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.FoxMagician, 1)
                     && UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.StreamSpirit, 1)
                     && !UnitFactory.ShouldUseAttackClipHitFrameTimes(UnitType.StreamSpirit, 0),
-                "FoxMagician must retain its configured damage impact while other units continue using attack clip markers.");
+                "FoxMagician and other units use typed OnAttackHit markers; charge never overrides damage.");
             string factoryPath = Path.Combine(UnityEngine.Application.dataPath,
                 "_Project/Scripts/Infrastructure/Factories/UnitFactory.cs");
             Require(File.Exists(factoryPath), "FoxMagician production UnitFactory source must exist.");
             string factorySource = File.ReadAllText(factoryPath);
             const string factoryGuardCall = "ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length)";
             Require(factorySource.Split(new[] { factoryGuardCall }, StringSplitOptions.None).Length - 1 == 2,
-                "Both Host and Client UnitFactory paths must preserve FoxMagician configured impact time.");
+                "Both server/SOLO and Client Factory paths must apply the extracted damage marker.");
 
             Require(AssetDatabase.AssetPathToGUID(controllerPath) == controllerGuid,
                 "FoxMagician production controller GUID must remain exact.");
@@ -7525,16 +7846,28 @@ namespace Hexiege.Editor.Combat
                 "FoxMagician Attack clip must remain 4.00 seconds at 30 fps and loop.");
 
             int hitEventCount = 0;
+            int chargeEventCount = 0;
             AnimationEvent[] events = AnimationUtility.GetAnimationEvents(attackClip);
             for (int index = 0; index < events.Length; index++)
             {
+                if (events[index].functionName == "OnAttackCharge")
+                {
+                    chargeEventCount++;
+                    Require(Mathf.Abs(events[index].time - vfxMarkerTime) <= tolerance,
+                        "FoxMagician source-only charge must remain at 1 second.");
+                    continue;
+                }
                 if (events[index].functionName != "OnAttackHit") continue;
                 hitEventCount++;
-                Require(Mathf.Abs(events[index].time - vfxMarkerTime) <= tolerance,
-                    "FoxMagician OnAttackHit must remain at the verified 1.00-second VFX start.");
+                Require(Mathf.Abs(events[index].time - damageImpactTime) <= tolerance,
+                    "FoxMagician OnAttackHit must retain the user's 85/30-second marker.");
             }
-            Require(hitEventCount == 1,
-                "FoxMagician Attack clip must contain exactly one OnAttackHit event.");
+            float[] extracted = UnitFactory.GetHitFrameTimes(attackClip);
+            Require(hitEventCount == 1 && chargeEventCount == 1 && extracted.Length == 1
+                    && Mathf.Abs(extracted[0] - damageImpactTime) <= tolerance,
+                "Fox has one charge and one hit event, but Factory extracts only the damage event.");
+            ValidateFoxMagicianTimingAuthorityCore(foxEntry, extracted);
+            ValidateFoxMagicianMarkerCallbacks();
 
             var expectedVfxSpawnLocalPosition = new Vector3(0f, 0f, 0.011f);
             ValidateProductionAttackPrefab(
@@ -7602,6 +7935,124 @@ namespace Hexiege.Editor.Combat
                     fox, runtimeContractValid: false)
                     == AttackPresentationAuditEligibility.KnownUnresolved,
                 "FoxMagician must remain explicit KnownUnresolved ProjectileImpact with Legacy TimerImpact fallback.");
+        }
+
+        // AssetDatabase 입력은 위 production gate가 제공한다. CLR 호출은 읽은 데이터의
+        // 실제 UseCase/HP 경계만 검증하며 native asset/Animator 실행으로 분류하지 않는다.
+        internal static void ValidateFoxMagicianTimingAuthorityCore(UnitStatEntry entry, float[] extracted)
+        {
+            var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+            var oldData = (IReadOnlyDictionary<UnitType, UnitStats.StatValues>)dataField.GetValue(null);
+            var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
+            object oldId = idField.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            IDisposable damage = null;
+            try
+            {
+                NetworkContext.Set(false, false);
+                UnitStats.Initialize(new Dictionary<UnitType, UnitStats.StatValues> {
+                    { UnitType.FoxMagician, new UnitStats.StatValues {
+                        MaxHp = entry.maxHp, AttackPower = entry.attackPower,
+                        AttackRange = entry.attackRange, DetectRange = entry.detectRange,
+                        MoveSpeed = entry.moveSpeed, AttackCooldown = entry.attackCooldown,
+                        HitFrameTimes = entry.hitFrameTimes, Defense = entry.defense, IsHealer = entry.isHealer
+                    } }
+                });
+                var grid = new HexGrid(3, 3, HexOrientation.FlatTop);
+                var spawn = new UnitSpawnUseCase(grid);
+                UnitData attacker = spawn.SpawnUnitWithId(9900, UnitType.FoxMagician, TeamId.Blue, new HexCoord(0, 0));
+                UnitData victim = spawn.SpawnUnitWithId(9901, UnitType.FoxMagician, TeamId.Red, new HexCoord(1, 0));
+                if (UnitFactory.ShouldUseAttackClipHitFrameTimes(attacker.Type, extracted.Length))
+                    attacker.HitFrameTimes = extracted;
+                Require(attacker.HitFrameTimes.Length == 1
+                    && Math.Abs(attacker.HitFrameTimes[0] - 85f / 30f) <= 0.000001d,
+                    "Production Fox asset/Factory input must select the serialized 85/30 marker.");
+                var combat = new UnitCombatUseCase(grid, spawn, new BuildingPlacementUseCase(grid), null, new SoloTimingMapper());
+                double now = 0; int events = 0; bool immediate = false;
+                damage = GameEvents.OnEntityDamaged.Subscribe(e => {
+                    if (!ReferenceEquals(e.Entity, victim)) return;
+                    events++; immediate = e.ImmediatePresentation;
+                    Require(Math.Abs(now - 85f / 30f) <= 0.000001d,
+                        "Authority compares serialized float due, not the exact rational double.");
+                });
+                int hpBefore = victim.Hp;
+                Require(combat.TryAttack(attacker, now).HasValue, "Actual Fox TryAttack must reserve once.");
+                now = 2.25d; combat.TickCooldowns(2.25f, now); combat.TickPendingHits(2.25f, now);
+                Require(victim.Hp == hpBefore && events == 0, "Old decimal 2.25 must not apply Fox damage.");
+                double due = attacker.HitFrameTimes[0];
+                now = due - 0.000002d;
+                combat.TickPendingHits((float)(now - 2.25d), now);
+                Require(victim.Hp == hpBefore && events == 0, "Fox cannot hit before the serialized due.");
+                now = due; combat.TickPendingHits(0.000002f, now);
+                Require(victim.Hp < hpBefore && events == 1 && immediate,
+                    "Actual writer applies one captured-target hit and keeps default-key immediate presentation.");
+                combat.TickPendingHits(0f, now);
+                Require(events == 1, "Repeated due processing must not duplicate authoritative damage.");
+            }
+            finally
+            {
+                damage?.Dispose(); UnitStats.Initialize(oldData); idField.SetValue(null, oldId);
+                NetworkContext.Set(oldServer, oldActive);
+            }
+        }
+
+        private static void ValidateFoxMagicianMarkerCallbacks()
+        {
+            Require(!UnityEngine.Application.isPlaying, "Fox callback fixture must not run in a match.");
+            // 실제 emitter 진입은 확인하지만 기존 씬의 pool/audio는 사용하지 않는다.
+            // 등록 참조만 잠깐 격리하고 finally에서 동일 참조를 복원하며 씬 객체는 건드리지 않는다.
+            var effectSingleton = typeof(Hexiege.Presentation.EffectManager).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            var audioSingleton = typeof(SingletonMonoBehaviour<Hexiege.Presentation.AudioManager>).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            Require(effectSingleton != null && audioSingleton != null, "Fixture singleton isolation seam must exist.");
+            object oldEffect = effectSingleton.GetValue(null), oldAudio = audioSingleton.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
+            object oldId = idField.GetValue(null);
+            var obj = new GameObject("FoxMarkerCallbackFixture") { hideFlags = HideFlags.HideAndDontSave }; obj.SetActive(false);
+            IDisposable localHit = null, damage = null;
+            try
+            {
+                effectSingleton.SetValue(null, null); audioSingleton.SetValue(null, null);
+                var view = obj.AddComponent<Hexiege.Presentation.UnitView>();
+                var unit = new UnitData(9900, UnitType.FoxMagician, TeamId.Blue, new HexCoord(0, 0), 200, 150, 3, 3);
+                typeof(Hexiege.Presentation.UnitView).GetField("_unitData", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, unit);
+                var sourceField = typeof(Hexiege.Presentation.UnitView).GetField("_attackPresentationSourceMarkerLease", BindingFlags.Instance | BindingFlags.NonPublic);
+                var modeField = typeof(Hexiege.Presentation.UnitView).GetField("_attackPresentationImpactMode", BindingFlags.Instance | BindingFlags.NonPublic);
+                int localHits = 0, hpEvents = 0;
+                localHit = GameEvents.OnLocalAttackHit.Subscribe(_ => localHits++);
+                damage = GameEvents.OnEntityDamaged.Subscribe(_ => hpEvents++);
+                foreach (bool server in new[] { true, false })
+                {
+                    NetworkContext.Set(server, true);
+                    var lease = new AttackPresentationSourceMarkerLease(); Require(lease.TryArm(1, 1), "Fixture source lease must arm.");
+                    sourceField.SetValue(view, lease); modeField.SetValue(view, AttackPresentationImpactMode.LegacyFallback);
+                    Quaternion before = view.AttackPhaseLastEmissionRotation;
+                    view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 1
+                            && view.AttackPhaseLastEmissionRotation == before,
+                        "Fox impact metadata must not consume charge lease or call the emitter.");
+                    view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0
+                            && view.AttackPhaseLastEmissionTarget == -1,
+                        "Fox charge consumes its existing Host/Client source lease without a recipient.");
+                    view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0,
+                        "Repeated charge cannot reacquire a consumed lease.");
+                }
+                NetworkContext.Set(false, false);
+                view.OnAttackCharge(new AnimationEvent { time = 1f });
+                view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                Require(localHits == 0 && hpEvents == 0 && unit.Hp == 200,
+                    "Actual SOLO/Host/Client callbacks never publish recipient/local-hit or apply HP.");
+            }
+            finally
+            {
+                localHit?.Dispose(); damage?.Dispose(); UnityEngine.Object.DestroyImmediate(obj);
+                effectSingleton.SetValue(null, oldEffect); audioSingleton.SetValue(null, oldAudio);
+                idField.SetValue(null, oldId); NetworkContext.Set(oldServer, oldActive);
+            }
         }
 
         /// <summary>

@@ -1136,6 +1136,18 @@ _slot = _nextEviction;
             try { OnAttackHit(); }
             finally { _nativeAttackMarker = null; }
         }
+
+        /// <summary>
+        /// Fox의 1초 charge는 기존 source 허가로 VFX/SFX만 재생한다.
+        /// 피해 marker나 recipient 신호로 중계하지 않고 콜백 문맥은 종료 시 반드시 비운다.
+        /// </summary>
+        public void OnAttackCharge(AnimationEvent marker)
+        {
+            if (_unitData == null || _unitData.Type != UnitType.FoxMagician) return;
+            _nativeAttackMarker = marker;
+            try { ProcessAttackMarker(chargeOnly: true); }
+            finally { _nativeAttackMarker = null; }
+        }
         private AttackPresentationImpactMode _attackPresentationImpactMode;
         private ulong _lastAttackPresentationRevision;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -1500,6 +1512,9 @@ _slot = _nextEviction;
 
         private void OnDisable()
         {
+            _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: true);
+            EndSoloPursuitEvidence();
+            EndSoloRecoveryEvidence();
             PistoleerTimingDiagnostics.Event(_unitData, "Unavailable", _pistoleerTimingScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime, "reason=view-disable");
             EndHealPresentation("disable", terminal: true);
@@ -1529,6 +1544,7 @@ _slot = _nextEviction;
             _attackPhaseNetworkUnit = GetComponent<NetworkUnit>();
             if (!ReferenceEquals(_unitData, unitData))
             {
+                _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: true);
                 _healCooldownCaster = null;
                 ++_healLoopOwner;
                 _healLifetime = ++_nextHealLifetime;
@@ -1555,6 +1571,20 @@ _slot = _nextEviction;
             // 풀 재사용 등으로 같은 View가 새 Domain 유닛을 받으면 이전 생명주기 표본을 먼저 폐기한다.
             RetireInfernoMotionJumpEvidence();
 #endif
+            if (!ReferenceEquals(_unitData, unitData))
+            {
+                EndSoloPursuitEvidence();
+                EndSoloRecoveryEvidence();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                _soloPursuitLines = _soloPursuitOmitted = _soloPursuitEpisode = _soloPursuitFormatRejected = 0;
+                _soloPursuitEvidenceActive = _soloPursuitEvidenceEnded = false;
+                _soloRecoveryEpisode = _soloRecoveryLines = _soloRecoveryOmitted = 0;
+                _soloRecoveryResumed = _soloRecoveryBlocked = _soloRecoveryOpen = 0;
+                _soloRecoveryCompleted = _soloRecoveryFormatRejected = 0;
+                _soloRecoveryPending = _soloRecoveryEnded = false;
+                _soloRecoveryLastReason = "none";
+#endif
+            }
             _unitData = unitData;
             AttackPresentationAuditEligibility auditEligibility =
                 AttackPresentationAuditEligibility.RequiredButMissing;
@@ -2039,6 +2069,168 @@ _slot = _nextEviction;
             _movementPendingSegment = false;
         }
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // 개발 관측 예산은 UnitData 수명에 귀속한다. 게임 판정에는 사용하지 않는다.
+        private int _soloPursuitLines, _soloPursuitOmitted, _soloPursuitEpisode, _soloPursuitFormatRejected;
+        private bool _soloPursuitEvidenceActive, _soloPursuitEvidenceEnded;
+        private int _soloPursuitTarget, _soloPursuitIndex = -1, _soloPursuitStalls;
+        private bool _soloPursuitTargetIsUnit, _soloPursuitHasRoute;
+        private HexCoord _soloPursuitGoal;
+        private Vector3 _soloPursuitWaypoint;
+        private ulong _soloPursuitRouteRevision;
+        private double _soloPursuitProgressTime;
+        private int _soloRecoveryEpisode, _soloRecoveryLines, _soloRecoveryOmitted;
+        private int _soloRecoveryResumed, _soloRecoveryBlocked, _soloRecoveryOpen, _soloRecoveryCompleted;
+        private int _soloRecoveryFormatRejected;
+        private bool _soloRecoveryPending, _soloRecoveryEnded;
+        private string _soloRecoveryLastReason = "none";
+#endif
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void BeginSoloRecoveryEvidence()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (NetworkContext.IsNetworkActive || _unitData == null) return;
+            if (_soloRecoveryPending) _soloRecoveryOpen++;
+            _soloRecoveryPending = true;
+            _soloRecoveryEpisode++;
+            _soloRecoveryLastReason = "none";
+            SoloRecoveryEvidence("start", "combat-return");
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void SoloRecoveryEvidence(string stage, string reason)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (NetworkContext.IsNetworkActive || _unitData == null || _soloRecoveryEpisode == 0) return;
+            // 누적 판정은 출력 예산과 독립이다. 상세가 생략돼도 미종결을 성공 0으로 숨기지 않는다.
+            if (stage == "blocked")
+            {
+                if (_soloRecoveryLastReason == reason) return;
+                _soloRecoveryBlocked++;
+            }
+            if (stage == "resume-success")
+            {
+                if (!_soloRecoveryPending) return;
+                _soloRecoveryPending = false;
+                _soloRecoveryResumed++;
+            }
+            if (stage == "completed" && _soloRecoveryPending)
+            {
+                // 이미 목적 중심인 정상 완료는 '걸어서 재개'와 별도로 닫는다.
+                _soloRecoveryPending = false;
+                _soloRecoveryCompleted++;
+            }
+            _soloRecoveryLastReason = reason;
+            if (stage != "end" && !UnitSoloPursuitStep.TakeEvidence(
+                ref _soloRecoveryLines, ref _soloRecoveryOmitted, out bool firstOmission))
+            {
+                if (firstOmission)
+                    GameLog.Dev.Warn("Combat", nameof(UnitView), "[UAS-SOLO-RETURN] 상세 상한",
+                        $"Stage=cap, Unit={_unitData.Id}, Episode={_soloRecoveryEpisode}, Limit=64, Coverage=incomplete");
+                return;
+            }
+            Vector3 domain = ViewConverter.FromView(transform.position);
+            HexCoord root = HexMetrics.WorldToHex(domain);
+            HexCoord logical = _unitData.Position;
+            string data = $"Stage={stage}, Unit={_unitData.Id}, Type={(int)_unitData.Type}, Mode={_lockedMovementPipelineMode}, Episode={_soloRecoveryEpisode}, RootHex={root.Q};{root.R}, LogicalHex={logical.Q};{logical.R}, Distance={HexCoord.Distance(root, logical)}, Provider={_lastPathRequestResult.Status}, Reason={reason}, Started={_soloRecoveryEpisode}, Resumed={_soloRecoveryResumed}, Blocked={_soloRecoveryBlocked}, Open={_soloRecoveryOpen + (_soloRecoveryPending ? 1 : 0)}, Omitted={_soloRecoveryOmitted}, Coverage={(_soloRecoveryOmitted > 0 || _soloRecoveryFormatRejected > 0 ? "incomplete" : "bounded")}, Frame={Time.frameCount}";
+            data += $", Completed={_soloRecoveryCompleted}, FormatRejected={_soloRecoveryFormatRejected}";
+            if (!UnitSoloPursuitStep.FitsEvidence(data))
+            {
+                _soloRecoveryFormatRejected++;
+                data = $"Stage={stage}, Unit={_unitData.Id}, Episode={_soloRecoveryEpisode}, Started={_soloRecoveryEpisode}, Resumed={_soloRecoveryResumed}, Blocked={_soloRecoveryBlocked}, Completed={_soloRecoveryCompleted}, Open={_soloRecoveryOpen + (_soloRecoveryPending ? 1 : 0)}, Omitted={_soloRecoveryOmitted}, FormatRejected={_soloRecoveryFormatRejected}, Coverage=incomplete";
+            }
+            GameLog.Dev.Info("Combat", nameof(UnitView), "[UAS-SOLO-RETURN] 싱글 이동 복귀", data);
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void EndSoloRecoveryEvidence()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_soloRecoveryEnded) return;
+            SoloRecoveryEvidence("end", "view-disable-or-reuse");
+            _soloRecoveryEnded = true;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void BeginSoloPursuitEvidence(int target, bool isUnit)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (NetworkContext.IsNetworkActive || _unitData == null) return;
+            _soloPursuitEvidenceActive = true;
+            _soloPursuitEpisode++;
+            _soloPursuitTarget = target; _soloPursuitTargetIsUnit = isUnit;
+            _soloPursuitIndex = -1; _soloPursuitHasRoute = false;
+            _soloPursuitWaypoint = transform.position;
+            _soloPursuitStalls = 0; _soloPursuitProgressTime = Time.timeAsDouble;
+            SoloPursuitEvidence("start");
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void SoloPursuitEvidence(string stage, bool reached = false, bool consume = false)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (NetworkContext.IsNetworkActive || _unitData == null || !_soloPursuitEvidenceActive) return;
+            if (!UnitSoloPursuitStep.TakeEvidence(ref _soloPursuitLines, ref _soloPursuitOmitted,
+                    out bool firstOmission))
+            {
+                if (firstOmission)
+                    GameLog.Dev.Warn("Combat", nameof(UnitView), "[UAS-SOLO-PURSUIT] 상세 상한 도달",
+                        $"Unit={_unitData.Id}, Episode={_soloPursuitEpisode}, Stage=cap, Limit=64, Omitted={_soloPursuitOmitted}, Coverage=incomplete, Frame={Time.frameCount}");
+                return;
+            }
+            Vector3 root = transform.position;
+            Vector3 domain = ViewConverter.FromView(root);
+            HexCoord rootTile = HexMetrics.WorldToHex(domain);
+            string data = System.FormattableString.Invariant($"Stage={stage}, Unit={_unitData.Id}, Type={(int)_unitData.Type}, Episode={_soloPursuitEpisode}, NetworkActive=false, Mode={_lockedMovementPipelineMode}, Target={_soloPursuitTarget}, TargetIsUnit={_soloPursuitTargetIsUnit}, Goal={_soloPursuitGoal.Q};{_soloPursuitGoal.R}, HasRoute={_soloPursuitHasRoute}, Index={_soloPursuitIndex}, Waypoint={_soloPursuitWaypoint.x:G9};{_soloPursuitWaypoint.z:G9}, Reached={reached}, Consume={consume}, Root={root.x:G9};{root.y:G9};{root.z:G9}, DomainXZ={domain.x:G9};{domain.z:G9}, UnitTile={_unitData.Position.Q};{_unitData.Position.R}, RootTile={rootTile.Q};{rootTile.R}, Revision={_soloPursuitRouteRevision}, LiveRevision={_navigationEnvironmentRevision}, Invalidated={_combatPursuitPathInvalidated}, ActionOwnsRoot={_rootRotationOwnership.ActionOwnsRoot}, Frame={Time.frameCount}, Detail={_soloPursuitLines}, Omitted={_soloPursuitOmitted}, Coverage=bounded");
+            if (!UnitSoloPursuitStep.FitsEvidence(data))
+            {
+                if (_soloPursuitFormatRejected < int.MaxValue) _soloPursuitFormatRejected++;
+                data = $"Stage={stage}, Unit={_unitData.Id}, Episode={_soloPursuitEpisode}, FormatRejected={_soloPursuitFormatRejected}, Coverage=incomplete, Frame={Time.frameCount}";
+            }
+            GameLog.Dev.Info("Combat", nameof(UnitView), "[UAS-SOLO-PURSUIT] 싱글 추격 경계",
+                data);
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ObserveSoloPursuitStall()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (!_soloPursuitEvidenceActive || _soloPursuitStalls >= 2
+                || Time.timeAsDouble - _soloPursuitProgressTime < 2d) return;
+            _soloPursuitStalls++;
+            _soloPursuitProgressTime = Time.timeAsDouble;
+            SoloPursuitEvidence("stall");
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CloseSoloPursuitEvidence(string reason)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            SoloPursuitEvidence(reason);
+            _soloPursuitEvidenceActive = false;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void EndSoloPursuitEvidence()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_soloPursuitEvidenceEnded || _soloPursuitEpisode == 0 || _unitData == null) return;
+            CloseSoloPursuitEvidence("view-disable");
+            _soloPursuitEvidenceEnded = true;
+            // 별도 terminal 한 줄은 상세 예산 밖에 예약한다. 수명당 최대 64 detail + cap + end.
+            GameLog.Dev.Info("Combat", nameof(UnitView), "[UAS-SOLO-PURSUIT] 관측 수명 종료",
+                $"Stage=end, Unit={_unitData.Id}, Episodes={_soloPursuitEpisode}, Detail={_soloPursuitLines}, Omitted={_soloPursuitOmitted}, FormatRejected={_soloPursuitFormatRejected}, Limit=64, Coverage={(_soloPursuitOmitted > 0 || _soloPursuitFormatRejected > 0 ? "incomplete" : "bounded")}, Frame={Time.frameCount}");
+#endif
+        }
+
         /// <summary>
         /// A*·전투 복귀·추격이 공유하는 유일한 이동 pose writer seam이다.
         /// Legacy 경기에는 기존 후보 pose를 그대로 쓰고, ReducerAuthoritative 경기에는
@@ -2084,6 +2276,20 @@ _slot = _nextEviction;
                 == UnitMovementPipelineMode.ReducerAuthoritative;
             if (!reducerAuthoritative)
             {
+                Vector3 soloPositionBefore = transform.position;
+                // SOLO도 Root 선분과 실제 공간 점유를 같은 경계에서 검증한다.
+                // 중심 checkpoint와 별개이므로 추격 직전 A*의 반 타일 이동도 누락하지 않는다.
+                int soloTransitionCount = 0;
+                if (!NetworkContext.IsNetworkActive
+                    && !TryStageSoloSpatialCommit(transform.position, candidatePosition,
+                        logicalCorridorPath, logicalCorridorWaypointIndex,
+                        out soloTransitionCount, out SpatialCandidateEvaluation soloSpatial))
+                {
+                    SoloRecoveryEvidence("blocked", "spatial-" + soloSpatial.Verdict);
+                    return soloSpatial.Verdict == UnitSpatialCandidateVerdict.CandidateUnsafe
+                        || soloSpatial.Verdict == UnitSpatialCandidateVerdict.RouteInvalidated
+                        ? MovementWriteOutcome.RepathRequired : MovementWriteOutcome.Rejected;
+                }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 UnitMovementAuthorityObserver.ObserveLegacyWriterSelection();
 #endif
@@ -2092,6 +2298,36 @@ _slot = _nextEviction;
                     transform.rotation,
                     targetRotation,
                     _rotationSpeed * Time.deltaTime);
+                if (!NetworkContext.IsNetworkActive && soloTransitionCount > 0)
+                {
+                    _movementUseCase.CommitPreflightedSpatialTransitionsPreservingFacing(
+                        _unitData, _spatialTransitionBuffer, soloTransitionCount);
+                    if (_isAStarMoving && logicalCorridorPath != null)
+                    {
+                        for (int index = 0; index < soloTransitionCount; index++)
+                            GameEvents.OnUnitEnteredTile.OnNext(new UnitEnteredTileEvent(
+                                _unitData.Id, _spatialTransitionBuffer[index]));
+                    }
+                }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (!NetworkContext.IsNetworkActive && _soloRecoveryPending && _isAStarMoving
+                    && !_isInCombatPursuit && fallbackIntentReason != UnitMovementIntentReason.Chase
+                    && CalculateMovementPositionDeltaXZ(soloPositionBefore, transform.position) > 0.000001f
+                    && HexMetrics.WorldToHex(ViewConverter.FromView(transform.position)) == _unitData.Position)
+                    SoloRecoveryEvidence("resume-success", "positive-navigation-progress");
+#endif
+                // 싱글 추격만 실제 writer 결과를 checkpoint 소비자에게 전달한다.
+                // 네트워크 Legacy rollback과 Reducer의 판정/콜백은 변경하지 않는다.
+                if (!NetworkContext.IsNetworkActive
+                    && fallbackIntentReason == UnitMovementIntentReason.Chase
+                    && !targetAcquirePriority)
+                {
+                    _lastMovementCandidateAcquiredTarget = candidateAcquirePredicate != null
+                        && candidateAcquirePredicate(transform.position);
+                    _lastMovementTrajectoryReachedWaypoint = !_lastMovementCandidateAcquiredTarget
+                        && UnitSoloPursuitStep.Reached(transform.position.x, transform.position.z,
+                            desiredTarget.x, desiredTarget.z, maximumTravelDistanceWorld);
+                }
                 return MovementWriteOutcome.Advanced;
             }
 
@@ -2630,6 +2866,31 @@ _slot = _nextEviction;
         /// 서버 Root 후보 선분을 bounded 간격으로 표본화하고 실제 인접 타일 전이를 사전검증한다.
         /// non-walkable 경로 마지막 타일은 접촉 목표로만 인정하며 출력 전이에는 넣지 않는다.
         /// </summary>
+        // 마지막 이동 불가 목적지는 실제 점유가 아니라 기존 terminal contact다.
+        // 이미 진입한 접촉 타일 내부에서 다음 frame/endpoint를 처리할 때도 이 의미를 보존한다.
+        // 중간 차단·비인접 Root·경로 밖 진입은 이 예외로 수용하지 않는다.
+        private bool TryStageSoloSpatialCommit(Vector3 before, Vector3 candidate,
+            IReadOnlyList<HexCoord> path, int waypoint,
+            out int count, out SpatialCandidateEvaluation evaluation)
+        {
+            count = 0; evaluation = default;
+            if (_unitData != null && _unitData.IsAlive && _movementUseCase != null
+                && IsFiniteXZ(before) && IsFiniteXZ(candidate)
+                && path != null && path.Count >= 2 && waypoint == path.Count - 1)
+            {
+                HexCoord terminal = path[path.Count - 1];
+                if (!_movementUseCase.IsWalkable(terminal)
+                    && _unitData.Position == path[path.Count - 2]
+                    && HexCoord.Distance(_unitData.Position, terminal) == 1
+                    && HexMetrics.WorldToHex(ViewConverter.FromView(before)) == terminal
+                    && HexMetrics.WorldToHex(ViewConverter.FromView(candidate)) == terminal
+                    && IsTrajectoryPointSweepInsidePath(before, candidate, path, waypoint,
+                        out _, out _))
+                    return true;
+            }
+            return TryStageSpatialCommit(before, candidate, path, waypoint, out count, out evaluation);
+        }
+
         private bool TryStageSpatialCommit(
             Vector3 positionBefore,
             Vector3 authoritativeCandidate,
@@ -3478,6 +3739,7 @@ _slot = _nextEviction;
                 rootDomain,
                 destination,
                 _navigationEnvironmentRevision);
+            SoloRecoveryEvidence("provider", _lastPathRequestResult.Status.ToString());
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             ObservePostCombatProvider();
 #endif
@@ -3900,6 +4162,7 @@ _slot = _nextEviction;
                 // OnPathInvalidated가 제공한 새 PendingPath만 기다린다.
                 if (navigationBlocked)
                 {
+                    SoloRecoveryEvidence("blocked", "navigation-blocked-loop");
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     ObservePostCombatBlocked(repathGuard, -1, "navigation-blocked-loop");
 #endif
@@ -4011,6 +4274,7 @@ _slot = _nextEviction;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     PostCombatTraceEvent("same-tile-center-completed");
 #endif
+                    SoloRecoveryEvidence("completed", "same-tile-center-completed");
                     break;
                 }
 
@@ -4018,7 +4282,7 @@ _slot = _nextEviction;
                 // for 안에서 true로 바꾼 뒤 break하면 외부 while로 빠져 새 path로 continue.
                 bool needRepath = false;
 
-                // Legacy는 ProcessStep의 from으로, Reducer는 마지막 spatial commit 위치로 갱신한다.
+                // 멀티 Legacy만 중심 도착의 from을 유지하고 SOLO/Reducer는 실제 공간 커밋을 따른다.
                 HexCoord prevActualTile = _unitData.Position;
 
                 // ────────────────────────────────────────────────────────────
@@ -4308,6 +4572,7 @@ _slot = _nextEviction;
                                 goto cleanup;
                             }
 
+                            BeginSoloRecoveryEvidence();
                         recalculatePostCombatRecovery:
                             BeginMovementShadowSegment(UnitMovementIntentReason.PostCombatResume);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -4317,10 +4582,9 @@ _slot = _nextEviction;
                             // [BUG-002 수정 — 2026-05-13] 전투 종료 → 앞쪽 타일까지 "걸어서" 정렬.
                             //
                             //   왜 필요한가:
-                            //     전투 추격 중 transform.position은 공격 슬롯(=적 근처)으로 이동했고,
-                            //     _unitData.Position(도메인)은 여전히 추격 전 타일을 가리킨다.
-                            //     이 상태에서 즉시 새 path Lerp를 시작하면, 출발점이 공격 슬롯이 되어
-                            //     다음 타일까지 비정상적으로 멀리 점프하는 시각적 순간이동이 발생한다.
+                            //     전투는 타일 중심 밖에서 끝날 수 있다. 현재 SOLO/Reducer는 실제
+                            //     경계 전이를 이미 커밋하지만, 경로의 중심 checkpoint는 별개다.
+                            //     현재 pose에서 안전한 복귀 중심까지 걸어간 뒤 경로를 이어야 한다.
                             //
                             //   해결:
                             //     1) walkable·전방·도달 가능 조건을 만족하는 인접 중심을 1회 결정.
@@ -4966,9 +5230,10 @@ _slot = _nextEviction;
                     }
 #endif
                     ObserveNavigationProgress(repathGuard, path);
-                    if (!reducerTrajectory)
+                    if (!reducerTrajectory && NetworkContext.IsNetworkActive)
                     {
-                        // Legacy rollback 경로는 기존 waypoint 중심 도착 의미를 그대로 보존한다.
+                        // 멀티 Legacy rollback만 기존 중심 도착 의미를 보존한다.
+                        // SOLO는 공용 writer가 실제 경계에서 이미 커밋하므로 중복 발행하지 않는다.
                         if (_movementUseCase != null
                             && !(isLastStep && isLastStepToNonWalkable))
                         {
@@ -4982,7 +5247,7 @@ _slot = _nextEviction;
                         }
                     }
 
-                    prevActualTile = reducerTrajectory
+                    prevActualTile = reducerTrajectory || !NetworkContext.IsNetworkActive
                         ? _unitData.Position
                         : to;
 
@@ -5209,6 +5474,7 @@ _slot = _nextEviction;
             PostCombatTraceEvent("pursuit-target-selected");
 #endif
             bool targetIsUnit = firstTarget.Value.isUnit;
+            BeginSoloPursuitEvidence(targetId, targetIsUnit);
 
             // 기본 이동 속도. 연구·둔화·빙결 배율은 아래 frame 루프에서 다시 읽는다.
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
@@ -5223,12 +5489,15 @@ _slot = _nextEviction;
             bool hasPursuitTargetTile = false;
             ulong pursuitEnvironmentRevision = _navigationEnvironmentRevision;
             var pursuitCheckpoint = new UnitPathCheckpointTracker();
+            int pursuitRouteTargetId = targetId;
+            bool pursuitRouteTargetIsUnit = targetIsUnit;
             _combatPursuitPathInvalidated = false;
 
             // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.
             while (_unitData != null && _unitData.IsAlive)
             {
                 // ── 1) 적의 최신 월드 좌표 조회 ──
+                ObserveSoloPursuitStall();
                 // 적이 이동 중일 수 있으므로 매 프레임 갱신.
                 Vector3 enemyViewPos = targetIsUnit
                     ? _positionProvider.GetUnitWorldPosition(targetId)
@@ -5248,6 +5517,7 @@ _slot = _nextEviction;
                         _postCombatExitReason = "pursuit-target-lost";
                         PostCombatTraceEvent("pursuit-target-lost");
 #endif
+                        CloseSoloPursuitEvidence("close-target-lost");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -5258,6 +5528,8 @@ _slot = _nextEviction;
                     PostCombatTraceEvent("pursuit-target-reselected");
 #endif
                     targetIsUnit = next.Value.isUnit;
+                    CloseSoloPursuitEvidence("close-target-replaced");
+                    BeginSoloPursuitEvidence(targetId, targetIsUnit);
                     pursuitPath = null;
                     pursuitWaypointIndex = 1;
                     pursuitCheckpoint.Reset();
@@ -5277,6 +5549,7 @@ _slot = _nextEviction;
                     _postCombatExitReason = "pursuit-detect-range-lost";
                     PostCombatTraceEvent("pursuit-detect-range-lost");
 #endif
+                    CloseSoloPursuitEvidence("close-detect-lost");
                     _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                     yield break;
                 }
@@ -5305,6 +5578,7 @@ _slot = _nextEviction;
                     {
                         ObserveMovementAuthorityAdapterFailure("target-acquire-no-intent-rejected",
                             $"[UAS-MOVE] 공격 범위 진입 NoIntent 게시 거부. unitId={_unitData.Id}");
+                        CloseSoloPursuitEvidence("failure-attack-entry");
                         _isInCombatPursuit = false;
                         yield break;
                     }
@@ -5314,12 +5588,14 @@ _slot = _nextEviction;
                     // 기존 순서대로 여기서 Action 회전을 시작한다.
                     if (!_rootRotationOwnership.ActionOwnsRoot)
                         BeginServerActionRotation(targetId, targetIsUnit);
+                    SoloPursuitEvidence("attack-entry");
                     yield return EnterCombatLoopV3();
                     EndServerActionRotation();
                     _rootRotationOwnership.TryAcquireMovement();
 
                     if (_unitData == null || !_unitData.IsAlive)
                     {
+                        CloseSoloPursuitEvidence("close-attacker-dead");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -5334,6 +5610,7 @@ _slot = _nextEviction;
                         _postCombatExitReason = "post-combat-detect-range-lost";
                         PostCombatTraceEvent("post-combat-detect-range-lost");
 #endif
+                        CloseSoloPursuitEvidence("close-post-combat-detect-lost");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -5348,6 +5625,7 @@ _slot = _nextEviction;
                         _postCombatExitReason = "post-combat-no-next-target";
                         PostCombatTraceEvent("post-combat-no-next-target");
 #endif
+                        CloseSoloPursuitEvidence("close-no-next-target");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -5358,6 +5636,8 @@ _slot = _nextEviction;
                     PostCombatTraceEvent("pursuit-target-reselected");
 #endif
                     targetIsUnit = nextEnemy.Value.isUnit;
+                    CloseSoloPursuitEvidence("close-post-combat-reselect");
+                    BeginSoloPursuitEvidence(targetId, targetIsUnit);
                     pursuitPath = null;
                     pursuitWaypointIndex = 1;
                     pursuitCheckpoint.Reset();
@@ -5418,7 +5698,22 @@ _slot = _nextEviction;
                                 _navigationEnvironmentRevision;
                             pursuitWaypointIndex = 1;
                             pursuitCheckpoint.Reset();
+                            pursuitRouteTargetId = targetId;
+                            pursuitRouteTargetIsUnit = targetIsUnit;
                             _combatPursuitPathInvalidated = false;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            if (!NetworkContext.IsNetworkActive)
+                            {
+                                _soloPursuitGoal = liveTargetTile;
+                                _soloPursuitHasRoute = pursuitPath != null && pursuitPath.Count >= 2;
+                                _soloPursuitRouteRevision = pursuitEnvironmentRevision;
+                                _soloPursuitIndex = 1;
+                                _soloPursuitWaypoint = _soloPursuitHasRoute
+                                    ? TileCenterView(pursuitPath[1]) : transform.position;
+                                _soloPursuitProgressTime = Time.timeAsDouble;
+                                SoloPursuitEvidence("repath");
+                            }
+#endif
                             if (pursuitPath != null && pursuitPath.Count >= 2)
                                 _navigationObjective?.MarkNavigating();
                         }
@@ -5433,6 +5728,7 @@ _slot = _nextEviction;
 
                         if (pursuitWaypointIndex >= pursuitPath.Count)
                         {
+                            SoloPursuitEvidence("route-exhausted");
                             pursuitPath = null;
                             hasPursuitTargetTile = false;
                             yield return null;
@@ -5452,6 +5748,14 @@ _slot = _nextEviction;
 
                     SetMovementHeldAnimation(false);
                     float pursuitAngle = CalculateAttackAngle(pursuitWaypointView);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (!NetworkContext.IsNetworkActive)
+                    {
+                        _soloPursuitIndex = pursuitWaypointIndex;
+                        _soloPursuitWaypoint = pursuitWaypointView;
+                        _soloPursuitGoal = liveTargetTile;
+                    }
+#endif
                     Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
                     Vector3 pursuitMoveDir = pursuitWaypointView - transform.position;
                     pursuitMoveDir.y = 0f;
@@ -5462,6 +5766,17 @@ _slot = _nextEviction;
                                 * liveMoveMultiplier
                                 * Time.deltaTime
                         : transform.position;
+                    bool soloPursuit = !NetworkContext.IsNetworkActive
+                        && _lockedMovementPipelineMode == UnitMovementPipelineMode.Legacy;
+                    if (soloPursuit)
+                    {
+                        UnitSoloPursuitStep.Plan(transform.position.x, transform.position.z,
+                            pursuitWaypointView.x, pursuitWaypointView.z,
+                            worldSpeed * liveMoveMultiplier * Time.deltaTime,
+                            out double nextX, out double nextZ);
+                        candidatePursuitPosition = new Vector3((float)nextX,
+                            transform.position.y, (float)nextZ);
+                    }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     UnitMovementShadowObserver.LegacyFrameToken pursuitShadowToken = default;
                     if (_lockedMovementPipelineMode
@@ -5475,6 +5790,7 @@ _slot = _nextEviction;
                                 candidatePursuitPosition));
                     }
 #endif
+                    Vector3 pursuitBefore = transform.position;
                     MovementWriteOutcome pursuitOutcome = ApplyMovementAuthorityFrame(
                         pursuitWaypointView,
                         candidatePursuitPosition,
@@ -5492,8 +5808,14 @@ _slot = _nextEviction;
                             TryBeginServerAttackEntryBeforeRootStop(
                                 targetId,
                                 targetIsUnit));
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (soloPursuit && pursuitOutcome == MovementWriteOutcome.Advanced
+                        && CalculateMovementPositionDeltaXZ(pursuitBefore, transform.position) > 0.000001f)
+                        _soloPursuitProgressTime = Time.timeAsDouble;
+#endif
                     if (pursuitOutcome == MovementWriteOutcome.RepathRequired)
                     {
+                        SoloPursuitEvidence("route-invalidated");
                         // 현재 Chase 경로가 동적 건물로 무효화된 경우 같은 frame에는 다시
                         // 실행하지 않는다. 코루틴과 타겟은 유지하되 같은 타겟·같은 환경에서는
                         // 실패한 경로를 반복하지 않고, 타겟 이동 또는 환경 revision 변경을 기다린다.
@@ -5524,16 +5846,30 @@ _slot = _nextEviction;
                             $"[UAS-MOVE] 권위 추격 frame 거부. unitId={_unitData.Id}, " +
                             $"commandRevision={_movementCommandRevision}, " +
                             $"segmentRevision={_movementSegmentRevision}");
+                        CloseSoloPursuitEvidence("failure-writer-rejected");
                         _isInCombatPursuit = false;
                         yield break;
                     }
-                    if (!directInsideSameTile
-                        && pursuitOutcome == MovementWriteOutcome.Advanced
-                        && _lastMovementTrajectoryReachedWaypoint
-                        && pursuitCheckpoint.TryConsume(
-                            pursuitWaypointIndex,
-                            reachedWaypoint: true))
+                    bool consumePursuitWaypoint = soloPursuit
+                        ? UnitSoloPursuitStep.TryConsume(pursuitCheckpoint, pursuitWaypointIndex,
+                            pursuitOutcome == MovementWriteOutcome.Advanced,
+                            _lastMovementTrajectoryReachedWaypoint,
+                            _lastMovementCandidateAcquiredTarget, directInsideSameTile,
+                            !_combatPursuitPathInvalidated
+                                && pursuitEnvironmentRevision == _navigationEnvironmentRevision
+                                && hasPursuitTargetTile && pursuitTargetTile == liveTargetTile
+                                && pursuitRouteTargetId == targetId
+                                && pursuitRouteTargetIsUnit == targetIsUnit)
+                        : !directInsideSameTile
+                            && pursuitOutcome == MovementWriteOutcome.Advanced
+                            && _lastMovementTrajectoryReachedWaypoint
+                            && pursuitCheckpoint.TryConsume(pursuitWaypointIndex, reachedWaypoint: true);
+                    if (consumePursuitWaypoint)
                     {
+                        SoloPursuitEvidence("checkpoint", reached: true, consume: true);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        if (soloPursuit) _soloPursuitProgressTime = Time.timeAsDouble;
+#endif
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                         UnitMovementAuthorityObserver.ObserveCenterCheckpoint(
                             CalculateMovementShadowPositionDeltaXZ(
@@ -5563,6 +5899,7 @@ _slot = _nextEviction;
             // 안전망 리셋. 위쪽의 모든 명시적 yield break 경로에서도 false로 set하지만,
             // 함수 마지막에서도 반드시 false임을 보장하여 다음 추격 진입 시 잔존하지 않도록 한다.
             // ────────────────────────────────────────────────────────────
+            CloseSoloPursuitEvidence("close-pursuit-ended");
             _isInCombatPursuit = false;
         }
 
@@ -5623,7 +5960,7 @@ _slot = _nextEviction;
                 // 싱글플레이: 매 프레임 TryAttack(내부 쿨다운 체크).
                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                 {
-                    _combatUseCase.TryAttack(_unitData);
+                    _combatUseCase.TryAttack(_unitData, Time.timeAsDouble);
                     yield return null;
                 }
 
@@ -6198,10 +6535,11 @@ _slot = _nextEviction;
             if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive)
                 return null;
 
-            // Legacy rollback만 waypoint 의미의 직접 도메인 갱신을 유지한다.
+            // 멀티 Legacy rollback만 waypoint 의미의 직접 도메인 갱신을 유지한다.
             // ReducerAuthoritative는 앞선 정렬 frame의 실제 Root 경계 전이가 이미 커밋했으므로
             // forwardTile을 미리 점유하거나 UnitData.Position에 기록하지 않는다.
             if (_lockedMovementPipelineMode != UnitMovementPipelineMode.ReducerAuthoritative
+                && NetworkContext.IsNetworkActive
                 && forwardTile != _unitData.Position)
             {
                 _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
@@ -6742,7 +7080,37 @@ _slot = _nextEviction;
 #endif
 
         public void OnAttackHit()
+            => ProcessAttackMarker(chargeOnly: false);
+
+        // 일반 유닛은 종전 marker 본문을 그대로 사용한다. Fox만 source charge와
+        // 관측용 피해 marker를 나누며, 어느 콜백도 권위 HP 타이머를 실행하지 않는다.
+        private void ProcessAttackMarker(bool chargeOnly)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!chargeOnly && !NetworkContext.IsNetworkActive && _unitData != null && _animator != null)
+            {
+                bool genuine = _nativeAttackMarker != null && _nativeAttackMarker.isFiredByAnimator;
+                AnimatorStateInfo observed = genuine ? _nativeAttackMarker.animatorStateInfo : _animator.GetCurrentAnimatorStateInfo(0);
+                AnimationClip observedClip = genuine ? _nativeAttackMarker.animatorClipInfo.clip : null;
+                _combatUseCase?.ObserveSoloAttackMarker(_unitData, Time.timeAsDouble,
+                    _nativeAttackMarker != null ? _nativeAttackMarker.time : double.NaN,
+                    observed.normalizedTime, _animator.speed * observed.speed * observed.speedMultiplier,
+                    genuine, observed.fullPathHash, observedClip != null ? observedClip.GetInstanceID() : 0);
+            }
+#endif
+            if (!chargeOnly && _unitData != null && _unitData.Type == UnitType.FoxMagician)
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (_unitData.IsAlive)
+                    UnitAttackShadowObserver.RecordFoxMagicianNativeImpactMarker(
+                        _unitData.Id, _unitData.Type, _lastAttackPresentationRevision,
+                        _nativeAttackMarker != null ? _nativeAttackMarker.time : double.NaN,
+                        _nativeAttackMarker != null && _nativeAttackMarker.isFiredByAnimator);
+#endif
+                // 피해는 PendingHit/서버 TimerImpact가 소유한다. 여기서 charge lease를
+                // 소비하거나 VFX·recipient 큐·로컬 피격·트레이서를 다시 실행하지 않는다.
+                return;
+            }
             PistoleerTimingDiagnostics.Event(_unitData, "RawMarker", _pistoleerTimingScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime,
                 $"normalized={PistoleerTimingDiagnostics.Number(_animator != null ? _animator.GetCurrentAnimatorStateInfo(0).normalizedTime : double.NaN)} continuity={_pistoleerContinuity} renderedAnchor={PistoleerTimingDiagnostics.Number(_pistoleerRenderedAnchor)} anchorNormalized={PistoleerTimingDiagnostics.Number(_pistoleerAnchorNormalized)}");
@@ -6935,8 +7303,8 @@ _slot = _nextEviction;
             // 타겟 참조는 Animation Event 뒤 곧바로 Stop/ChangeTarget/사망 처리로 지워질 수 있다.
             // 특히 원거리 Tracer 콜백은 수 프레임 뒤 실행되므로 필드를 다시 읽으면 새 타겟이나
             // -1을 이번 발사의 피해자로 기록한다. 발사 경계의 값과 exact scope를 함께 캡처한다.
-            int presentationVictimId = nativeMarkerOwner != null ? nativeMarkerOwner.Owner.TargetId : _combatTargetId;
-            bool presentationVictimIsUnit = nativeMarkerOwner != null ? nativeMarkerOwner.Owner.TargetIsUnit : _combatTargetIsUnit;
+            int presentationVictimId = chargeOnly ? -1 : nativeMarkerOwner != null ? nativeMarkerOwner.Owner.TargetId : _combatTargetId;
+            bool presentationVictimIsUnit = !chargeOnly && (nativeMarkerOwner != null ? nativeMarkerOwner.Owner.TargetIsUnit : _combatTargetIsUnit);
             bool sourceOnlyPresentation =
                 markerEmission == AttackPresentationMarkerEmission.SourceOnly;
             PistoleerTimingDiagnostics.Event(_unitData, "Marker", sourceOnlyPresentation ? _pistoleerTimingScope : markerScope,
@@ -6944,10 +7312,10 @@ _slot = _nextEviction;
             // 방향 진단은 marker가 발생한 순간의 복제 회차를 사용해야 한다. 트레이서가
             // 날아가는 동안 최신 NetworkVariable을 다시 읽으면 다음 공격 revision과 섞인다.
             AttackPresentationReplicatedSnapshot markerReplicatedSnapshot =
-                sourceOnlyPresentation
+                chargeOnly || sourceOnlyPresentation
                     || UnitAttackResultPresentationShadowBridge.OwnsAttacker(_unitData.Id)
                     ? default : nativeMarkerOwner != null ? nativeMarkerOwner.Snapshot : CaptureAttackPresentationReplicatedSnapshot();
-            bool authoritativePresentation = !sourceOnlyPresentation
+            bool authoritativePresentation = !chargeOnly && !sourceOnlyPresentation
                 && UnitAttackResultPresentationShadowBridge.OwnsAttacker(_unitData.Id);
             var presentationCoordinator = UnitAttackResultPresentationShadowBridge.Coordinator;
             bool hasConfirmedImpact = authoritativePresentation
@@ -6971,15 +7339,18 @@ _slot = _nextEviction;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             // Animation Event까지 도달했다면 Animator가 Attack pose를 평가한 상태다.
             // 비정상적인 실행 순서로 LateUpdate보다 marker가 먼저 왔을 때도 시작 표본을 먼저 닫는다.
-            ConsumePendingInfernoAttackStartFacing();
-            ObserveInfernoAttackFacing(
-                AnimatedAttackFacingStage.ImpactMarker,
-                presentationVictimId,
-                presentationVictimIsUnit,
-                _infernoFacingPresentationRevision,
-                markerScope.IsValid ? markerScope : _infernoFacingScope);
+            if (!chargeOnly)
+            {
+                ConsumePendingInfernoAttackStartFacing();
+                ObserveInfernoAttackFacing(
+                    AnimatedAttackFacingStage.ImpactMarker,
+                    presentationVictimId,
+                    presentationVictimIsUnit,
+                    _infernoFacingPresentationRevision,
+                    markerScope.IsValid ? markerScope : _infernoFacingScope);
+            }
 #endif
-            if (!sourceOnlyPresentation)
+            if (!chargeOnly && !sourceOnlyPresentation)
             {
                 ObservePresentationShadowMarker(
                     LegacyPresentationObservationKind.Marker,
@@ -7110,7 +7481,9 @@ _slot = _nextEviction;
             // 일반 Stop이 marker보다 먼저 도착한 경우 서버가 이미 커밋한 공격자의 발사
             // VFX/SFX까지만 마친다. 타겟은 이미 사망·교체될 수 있으므로 Tracer와 로컬 피격
             // 신호를 만들지 않고 여기서 종료한다.
-            if (sourceOnlyPresentation) return;
+            // charge는 허가와 source VFX/SFX까지만 사용한다. recipient 관측·피격 신호·
+            // 트레이서 진입보다 먼저 종료하므로 1초 표식이 피해 결과를 방출하지 않는다.
+            if (chargeOnly || sourceOnlyPresentation) return;
 
             // ────────────────────────────────────────────────────────────────
             // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)
@@ -7290,6 +7663,7 @@ _slot = _nextEviction;
         /// </summary>
         public void StartWalkAnimation()
         {
+            _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: false);
             if (_unitData != null && _unitData.IsHealer && _healPresentation.Current.Active) return;
             // Walk/Held는 공격 회차가 아니므로 별도 NGO 상태 도착 순서와 무관하게
             // 이전 committed presentation의 로컬 Impact 승인을 먼저 닫는다.
@@ -7351,6 +7725,7 @@ _slot = _nextEviction;
 
             _animator.speed = _isFrozenAnim ? 0f : 1f;
             if (_currentAnimStateHash == StateWalk) return; // 이미 Walk — 재-CrossFade로 블렌드 리셋 방지
+            _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: false);
             _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
             _currentAnimStateHash = StateWalk;
         }
@@ -7374,6 +7749,7 @@ _slot = _nextEviction;
         /// </summary>
         public void HoldMovementAnimation()
         {
+            _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: false);
             CloseAttackPhasePresentation("movement-held");
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
@@ -7398,6 +7774,8 @@ _slot = _nextEviction;
         {
             if (_isFrozenAnim == frozen) return;
             _isFrozenAnim = frozen;
+            if (!NetworkContext.IsNetworkActive)
+                _combatUseCase?.ObserveSoloAttackPause(_unitData, Time.timeAsDouble, frozen || _isMovementHeldAnim);
             if (frozen) CloseAttackPhasePresentation("frozen-priority");
 
             if (_animator != null)
@@ -7412,6 +7790,8 @@ _slot = _nextEviction;
         {
             bool stateChanged = _isMovementHeldAnim != held;
             _isMovementHeldAnim = held;
+            if (!NetworkContext.IsNetworkActive)
+                _combatUseCase?.ObserveSoloAttackPause(_unitData, Time.timeAsDouble, held || _isFrozenAnim);
 
             if (held && !_isFrozenAnim)
             {
@@ -7875,6 +8255,8 @@ _slot = _nextEviction;
                 if (phaseClockReady) phaseElapsed = phaseNow - AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds - _attackPhase.EpochServerTime;
                 float phaseOffset = (float)Math.Max(0d, phaseElapsed);
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0, phaseOffset);
+                if (!NetworkContext.IsNetworkActive)
+                    _combatUseCase?.ConfirmSoloAttackPlayback(_unitData, Time.timeAsDouble);
                 if (_attackPhase.Active) PistoleerTimingDiagnostics.Event(_unitData, "NativeEpochApply", _attackPhase.Scope, phaseNow,
                     $"epoch={_attackPhase.EpochId} generation={_attackPhase.Lifetime} epochTime={PistoleerTimingDiagnostics.Number(_attackPhase.EpochServerTime)} offset={PistoleerTimingDiagnostics.Number(phaseOffset)} first=1");
                 if (_attackPhase.Active && (!phaseClockReady || phaseElapsed < 0))

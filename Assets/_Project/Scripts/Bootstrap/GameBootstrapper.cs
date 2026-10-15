@@ -617,11 +617,12 @@ namespace Hexiege.Bootstrap
             // 멀티플레이에서는 NetworkCombatController가 서버 Tick 기반으로 이 역할을 수행.
             if (!IsNetworkMode() && _unitCombat != null)
             {
-                _unitCombat.TickCooldowns(Time.deltaTime);
+                double soloNow = Time.timeAsDouble;
+                _unitCombat.TickCooldowns(Time.deltaTime, soloNow);
                 _unitCombat.TickTorrentLaunches(Time.timeAsDouble);
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
-                _unitCombat.TickPendingHits(Time.deltaTime);
+                _unitCombat.TickPendingHits(Time.deltaTime, soloNow);
                 // TorrentSpirit 파도(이동 전선)를 전진시키고 닿은 유닛에 피해/힐을 1회 적용.
                 // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 서버 틱에서 호출한다.
                 _unitCombat.TickWaves(Time.deltaTime);
