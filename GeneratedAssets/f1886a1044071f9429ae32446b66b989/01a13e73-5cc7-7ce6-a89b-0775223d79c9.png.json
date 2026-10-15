@@ -1,0 +1,31 @@
+{
+    "asset": "f1886a1044071f9429ae32446b66b989",
+    "fileName": "01a13e73-5cc7-7ce6-a89b-0775223d79c9.png",
+    "prompt": "A stylized cartoon game VFX sprite of a single soft grainy dust dot and dirt speck particle, soft feathered circular outline, semi-transparent subtle grainy earthen texture, dark charcoal and earthy brown gradient, mobile RTS game art style, isolated on pure black background, generous padding",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 576
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
