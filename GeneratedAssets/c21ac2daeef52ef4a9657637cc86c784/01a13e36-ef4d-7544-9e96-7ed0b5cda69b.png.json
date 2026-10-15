@@ -1,0 +1,31 @@
+{
+    "asset": "c21ac2daeef52ef4a9657637cc86c784",
+    "fileName": "01a13e36-ef4d-7544-9e96-7ed0b5cda69b.png",
+    "prompt": "A stylized cartoon game VFX sprite of severe earthquake ground cracks, top-down flat decal view, dark jagged branching fissures and rock crevices radiating irregularly from the center, deep red-orange fiery molten glow emanating from the bottom of the deepest cracks, dark charcoal and earthen stone surface edges, completely asymmetric natural shatter pattern, no magic circles, no runes, no geometric symmetry, mobile RTS game VFX asset style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
