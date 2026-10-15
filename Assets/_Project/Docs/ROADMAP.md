@@ -4,6 +4,14 @@
 
 날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](History/ImplementationVerificationHistory.md#roadmap-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
+### 공통 이동 복귀 focused 종결 (2026-10-15)
+
+사용자 새 싱글2경기와 runtime 분석으로 이번 SOLO 공통 이동 복귀는 focused PASS/CLOSED다. 이 범위의 실기 대기는 해소됐고 Rabbit 별도 복귀 표본 미관측만으로 재시험을 요구하지 않는다. 전25종·멀티 동등성/global 검증과 별도 광산·랠리·성능·VFX 작업은 유지한다. native 메뉴 PASS는 이번 로그로 입증하지 않으며 이 focused 수용을 다시 여는 조건으로 만들지 않는다. [단일 상세 근거](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-return-two-match-acceptance).
+
+### 원래 교정 반영 감사 종결 (2026-10-15)
+
+이번 복원 구현·코드 반영 비교는 완료됐다. 남은 확인은 Unity 메뉴 검증과 사용자 실기 최종 수용이며, 실행·빌드는 별도 승인 전까지 시작하지 않는다. 기존 별도 작업·브랜치의 보류 항목은 유지한다. 완료 근거와 한계는 [기존 Task](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#artifact-restoration-audit)를 따른다.
+
 ### 현행 진행 경계 (2026-10-13 문서 정리)
 
 - RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher의 사용자 개별 수용을 유지한다. Mushroom/Bloom 새 VFX·HumanTower 표현 후속, Tank/Cannon 세부 조정·Torrent 복구 회귀·공통 랠리 보류는 감사표의 현행 목록으로 구분한다. LittleKnight 다음 추천은 철회됐으며 MigrationRequired는 미테스트를 뜻하지 않는다.

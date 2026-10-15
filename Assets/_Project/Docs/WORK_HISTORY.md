@@ -28,6 +28,9 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-10-15 | SOLO 공통 이동 복귀 사용자2경기 육안 수용·runtime 분석으로 focused PASS/CLOSED. 미종결 episode의 후속 분류·공간 정합 근거로 한정하며 native 메뉴/전25종/멀티 동등성/global PASS 아님. 광산·랠리는 사용자 명시 제외. [최종 분석](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-return-two-match-acceptance) |
+| 2026-10-15 | SOLO 공통 이동 복귀의 공간 정합·endpoint 중복 방지 구현과 controlled 검증 완료. **[2026-10-15 후속: RETURN Coverage 보완·새 세대 receipt도 완료했으며 Unity native/실기 수용만 대기. 보완·receipt 대기였던 최초 단계는 Research에 보존.]** **[2026-10-15 추가 수용: 앞의 대기는 구현 인계 당시 이력이며 이후 사용자2경기·runtime 증거로 SOLO focused PASS/CLOSED. native 메뉴 실행 여부 미확인은 closure blocker가 아니다.]** 타격·멀티·규칙 수치 유지, 전체 동등성 PASS 아님. [구현·검증 영수증](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-return-final-receipt) |
+| 2026-10-15 | 원래 수용 교정의25종 에셋·코드 반영 감사 종결·추가 누락 없음. Fox2:25 복원, 기존 SOLO clock/pursuit 보존, 일반23종 controlled 실행·기존2fixture PASS 및 특수2종 정적 연결 확인. native·실기 최종 수용은 미실행. [최종 근거](_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#artifact-restoration-audit) |
 | 2026-10-13 | 멀티 최초 경기 맵 준비 실패 안내(규칙 M-2) [상세 원문](History/ImplementationVerificationHistory.md#milestone-3e8fb934896bb20e) |
 | 2026-10-04 | BloomFairy §18 최종 자동 gate/빌드 시도 인계 동기화 [상세 원문](History/ImplementationVerificationHistory.md#milestone-0f2c538f07439ea8) |
 | 2026-10-04 | BloomFairy §18 최종 코드/정적 인계 문서화 [상세 원문](History/ImplementationVerificationHistory.md#milestone-f00e1ac0a080e387) |

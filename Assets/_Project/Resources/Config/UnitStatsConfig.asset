@@ -265,7 +265,7 @@ MonoBehaviour:
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
-    - 2.25
+    - 2.8333333
     defense: 0
     productionTime: 5
     goldCost: 70
