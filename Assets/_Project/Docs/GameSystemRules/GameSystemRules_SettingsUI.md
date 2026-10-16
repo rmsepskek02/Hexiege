@@ -1,6 +1,10 @@
 # Game System Rules — 설정·프로필 UI
 
-기존 UI 문서에서 역할별로 분리한 규칙 원본이다. 제목·규칙 번호·날짜별 결정 및 검증 한계를 유지한다. 본문의 「이 문서」·「위/아래」는 종전 배치 문맥을 포함하므로 아래 공통 원본과 함께 읽는다.
+- **목적·답하는 질문:** 인게임·로비 설정과 프로필에서 입력·이탈·전환 동작을 판단한다.
+- **포함:** 설정 메뉴 열기/닫기·포기·프로필 서브패널 및 로비 탭 분리
+- **제외·담당 문서:** 공통 팝업은 [UI](GameSystemRules_UI.md), 인증 동작은 [AuthSystemRules](../AuthSystemRules.md), 시각 스타일은 [UIGuidelines](../UIGuidelines.md)
+- **권위원본·주요 참조:** 설정·프로필 UI 규칙 원본; 기존 섹션별 번호 유지
+- **갱신 조건·방법:** 설정 동작 승인 변경 때 본문을 갱신하고 구현 회차·실기 보고는 상태/Task/History로 연결한다.
 
 > 공통 UI 규칙 1~11·L-1~L-4는 [GameSystemRules_UI.md](GameSystemRules_UI.md#공통-ui-규칙), 역할 독립성은 [GameSystemRules_Network.md](GameSystemRules_Network.md)가 원본이다. 이 문서의 섹션별 규칙 번호는 재번호하지 않는다.
 
@@ -28,7 +32,7 @@ HUD의 설정 버튼을 탭하면 인게임 설정 메뉴가 열린다.
 
 **규칙 4. 포기 결과**
 포기 플레이어는 패배 처리된다.
-싱글플레이: 항상 Red 팀(로컬 플레이어)이 패배.
+싱글플레이: 로컬 플레이어인 Blue 팀이 패배하고 Red 팀이 승리한다. 포기 플레이어 패배 원칙은 동일하다. 이전 팀 색상 사본은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-settingsui-01)다.
 멀티플레이: 포기를 요청한 클라이언트의 팀이 패배.
 
 **규칙 5. 재경기**

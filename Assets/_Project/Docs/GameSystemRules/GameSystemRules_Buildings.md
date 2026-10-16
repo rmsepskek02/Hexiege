@@ -1,6 +1,10 @@
 # Game System Rules — 건물
 
-랠리포인트, 건물 철거, 방어 타워, MistShrine 물안개 힐에 관한 규칙 모음.
+- **목적·답하는 질문:** 건물의 랠리·철거·방어 공격·물안개 회복 동작을 판단한다.
+- **포함:** 시스템별 현재 계약, 서버 권위, 대상 필터·예외, 미구현 추가 기획의 보류 경계
+- **제외·담당 문서:** 패널 조작은 [BuildingPanelsUI](GameSystemRules_BuildingPanelsUI.md), 현재 수치는 [StatsReference](../StatsReference.md), 추가 작업 우선순위는 [ROADMAP](../ROADMAP.md)
+- **권위원본·주요 참조:** 건물 동작 규칙 원본; 섹션마다 번호가 다시 시작하므로 섹션명과 ID를 함께 참조
+- **갱신 조건·방법:** 승인 동작 변경 때 본문을 갱신한다. 낮은 우선의 미구현 추가 기획은 구현 사실과 분리하며 실행·실기 이력은 Task/History로 연결한다.
 
 > ⚠️ 이 문서는 **각 섹션이 규칙 번호를 1부터 다시 시작**한다. 따라서 "규칙 9"라고만 적으면 어느 규칙인지 특정할 수 없다.
 > 이 문서 안에서든 **다른 문서에서 참조할 때든** 반드시 아래 목차의 섹션 이름을 함께 적는다
@@ -174,18 +178,7 @@ Spirit(RuneSpire), Transcendence(VineTower)는 이 규칙을 따르지 않는다
 
 **규칙 12. 타워 발사 연출 (2026-07-12 신설)**
 
-> **Human ONLY 최종 적용(Main 실제2파일 검토 완료):** Human 별도 preset의 _vfxPrefab ONLY → Assault(type1)의 실제 production VFX: EffectPreset_Pistoleer_Attack → vfx_pistoleer_attack, GUID badc7c96fdc06564fb9f9af71d1ddf68/root5594113295059828660. 기존 fixture는 Tank/Cannon=actual Tank, Assault/Human=actual Assault 및 Human 별도 preset을 검사한다. Editor static exit0/errors0/warnings0, 문서 담당 현재2해시도 인계와 일치. Assault 기존 preset·Tank/Cannon 참조 불변(Main/programmer); 다른 필드·VFX 실물·gameplay/Stats 변경 없음. 새 native/UI/build/Git 미실행·실기/pixel 미검증. Inferno는 사용자 clip/event 변경 보고만 유지하며 inspection/hash·Stats 동기화 검증 없음. burn fitting·Spirit endpoint·Tank/Cannon diagnostics deferred/미해결. 아래 대기/계획 및 이전 native는 단계별 이력이다.
-
-**최신 HumanTower ONLY 사용자 승인:** Human 별도 tower preset의 prefab 참조만 기존 Assault actual VFX로 교체한다. Tank/CannonCart는 Tank VFX 및 shared Cannon preset 유지. Human preset 이름/SFX/offset/scale/나머지 값·VFX 실물·피해/HP/주기/범위/Stats 불변. 실제 programmer 경로/identity 조회·Main 검토·구현 인계 대기, 새 정적/native PASS나 빌드 주장 없음. Inferno는 사용자 clip/event 변경 보고만 기록하며 확인/hash 조회하지 않는다; 새 값·Stats 동기화 미확인. burn recipient fitting·Spirit original-target endpoint·Tank/Cannon diagnostics는 보류/미해결. 이전 세대상 Tank 계약은 당시 이력이다. Type+Race 선택·Spirit RuneSpire·Transcendence 미지정/no fallback 및 아래 즉발 피해·권위 계약은 유지한다.
-
-> **2026-10-10 최종 구현/native·빌드 시도 인계(Main):** UnitAction16:42:39 ALL terminal PASS(C2/C3 ProductionTimeline·baseUAS·VfxConnections 전 경계·Assault canonical current fixture), ROOT16:43:22 PASS, 동일 final fixture generation, Console errors0/warnings30. Tank/CannonCart/Human 실제 Tank identity 연결 및 두 fixture-only lifecycle/Stats 초기화 RED는 해소됐지만 날짜별 실패 이력은 보존한다. final fixture SHA256 `EB64059B75A20B83A5E4A16DD9A9423467B30F7AD2D3456995DBD7B3006B3E5B`, Cannon preset SHA256 `61A7A3F0F77525CE17050EF2648EEB4F361B39A012FC112B7A7F4B9374E4B8F1`. post-gates Main source-only11 Assault/protected 대조 불일치0·final2해시 exact match, 새 fixture 보완에 Production/Stats 변경 없음. **Build And Run16:43:57 KST(07:43:57 UTC) File 메뉴 클릭1회**, 즉시 Checking prerequisites/Starting Android build만 관찰하고 UI/log/process monitoring 전부 중단했다. 완료·설치·실행/runtime/visual 미확인, scene save/Git 없음. 이 native PASS는 기존 self-validation 범위다. original64/remaining50 원인·Assault 실기 timing/pixel·전체 migration은 OPEN이며 counterfactual14 Ready/50 Expired를 실기 해결로 쓰지 않는다. 아래 pending/RED/빌드 미시도는 당시 이력이다.
-
-**2026-10-10 최신 구현 인계·Main 실제2파일 검토 완료:** Tank·CannonCart·HumanTower 모두 기존 `vfx_tank_attack.prefab` actual root를 공유하도록 적용됐다. shared `EffectPreset_Cannon_Attack.asset`은 `_vfxPrefab`만 변경하고 이름·SFX·offset·나머지 값은 보존했다. 기존 VfxConnections fixture는 loaded Tank path의 세 identity 및 Human 별도 preset을 명시적으로 검사한다. 문서 담당 현재 SHA2562개도 인계값과 일치한다. programmer static4 exit0/errors0(warnings20/0/20/24), 이전 Replay/Dev/Release CLR3 exit0는 별도 근거다. Assault5·보호6·clip 불변은 Main/programmer 인계다. 새 UnitAction16:32:17은 세 Tank identity assertion을 통과한 뒤 ValidateWriterSnapshotVfx line219의 'Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.'에서 FAIL이다. 이는 기존 Tank identity 실패가 아니며 Main/programmer read-only 원인 진단 대기, fresh ROOT16:33:29 PASS(Main UIstatus+Editor.log), build 미시도·visual OPEN이다. 이전 Action15:47:57 FAIL·ROOT15:52:38 PASS는 이력으로 보존한다. 기존 Tank 보호 해제는 이 prefab 참조에만 한정, gameplay·Stats·clip 및 VFX 실물은 불변.
-
-현재 Human 공격 prefab identity는 Tank와 CannonCart의 승인 참조와 같은 실제 Tank root다. Type+Race 선택·Spirit RuneSpire·Transcendence 미지정/no fallback·Human 별도 tower preset을 유지한다. 아래 “Tank 기존 preset/값 불변”은 이전 결정이며 최신 승인에서는 shared preset의 prefab 참조만 변경할 수 있다. [승인 addendum](D:/Projects/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Plan.md).
-
-> **2026-10-10 현재 source freeze 후속(Main hash 재대조 완료):** programmer44파일 snapshot의 현재 SHA256을 Main이 재확인해 Files44/Mismatches0/ChangedPaths=null(tool39f796), 보호6 baseline 모두 일치를 확인했다. 정적4 exit0(09:53:38 programmer 보고)과 기존 UnitAction/AuthoritativeAttackPresentation fixture 코드 연결까지다. Root gate 자체 변경없음·native Action/ROOT 미실행(UI activation2 timeout), build미시도·visual/runtime OPEN. capacity/mode/deadline/NaN/forced/wire 자동 assertion 범위는 미완이다. HP·actual DoT3초·주기·범위·Stats 권위는 유지하며 기존 C3 FAIL64 fix/PASS로 확대하지 않는다. [현재 기술·tuning·검증 경계](../Assets/VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계). 아래 승인/구현 중·인계 대기는 당시 이력이다.
-**2026-10-10 사용자 확정 / 구현 승인·진행 중 / native·build·runtime 대기:** 종족별 타워는 단일 `BuildingType.AutoTower`를 유지하고 발사 프리셋 선택 키는 **BuildingType + Race**로 한다. Human CannonTower는 기존 Tank VFX 프리팹을 **별도 타워 preset**으로 재사용하며 Tank의 기존 preset/값은 변경하지 않는다. Spirit RuneSpire는 제작된 RuneSpire attack VFX를 연결한다. Transcendence VineTower VFX는 미지정이므로 다른 종족 프리셋으로 fallback하지 않는다. 아래 즉발 피해·서버 권위·공격 결과 식별·쿨다운·범위 계약은 불변이며 연결 승인과 실제 연결/검증 완료는 구분한다. Main 기술 Plan 검토·programmer 구현 허가 인계 완료. 확정 공격 identity·Impact 위치/시각·Race snapshot의 표현 전달을 보강하며 현재 target 재조회·tracer 도착 피해 지연은 금지한다. 새 결과·실제 inventory는 최종 인계 대기다.
+종족별 타워는 단일 `BuildingType.AutoTower`를 유지하고 발사 프리셋은 **BuildingType + Race**로 선택한다. Human CannonTower는 별도 tower preset에서 Assault(type1)의 실제 production VFX(`EffectPreset_Pistoleer_Attack` → `vfx_pistoleer_attack`)를 재사용한다. Tank/CannonCart의 actual Tank VFX·shared Cannon preset과 Human preset의 이름/SFX/offset/scale/나머지 값은 유지한다. Spirit RuneSpire는 RuneSpire attack VFX를 사용하고 Transcendence VineTower는 미지정 상태에서 다른 종족 preset으로 fallback하지 않는다. 확정 공격 결과 identity·Impact 위치/시각·Race snapshot을 표현에 전달하고 현재 target 재조회·tracer 도착으로 피해를 재판정·지연하지 않는다. 피해/HP·주기·범위·Stats와 VFX 실물은 불변이다. 현재 연결·개별 검증/미확정은 [VFXSFXList](../Assets/VFXSFXList.md), 이전 Tank 재사용·Human 변경·정적/native·빌드 시도 인계는 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-buildings-01)에서 구분한다. 이전 native PASS를 최종 Human 변경의 새 native·실기/pixel 수용으로 쓰지 않는다.
 
 방어 타워는 즉발 데미지를 유지한다(히트 딜레이를 도입하지 않는다).
 서버가 공격 이벤트를 발행할 때 각 클라이언트 로컬에서 발사 VFX(`BuildingEffectConfig.attackPreset`)를 재생한다.
@@ -203,16 +196,7 @@ Spirit(RuneSpire), Transcendence(VineTower)는 이 규칙을 따르지 않는다
 > 독립 파일을 받은 `GameSystemRules_Skills.md`·`GameSystemRules_Upgrade.md`는 건물 하나가 아니라 프레임워크 규모였다.
 > 특수 건물이 하나 더 생기는 순간 이 근거는 무효가 되므로 즉시 분리한다.
 
-> **상태 (2026-08-12 갱신): 코드·프리팹 구현 완료 / 에디터 싱글플레이 실기 검증 완료.**
-> 아래 규칙은 **재설계 확정 내용의 구현 계약**이며, 규칙 1~27의 로직·UI·네트워크 코드와 프리팹·씬 배선이 구현되어 동작한다.
-> **과대 표기 금지 — 아직 완료가 아닌 것:**
-> - **멀티플레이 실기 미검증** — 검증은 **에디터 싱글플레이로만** 이루어졌다. 범위 판정·중첩 해소·회복량 계산은 싱글·멀티가 같은 코드 경로를 공유하지만,
->   **건물 HP 동기화·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱 여부는 멀티에서만 도는 경로이며 실행된 적이 없다.**
-> - **물안개 지속 VFX 미제작**(규칙 26) — 물안개는 현재 **눈에 보이지 않는다.** 회복 여부는 HP·회복 텍스트로만 확인된다.
-> - **사용(시전) 버튼 아이콘 미제작**(UI 규칙 15) — 임시 텍스트 라벨 사용 중.
-> - **밸런싱 수치(힐량·지속시간·쿨다운·반경·텍스트 표시 주기) 미확정**(규칙 16) — 현재 값은 전부 임시값이다.
->
-> 구현·검증 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/Plan.md`(§9 보완 수정 · §10 완료 판정).
+MistShrine 물안개 힐의 동작 계약은 아래 규칙1~27을 따른다. 현재 구현·실기 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 멀티 미검증·물안개 VFX/아이콘 제작·밸런싱 확정 등 후속은 [ROADMAP](../ROADMAP.md)를 참조한다. 당시 코드/프리팹·싱글 실기 및 미완 범위 묶음은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-01)이며 전체 완료로 확대하지 않는다.
 
 ---
 
@@ -269,8 +253,7 @@ MistShrine은 스킬 건물(`FlightFacility` / `MagicBuilding`)이 아니다.
 회복 주기는 **1초 간격**이다(이 부분은 변경 없음).
 회복을 **어떤 구조로 돌리는가**는 아래와 같이 확정한다.
 
-> **⚠️ 정정 이력(2026-08-10):** 이 규칙은 원래 *"`GameSystemRules_Units.md` 규칙 40(MushroomBomber / InfernoSpirit DoT의 초 단위 틱 시스템)과 동일한 틱 방식을 재사용한다"* 로 적혀 있었다.
-> **그 서술은 폐기한다.** 문자 그대로 구현하면 **회복 대상이 매초 피해를 입는 버그**가 발생하기 때문이다(아래 금지 사유 ①). 변경된 것은 "무엇을 재사용하는가"뿐이며, **1초 주기 자체는 그대로 유지**된다.
+DoT의 discrete 피해 경로를 물안개 회복에 재사용하지 않는다. 1초 주기는 유지하되 물안개 전용 독립 누적기·대상 재수집을 사용한다. 피해 전용 경로를 Heal로 등록하면 회복 대신 피해가 될 수 있고, 유닛 전용 ID 조회는 건물 대상과 아우라 이탈을 표현하지 못한다. 상세 금지 조건은8-2, 폐기된 재사용 문구·정정 경위는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-02)다.
 
 **8-1. 채택 모델 — 물안개별 독립 누적기 + 매 틱 대상 재수집**
 물안개 인스턴스마다 **자기 자신만의 시간 누적기**를 두고, 누적 시간이 1초를 넘길 때마다
@@ -303,11 +286,13 @@ MistShrine은 스킬 건물(`FlightFacility` / `MagicBuilding`)이 아니다.
 `Kind = Heal` + `TickInterval > 0` 레코드를 시간 지속 효과 목록에 등록하는 것을 **명시적으로 금지**한다.
 되돌림(“DoT 틱을 재사용하면 되지 않나”)을 막기 위해 금지 사유를 코드 위치와 함께 남긴다.
 
-| # | 금지 사유 | 코드 근거 (`Application/UseCases/UnitCombatUseCase.cs`) |
-|:-:|----------|--------------------------------------------------|
-| ① | **discrete 틱 분기가 `Kind`를 검사하지 않는다.** `TickInterval > 0`이면 곧바로 `TickDiscreteDamageEffect` → `ApplyOneDamageTick` → `ApplyTimedDamageToUnit`으로 간다. 즉 **`Kind=Heal` 레코드도 매초 피해가 된다.** 이 경로가 "피해 전용"인 것은 코드 가드가 아니라 **주석에 적힌 관례**일 뿐이다 | `TickTimedEffects` **1943~1949행** |
-| ② | **건물이 대상이 될 수 없다.** 대상 재확인이 `_unitSpawn.Units.TryGetValue(effect.TargetId, out UnitData target)` 뿐이며, `TargetId`가 단일 키라 **유닛 Id와 건물 Id를 구분하지 못한다.** 규칙 4가 아군 건물을 회복 대상에 포함하므로 **유닛 전용 조회 구조(`_unitSpawn.Units`)에 의존해서는 안 된다** | `TickTimedEffects` **1930~1936행** |
-| ③ | **아우라를 표현할 수 없다.** 레코드가 `TotalAmount` 분할(누적 목표 − 기적용량) 모델이라 총량을 미리 정해 나눠 주는 구조다 → **규칙 9의 "범위 이탈 시 즉시 끊김"** 을 표현할 방법이 없다 | `ActiveTimedEffect`의 `TotalAmount` / `Elapsed` / `AppliedAmount` 필드 구조 |
+| # | 금지 사유 | 지켜야 할 경계 |
+|:-:|----------|----------------|
+| ① | 피해 discrete 분기를 Heal 회복에 사용하면 매초 피해가 될 수 있다 | 물안개는 피해 틱 경로와 독립 |
+| ② | 유닛 전용 조회/ID만으로 건물 대상을 구별할 수 없다 | 유닛·건물을 구분해 아군 재수집 |
+| ③ | 미리 정한 총량 분할은 범위 이탈 즉시 중단 아우라와 다르다 | 매 틱 범위·유효성 재판정 |
+
+도입 당시 코드 행번호·함수 실측은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-03)이며 현재 행번호로 사용하지 않는다.
 
 > ①~③ 때문에 규칙 40(DoT 초 단위 틱)은 **틱 주기의 참고 선례일 뿐이며, 코드 경로 재사용 대상이 아니다.**
 
@@ -363,7 +348,7 @@ MistShrine이 파괴 또는 철거되면 그 건물이 만든 물안개는 **즉
 
 **규칙 15. 실제로 회복된 대상만 회복 텍스트 표시 + 표시 주기 분리**
 - 회복 텍스트는 **실제로 체력이 회복된 대상에게만** 표시한다(최대 체력이라 회복량 0인 대상에는 표시하지 않는다 — 규칙 5).
-- **회복 틱 주기(1초)와 텍스트 표시 주기를 분리**한다. 매초 텍스트를 띄우면 범위 내 다수 대상에서 화면이 도배되기 때문이다(BloomFairy HoT가 "완료 시 1회 표시"로 억제한 선례 — 유닛 규칙 36).
+- **회복 틱 주기(1초)와 텍스트 표시 주기를 분리**한다. 매초 텍스트를 띄우면 범위 내 다수 대상에서 화면이 도배되기 때문이다(BloomFairy HoT가 "완료 시 1회 표시"로 억제한 선례 — 유닛 규칙37).
 - **표시 주기는 임시로 "3초 누적 1회 표시"** 로 하고, 밸런싱 단계에서 확정한다(규칙 16 — 미확정).
 - 건물 위 회복 텍스트는 기존 표시 경로로 커버된다(`FloatingHpTextSpawner`가 `IsUnit` 분기로 건물 월드 좌표를 이미 지원 — 신규 UI 불필요).
 
@@ -381,8 +366,7 @@ MistShrine이 파괴 또는 철거되면 그 건물이 만든 물안개는 **즉
 | 범위 반경 | **미확정** |
 | 회복 텍스트 표시 주기 | **미확정** (임시 3초) |
 
-> 현재 `StatsReference.md`에 적힌 MistShrine 값(HP 500 / 건설비 100 / 10 HP/s · 범위 3)은 **재설계 이전 수치**이며
-> ×10 스케일만 적용된 값이다. 재설계 후에도 유효한지는 **밸런싱 단계에서 재검토 대상**이다.
+현재 Inspector/Config 수치의 참조는 [StatsReference](../StatsReference.md)다. 적용 중인 임시값과 밸런싱 확정은 구분하며, 재설계 전 값은 현행 확정값으로 재사용하지 않는다. 이전 수치 사본은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-04)다.
 
 ---
 
@@ -390,7 +374,7 @@ MistShrine이 파괴 또는 철거되면 그 건물이 만든 물안개는 **즉
 
 **규칙 17. UI 규칙의 단일 소스는 UI 문서다**
 MistShrine 전용 패널(`BuildingPanelBase` 상속, 탭/롱프레스 조작, 자동 모드 기본 OFF, 쿨다운 오버레이, 범위 표시 UI, 회복 텍스트 표시 주기)의
-규칙은 [`GameSystemRules_UI.md`](GameSystemRules_UI.md) **"MistShrine 패널 UI"** 섹션이 단일 소스다.
+규칙은 [GameSystemRules_BuildingPanelsUI.md](GameSystemRules_BuildingPanelsUI.md#mistshrine-패널-ui) **"MistShrine 패널 UI"** 섹션이 단일 소스다.
 이 문서는 로직·네트워크 계약만 정의하며, UI 상세를 중복 기술하지 않는다.
 
 **규칙 18. 자동 / 수동 모드 (조작은 생산 패널과 동일)**
@@ -408,10 +392,8 @@ MistShrine은 기능이 하나뿐이라 순환할 목록이 없으므로 **건�
 
 ### 로직 / 네트워크
 
-**규칙 20. 전용 UseCase를 신설한다 — `SkillActivationUseCase` 재사용 금지**
-`SkillActivationUseCase.Activate`는 `IsSkillBuilding(building.Type)`(= `FlightFacility` 또는 `MagicBuilding`) 게이트에서 `HealShrine`을 차단하며,
-슬롯 인덱스·종족 로드아웃(`GetLoadout(race)`)·스킬 실행기 레지스트리를 전제한다. MistShrine에는 이 전제가 하나도 성립하지 않는다.
-→ **MistShrine 전용 UseCase를 신설**한다(Application 레이어, Unity.Netcode 미참조).
+**규칙 20. 전용 UseCase — `SkillActivationUseCase` 재사용 금지**
+MistShrine은 전용 Application UseCase를 사용하며 Unity.Netcode를 참조하지 않는다. `SkillActivationUseCase`의 FlightFacility/MagicBuilding 게이트·슬롯·종족 loadout·실행기 레지스트리 전제는 MistShrine에 성립하지 않으므로 재사용하지 않는다. 도입 전 신설 지침은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-05)다.
 
 **규칙 21. 쿨다운 관리 패턴은 스킬 시스템과 동일하게 차용한다**
 - `Dictionary<건물 Id, 남은 시간>` 으로 건물별 쿨다운 보관
@@ -425,16 +407,11 @@ MistShrine은 기능이 하나뿐이라 순환할 목록이 없으므로 **건�
 `Request... → ServerRpc(팀 검증: senderClientId == 0 → Blue) → ClientRpc 브로드캐스트`.
 NetworkBehaviour는 Infrastructure 레이어에만 두고, RPC 메서드명은 `ServerRpc` / `ClientRpc` 접미사를 지킨다.
 
-**규칙 23. 아군 유닛 + 아군 건물 수집 헬퍼를 신규 작성한다**
-기존 원형 반경 수집 헬퍼는 **전부 적 대상 전용**이다
-(`BlastAttackBehavior.CollectEnemyUnitsInRadius`, `QuakeAttackBehavior.CollectEnemyBuildingsInRadius`,
-`UnitCombatUseCase.CollectEnemy{Units,Buildings}InRadiusDomain`).
-→ **아군 유닛·아군 건물 수집 헬퍼를 신규 작성**한다(팀 필터가 반대, 시전 건물 자신·본기지 포함 — 규칙 4).
+**규칙 23. 아군 유닛 + 아군 건물 수집**
+물안개는 적 전용 반경 수집을 그대로 사용하지 않는다. 아군 팀 필터를 적용하고 시전 건물 자신·본기지를 포함한다(규칙4).
 
-**규칙 24. 건물 회복 경로를 신규로 마련한다**
-기존 힐 서브시스템(`UnitData.Heal` · `GameEvents.OnEntityHealed` · HoT — TorrentSpirit / BloomFairy가 사용)은 **유닛 전용**이다.
-`BuildingData`에는 회복 메서드가 없다(현재 `TakeDamage`만 존재).
-→ **건물 회복 경로(도메인 회복 + 멀티 HP 동기화)를 신규로 마련**한다. 회복 텍스트 표시 경로는 기존 것을 그대로 쓴다(규칙 15).
+**규칙 24. 건물 회복 경로**
+건물도 도메인 회복·최대HP clamp와 멀티 HP 동기화를 적용한다. 유닛 전용 힐 경로에 건물을 억지로 넣지 않으며 회복 텍스트는 규칙15의 공통 표시 계약을 따른다. 도입 전 수집/건물 회복의 신규 작성 지침은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-06)다.
 
 **규칙 25. 파괴·철거 시 상태 정리 경로가 필요하다**
 MistShrine이 파괴·철거될 때 ① 물안개 제거(규칙 12) ② 자동 모드 상태 제거 ③ 쿨다운 상태 제거를 수행하는 경로가 필요하다.

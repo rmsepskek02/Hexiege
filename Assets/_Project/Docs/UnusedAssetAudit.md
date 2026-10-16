@@ -1,5 +1,12 @@
 ﻿# Unused Asset Audit
 
+**문서 역할**
+- **목적·질문:** 미사용 에셋 탐지 방법과 정리 판단의 근거를 보존한다.
+- **포함:** 감사 시점의 참조 탐색·후보·삭제/유지 판단과 한계.
+- **제외·담당:** 미참조를 새 삭제 허가로 해석하지 않는다. 용량 결과·기기 체크는 [AABSizeOptimization](AABSizeOptimization.md), 현재 에셋은 [AssetList](Assets/AssetList.md).
+- **원본·참조:** 주제별 감사 기록이며 현재 참조 상태는 실제 자산/코드 확인이 우선이다.
+- **갱신:** 동일 감사의 후속 근거를 추가할 때 시점·범위를 명시한다. 원래 결과는 보존하고 임의 삭제를 실행하지 않는다.
+
 Generated during the build asset optimization pass.
 
 > 최종 AAB 용량 결과와 기기 QA 체크리스트는 `AABSizeOptimization.md`를 권위 문서로 본다. 이 문서는 미사용 에셋 탐지와 정리 판단의 근거 기록이다.

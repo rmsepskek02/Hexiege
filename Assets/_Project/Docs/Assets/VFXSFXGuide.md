@@ -1,6 +1,10 @@
 # VFX / SFX 제작 가이드 (Unity AI Assistant)
 
-이 문서는 VFX/SFX 제작·명명·배선 계약을 다룬다. 제작·연결·수용 상태는 [VFXSFXList](VFXSFXList.md)를 기준으로 한다.
+> **목적·답하는 질문:** VFX/SFX를 어떤 스타일·파일 규약·프롬프트·연결 조건으로 제작할지 안내한다.
+> **포함:** 종족별 표현 방향, 폴더·명명 규약, 복사해 전달할 게임 컨텍스트·프롬프트와 카테고리별 제작 조건, 상태효과·종족별 타워의 현행 배선 계약을 담는다.
+> **제외·담당 문서:** 제작·연결·실기 수용·보류 현황은 [VFXSFXList](VFXSFXList.md), 유닛별 구조 이행·개별 수용은 [전투 감사표](UnitCombatAssetMatrix.md)가 담당한다. source 해시·컴파일·빌드 클릭·경기별 통계는 이 가이드에 쌓지 않는다.
+> **권위원본·주요 참조:** 효과 제작·명명·배선 조건의 원본이며 피해·힐·동기화 동작은 [유닛 규칙](../GameSystemRules/GameSystemRules_Units.md)과 [전투 동기화 규칙](../GameSystemRules/GameSystemRules_UnitCombatSynchronization.md), 사운드 동작은 [사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md)을 따른다. 제작 프롬프트는 구현·수용 증거가 아니다.
+> **갱신 조건·방법:** 승인된 표현·제작·배선 계약이 바뀌면 해당 절과 관련 템플릿을 제자리 갱신한다. 실제 연결·수용 변화는 목록에 반영하고 이전 실행 근거는 Task/History에 보존한다.
 
 날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](../History/ImplementationVerificationHistory.md#vfx-guide-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
 
@@ -303,7 +307,7 @@ EmberSpirit(불정령) 유닛의 공격 이펙트 파티클 시스템 프리팹�
 
 ### 1-a. 상태효과 및 종족별 타워 연결 계약
 
-> **2026-10-10 asset freeze 보고 / native·실기 미수용:** 짧은 Mushroom impact의 nonloop/StopAction None·초기 정상 tail 최대 약0.8초 설정과 presets 연결이 인계됐다. 서버 DoT3초와 gameplay 수치는 유지된다. 이 수치는 초기 particle 설정의 tail budget이며 실제 렌더 종료시간·natural drain 수용이 아니다. recursive PS/start/return fixture 코드는 준비됐지만 native 미실행, capacity/mode/deadline/forced/wire assertion은 미완이다. [구체 tuning·검증 경계](VFXSFXList.md#2026-10-10-현재-source-freeze--정적native수용-경계).
+> Mushroom impact는 nonloop·StopAction None이며 초기 particle tail budget 약0.8초는 실제 렌더 종료·natural drain 수용값이 아니다. 서버 DoT3초를 표현 길이로 바꾸지 않는다. 당시 준비·검증 단계는 [asset freeze 보고](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-guide-01)에 보존하며 현재 연결·수용은 [VFX 목록](VFXSFXList.md)을 따른다.
 
 > **현행 제작/연결 계약:** Mushroom impact는 짧은 포자 확산 burst다. burst 길이·입자 수는 임의 확정하지 않으며 서버 DoT3초와 recipient poison/burn 기간·갱신·취소·사망·StopEmitting 후 drain 계약을 유지한다. Human AutoTower는 별도 preset의 actual Assault VFX를 참조하고 Tank/CannonCart는 actual Tank를 유지한다. Spirit은 RuneSpire, Transcendence는 미지정이며 타 종족 fallback 금지다. 선택 키는 단일 AutoTower 타입 + Race다. 구현·native·실기 수용은 [VFX 목록](VFXSFXList.md)에서 별도 관리하고, 이전 Tank 재사용 계약은 [당시 원문](../History/ImplementationVerificationHistory.md#vfx-guide-tower-contract-history)에 보존한다.
 

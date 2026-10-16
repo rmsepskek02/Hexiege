@@ -1,6 +1,10 @@
 # Game System Rules — 건물 패널 UI
 
-기존 UI 문서에서 역할별로 분리한 규칙 원본이다. 제목·규칙 번호·날짜별 결정 및 검증 한계를 유지한다. 본문의 「이 문서」·「위/아래」는 종전 배치 문맥을 포함하므로 아래 공통 원본과 함께 읽는다.
+- **목적·답하는 질문:** 생산·물안개·건물 배치 패널의 입력과 피드백을 판단한다.
+- **포함:** 패널 열기/닫기, 큐·비용·자동 생산, MistShrine 조작·표시, 배치 실패 피드백
+- **제외·담당 문서:** 공통 UI는 [UI](GameSystemRules_UI.md), 건물 동작은 [Buildings](GameSystemRules_Buildings.md), 스킬/연구 패널은 [Skills](GameSystemRules_Skills.md)·[Upgrade](GameSystemRules_Upgrade.md)
+- **권위원본·주요 참조:** 담당 패널별 규칙 원본; 섹션별 기존 번호 유지
+- **갱신 조건·방법:** 패널 계약 승인 변경 때 해당 항목을 고친다. 적용·실기 일지는 규칙에 누적하지 않고 현재 상태와 상세 이력으로 연결한다.
 
 > 공통 UI 규칙 1~11·L-1~L-4는 [GameSystemRules_UI.md](GameSystemRules_UI.md#공통-ui-규칙), 역할 독립성은 [GameSystemRules_Network.md](GameSystemRules_Network.md)가 원본이다. 이 문서의 섹션별 규칙 번호는 재번호하지 않는다.
 
@@ -190,16 +194,9 @@
 
 MistShrine(초월 종족 힐 건물, `BuildingType.HealShrine`)을 클릭하면 열리는 전용 패널의 UI 규칙이다.
 
-> **상태 (2026-08-12 갱신): 전용 패널·범위 표시 UI 구현 완료 / 에디터 싱글플레이 실기 검증 완료.**
-> 패널 열기·탭/롱프레스 조작·쿨다운 오버레이·범위 원 표시(아군 한정)가 실기로 동작 확인되었다.
-> **과대 표기 금지 — 아직 완료가 아닌 것:** **멀티플레이 실기 미검증**(쿨다운 로컬 미러·자동 모드 브로드캐스트 등 멀티 고유 경로는 실행된 적이 없다) ·
-> **사용(시전) 버튼 아이콘 미제작**(규칙 15 — 임시 텍스트 라벨) · **물안개 지속 VFX 미제작**(`GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 26) ·
-> **밸런싱 수치 미확정**(회복 텍스트 표시 주기 포함 — 규칙 9의 3초는 임시값).
-> 구현·검증 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/Plan.md`(§10 완료 판정).
->
-> 건물 동작(회복 대상·범위·물안개 생명주기·중첩·서버 권위) 규칙의 단일 소스는
-> [`GameSystemRules_Buildings.md`](GameSystemRules_Buildings.md) **"MistShrine 물안개 힐 시스템"** 섹션이다.
-> 이 섹션은 **UI 규칙만** 정의한다.
+패널의 현재 구현·싱글/멀티 검증 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 미제작 아이콘·물안개 VFX·미확정 밸런싱은 [ROADMAP](../ROADMAP.md)을 따른다. 과거 싱글 수용을 멀티 고유 경로 검증으로 확대하지 않는다. 당시 상태 묶음은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildingpanelsui-01)다.
+
+건물의 회복 대상·물안개 생명주기·중첩·서버 권위는 [건물 규칙](GameSystemRules_Buildings.md#mistshrine-물안개-힐-시스템), 이 절은 UI 계약의 원본이다.
 
 ---
 
