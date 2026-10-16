@@ -535,6 +535,8 @@
 > 제목이 비어 있을 때 제목 자리를 `SetActive(false)` 로 숨기는데, 그 자리가 **레이아웃에서 함께 사라지려면 `ConfirmPopup.prefab` 의 Panel 에 VerticalLayoutGroup 이 있어야 한다.**
 > 없으면 숨긴 제목의 자리가 빈 공간으로 남아 **제목이 없는 기존 확인/취소 팝업의 본문이 아래로 밀린다**(= 회귀). 같은 이유로 취소 버튼 숨김은 ButtonRow 의 HorizontalLayoutGroup 에 의존한다.
 > 이 전제는 **2026-09-21 에 프리팹에 실제로 반영됐다**(1회성 에디터 스크립트 `Assets/Editor/Setup/SetupConfirmPopupAlertLayout.cs` 로 수행 — WORKFLOW [5-2]). 그 스크립트는 **멱등이라 몇 번을 실행해도 결과가 같고, 프리팹이 깨졌을 때 되돌리는 수단으로도 쓸 수 있다.**
+>
+> **2026-10-15 현재 위치·보존 결정:** 사용자가 에디터 정리 Plan을 승인해 `Assets/Editor/Tools/UI/SetupConfirmPopupAlertLayout.cs`에 복구 도구로 보존한다. 위 날짜별 실행 원문은 유지하며, 이번에는 파일 경로만 정리하고 프리팹을 재적용하지 않는다. 이 항목의 삭제/이동 선택은 해결됐고 아래 CanvasGroup 예외 기획은 별도 미결이다. 상세 진행은 [현재 Task](../_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다.
 > ⚠️ **프리팹 실측값(패딩·간격·LayoutElement 높이 배분)은 이 문서가 아니라 `.claude/agent-memory/game-programmer/ui-system.md` 「알림 팝업 — 프리팹 전제 조건」이 단일 소스다** — 값은 조정될 수 있고, 사본은 원본이 바뀌는 순간 조용히 거짓이 된다.
 >
 > ⚠️ **사용자 판단 대기 2건** — 이 구현에서 나왔으나 **이 문서가 정하지 않았다.** 목록과 판단 근거의 단일 소스는 [ROADMAP.md](../ROADMAP.md) 의 2026-09-21 신설 행 2개다.

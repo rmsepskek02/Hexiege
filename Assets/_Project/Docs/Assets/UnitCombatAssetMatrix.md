@@ -29,7 +29,7 @@ Programmer의 읽기 전용 감사 완료 및 Main 독립 확인으로 **감사 
 
 공통 연결 근거: 6종 Blue/Red prefab→controller→Attack GUID와 UnitFactory 양 production 경로:275/385→clip 선택:488→marker 처리:575는 **programmer 검증**이다. **Main 직접 확인**은 Factory:488 선택, resolver:49/67, LittleKnight Research:153/continuous gate:9234 이후 및 config3종 범위다; 전체 production 경로/6종 GUID를 Main 독립 재검증으로 확대하지 않는다. 위 숫자는 감사 인계의 기존 값·행번호이며 문서 담당의 새 source/clip 내용 조회나 Stats 변경이 아니다. 현재 저장 상태만으로 특정 날짜의 변경을 증명하지 않고 기존 Task의 역사적 작업 근거를 별도로 결합했다. 새 native/raw-log 감사·코드/에셋 수정·정밀 실기/global migration PASS 없음.
 
-**소스 범례 (모두 `Assets/_Project/` 기준):** config = `Resources/Config/UnitStatsConfig.asset`; clip/controller = `Animations/Units/<unit>/{clip}.anim` / `{controller}.controller`; Game = `Scenes/Game.unity`; resolver = `Scripts/Infrastructure/Network/UnitAttackShadowProfileResolver.cs`; gate/continuous = `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs`; Factory = `Scripts/Infrastructure/Factories/UnitFactory.cs`. 콜론 뒤 숫자는 감사 시점 행번호다.
+**소스 범례 (`Assets/`로 시작하는 항목은 프로젝트 루트 기준, 나머지는 `Assets/_Project/` 기준):** config = `Resources/Config/UnitStatsConfig.asset`; clip/controller = `Animations/Units/<unit>/{clip}.anim` / `{controller}.controller`; Game = `Scenes/Game.unity`; resolver = `Scripts/Infrastructure/Network/UnitAttackShadowProfileResolver.cs`; gate/continuous = `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs`; Factory = `Scripts/Infrastructure/Factories/UnitFactory.cs`. 콜론 뒤 숫자는 감사 시점 행번호다.
 
 **[이전 감사 대기 이력 — 최종 인계로 대체, 원문 보존]** **실제 교정 구현 판정 보류:** 사용자 테스트 완료는 수용 사실이며 소스/config/clip 연결의 실제 교정 구현 완료를 자동 증명하지 않는다. programmer의 읽기 전용 실제 구현 감사 결과 인계 전까지 6종 최종 구현 판정은 보류한다. 아래 숫자는 기존 기록을 보존한 것이며 이번에 재조회/변경하지 않았다.
 

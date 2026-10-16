@@ -224,7 +224,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 - Inspector에서 수동으로 해야 하는 작업이 있을 경우 Editor에서 실행 가능한 1회성 스크립트 작성
 - 메뉴 경로(`Hexiege/...`) 형태로 작성, 사용자에게 실행 요청
 - 사용자가 실행 완료를 확인한 후 다음 단계 진행
-- 스크립트 실행 완료 후 해당 파일 삭제해도 무방 (1회성)
+- 1회성 스크립트의 실행 완료와 재사용·직접 의존이 없음을 확인한 뒤 [4]의 비활성화·사용자 테스트·최종 삭제 절차를 따른다. `Setup/`에 있거나 헤더가 「1회성」이라는 사실만으로 파일 전체를 삭제하지 않는다.
 - 별도의 Inspector 작업이 없는 경우 생략하고 다음 단계 바로 진행
 
 #### 에디터 스크립트를 두는 폴더 (1회성 vs 영구 보존)
@@ -232,18 +232,25 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 ```
 Assets/Editor/Setup/   → 1회성 스크립트. 실행 후 삭제 가능
 Assets/Editor/Tools/   → 영구 보존 도구. 삭제 금지
+Assets/Editor/Debug/   → 재현·Play Mode 실험 도구. 읽기 전용 검사와 구분
 ```
 
 - 이것은 새 관습이 아니라 **이미 있는 관습을 적어 둔 것**이다 — `Setup/` 의 14개는 전부 헤더에 「1회성 셋업」이 명시돼 있고, `Tools/LogcatCapture.cs` 는 「상시 사용 도구」로 명시돼 있다(2026-08-26 실측).
 - **반복해서 다시 쓰는 도구는 `Tools/` 에 둔다.** 무작위 맵 **폴백 템플릿 제작 도구**가 여기 해당한다 — 저장 포맷이 바뀌면 템플릿을 재생성해야 하는데 도구를 지우면 재생성할 수 없다(`GameSystemRules/GameSystemRules_RandomMap.md` 규칙 12).
-- 파일을 옮길 때는 **`.cs.meta` 를 반드시 동반**하고 `Hexiege.EditorTools` 네임스페이스 영향을 확인한다.
+- 일괄 Apply가 과거 일회성 migration이어도 같은 파일의 복구·반복 검증 API는 상시 수명이다. 이런 설정 도구와 rollback 의존 쌍은 `Tools/Combat/Migration/`에 보존한다. 새 프리팹마다 과거 일괄 Apply를 재실행하는 허가는 아니다.
+- 파일을 옮길 때는 **`.cs.meta`를 반드시 동반**하고 GUID·namespace·partial·직접 호출과 public batch 진입점 영향을 확인한다. 배치 정리만을 이유로 기존 메뉴나 기능을 바꾸지 않는다. Editor 전용 코드라는 이름만 보고 runtime 경로의 에디터 가드 코드를 함께 이동하지 않는다.
 
-**후속 판단 대기 (이번에 옮기지 않았다 — 이동은 별도 승인 대상)**
+**현행 배치·남은 판단 (2026-10-15 Plan 승인)**
 
 | 파일 | 판정 |
 |---|---|
-| `Assets/_Project/Scripts/Editor/AndroidBuildAssetOptimizer.cs` | 확실한 상시 도구 → `Assets/Editor/Tools/` 로 이동 대상 |
-| `CombatHitEventInjector.cs` · `CombatHitEventValidator.cs` · `SpiritAttackVfxTestSpawner.cs` | **판단 필요** — 헤더는 「1회성」이나 반복 사용 성격 |
+| `Assets/Editor/Tools/Build/AndroidBuildAssetOptimizer.cs` | 상시 보고·최적화 도구로 보존. 보고서 생성도 파일 쓰기이며 Apply는 importer 변경이다. |
+| `Assets/Editor/Tools/Combat/CombatHitEventValidator.cs` | 읽기 전용 도구로 보존. 옛 첫 Attack 선택과 현행 생산 binding 불일치의 기능 교정·통합은 별도 검토다. |
+| `Assets/Editor/Debug/VFX/SpiritAttackVfxTestSpawner.cs` | Play Mode 실험 도구로 보존. 실제 유닛·임시 객체를 생성하므로 읽기 전용 검사가 아니다. |
+| `Assets/Editor/Setup/Legacy/CombatHitEventInjector.cs` | 기존 기능을 유지한 위치 정리만 승인됐다. 생산 clip 선택이 낡았으며 위치 이동만으로 실행이 차단되지 않는다. 메뉴 비활성화·최종 폐기는 별도 검토다. |
+| `Assets/Editor/Tools/UI/SetupConfirmPopupAlertLayout.cs` | 멱등 프리팹 복구 수단으로 Tools 보존을 승인했다. 파일 정리 승인은 프리팹 재적용 승인이 아니다. |
+
+상세 이동 대응과 검증 결과는 해당 [에디터 정리 Task](_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다. 정리 확인을 위해 Setup/Apply/Register/Wire 메뉴를 실행하지 않는다. 특히 검사·rollback 이름의 도구도 실제 프리팹을 변경하고 복구할 수 있으므로 동작과 대상부터 확인한다.
 
 ### [5-3] QA 요청
 - qa-tester 에이전트에게 Testcase.md와 함께 테스트 요청
