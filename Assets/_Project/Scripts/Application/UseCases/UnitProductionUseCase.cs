@@ -459,12 +459,66 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>
+        /// 이 좌표에 랠리포인트(집결 깃발)를 꽂을 수 있는지 판정한다.
+        ///
+        /// 꽂을 수 없는 곳(false):
+        ///   - 격자(맵)에 그 좌표의 타일이 아예 없다 → 맵 바깥을 누른 경우.
+        ///   - 타일은 있지만 지형이 「막힌 타일」이다 → 화면에 타일이 그려지지 않은 빈 곳을 누른 경우.
+        /// 꽂을 수 있는 곳(true):
+        ///   - 그 밖의 모든 타일. 건물·금광이 있는 칸, 건설 불가 지형 칸도 꽂을 수 있다.
+        ///     (건물·금광 칸에 꽂으면 유닛은 그 칸 대신 근처의 걸어갈 수 있는 칸으로 간다 —
+        ///      그 처리는 ProductionTicker의 랠리 경로 결정 메서드가 맡는다.)
+        ///
+        /// 왜 지형만 보나요?
+        ///   - 지형 종류는 맵이 만들어질 때 정해지고 경기 중에는 바뀌지 않는다.
+        ///     그래서 멀티플레이의 Host와 Client가 같은 좌표에 대해 항상 같은 답을 낸다.
+        ///     (유닛·건물처럼 네트워크 동기화가 늦게 도착할 수 있는 상태는 일부러 보지 않는다.)
+        ///
+        /// 누가 부르나요?
+        ///   - 입력 쪽: 생산 패널(ProductionPanelUI)이 조준 중 탭한 칸을 미리 걸러 토스트를 띄울 때.
+        ///   - 서버 쪽: 네트워크 생산 컨트롤러의 랠리 설정 RPC가 받은 좌표를 다시 검사할 때.
+        ///   - 이 클래스 안: SetRallyPoint가 마지막 방어선으로 한 번 더 검사할 때.
+        ///   세 곳이 모두 이 메서드 하나를 쓰므로 기준이 갈라지지 않는다.
+        ///
+        /// ⚠️ 같은 기준이 두 곳에 있다:
+        ///   건물 배치 패널의 타일 클릭 판정(GridInteractionUseCase의 지형별 선택 메서드에서
+        ///   「선택 불가」로 돌려주는 조건)과 같은 기준이다. 한쪽 기준을 바꾸면 다른 쪽도 함께 맞춘다.
+        ///   (근거: GameSystemRules_UI.md 「건물 배치 패널 UI」 규칙 6 — 막힌 타일·빈 공간은 선택 불가)
+        /// </summary>
+        /// <param name="coord">랠리포인트를 꽂으려는 도메인 헥스 좌표</param>
+        /// <returns>꽂을 수 있으면 true, 맵 밖이거나 막힌 타일이면 false</returns>
+        public bool CanSetRallyPointAt(HexCoord coord)
+        {
+            // 격자가 주입되지 않았다면 판정할 근거가 없으므로 안전하게 「불가」로 본다.
+            if (_grid == null) return false;
+
+            // 격자에 없는 좌표 = 맵 바깥.
+            HexTile tile = _grid.GetTile(coord);
+            if (tile == null) return false;
+
+            // 막힌 지형 = 화면에 타일이 없는 빈 곳.
+            if (tile.TileKind == TileKind.Blocked) return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// 랠리 포인트 설정.
         /// 배럭 자신의 타일에 설정하면 랠리포인트 해제 (해제 방법).
+        /// 꽂을 수 없는 좌표(맵 밖·막힌 타일 — CanSetRallyPointAt 참조)는 아무 일도 하지 않고 무시한다.
         /// </summary>
         public void SetRallyPoint(int barracksId, HexCoord target)
         {
             if (!_states.TryGetValue(barracksId, out var state)) return;
+
+            // 마지막 방어선 — 꽂을 수 없는 좌표면 조용히 무시한다.
+            //   이 메서드를 부르는 곳은 네 군데다(생산 패널 입력, 서버 RPC, AI의 금광 랠리, 업그레이드 후 랠리 복원).
+            //   여기서 한 번 막으면 네 경로가 모두 같은 규칙을 따르게 된다.
+            //   - 입력 쪽은 이미 미리 걸러 토스트를 띄웠고, 서버 RPC는 거부 로그를 따로 남긴다.
+            //     그래서 여기서는 로그·토스트 없이 그냥 돌아간다.
+            //   - AI가 노리는 금광 칸은 막힌 지형이 아니므로 통과한다(판정은 지형만 보고 금광·건물은 보지 않는다).
+            //   - 업그레이드 복원 좌표는 예전에 이미 통과한 좌표이고 지형은 경기 중 바뀌지 않으므로 다시 통과한다.
+            if (!CanSetRallyPointAt(target)) return;
 
             // 배럭 자신의 타일에 설정 → 랠리포인트 해제
             if (target == state.BarracksPosition)

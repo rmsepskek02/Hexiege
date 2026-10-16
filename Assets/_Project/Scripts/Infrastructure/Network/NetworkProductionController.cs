@@ -1032,6 +1032,23 @@ namespace Hexiege.Infrastructure
             //    Application 레이어의 SetRallyPoint가 배럭 존재 여부를 내부에서 처리.
             // ----------------------------------------------------------------
             HexCoord target = new HexCoord(q, r);
+
+            // ----------------------------------------------------------------
+            // 3-1. 좌표 재검증 — 깃발을 꽂을 수 없는 좌표(맵 밖·막힌 타일)면 거부
+            //    입력 쪽(생산 패널)이 이미 같은 판정(UnitProductionUseCase.CanSetRallyPointAt)으로
+            //    걸러 토스트를 띄우므로, 정상 클라이언트는 이런 좌표를 보내지 않는다.
+            //    그래도 서버가 같은 기준으로 한 번 더 확인해 Host·Client 결과가 역할과 무관하게 같도록 한다.
+            //    정상 클라이언트가 보낼 수 없는 요청이므로 팀 불일치 거부와 같은 로그 이벤트(변조 탐지 신호)로 남긴다.
+            //    (SetRallyPoint 내부에도 같은 검사가 있지만 그쪽은 조용히 무시하므로, 로그는 여기서 남긴다.)
+            // ----------------------------------------------------------------
+            if (!production.CanSetRallyPointAt(target))
+            {
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkProductionController),
+                                 "랠리포인트 설정 거부 — 지정할 수 없는 좌표다",
+                                 $"Request=SetRally, Reason=Coord, ClientId={senderClientId}, BarracksId={barracksId}, TargetQ={q}, TargetR={r}");
+                return;
+            }
+
             production.SetRallyPoint(barracksId, target);
 
             GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 랠리포인트 설정 완료",

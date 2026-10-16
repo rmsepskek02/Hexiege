@@ -194,6 +194,8 @@ namespace Hexiege.Presentation
         /// 같은 순서이며, 아래 코드도 위에서부터 정확히 이 순서로 읽힌다.
         ///
         ///   (사전 처리) 스킬 조준 중 / 랠리포인트 지정 중 / UI 위 클릭 / 팝업 닫힘 프레임 → 통과 차단
+        ///               (랠리포인트 지정 중 지정 불가 칸을 탭하면 토스트만 띄우고 조준을 유지한다)
+        ///   (사전 처리 통과 후) 랠리포인트 깃발을 모두 숨긴 다음 아래 분기로 간다
         ///   1. 기존 building action 분기        — 건물이 있는 타일: 종류별 패널 + 타일 선택
         ///   2. MineKind 기반 MiningPost 자격 분기 — 광산 타일: 채굴소 배치 팝업 + 타일 선택
         ///   3. TileKind.Blocked  → 선택 불가. 선택 해제 + 배치 패널 닫기(토스트 없음)
@@ -223,6 +225,19 @@ namespace Hexiege.Presentation
                 Vector3 rallyViewPos = ScreenToXZPlane(screenPos);
                 Vector3 rallyWorldPos = ViewConverter.FromView(rallyViewPos);
                 HexCoord rallyCoord = HexMetrics.WorldToHex(rallyWorldPos);
+
+                // 깃발을 꽂을 수 없는 칸(맵 바깥 / 화면에 타일이 없는 막힌 타일)이면
+                //   안내 토스트만 띄우고 여기서 끝낸다.
+                //   - 완료 처리(CompleteRallyPointSetting)를 부르지 않으므로 「조준 중」 상태가 그대로 남는다.
+                //     → 생산 창을 다시 열 필요 없이, 다음 탭이 다시 이 분기로 들어와 다른 칸을 고를 수 있다.
+                //   - 타일 선택(SelectTileAt)도 부르지 않는다. 고른 칸이 없기 때문이다.
+                //   - 토스트는 이 기기 화면에만 뜬다(멀티플레이에서 상대 화면에는 뜨지 않는다).
+                //   판정 기준은 서버 RPC가 다시 검사할 때와 같다(생산 패널 → 생산 UseCase의 같은 메서드).
+                if (!_productionUI.CanSetRallyPointAt(rallyCoord))
+                {
+                    ToastUI.Show(ToastKey.RallyPointNotAllowed);
+                    return;
+                }
 
                 _productionUI.CompleteRallyPointSetting(rallyCoord);
                 _gridInteraction?.SelectTileAt(rallyWorldPos);
@@ -256,6 +271,19 @@ namespace Hexiege.Presentation
                 || (_skillPanelUI != null && _skillPanelUI.ClosedFrame == frame)
                 || (_mistShrinePanelUI != null && _mistShrinePanelUI.ClosedFrame == frame))
                 return;
+
+            // --------------------------------------------------------
+            // 0.7. 맵을 클릭하면 랠리포인트 깃발을 먼저 모두 숨긴다.
+            //    「깃발을 꽂은 뒤 맵의 다른 곳을 누르면 깃발이 바로 사라진다」 동작이다.
+            //    - 여기까지 왔다는 것은 스킬 조준·랠리 조준·UI 위 클릭·팝업이 닫힌 프레임이 아니라는 뜻이다
+            //      (위에서 모두 먼저 return 했다). 즉 「진짜 맵 클릭」만 이 줄에 닿는다.
+            //    - 건물·금광·일반 타일뿐 아니라 빈 곳(막힌 타일)·맵 밖을 눌러도 숨긴다.
+            //    - 내 생산 건물을 누른 경우에는 아래 1번 분기에서 생산 패널이 열리고,
+            //      패널이 열릴 때 「그 건물의 깃발만」 다시 켠다. 그래서 결과적으로 그 깃발만 보인다.
+            //    - 생산 패널은 MonoBehaviour라 이 파일의 다른 패널들처럼 != null 로 검사한다.
+            // --------------------------------------------------------
+            if (_productionUI != null)
+                _productionUI.HideAllRallyMarkers();
 
             // 스크린 좌표 → XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 월드 좌표로 역변환
             Vector3 viewPos = ScreenToXZPlane(screenPos);
