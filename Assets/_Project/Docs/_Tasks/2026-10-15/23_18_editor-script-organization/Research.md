@@ -1,10 +1,14 @@
 # 에디터 스크립트 정리 — 조사
 
-개발 중 한 번만 설정하려고 만든 스크립트와 계속 쓰는 검사·보정 도구를 구분한다. 파일을 찾기 쉽게 모으되, 이미 맞춰 놓은 씬과 에셋을 다시 설정하거나 필요한 복구·검증 수단을 지우지 않도록 사용처와 실행 근거를 먼저 확인한다.
+사용자가 실제 사용하는 로그 저장·네트워크 강제 실패와 전투 교정의 두 검사 진입점만 남겨 에디터 도구를 최소화한다. 미래에 필요할 수 있다는 이유로 도구를 계속 쌓아 두지 않으며 그때 상황에 맞춰 다시 작성한다. 필수 검사의 실제 내부 의존은 보존하되 기존 씬·에셋·맵 bytes·runtime 로직은 변경하지 않는다.
 
-**현재 상태: 승인된 경로 이동·정적 검증·문서 동기화 완료, 사용자 결과 확인 대기.** 사용자는 계획 실행을 승인했고 결과 확인 후 main에 병합하도록 지시했다. 승인 범위는 15개 C# 파일과 대응 메타의 경로 정리 및 관련 현재 문서 동기화이며, 코드 동작 변경·삭제·비활성화와 Unity 메뉴 실행은 포함하지 않는다. main 병합은 아직 진행하지 않았다.
+**현재 상태: 최신 최소 유지 Plan §9 구현·정적 검증 완료, 사용자 테스트 대기.** 직전 19파일·33메뉴 제안은 대체됐으며 구현하지 않았다. 기존 7파일 활성·28파일 원문 비활성화·활성 메뉴 17선언을 확인했다. 최종 삭제는 사용자 테스트 뒤이며 아직 수행하지 않았다. main 병합은 사용자 결과 확인 뒤 진행한다.
+
+**작업 프로젝트:** `D:/Projects/Hexiege/Hexiege/.utmp/docs-checker-finalize`의 `codex/editor-script-organization`에서 구현한다. 현재 main 프로젝트에는 최소 유지 변경이 반영되지 않았으며 primary 경로는 수정하지 않는다. 작업 프로젝트 결과를 사용자에게 공유한 뒤 main 반영한다.
 
 ## 1. 기준과 조사 범위
+
+§1~§9는 1차 경로 정리의 조사·실행·검증 이력이다. §10은 사용자 의도 정정 뒤 작성했던 직전 제안이며 구현하지 않았다. 19파일·33메뉴 목표는 최신 최소 유지 기준으로 대체됐고 현행 조사·계획은 §11 및 Plan §9를 따른다.
 
 - 작업 브랜치: `codex/editor-script-organization`.
 - 기준 커밋: `ff0ea9e92b63116e7fe46e825c69e5653022ae85`.
@@ -146,3 +150,68 @@ ROADMAP의 ConfirmPopup 상태를 「결정·이관 완료·사용자 결과 확
 Unity import·컴파일과 Setup/Apply 실행은 하지 않았다. 이 검증은 소스·메타 보존과 정적 이동 정합성 확인이며 새 native·게임 동작 PASS가 아니다. **사용자 결과 확인과 main 병합은 아직 대기**다. 이 결과 기록은 Task 제외 범위의 수정이므로 상시 문서 검사를 다시 반복하지 않았다.
 
 사용자의 세 작업 통합 요청에 따라 문서 정리와 검사기 정비 이력을 이미 포함하는 `codex/editor-script-organization`을 통합 결과 브랜치로 사용한다. 기존 main 기준 `ff0ea9e9`에 두 선행 작업이 포함되어 있으므로 별도로 중복 적용하지 않는다. 현재 에디터 변경은 이 브랜치에 커밋할 준비를 마쳤으며, 이 기록 시점에는 커밋 전이다. main 병합은 사용자 결과 확인 뒤 진행한다. 기존 검증 수치와 실행 범위는 유지한다.
+
+## 10. 사용자 의도 정정 — 불필요 코드 삭제와 Unity 메뉴 정리
+
+**대체된 제안 — 구현하지 않음:** 이 절의 17개 퇴역·19파일·33메뉴 및 넓은 기존 도구 보존은 당시 제안이다. 최신 사용자 기준으로 대체됐으므로 현행 유지·삭제 목록이나 목표 수로 사용하지 않는다.
+
+사용자는 필요 없는 스크립트를 삭제하고 필요한 것만 남겨 Unity 메뉴에서 역할별로 사용하려는 의도임을 명확히 했다. 경로만 이동하고 모든 기존 코드·메뉴를 보존한 1차 작업은 이 목표를 충족하지 않았다. 1차 변경은 `6d83955a`에 보존돼 있으며 새 단계에서는 당시 남긴 35파일과 MenuItem 57개 선언을 기준으로 폐기·유지·순수 helper 보존을 다시 판정한다. 새 코드 변경은 아직 없다.
+
+### 현재 필요성과 대체 수단으로 재판정
+
+- 폐기 판단은 현재 생성·배선된 에셋, 런타임의 직접 의존, 다른 Editor 검사기의 호출, 재사용 필요와 대체 작업 방법을 근거로 한다. 정확히 어느 버전의 옛 setup 메뉴가 실행됐는지를 모든 삭제의 필수 조건으로 두지 않는다.
+- 기존 데이터나 프리팹을 다시 생성할 의도가 없고 현행 수동 authoring·생산 binding 검사로 역할이 대체되는 생성기는 폐기 후보로 판정할 수 있다. 반대로 public 순수 helper나 현재 복구 경로를 다른 도구가 사용하면 그 기능을 남기거나 먼저 분리한다.
+- 「옛 메뉴 유지」는 1차의 바이트 보존 계약이었다. 추가 단계에서는 삭제 메뉴를 제거하고 남길 메뉴를 역할별로 재분류한다. 폴더 격리만으로 불필요 코드 삭제·메뉴 정리가 완료됐다고 보고하지 않는다.
+- WORKFLOW [4]의 검증 전 원본 비활성화·사용자 테스트 후 최종 삭제 순서를 따른다. 사용자에게 구체 목록·근거·변경 메뉴를 먼저 공유하고 구현 승인을 받으며, 승인 목록의 테스트가 완료되면 같은 목록을 다시 승인받지 않는다.
+
+### 관련 현재 문서의 후속 영향
+
+WORKFLOW는 Setup/Tools 수명과 도구 목록, Matrix는 현재 gate 경로·사용 절차, MatchFlowUI·ROADMAP은 ConfirmPopup 도구의 필요성 판단에 영향을 받는다. Units에는 SpecialAttackConfig 생성·배선 메뉴 및 옛 Injector 사용 안내가 남아 있으므로 해당 도구 폐기 시 현재 대체 방법의 안내가 필요하다. 이 문서의 과거 수치·날짜별 구현 경위는 도구 정리를 이유로 재설계하지 않는다. 현재는 추가 Plan만 작성하며 상시 문서를 다시 수정하지 않는다.
+
+game-programmer의 `audit-retirement.md`·`.json`을 읽어 35개 현재 파일의 판정과 57개 메뉴의 old→new/drop 대응을 확인했다. JSON에서 폐기 또는 helper 분리 후 폐기인 파일이 17개, 새 메뉴 경로가 남는 선언이 33개임을 직접 재집계했다. 실제 소스 변경·실행이 아닌 제안이다. 구체 파일·메뉴 대응은 Plan §8에 담았다.
+
+최종 권고는 현재 Setup 16파일과 옛 Validator 1파일을 퇴역하고, Retiming의 순수 helper를 `Assets/Editor/Tools/Combat/BloomHealRetimingValidationUtility.cs`로 보존해 C# 실물을 최종 19파일로 줄이는 것이다. 비활성 검증 중간 단계는 기존 35파일 원문과 새 helper를 모두 보존한 실물 36파일·컴파일 활성 19파일이다. 기존 에셋·데이터·런타임 기능을 지우는 작업이 아니다.
+
+메뉴는 퇴역 도구의 17개 선언과 중복·과거 일괄 실행 진입점 7개를 빼서 활성 선언 57→33을 목표로 한다. 추가 7개는 Authoritative 검증의 중복 메뉴, VisualRoot와 Interpolation의 Dry Run·Apply 네 메뉴, 과거 25번째 변경 조건의 Network rollback 메뉴, ResultMode의 중복 Dry Run이다. 필요한 public API와 journal 복구 기능은 유지한다. 실제 Unity 가시 메뉴 수는 아직 관찰하지 않았다.
+
+현재 자산의 UI·스킬·건물·생산 등록 배선 및 50개 유닛 프리팹의 VisualRoot/PositionLerpSmoothing 상태는 코드 담당자가 읽기 전용으로 수집한 근거다. 문서 담당자가 새 native 동작 검증을 한 것이 아니다. Profile의 별도 선택적 미연결 필드를 UI 오류로 단정하거나 이번에 배선하지 않는다. 옛 Validator의 config 비교표 전체와 현행 production gate가 모든 기능에서 동등하다고 주장하지 않고, 그 오래된 비교표 자체를 퇴역하는 것으로 명시한다.
+
+Spawner의 실제 생성과 raw VFX fallback·PreviewDriver는 고유한 시각 실험 용도여서 기존 기능을 유지한다. 메뉴 분류만 바꾸며 fallback을 권위 타격 검증으로 소개하지 않는다. 1차의 「모든 메뉴 보존」과 「삭제 확정 0」은 당시 범위였으며 추가 Plan의 결론을 대신하지 않는다.
+
+현재 추가 단계에서는 Research/Plan과 아래 필수 실수 기록만 수정했다. 상시 규칙 문서와 코드·메뉴·에셋은 변경하지 않았고 Unity 실행이나 main 병합도 하지 않았다. 승인 후 비활성화·검증·사용자 테스트와 확정 목록 최종 삭제를 순서대로 진행한다.
+이 목표 누락은 WORKFLOW의 실수 발견 시 기록 의무에 따라 `.claude/mistakes.md`의 목차와 말미에 2026-10-16 사건으로 추가했다. 기존 사건·메모리·기준값은 수정하지 않았다. 따라서 추가 단계의 현재 문서 변경은 Task 두 파일과 이 사건 기록 하나이며 코드 변경은 여전히 없다.
+
+추가 Plan과 사건 기록 작성 뒤 검사기를 `-X utf8 -B`로 단독 실행해 exit 0·문제 0건을 확인했고 `git diff --check`에서도 공백 오류가 없었다. 검사의 참조 대상은 90문서로 유지되며 Task는 제외된다. 이 0건은 계획 본문의 사실 주장·폐기 적절성이나 Unity 동작을 보증하는 결과가 아니다. 추가 구현 승인과 사용자 테스트·결과 확인 전에는 코드 변경·최종 삭제·main 병합을 완료로 표기하지 않는다.
+
+## 11. 최신 사용자 결정 — 필수 진입점과 실제 내부 의존만 유지
+
+사용자는 AndroidBuildAssetOptimizer가 나중에 필요하면 그때 상황에 맞춰 다시 작성하면 되고 다른 스크립트도 마찬가지라고 명확히 했다. 현재 도구가 쌓여 혼란스러운 것이 정리 이유이며, 로그 저장·네트워크 강제 실패와 전투 교정에서 주로 쓰는 두 진입점 외에는 현재 정리한다. Android 보고서 기능도 남기는 쪽으로 해석하지 않는다.
+
+유지 기준은 `LogcatCapture`, `ForceRematchMapFailureMenu`, `RunUnitActionSelfValidation`, `RunUnitRootPoseCrossAudit`다. 코드 담당자의 실제 의존 확인 결과 VfxConnections partial·Authoritative 검증·TorrentProduction 검증을 내부 보조 기능으로 남겨 기존 7파일을 유지한다. Bloom의 `RetimeCurve`·`ValidateSamples`·`Finite`·`Check`는 기존 Action 검사기 안의 private helper로 옮기며 새 파일이나 단독 메뉴는 추가하지 않는다.
+
+MapFallbackTemplateBuilder, migration·rollback 묶음, ValidateUnitCombatSetup, SetupResultPresentationMode, ConfirmPopup 복구 도구, Spawner, TorrentWaveCalibrationTool도 필수 검사의 실제 의존이 없으면 제거한다. 기존 폴백 bytes·참조 원본과 runtime MapFallbackTemplateFactory/Domain 생성 로직, 실제 UI·유닛·VFX 자산은 보존한다. 기준은 현재 필요성과 사용자 선택이며, 옛 Tools 영구 보존 문구를 이유로 이미 결정한 정리를 다시 보류하지 않는다.
+
+구현 시 WORKFLOW [5-2], RandomMap 규칙 12의 제작 도구 삭제 금지 안내, TDD 네트워크의 폴백 제작 도구 영구 보존 안내와 관련 현재 도구 포인터를 함께 정정할 계획이다. 지금은 이 Task 두 문서만 갱신하며 다른 규칙 문서는 수정하지 않는다. 직전 제안의 35파일 기준·57메뉴는 당시 측정값으로 보존하고 최신 결과로 재사용하지 않는다.
+
+최소 유지 기준의 결정과 코드 구현 승인을 구분한다. 실제 의존과 목록을 반영한 Plan 공유 후 승인받아 원본 비활성화·검증·사용자 테스트·확정 목록 최종 삭제를 진행한다. 구현 결과 확인 뒤 main 병합한다. 코드·메뉴·에셋 변경이나 Unity 실행은 아직 없다.
+
+최소 제안은 기존 35파일에서 7파일 유지·28파일 퇴역이다. 이전 감사 목록의 현재 경로 35개에서 유지 이름 7개를 제외해 제거 목록 28개를 문서 담당자가 재집계해 Plan §9에 기록했다. 메뉴 목표는 코드 담당자 전달값으로 Logcat 3·강제 실패 11·Action 검사 1·Root Pose 로그 분석/자체 검증 2의 합계 17선언이다. 이전 19파일·33메뉴와 새 helper 파일 추가 제안은 적용하지 않는다. 이 수는 아직 구현·Unity 실행 결과가 아니다.
+
+## 12. 최신 최소 유지 승인과 구현 단계
+
+사용자가 Plan §9를 승인했고 28파일 원문 비활성화, 필요한 7파일과 검사 내부 helper 보존, 17개 활성 메뉴의 구현·정적 검증을 마쳤다. 위 계획 작성 시점의 「코드 변경 없음」은 당시 기록과 구별한다. 기존 검사회귀 조건은 유지하며 native PASS로 해석하지 않는다.
+
+현재 문서도 사용자 결정에 맞춰 WORKFLOW의 Tools 영구 보존·migration 묶음, RandomMap 규칙 12와 TDD 네트워크의 템플릿 제작 도구 삭제 금지 안내, Matrix·Units·TDD의 옛 생성/주입/구조 검사 도구 포인터, ROADMAP·MatchFlowUI의 ConfirmPopup 보존 선택을 교정했다. 맵 bytes·runtime 폴백·현재 에셋과 게임 규칙 수치는 유지하며 날짜별 원문은 보존한다.
+
+### 비활성 구현·정적 검증 결과 — 사용자 테스트 대기
+
+코드 담당자의 최종 `.utmp/editor-script-organization/minimal-after.json`을 읽어 활성 C# 7개·원문 비활성 28개·활성 MenuItem 17선언과 고유 경로 17개를 확인했다. 물리 C#은 여전히 35개이며 최종 파일·메타 삭제는 하지 않았다. 최종 증거 파일 SHA256은 코드 담당자가 전달한 `8f972e43c7a85fb53ce57d0c08dde109dc50ac96b5cfcdd496673f6a5cfbba85`다.
+
+- 기존 Action 검사기 안의 private `BloomHealRetimingValidation`에 `RetimeCurve`·`ValidateSamples`·`Finite`·`Check`를 보존했다. 원래 writer와 `SetStopTime`은 남길 기능에 포함하지 않는다.
+- 메인 세션은 이동 전 원시 `source_bytes`를 기준으로 비활성 28개가 wrapper 외에는 개행 정규화 후 동일함을 독립 실행으로 확인했다. 활성 7개·고유 메뉴 17개를 직접 추출하고 helper 네 메서드의 들여쓰기 정규화 동일성, 보호 파일 3969개 해시 일치를 확인했다. 이는 메인 세션의 실행 결과를 전달받은 기록이며 문서 담당자가 같은 전수 감사를 다시 실행한 결과가 아니다.
+- 코드 담당자는 퇴역 28타입의 남은 코드·문자열 참조 0, 전처리기 균형과 공백 검사를 확인했다. 마지막 강제 실패 사용법 주석 교정은 메뉴 경로 안내만 바꾸며 기능 변경이 없다.
+- 메뉴는 `Hexiege/Combat/Run Full Regression Suite`, `Hexiege/Combat/Logs/Analyze Latest Root Pose`, `Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit`의 전투 3개, `Hexiege/Logs`의 로그 3개, `Hexiege/Debug/Failure`의 강제 실패 11개다. Authoritative와 Torrent 검증은 내부 호출로 보존하며 별도 메뉴를 추가하지 않았다. 이는 활성 선언의 정적 집계이며 Unity에서 관찰한 가시 메뉴 수가 아니다.
+
+현재 안내는 WORKFLOW·RandomMap·TDD 네트워크·Matrix·Units·TDD·ROADMAP·MatchFlowUI·LogRules의 직접 관련 부분만 동기화했다. 날짜별 원문·기존 수치·게임 계약은 보존한다. Unity import·컴파일·기기·메뉴 실행은 하지 않았으며 native PASS가 아니다. **작업 프로젝트는 `D:/Projects/Hexiege/Hexiege/.utmp/docs-checker-finalize`이고 현재 main 프로젝트에는 미반영이다.** 사용자 테스트 후 승인 목록 28개의 실제 삭제를 진행하고 결과 확인 뒤 main에 병합한다.
+
+문서 담당자가 최종 상시 문서 수정 뒤 검사기를 단독 실행해 exit 0·문제 0건을 확인했다. 규칙 탐색/해석 19/16, 참조 대상 90문서, 참조 724+명명 ID 34, 링크 1784·앵커 1080이었다. `git diff --check`도 exit 0·공백 오류 없음이며 Task 두 파일의 LF→CRLF 안내만 있었다. Task는 문서 검사에서 제외되며 이 결과는 계획의 사실·Unity 컴파일·기기 동작을 보증하지 않는다.

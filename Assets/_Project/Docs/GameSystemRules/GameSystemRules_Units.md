@@ -414,7 +414,7 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 - `sweepReach`(월드 반경, 기본 1.0 — 현재 실기값 0.75), `sweepArcHalfAngle`(부채꼴 반각, 단위 도, 기본 120).
 - 유닛 `attackRange`(주 타깃 공격/추격 거리, UnitStatsConfig)와 특수 AoE `sweepReach`(SpecialAttackConfig)는 **별개 값**이다(혼동 주의).
 - GameBootstrapper가 시작 시 SO 값을 읽어 특수 공격 핸들러에 **float 값으로 주입**한다(Application이 Infrastructure SO를 직접 참조하지 않음 — 레이어 규칙 준수). SO 미연결 시 코드 폴백값을 사용한다.
-- ⚠️ **에셋 생성 ≠ 씬 배선**: `SpecialAttackConfig.asset`을 만들어 값을 넣어도 GameBootstrapper `_specialAttackConfig`에 연결하지 않으면 런타임은 폴백값을 쓴다. 신규 SO 튜닝값은 배선까지 확인할 것. 셋업 스크립트 `CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)가 에셋 생성 + GameBootstrapper 배선을 멱등 자동화한다.
+- ⚠️ **에셋 생성 ≠ 씬 배선**: `SpecialAttackConfig.asset`을 만들어 값을 넣어도 GameBootstrapper `_specialAttackConfig`에 연결하지 않으면 런타임은 폴백값을 쓴다. 신규 SO 튜닝값은 배선까지 확인할 것. 현재 에셋은 Inspector로 편집·연결하며 필요할 때 기본 CreateAssetMenu로 생성한다. 2026-10-16 최소 유지 결정으로 과거 `CreateSpecialAttackConfigAsset` 에디터 생성기는 퇴역하며, 현재 설정을 다시 적용하거나 배선을 바꾸지 않는다.
 
 **규칙 26. AoE 피격 연출 동시 방출**
 동일 서버 타격의 AoE 결과는 같은 attacker instance·sequence·HitIndex 아래 피해자·효과·ResultOrdinal별 정규 키로 구분한다. 서버가 타격 처리 완료 후 발행한 명시적 결과 묶음 또는 완료 manifest의 개수·키를 모두 확인한 경우 같은 표현 Impact에 함께 방출한다.
@@ -425,6 +425,9 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 - 레거시 비교 모드의 FIFO는 전환 증거 수집에만 남긴다. 신규 단일 writer 경로의 방출량은 서버 결과 묶음으로 정한다.
 
 **규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
+
+**현행 도구 안내(2026-10-16):** 과거 config 값을 첫 Attack 클립에 일괄 주입하는 Injector와 옛 비교 Validator는 최소 유지 결정의 퇴역 대상이다. 실제 생산 clip의 이벤트·명시 timeline 연결은 현재 에셋 authoring으로 관리하고 남긴 `RunUnitActionSelfValidation`의 production 연결 검사를 사용한다. 이 정리는 이미 수용한 clip·타격값·서버 권위를 변경하지 않는다. 아래 문단과 날짜별 교정 블록은 당시 작성·구현 기록이며, 옛 주입 메뉴 재실행을 현재 절차로 요구하지 않는다. 현행 수치와 개별 수용은 StatsReference·UnitCombatAssetMatrix를 따른다.
+
 특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). QuakeSpirit는 특수 공격 로직(규칙 43)은 구현·검증 완료됐으나 Attack 클립 `OnAttackHit`은 **아직 미주입**(placeholder `hitFrameTimes` 1.0s) — 이로 인해 타격 애니↔데미지 텍스트 타이밍이 어긋나며, 사용자 결정으로 **별도 후속 task로 분리**(규칙 43 참고 노트). 이 잔여 주입은 그 후속 task에서 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
 
 > **[2026-09-14 후속 교정 — 위 QuakeSpirit 미주입/1.0초 문장은 당시 기록으로 보존]:** production Attack clip의 `OnAttackHit` 1개가 실제 타격 시점 1.667초에 있음을 확인하고 `UnitStatsConfig.hitFrameTimes`를 1.0초에서 1.667초로 정렬했다. 실제 Attack state clip·Controller·Blue/Red 프리팹 연결도 함께 검증했으며, 영구 Unit Action self-validation은 이 production marker/config 연결이 어긋나면 Supported 승격을 fail-closed한다. Unity 자동 게이트는 PASS했으나 Android 사용자 실기 전이므로 최종 완료가 아니다.

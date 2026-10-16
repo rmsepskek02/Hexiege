@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 // ============================================================================
 // MapFallbackTemplateBuilder.cs  (에디터 전용 · 영구 보존 도구)
 //
@@ -341,3 +342,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

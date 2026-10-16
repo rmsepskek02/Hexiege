@@ -26,7 +26,7 @@ namespace Hexiege.Editor.Combat
         private const string RotationEvidenceSchema =
             "root-rotation-replication-v1";
 
-        [MenuItem("Hexiege/Combat/Diagnostics/Analyze Latest Unit Root Pose Logs")]
+        [MenuItem("Hexiege/Combat/Logs/Analyze Latest Root Pose")]
         public static void Run()
         {
             // RuntimeLog.txt는 Play Mode 동안 LogSessionOwner가 계속 기록한다. 기록 중인 파일을
@@ -38,7 +38,7 @@ namespace Hexiege.Editor.Combat
                 Debug.LogWarning(
                     "[UAS-ROOT-CROSS-AUDIT][INCONCLUSIVE] " +
                     "reason=play-mode-active-stop-play-mode-before-analysis, " +
-                    "action=Stop Play Mode and run Analyze Latest Unit Root Pose Logs again.");
+                    "action=Stop Play Mode and run Analyze Latest Root Pose again.");
                 return;
             }
 
@@ -77,7 +77,7 @@ namespace Hexiege.Editor.Combat
             }
         }
 
-        [MenuItem("Hexiege/Combat/Diagnostics/Self Validate Unit Root Pose Cross Audit")]
+        [MenuItem("Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit")]
         public static void SelfValidate()
         {
             try

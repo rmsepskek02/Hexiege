@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 // ============================================================================
 // CombatHitEventInjector.cs  (1회성 주입 Editor 유틸리티 — 클립 에셋을 실제로 수정한다)
 //
@@ -305,3 +306,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

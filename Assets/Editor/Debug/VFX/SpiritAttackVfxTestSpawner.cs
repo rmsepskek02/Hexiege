@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 // Unity Editor 전용 일회성 VFX 튜닝 도구.
 // 실제 UnitSpawnUseCase를 사용하므로 전투 탐색 -> 공격 애니메이션 -> Animation Event -> VFX 경로를 그대로 검증한다.
 
@@ -249,3 +250,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

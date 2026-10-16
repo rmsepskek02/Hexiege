@@ -594,7 +594,7 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 **제목의 PASS는 당시 검증 이력이며 새 실행 결과가 아닙니다.** 원문 검증 표: [LogHistory H08d](LogHistory.md#h08d).
 
-자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege > Logcat > 3. 오래된 에디터 로그 정리`를 사용합니다. 자동/주기 실행은 없습니다. Device 캡처 메뉴 1·2와 분리합니다.
+자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege > Logs > Clean Old Editor Logs (Deletes Assets)`를 사용합니다. 자동/주기 실행은 없습니다. Device 버퍼 비우기·저장 메뉴와 분리합니다.
 
 #### 실기 검증 결과 — 전 항목 PASS (2026-08-17)
 
@@ -650,11 +650,11 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 도구: `Assets/Editor/Tools/LogcatCapture.cs`
 
 1. 기기를 USB로 연결한다 (USB 디버깅 ON)
-2. 메뉴 **`Hexiege > Logcat > 1. 버퍼 비우기`** 실행
+2. 메뉴 **`Hexiege > Logs > Clear Device Buffer (Deletes Logs)`** 실행
 3. 기기에서 **버그를 재현**한다
-4. 메뉴 **`Hexiege > Logcat > 2. 파일로 저장`** 실행
+4. 메뉴 **`Hexiege > Logs > Save Device Logs`** 실행
 
-메뉴 3은 1.10의 Editor 수동 정리용이며 실기기 캡처 절차에 포함하지 않습니다. 메뉴 1·2와 구분선으로 분리합니다. 이력: [LogHistory H09b](LogHistory.md#h09b).
+`Clean Old Editor Logs (Deletes Assets)`는 1.10의 Editor 수동 정리용이며 실기기 캡처 절차에 포함하지 않습니다. 버퍼 비우기·저장 메뉴와 구분선으로 분리합니다. 이력: [LogHistory H09b](LogHistory.md#h09b).
 
 > **왜 먼저 버퍼를 비우는가**: Logcat은 링 버퍼라 과거 로그가 계속 쌓여 있다.
 > 비우지 않으면 예전 로그가 섞여 들어와 **어디부터가 이번 재현인지 알 수 없다.**

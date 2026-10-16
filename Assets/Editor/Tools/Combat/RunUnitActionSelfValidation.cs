@@ -19,7 +19,7 @@ namespace Hexiege.Editor.Combat
     /// Tracer A의 순수 C# 계약을 Unity Editor에서 즉시 점검하는 도구다.
     /// 씬, 프리팹, Animator, NGO 실행 환경 없이도 행동 단계 순서, 공격 회차 증가,
     /// 각도 히스테리시스, 결과 중복 제거와 역순 정렬이 계약대로 동작하는지 확인한다.
-    /// 메뉴에서 Hexiege/Combat/Run Unit Action Self Validation을 선택해 실행한다.
+    /// 메뉴에서 Hexiege/Combat/Run Full Regression Suite을 선택해 실행한다.
     /// </summary>
     public static partial class RunUnitActionSelfValidation
     {
@@ -952,7 +952,7 @@ namespace Hexiege.Editor.Combat
             }
         }
 
-        [MenuItem("Hexiege/Combat/Run Unit Action Self Validation")]
+        [MenuItem("Hexiege/Combat/Run Full Regression Suite")]
         public static void Run()
         {
             ValidateUnitViewInitializationRetry();
@@ -1812,7 +1812,7 @@ namespace Hexiege.Editor.Combat
                 Require(ordinary.AttackCooldown == 2, "Ordinary clip-derived cooldown must remain unchanged.");
                 var curve = new AnimationCurve(new Keyframe(0, 0, 0, 2),
                     new Keyframe(0.7f, 1, -1, 0.5f), new Keyframe(1.7f, 2, 1, -2), new Keyframe(3, 0, 0, 0));
-                var retimed = Hexiege.EditorTools.RetimingBloomFairyHealPresentation.RetimeCurve(curve);
+                var retimed = BloomHealRetimingValidation.RetimeCurve(curve);
                 Require(Mathf.Abs(retimed.keys[retimed.length - 1].time - 4) < 0.0001f,
                     "Native retime helper must move the tail, not merely extend the last pose.");
                 for (int sample = 0; sample <= 120; sample++)
@@ -10475,6 +10475,80 @@ namespace Hexiege.Editor.Combat
             Require(UnitMovementAuthorityObserver.ProductionSchema
                     == "b3-movement-authority-v15",
                 "B3 observer schema must include pure-Client rendered attack-entry order failures.");
+        }
+
+        private static class BloomHealRetimingValidation
+        {
+            /// <summary>0~1초 Hermite를 보존하고 1~3초의 동작을 1~4초로 늘린다.</summary>
+            public static AnimationCurve RetimeCurve(AnimationCurve curve)
+            {
+                Check(curve != null && curve.length > 0, "Missing curve.");
+                var keys = new List<Keyframe>(curve.keys);
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    Keyframe k = keys[i];
+                    Check(k.weightedMode == WeightedMode.None && Finite(k.time) && Finite(k.value)
+                        && Finite(k.inTangent) && Finite(k.outTangent), "Weighted/step/nonfinite curve needs explicit support.");
+                    Check(k.time >= 0 && k.time <= 3.0001f && (i == 0 || k.time > keys[i - 1].time),
+                        "Curve times outside source or duplicate keys.");
+                    Check(AnimationUtility.GetKeyLeftTangentMode(curve, i) == AnimationUtility.TangentMode.Free
+                        && AnimationUtility.GetKeyRightTangentMode(curve, i) == AnimationUtility.TangentMode.Free,
+                        "Automatic tangent recalculation is unsupported; preserve source explicitly.");
+                }
+                bool boundary = keys.Exists(k => k.time == 1f);
+                if (!boundary)
+                {
+                    // 경계를 덮지 않는 curve는 외삽 보존을 별도 입증해야 하므로 fail closed.
+                    Check(keys[0].time <= 1 && keys[keys.Count - 1].time >= 1,
+                        "Source must cover the split boundary.");
+                    int right = keys.FindIndex(k => k.time > 1);
+                    Keyframe a = keys[right - 1], b = keys[right];
+                    float h = b.time - a.time, u = (1 - a.time) / h;
+                    float derivative = ((6 * u * u - 6 * u) * a.value
+                        + (3 * u * u - 4 * u + 1) * h * a.outTangent
+                        + (-6 * u * u + 6 * u) * b.value
+                        + (3 * u * u - 2 * u) * h * b.inTangent) / h;
+                    keys.Insert(right, new Keyframe(1, curve.Evaluate(1), derivative, derivative));
+                }
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    Keyframe k = keys[i];
+                    if (k.time > 1) { k.time = 1 + (k.time - 1) * 1.5f; k.inTangent /= 1.5f; }
+                    if (k.time >= 1) k.outTangent /= 1.5f;
+                    keys[i] = k;
+                }
+                var result = new AnimationCurve(keys.ToArray()) { preWrapMode = curve.preWrapMode, postWrapMode = curve.postWrapMode };
+                for (int i = 0; i < result.length; i++)
+                {
+                    AnimationUtility.SetKeyBroken(result, i, true);
+                    AnimationUtility.SetKeyLeftTangentMode(result, i, AnimationUtility.TangentMode.Free);
+                    AnimationUtility.SetKeyRightTangentMode(result, i, AnimationUtility.TangentMode.Free);
+                }
+                ValidateSamples(curve, result);
+                return result;
+            }
+
+            private static void ValidateSamples(AnimationCurve source, AnimationCurve result)
+            {
+                Check(result != null, "Curve application failed.");
+                for (int i = 0; i <= 360; i++)
+                {
+                    float t = i / 120f;
+                    float mapped = t <= 1 ? t : 1 + (t - 1) * 1.5f;
+                    float expected = source.Evaluate(t);
+                    Check(Mathf.Abs(expected - result.Evaluate(mapped)) <= 0.00002f * Mathf.Max(1, Mathf.Abs(expected)),
+                        $"Retime changed a source sample at {t:R}.");
+                }
+                foreach (Keyframe k in source.keys)
+                {
+                    float mapped = k.time <= 1 ? k.time : 1 + (k.time - 1) * 1.5f;
+                    Check(Mathf.Abs(result.Evaluate(mapped) - k.value) < 0.00002f * Mathf.Max(1, Mathf.Abs(k.value)),
+                        "Retime changed a source key.");
+                }
+            }
+
+            private static bool Finite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);
+            private static void Check(bool ok, string message) { if (!ok) throw new InvalidOperationException(message); }
         }
 
         private static void Require(bool condition, string message)

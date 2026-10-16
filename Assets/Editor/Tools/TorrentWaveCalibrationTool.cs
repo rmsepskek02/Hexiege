@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 using System;
 using System.Globalization;
 using System.IO;
@@ -720,3 +721,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

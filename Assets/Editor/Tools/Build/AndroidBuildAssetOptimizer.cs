@@ -1,4 +1,5 @@
-﻿#if UNITY_EDITOR
+﻿#if false // Retired by approved editor-tool cleanup; preserve until user validation.
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -316,4 +317,5 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif
 #endif

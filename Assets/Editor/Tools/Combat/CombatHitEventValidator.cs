@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 // ============================================================================
 // CombatHitEventValidator.cs  (1회성 검증 Editor 유틸리티 — 리포트만, 수정 없음)
 //
@@ -254,3 +255,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

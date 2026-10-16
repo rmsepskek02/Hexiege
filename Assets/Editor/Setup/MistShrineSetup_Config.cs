@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 // ============================================================================
 // MistShrineSetup_Config.cs  (에디터 전용 · 1회성 셋업)
 //
@@ -149,3 +150,4 @@ namespace Hexiege.EditorTools
         }
     }
 }
+#endif

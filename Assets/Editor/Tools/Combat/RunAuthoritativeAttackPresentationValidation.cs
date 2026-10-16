@@ -18,7 +18,6 @@ namespace Hexiege.Editor.Combat
     /// </summary>
     public static class RunAuthoritativeAttackPresentationValidation
     {
-        [MenuItem("Hexiege/Diagnostics/Self Validate Authoritative Attack Presentation")]
         public static void Run()
         {
             if (EditorApplication.isPlaying)

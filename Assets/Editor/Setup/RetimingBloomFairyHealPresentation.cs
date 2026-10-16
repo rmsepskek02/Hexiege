@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 using System;
 using System.Collections.Generic;
 using Hexiege.Presentation;
@@ -212,3 +213,4 @@ namespace Hexiege.EditorTools
         private static void Check(bool ok, string message) { if (!ok) throw new InvalidOperationException(message); }
     }
 }
+#endif

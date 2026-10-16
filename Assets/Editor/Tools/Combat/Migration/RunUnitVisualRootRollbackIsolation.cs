@@ -1,3 +1,4 @@
+#if false // Retired by approved editor-tool cleanup; preserve until user validation.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -840,3 +841,4 @@ namespace Hexiege.Editor.Combat
         }
     }
 }
+#endif

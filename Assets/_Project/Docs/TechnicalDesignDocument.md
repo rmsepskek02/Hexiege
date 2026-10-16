@@ -983,7 +983,7 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 - **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러` 매핑, 현재 `BattleAxe → SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
 - **피해 수렴점 단일화:** `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출하여 주 타깃과 AoE 대상이 **같은 피해·이벤트·사망 처리 경로**를 쓰게 했다(멀티플레이 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄만 추가 → 신규 특수 유닛은 핸들러 + 레지스트리 1줄로 확장하며 `ExecuteAttack` 재수정 불필요.
 - **휩쓸기 판정(SweepAttackBehavior):** 타일 소속이 아니라 **월드 좌표 전방 부채꼴**(forward = 공격자 → 주 타깃, XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`). 월드 좌표는 `IEntityPositionProvider`(서버 권위). 아군/사망/공격자/주 타깃 제외, 건물 미대상.
-- **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 에셋 생성 + 배선은 `CreateSpecialAttackConfigAsset.cs`가 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용.
+- **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 현재 에셋은 Inspector에서 편집·배선하고 필요하면 기본 CreateAssetMenu로 생성한다. 2026-10-16 최소 유지 결정으로 과거 전용 생성기는 퇴역한다. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용. 이번 도구 정리는 현재 설정·주입 경로를 바꾸지 않는다.
 - **AoE 연출 동시 방출:** `HitPresentationQueue`가 공격자 `HitFrameTimes.Length ≤ 1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `> 1`이면 신호당 1건(다중 히트 유닛 회귀 없음).
 - 상세 규칙: `GameSystemRules_Units.md` 규칙 23~27. task: `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
 
@@ -1375,6 +1375,8 @@ Build Settings:
 ```
 
 ### 개발용 강제 실패 플래그 (에디터 전용) — 2026-09-24 신설
+
+**현재 메뉴 경로(2026-10-16):** `Hexiege > Debug > Failure` 아래의 `다음 재경기`, `다음 최초 경기`, `싱글 맵 준비 (다음 1회)`, `싱글 맵 투영 (다음 1회)`, `현재 설정 확인`, `해제`를 사용한다. 아래 날짜별 표의 `Hexiege/Debug/강제 실패 — ...`는 당시 경로다. 실패 종류·일회성 설정·해제 동작은 유지한다.
 
 **[쉬운 말로]** 재경기를 눌렀을 때 **새 맵 준비가 실패하는 화면**은 평소에 볼 수가 없다. 맵을 주고받는 구간이 **실측 99~134ms** 라 사람이 그 0.1초에 맞춰 네트워크를 끊을 수 없기 때문이다. 그래서 **「다음 재경기를 반드시 실패시킨다」고 미리 켜 두는 스위치**를 만들었다. 미리 켜 두고 재경기를 누르면 확실히 실패하므로 **타이밍 문제가 사라진다.**
 

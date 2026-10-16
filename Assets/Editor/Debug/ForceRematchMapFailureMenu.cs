@@ -2,9 +2,9 @@
 // ForceRematchMapFailureMenu.cs  (에디터 전용 · 개발용 강제 실패 토글 메뉴)
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
-// │  1) 상단 메뉴  Hexiege > Debug  에서 **어느 회차를 실패시킬지** 먼저 고른다:  │
-// │       · 강제 실패 — 다음 재경기   (결과 화면의 재경기)                      │
-// │       · 강제 실패 — 다음 최초 경기 (로비에서 두 명이 모인 직후)              │
+// │  1) Hexiege > Debug > Failure에서 **어느 회차를 실패시킬지** 먼저 고른다:   │
+// │       · 다음 재경기   (결과 화면의 재경기)                                 │
+// │       · 다음 최초 경기 (로비에서 두 명이 모인 직후)                         │
 // │     두 묶음 모두 ① 연결 끊김 / ② 해시 불일치 / ③ 응답 없음 을 고를 수 있다.  │
 // │     (④ 수락 전송 예외는 재경기 묶음에만 있다.)                              │
 // │  2) 재경기 묶음: 멀티플레이를 시작해 경기를 끝내고 **재경기**를 누른다.       │
@@ -13,8 +13,8 @@
 // │     최초 경기 묶음: 방을 만들고 상대가 접속하면 곧바로 실패한다.             │
 // │  3) 🔴 **한 번 쓰이면 자동으로 꺼진다.** 다시 실패시키려면 또 고른다.        │
 // │     예약 칸은 하나라 다른 회차로 다시 고르면 앞의 예약을 덮어쓴다.           │
-// │  4) 지금 켜져 있는지 궁금하면  Hexiege > Debug > 강제 실패 — 현재 설정       │
-// │     확인  을 누른다. 끄고 싶으면 그 아래 「해제」를 누른다.                  │
+// │  4) Hexiege > Debug > Failure > 현재 설정 확인을 누르면 예약을 확인한다.    │
+// │     끄고 싶으면 같은 Failure 메뉴의 「해제」를 누른다.                     │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // 🔴 **저장소가 둘이라는 것을 사용자가 알 필요는 없다.**
@@ -27,7 +27,7 @@
 //   세 번째는 **싱글플레이 맵 준비**를 강제 실패시키는 토글(ForcedMapPreparationFailure)이다.
 //   ⚠️ 위 ①~④ 는 전부 **멀티플레이**용이라 싱글 경로에 닿지 않는다.
 //   ┌─ 싱글 항목 사용법 ─────────────────────────────────────────────────────┐
-//   │  1) 상단 메뉴  Hexiege > Debug > 강제 실패 — 싱글 맵 준비 (다음 1회)     │
+//   │  1) Hexiege > Debug > Failure > 싱글 맵 준비 (다음 1회)                 │
 //   │  2) 그 뒤에 **먼저 오는 쪽**이 실패한다.                                │
 //   │     · 로비에서 싱글 경기를 시작하면 → 최초 경기 실패 화면(모달 팝업)     │
 //   │     · 결과 화면에서 「다시하기」를 누르면 → 결과 화면이 되살아나고        │
@@ -45,6 +45,7 @@
 //   ┌─ 싱글 두 항목의 차이 (초급자용) ───────────────────────────────────────┐
 //   │  · 「싱글 맵 준비」 — 1단계. 이번 판의 설계도를 **만드는** 데 실패한다.  │
 //   │  · 「싱글 맵 투영」 — 2단계. 만든 설계도를 격자에 **새기는** 데 실패한다.│
+//   │    메뉴: Hexiege > Debug > Failure > 싱글 맵 투영 (다음 1회)            │
 //   │  🔴 1단계를 실패시키면 2단계는 **아예 불리지 않는다.** 그래서 2단계를    │
 //   │     보려면 반드시 「투영」 항목을 따로 예약해야 한다 — 준비 항목으로는   │
 //   │     이 단계를 한 번도 태울 수 없다.                                     │
@@ -62,7 +63,7 @@
 //   ┌─ 최초 경기 묶음 사용법 (초급자용) ─────────────────────────────────────┐
 //   │  1) **에디터가 호스트(방을 만드는 쪽)** 여야 한다 — 예약은 이 PC 의 에디터에만 저장되고,  │
 //   │     맵 준비는 호스트에서만 일어나기 때문이다.                                         │
-//   │  2) 메뉴에서 「강제 실패 — 다음 최초 경기」 아래 항목 하나를 고른다.                  │
+//   │  2) Hexiege > Debug > Failure > 다음 최초 경기 아래 항목 하나를 고른다.            │
 //   │  3) 에디터에서 방을 만들고 다른 기기(또는 다른 에디터)로 그 방에 접속한다.            │
 //   │     → 두 명이 모인 직후 호스트 화면에 확인/취소 모달이 떠야 한다.                     │
 //   │  4) ③ 응답 없음만 즉시 실패가 아니라 약 20초 뒤에 뜬다(그동안 로딩 화면이 유지된다).  │
@@ -149,7 +150,7 @@ namespace Hexiege.EditorTools
         /// 다음 재경기를 <b>연결 끊김</b>으로 실패시킨다.
         /// 🔴 규칙 18 이 「상대가 나갔다」 문구를 쓰는 <b>유일한 사유</b>다.
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/① 연결 끊김 (Disconnected)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 재경기/① 연결 끊김 (Disconnected)")]
         private static void ArmDisconnected()
         {
             Arm(MapTransferErrorCode.Disconnected, MapTransferRoundKind.Rematch,
@@ -160,7 +161,7 @@ namespace Hexiege.EditorTools
         /// <summary>
         /// 다음 재경기를 <b>해시 불일치</b>로 실패시킨다(「그 외」 사유의 대표 · 즉시 실패).
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/② 해시 불일치 (HashMismatch)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 재경기/② 해시 불일치 (HashMismatch)")]
         private static void ArmHashMismatch()
         {
             Arm(MapTransferErrorCode.HashMismatch, MapTransferRoundKind.Rematch,
@@ -173,7 +174,7 @@ namespace Hexiege.EditorTools
         /// 🔴 이 사유만 <b>즉시 실패가 아니다</b> — 실제 timeout 10초 → 재전송 1회 → 다시 10초를
         /// 거쳐 실패한다(규칙 16). 그래서 결과가 나오기까지 약 20초가 걸리는 것이 정상이다.
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 재경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
         private static void ArmResponseTimeout()
         {
             Arm(MapTransferErrorCode.ResponseTimeout, MapTransferRoundKind.Rematch,
@@ -192,7 +193,7 @@ namespace Hexiege.EditorTools
         /// 다음 <b>최초 경기</b>(로비에서 두 명이 모인 직후)를 <b>연결 끊김</b> 사유로 실패시킨다.
         /// ⚠️ 화면에서는 다른 사유와 구별되지 않는다 — 로그의 사유 표식으로만 구별된다.
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/① 연결 끊김 (Disconnected)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 최초 경기/① 연결 끊김 (Disconnected)")]
         private static void ArmFirstDisconnected()
         {
             Arm(MapTransferErrorCode.Disconnected, MapTransferRoundKind.First, FirstRoundExpectation);
@@ -202,7 +203,7 @@ namespace Hexiege.EditorTools
         /// 다음 <b>최초 경기</b>를 <b>해시 불일치</b> 사유로 실패시킨다(즉시 실패).
         /// 최초 경기 실패 모달을 가장 빨리 보는 항목이다.
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/② 해시 불일치 (HashMismatch)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 최초 경기/② 해시 불일치 (HashMismatch)")]
         private static void ArmFirstHashMismatch()
         {
             Arm(MapTransferErrorCode.HashMismatch, MapTransferRoundKind.First, FirstRoundExpectation);
@@ -213,7 +214,7 @@ namespace Hexiege.EditorTools
         /// 🔴 이 사유만 즉시 실패가 아니다 — 실제 timeout 10초 → 재전송 1회 → 다시 10초를 거치므로
         /// 모달이 뜨기까지 약 20초 동안 <b>로딩 화면이 유지되는 것이 정상</b>이다.
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 최초 경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 최초 경기/③ 응답 없음 (ResponseTimeout · 약 20초 소요)")]
         private static void ArmFirstResponseTimeout()
         {
             Arm(MapTransferErrorCode.ResponseTimeout, MapTransferRoundKind.First,
@@ -240,7 +241,7 @@ namespace Hexiege.EditorTools
         /// 그 상태가 의도된 동작인지는 아직 확인된 바가 없다 — 그것을 보기 위한 항목이다.
         /// </para>
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 다음 재경기/④ 수락 전송 예외 (AcceptSendException)")]
+        [MenuItem("Hexiege/Debug/Failure/다음 재경기/④ 수락 전송 예외 (AcceptSendException)")]
         private static void ArmAcceptSendException()
         {
             ForcedAcceptSendFailure.Arm();
@@ -280,7 +281,7 @@ namespace Hexiege.EditorTools
         /// (규칙 D-4 의 싱글 적용 범위 — 싱글에는 그 타이머가 없다).
         /// </para>
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 싱글 맵 준비 (다음 1회)")]
+        [MenuItem("Hexiege/Debug/Failure/싱글 맵 준비 (다음 1회)")]
         private static void ArmSingleMapPreparationFailure()
         {
             ForcedMapPreparationFailure.Arm();
@@ -318,7 +319,7 @@ namespace Hexiege.EditorTools
         /// 「싱글인가」 조건을 함께 걸어 두었다 — 멀티에서는 예약을 <b>읽지도 않는다.</b>
         /// </para>
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 싱글 맵 투영 (다음 1회)")]
+        [MenuItem("Hexiege/Debug/Failure/싱글 맵 투영 (다음 1회)")]
         private static void ArmSingleMapProjectionFailure()
         {
             ForcedMapProjectionFailure.Arm();
@@ -350,7 +351,7 @@ namespace Hexiege.EditorTools
         /// 확인 수단이 없는 것보다 나쁜 상태가 된다.
         /// </para>
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 현재 설정 확인")]
+        [MenuItem("Hexiege/Debug/Failure/현재 설정 확인")]
         private static void ShowCurrent()
         {
             MapTransferErrorCode code = ForcedMapTransferFailure.PeekCode();
@@ -429,7 +430,7 @@ namespace Hexiege.EditorTools
         /// 껐다고 믿은 채 계속 실패를 겪게 된다 — 그래서 조건 없이 전부 지운다.
         /// </para>
         /// </summary>
-        [MenuItem("Hexiege/Debug/강제 실패 — 해제")]
+        [MenuItem("Hexiege/Debug/Failure/해제")]
         private static void DisarmMenu()
         {
             // 🔴 맵 전송 예약은 사유와 대상 회차가 한 덩어리라 Disarm 한 번이 둘을 함께 지운다.

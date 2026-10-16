@@ -223,11 +223,11 @@ Programmer의 읽기 전용 감사 완료 및 Main 독립 확인으로 **감사 
 - [ ] Simulation Root의 Animator·Renderer가 0인지 확인한다. 각 Animator와 같은 GameObject에 `AnimationEventRelay` 하나를 두고 relay 수와 Animator 수를 일치시킨다.
 - [ ] UnitFactory 등록, `UnitStatsConfig`, AttackProfile/Timeline, 실제 Animator Attack state clip, Animation Event와 VFX/SFX 연결을 함께 확인한다.
 - [ ] 이 문서의 유닛 행, UnitType·프리팹·Animator·프리셋 집계, 감사 기준일을 갱신한다.
-- [ ] `ValidateUnitCombatSetup.cs`의 `ExpectedPrefabCount`, 종족별 예상 수, UnitType 예상 수와 VFX/socket 기준선을 새 roster의 실제 의도에 맞춰 갱신한다. 단순히 검증을 느슨하게 하거나 오류를 무시하지 않는다.
-- [ ] 전체 Validate/Dry Run에서 누락·중복 identity, 부분 migration, projector 참조, Animator Root Motion, 네트워크 설정 변화가 모두 0인지 확인한다.
+- [ ] 새 roster의 실제 의도에 맞춰 필요한 구조·연결 검사와 VFX/socket 기준선을 검토한다. 2026-10-16 최소 유지 결정으로 별도 `ValidateUnitCombatSetup` 도구는 퇴역 대상이며, 남긴 전투 검사와 현재 에셋 authoring에서 확인할 조건을 빼거나 오류를 무시하지 않는다.
+- [ ] 누락·중복 identity, 부분 migration, projector 참조, Animator Root Motion과 네트워크 설정을 확인한다. 삭제 대상인 과거 Validate/Dry Run 메뉴의 재실행을 요구하지 않는다.
 - [ ] 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 역할교대해 Host/Client·Blue/Red에서 Simulation Root 값의 일치와 Visual Root에만 적용되는 관점 변환을 확인한다.
 
-B1 `SetupUnitVisualRoots.Apply`는 기존 50개 Legacy 프리팹을 한 번에 전환하기 위한 일회성 migration이다. 신규 프리팹마다 이 일괄 Apply를 다시 실행하지 않는다. 신규 프리팹은 처음부터 migrated 구조로 만들며, Legacy 구조를 가져온 경우 별도 단일 프리팹 설정 또는 수동 규격화 후 전체 검증을 통과시킨다. 고정 예상 수 때문에 신규 프리팹 추가 직후 검증기가 실패하는 것은 정상적인 fail-closed 동작이며, roster 문서와 검증 기준을 함께 검토하라는 신호다.
+B1 `SetupUnitVisualRoots.Apply`는 기존 50개 Legacy 프리팹을 한 번에 전환했던 일회성 migration이다. 2026-10-16 사용자 결정에 따라 관련 migration/rollback 에디터 도구는 퇴역하며 신규 프리팹마다 과거 일괄 Apply를 다시 실행하지 않는다. 신규 프리팹은 처음부터 migrated 구조로 만들고 Legacy 구조를 가져왔으면 현재 규격에 맞춰 수동 authoring한 뒤 필요한 구조·연결 조건을 확인한다. 남긴 검사기의 회귀 조건은 완화하지 않으며, 퇴역 도구 전체가 남긴 검사기로 완전히 대체됐다고 주장하지 않는다.
 
 ---
 
