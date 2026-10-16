@@ -536,7 +536,7 @@
 > 없으면 숨긴 제목의 자리가 빈 공간으로 남아 **제목이 없는 기존 확인/취소 팝업의 본문이 아래로 밀린다**(= 회귀). 같은 이유로 취소 버튼 숨김은 ButtonRow 의 HorizontalLayoutGroup 에 의존한다.
 > 이 전제는 **2026-09-21 에 프리팹에 실제로 반영됐다**(1회성 에디터 스크립트 `Assets/Editor/Setup/SetupConfirmPopupAlertLayout.cs` 로 수행 — WORKFLOW [5-2]). 그 스크립트는 **멱등이라 몇 번을 실행해도 결과가 같고, 프리팹이 깨졌을 때 되돌리는 수단으로도 쓸 수 있다.**
 >
-> **2026-10-16 최신 도구 결정:** 사용자가 필수 진입점만 남기는 최소 유지 기준을 승인해 ConfirmPopup 전용 복구 도구를 퇴역한다. 원본 비활성화·검증 뒤 사용자 테스트가 끝나면 파일·메타를 삭제하며 현재 프리팹과 팝업 동작은 보존한다. 다음 2026-10-15 보존·이동 결정은 당시 이력이며 최신 결정으로 대체됐다. CanvasGroup 예외 기획과 이번 도구 퇴역은 별개다. 작업 프로젝트·main 미반영 및 검증 경계는 [현재 Task](../_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)를 따른다.
+> **2026-10-16 최신 도구 결정:** 사용자가 필수 진입점만 남기는 최소 유지 기준을 승인했고, 비활성화 뒤 명시적으로 최종 삭제를 지시해 ConfirmPopup 전용 복구 도구와 대응 메타를 삭제했다. 현재 프리팹과 팝업 동작은 보존하며 사용자 테스트 PASS를 뜻하지 않는다. 다음 2026-10-15 보존·이동 결정은 당시 이력이며 최신 결정으로 대체됐다. CanvasGroup 예외 기획과 이번 도구 퇴역은 별개다. 실제 검증과 main 병합 상태는 [현재 Task](../_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)를 따른다.
 >
 > **2026-10-15 현재 위치·보존 결정:** 사용자가 에디터 정리 Plan을 승인해 `Assets/Editor/Tools/UI/SetupConfirmPopupAlertLayout.cs`에 복구 도구로 보존한다. 위 날짜별 실행 원문은 유지하며, 이번에는 파일 경로만 정리하고 프리팹을 재적용하지 않는다. 이 항목의 삭제/이동 선택은 해결됐고 아래 CanvasGroup 예외 기획은 별도 미결이다. 상세 진행은 [현재 Task](../_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다.
 > ⚠️ **프리팹 실측값(패딩·간격·LayoutElement 높이 배분)은 이 문서가 아니라 `.claude/agent-memory/game-programmer/ui-system.md` 「알림 팝업 — 프리팹 전제 조건」이 단일 소스다** — 값은 조정될 수 있고, 사본은 원본이 바뀌는 순간 조용히 거짓이 된다.
