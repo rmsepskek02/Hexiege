@@ -4,7 +4,9 @@
 
 **현재 상태: 최신 최소 유지 Plan §9 구현·정적 검증 완료, 사용자 테스트 대기.** 기존 7파일 활성·28파일 원문 비활성화와 활성 메뉴 17선언을 확인했다. 최종 파일 삭제는 사용자 테스트 뒤이며 아직 수행하지 않았다. 직전 19파일·33메뉴 제안은 대체됐으며 구현하지 않았다. 결과 확인 뒤 main에 병합한다.
 
-**작업 프로젝트:** `D:/Projects/Hexiege/Hexiege/.utmp/docs-checker-finalize`의 `codex/editor-script-organization` 브랜치에서만 작업한다. 현재 main 프로젝트에는 이 최소 유지 변경이 반영되지 않았다. 사용자는 작업 프로젝트 결과를 확인한 뒤 main 반영 여부를 결정한다.
+**현재 확인 프로젝트:** 기존 Unity 프로젝트 `D:/Projects/Hexiege/Hexiege`가 `codex/editor-script-organization` 브랜치로 전환돼 있어 이 경로에서 정리 결과를 확인할 수 있다. 구현 커밋은 `a031008c`이며 main 미병합 상태다. Unity 컴파일·메뉴 실행은 미확인이고 사용자 테스트·결과 확인 경계는 유지한다.
+
+기존 별도 작업 폴더 `.utmp/docs-checker-finalize`는 detached 조회용으로 전환했다. 사용자는 원래 Unity 프로젝트에서 현재 변경을 확인하며, 아래 별도 폴더 기준 기록은 전환 전 실행 이력으로 보존한다.
 
 문서 정리·검사기 정비 이력이 포함된 `codex/editor-script-organization`을 사용자가 요청한 세 작업의 통합 결과 브랜치로 유지한다. 에디터 변경까지 같은 브랜치에서 관리하며 확정 이력은 Git log를 기준으로 확인한다. main 병합의 사용자 결과 확인 경계는 그대로 유지한다.
 
