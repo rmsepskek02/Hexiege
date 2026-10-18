@@ -1,8 +1,10 @@
 # UI 에셋 제작 가이드
 
-> **제작 흐름**: AI 이미지 생성 → Unity Sprite로 Import
->
-> 공통 규칙(프로젝트 컨셉, 프롬포트 원칙, 공통 이미지 조건) → [CommonAssetGuide.md](CommonAssetGuide.md)
+> **목적·답하는 질문:** 초상화·아이콘·버튼·패널 등의 UI 이미지를 어떤 조건으로 만들고 Sprite로 가져오는지 안내한다.
+> **포함:** AI 이미지 생성 → Unity Sprite Import 흐름, 이미지 생성 시 준수 조건, 3D 모델 기반 초상화 제작, 종류별 조건·Import 설정·명명·폴더 규약을 담는다.
+> **제외·담당 문서:** 공통 제작 조건은 [CommonAssetGuide](CommonAssetGuide.md), 화면의 시각·조작 지침은 [UIGuidelines](../UIGuidelines.md), 실제 UI 동작은 [UI 규칙](../GameSystemRules/GameSystemRules_UI.md), 보유 목록은 [AssetList](AssetList.md)가 담당한다. 화면별 구현 이력은 넣지 않는다.
+> **권위원본·주요 참조:** UI 이미지 제작·Import 절차의 원본이다. 이미지 존재와 실제 프리팹 배선·화면 수용은 구분하고 실제 연결은 Inspector와 담당 규칙을 대조한다.
+> **갱신 조건·방법:** 승인된 제작·Import·명명 방식이 바뀌면 해당 절을 제자리 수정한다. 개별 제작 완료는 에셋 목록에, 적용·검증 과정은 Task/Log에 기록한다.
 
 ---
 

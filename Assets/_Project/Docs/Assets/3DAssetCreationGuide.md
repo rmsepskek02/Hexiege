@@ -1,8 +1,10 @@
 # 3D 에셋 제작 가이드
 
-> **제작 흐름**: Gemini로 2D 이미지 생성 → Meshy AI로 3D 모델 변환 → Unity Import
->
-> 공통 규칙(프로젝트 컨셉, 프롬포트 원칙, 공통 이미지 조건) → [CommonAssetGuide.md](CommonAssetGuide.md)
+> **목적·답하는 질문:** 게임에서 쓸 3D 모델을 어떤 이미지·팀 색상·변환 조건으로 제작하고 Unity에 가져오는지 안내한다.
+> **포함:** Gemini 2D 이미지 → Meshy AI 3D 변환 → Unity Import 흐름, 팀 구분·종족 컨셉, 재사용 프롬프트, 변환 전 체크리스트·설정·명명 규칙을 담는다.
+> **제외·담당 문서:** 공통 이미지·프롬프트 조건은 [CommonAssetGuide](CommonAssetGuide.md), UI 이미지는 [UIAssetGuide](UIAssetGuide.md), 별도 효과는 [VFXSFXGuide](VFXSFXGuide.md), 에셋 완성·선정 현황은 [AssetList](AssetList.md)가 담당한다. 생성 회차·구현 검증 일지는 담지 않는다.
+> **권위원본·주요 참조:** 3D 제작 절차의 원본이다. 게임 기능·스탯은 [게임 규칙 인덱스](../GameSystemRules.md)와 [StatsReference](../StatsReference.md), 공격 연결·수용은 [전투 감사표](UnitCombatAssetMatrix.md)를 따른다.
+> **갱신 조건·방법:** 승인된 모델 제작 방식·변환 설정·명명 규약이 바뀌면 해당 절과 요청 템플릿을 함께 갱신한다. 제작 완료만으로 게임 연결·애니메이션 수용을 선언하지 않는다.
 
 ### 파티클 및 이펙트 효과 제외 (No Particles/VFX)
 3D 모델링 변환 시 파티클이나 마법 효과(빛나는 오라, 불꽃, 연기, 번개 등)는 메시에 포함되어 형태를 심각하게 왜곡시킨다. 이펙트는 Unity 인게임에서 별도로 구현해야 한다.
@@ -38,15 +40,27 @@ Negative 키워드: particle effects, magic auras, glowing energy, smoke, fire, 
 
 ### 블루 → 레드 변환 프롬포트
 
-블루팀 이미지를 Gemini에 첨부한 뒤 아래 프롬포트로 레드팀 버전을 생성한다.
+블루팀 이미지를 첨부하고 아래 하나의 요청을 전달한다.
 
 ```
--Transform this Blue Team game asset into the Red Team version. -Change all blue areas, including fabric, glowing energy effects, and painted accents, -to a vibrant and highly saturated crimson red (#FF3030). -Maintain the exact same character pose, silhouette, and metallic/leather material textures. -Ensure the soft 3D cartoon stylized rendering and even lighting remain identical to the original. -The output must be a clean game asset on a pure white background. -Do not include: background, floor shadows, desaturated colors, -changes to the character's shape or pose, realistic textures, artifacts, blurry details. +Transform this Blue Team game asset into the Red Team version by changing the color palette. +Replace all blue areas (including fabric, painted accents, and decorative elements) +with a vibrant and highly saturated crimson red (#FF3030). +Keep the asset's original structure, silhouette, and material textures (metal, wood, leather) exactly the same. +Ensure the lighting, cartoon stylized rendering, and high-quality details are preserved. +The output must be a clean asset on a pure white background. +Do not include: background, floor shadows, changes to the asset's shape, desaturated colors, +realistic textures, artifacts, blurry details, particle effects, or magic VFX.
+Transform this Blue Team game asset into the Red Team version by changing the color palette.
+Replace all blue areas (including fabric, painted accents, and decorative elements)
+with a vibrant and highly saturated crimson red (#FF3030).
+Keep the asset's original structure, silhouette, and material textures (metal, wood, leather) exactly the same.
+Ensure the lighting, cartoon stylized rendering, and high-quality details are preserved.
+The output must be a clean asset on a pure white background.
+Do not include: background, floor shadows, changes to the asset's shape, desaturated colors,
+realistic textures, artifacts, blurry details, particle effects, or magic VFX.
 ```
 
 ### 레드 → 블루 변환 프롬포트
 
-+Transform this Red Team game asset into the Blue Team version by changing the color palette. Replace all crimson red (#FF3030) areas (including fabric, liquid body, and decorative elements) with a vibrant and highly saturated oceanic blue. Keep the asset's original structure, silhouette, and material textures (translucent liquid, bubbles, metal, etc.) exactly the same. Ensure the lighting, cartoon stylized rendering, and high-quality details are preserved. The output must be a clean asset on a pure white background. Do not include: background, floor shadows, changes to the asset's shape, desaturated colors, realistic textures, artifacts, blurry details, particle effects, or magic VFX.
+```
+Transform this Red Team game asset into the Blue Team version by changing the color palette. Replace all crimson red (#FF3030) areas (including fabric, liquid body, and decorative elements) with a vibrant and highly saturated oceanic blue. Keep the asset's original structure, silhouette, and material textures (translucent liquid, bubbles, metal, etc.) exactly the same. Ensure the lighting, cartoon stylized rendering, and high-quality details are preserved. The output must be a clean asset on a pure white background. Do not include: background, floor shadows, changes to the asset's shape, desaturated colors, realistic textures, artifacts, blurry details, particle effects, or magic VFX.
+```
+
+복사된 이전 diff 형식은 [이력](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-3d-color-patch)에 보존한다. 위 요청은 기존 최종 추가 문안의 표시만 정돈한 것이며 새 아트 방향이 아니다.
+
 ---
 
 ## 종족 컨셉
@@ -59,7 +73,7 @@ Negative 키워드: particle effects, magic auras, glowing energy, smoke, fire, 
 - **레퍼런스**: CoC 바바리안/궁수/기사 계열
 
 ### 정령계 (Spirit / Elemental)
-- **컨셉**: 다양한 원소 정령 — 현재 불꽃 구현, 이후 물/땅/전기/빛/어둠 등 추가 예정
+- **컨셉**: 불꽃·물·땅·전기·빛·어둠 등 다양한 원소 정령. 실제 제작·연결 현황은 [AssetList](AssetList.md)를 참조한다.
 - **아트 방향**: 반투명 에너지 몸체, 원소별 대표색, 인간형 실루엣
 - **원소별 색상 참고**:
   | 원소 | 대표 색상 | 키워드 추가 예시 |

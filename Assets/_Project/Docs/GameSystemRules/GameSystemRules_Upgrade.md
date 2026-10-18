@@ -1,40 +1,34 @@
 # Game System Rules — 연구소 기반 유닛 강화(업그레이드) 시스템 + 전투 스탯 ×10 스케일
 
-연구소(Research 건물)로 팀 단위 유닛을 강화하는 신규 시스템과, 함께 진행하는 전투 수치 ×10 스케일 개편의 구현 계약이다.
+- **목적·답하는 질문:** 연구소의 팀 단위 유닛 강화와 전투 수치 스케일 계약을 판단한다.
+- **포함:** 공/방/속·초월 자연회복, 연구 비용·소급 적용·서버 권위·연구 패널·×10 의미
+- **제외·담당 문서:** 현재 스탯 값은 [StatsReference](../StatsReference.md), 피해 감쇄 소비는 [Units](GameSystemRules_Units.md), 현재 상태·후속은 [PROJECT_STATUS](../PROJECT_STATUS.md)·[ROADMAP](../ROADMAP.md)
+- **권위원본·주요 참조:** 연구 시스템 규칙·예외 원본; Config 직렬화 값은 코드 기본값보다 우선
+- **갱신 조건·방법:** 강화 계약 승인 변경 때 해당 규칙을 갱신한다. 과거 적용·검증·별도 보류를 전체 완료로 합치지 않고 현재 상태와 상세 근거를 연결한다.
 
-> **상태: 구현 완료 (기능·멀티플레이 실기 PASS, 2026-07-31).** 강화 시스템(공/방/속 + 초월 자연회복)·전투 스탯 ×10 스케일·연구 패널 UI가 모두 구현되어 멀티플레이 실기 테스트를 통과했다. 아래 "구현 상태" 섹션에서 완료 범위와 후속 보류 항목(UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용·MistShrine 힐(**2026-08-12 구현 완료 / 멀티 미검증**)·싱글 자연회복 실기)을 구분한다. 규칙 1~12는 구현 계약이자 현재 구현의 계약이며, 규칙 13이 연구 패널 UI 최종 설계다.
->
-> **×10 config 반영(중요):** 전투 수치 ×10은 config `.asset`(UnitStatsConfig/BuildingStatsConfig/SpecialAttackConfig)에 **값이 커밋되어 저장소 기본값이 ×10**이다(코드 폴백 기본값도 ×10, Inspector 값 우선). ×10 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거되어, 더 이상 별도 실행이 필요 없다. 개별 ×10 값의 권위 소스는 `StatsReference.md`.
+연구소 강화·연구 패널과 전투 스탯 ×10의 기능 계약은 아래 규칙을 따른다. 현재 구현·검증 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 후속은 [ROADMAP](../ROADMAP.md), 과거 완료·보류 묶음은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-01)다. 개별 PASS를 다른 미검증 범위로 확대하지 않는다.
+
+Config 직렬화 값이 코드 fallback보다 우선한다. ×10은 저장된 기본값이므로 폐지된 일회성 셋업 도구를 실행하지 않는다. 현재 개별 수치는 [StatsReference](../StatsReference.md)를 따른다.
 
 ---
 
 ## 이 문서가 무엇이고 왜 만들었는가 (자연어 설명)
 
-지금 Hexiege에는 경기 중 유닛을 성장시키는 요소가 없다. 이 시스템은 플레이어가 **연구소를 지어 골드·시간을 들여 자기 팀 유닛을 강화**할 수 있게 한다. 강화 능력은 **공격력·방어력(신규)·이동속도** 3종이며, 초월(Transcendence) 종족은 여기에 **자연회복**(모든 초월 유닛이 전투 중에도 매초 체력을 조금씩 회복)이 추가된다.
+플레이어는 연구소를 지어 골드·시간을 들여 자기 팀 유닛의 공격력·방어력·이동속도를 강화한다. 초월 종족은 전투 중에도 적용되는 자연회복 트랙을 추가로 가진다. 도입 전 상태는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-02)다.
 
 핵심 결정은 강화 효과가 **이미 전장에 나와 있는 유닛에게도 즉시 소급 적용**된다는 점이다. 이를 위해 유닛마다 스탯을 재계산해 네트워크로 재동기화하는 무거운 방식 대신, **"기본 스탯 × 팀 배율"을 데미지·이동을 실제로 쓰는 순간에 곱하는 방식(이하 (B) 방식)** 을 쓴다. 서버는 팀별 연구 레벨만 들고 있으면 된다.
 
-이 강화 시스템은 **전투 수치 ×10 스케일 개편**과 함께 도입된다. 모든 전투 수치를 ×10으로 키우면 강화 증가폭이 항상 깔끔한 정수 등차로 떨어져 업그레이드 그리드가 규칙적으로 정리된다. HP와 공격력을 같은 배율로 키웠으므로 **TTK(처치 타수)는 스케일 전과 수학적으로 완전히 동일**하다 — 상성·매치업은 불변이고, 강화 그리드만 개선된다. 전 수치 대조는 `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`가 단일 진실 소스다.
+전투 수치 ×10은 강화 증가폭을 정수 그리드로 정리하는 스케일 계약이다. HP·공격력을 같은 배율로 키워 스케일 자체로 처치 타수·상성·매치업을 바꾸지 않는다. 현재 값은 [StatsReference](../StatsReference.md), 도입 당시 old/new 비교는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-03)와 기존 BalanceReview 기록을 참조한다.
 
 ---
 
 ## 구현 상태 (2026-07-31 — 기능·멀티플레이 실기 PASS)
 
 ### ✅ 구현 완료 (멀티플레이 실기 검증)
-- **전투 스탯 ×10 스케일** — config `.asset`에 ×10 값 커밋 반영(저장소 기본값이 ×10, 별도 실행 불필요). 코드 폴백 기본값도 ×10.
-- **방어력 신규 스탯 + 비율 감쇄 공식(K=120)** — 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense(raw, defense)`(floor 1, 감쇄율 하드캡 65%, 방어 0이면 무감쇄 하위호환). 직격·스플래시·타워→유닛 최종 데미지 지점 일괄 적용, DoT 틱값 미적용(규칙 5·6).
-- **유닛별 고정 정수 공격력 증가 / 이동속도 배율 / 힐량 트랙 / 초월 자연회복** — Application `UseCases/UnitUpgradeUseCase.cs`가 팀별 트랙 레벨을 보관하고 사용 지점에서 (B) 실시간 배율/증가치를 조회(`GetEffectiveAttack`/`GetMoveSpeedMultiplier`/`GetDefense`/`GetRegenPerSecond`/`ScaleByGroupAttack`). 그룹 매핑 `Domain/Unit/UpgradeGroup.cs`(`UpgradeGroup`·`UnitUpgradeStat`·`UpgradeGroupHelper`). 자연회복은 BloomFairy 힐과 별개 채널(규칙 7).
-- **Tank/CannonCart 건물 대상 2배** — `UnitCombatUseCase.ComputeFinalDamage`에서 대상이 건물이고 공격자가 Tank/CannonCart면 ×2.
-- **팀별 강화 상태 + 서버 권위 + 소급 강화(B)** — 유닛 스냅샷 미변경, 이미 전장에 나온 유닛도 연구 완료 즉시 강화.
-- **네트워크 동기화** — Infrastructure `Network/NetworkUpgradeController.cs`. 연구 완료 레벨은 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중 연구는 소유자에게만, 연구소 파괴 시 진행 연구 취소·투입 골드 100% 환불. **MP 완료 처리의 서비스 스폰 레이스 버그는 `ResolveServices()`(지연 재조회)로 수정 완료.**
-- **연구 패널 UI** — 규칙 13 참조(`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어). 초기 배선·디버그에 쓰였던 에디터·디버그 스크립트는 역할 종료 후 제거됨(배선은 씬에 반영 완료).
+연구 강화·×10 스케일의 개별 완료/실기 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 당시 구성·검증 원문은 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-upgrade-01)를 따른다. 과거 PASS를 싱글 자연회복·AI 연구 사용 등 미검증 범위로 확대하지 않는다.
 
 ### ⏳ 후속 / 보류 (별도 작업, 과대 표기 금지)
-- **UI 레이아웃 다듬기** — 현재 UI는 에디터 스크립트 자동생성 골격이라 비주얼 미완성. 사용자가 Unity에서 직접 다듬을 예정.
-- **매트릭스 헤더 아이콘**(공/방/속·그룹) — 텍스트 라벨로 대체 중, 아이콘 에셋 작업 별도.
-- **AI 시나리오 연구 사용** — 코드는 있으나 실기 미검증(규칙 11, 별도 작업).
-- **MistShrine(HealShrine) 힐** — **재설계 확정(2026-08-10) → 2026-08-12 구현 완료 / 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증 · VFX·아이콘 미제작 · 밸런싱 미확정.** 규칙은 이 문서가 아니라 [`GameSystemRules_Buildings.md`](GameSystemRules_Buildings.md) **"MistShrine 물안개 힐 시스템"** 섹션이 단일 소스다(물안개 지속 힐, 아군 유닛+건물 대상, 1초 discrete 틱 아우라, 자동/수동 모드). **자연회복(규칙 7)과는 별개 효과이며 서로 중첩되어 함께 적용된다** — 자연회복이 BloomFairy 힐과 별개 채널이어야 하는 것과 같은 이유로, 물안개 힐도 자연회복·BloomFairy 힐과 겹치지 않는 **독립 채널**로 구현해야 한다. 규칙 1의 "MistShrine 1→10/s" ×10 표기는 재설계 이전 수치이므로 밸런싱 재검토 대상(규칙 1 주석 참조).
-- **싱글플레이 자연회복** — 실기 미검증(코드상 정상 예상).
+현재 후속·우선순위는 [ROADMAP](../ROADMAP.md)에서 관리한다. 자연회복과 MistShrine 물안개·BloomFairy 힐은 서로 독립 채널로 중첩 적용한다. MistShrine의 재설계 이전 `1→10/s`는 현행 수치 확정이 아니며 규칙1의 보류와 건물 규칙 원본을 따른다. UI 다듬기·헤더 아이콘·AI 연구·싱글 자연회복·MistShrine 멀티/아트/밸런싱의 과거 상태를 완료로 올리지 않는다.
 
 ---
 
@@ -42,9 +36,7 @@
 
 **규칙 1. 전투 스탯 ×10 스케일 (강화의 전제)**
 
-아래 항목을 **전부 ×10** 한다: 유닛 HP·공격력, 건물 HP, 타워 HP·공격력, DoT 틱값(MushroomBomber 2→20/s, InfernoSpirit 5→50/s), 힐량(BloomFairy 20→200, TorrentSpirit 아군 힐 10→100, MistShrine 1→10/s ※아래 주석).
-
-> ※ **MistShrine 1→10/s 표기는 밸런싱 재검토 대상이다(2026-08-10).** 이 값은 MistShrine을 "범위 힐이 딸린 방어 타워"로 보던 **재설계 이전 수치**에 ×10만 적용한 것이다. MistShrine은 2026-08-10 재설계로 **물안개 지속 힐 건물**(아군 유닛+건물 대상, 1초 discrete 틱, 지속시간·쿨다운 존재)로 확정되었고, 회복량·지속시간·쿨다운·반경은 **전부 미확정**이다 — [`GameSystemRules_Buildings.md`](GameSystemRules_Buildings.md) MistShrine 물안개 힐 시스템 규칙 16 참조. 즉 ×10 원리(HP·힐량 동일 배율)는 유효하되 **10/s라는 구체값이 재설계 후에도 유효한지는 밸런싱에서 재확정**한다. 다른 ×10 항목은 영향 없다.
+×10 대상은 유닛 HP·공격력, 건물/타워 HP·타워 공격력, 고정 DoT와 힐량이다. 현재 개별 값은 [StatsReference](../StatsReference.md)를 참조한다. MistShrine은 물안개 힐로 재설계되어 구체 회복량·지속·쿨다운·반경의 밸런싱 확정이 보류 중이다([건물 규칙16](GameSystemRules_Buildings.md)). HP·힐량의 동일 스케일 원리는 유지하며 재설계 이전 값을 현행 확정 수치로 재사용하지 않는다. 이전 수치 비교·보류 경위는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-04)다.
 
 **×10 하지 않는 것(불변):** 공격/감지 사거리(타일), 이동속도(칸/초), 공격 쿨다운·생산 시간·연구 시간, 모든 골드 비용, 채굴 수입(10골드/초), 스플래시/특수 **비율**(QuakeSpirit 50%, Tank/CannonCart 건물 2배, 부채꼴/원형 반경, TorrentSpirit 힐=공격력×0.5 등).
 
@@ -93,7 +85,7 @@
 ```
 
 - 방어력 트랙: Lv0~5 = **0 / 8 / 16 / 24 / 32 / 40**, 감쇄 상수 **K = 120**.
-- **최소 데미지 1 보장(floor) 필수.** 감쇄율 **하드캡 60~65%** 를 미래 확장 안전장치로 코드에 포함(현 Lv5는 25%로 미도달).
+- **최소 데미지1 보장(floor) 필수.** 감쇄율 하드캡은65%(`DamageCalculator.MaxMitigationRate=0.65f`)이며 미래 확장의 무한 감쇄를 막는다(현 Lv5는25%로 미도달). 이전 범위 표기는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-08)다.
 - **방어력 감쇄는 직격 · 스플래시에만 적용하고, DoT 틱값에는 미적용**한다(2026-07-23 확정 — 기존 "DoT에도 적용" 결정을 뒤집음). 직격·스플래시의 모든 최종 데미지 지점에 일괄 적용하며, **타워→유닛 데미지도 포함**한다(방어 타워가 유닛에 주는 피해도 유닛 방어 감쇄 대상, `GameSystemRules_Units.md` 규칙 44 및 `GameSystemRules_Buildings.md` **방어 타워 시스템** 규칙 9와 상호 참조).
 - **하위호환:** Lv0(방어 0)이면 감쇄 0% → `Max(1, Round(공격력×1)) = 공격력`으로 기존과 완전히 동일.
 - **건물 방어력 = 0 고정, 트랙 없음(향후 확장 보류):** 건물도 `BuildingData`에 방어력 필드(기본 0)를 두어 감쇄 공식이 유닛·건물에 **통일 적용**되게 한다(별도 `target is UnitData` 분기 불필요). 단 **건물 방어력 업그레이드 트랙은 없어** 건물 방어력은 항상 0(실질 감쇄 0%)이다 — 건물 방어 트랙은 이번 도입 범위 밖(향후 확장 보류).
@@ -105,14 +97,14 @@
 - **고정 DoT 틱값(MushroomBomber 20/s, InfernoSpirit 50/s)에는 반영하지 않는다**(강화와 무관하게 고정). **방어력 감쇄(규칙 5)도 DoT 틱값에는 미적용**이다(2026-07-23 확정 — DoT는 공격력 연구·방어력 연구 어느 쪽에도 영향받지 않는 고정 틱값). 방어력 감쇄는 직격·스플래시에만 적용한다.
 - **공격력 파생 스케일:** QuakeSpirit 스플래시(= 공격력 × 0.5), TorrentSpirit 파도(= 공격력)는 공격력을 쓰므로 공격력 연구에 따라 함께 커진다.
 - **힐량:** BloomFairy 힐(초월 식물 그룹 공격력 트랙을 따름, 200→280), TorrentSpirit 아군 힐(= 물 공격력 × 0.5, 100→140). `StatsReference.md` §힐량 트랙.
-  - **구현 방식 (신규 로직 필수):** 현재 코드의 힐은 `SpecialAttackConfig` **고정 상수**(`_bloomHealAmount`·`_waveHeal`)이며 `AttackPower`를 참조하지 않는다(qa 확인). 특히 BloomFairy는 순수 힐러(공격 없음)라 AttackPower 경로가 원천적으로 없다. 따라서 힐의 연구 스케일은 **`AttackPower` 필드가 아니라 해당 그룹의 공격력 트랙 레벨을 직접 조회하는 별도 신규 로직**으로 산출한다 — BloomFairy = 초월 **식물** 공격력 트랙, TorrentSpirit = **물** 공격력 트랙.
+  - 힐 연구 배율은 `AttackPower` 스냅샷이 아니라 해당 그룹의 공격력 트랙 레벨을 조회한다. BloomFairy는 공격 없는 순수 힐러이므로 초월 식물 트랙, TorrentSpirit는 물 트랙을 사용한다. 도입 전 고정 상수·신규 로직 지침은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-05)다.
 
 **규칙 7. 자연회복 (초월계 전용 상시 HoT)**
 
 - 초월계 전 유닛 대상 **조건 없는 상시 HoT**(전투 중 포함). 최대 HP 미변경, `UnitData.Heal`로 MaxHp 클램프(풀피 유닛은 회복량 0으로 자연 무동작).
 - 레벨별 고정 HP/s: Lv0~5 = **0 / 3.0 / 6.0 / 9.0 / 12.0 / 15.0**(레벨당 +3.0). 자연회복 트랙 레벨 0이면 무동작.
 - 기존 "1초 간격 discrete 틱, 서버 권위" HoT/DoT 인프라(`GameSystemRules_Units.md` 규칙 30·34·40 — BloomFairy 힐 / MushroomBomber·InfernoSpirit DoT) 재사용. 서버 틱 진입점은 싱글=`GameBootstrapper.Update`(`!IsNetworkMode`)·멀티=`NetworkCombatController`(IsServer), **이중 틱 금지**.
-- **힐과 별개 채널 (상호 간섭 금지):** 자연회복(초월 상시 HoT)과 BloomFairy 힐은 **서로 독립적으로 동시 적용**되어야 한다. 현재 HoT 시스템은 대상별 효과를 `(대상 Id, 종류)` 키로 관리하고 힐은 `TimedEffectKind.Heal` 버킷 하나뿐이라(qa 확인 — `AddOrRefreshTimedEffect`, 키 = `(TargetId, Kind)`), 자연회복을 같은 Heal 버킷에 넣으면 BloomFairy 힐과 **서로 덮어써 한쪽이 소멸**한다. 따라서 자연회복은 **Heal 버킷과 분리된 독립 채널(신규 `TimedEffectKind` 또는 별도 자료구조)** 로 구현해 BloomFairy 힐과 상호 간섭이 없도록 한다.
+- **힐과 별개 채널(상호 간섭 금지):** 자연회복과 BloomFairy 힐은 서로 독립적으로 동시 적용한다. 자연회복을 같은 `(TargetId, Kind)` Heal 버킷에 넣어 한쪽이 덮어써지지 않도록 채널을 분리한다. MistShrine 물안개도 별도 채널이다. 도입 전 자료구조 선택지는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-06)다.
 
 **규칙 8. 연구소 운영**
 
@@ -187,7 +179,7 @@
 
 ## 참고 문서
 
-- 수치 단일 진실 소스(old/new 대조): `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`
+- 스케일 도입 당시 old/new 비교 기록: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md` (현재 수치는 StatsReference와 실제 Config를 참조). 이전 권위 표기는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-upgrade-07)다.
 - 개별 스탯 값(×10, 구현 완료): `StatsReference.md`
 - 조사/계획: `_Tasks/2026-07-22/10_08_unit-upgrade-system/Research.md`, `Plan.md`(하단 "완료 결과" 절에 실제 구현 대비 정정 기록)
 - 전투·데미지·HoT/DoT 규칙: `GameSystemRules_Units.md`(규칙 5·16·18·30·34·40·42·44)

@@ -1,5 +1,11 @@
 # Game System Rules — Canvas SortingOrder
 
+- **목적·답하는 질문:** 겹친 UI가 올바른 순서로 보이도록 Canvas 정렬 책임과 대역을 판단한다.
+- **포함:** 전역 SortingOrder 대역, 씬/전역 프리팹 계층, 새 Canvas 추가 기준
+- **제외·담당 문서:** 팝업·입력 동작은 [UI](GameSystemRules_UI.md), 색상·레이아웃 지침은 [UIGuidelines](../UIGuidelines.md), 작업 회차는 Task/History
+- **권위원본·주요 참조:** Canvas 정렬 구조·대역의 규칙 원본; 실제 씬·프리팹 구성과 대조
+- **갱신 조건·방법:** Canvas 추가·계층·정렬값 변경 때 해당 표와 규칙을 함께 갱신하고 일회성 수정·검증 보고를 본문에 쌓지 않는다.
+
 ## 이 문서의 목적 (자연어 설명)
 
 Hexiege는 여러 개의 UI가 화면에 겹쳐서 그려집니다. HUD 위에 패널이 뜨고,
@@ -84,7 +90,9 @@ UI의 성격에 따라 아래 대역을 사용한다. 같은 성격의 UI는 같
 | 대상 | SortingOrder | 비고 |
 |---|---|---|
 | LoadingIndicator.prefab | 300 | 독립 Canvas, OverrideSorting=true |
-| ConfirmPopup.prefab | 250 (예정) | 독립 Canvas, OverrideSorting=true — 현재 작업으로 추가 예정 |
+| ConfirmPopup.prefab | 250 | 독립 Canvas, OverrideSorting=true, GraphicRaycaster 포함 |
+
+기존 추가 예정 표기는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-canvassortingorder-01)에 보존한다. 현재 표는 프리팹 직렬화 필드 확인이며 새 실행·실기 수용을 뜻하지 않는다.
 
 ---
 

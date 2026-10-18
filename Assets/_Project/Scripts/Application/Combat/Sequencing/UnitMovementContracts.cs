@@ -1671,6 +1671,63 @@ namespace Hexiege.Application.Combat.Sequencing
         }
     }
 
+    /// <summary>
+    /// 싱글 Legacy 추격의 XZ 후보와 실제 도착을 같은 경계에서 계산한다.
+    /// Root 높이, Domain 위치 및 멀티 Reducer는 호출자가 그대로 보존한다.
+    /// </summary>
+    public static class UnitSoloPursuitStep
+    {
+        public static void Plan(double x, double z, double goalX, double goalZ,
+            double distanceBudget, out double nextX, out double nextZ)
+        {
+            double dx = goalX - x, dz = goalZ - z;
+            double distance = Math.Sqrt(dx * dx + dz * dz);
+            nextX = x;
+            nextZ = z;
+            if (!Finite(x) || !Finite(z) || !Finite(goalX) || !Finite(goalZ)
+                || !Finite(distanceBudget) || distanceBudget <= 0d || !Finite(distance)) return;
+            // 남은 거리보다 큰 frame budget도 waypoint를 지나치지 않는다.
+            // 도착 frame은 목표 좌표를 그대로 돌려 부동소수점 누적 왕복을 막는다.
+            if (distance <= distanceBudget)
+            {
+                nextX = goalX;
+                nextZ = goalZ;
+                return;
+            }
+            nextX = x + dx / distance * distanceBudget;
+            nextZ = z + dz / distance * distanceBudget;
+        }
+
+        public static bool Reached(double x, double z, double goalX, double goalZ,
+            double distanceBudget)
+        {
+            if (!Finite(x) || !Finite(z) || !Finite(goalX) || !Finite(goalZ)
+                || !Finite(distanceBudget) || distanceBudget <= 0d) return false;
+            double dx = goalX - x, dz = goalZ - z;
+            return dx * dx + dz * dz <= 0.000001d;
+        }
+
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+
+        // 태그/한글 메시지/GameLog envelope에 180 byte를 예약한다. 원문을 잘라 정상처럼 내지 않는다.
+        public static bool FitsEvidence(string data) => data != null && Encoding.UTF8.GetByteCount(data) <= 600;
+
+        public static bool TryConsume(UnitPathCheckpointTracker checkpoint, int index,
+            bool advanced, bool reached, bool acquired, bool direct, bool routeCurrent)
+            => advanced && reached && !acquired && !direct && routeCurrent
+                && checkpoint.TryConsume(index, reachedWaypoint: true);
+
+        /// <summary>유닛 수명당 상세 상한. 누락은 숨기지 않고 첫 초과를 따로 표시한다.</summary>
+        public static bool TakeEvidence(ref int emitted, ref int omitted, out bool firstOmission)
+        {
+            firstOmission = false;
+            if (emitted < 64) { emitted++; return true; }
+            if (omitted < int.MaxValue) omitted++;
+            firstOmission = omitted == 1;
+            return false;
+        }
+    }
+
     public enum UnitRepathDecision
     {
         AcceptedNextFrame = 0,

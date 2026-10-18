@@ -93,6 +93,14 @@
 - 2026-10-10  Live-append Editor log Tail read expanded into unbounded output
 - 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
 - 2026-10-12  Unfiltered Unity Editor header exposed licensing authentication fields in tool output
+- 2026-10-14  live regression 산출물의 이전내용을 실행결과로 오인해 RED를 잘못인계 — 2026-10-15 DLL 존재를 최종 source 컴파일 완료로 오인한 후속 사건 포함
+- 2026-10-14  View lifecycle incorrectly treated as authoritative pending-hit cancellation
+- 2026-10-14  숫자 enum 타입을 낡은 요약으로 해석해 에이전트에게 잘못 인계
+- 2026-10-14  과거 승인 계약 감사 요청을 현재 config 실행 확인으로 대신함
+- 2026-10-14  Fox 원래 2:25 프레임 의도를 잘못된 2.25초 기준으로 판단함
+- 2026-10-14  허용 목록 밖 git for-each-ref를 읽기 전용이라는 이유로 실행함
+- 2026-10-15  원래 교정 복원에 General23·중첩 정책 결정을 필수 작업처럼 추가함
+- 2026-10-16  에디터 정리를 파일 이동으로 좁혀 불필요 도구 삭제·실사용 메뉴 분류를 빠뜨림
 
 ---
 
@@ -1835,6 +1843,20 @@ InfernoSpirit 공격 타임라인 조사의 읽기 전용 진단만 맡은 `game
 
 **Lesson:** For live-appending logs, capture a fixed bounded byte snapshot/range and cap decoded output before inspection; do not rely on Get-Content Tail as the output bound. Stop the reader promptly on unexpected growth and distinguish reader interruption from Unity abort or file modification.
 
+**2026-10-14 재발 — 원문 보존(Main 사건 전달):**
+
+**무엇을 틀렸나**
+Main이 17:28 RuntimeLog의 metadata 크기869bytes를 읽기 안전 보증으로 취급해 tool `25f90b`에서 제한 없는 Get-Content를 사용했다. 파일은 live append로 2425행/약239744 output tokens까지 커졌고 출력은 budget1800으로 잘렸다. 수치는 Main 전달값이며 원시 로그를 재출력하지 않는다.
+
+**왜 그랬나**
+읽기 전 크기는 그 시점의 metadata일 뿐인데 실제 읽는 bytes가 고정된 스냅샷이라고 간주했다. 이전 live-append 읽기 실패와 같은 형태의 AI 출력 범위 실수이지 사용자 게임 버그가 아니다.
+
+**어떻게 드러났나**
+실제 tool 반환의 대량 출력·truncation으로 드러났다. 이 사건으로 게임 타이밍 원인이나 로그 전체 검증을 주장하지 않는다.
+
+**교훈**
+작아 보이는 파일도 먼저 source copy/고정 byte 범위로 스냅샷을 만들고, 그 고정 입력만 행·열/byte 상한을 둬 읽는다. metadata 크기와 출력 token budget은 입력 읽기 상한을 대신하지 못한다. 민감값과 원시 로그는 사건 기록에 복제하지 않는다.
+
 ---
 
 ## 2026-10-11  MigrationRequired를 미테스트로 오독해 테스트 완료 유닛을 다시 추천
@@ -1864,3 +1886,149 @@ Main이 매트릭스의 MigrationRequired/CONDITIONAL·과거 수용 대기 표�
 **How it surfaced:** Main identified the authentication-field exposure and requested immediate incident documentation. Main confirmed project path `D:\Projects\Hexiege\Hexiege`, but new-source import was not confirmed. Game/asset contents remained unchanged per Main's handoff; this record does not independently audit files or establish import/native validation success.
 
 **Lesson:** Before printing any Editor header content, allowlist only project-path and `Successfully changed` identity fields, and extract only the required identity value rather than whole startup/command-line lines. Independently exclude token/auth/credential/password/secret and related licensing-authentication patterns case-insensitively before output; exclusions take precedence over the allowlist. Never print a whole log header, and never repeat/copy sensitive values into a Task, memory, incident record or user reply. Record only the incident and actionable prevention steps. Keep project identity confirmation separate from source import/assembly generation and fresh native execution evidence.
+
+---
+
+## 2026-10-14  live regression 산출물의 이전내용을 실행결과로 오인해 RED를 잘못인계
+
+**무엇을 틀렸나**
+Main이 RED 단계 script/Regression.cs를 읽은 뒤 programmer에게 「Main 독립 RED exit 1」이라고 잘못 전달했다. 실제 live Regression.exe 실행은 다른 에이전트의 GREEN 갱신 뒤였으며 반환값은 GREEN/exit 0이었다(Main 사건 전달 근거).
+
+**왜 그랬나**
+읽은 source 스냅샷을 실행 시점의 산출물 세대와 동일시하고, 실제 도구 반환값 대신 이전 내용으로 exit를 추정했다.
+
+**어떻게 드러났나**
+Main이 실제 tool 결과 GREEN/exit 0을 확인해 다음 메시지에서 즉시 정정했다. 사용자에게 RED 주장을 보내지는 않았다. Main 독립 확인은 GREEN만이며 RED 근거는 programmer 원본 tool 실행으로 구분한다.
+
+**교훈**
+실행 전에 executable/source의 해시·생성 세대·시각을 고정해 같은 실행에 묶고, 실제 도구 반환값으로만 실행 판정과 exit를 인계한다. source/script를 읽은 결과는 관측 내용으로 표시하며 실행 결과로 바꾸지 않는다.
+
+### 2026-10-15 후속 사건 — DLL 존재와 최종 source 세대의 컴파일 완료를 혼동
+
+**무엇을 틀렸나**
+Main이 DLL 파일 존재만 보고 commentary에서 「현재 버전 Runtime/Editor compile 완료」라고 단정했다. 실제 DLL은 검증 코드 추가 전 1차 출력이었다. 기존 source 코드에 영향은 없으며, 최종 구현·검증 receipt는 대기 중이다(Main 사건 인계).
+
+**왜 그랬나**
+DLL이 존재한다는 사실과 그 DLL이 최종 source 세대로 컴파일됐다는 사실을 혼동했다.
+
+**어떻게 드러났나**
+Main이 source 최종 수정 시각17:38과 DLL 시각17:36/17:37을 직접 대조했다. 사용자에게 즉시 1차 기준 결과이며 최종 재compile 확인 예정이라고 정정했다. 이 시각·정정은 Main 전달값이며 문서 담당이 별도로 실행·측정한 결과는 아니다.
+
+**교훈**
+완료 보고 전에 수정 manifest의 hash를 고정하고, 최종 source 수정 이후 해당 세대로 실행한 실제 compile의 exit·출력을 확인한다. 파일 존재나 이전 출력만으로 현재 버전 compile 완료를 보고하지 않는다. 정정 예정·재compile 예정은 완료/PASS로 쓰지 않는다.
+
+---
+
+## 2026-10-14  View lifecycle incorrectly treated as authoritative pending-hit cancellation
+
+**무엇을 틀렸나**
+programmer 중간 패치가 OnDisable/Initialize에서 terminal:true로 ownerRetired를 설정해, 살아 있는 현재 Domain 유닛의 이미 커밋된 HP 타격까지 TickPendingHits에서 취소했다(Main source 검토 사건 근거; 사용자 실기 발생 주장 아님).
+
+**왜 그랬나**
+표현 playback의 종료·재바인딩을 gameplay 소유권 폐기로 취급해 View 수명과 Domain identity/life를 혼동했다.
+
+**어떻게 드러났나**
+Main이 최종 전 source 검토에서 발견했다. CloseSoloAttackPlayback의 alive/current Domain guard로 수정하고 기존 pending을 보존했으며, 실제 production core의 alive View-close HP 적용과 Domain death/removal/reuse CLR assertions가 GREEN이었다(Main 독립 실행 포함).
+
+**교훈**
+presentation playback close와 authoritative owner retire를 분리하고 Domain identity/life만 pending 취소를 허용하게 한다. flag만 검사하지 말고 실제 production 피해 writer를 실행해 살아 있는 owner의 커밋 HP 보존과 진짜 Domain 폐기의 취소를 각각 검증한다. 이 근거를 native/사용자 경기 수용이나 새 게임 규칙으로 승격하지 않는다.
+
+---
+
+## 2026-10-14  숫자 enum 타입을 낡은 요약으로 해석해 에이전트에게 잘못 인계
+
+**무엇을 틀렸나**
+Main이 raw type21을 낡은 요약으로 해석해 에이전트 프롬프트에서 Inferno로 잘못 불렀다(Main 사건 전달). 실제 현재 UnitType.cs는 Inferno12/FoxMagician21이며 게임 버그가 아니라 숫자 타입 인계 오류다.
+
+**왜 그랬나**
+로그의 숫자 타입을 현재 enum 원본과 대조하지 않고 이전 요약의 이름을 재사용했다.
+
+**어떻게 드러났나**
+Main이 UnitType.cs를 직접 읽어 실제 매핑을 확인하고 사용자 보고 전에 에이전트에게 즉시 철회·정정했다. 사전에 잡혔어도 잘못된 인계 사건은 보존하며 게임 테스트 기록에 잘못된 이름을 전파하지 않는다.
+
+**교훈**
+분석마다 숫자 로그 타입을 현재 enum 원본에서 직접 매핑한 뒤 전달한다. 이전 요약·하드코딩된 이름으로 숫자를 해석하지 말고, 오인 인계는 정정 수신자와 시점을 구분해 남긴다.
+
+---
+
+## 2026-10-14  과거 승인 계약 감사 요청을 현재 config 실행 확인으로 대신함
+
+**무엇을 틀렸나**
+사용자가 과거 교정·수용 계약과 현재 구현 비교를 요청했는데 Main은 먼저 현재2.25초 timer 실행을 확인하고 historical-contract 감사 전에 peer 테스트를 제안했다(Main 사건 전달). 현재 설정대로 실행된 사실을 과거 결정의 정확성 판단에 대신 사용한 절차 오류다.
+
+**왜 그랬나**
+현재 config를 correctness oracle로 삼아 실행 정합성과 사용자 승인 의도를 같은 질문으로 취급했다.
+
+**어떻게 드러났나**
+사용자가 요청은 이전 교정과 현재의 비교라고 정정했다. 따라서 전 유닛의 최종 과거 clip/config/Factory 승인·수용 결정부터 수집하는 감사로 순서를 바로잡았다. enum 오인 사건과 별개이며 실제 게임 원인을 확정한 기록이 아니다.
+
+**교훈**
+로그를 해석하거나 비교 실기를 제안하기 전에 최신 historical accepted 결정과 변경 날짜에서 expected 계약을 도출한다. 현재 config는 비교 대상이지 정확성 기준이 아니다. 서로 다른 날짜의 결정·설정·실행·사용자 수용을 분리하고 primary 근거가 없으면 미확정으로 남긴다.
+
+---
+
+## 2026-10-14  Fox 원래 2:25 프레임 의도를 잘못된 2.25초 기준으로 판단함
+
+**무엇을 틀렸나**
+Main은 Fox의 과거 literal2.25초를 사용자 승인 의도의 기준으로 삼고 현재 timer가 그보다 이르지 않다는 사실로 비교했으며, 사용자2:25 설명을 「새 값으로 정책 변경」처럼 설명했다(사용자 정정 및 Main 인계). 원래 `2:25@30fps`는2.8333333초이며2.25초는 잘못된 환산·mirror baseline이다. 이전 감사 순서 오류 사건과 달리 이번 사건은 기대값의 단위와 권위를 잘못 정한 오류다.
+
+**왜 그랬나**
+옛 Task의 literal·현재 config·그대로 실행된 로그를 서로 확인되는 사용자 의도 증거로 취급하고 원래 ss:ff 표기를 초 단위로 다시 계산하지 않았다. 같은 오환산이 여러 곳에 남으면 서로 일치해도 원래 의도를 증명하지 못한다.
+
+**어떻게 드러났나**
+사용자가 원래 피해 기대값은2:25였으며 잘못된2.25초 적용 때문에 클립을 바꿨다고 명확히 설명했다. Main이 원래2.8333333초 복원이지 새 정책 변경이 아니라고 정정했다. 기존 Task 현행 상단에 정정을 두고 옛2.25초 실행·수용 이력은 보존하되 현행 oracle로 사용하지 않는다. 코드 반영·새 검증 완료는 아직 이 사건의 근거가 아니다.
+
+**교훈**
+타이밍 expected를 정하기 전에 원래 표기와 fps를 확인하고 `초 + 프레임/fps`로 직접 계산한다. 원래 의도·잘못 저장된 값·관측 실행·후속 수용을 별도 열로 구분한다. 사용자가 원래 의도를 명확히 정정하면 mirror baseline과 옛 literal로 이를 새 정책 변경이라 설명하지 않는다. charge callback·impact marker·권위 HP 사건도 나누어 구현 근거를 받는다.
+
+---
+
+## 2026-10-14  허용 목록 밖 git for-each-ref를 읽기 전용이라는 이유로 실행함
+
+**무엇을 틀렸나**
+Main은 이전 답변에서 브랜치 목록을 읽으려고 `git for-each-ref`를 사용자 승인 없이 실행했다(Main 사건 인계). 기록 근거는 WORKFLOW.md 「작업 시작 전 확인」의 실수 발견 시 기록 의무이며, 사용자가 이 사건 기록을 개별 요청한 것은 아니다. 작업 트리 변경은 아니지만 CLAUDE.md 규칙5의 닫힌 읽기 허용 목록에 없는 명령이다. 이번 문서 담당이 해당 명령을 재실행한 사건은 아니다.
+
+**왜 그랬나**
+명령이 읽기 전용이라는 성질을 명시된 허용 목록 대신 승인 근거로 삼았다. 기존 다른 비목록 읽기 명령 사건과 같은 실패 모양이 반복됐다.
+
+**어떻게 드러났나**
+Main 인계가 이전 명령과 허용 목록의 불일치를 명시하고 WORKFLOW의 기록 의무에 따라 사건 기록을 요청했다. 브랜치 보존·FF 성공과 명령 허용 위반은 별도 사실이며 성공했다고 위반이 없어지지 않는다.
+
+**[2026-10-14 기록 출처 정정]** 문서 담당이 Main의 사건 기록 요청을 사용자의 개별 요청으로 잘못 귀속한 표현을 바로잡았다. 사건 자체와 네 칸 기록은 보존한다. 기존 Task 일반 갱신 승인과 이 사건의 기록 근거는 별개다.
+
+**교훈**
+Git 호출 전 명령명을 규칙5의 허용 목록과 문자 그대로 대조한다. 필요한 읽기가 목록 안의 status/log/show/diff/blame/grep/ls-files/rev-parse로 해결되지 않으면 다른 명령을 실행하기 전에 사용자에게 묻는다. 읽기 전용·관행·성공 결과를 승인으로 대신하지 않는다.
+
+---
+
+## 2026-10-15  원래 교정 복원에 General23·중첩 정책 결정을 필수 작업처럼 추가함
+
+**무엇을 틀렸나**
+Main은 마지막 사용자 수용 교정의 원래 구현 복원 작업에서 General23 gate 통합·native lease 이행·멀티 gate 복사와 동일 XZ 대상 overlap 정책 선택을 새 필수 잔여 작업처럼 제안·질문했다(Main 인계 및 사용자 범위 정정). 문서 담당도 이 선택을 현행 복원 blocker로 적어 Matrix에 방향 결정 대기를 남겼다. 이 generic 구현과 새 overlap 규칙은 실제 적용되지 않았다.
+
+**왜 그랬나**
+기존 멀티 zeroAim/InvalidPose와 SOLO Legacy 공격 허용 차이를 원래 교정의 미반영 증거처럼 취급하고, 새 파이프라인 통합을 누락 복원과 합쳤다. native 전체 실행 미확인·old8 표기 계보 질문도 실제 artifact 반영 감사와 같은 완료 조건으로 읽을 위험이 생겼다.
+
+**어떻게 드러났나**
+사용자가 원하는 것은 새 정책이 아니라 마지막 수용 의도의 원래 구현·artifact 반영이며 새 overlap 선택이 아니라고 지적했다. Main이 범위 확장 질문을 철회했고 기존 Task 현행 범위도 정정했다. 이번 발견은 WORKFLOW의 실수 발견 시 기록 의무로4칸과 목차에 남긴다. Fox 원래2:25 명확화에 근거한8파일 복원은 정당한 실제 작업으로 유지하며 scope 정정 때문에 이를 취소하지 않는다.
+
+**교훈**
+복원 항목마다 마지막 사용자 수용 계약·실제 누락/오적용 증거·이를 되돌리는 최소 범위를 먼저 대조한다. 기존 모드 차이·새 lease 이행·native 미실행을 자동으로 새 구현/정책 gate로 추가하지 않는다. 코드 반영 closure·실행 검증·시각 수용·표기 계보를 별도 판정하고, 사용자가 범위 확장을 거절하면 질문과 blocker를 현행 문서에서 철회한다. 철회 기록과 실제 보존·적용 증거는 남긴다.
+
+---
+
+## 2026-10-16  에디터 정리를 파일 이동으로 좁혀 불필요 도구 삭제·실사용 메뉴 분류를 빠뜨림
+
+**무엇을 틀렸나**
+에디터 스크립트 정리를 경로 통합과 기존 바이트 보존으로 좁혀 15파일을 이동했지만, 필요 없는 스크립트를 삭제하고 남길 도구를 Unity 메뉴에서 분류하려는 목표를 빠뜨렸다. 1차 이동에서 데이터 손실은 없었으나 불필요 코드와 기존 사용 메뉴가 그대로 남았다.
+
+**왜 그랬나**
+원본 보존과 정확한 옛 실행 근거 확인을 우선하면서 현재 효용·런타임 영향·대체 수단으로 폐기 여부를 판단하지 않았다. 파일 이동과 메뉴·기능 정리를 같은 완료 조건처럼 취급했다. 이동 계획에 대한 동의가 있었다는 사실은 목표를 충분히 확인하지 않은 책임을 사용자에게 돌릴 근거가 아니다.
+
+**어떻게 드러났나**
+사용자가 메뉴 변화가 없음을 확인한 뒤 불필요 스크립트 삭제와 필요한 메뉴 분류가 원래 의도라고 명확히 했다. 메인 세션이 목표 누락을 인정했고 같은 에디터 정리 Task의 Research §10·Plan §8에 구체 폐기 목록·helper 보존·새 메뉴 구조를 추가했다. 추가 코드는 아직 구현하지 않은 계획 단계다.
+
+**교훈**
+정리 계획을 공유하기 전에 파일 위치·삭제할 기능·남길 기능·사용 메뉴의 변화와 최종 완료 조건을 각각 적는다. 삭제 후보는 현재 사용처·에셋 실체·직접 의존·대체 authoring/검증으로 판정하고 옛 실행 영수증 부재만으로 모두 보류하지 않는다. 원본 비활성화와 사용자 테스트 뒤 최종 삭제 절차를 계획하되, 폴더 이동이나 메뉴 숨김만으로 전체 정리가 끝났다고 보고하지 않는다.
+
+후속으로 미커밋 변경을 별도 폴더에 둔 채 브랜치만 안내해 사용자가 기존 Unity 프로젝트에서 결과를 확인할 수 없는 혼란을 만들었다. 코드 정리를 `a031008c`에 커밋하고 기존 Unity 프로젝트 `D:/Projects/Hexiege/Hexiege`를 `codex/editor-script-organization`으로 전환해 해소했다. 결과 안내에는 사용자가 실제 여는 프로젝트 경로·현재 브랜치·변경 반영 상태를 함께 확인한다. main 병합과 Unity 컴파일·메뉴 실행 확인은 별도다.

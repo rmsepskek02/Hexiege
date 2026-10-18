@@ -1,0 +1,31 @@
+{
+    "asset": "3704bebb71d3d56458ba8c3e34d64c7f",
+    "fileName": "01a13586-3cd8-763a-88e4-d65b39aacc93.png",
+    "prompt": "A stylized cartoon game VFX sprite of an organic poison liquid splat stain on the ground, top-down flat view, irregular blotchy purple liquid puddle with soft uneven edges and scattered dark-brown mushroom spore specks, completely asymmetric organic splatter, no geometric shapes, no runes, no clean circles, mobile RTS game VFX asset style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}

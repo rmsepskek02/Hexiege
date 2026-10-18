@@ -35,5 +35,13 @@ namespace Hexiege.Presentation
             if (_unitView != null)
                 _unitView.OnAttackHit(marker);
         }
+
+        /// <summary>Fox의 charge 표식을 피해 표식과 구별하여 부모의 source 연출 경계로 전달한다.</summary>
+        public void OnAttackCharge(AnimationEvent marker)
+        {
+            if (_unitView == null) _unitView = GetComponentInParent<UnitView>();
+            if (_unitView != null)
+                _unitView.OnAttackCharge(marker);
+        }
     }
 }

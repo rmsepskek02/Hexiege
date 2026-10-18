@@ -1,7 +1,10 @@
 # Game System Rules — AI 시스템
 
-싱글플레이 전용 AI 상대(Red팀)의 동작 규칙 모음.
-이 문서는 구현 기준 규칙을 정의하며, 종족별 구체적인 빌드오더 시나리오는 별도 논의 후 추가한다.
+- **목적·답하는 질문:** 싱글플레이 AI 상대의 공통 판단·실행 동작을 판단한다.
+- **포함:** 난이도·Phase·반응·가드·배치·실패 복구와 공통 구현 제약
+- **제외·담당 문서:** 종족별 빌드오더는 연결된 시나리오 3문서, 현재 유닛/건물 값은 [StatsReference](../StatsReference.md), 재논의 우선순위는 [ROADMAP](../ROADMAP.md)
+- **권위원본·주요 참조:** AI 공통 규칙 원본; 종족 시나리오의 잠정값과 확정 공통 규칙을 구분
+- **갱신 조건·방법:** 공통 동작 승인 변경 때 본문을 갱신한다. 밸런싱과 AI 시나리오는 함께 별건 재논의하며 이번 정리로 새 타이밍·비용·우선순위를 결정하지 않는다.
 
 ---
 
@@ -44,7 +47,7 @@ AI 동작은 두 계층으로 구성된다.
 ### ScriptableObject 구조
 
 `Assets/_Project/Resources/Config/AIConfig.asset` **하나의 파일**에 3개 난이도 파라미터를 모두 담는다.
-기존 `UnitStatsConfig.asset`이 9개 유닛 스탯을 하나에 담는 것과 동일한 패턴이다.
+기존 `UnitStatsConfig.asset`이 여러 유닛 스탯을 하나에 담는 것과 동일한 패턴이다.
 인스펙터에서 쉬움/보통/어려움 3개 섹션의 수치를 한 곳에서 비교하며 수정할 수 있다.
 
 ```
@@ -96,6 +99,22 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 현재 단계의 항목이 완료될 때까지 재시도한다. (→ 가드 메커니즘 섹션 참조)
 이 게임은 순차 테크트리 기반이므로 단계 건너뜀은 AI 동작을 깨뜨린다.
 
+### 종족 시나리오 공통 타이밍
+
+종족 시나리오는 건물·유닛·투자 계획만 개별로 정의한다. Phase 순차 실행·스킵 금지는 규칙 6~8, 채굴소 병행 트랙은 규칙 27이 원본이다.
+
+- `delaySeconds`는 해당 Phase 시작 후 해당 항목까지의 최소 대기 시간(보통 난이도 기준)이다.
+- 쉬움 delay ×1.5 / 어려움 ×0.7은 **조정 예정**인 시나리오 예비 기준이다. 규칙 5의 생산 시간 배율과 별개의 값이며 확정값으로 확대하지 않는다.
+
+| Phase | 예비 시간 기준 |
+|---|---|
+| Phase 1 | 0~3분 |
+| Phase 2 | 3~6분 |
+| Phase 3 | 6~9분 |
+| Phase 4 | 9분~종료 (최대 12분) |
+
+위 시간은 10분 플레이타임을 전제로 한 시나리오 예비 계획이며, 실제 Phase 진입은 규칙 6~8의 완료 조건을 따른다. 지연·골드 부족으로 진입이 늦어져도 Phase를 건너뛰지 않는다. 시나리오의 수치·경제 계산은 스탯 및 맵 초기 경제를 반영한 재검토 전까지 현행 경제 성립을 보증하지 않는다.
+
 ### 빌드오더 항목 구조
 
 **규칙 9. 항목 데이터**
@@ -140,9 +159,7 @@ Assets/_Project/Resources/Config/
 
 골드가 부족해 `EnqueueUnit`이 실패해도 다음 유닛 생산 완료 시 다시 시도하므로 별도 재시도 로직이 불필요하다.
 
-> **구현 참고**: `UnitProducedEvent`에 `BarracksId` 필드 추가 필요.
-> `UnitProductionUseCase.CompleteProduction`에서 이벤트 발행 시 `state.BarracksId` 전달.
-> 기존 구독자(`ProductionTicker`)는 이 필드를 사용하지 않으므로 하위 호환성 문제 없음.
+생산 완료 이벤트는 생산한 배럭의 ID를 전달해야 하며 해당 라인 후속 큐 등록에 사용한다. 다른 구독자는 필요한 필드만 소비한다. 도입 전 필드 추가 지침은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-ai-01)다.
 
 ---
 
@@ -252,12 +269,7 @@ AI가 건물을 배치할 타일은 다음 방식으로 결정한다.
 
 배럭 인접 타일을 보존하는 이유: `UnitProductionUseCase.FindSpawnTile`이 배럭 인접 6타일 중 walkable + 유닛 없는 타일에 유닛을 스폰한다. 모든 인접 타일이 건물로 막히면 생산 완료 후에도 유닛이 영구적으로 나오지 못하는 블로킹 상태가 된다.
 
-> ⏳ **무작위 맵 구현 시 배치 후보 판정을 일반 건설 조건으로 전환한다. (2026-09-03 기준 미전환 — 2단계 몫)** 현재 코드는 후보를 **이동 가능 여부**로 고르고 있으며, **전환 전까지는 그것이 맞다.**
-> **2026-09-03 단계 재조정**: 종전에는 이 전환을 3단계로 적었으나, 2단계 경계가 「싱글플레이에서 무작위 맵이 실제로 도는 것」까지로 바뀌면서 **2단계로 내려왔다.** 건설 불가 구역이 실제로 생기는 그 단계에서 함께 닫지 않으면, AI 가 지을 수 없는 자리를 후보로 고르는 상태를 한 단계 내내 안고 가게 된다.
-> 종전에는 그 이유를 「코드에 일반 건설 판정이 읽는 타일 상태 축 자체가 없어서」라고 적었으나, **2026-09-03 무작위 맵 1단계로 그 상태 축(`TileKind`)은 코드에 생겼다.** 그럼에도 지금 바꾸지 않는 이유는 다른 데 있다 — 현재 고정 맵은 「이동·점령은 되지만 일반 건설만 막히는 타일」을 하나도 만들지 않아 두 조건의 판정 결과가 항상 같고, 그 타일을 실제로 만들어내는 맵 생성기가 2단계 산출물이기 때문이다.
-> 무작위 맵에는 **이동·점령은 되지만 일반 건설만 막히는 타일**이 생기고(단일 소스는 `GameSystemRules_RandomMap.md` 규칙 9 「건설 불가 구역」), 그 구역은 맵 유형이 지정한 곳에만 두므로 **맵 유형 5종 중 3종에서만** 나타난다(같은 문서 3장 ⑤). 그때부터 이동 기준과 건설 기준이 갈라지므로 위 2단계의 조건이 필요해진다.
-> 전환 시점과 전환 내용의 단일 소스는 `TechnicalDesignDocument.md` 「기존 코드 전환 요구」 절이다.
-> **그때가 오기 전에 코드 표기를 미리 바꾸지 않는다** — 지금 바꾸면 현재 코드와 어긋난다.
+일반 배치 후보의 현행 조건은 위 규칙26과 [TDD](../TechnicalDesignDocument.md)의 `HexTile` 판정 계약을 따른다. 이동은 가능하지만 건설 불가인 타일을 구분해야 하므로 IsWalkable만으로 대체하지 않는다. 2026-09-03 단계 전환 예고·당시 미전환 이유는 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-ai-01)다. 이 문서 정리는 코드 구현이나 시나리오 밸런싱을 새로 확정하지 않는다.
 
 **사용 API (모두 public 확인 완료):**
 
@@ -294,14 +306,7 @@ AI는 맵마다 광산 타일 위치가 다를 수 있으므로 고정 좌표를
 `HexGrid.Tiles`(IReadOnlyDictionary)를 순회하여 `MineKind != MineKind.None`인 타일을 필터링하고,
 이미 Red MiningPost가 없는 타일을 Phase별 타겟 순서대로 선택한다.
 
-> ✅ **2026-09-03 전환 완료 — `MineKind` 기반 조회.** 종전에는 이 자리에 「무작위 맵 구현 시 전환된다」는 예고가 있었고,
-> 그때까지는 광산 여부를 나타내는 별도의 저장 필드를 읽는 것이 현재 코드였다. 무작위 맵 1단계(타일 상태 계약 전환)가
-> 구현·실기 검증되면서 그 저장 필드가 코드에서 제거되어, 위 서술과 아래 표를 실제 코드에 맞춰 갱신했다.
-> 전환 내용의 단일 소스는 `TechnicalDesignDocument.md` 「기존 코드 전환 요구」 절이다.
->
-> ⚠️ **아직 전환되지 않은 자리가 하나 남아 있다** — 위 규칙 26의 **건물 배치 후보 판정**은 여전히 이동 가능 여부(`IsWalkable`)로
-> 판정하며, 「일반 건설」 전용 조건으로 옮기는 것은 무작위 맵 **2단계** 몫이다(2026-09-03 단계 재조정 — 규칙 26 마커 참조). 광산 타일 조회(이 절)와 배치 후보 판정(규칙 26)은
-> 서로 다른 항목이므로 한쪽의 완료를 다른 쪽에 옮겨 적지 않는다.
+광산 위치는 위 `MineKind` 기반 조회 계약을 따르고 일반 건설 후보 판정과 구분한다. 광산 조회 완료가 다른 항목의 구현·검증 완료를 뜻하지 않는다. 당시 전환·미전환 원문은 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-ai-02)다.
 
 **사용 API:**
 
@@ -486,7 +491,9 @@ public static class LocalPlayerDifficulty
 
 **규칙 33. 씬 진입 시 AIConfig 선택**
 `GameBootstrapper.InitializeAI()`에서 `LocalPlayerDifficulty.Current`를 읽어
-해당 난이도의 `AIConfig` asset을 로드하고 `AIOpponentController`에 주입한다.
+단일 `AIConfig.asset`을 로드한 뒤 규칙 4에 따라 `GetParams(difficulty)`로 해당 난이도의 `DifficultyParams`를 선택하여 `AIOpponentController`에 주입한다.
+
+난이도별 에셋을 따로 로드하지 않고 규칙4의 단일 AIConfig에서 선택 난이도 파라미터를 조회한다. 이전 사본 정정 경위는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-ai-02)다.
 
 ### 로비 난이도 선택 UI
 
@@ -530,5 +537,4 @@ BattleMainView
 이 방식은 `TickIncome` 호출자(`GameBootstrapper`) 를 수정하지 않아도 되며,
 `ResourceUseCase` 외부에서 배율 계산 로직을 갖지 않아 의존성이 최소화된다.
 
-> **구현 참고**: `ResourceUseCase`에 `SetIncomeMultiplier(TeamId team, float multiplier)` 메서드 추가 필요.
-> 내부 필드 `_incomeMultipliers[team]`에 저장 후 `TickIncome`에서 적용.
+수입 배율 저장·적용의 소유자는 ResourceUseCase이며 외부 호출자는 초기 설정만 전달한다. 도입 전 메서드 추가 지침은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-ai-03)다.

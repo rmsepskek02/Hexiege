@@ -1,7 +1,10 @@
 # AI 빌드오더 시나리오 — Spirit 종족
 
-Spirit 종족 AI가 사용하는 빌드오더 시나리오를 정의하는 문서이다.
-Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은 `GameSystemRules_AI.md`를 참조한다.
+- **목적·답하는 질문:** Spirit 종족 AI 빌드오더의 기존 선택·진행 내용을 찾는다.
+- **포함:** 시나리오 A/B/C, Phase 시점, 건물/유닛 선택·생산 순서와 골드 수지 검토
+- **제외·담당 문서:** Phase·반응·가드·배치 공통 동작은 [AI](GameSystemRules_AI.md), 실제 스탯은 [StatsReference](../StatsReference.md), 재논의 작업은 [ROADMAP](../ROADMAP.md)
+- **권위원본·주요 참조:** 종족별 시나리오 자료의 원본이며 밸런싱과 함께 별건 재논의 대상; 현행 수치의 확정 권위로 쓰지 않음
+- **갱신 조건·방법:** 밸런싱·시나리오 재논의가 승인될 때 해당 선택·표·수지와 확정 범위를 함께 갱신한다. 이번 정리는 역할 안내만 바꾸고 시나리오 본문은 보존한다.
 
 ---
 
@@ -42,9 +45,7 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 - 채굴소(ManaRift)는 Phase 2와 Phase 4에 각 1개씩 확보한다.
   단, Build Order 항목에 포함되지 않는다. Phase 진입 시 자동 시작되는 병행 트랙이 독립적으로 처리한다.
   상세 동작은 `GameSystemRules_AI.md` 섹션 6 참조.
-- 각 Phase 내 항목은 순서대로 실행되며, 앞 항목이 완료되지 않으면 다음 항목은 실행되지 않는다.
-- `delaySeconds`는 해당 Phase 시작 후 해당 항목까지의 최소 대기 시간(보통 난이도 기준)이다.
-- 쉬움: delay × 1.5 / 어려움: delay × 0.7 기준으로 조정 예정.
+- 순차 실행·최소 대기 시간·난이도 지연의 예비 기준은 [AI 공통 규칙](GameSystemRules_AI.md#종족-시나리오-공통-타이밍)을 따른다.
 
 > ⚠️ 아래 시나리오의 delay 수치는 10분 플레이타임 기준 보통 난이도 예비값이다.
 > StatsReference.md 스탯(건물 건설 시간, 유닛 비용) 확정 후 실제 경제 시뮬레이션을 통해 재조정한다.
@@ -53,12 +54,7 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 
 ## 3. Phase 타이밍 기준
 
-| Phase | 시간 |
-|-------|------|
-| Phase 1 | 0~3분 |
-| Phase 2 | 3~6분 |
-| Phase 3 | 6~9분 |
-| Phase 4 | 9분~종료 (최대 12분) |
+Phase 시간표의 원본은 [AI 공통 타이밍](GameSystemRules_AI.md#종족-시나리오-공통-타이밍)이다. 이 문서의 종족별 Phase 항목·순서·delay는 그대로 유지한다.
 
 ---
 
@@ -81,6 +77,8 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 ---
 
 ## 5. 골드 수지 검토
+
+> **기존 예비 계산의 적용 범위:** 아래 수입·투자 계산은 작성 당시 고정 시작 골드와 초기 채굴소가 없다는 가정을 보존한 것이다. 현행 [무작위 맵 규칙](GameSystemRules_RandomMap.md) 규칙 2·3의 시작 채굴소 및 중립 광산 수별 초기 골드를 반영하지 않았으므로, 현재 모든 맵·난이도의 경제 성립 근거로 사용하지 않는다. 기존 숫자와 결론은 이 가정 아래의 계산이며 재시뮬레이션은 별도 판단 항목이다.
 
 ### Spirit 종족 건물 비용 구조
 
@@ -206,7 +204,7 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 
 ## 8. 시나리오 C — Spirit-Quake (땅 집중형)
 
-**전략**: 땅 라인을 Phase 3에서 3단계(GaeaSanctum)까지 완성해 QuakeSpirit(HP 250, 착탄형 AoE 탱커)를 조기 확보.
+**전략**: 땅 라인을 Phase 3에서 3단계(GaeaSanctum)까지 완성해 QuakeSpirit(착탄형 AoE 탱커, HP는 [StatsReference](../StatsReference.md) 참조)를 조기 확보.
 물 라인(TideSpirit → StreamSpirit)을 원거리 보조로 운용하다 Phase 4에 OceanicHeart(3단계)까지 올려 TorrentSpirit(힐 파도) 추가.
 **10분 목표**: QuakeSpirit(땅 3단계) + StreamSpirit(물 2단계).
 **Phase 4 목표**: TorrentSpirit(물 3단계) 추가로 탱커 + AoE 힐 복합 전선 완성.

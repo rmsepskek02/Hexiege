@@ -4,6 +4,106 @@ using System.Collections.Generic;
 namespace Hexiege.Application.Combat.Sequencing
 {
     /// <summary>
+    /// SOLO의 실제 연속 재생 수명에 귀속한 권위 occurrence 시계다.
+    /// 타겟 변경은 이 시계를 재시작하지 않는다. 이미 예약한 피해 시각도 변경하지 않는다.
+    /// </summary>
+    public sealed class SoloAttackPlaybackClock
+    {
+        public ulong Epoch { get; private set; }
+        public ulong Sequence { get; private set; }
+        public double Anchor { get; private set; }
+        public double Duration { get; private set; }
+        public bool Active { get; private set; }
+        public bool Paused { get; private set; }
+        public long LastLoop { get; private set; } = -1;
+        public double ReadyAt { get; private set; }
+        private double _pauseStart, _pausedSeconds, _lastCommit = double.NaN, _lastObserved;
+
+        public bool Restart(double now, double duration)
+        {
+            if (!Finite(now) || now < 0 || !Finite(duration) || duration <= 0 || Epoch == ulong.MaxValue) return false;
+            Epoch++; Anchor = now; Duration = duration; Active = true; Paused = false;
+            _pausedSeconds = 0; LastLoop = -1; ReadyAt = now;
+            _lastCommit = double.NaN; _lastObserved = now;
+            return true;
+        }
+
+        public void Close() { Active = false; Paused = false; }
+
+        public void ObservePause(double now, bool paused)
+        {
+            if (!Active || !Finite(now) || now < _lastObserved) return;
+            _lastObserved = now;
+            if (paused == Paused) return;
+            if (paused) _pauseStart = now;
+            else
+            {
+                double gap = now - _pauseStart;
+                _pausedSeconds += gap;
+                ReadyAt += gap;
+            }
+            Paused = paused;
+        }
+
+        public double Remaining(double now)
+            => Active && Finite(now) ? Math.Max(0, ReadyAt - (Paused ? _pauseStart : now)) : 0;
+
+        /// <summary>
+        /// 같은 권위 시각에 신규 회차는 최대 하나다. 긴 frame에서 과거 회차를 보충하지 않는다.
+        /// 동일한 양수 marker의 HitIndex를 보존한다. 0초 marker는 기존 SOLO 예약 경로를 유지한다.
+        /// </summary>
+        public bool TryCommit(double now, float[] offsets, out SoloAttackOccurrence plan)
+        {
+            plan = default;
+            if (!Active || Paused || !Finite(now) || now < _lastObserved || now < ReadyAt
+                || now == _lastCommit || Sequence == ulong.MaxValue || offsets == null || offsets.Length == 0) return false;
+            for (int i = 0; i < offsets.Length; i++)
+                if (!Finite(offsets[i]) || offsets[i] <= 0 || offsets[i] > Duration
+                    || (i > 0 && offsets[i] < offsets[i - 1])) return false;
+            double baseTime = Anchor + _pausedSeconds;
+            double cycle = Math.Floor(Math.Max(0, now - baseTime) / Duration);
+            if (cycle >= long.MaxValue || LastLoop == long.MaxValue) return false;
+            long loop = Math.Max((long)cycle, LastLoop + 1);
+            double epochTime = baseTime + loop * Duration;
+            int first = 0;
+            while (first < offsets.Length && epochTime + offsets[first] < now) first++;
+            if (first == offsets.Length)
+            {
+                if (loop == long.MaxValue) return false;
+                loop++; epochTime = baseTime + loop * Duration; first = 0;
+            }
+            double[] due = new double[offsets.Length - first];
+            for (int i = 0; i < due.Length; i++) due[i] = epochTime + offsets[first + i];
+            double ready = epochTime + Duration;
+            if (!Finite(ready) || due.Length == 0 || !Finite(due[due.Length - 1])) return false;
+            Sequence++; LastLoop = loop; ReadyAt = ready; _lastCommit = now; _lastObserved = now;
+            plan = new SoloAttackOccurrence(Epoch, Sequence, loop, first, due, ready);
+            return true;
+        }
+
+        public static bool Supports(double duration, float[] offsets)
+        {
+            if (!Finite(duration) || duration <= 0 || offsets == null || offsets.Length == 0) return false;
+            for (int i = 0; i < offsets.Length; i++)
+                if (!Finite(offsets[i]) || offsets[i] <= 0 || offsets[i] > duration
+                    || (i > 0 && offsets[i] < offsets[i - 1])) return false;
+            return true;
+        }
+        private static bool Finite(double x) => !double.IsNaN(x) && !double.IsInfinity(x);
+    }
+
+    public readonly struct SoloAttackOccurrence
+    {
+        public readonly ulong Epoch, Sequence;
+        public readonly long Loop;
+        public readonly int FirstHit;
+        public readonly double[] Due;
+        public readonly double ReadyAt;
+        public SoloAttackOccurrence(ulong epoch, ulong sequence, long loop, int firstHit, double[] due, double ready)
+        { Epoch = epoch; Sequence = sequence; Loop = loop; FirstHit = firstHit; Due = due; ReadyAt = ready; }
+    }
+
+    /// <summary>
     /// 서버 공격 회차와 Animator 표현을 분리하는 순수 정책이다.
     /// 이미 Attack 표현 중인 유닛은 다음 회차 정렬 동안 모션을 유지하되,
     /// 커밋 전 Animation Event의 타격 연출은 억제한다.
