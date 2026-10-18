@@ -93,6 +93,101 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 생산 직후와 이동 중 재경로가 공유하는 랠리 목적지 선택이다.
+        /// 원래 깃발 칸을 기준으로 거리 0, 1, 2, 3의 고리를 순서대로 검사하고,
+        /// 첫 성공 고리 안에서는 실제 경로가 가장 짧은 이동 가능 칸을 고른다.
+        /// 같은 길이는 방향 순서를 유지한다. 건물 접근용 이동 불가 종점은 선택하지 않는다.
+        /// Root가 주어지면 모든 후보가 기존 권위 Root/revision 검증을 통과해야 한다.
+        /// </summary>
+        public UnitRallyPathResult RequestRallyPath(UnitData unit, HexCoord rally,
+            Vector3? simulationRootDomain = null, ulong environmentRevision = 0)
+        {
+            if (unit == null || !unit.IsAlive || _grid == null || _flowFieldService == null)
+                return new UnitRallyPathResult(UnitRallyPathStatus.ProviderFailure,
+                    new UnitPathRequestResult(UnitPathRequestStatus.ProviderFailure, null,
+                        unit != null ? unit.Position : default, default, rally, environmentRevision));
+
+            if (simulationRootDomain.HasValue)
+            {
+                // 후보가 모두 막혀 있어도 권위 입력 검증은 생략하지 않는다.
+                UnitPathRequestResult validation = RequestAuthoritativeRepath(unit,
+                    simulationRootDomain.Value, rally, environmentRevision);
+                if (validation.Status == UnitPathRequestStatus.ProviderFailure
+                    || validation.Status == UnitPathRequestStatus.InvalidStart
+                    || validation.Status == UnitPathRequestStatus.InvalidGoal)
+                    return new UnitRallyPathResult(UnitRallyPathStatus.ProviderFailure, validation);
+            }
+
+            for (int range = 0; range <= 3; range++)
+            {
+                bool found = false;
+                int bestLength = int.MaxValue;
+                UnitRallyPathResult best = default;
+                HexCoord candidate = rally;
+                for (int k = 0; k < range; k++)
+                    candidate += ((HexDirection)4).Offset();
+
+                int directions = range == 0 ? 1 : HexDirectionExtensions.Count;
+                for (int dir = 0; dir < directions; dir++)
+                {
+                    int steps = range == 0 ? 1 : range;
+                    for (int step = 0; step < steps; step++)
+                    {
+                        if (IsWalkable(candidate))
+                        {
+                            UnitPathRequestResult request;
+                            if (simulationRootDomain.HasValue)
+                            {
+                                request = RequestAuthoritativeRepath(unit,
+                                    simulationRootDomain.Value, candidate, environmentRevision);
+                            }
+                            else
+                            {
+                                List<HexCoord> path = RequestMove(unit, candidate);
+                                request = new UnitPathRequestResult(
+                                    unit.Position == candidate ? UnitPathRequestStatus.EmptySameTile
+                                        : path != null ? UnitPathRequestStatus.Success
+                                        : UnitPathRequestStatus.Unreachable,
+                                    path, unit.Position, unit.Position, candidate, environmentRevision);
+                            }
+
+                            // 공급 실패/권위 시작점 오류를 '주변 후보 없음'으로 바꾸지 않는다.
+                            if (request.Status == UnitPathRequestStatus.ProviderFailure
+                                || request.Status == UnitPathRequestStatus.InvalidStart
+                                || request.Status == UnitPathRequestStatus.InvalidGoal)
+                                return new UnitRallyPathResult(UnitRallyPathStatus.ProviderFailure, request);
+
+                            // 논리 타일은 아직 이전 칸이고 Root만 다음 칸에 들어간 순간에는
+                            // 이전 칸을 '이미 도착'으로 삼지 않는다. 기존 중심 완료 계약이
+                            // 실제 같은 타일을 요구하므로 안전하게 접근 가능한 다른 후보를 고른다.
+                            bool sameTile = request.Status == UnitPathRequestStatus.EmptySameTile
+                                && (!simulationRootDomain.HasValue
+                                    || request.RootTile == request.AuthoritativeStart);
+                            int length = sameTile ? 1
+                                : request.IsSuccess ? request.Path.Count : int.MaxValue;
+                            if (length < bestLength)
+                            {
+                                found = true;
+                                bestLength = length;
+                                best = new UnitRallyPathResult(length == 1
+                                    ? UnitRallyPathStatus.CurrentTileSelected
+                                    : UnitRallyPathStatus.PathFound, request);
+                            }
+                        }
+                        if (range > 0)
+                            candidate = ((HexDirection)dir).Neighbor(candidate);
+                    }
+                }
+                if (found) return best;
+            }
+            return new UnitRallyPathResult(UnitRallyPathStatus.NoReachableCandidate,
+                new UnitPathRequestResult(UnitPathRequestStatus.Unreachable, null,
+                    unit.Position, simulationRootDomain.HasValue && _mapper != null
+                        ? _mapper.WorldToHex(simulationRootDomain.Value) : unit.Position,
+                    rally, environmentRevision));
+        }
+
+        /// <summary>
         /// 전투 추격이 타겟의 현재 타일까지 접근할 때 사용하는 서버 경로다.
         /// 타겟 타일이 건물처럼 이동 불가여도 FlowField의 목적지 인접 seed를 사용해
         /// 마지막 접촉 타일까지 경로를 만들며, 중간의 건물과 완전 차단 지형은 통과하지 않는다.

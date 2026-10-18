@@ -1,5 +1,12 @@
 # QA 패턴 및 버그 히스토리
 
+## Rally endpoint recovery and acceptance scope (2026-10-18)
+
+- The user reported single-player behavior normal, then multiplayer normal after the moving-rally-destination construction fix, and subsequently accepted the AI mine/flag item visually in single-player on 2026-10-18. This is received user acceptance, not a new independent QA run; do not expand it to every Host/Client role, device, unit type or measured runtime-log gate.
+- Separate production-time endpoint selection from an already moving unit's repath. Both must preserve the original rally goal while selecting a walkable endpoint; a candidate-prefix/rejoin request must not be reinterpreted as the semantic rally goal.
+- Distinguish candidate exhaustion (explicit skip policy), actual current-tile center completion, provider failure and ordinary Blocked. Root/authoritative-tile agreement is required for the typed singleton; safe endpoint transition must preserve the guard, and the callback follows actual NoIntent closure exactly once.
+- Compile/temporary CLR evidence, user visual acceptance and historical causal proof are separate axes. This focused acceptance does not close rule 45 full-route obstruction or every historical TerminalContact hypothesis. Detailed execution and user report: `Assets/_Project/Docs/_Tasks/2026-10-13/10_37_rally-point-fix/{Research,Plan}.md`.
+
 ## Production-derived fixtures and native marker coverage
 
 - **Post-isolation runtime evidence:** Completed-bundle-only anchors in failure snapshots support scoped diagnostic non-interference, not all-match anchor completeness or expiry resolution. Keep receive-server-estimate over-limit, same-peer local waits and negative anchor residuals separate; same frame does not mean zero local processing interval. New ROOT INCOMPLETE/coverageFalse cannot inherit prior match or SelfValidate PASS even with errors/drop0. Canonical delivery and ready-subset visual equality do not close Expired bundles. Existing Assault 00_10 Task core analysis preserves exact scopes; deep handoff pending, no new QA/TC/source/build.

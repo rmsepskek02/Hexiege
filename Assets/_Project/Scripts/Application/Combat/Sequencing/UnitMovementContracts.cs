@@ -1740,6 +1740,36 @@ namespace Hexiege.Application.Combat.Sequencing
     }
 
     /// <summary>
+    /// 랠리 경유의 정책 결과다. 현재 타일 선택과 후보 소진을 경로 공급 실패와 구별한다.
+    /// </summary>
+    public enum UnitRallyPathStatus : byte
+    {
+        ProviderFailure = 0,
+        PathFound = 1,
+        CurrentTileSelected = 2,
+        NoReachableCandidate = 3
+    }
+
+    /// <summary>
+    /// 랠리 정책의 결과다. 현재 권위 타일이 가장 가까운 후보인 경우와, 주변에 갈 수 있는
+    /// 후보가 아예 없는 경우를 경로 실패와 구별한다. 두 경우 모두 랠리 경유를 끝내지만,
+    /// ProviderFailure는 실제 경로 공급 실패이므로 정상 도착으로 처리하면 안 된다.
+    /// </summary>
+    public readonly struct UnitRallyPathResult
+    {
+        public UnitRallyPathStatus Status { get; }
+        public UnitPathRequestResult Request { get; }
+        public bool EndsRally => Status == UnitRallyPathStatus.CurrentTileSelected
+            || Status == UnitRallyPathStatus.NoReachableCandidate;
+
+        public UnitRallyPathResult(UnitRallyPathStatus status, UnitPathRequestResult request)
+        {
+            Status = status;
+            Request = request;
+        }
+    }
+
+    /// <summary>
     /// 서버 경로 제공자가 이동 요청을 종료한 원인이다. null 하나로 같은 타일·잘못된 입력·
     /// 실제 도달 불가·provider 실패를 섞지 않도록 production과 진단이 함께 사용한다.
     /// </summary>
@@ -1981,7 +2011,7 @@ namespace Hexiege.Application.Combat.Sequencing
     /// </summary>
     public sealed class UnitNavigationObjective
     {
-        private readonly HexCoord _destination;
+        private HexCoord _destination;
         private ulong _environmentRevision;
         private readonly UnitRepathProgressGuard _repathGuard;
         private UnitNavigationObjectiveState _state;
@@ -2007,6 +2037,17 @@ namespace Hexiege.Application.Combat.Sequencing
 
         public bool Matches(HexCoord destination)
             => destination == _destination;
+
+        /// <summary>
+        /// 랠리의 실제 도착 칸만 바뀔 때 기존 명령과 무진전 guard를 유지한다.
+        /// 호출자는 새 경로를 수용한 경계에서만 사용해야 하며, 질의만으로 호출하지 않는다.
+        /// 환경 변화에 따른 예산 갱신은 기존 NotifyEnvironmentChanged가 담당한다.
+        /// </summary>
+        public void RetargetRallyEndpoint(HexCoord destination)
+        {
+            if (IsActive)
+                _destination = destination;
+        }
 
         /// <summary>
         /// 같은 환경에서 같은 목적지로 들어온 외부 MoveTo는 새 command가 아니다.

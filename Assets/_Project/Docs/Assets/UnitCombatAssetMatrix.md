@@ -14,7 +14,7 @@
 - **기존 focused 수용 유지:** Assault, Sniper, InfernoSpirit, SpearMan, EmberSpirit, FlameSpirit, BoulderSpirit, TideSpirit, StreamSpirit, BearGuard, LionKnight, RabbitTrickster. FoxMagician의 이전 2.25초 구현 수용은 현행 복원 세대의 수용으로 확대하지 않는다.
 - **별도 후속:** Pistoleer의 기존 개별 테스트, Tank/CannonCart의 테스트 완료·세부 VFX 보류, TorrentSpirit의 이전 개별 수용을 유지한다. Torrent 연결 복구·회귀 확인은 별도다.
 - **시각 확인 후보:** 연결된 Mushroom tracer/impact/poison 및 Bloom recipient VFX. HumanTower의 actual Assault 교체 후 시각 확인은 건물 후속이다. [VFX 현황](VFXSFXList.md).
-- **공통 미확정·보류:** overall Invalid 진단 scope/origin, 과거 Editor Client63 표현 만료 원인·해결, dead-abort 실기 미재현, 전체 migration은 OPEN이다. 랠리 장애물 이동은 개별 교정 이후의 공통 보류이며 기존 수용을 다시 여는 gate가 아니다.
+- **공통 미확정·보류:** overall Invalid 진단 scope/origin, 과거 Editor Client63 표현 만료 원인·해결, dead-abort 실기 미재현, 전체 migration은 OPEN이다. 랠리 목적지에 이동 도중 건설할 때의 정지 문제는 [기존 랠리 Task](../_Tasks/2026-10-13/10_37_rally-point-fix/Research.md)에서 사용자 싱글·멀티 확인 범위로 수용했다. 전체 경로 차단 대응은 별도이며 개별 공격 수용을 다시 여는 gate가 아니다.
 
 **싱글 공통 이동 복귀:** 사용자 새 두 경기 육안 수용과 runtime 분석 범위에서 SOLO focused PASS/CLOSED다. Lion/Rhino 직접 resume와 Rabbit pursuit 관측은 구분하며, Rabbit target-loss resume 미관측만으로 재시험을 요구하지 않는다. 광산·랠리, native 메뉴·25종·멀티·전체 동등성은 이 종결에 포함하지 않는다. [상세](../_Tasks/2026-10-14/10_04_post-merge-unit-regression-audit/Research.md#solo-return-two-match-acceptance).
 

@@ -976,7 +976,7 @@ public class ProductionTicker : MonoBehaviour {
         _resourceUseCase?.TickIncome(Time.deltaTime, ...);
         TickSiege(); // 1초 간격으로 공성 유닛 전진 체크
     }
-    // OnUnitProduced 구독 → 랠리포인트 자동 이동 처리 (BFS 빈 타일 탐색)
+    // OnUnitProduced 구독 → 랠리 전용 목적지 질의 후 자동 이동 처리
     // OnRallyPointChanged 구독 → 마커 생성/이동/제거
     // OnEntityDied 구독 → 배럭 파괴 시 마커 Destroy + 공성 목록에서 제거
     // ShowRallyMarker/HideAllRallyMarkers — 팝업 연동
@@ -992,8 +992,8 @@ public class ProductionTicker : MonoBehaviour {
 유닛 생산 완료 (OnUnitProduced)
   ↓
 랠리포인트 설정됨?
-  ├─ 예 → BFS 빈 타일 탐색 → 랠리포인트 근처로 이동
-  │        ↓ OnMoveComplete 콜백
+  ├─ 예 → 랠리 전용 목적지 선택 → 선택 칸으로 이동
+  │        ↓ OnMoveComplete (이미 도착/대체 후보 없음이면 랠리 생략)
   │        적 Castle 방향 BFS 경로 탐색 → 이동
   └─ 아니오 → 적 Castle 방향 BFS 경로 탐색 → 직접 이동
   ↓
@@ -1024,24 +1024,29 @@ public System.Action OnMoveComplete { get; set; }
 
 #### 랠리포인트 마커 표시 규칙
 - **설정 직후**: 마커 생성 + 3초간 표시 → 자동 숨김
-- **배럭 선택(팝업 열림)**: 마커 표시 (ProductionPanelUI → ShowRallyMarker)
-- **팝업 닫힘/다른 오브젝트 클릭**: 마커 숨김 (ProductionPanelUI → HideAllRallyMarkers)
+- **배럭 선택(팝업 열림)**: 모든 자동 숨김 타이머를 중지하고 다른 배럭 마커를 숨긴 뒤 해당 배럭 마커만 표시 (ProductionPanelUI → ShowRallyMarker)
+- **팝업 닫힘/지정 후 다른 맵 위치 클릭**: 모든 마커 즉시 숨김. 빈 곳·막힌 타일 탭도 포함 (ProductionPanelUI → HideAllRallyMarkers)
 - **배럭 타일에 랠리포인트 설정**: 랠리포인트 해제 + 마커 Destroy
 - **배럭 파괴**: 마커 Destroy
 - **마커 프리팹**: GameConfig.RallyPointPrefab (Inspector에서 할당)
 - **마커 위치/회전**: GameConfig.RallyMarkerOffset / RallyMarkerEuler (Inspector 조정)
+- 자동 숨김 코루틴은 배럭 Id별 사전으로 관리한다. 싱글·멀티 모두 로컬 팀 이벤트만 처리해 상대/AI 마커가 표시·타이머를 간섭하지 않도록 한다.
 
-#### 랠리포인트 BFS 빈 타일 탐색
-랠리포인트 타일이 점유 중일 때 유닛이 멈추는 문제를 방지하기 위해 BFS로 가장 가까운 빈 타일을 탐색:
+<a id="랠리포인트-bfs-빈-타일-탐색"></a>
+#### 랠리 목적지 선택과 재경로
+랠리 이동은 공성용 `FindPathToNearestEmptyTile`과 구분되는 `UnitMovementUseCase.RequestRallyPath` 질의를 사용한다. 생산 시 `ProductionTicker`와 이동 중 `UnitView`의 권위 재경로가 같은 질의를 호출한다.
 ```
 Ring 0: 랠리포인트 자체 (1타일)
 Ring 1: 인접 6타일
 Ring 2: 그 바깥 12타일
-Ring 3: 그 바깥 18타일 (최대 제한, maxRange=3)
+Ring 3: 그 바깥 18타일 (최대 3칸)
 ```
-- 각 타일에 대해 RequestMove 시도 → 성공하면 즉시 반환
-- BFS 특성상 랠리포인트에 가장 가까운 빈 타일이 자동 선택
-- 범위 내 빈 타일 없으면 이동 안 함
+- 이동 가능하고 도달 가능한 칸만 후보로 삼는다. 첫 성공 고리 안에서 경로 길이가 가장 짧은 칸을 선택하며, 동률은 고정 방향 순서를 유지한다.
+- 원래 랠리 칸과 실제 이동 종점을 분리한다. `UnitView.MoveToRally`가 원래 랠리를 보유하고, 이동 도중 건설로 경로가 무효화되면 최신 권위 Root·환경 revision 검증을 유지하면서 목적지를 다시 선택한다.
+- `PathFound`·`CurrentTileSelected`·`NoReachableCandidate`·`ProviderFailure` 결과를 구분한다. 현재 칸 도착과 후보 없음은 랠리 종료 후 기존 완료 콜백을 통해 적 성 진군으로 이어지며, 공급 실패·권위 입력 오류를 정상 도착으로 오인하지 않는다.
+- 목적지 변경 시 objective·실제 종점·대기 경로를 수용 경계에서 함께 바꾸고 기존 공간 commit·무진전 guard를 유지한다. 일반 성 이동·전투 접근의 이동 불가 종점 덧붙임 계약은 별도다.
+- 공성 방향 폴백은 기존 `ProductionTicker.FindPathToNearestEmptyTile`을 계속 사용한다. 랠리의 후보 소진 → 적 성 진군 정책을 이 공용 폴백의 동작과 혼동하지 않는다.
+- 지정 가능 좌표는 `UnitProductionUseCase.CanSetRallyPointAt`으로 판정한다. 입력·서버 RPC·상태 저장 경로가 격자 밖과 `TileKind.Blocked`를 거부하며, 입력은 토스트를 띄우고 지정 모드를 유지한다. 건물·금광 칸은 지정할 수 있다. 제품 동작의 원본은 [건물 규칙](GameSystemRules/GameSystemRules_Buildings.md) 「랠리포인트 시스템」이다.
 
 #### 생산 UI (ProductionPanelUI)
 

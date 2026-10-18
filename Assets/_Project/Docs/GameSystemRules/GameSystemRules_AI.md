@@ -292,7 +292,7 @@ Phase 2 및 Phase 4 진입 시 각각 병행 트랙이 자동 시작된다.
 트랙 실행 흐름:
 1. `isTrackActive = true`
 2. `BuildingPlacementUseCase.Buildings`에서 Red 생산 건물 전체 조회
-3. 모든 생산 건물에 `SetRallyPoint` → 대상 금광 인접 타일 지정
+3. 모든 생산 건물에 `SetRallyPoint` → 대상 금광 칸 지정. 실제 유닛 도착 칸은 [건물 규칙](GameSystemRules_Buildings.md) 「랠리포인트 시스템」의 대체 목적지 선택을 따른다.
 4. 매 `mineCheckInterval`마다 `PlaceMiningPost` 조건 확인
    - 미충족: 유닛들이 랠리포인트 방향으로 행군하며 인접 타일을 자연스럽게 점령
    - Blue 점령 상태: 행군 중인 유닛이 자동 전투로 Blue MiningPost 파괴 후 배치

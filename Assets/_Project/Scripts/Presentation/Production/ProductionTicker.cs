@@ -41,6 +41,7 @@ using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Application.Services;
 using Hexiege.Infrastructure;
 using Hexiege.Core;
@@ -85,12 +86,6 @@ namespace Hexiege.Presentation
         /// <summary> 배럭 Id → 마커 GameObject. </summary>
         private readonly Dictionary<int, GameObject> _rallyMarkers = new Dictionary<int, GameObject>();
 
-        // [D1 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-        //   옛 방식: 모든 배럭이 「3초 자동 숨김」 코루틴 참조 하나를 같이 썼다.
-        //   그래서 배럭 B의 타이머를 시작하면 배럭 A의 타이머가 취소되어 A 깃발이 화면에 남는 버그가 있었다.
-        //   아래 배럭별 사전으로 대체했다.
-        // /// <summary> 3초 자동 숨김 코루틴 참조. </summary>
-        // private Coroutine _autoHideCoroutine;
 
         /// <summary>
         /// 배럭 Id → 그 배럭 깃발의 「3초 뒤 자동 숨김」 코루틴.
@@ -327,39 +322,19 @@ namespace Hexiege.Presentation
 
             if (e.RallyPoint.HasValue)
             {
-                // [D2 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-                //   옛 방식의 문제:
-                //   ① 깃발이 건물·금광 칸에 있으면 RequestMove가 「건물 앞 칸 → 건물 칸」 경로를 돌려준다
-                //      (null이 아니다). 그래서 아래 빈 칸 탐색이 실행되지 않고, 유닛이 건물 칸을 목적지로 걷다 멈췄다.
-                //   ② 경로를 끝내 못 찾으면 유닛이 스폰 칸에 영원히 서 있었다.
-                //   아래 ResolveRallyPath 호출로 대체했다.
-                // // 랠리포인트로 경로 시도
-                // HexCoord rallyTarget = e.RallyPoint.Value;
-                // List<HexCoord> path = _unitMovement.RequestMove(e.Unit, rallyTarget);
-                //
-                // // 랠리포인트 타일이 점유 중이면 BFS로 가장 가까운 빈 타일 탐색
-                // if (path == null)
-                //     path = FindPathToNearestEmptyTile(e.Unit, rallyTarget);
-                //
-                // if (path != null)
-                // {
-                //     // 랠리 도착 후 → 적 Castle 방향 이동 콜백 등록
-                //     unitView.OnMoveComplete = () => MoveTowardEnemyCastle(e.Unit, unitView);
-                //     unitView.MoveTo(path);
-                // }
 
                 // 랠리 칸(또는 그 근처의 걸어갈 수 있는 칸)까지의 경로를 고른다.
                 //   경로가 있으면 → 그 경로로 걸어간 뒤, 도착하면 적 성으로 진군한다.
-                //   경로가 null이면 → 이미 목적지에 서 있거나, 갈 수 있는 칸이 없다는 뜻이므로
-                //                     랠리를 건너뛰고 곧장 적 성으로 진군한다(스폰 칸에 멈춰 서지 않는다).
-                List<HexCoord> rallyPath = ResolveRallyPath(e.Unit, e.RallyPoint.Value);
-                if (rallyPath != null)
+                //   현재 권위 타일을 후보로 골랐거나 주변 후보가 없으면 랠리를 생략한다.
+                //   경로 공급 실패는 이 정책과 구별해 정상 완료로 연결하지 않는다.
+                UnitRallyPathResult rally = ResolveRallyPath(e.Unit, e.RallyPoint.Value);
+                if (rally.Status == UnitRallyPathStatus.PathFound)
                 {
                     // 랠리 도착 후 → 적 Castle 방향 이동 콜백 등록
                     unitView.OnMoveComplete = () => MoveTowardEnemyCastle(e.Unit, unitView);
-                    unitView.MoveTo(rallyPath);
+                    unitView.MoveToRally(new List<HexCoord>(rally.Request.Path), e.RallyPoint.Value);
                 }
-                else
+                else if (rally.EndsRally)
                 {
                     MoveTowardEnemyCastle(e.Unit, unitView);
                 }
@@ -376,20 +351,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnRallyPointChanged(RallyPointChangedEvent e)
         {
-            // [D3 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-            //   옛 방식: 멀티플레이에서만 팀을 걸렀고, 싱글플레이에서는 거르지 않았다.
-            //   그래서 싱글에서 AI(Red)가 금광 랠리를 꽂을 때마다 AI 깃발이 내 화면에 뜨고
-            //   내 깃발 타이머까지 건드렸다. 아래 싱글·멀티 공통 필터로 대체했다.
-            // // 멀티플레이 중이면 로컬 플레이어의 팀에 해당하는 이벤트만 처리한다.
-            // // 호스트(서버) = Blue팀, 클라이언트(비서버) = Red팀.
-            // // 상대 팀 배럭의 랠리포인트 변경 이벤트는 깃발 표시 없이 건너뛴다.
-            // // 싱글플레이에서는 NetworkContext.IsNetworkActive=false이므로 이 블록을 건너뛰어 기존과 동일하게 동작한다.
-            // // Application 레이어의 NetworkContext 정적 홀더로 Unity.Netcode 의존성 제거.
-            // if (NetworkContext.IsNetworkActive)
-            // {
-            //     TeamId localTeam = NetworkContext.IsNetworkServer ? TeamId.Blue : TeamId.Red;
-            //     if (e.Team != localTeam) return;
-            // }
 
             // 내 팀 배럭의 랠리포인트 변경만 깃발로 표시한다(상대 팀 깃발은 보이지 않는다 — 랠리포인트 규칙 1).
             //   - 멀티플레이: 호스트(서버) = Blue팀, 클라이언트(비서버) = Red팀. (옛 방식과 같은 식)
@@ -552,14 +513,6 @@ namespace Hexiege.Presentation
         {
             if (!_rallyMarkers.TryGetValue(barracksId, out var marker)) return;
 
-            // [D1 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-            //   옛 방식: 공유 타이머 하나를 취소했다 → 다른 배럭의 타이머까지 끊었다.
-            // // 기존 자동 숨김 코루틴 취소
-            // if (_autoHideCoroutine != null)
-            //     StopCoroutine(_autoHideCoroutine);
-            //
-            // marker.SetActive(true);
-            // _autoHideCoroutine = StartCoroutine(AutoHideMarker(barracksId));
 
             // 이 배럭의 이전 타이머만 멈춘다(같은 배럭에 연달아 지정하면 마지막 지정 시점부터 3초).
             StopAutoHide(barracksId);
@@ -579,8 +532,6 @@ namespace Hexiege.Presentation
             if (_rallyMarkers.TryGetValue(barracksId, out var marker) && marker != null)
                 marker.SetActive(false);
 
-            // [D1 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-            // _autoHideCoroutine = null;
 
             // 같은 배럭에 새 타이머를 걸 때는 항상 이전 타이머를 먼저 멈추므로(ShowMarkerTemporary),
             //   여기까지 끝까지 돈 코루틴은 언제나 「사전에 등록된 현재 타이머」다. 안심하고 지운다.
@@ -595,14 +546,6 @@ namespace Hexiege.Presentation
         /// <param name="barracksId">팝업이 열린 생산 건물의 Id</param>
         public void ShowRallyMarker(int barracksId)
         {
-            // [D1 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-            //   옛 방식: 공유 타이머 하나만 취소했고, 다른 배럭의 마커는 끄지 않았다.
-            // // 기존 자동 숨김 코루틴 취소 (팝업이 열려있는 동안은 숨기지 않음)
-            // if (_autoHideCoroutine != null)
-            // {
-            //     StopCoroutine(_autoHideCoroutine);
-            //     _autoHideCoroutine = null;
-            // }
 
             // 모든 배럭의 3초 타이머를 멈춘다(자기 것 포함 — 팝업이 열려 있는 동안은 숨기지 않는다).
             StopAllAutoHide();
@@ -624,13 +567,6 @@ namespace Hexiege.Presentation
         /// </summary>
         public void HideAllRallyMarkers()
         {
-            // [D1 비활성화 — 2026-10-13 rally-point-fix — 테스트 통과 후 삭제]
-            // // 자동 숨김 코루틴도 취소
-            // if (_autoHideCoroutine != null)
-            // {
-            //     StopCoroutine(_autoHideCoroutine);
-            //     _autoHideCoroutine = null;
-            // }
 
             // 모든 배럭의 자동 숨김 타이머 취소 (어차피 지금 모두 숨기므로 더 기다릴 필요가 없다)
             StopAllAutoHide();
@@ -916,26 +852,17 @@ namespace Hexiege.Presentation
         // 랠리 경로 결정 (생산 직후 1회)
         // ====================================================================
 
-        /// <summary> 랠리 칸에 못 갈 때 근처 칸을 찾는 최대 거리(칸 수). </summary>
-        private const int RallyFallbackMaxRange = 3;
-
-        /// <summary>
-        /// 링(고리) 좌표를 담아 두는 재사용 버퍼.
-        /// 유닛을 생산할 때마다 새 리스트를 만들지 않도록(모바일 GC 부담 감소) 한 번 만들어 계속 쓴다.
-        /// </summary>
-        private readonly List<HexCoord> _ringBuffer = new List<HexCoord>(RallyFallbackMaxRange * 6);
-
         /// <summary>
         /// 생산된 유닛이 랠리포인트(집결 깃발)로 갈 때 실제로 걸어갈 경로를 고른다.
         ///
         /// 고르는 순서:
         ///   1. 랠리 칸 자체가 걸어갈 수 있는 칸이면 그 칸으로 가는 경로.
-        ///      (유닛이 이미 그 칸에 서 있으면 도착한 것으로 보고 null — 곧장 적 성으로 간다.)
+        ///      (이미 그 칸이면 현재 타일 선택 결과 — 생산 직후에는 곧장 적 성으로 간다.)
         ///   2. 랠리 칸에 갈 수 없으면(건물·금광이 있는 칸이거나 길이 막힘)
         ///      랠리 칸에서 거리 1 → 2 → 3 의 고리를 차례로 살펴, 걸어갈 수 있는 칸 중
         ///      경로가 가장 짧은 칸으로 가는 경로. 한 고리에서 찾으면 더 바깥 고리는 보지 않는다.
         ///      경로 길이가 같으면 먼저 살펴본 칸(방향 순서 고정)을 고른다 → 매번 같은 결과.
-        ///   3. 그래도 없으면 null — 랠리를 건너뛰고 곧장 적 성으로 간다.
+        ///   3. 그래도 없으면 후보 없음 결과 — 랠리를 건너뛰고 곧장 적 성으로 간다.
         ///
         /// 왜 「걸어갈 수 있는 칸」만 목적지로 삼나요?
         ///   이동 UseCase의 RequestMove는 목적지가 건물 칸처럼 이동 불가이면 경로 끝에 그 칸을 덧붙여 준다
@@ -947,103 +874,11 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="unit">방금 생산된 유닛</param>
         /// <param name="rally">배럭에 지정된 랠리포인트 좌표</param>
-        /// <returns>
-        /// 걸어갈 경로(시작 칸 포함, 2칸 이상). null이면 「랠리로 걸어갈 필요가 없거나 갈 수 없음」 —
-        /// 호출자는 곧장 적 성으로 보내면 된다.
-        /// </returns>
-        private List<HexCoord> ResolveRallyPath(UnitData unit, HexCoord rally)
+        /// <returns>이동 경로, 현재 타일 선택, 후보 없음, 공급 실패를 구별하는 결과.</returns>
+        private UnitRallyPathResult ResolveRallyPath(UnitData unit, HexCoord rally)
         {
-            // --- 1. 랠리 칸 자체 ------------------------------------------------
-            if (_unitMovement.IsWalkable(rally))
-            {
-                // 이미 랠리 칸 위에 서 있다 → 도착한 것으로 본다.
-                if (unit.Position == rally) return null;
-
-                List<HexCoord> direct = _unitMovement.RequestMove(unit, rally);
-                if (direct != null) return direct;
-                // 걸어갈 수 있는 칸인데 길이 없다 → 2번(근처 칸)으로 넘어간다.
-            }
-
-            // --- 2. 근처 칸 (거리 1 → 2 → 3) -----------------------------------
-            for (int range = 1; range <= RallyFallbackMaxRange; range++)
-            {
-                CollectRing(rally, range, _ringBuffer);
-
-                bool found = false;
-                int bestLength = int.MaxValue;
-                List<HexCoord> bestPath = null;
-
-                for (int i = 0; i < _ringBuffer.Count; i++)
-                {
-                    HexCoord candidate = _ringBuffer[i];
-
-                    // 격자 밖·막힌 지형·건물 칸은 IsWalkable이 false → 후보가 아니다.
-                    if (!_unitMovement.IsWalkable(candidate)) continue;
-
-                    // 유닛이 이미 이 칸에 서 있다 → 경로 길이 1(가장 짧음)로 친다.
-                    if (unit.Position == candidate)
-                    {
-                        if (1 < bestLength)
-                        {
-                            found = true;
-                            bestLength = 1;
-                            bestPath = null; // 걸을 필요 없음
-                        }
-                        continue;
-                    }
-
-                    List<HexCoord> path = _unitMovement.RequestMove(unit, candidate);
-                    if (path == null) continue; // 갈 길이 없는 칸은 버린다
-
-                    // 더 짧을 때만 바꾼다(같으면 먼저 본 칸을 유지 → 결과가 항상 같다).
-                    if (path.Count < bestLength)
-                    {
-                        found = true;
-                        bestLength = path.Count;
-                        bestPath = path;
-                    }
-                }
-
-                // 이 고리에서 하나라도 찾았으면 더 바깥은 보지 않는다(랠리에 가장 가까운 칸 우선).
-                //   bestPath가 null이면 이미 그 칸에 서 있는 경우 → 호출자가 곧장 성으로 보낸다.
-                if (found) return bestPath;
-            }
-
-            // --- 3. 모두 실패 → 곧장 적 성으로 -----------------------------------
-            return null;
+            return _unitMovement.RequestRallyPath(unit, rally);
         }
 
-        /// <summary>
-        /// center에서 정확히 range 칸 떨어진 고리(링) 위의 좌표를 buffer에 채운다(기존 내용은 지운다).
-        /// 개수는 항상 6 × range 개다. 순서는 매번 같다(방향 열거 순서 고정).
-        ///
-        /// 원리:
-        ///   방향 4번으로 range 칸 간 지점에서 출발해, 방향 0 → 1 → … → 5 순서로 각각 range 칸씩 걸으면
-        ///   고리를 한 바퀴 돈다. 6방향이 시계(또는 반시계) 순서로 나열되어 있기만 하면 성립한다.
-        ///   격자 밖 좌표도 그대로 담는다 — 걸러내기는 호출자가 IsWalkable로 한다.
-        /// </summary>
-        /// <param name="center">고리의 중심 좌표(랠리포인트)</param>
-        /// <param name="range">중심에서의 거리(1 이상)</param>
-        /// <param name="buffer">결과를 담을 리스트(호출 시 비워진다)</param>
-        private static void CollectRing(HexCoord center, int range, List<HexCoord> buffer)
-        {
-            buffer.Clear();
-            if (range <= 0) return;
-
-            // 출발점: center에서 방향 4번으로 range 칸 이동한 지점
-            HexCoord step = ((HexDirection)4).Offset();
-            HexCoord current = center;
-            for (int k = 0; k < range; k++)
-                current = current + step;
-
-            for (int dir = 0; dir < HexDirectionExtensions.Count; dir++)
-            {
-                for (int k = 0; k < range; k++)
-                {
-                    buffer.Add(current);
-                    current = ((HexDirection)dir).Neighbor(current);
-                }
-            }
-        }
     }
 }

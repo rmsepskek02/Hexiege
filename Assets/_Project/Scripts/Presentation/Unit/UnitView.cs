@@ -229,6 +229,11 @@ namespace Hexiege.Presentation
         private HexCoord _currentDestination = default;
         private bool _hasDestination = false;
 
+        // 깃발 좌표는 실제 경로 끝과 다르다. 도중 건설로 실제 도착 칸이 바뀌어도
+        // 원래 깃발 주위에서 다시 선택하도록, 랠리 경유 중에만 이 문맥을 보관한다.
+        private HexCoord? _activeRallyPoint;
+        private bool _rallyPolicyCompletionPending;
+
         /// <summary> 외부 조회용: 현재 진행 중인 이동의 최종 목적지. </summary>
         public HexCoord CurrentDestination => _currentDestination;
         /// <summary> 외부 조회용: 진행 중인 이동이 있는지 여부 (목적지 유효성과 무관). </summary>
@@ -2267,6 +2272,14 @@ _slot = _nextEviction;
                 return MovementWriteOutcome.Rejected;
             }
 
+            // 건물 변경 이벤트가 랠리 경유 종료를 예약한 뒤에는 이전 경로로 한 프레임도
+            // 더 쓰지 않는다. 기존 RepathRequired 탈출을 통해 소유 코루틴이 정리하며,
+            // 여기서 콜백을 호출하거나 코루틴을 강제로 교체하지 않는다.
+            if (_rallyPolicyCompletionPending
+                || (_activeRallyPoint.HasValue && !IsInCombat()
+                    && _pendingPath != null && _pendingPath.Count == 1))
+                return MovementWriteOutcome.RepathRequired;
+
             // 공격/힐 행동이 회전을 소유하는 동안 이동 코루틴은 살아 있어도 pose를 쓰지 않는다.
             // Held는 진행량을 소비하지 않으므로 행동 종료 뒤 같은 navigation objective에서 재개된다.
             if (_rootRotationOwnership.ActionOwnsRoot)
@@ -3396,6 +3409,20 @@ _slot = _nextEviction;
         /// <param name="path">A* 경로 (시작점 포함)</param>
         public void MoveTo(List<HexCoord> path)
         {
+            _activeRallyPoint = null;
+            _rallyPolicyCompletionPending = false;
+            MoveToInternal(path, UnitMovementIntentReason.AStarPath, startNewCommand: true);
+        }
+
+        /// <summary>
+        /// 생산 유닛의 랠리 경유를 시작한다. 재경로는 실제 경로 끝이 아니라 이 깃발을
+        /// 기준으로 다시 선택한다. 일반 MoveTo와 완료 정리가 문맥을 해제한다.
+        /// </summary>
+        public void MoveToRally(List<HexCoord> path, HexCoord rallyPoint)
+        {
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+            _activeRallyPoint = rallyPoint;
+            _rallyPolicyCompletionPending = false;
             MoveToInternal(path, UnitMovementIntentReason.AStarPath, startNewCommand: true);
         }
 
@@ -3470,6 +3497,10 @@ _slot = _nextEviction;
                 {
                     _navigationObjective = new UnitNavigationObjective(
                         destination, path, _navigationEnvironmentRevision);
+                }
+                else if (_activeRallyPoint.HasValue)
+                {
+                    _navigationObjective?.RetargetRallyEndpoint(destination);
                 }
             }
 
@@ -3627,6 +3658,11 @@ _slot = _nextEviction;
             _navigationObjective?.NotifyEnvironmentChanged(
                 _navigationEnvironmentRevision);
 
+            // 랠리 목적지가 바뀌는 질의에서는 이전 환경의 예약 경로를 이월하지 않는다.
+            // 전투 중이면 아래에서 새 예약 없이 복귀 경계의 최신 질의를 기다린다.
+            if (_activeRallyPoint.HasValue)
+                _pendingPath = null;
+
             // ────────────────────────────────────────────────────────────
             // 전투 중인 유닛에 대한 repath 차단.
             //
@@ -3652,10 +3688,19 @@ _slot = _nextEviction;
             }
 
             HexCoord dest = _currentDestination;
-            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(dest);
-            if (newPath == null || newPath.Count < 2)
+            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(dest, resolveRallyGoal: true);
+            if (newPath == null || newPath.Count == 0
+                || (!_activeRallyPoint.HasValue && newPath.Count < 2))
             {
-                // newPath가 null/짧으면 현재 위치에서 그대로 대기. 다음 트리거에서 다시 시도.
+                // 일반 실패는 기존 대기를 유지한다. 랠리 후보 소진은 별도 예약을 통해
+                // 소유 코루틴이 안전하게 종료하므로 같은 null이라도 의미를 섞지 않는다.
+                return;
+            }
+            if (_activeRallyPoint.HasValue && newPath.Count == 1)
+            {
+                // 같은 타일 안의 중심 완료도 기존 코루틴에서 소비한다.
+                // 여기서 즉시 재시작하면 이미 중심에 있는 경우 완료 콜백이 재진입할 수 있다.
+                _pendingPath = newPath;
                 return;
             }
 
@@ -3719,7 +3764,8 @@ _slot = _nextEviction;
         /// Simulation Root와 이 유닛이 관측한 최신 walkability revision을 함께 검증한다.
         /// typed 결과는 실패 terminal에 보존하며 성공 path만 기존 이동 writer에 전달한다.
         /// </summary>
-        private List<HexCoord> RequestLatestAuthoritativeRepath(HexCoord destination)
+        private List<HexCoord> RequestLatestAuthoritativeRepath(HexCoord destination,
+            bool resolveRallyGoal = false)
         {
             if (_movementUseCase == null || _unitData == null)
             {
@@ -3734,6 +3780,27 @@ _slot = _nextEviction;
             }
 
             Vector3 rootDomain = ViewConverter.FromView(transform.position);
+            if (resolveRallyGoal && _activeRallyPoint.HasValue)
+            {
+                UnitRallyPathResult rally = _movementUseCase.RequestRallyPath(_unitData,
+                    _activeRallyPoint.Value, rootDomain, _navigationEnvironmentRevision);
+                _lastPathRequestResult = rally.Request;
+                _rallyPolicyCompletionPending = rally.Status == UnitRallyPathStatus.NoReachableCandidate;
+                if (_rallyPolicyCompletionPending)
+                {
+                    // 일반 경로 실패나 Blocked 상태를 정상 도착으로 처리하는 분기가 아니다.
+                    // 후보 소진으로 랠리를 생략하는 정책을 코루틴 종료 경계에서 한 번 소비한다.
+                    // 現在 Root を同一タイルの中心に偽装した singleton は作らない。
+                    _pendingPath = null;
+                    return null;
+                }
+                if (rally.Status == UnitRallyPathStatus.CurrentTileSelected
+                    && CanCompleteWithinAuthoritativeTile(rally.Request.Goal))
+                    return new List<HexCoord> { rally.Request.Goal };
+                if (rally.Status != UnitRallyPathStatus.PathFound)
+                    return null;
+                return new List<HexCoord>(rally.Request.Path);
+            }
             _lastPathRequestResult = _movementUseCase.RequestAuthoritativeRepath(
                 _unitData,
                 rootDomain,
@@ -3931,6 +3998,10 @@ _slot = _nextEviction;
             string source,
             out UnitRepathDecision decision)
         {
+            // 랠리의 현재 후보 칸 안에서 중심으로 수렴하는 입력은 이미 존재하는
+            // typed singleton 계약으로만 수용한다. 일반 spatial guard를 우회하지 않는다.
+            if (_activeRallyPoint.HasValue && candidatePath != null && candidatePath.Count == 1)
+                return TryAcceptRepath(guard, candidatePath, source, out decision);
             decision = guard != null
                 ? guard.Evaluate(
                     Time.frameCount,
@@ -4156,6 +4227,9 @@ _slot = _nextEviction;
             // ────────────────────────────────────────────────────────────────
             while (_unitData != null && _unitData.IsAlive)
             {
+                // 랠리 후보가 없거나 현재 권위 타일을 후보로 고른 정책 결과만 여기서
+                // 정상 종료한다. 일반 경로 실패/Blocked는 이 조건을 세우지 않는다.
+                if (_rallyPolicyCompletionPending) break;
                 // 여러 frame의 무진전 상한 또는 invalid path에 도달하면 코루틴을 종료하지 않는다.
                 // 종료하면 IsMoving이 false가 되어 공성 ticker가 같은 목표를 새 command로 재발행하고
                 // guard가 초기화된다. 현재 pose와 코루틴을 유지한 채 walkability revision 또는
@@ -4172,20 +4246,22 @@ _slot = _nextEviction;
                     while (_unitData != null
                         && _unitData.IsAlive
                         && _pendingPath == null
+                        && !_rallyPolicyCompletionPending
                         && _navigationEnvironmentRevision
                             == blockedEnvironmentRevision)
                     {
                         yield return null;
                     }
 
-                    if (_unitData == null || !_unitData.IsAlive)
+                    if (_unitData == null || !_unitData.IsAlive || _rallyPolicyCompletionPending)
                         break;
 
                     List<HexCoord> recoveryPath = _pendingPath;
                     _pendingPath = null;
                     if (recoveryPath == null || recoveryPath.Count < 2)
                     {
-                        recoveryPath = RequestLatestAuthoritativeRepath(finalTarget);
+                        recoveryPath = RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                        if (_rallyPolicyCompletionPending) goto cleanup;
                     }
 
                     if (!TryAcceptRepath(
@@ -4215,6 +4291,16 @@ _slot = _nextEviction;
                     yield return null;
                 }
 
+                if (_activeRallyPoint.HasValue && path != null && path.Count > 0)
+                {
+                    // 새 경로가 수용돼 outer loop에 들어온 시점에 경로/목적지/objective를
+                    // 함께 맞춘다. 같은 guard 객체와 환경 revision은 그대로 유지한다.
+                    finalTarget = path[path.Count - 1];
+                    _currentDestination = finalTarget;
+                    _navigationObjective?.RetargetRallyEndpoint(finalTarget);
+                    if (path.Count == 1 && _pendingPath != null && _pendingPath.Count == 1)
+                        _pendingPath = null;
+                }
                 _navigationObjective?.MarkNavigating();
                 SetMovementHeldAnimation(false);
 
@@ -4234,7 +4320,8 @@ _slot = _nextEviction;
                             yield return EnterCombatPursuitV3();
                             if (!CanCompleteWithinAuthoritativeTile(finalTarget))
                             {
-                                path = RequestLatestAuthoritativeRepath(finalTarget);
+                                path = RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                                if (_rallyPolicyCompletionPending) goto cleanup;
                                 navigationBlocked = path == null;
                                 break;
                             }
@@ -4421,7 +4508,8 @@ _slot = _nextEviction;
                         if (movementOutcome == MovementWriteOutcome.RepathRequired)
                         {
                             List<HexCoord> blockedRepath =
-                                RequestLatestAuthoritativeRepath(finalTarget);
+                                RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                            if (_rallyPolicyCompletionPending) goto cleanup;
                             if (!TryAcceptSpatialRecoverableRepath(
                                     repathGuard,
                                     blockedRepath,
@@ -4530,7 +4618,8 @@ _slot = _nextEviction;
                             {
                                 _combatPursuitRequiresRepath = false;
                                 List<HexCoord> pursuitRepath =
-                                    RequestLatestAuthoritativeRepath(finalTarget);
+                                    RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                                if (_rallyPolicyCompletionPending) goto cleanup;
                                 if (!TryAcceptSpatialRecoverableRepath(
                                         repathGuard,
                                         pursuitRepath,
@@ -4609,7 +4698,8 @@ _slot = _nextEviction;
                                     path))
                             {
                                 List<HexCoord> safeResumePath =
-                                    RequestLatestAuthoritativeRepath(finalTarget);
+                                    RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                                if (_rallyPolicyCompletionPending) goto cleanup;
                                 // 직접 중심 후보 부재는 spatial unsafe 증거가 아니다.
                                 // 유효 동일 route는 다음 frame의 최신 pose에서 안전 검사한다.
                                 if (!TryAcceptRepath(
@@ -5045,7 +5135,8 @@ _slot = _nextEviction;
                                     // flag와 전투 전 forwardTile/alignView가 복귀 판단에 섞인다.
                                     _combatPursuitRequiresRepath = false;
                                     List<HexCoord> reentryPursuitRepath =
-                                        RequestLatestAuthoritativeRepath(finalTarget);
+                                        RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                                    if (_rallyPolicyCompletionPending) goto cleanup;
                                     if (!TryAcceptSpatialRecoverableRepath(
                                             repathGuard,
                                             reentryPursuitRepath,
@@ -5135,6 +5226,7 @@ _slot = _nextEviction;
 
                             // 5) 같은 forwardTile로 도메인 갱신 + 새 path 발급.
                             List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget, forwardTile);
+                            if (_rallyPolicyCompletionPending) goto cleanup;
                             if (resumePath != null && resumePath.Count > 0)
                             {
                                 if (!TryAcceptRepath(
@@ -5326,7 +5418,8 @@ _slot = _nextEviction;
                             // 같은 프레임에 새 코루틴을 재시작하면 무제한 재시작 고리가 생길 수
                             // 있으므로 이 유닛만 현재 위치에서 fail-closed 한다.
                             List<HexCoord> refreshed =
-                                RequestLatestAuthoritativeRepath(finalTarget);
+                                RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
+                            if (_rallyPolicyCompletionPending) goto cleanup;
                             if (TryAcceptRepath(
                                     repathGuard,
                                     refreshed,
@@ -5366,6 +5459,11 @@ _slot = _nextEviction;
             }
 
             cleanup:
+            // 랠리 생략 예약을 먼저 소비해야 마지막 NoIntent 게시도 이동 작성 경계를
+            // 실제로 통과한다. 이전 경로를 막는 예약 flag로 종료 게시까지 막지 않는다.
+            _rallyPolicyCompletionPending = false;
+            if (_activeRallyPoint.HasValue && _pendingPath != null && _pendingPath.Count == 1)
+                _pendingPath = null;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             PostCombatTraceEvent(_unitData == null || !_unitData.IsAlive ? "death-cleanup" :
                 movementFailedClosed ? "cancelled-cleanup" : "completion-cleanup", close: true);
@@ -5375,9 +5473,23 @@ _slot = _nextEviction;
             //   발행한다. 콜백이 새 이동(MoveTo)을 시작하면 _moveCoroutine이 다시 non-null이 된다.
             if (_unitData != null && _unitData.IsAlive)
             {
-                TryCloseMovementAuthorityIntent(
+                bool closed = TryCloseMovementAuthorityIntent(
                     UnitMovementIntentReason.AStarPath,
                     "path-cleanup");
+                if (_activeRallyPoint.HasValue)
+                {
+                    // 랠리 경유 종료는 실제 종료 게시가 확인된 경우에만 성 진군으로 잇는다.
+                    // Reducer 모드에서는 반환값뿐 아니라 최신 수용 상태도 함께 확인한다.
+                    if (_lockedMovementPipelineMode == UnitMovementPipelineMode.ReducerAuthoritative)
+                    {
+                        closed = closed && _movementAuthorityReducer != null
+                            && _movementAuthorityReducer.Snapshot.HasAcceptedObservation
+                            && _movementAuthorityReducer.Snapshot.Phase == UnitMovementPhase.NoIntent
+                            && _movementAuthorityReducer.Snapshot.CommandRevision == _movementCommandRevision
+                            && _movementAuthorityReducer.Snapshot.SegmentRevision == _movementSegmentRevision;
+                    }
+                    if (!closed) movementFailedClosed = true;
+                }
             }
             if (_unitData == null || !_unitData.IsAlive)
                 _navigationObjective?.Cancel();
@@ -6565,7 +6677,7 @@ _slot = _nextEviction;
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
 
             // 새 path 계산 — finalTarget으로 RequestMove. 실패 시 null 반환(호출 측이 종료 처리).
-            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(finalTarget);
+            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(finalTarget, resolveRallyGoal: true);
             return newPath;
         }
 
@@ -6604,6 +6716,8 @@ _slot = _nextEviction;
             // 1회성 이동 완료 콜백 (랠리→Castle 자동 이동 체인 등에서 사용).
             var callback = OnMoveComplete;
             OnMoveComplete = null;
+            _activeRallyPoint = null;
+            _rallyPolicyCompletionPending = false;
             if (invokeCompletion)
                 callback?.Invoke();
         }

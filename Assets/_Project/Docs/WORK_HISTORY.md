@@ -13,6 +13,10 @@
 
 | 날짜 | 마일스톤 |
 |---|---|
+| 2026-10-18 | 랠리 사용자 수용 후 승인된 비활성·미참조 코드 정리와 별도 검증 완료. 활성 토큰 동일성 확인과 신규 실기·main 병합은 구분. [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-9-불필요-코드-정리-완료별도-검증-programmer메인-전달값>) |
+| 2026-10-18 | AI 랠리 5번도 사용자 싱글 정상 확인 범위에서 수용. 불필요 코드 정리·main 병합 준비는 승인 후 진행 단계로 구분. [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-7-ai-5번-사용자-싱글-수용과-코드-정리main-병합-준비>) |
+| 2026-10-18 | 이동 도중 랠리 목적지 건설 후속 수정의 싱글·멀티 정상 동작을 사용자 확인 범위에서 수용·종결하고 사양 문서를 동기화. AI 5번·전체 경로 차단 대응은 별도. [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-6-후속-수정의-사용자-싱글멀티-확인과-수용-2026-10-18>) |
+| 2026-10-18 | 랠리 최초 수정 `9aa921f9`의 사용자 싱글 1·2·3·4·6 정상 관찰·멀티 확인 보고 기록. AI는 미확인, 이동 중 건설 문제는 당시 후속 OPEN(후속 수용은 위 행). [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-2026-10-18-사용자-실기-보고와-후속-조사-범위>) |
 | 2026-10-15 | SOLO 공통 이동 복귀 사용자2경기·runtime 분석의 focused 수용. 전25종/멀티/global 수용·native 메뉴 PASS와 구분하며 광산·랠리는 제외. [원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-work-solo-1) |
 | 2026-10-15 | 공통 이동 복귀의 공간 정합·endpoint 중복 방지 구현과 controlled 검증. 이후 수용은 같은 날짜 수용 행을 따른다. [원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-work-solo-2) |
 | 2026-10-15 | 원래 승인 교정의 에셋·코드 반영 감사 및 입증된 누락 복원 종결. Fox 원래2:25와 기존 SOLO clock/pursuit를 보존하며 새 전체 실기 수용은 아님. [원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-work-solo-3) |
