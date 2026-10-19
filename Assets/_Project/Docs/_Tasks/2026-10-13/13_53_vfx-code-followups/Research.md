@@ -377,3 +377,68 @@ R4 뒤 전체 자동 검증을 다시 돌리자 급류 파도 검사는 통과�
 - 이 VFX 작업의 자동 검증 기준은 **Run 1016행(Torrent 파도)까지 통과**로 본다.
 - 미실행 구간 중 `RunAuthoritativeAttackPresentationValidation`이 다루는 **방어 타워·버섯 착탄 표시 경로는 Fox 결함이 고쳐질 때까지 인게임 실기로 눈으로 확인**한다.
 - Fox 결함의 조사·수정은 이 작업 범위가 아니다.
+
+---
+
+<a id="13-quakespirit-attack-vfx-rework"></a>
+
+## 13. QuakeSpirit 공격 VFX 재제작 결과 (2026-10-19 추가 — 1~12절은 당시 기록으로 보존)
+
+### 13-0. 쉬운 설명
+
+대지의 정령(QuakeSpirit)이 공격할 때 나오는 이펙트를 사용자가 Unity AI와 Inspector 조정으로 새로 만들었다. 목표는 「땅을 내려치면 맞은 칸과 그 주변 6칸에 걸쳐 땅이 갈라지고 흙먼지가 피어오르는」 모습이다. 바닥에 6갈래로 뻗는 균열 그림, 천천히 부풀며 퍼지는 갈색 흙먼지, 튀는 흙줄기·흙알갱이·돌 조각, 중심의 짧은 섬광으로 구성된다. 사용자가 결과를 보고 승인했다(2026-10-19: "이정도면 괜찮은거같아 이렇게 완료하도록하자"). **화면 표현만 바뀌었고 실제 피해 범위(반경 1.0)는 그대로다.** 이펙트가 피해 범위보다 조금 더 넓게 보이는 것은 사용자가 고른 결과다.
+
+### 13-1. 근거 수준과 기록 위치
+
+- 이 작업의 원래 Research·Plan(1~12절, Plan 0~15절)에는 QuakeSpirit 항목이 **없었다** [직접 — 두 문서에서 `Quake` 검색 0건]. 사용자가 같은 브랜치에서 이어서 한 프리팹 작업이며, 사용자 지시(2026-10-19 "문서 갱신진행하자")로 이 문서에 결과를 기록한다. 코드 변경은 없다.
+- 프리팹 커밋 [직접 `git log`]: `97239372`(2026-10-15) · `e3461650` · `fe449034` · `8da297ff` · `2f0de96d` · `e5d6ab21` · `d1a994fb`(2026-10-19, 브랜치 HEAD). 그 전 마지막 변경은 `3aa70c26`(2026-08-24).
+- 아래 값은 메인 세션이 올라간 프리팹에서 확인해 전달한 것이며 **[전달]**, document-manager가 2026-10-19 작업 트리(`d1a994fb`)에서 프리팹·머티리얼·preset YAML을 직접 읽어 다시 확인한 값은 **[직접]**으로 표시한다(읽기만 했다).
+
+### 13-2. 최종 프리팹 구성 — `Assets/_Project/Prefabs/VFX/Units/vfx_quakespirit_attack.prefab`
+
+공통 [직접]: 루트 포함 7개 Particle System 모두 Looping OFF · Stop Action None · 길이 1초 · Scaling Mode Hierarchy(직렬화 값 0). 1회성 착탄 계약(VFXSFXGuide 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 1번 표)을 지킨다.
+
+| 레이어 | 머티리얼 [직접] | 주요 값 [직접] | 비고 |
+|---|---|---|---|
+| `Ground_Cracks` | `Mat_VFX_HexFissures` (텍스처 `Art/VFX/QuakeSpirit/vfx_hex_fissures.png`, 새로 만듦) | Horizontal Billboard · Start Size 3.4 · 1개 | 6방향 균열이 중심에서 벌어지며 자란다 [전달]. 균열 끝은 텍스처 반폭의 약 95% → 중심에서 약 1.6 [전달 — 메인 세션이 PNG 알파에서 잼. 이 환경에는 이미지 라이브러리가 없어 재측정하지 않았다] |
+| `Dust_Puffs` | 공용 `Mat_VFX_Smoke` (수정하지 않음 [전달]) | 12개 · 크기 0.6~0.8 · 속도 1.65~2.25 | 6방향 × 2, 어두운 갈색·숯색 Start Color, 약 1.3배로 부풀음, 형태 반경 0.18, Limit Velocity dampen 0.35, Noise 켬 [전달] |
+| `Dirt_Streaks` | `Mat_VFX_QuakeDustGrain` | Stretched Billboard · 8개 · 속도 4.2~4.9 | dampen 0.4 [전달] |
+| `Dirt_Specks` | `Mat_VFX_QuakeDustGrain` | 10개 · 속도 2.9~3.9 · 중력 3.2 | 형태 반경 0.65 [전달] |
+| `Rock_Debris` | `Mat_VFX_PuffCloud` | 5개 · 속도 3.25~4.3 · 중력 3 | |
+| `Impact_Flash_Core` | `Mat_VFX_GlowAdditive` | 크기 1.55~1.95 | |
+
+**재작업 중 만든 에셋의 현재 참조 상태 [직접 — GUID 검색, `Assets` 아래 프리팹·머티리얼·에셋·씬]:** 아무것도 지우지 않았다.
+
+| 에셋 | 상태 |
+|---|---|
+| `Mat_VFX_QuakeDustGrain` (+ `vfx_quake_dust_grain.png`) | **사용 중** — 위 `Dirt_Streaks`·`Dirt_Specks`. 처음엔 먼지용으로 만들었으나 먼지 레이어에서는 빠지고 흙 알갱이 레이어에 남았다 |
+| `Mat_VFX_QuakeDust` (+ `vfx_quake_dust.png`) | **미사용** — 어느 프리팹·에셋도 참조하지 않는다 |
+| `Mat_VFX_GroundCracks` (+ `vfx_ground_cracks.png`, 이전 사각형 균열 텍스처) | **미사용** — 어느 프리팹·에셋도 참조하지 않는다. 파일은 그대로 있다 |
+
+정리(삭제) 여부는 사용자 결정 대상이며 이 기록은 삭제를 제안하지 않는다(WORKFLOW 「규칙」 삭제 명령 사전 허가).
+
+- [직접] 같은 시기 별도 커밋 `575eee3f`(2026-10-15)가 `Assets/_Project/Prefabs/VFX/Units/vfx_cannon_impact.prefab`을 추가했다(13-5 2번의 먼지 비교 기준 `Smoke_Puff`가 이 프리팹 안에 있다). 이 프리팹은 **어느 preset·config·코드에서도 참조되지 않는다** — 용도와 연결 여부는 전달받지 않았으므로 추정하지 않는다.
+
+### 13-3. 게임 연결 [직접]
+
+- `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_QuakeSpirit_Attack.asset`의 `_vfxPrefab`이 이 프리팹(GUID `6d2d8817…`)을 가리키고, `UnitEffectConfig.asset`이 이 preset을 참조한다 — 기존 공격 슬롯 그대로이며 preset은 이번에 바뀌지 않았다(마지막 변경 `3aa70c26`). 위치 보정 (0, 0.05, 0.5), 회전 보정 0, Scale Multiplier 1.
+- [전달] 이펙트는 QuakeSpirit이 바라보는 방향을 따라 회전한다. 그래서 균열 6갈래의 방향은 **월드 헥스 격자에 고정되지 않고 공격 방향을 따른다.**
+
+### 13-4. 보이는 범위와 실제 피해 범위 — 사용자가 받아들인 차이
+
+- 사용자 의도 [전달]: 「타일 A를 공격하면 A와 둘레 6칸 전체에 이펙트가 보인다」.
+- 헥스 수치 [전달]: 타일 폭 0.866 · 이웃 칸 중심까지 약 0.78~0.87 · 이웃 칸 바깥 가장자리 약 1.3.
+- 최종 이펙트 끝은 약 1.6으로 이웃 칸 바깥 가장자리(약 1.3)를 넘는다 — **사용자 선택** [전달].
+- 실제 피해 판정은 바뀌지 않았다 [직접]: `SpecialAttackConfig.asset` `_quakeRadius: 1`(코드 기본값 `SpecialAttackConfig.cs` `_quakeRadius = 1.0f`), 규칙은 `GameSystemRules_Units.md` 「특수 공격 시스템 규칙 — 착탄형 즉발 AoE 확장」 규칙 43. 따라서 **보이는 범위(약 1.6) > 피해 반경(1.0)** 이며, 이는 결함이 아니라 승인된 표현 결정이다.
+
+### 13-5. 재작업에서 얻은 교훈 (다음 VFX 제작용 — VFXSFXGuide에도 반영)
+
+1. **이미지 생성기에 「투명 배경에 6갈래 균열 한 장」을 요청하면 처음에는 갈라진 사각형 석판이 나왔다** [전달]. 투명 배경과 구도(중심에서 뻗는 6갈래, 바깥은 비어 있음)를 명시해 다시 요청하고, 크기를 정하기 전에 **텍스처 알파에서 균열 끝 위치를 재서** Start Size를 계산한다.
+2. **먼지** [전달]: 큰 파티클 몇 개에 먼지 덩어리 그림 한 장씩을 실으면 「도장 찍힌 그림이 미끄러지는」 것처럼 보였고, 아주 작은 알갱이는 점으로만 보였다. 부드러운 연기 텍스처의 **중간 크기 퍼프가 천천히 부풀며 퍼질 때** 먼지로 읽혔다(`vfx_cannon_impact.prefab`의 `Smoke_Puff`와 같은 방식 — 같은 `Mat_VFX_Smoke` 사용 [직접]).
+3. **「한 타일 범위」를 먼저 확인한다**: A + 이웃 6칸 전체 / 이웃 칸 중심까지 / 피해 반경 1.0 중 무엇인지에 따라 크기가 약 1.3·0.8·1.0으로 달라진다.
+4. **Scaling Mode가 Local인 레이어는 루트·preset의 Scale Multiplier를 따르지 않는다** [전달 — 재작업 중 관찰] → 그런 레이어는 레이어마다 조정해야 한다. 최종 프리팹은 모든 레이어가 Hierarchy다 [직접].
+
+### 13-6. 판정
+
+- **사용자 승인 — 완료**(2026-10-19). 사용자 화면 확인이며 정밀 픽셀·멀티 양 peer 비교·자동 검증 대상은 아니다. `Testcase.md`는 요청받지 않아 만들지 않았다(WORKFLOW [8] 해당 없음).
+- 이 결과는 10-4의 OPEN 결함(타워 번개 사망 시 끝점)과 무관하며 그 상태를 바꾸지 않는다.

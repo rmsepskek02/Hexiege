@@ -348,6 +348,7 @@
 | 2026-10-13 | 12절 「재작업 R3 — 측정 도구 스케일 버그」 추가(R3-1~R3-4) | 2차 사용자 실기(Research 9절): R2-1 차지 정지·R2-2 크리스털 시작점은 PASS. 그러나 독(재제작 프리팹 `10a38cc0`)·힐이 유닛보다 너무 크고 높게 보였고, 메인 세션 진단으로 측정 도구가 채운 크기 표가 스킨드 메시 유닛에서 약 5배 큼(Pistoleer 키 1.71, 중간 Transform 배율 0.2 미반영)이 확인됐다. 이 표가 상태 이펙트 배율(키 ÷ 1.0)과 번개 가슴 높이(키 × 0.6)를 함께 정하므로 도구를 먼저 고친다. 사용자 승인 원문: "측정 도구를 수정해야 나머지가 정상적으로 테스트될거같아 / 문서 정리도 같이 진행해". 절 번호는 기존 11절(이 표) 뒤 번호를 이어 12로 했으며 위치는 이 표 앞이다. |
 | 2026-10-15 | 13절 「최종 결과 — 여기까지의 기록」 추가(문서 끝) | 3차 사용자 실기(Research 10절) 결과 기록. 계획 변경이 아니라 결과 기록이며, 남은 결함 1건(타워 번개 사망 시 끝점 어긋남)은 별도 승인 대상으로 남겼다. 사용자 지시 원문: "우선 여기까지 작업한 것을 기록하자". |
 | 2026-10-19 | 14절 「재작업 R4 — 검증 해시 줄바꿈 문제」 추가(문서 끝) | main(`0978d908`) 병합 뒤 Edit Mode 전체 회귀 검증에서 `TorrentWaveProductionValidation`이 "source VFX hash changed"로 실패(Research 11절). 원인은 사용자 PC `core.autocrlf=true`로 디스크 파일이 CRLF가 되어 원본 바이트 해시가 LF 기준 상수와 달라진 것 — 병합·VFX 작업 결함이 아니다. 병합 전 검사를 끝내려면 이 검증을 줄바꿈에 무관하게 만들어야 하므로 이 브랜치에서 고친다. 사용자 승인 원문: "1번대로 진행하자" · "가로 진행해". |
+| 2026-10-19 | 16절 「QuakeSpirit 공격 VFX 재제작 결과」 추가(문서 끝) | 원래 계획에 없던 사용자 프리팹 작업(Unity AI + Inspector 조정, 커밋 `97239372`~`d1a994fb`)의 결과 기록. 계획 변경이 아니라 결과 기록이며 코드 변경은 없다. 사용자 원문: "이정도면 괜찮은거같아 이렇게 완료하도록하자" · "문서 갱신진행하자". |
 
 ---
 
@@ -518,3 +519,46 @@ R4 뒤 전체 검증이 Torrent 파도 검사는 통과했지만 그 뒤 여우 
 - 자동 검증은 **Run 1016행(Torrent 파도)까지 통과**하면 이 작업 기준을 충족한 것으로 본다. 이 작업 관련 검사(Bloom 약 1006~1008 · VfxConnections 1009 · Torrent 1016)는 모두 그 앞에 있다.
 - 1019행 이후 검사는 미실행이므로, 그중 `RunAuthoritativeAttackPresentationValidation`이 다루는 **방어 타워·버섯 착탄 표시 경로는 인게임 실기로 눈으로 확인**한다(Fox 결함이 고쳐질 때까지).
 - 14-3의 3·4번(이 브랜치 Fox 차지 VFX·랠리 확인 → main 병합) 순서는 그대로다.
+
+---
+
+## 16. QuakeSpirit 공격 VFX 재제작 결과 (2026-10-19 추가 — 0~15절은 보존)
+
+### 16-0. 쉬운 설명
+
+대지의 정령(QuakeSpirit) 공격 이펙트를 사용자가 새로 만들었고, 사용자가 결과를 승인했다(2026-10-19). 이 계획의 원래 항목(0~15절)에는 들어 있지 않던 작업이라 **계획 변경이 아니라 결과 기록**이다. 맞은 칸과 주변 6칸에 걸쳐 6갈래 균열·흙먼지·흙 파편이 보이며, 실제 피해 범위는 그대로다. 사실과 근거 수준은 [Research 13절](Research.md#13-quakespirit-attack-vfx-rework)이 단일 소스다.
+
+### 16-1. 🔴 기존 로직 제거·비활성화 항목 (WORKFLOW [4])
+
+- 없음. 코드는 바꾸지 않았다. 프리팹 내부 레이어 교체(사각형 균열 텍스처 → 6갈래 균열, 큰 먼지 그림 → 연기 퍼프)는 사용자 에셋 작업이며, 빠진 머티리얼·텍스처(`Mat_VFX_QuakeDust`·`Mat_VFX_GroundCracks`와 각 텍스처)는 **지우지 않고 남겨 두었다**(Research 13-2).
+
+### 16-2. 결과
+
+| 항목 | 상태 | 근거 |
+|---|---|---|
+| `vfx_quakespirit_attack.prefab` 재제작 (6레이어 + 루트, 1회성, 약 1초) | ✅ **사용자 승인** (2026-10-19) | Research 13-2 · 13-6 |
+| 게임 연결 | 기존 공격 슬롯 그대로(`EffectPreset_QuakeSpirit_Attack`, 위치 보정 (0, 0.05, 0.5)) — preset 변경 없음 | Research 13-3 |
+| 보이는 범위 약 1.6 vs 피해 반경 1.0 | 사용자가 받아들인 표현 결정 — 피해 규칙(`GameSystemRules_Units.md` 「특수 공격 시스템 규칙 — 착탄형 즉발 AoE 확장」 규칙 43)은 변경 없음 | Research 13-4 |
+
+### 16-3. 변경 파일 (WORKFLOW [12] — 프리팹을 바꾼 사용자 커밋 7개 각각의 `git show --name-status` + 2026-10-19 문서 반영분)
+
+**[수정] 프리팹** — `Assets/_Project/Prefabs/VFX/Units/vfx_quakespirit_attack.prefab` (7개 커밋 모두)
+
+**[추가] 에셋 (사용자, Unity AI)**
+- `97239372`: `Assets/_Project/Art/VFX/QuakeSpirit/` 폴더(`.meta`) · `vfx_ground_cracks.png` · `Assets/_Project/Materials/VFX/Mat_VFX_GroundCracks.mat` — 지금은 미사용(Research 13-2)
+- `e3461650`: `vfx_hex_fissures.png` · `Mat_VFX_HexFissures.mat` — 사용 중
+- `fe449034`: `vfx_quake_dust.png` · `Mat_VFX_QuakeDust.mat` — 지금은 미사용
+- `8da297ff`: `vfx_quake_dust_grain.png` · `Mat_VFX_QuakeDustGrain.mat` — 사용 중(흙 알갱이 레이어)
+- 각 파일의 `.meta` 포함. 같은 커밋들에 Unity AI 생성 원본 `GeneratedAssets/<텍스처 GUID>/…png`(+ `.png.json`) 8장이 함께 들어 있다.
+
+**함께 커밋된 부수 변경 (이 VFX와 무관해 보이며 내용은 검토하지 않았다)** — `fe449034`: `Assets/_Project/Fonts/Maplestory Light SDF.asset` · `e5d6ab21`: `ProjectSettings/AndroidResolverDependencies.xml`, `_Logs/_editor/2026-10-17~19` 로그 `.meta`, `_Tasks/2026-10-15/23_18_editor-script-organization` `.meta`.
+
+**같은 시기 별도 커밋** — `575eee3f`(2026-10-15, `fe449034`와 `8da297ff` 사이): `Assets/_Project/Prefabs/VFX/Units/vfx_cannon_impact.prefab`(+ `.meta`) 추가. Research 13-5 2번의 먼지 비교 기준이지만 **어떤 preset·config·코드도 참조하지 않는다** [직접 GUID 검색] — 용도·연결 여부는 사용자 확인 대상으로 남긴다.
+
+**[수정] 상시 문서** — `Assets/_Project/Docs/Assets/VFXSFXList.md` · `Assets/_Project/Docs/Assets/VFXSFXGuide.md` · `Assets/_Project/Docs/PROJECT_STATUS.md` · `Assets/_Project/Docs/WORK_HISTORY.md`
+
+**[수정] 에이전트 메모리** — `.claude/MEMORY.md` · `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` · `.claude/agent-memory/document-manager/MEMORY.md` · `.claude/agent-memory/_baseline.json`
+
+**[작업 문서 — 별도]** — 이 `Plan.md` 16절과 11절 표 한 행, `Research.md` 13절
+
+- `Testcase.md` 없음 — 요청받지 않았다(WORKFLOW [8] 해당 없음).

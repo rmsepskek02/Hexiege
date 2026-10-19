@@ -182,6 +182,37 @@ user with Unity AI, commit `10a38cc0`), `vfx_bloomfairy_heal`.
 - Size/height fine-tuning after import is data work done by the user through the EffectPreset fields
   (`Local Position Offset`, `Scale Multiplier`) and the `UnitEffectConfig` recipient table — not a reason to regenerate.
 
+## Unity AI VFX prompt lessons — area impacts, ground textures, dust (2026-10-19)
+
+> **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 item 5
+> (범위 착탄). That guide section wins if it differs from these notes.
+
+Source: QuakeSpirit attack VFX rework, user-approved 2026-10-19 —
+`Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md` §13. Final prefab
+`Assets/_Project/Prefabs/VFX/Units/vfx_quakespirit_attack.prefab` (layers Ground_Cracks, Dust_Puffs, Dirt_Streaks,
+Dirt_Specks, Rock_Debris, Impact_Flash_Core; all Looping OFF, Stop Action None, 1 s, Scaling Mode Hierarchy).
+
+- **Pin down "one tile range" before sizing.** Hex numbers: tile width ~0.866, neighbour centres ~0.78–0.87, neighbour
+  outer edge ~1.3. "Target + all 6 neighbours", "to neighbour centres" and "the damage radius" (Quake `_quakeRadius` 1.0)
+  give very different sizes. Quake's final visual reaches ~1.6 by explicit user choice (visual > damage judgement is an
+  accepted decision, not a bug) — always ask and record that choice.
+- **Ground decals: state transparency and composition explicitly.** Asking for "one texture with 6 fissures on a
+  transparent background" first returned a square cracked stone slab. Ask for fully transparent background (alpha 0),
+  N fissures radiating from the centre, empty outer border — then check the PNG really is transparent.
+- **Measure the texture before setting Start Size.** Fissure tips sat at ~95% of the texture half-width (measured from
+  the PNG alpha), so Start Size 3.4 → tips ~1.6 from centre.
+- **Dust = soft smoke-texture puffs of medium size that billow slowly.** A few large particles each carrying a whole
+  plume image read as "stamped pictures sliding"; tiny grains read as specks. Approved: Quake `Dust_Puffs` (shared
+  `Mat_VFX_Smoke` tinted brown via Start Color, 12 puffs, size 0.6–0.8 growing ~1.3x, Limit Velocity dampen) — same
+  material as `vfx_cannon_impact.prefab` `Smoke_Puff`.
+- **Tint shared materials via Start Color; never edit them** — `Mat_VFX_Smoke` is referenced by several prefabs.
+- **Layers with Scaling Mode Local ignore the root/preset `Scale Multiplier`** — tune them per layer, or set every layer
+  to Hierarchy if the whole effect must scale together.
+- Attack-slot effects rotate with the attacker's facing, so radial patterns follow the attack direction, not the world
+  hex grid.
+- Iteration leftovers kept (not deleted, user decides): `Mat_VFX_QuakeDust` + `vfx_quake_dust.png`,
+  `Mat_VFX_GroundCracks` + `vfx_ground_cracks.png` — unreferenced as of `d1a994fb`.
+
 ## 알려진 제약사항
 - **Meshy.ai 생성 모델은 리메시 후 약 3,000 tri로 제작** (건물/오브젝트 공통 기준)
 - 모바일 최적화: 3,000 tri 이하 유지 (유닛 포함 동일 기준)
