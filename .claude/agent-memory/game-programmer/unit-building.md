@@ -146,8 +146,9 @@
 ## 랠리포인트 팀별 표시
 
 - RallyPointChangedEvent에 TeamId Team 필드 (이벤트 자기완결)
-- ProductionTicker.OnRallyPointChanged 진입부 팀 필터: IsServer→Blue, 아니면 Red. 싱글 시 스킵
+- `ProductionTicker.OnRallyPointChanged` filters the local team in both modes: multiplayer server Blue/client Red; single-player Blue player, Red AI excluded. Updated 2026-10-18: the user subsequently accepted the AI mine/flag item visually in single-player; no all-device or measured-log coverage is inferred.
 - 필터링 책임은 Presentation 레이어
+- Current rally movement, endpoint ownership and scoped single/multiplayer user acceptance: [gameplay-systems.md](gameplay-systems.md), "Rally lifecycle and moving-construction recovery". Keep rule 45 full-route obstruction separate.
 
 ---
 

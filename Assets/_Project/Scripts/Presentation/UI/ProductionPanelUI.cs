@@ -562,6 +562,37 @@ namespace Hexiege.Presentation
             UIManager.Instance?.HideBlockingOverlay();
         }
 
+        /// <summary>
+        /// 랠리포인트 조준 중 탭한 칸에 깃발을 꽂을 수 있는지 입력 처리기(InputHandler)에게 알려 준다.
+        ///
+        /// 실제 판정은 생산 UseCase(UnitProductionUseCase.CanSetRallyPointAt)가 한다.
+        ///   서버 RPC도 같은 UseCase의 같은 메서드로 다시 검사하므로, 입력과 서버의 기준이 항상 같다.
+        /// 입력 처리기는 생산 UseCase를 직접 갖고 있지 않아서, 이미 그것을 갖고 있는 이 패널을 통해 묻는다.
+        /// (이렇게 하면 입력 처리기의 초기화 인자나 GameBootstrapper 연결을 늘리지 않아도 된다.)
+        /// </summary>
+        /// <param name="target">조준 중 탭한 칸의 도메인 헥스 좌표</param>
+        /// <returns>꽂을 수 있으면 true. 맵 밖·막힌 타일이거나, 패널이 아직 초기화되지 않았으면 false</returns>
+        public bool CanSetRallyPointAt(HexCoord target)
+        {
+            // 초기화 전(의존성 주입 전)이면 판정할 수 없으므로 「불가」로 본다.
+            if (_production == null) return false;
+            return _production.CanSetRallyPointAt(target);
+        }
+
+        /// <summary>
+        /// 모든 배럭의 랠리포인트 깃발(마커)을 숨긴다.
+        ///
+        /// 입력 처리기(InputHandler)가 맵을 클릭할 때마다 먼저 부른다
+        ///   → 「깃발을 꽂은 뒤 맵의 다른 곳을 누르면 깃발이 바로 사라진다」 동작.
+        /// 마커를 실제로 관리하는 ProductionTicker 참조는 이 패널만 갖고 있으므로 여기서 위임한다.
+        /// 덕분에 마커 표시/숨김을 바깥에서 부르는 곳이 계속 이 패널 한 곳으로 모인다.
+        /// </summary>
+        public void HideAllRallyMarkers()
+        {
+            // 패널을 닫을 때(OnBeforeClose)와 같은 방식으로 위임한다.
+            if (_ticker != null) _ticker.HideAllRallyMarkers();
+        }
+
         public void CompleteRallyPointSetting(HexCoord target)
         {
             if (_currentBuilding == null || _production == null) return;

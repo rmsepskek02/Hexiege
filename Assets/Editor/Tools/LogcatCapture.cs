@@ -3,14 +3,14 @@
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
 // │  1) 기기를 USB 로 연결한다(USB 디버깅 ON).                                │
-// │  2) 상단 메뉴  Hexiege > Logcat > 1. 버퍼 비우기   실행.                   │
+// │  2) Hexiege > Logs > Clear Device Buffer (Deletes Logs) 실행.             │
 // │  3) 기기에서 버그를 재현한다.                                             │
-// │  4) 상단 메뉴  Hexiege > Logcat > 2. 파일로 저장   실행.                   │
+// │  4) Hexiege > Logs > Save Device Logs 실행.                               │
 // │     → Assets/_Project/Docs/_Logs/{날짜}/{시각}_logcat/RuntimeLog_device.txt │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // ┌─ 곁들인 도구: 오래된 에디터 로그 정리 ──────────────────────────────────┐
-// │  상단 메뉴  Hexiege > Logcat > 3. 오래된 에디터 로그 정리   실행.          │
+// │  Hexiege > Logs > Clean Old Editor Logs (Deletes Assets) 실행.            │
 // │  에디터에서 플레이할 때마다 자동으로 쌓이는 상시 로그                       │
 // │  (Assets/_Project/Docs/_Logs/_editor/{날짜}/RuntimeLog.txt)가              │
 // │  너무 많아졌을 때, 오래된 "날짜 폴더"만 골라 지운다(LogRules.md 1.10).      │
@@ -183,7 +183,7 @@ namespace Hexiege.EditorTools
         /// 기기의 Logcat 링 버퍼를 비운다(`adb logcat -c`).
         /// 실기기 테스트를 시작하기 "직전"에 실행해서, 이번 재현에서 나온 로그만 남게 만든다.
         /// </summary>
-        [MenuItem("Hexiege/Logcat/1. 버퍼 비우기", false, 1)]
+        [MenuItem("Hexiege/Logs/Clear Device Buffer (Deletes Logs)", false, 1)]
         public static void ClearBuffer()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -209,7 +209,7 @@ namespace Hexiege.EditorTools
                 "Logcat 버퍼를 비웠습니다.\n\n" +
                 $"대상 기기: {deviceLabel}\n\n" +
                 "이제 기기에서 버그를 재현한 뒤,\n" +
-                "메뉴 [Hexiege > Logcat > 2. 파일로 저장] 을 실행하세요.",
+                "메뉴 [Hexiege > Logs > Save Device Logs] 을 실행하세요.",
                 "확인");
         }
 
@@ -222,7 +222,7 @@ namespace Hexiege.EditorTools
         /// 저장 경로는 LogRules.md 규칙에 따라 `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/` 아래이며,
         /// 폴더가 없으면 자동으로 만든다(사용자에게 경로를 묻지 않는다).
         /// </summary>
-        [MenuItem("Hexiege/Logcat/2. 파일로 저장", false, 2)]
+        [MenuItem("Hexiege/Logs/Save Device Logs", false, 2)]
         public static void SaveToFile()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -384,7 +384,7 @@ namespace Hexiege.EditorTools
         ///   5) 삭제 직전에 폴더마다 "정말 _editor/ 바로 아래인가" 를 다시 검사한 뒤 삭제
         ///   6) AssetDatabase.Refresh() 로 에디터에 반영하고 결과를 보고
         /// </summary>
-        [MenuItem("Hexiege/Logcat/3. 오래된 에디터 로그 정리", false, 13)]
+        [MenuItem("Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)", false, 13)]
         public static void CleanOldEditorLogs()
         {
             // ── 1) 정리 대상 뿌리 폴더 확인 ────────────────────────────────

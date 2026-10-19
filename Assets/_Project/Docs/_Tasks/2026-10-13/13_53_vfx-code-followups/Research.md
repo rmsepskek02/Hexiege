@@ -12,6 +12,8 @@
 
 ---
 
+> **[2026-10-19 main 병합 메모 — 아래 본문의 경로·메뉴 표기는 작성 당시 그대로 보존]** main(`0978d908`)의 에디터 도구 정리로 `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` · `RunUnitActionSelfValidation.VfxConnections.cs`는 `Assets/Editor/Tools/Combat/` 아래로 옮겨졌고(GUID·partial 보존), 전투 자기 검증 메뉴 이름은 `Hexiege/Combat/Run Full Regression Suite`, 루트 포즈 자기 검증은 `Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit`이 됐다. 본문의 「Unit Action 자기 검증 메뉴」 · 「Self Validate Unit Root Pose Cross Audit」는 이 두 메뉴를 가리킨다. 이 작업이 만든 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs`(`Hexiege/Effects/Measure Unit Recipient Fit`)는 경로 변경이 없으며, WORKFLOW [5-2] 「에디터 스크립트 최소 유지 기준」의 현재 진입점 표에 들어 있지 않다 — 유지 여부는 사용자 결정 대기다. 현행 도구 목록은 [WORKFLOW](../../../WORKFLOW.md) [5-2].
+
 ## 1. 조사 범위와 근거 수준
 
 - 조사 시점: 2026-10-13. 작업 브랜치 `claude/vfx-code-followups`(메인 세션이 origin/main `88f60e38`에서 생성)의 작업 트리 파일을 직접 읽었다.

@@ -280,8 +280,8 @@ namespace Hexiege.Infrastructure
                 ApplyAttackClipCooldown(unitData, attackClipLength);
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
-                // 이벤트가 1개 이상이면 클립 값을 사용한다. FoxMagician은 1.00초가
-                // charge VFX 시작이므로 설정의 2.25초 피해 시각을 보존한다.
+                // 이벤트가 1개 이상이면 클립 값을 사용한다. FoxMagician도 피해 marker를
+                // 사용하며, 별도 charge 이벤트는 GetHitFrameTimes의 추출 대상이 아니다.
                 // 이벤트가 하나도 없으면(빈 배열) 기존 수동/안전망 값(UnitStats.GetHitFrameTimes)을
                 // 그대로 유지한다 — 아직 클립에 OnAttackHit이 찍히지 않은 유닛을 위한 폴백(안전망).
                 float[] hitFrameTimes = GetHitFrameTimes(attackClip);
@@ -391,8 +391,8 @@ namespace Hexiege.Infrastructure
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
                 // (멀티플레이 클라이언트 경로 — 서버와 동일한 프리팹/클립을 쓰므로 결과값도 서버와 일치.)
-                // 이벤트가 1개 이상이면 클립 값을 사용하되, FoxMagician은
-                // charge VFX 시작과 피해 시각이 달라 설정 값을 보존한다.
+                // 이벤트가 1개 이상이면 클립 값을 사용한다. 별도 charge 이벤트는 제외하므로
+                // FoxMagician도 서버/싱글과 동일한 피해 marker를 사용한다.
                 // 하나도 없으면(빈 배열) 기존 수동/안전망 값을 그대로 유지한다(폴백).
                 float[] hitFrameTimes = GetHitFrameTimes(attackClip);
                 if (ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length))
@@ -522,10 +522,12 @@ namespace Hexiege.Infrastructure
                 unitData.AttackCooldown = clipLength;
         }
 
-        // FoxMagician의 OnAttackHit은 charge VFX 시작(1.00초)이고 설정의 피해 시각은
-        // 그 연출 후반(2.25초)이다. 다른 유닛은 기존 clip marker 추출 계약을 유지한다.
+        /// <summary>
+        /// 피해 marker가 있을 때 양 생성 경로가 같은 클립 타격값을 사용한다.
+        /// Fox의 charge는 별도 이벤트이므로 다른 유닛과 같은 추출 계약을 따른다.
+        /// </summary>
         public static bool ShouldUseAttackClipHitFrameTimes(UnitType unitType, int markerCount)
-            => markerCount > 0 && unitType != UnitType.FoxMagician;
+            => markerCount > 0;
 
         /// <summary>
         /// 생성 직후 실제로 선택된 타임라인을 한 번 기록한다. 기본값과 clip-derived 값을

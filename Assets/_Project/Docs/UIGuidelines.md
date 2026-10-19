@@ -1,5 +1,12 @@
 # UI 가이드라인 — Hexiege
 
+**문서 역할**
+- **목적·질문:** UI 시각·레이아웃·애니메이션을 어떻게 일관되게 작성할지 안내한다.
+- **포함:** 화면 분류·표준값·연결 예시와 디자인 원칙.
+- **제외·담당:** 필수 동작은 [공통 UI](GameSystemRules/GameSystemRules_UI.md)·화면별 규칙, 제작 절차는 [UIAssetGuide](Assets/UIAssetGuide.md), 구현 현황은 [Status](PROJECT_STATUS.md).
+- **원본·참조:** 시각/구현 가이드이며 제품 동작의 규칙 원본을 대체하지 않는다.
+- **갱신:** 승인된 시각 기준·공통 구현 관례가 바뀌면 관련 예시와 본문을 함께 갱신한다. 적용 일지는 이력에 둔다.
+
 **최종 수정일:** 2026-10-13
 **적용 범위:** 모든 UI 씬 (Game.unity, Lobby.unity)
 
@@ -109,10 +116,9 @@
 
 > 기기별 해상도 대응의 필수 조건은 [공통 UI 규칙](GameSystemRules/GameSystemRules_UI.md) 「공통 UI 규칙」 규칙 1~4(Canvas Scaler·앵커·자식 이미지·Safe Area)를 따른다. 이 가이드의 연결 예시는 현행 구현 완료 여부를 판정하는 자료가 아니다.
 
-- **반응형 팝업 에디터 스크립트**: `Hexiege/UI/Apply Responsive Popup Layout`
-  - VerticalLayoutGroup 패딩(20) + spacing(8)
-  - 슬롯에 AspectRatioFitter(1.5:1)
-  - TMP `enableAutoSizing` 자동 활성화
+### 반응형 팝업 설정
+
+삭제된 자동 배치 메뉴에 의존하지 않고 현재 프리팹을 Inspector에서 구성한다. 기존 예시의 VerticalLayoutGroup 패딩20·spacing8, 슬롯 AspectRatioFitter1.5:1, TMP `enableAutoSizing`은 시각 조정용 설정이며 모든 팝업의 강제값이 아니다. 필수 반응형 조건은 위 UI 규칙을 따른다. [이전 메뉴 안내](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-ui-deleted-menu).
 
 ---
 
@@ -162,4 +168,4 @@
 - 애니메이션: DOFade (슬라이딩 없음)
 - 성공(초록) / 실패(빨강) / 정보(파랑) 색상 구분
 
-**2026-10-13 사본 정리:** 본문에 기존 ToastUI가 있다고 설명하면서 말미에는 신규 ToastNotification·ToastManager 구현 예정이라고 적던 중복 상태를 기존 원본 참조로 정리했다.
+토스트의 현재 진입점·큐·중복 처리는 위 원본을 따르며 별도 ToastManager 신설 계획을 유지하지 않는다. [이전 사본 정리 경위](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-ui-toast-history).

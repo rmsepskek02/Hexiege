@@ -45,6 +45,14 @@ namespace Hexiege.Application
         /// ⚠️ 이 enum의 순서 = ToastMessageConfig.asset의 key 숫자이므로 항상 맨 뒤에 추가한다.
         ///    중간에 끼워 넣으면 기존 에셋의 key 숫자가 통째로 밀려 다른 문구가 나온다.
         /// </summary>
-        BuildingNotAllowed
+        BuildingNotAllowed,
+
+        /// <summary>
+        /// 랠리포인트 지정 불가 — 랠리포인트 조준 중에 맵 바깥이나 막힌 타일(화면에 타일이 없는 빈 곳)을 탭했을 때.
+        /// 이 토스트를 띄운 뒤에도 조준 상태는 그대로 유지되어, 창을 다시 열지 않고 곧바로 다른 칸을 탭할 수 있다.
+        /// (랠리포인트 수정 작업 2026-10-13 사양 S10 / 판정 기준: UnitProductionUseCase.CanSetRallyPointAt)
+        /// ⚠️ 위 항목과 같은 이유로 반드시 맨 뒤에 둔다. 이 항목의 에셋 key 숫자는 6이다.
+        /// </summary>
+        RallyPointNotAllowed
     }
 }

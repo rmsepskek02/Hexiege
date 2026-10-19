@@ -132,6 +132,10 @@ namespace Hexiege.Application
         ///
         /// 선택 자체(토글·이벤트 발행)는 SelectTileAt과 완전히 같은 규칙을 쓴다
         /// (같은 타일을 다시 누르면 선택이 풀리는 동작 포함).
+        ///
+        /// ⚠️ 3번(선택 불가) 기준은 랠리포인트 지정 가능 판정
+        ///    (UnitProductionUseCase.CanSetRallyPointAt — 맵 밖·막힌 타일이면 지정 불가)과 같은 기준이다.
+        ///    같은 식이 두 곳에 따로 있으므로, 한쪽 기준을 바꾸면 다른 쪽도 함께 맞춘다.
         /// </summary>
         /// <param name="worldPos">클릭된 Unity 월드 좌표</param>
         /// <param name="localTeam">지금 화면을 보고 있는 플레이어의 팀. 규칙 7/8 구분에 쓴다</param>

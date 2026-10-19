@@ -1671,6 +1671,63 @@ namespace Hexiege.Application.Combat.Sequencing
         }
     }
 
+    /// <summary>
+    /// 싱글 Legacy 추격의 XZ 후보와 실제 도착을 같은 경계에서 계산한다.
+    /// Root 높이, Domain 위치 및 멀티 Reducer는 호출자가 그대로 보존한다.
+    /// </summary>
+    public static class UnitSoloPursuitStep
+    {
+        public static void Plan(double x, double z, double goalX, double goalZ,
+            double distanceBudget, out double nextX, out double nextZ)
+        {
+            double dx = goalX - x, dz = goalZ - z;
+            double distance = Math.Sqrt(dx * dx + dz * dz);
+            nextX = x;
+            nextZ = z;
+            if (!Finite(x) || !Finite(z) || !Finite(goalX) || !Finite(goalZ)
+                || !Finite(distanceBudget) || distanceBudget <= 0d || !Finite(distance)) return;
+            // 남은 거리보다 큰 frame budget도 waypoint를 지나치지 않는다.
+            // 도착 frame은 목표 좌표를 그대로 돌려 부동소수점 누적 왕복을 막는다.
+            if (distance <= distanceBudget)
+            {
+                nextX = goalX;
+                nextZ = goalZ;
+                return;
+            }
+            nextX = x + dx / distance * distanceBudget;
+            nextZ = z + dz / distance * distanceBudget;
+        }
+
+        public static bool Reached(double x, double z, double goalX, double goalZ,
+            double distanceBudget)
+        {
+            if (!Finite(x) || !Finite(z) || !Finite(goalX) || !Finite(goalZ)
+                || !Finite(distanceBudget) || distanceBudget <= 0d) return false;
+            double dx = goalX - x, dz = goalZ - z;
+            return dx * dx + dz * dz <= 0.000001d;
+        }
+
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+
+        // 태그/한글 메시지/GameLog envelope에 180 byte를 예약한다. 원문을 잘라 정상처럼 내지 않는다.
+        public static bool FitsEvidence(string data) => data != null && Encoding.UTF8.GetByteCount(data) <= 600;
+
+        public static bool TryConsume(UnitPathCheckpointTracker checkpoint, int index,
+            bool advanced, bool reached, bool acquired, bool direct, bool routeCurrent)
+            => advanced && reached && !acquired && !direct && routeCurrent
+                && checkpoint.TryConsume(index, reachedWaypoint: true);
+
+        /// <summary>유닛 수명당 상세 상한. 누락은 숨기지 않고 첫 초과를 따로 표시한다.</summary>
+        public static bool TakeEvidence(ref int emitted, ref int omitted, out bool firstOmission)
+        {
+            firstOmission = false;
+            if (emitted < 64) { emitted++; return true; }
+            if (omitted < int.MaxValue) omitted++;
+            firstOmission = omitted == 1;
+            return false;
+        }
+    }
+
     public enum UnitRepathDecision
     {
         AcceptedNextFrame = 0,
@@ -1680,6 +1737,36 @@ namespace Hexiege.Application.Combat.Sequencing
         RejectedFrameBudget = 4,
         RejectedNoProgressBudget = 5,
         RejectedMissingCurrentPosition = 6
+    }
+
+    /// <summary>
+    /// 랠리 경유의 정책 결과다. 현재 타일 선택과 후보 소진을 경로 공급 실패와 구별한다.
+    /// </summary>
+    public enum UnitRallyPathStatus : byte
+    {
+        ProviderFailure = 0,
+        PathFound = 1,
+        CurrentTileSelected = 2,
+        NoReachableCandidate = 3
+    }
+
+    /// <summary>
+    /// 랠리 정책의 결과다. 현재 권위 타일이 가장 가까운 후보인 경우와, 주변에 갈 수 있는
+    /// 후보가 아예 없는 경우를 경로 실패와 구별한다. 두 경우 모두 랠리 경유를 끝내지만,
+    /// ProviderFailure는 실제 경로 공급 실패이므로 정상 도착으로 처리하면 안 된다.
+    /// </summary>
+    public readonly struct UnitRallyPathResult
+    {
+        public UnitRallyPathStatus Status { get; }
+        public UnitPathRequestResult Request { get; }
+        public bool EndsRally => Status == UnitRallyPathStatus.CurrentTileSelected
+            || Status == UnitRallyPathStatus.NoReachableCandidate;
+
+        public UnitRallyPathResult(UnitRallyPathStatus status, UnitPathRequestResult request)
+        {
+            Status = status;
+            Request = request;
+        }
     }
 
     /// <summary>
@@ -1924,7 +2011,7 @@ namespace Hexiege.Application.Combat.Sequencing
     /// </summary>
     public sealed class UnitNavigationObjective
     {
-        private readonly HexCoord _destination;
+        private HexCoord _destination;
         private ulong _environmentRevision;
         private readonly UnitRepathProgressGuard _repathGuard;
         private UnitNavigationObjectiveState _state;
@@ -1950,6 +2037,17 @@ namespace Hexiege.Application.Combat.Sequencing
 
         public bool Matches(HexCoord destination)
             => destination == _destination;
+
+        /// <summary>
+        /// 랠리의 실제 도착 칸만 바뀔 때 기존 명령과 무진전 guard를 유지한다.
+        /// 호출자는 새 경로를 수용한 경계에서만 사용해야 하며, 질의만으로 호출하지 않는다.
+        /// 환경 변화에 따른 예산 갱신은 기존 NotifyEnvironmentChanged가 담당한다.
+        /// </summary>
+        public void RetargetRallyEndpoint(HexCoord destination)
+        {
+            if (IsActive)
+                _destination = destination;
+        }
 
         /// <summary>
         /// 같은 환경에서 같은 목적지로 들어온 외부 MoveTo는 새 command가 아니다.

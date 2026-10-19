@@ -1,10 +1,10 @@
 # 에셋 제작 공통 가이드
 
-> 3D 에셋과 UI 에셋 제작에 공통으로 적용되는 규칙
->
-> - 3D 에셋 제작 → [3DAssetCreationGuide.md](3DAssetCreationGuide.md)
-> - UI 에셋 제작 → [UIAssetGuide.md](UIAssetGuide.md)
-> - 에셋 현황 관리 → [AssetList.md](AssetList.md)
+> **목적·답하는 질문:** 3D·UI 제작 요청에 공통으로 전달할 프로젝트 컨셉과 이미지·프롬프트 조건을 정한다.
+> **포함:** 공통 비주얼 방향, 언어·Positive/Negative 작성 방식, 배경·구도·해상도 조건과 신규 대상의 제작 컨텍스트를 담는다. 그대로 전달하는 템플릿은 실행용 자료로 유지한다.
+> **제외·담당 문서:** 분야별 제작·변환·Import는 [3D 가이드](3DAssetCreationGuide.md)와 [UI 가이드](UIAssetGuide.md), 효과 제작은 [VFXSFXGuide](VFXSFXGuide.md), 보유·잔여 현황은 [AssetList](AssetList.md)가 담당한다. 개별 생성 이력·게임 구현 상태는 담지 않는다.
+> **권위원본·주요 참조:** 공통 제작 조건의 원본이며 게임 전체 기획은 [GDD](../GameDesignDocument.md)를 참조한다. 신규 대상의 컨텍스트는 구현 완료·기획 확정을 대신하지 않는다.
+> **갱신 조건·방법:** 승인된 공통 컨셉·제작 조건이 바뀌면 해당 조건과 재사용 템플릿을 함께 갱신한다. 개별 에셋 제작 완료는 목록에 반영하고 이 가이드에 회차별로 추가하지 않는다.
 
 ---
 
@@ -93,38 +93,38 @@ Negative 키워드: multiple objects in frame, background objects
 
 ---
 
-## 신규 추가 에셋 개요
+<a id="신규-추가-에셋-개요"></a>
 
-> 2026-04-27 기준 신규 제작 완료된 에셋 목록.
-> 게임 스탯(HP, 공격력 등)은 사용자가 별도 수정 예정 (TBD 항목).
-> FBX Scale Factor는 AssetList.md 참조.
+## 추가 에셋의 외형 컨텍스트
+
+아래는 기존 제작 요청에 사용한 외형 설명이다. 보유·완성·현재 역할·수치(TBD 포함)를 이곳에 중복 관리하지 않는다. 실제 목록은 [AssetList](AssetList.md), 기능·수치는 [GDD](../GameDesignDocument.md)·[StatsReference](../StatsReference.md)를 따른다. [기존 완료/TBD 표 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-common-briefs).
 
 ### 신규 건물
 
 #### 인간계 (Human)
 
-| 건물명 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|----------|----------|
-| CannonTower | 자동 방어 포탑 — 사거리 내 적을 자동으로 공격 | 석조 포대 위에 대형 대포 탑재 | TBD |
-| FlightFacility | 지원 건물 — 비행선을 이용한 초장거리 폭격 지원 | 격납고 + 공중 정박 중인 비행선 | TBD |
-| TechnicalLaboratory | 업그레이드 건물 — 유닛 강화 연구 | 폐쇄형 공장 구조, 지면 잔해/증기 장치 | TBD |
+| 건물명 | 외형 특징 |
+| -------- | ---------- |
+| CannonTower | 석조 포대 위에 대형 대포 탑재 |
+| FlightFacility | 격납고 + 공중 정박 중인 비행선 |
+| TechnicalLaboratory | 폐쇄형 공장 구조, 지면 잔해/증기 장치 |
 
 #### 정령계 (Spirit)
 
-| 건물명 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|----------|----------|
-| RuneSpire | 방어 타워 — 마법 공격 자동 포탑 | 화이트 마블/실버 재질 첨탑, 상단 수정구 | TBD |
-| MagicSpirit | 스킬 건물 | 거대 단일 크리스탈 구조 | TBD |
-| AstronomicalSpirit | 업그레이드 건물 | 마법 아스트롤라베 형태, 회전 은색 고리 + 부유 수정구 | TBD |
+| 건물명 | 외형 특징 |
+| -------- | ---------- |
+| RuneSpire | 화이트 마블/실버 재질 첨탑, 상단 수정구 |
+| MagicSpirit | 거대 단일 크리스탈 구조 |
+| AstronomicalSpirit | 마법 아스트롤라베 형태, 회전 은색 고리 + 부유 수정구 |
 
 #### 초월계 (Transcendence)
 
-| 건물명 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|----------|----------|
-| VineTower | 방어 타워 — 덩굴 지하 공격 | 지면에 낮게 퍼진 거대 덩굴 군집, 넓적한 실루엣 | TBD |
-| PrimalAltar | 유닛 생산 건물 (Barracks 역할) | 돌 사원 + 동물 뼈 + 덩굴이 감긴 사원 | TBD |
-| MistShrine | 힐 건물 — 아군 체력 회복 | 유기적 분수, 물 넘치는 포자 식물 + 낮은 연꽃 구조 | TBD |
-| WillowShrine | 스킬 건물 | 은색 버드나무 + 고대 비석 성소, 수평 실루엣 | TBD |
+| 건물명 | 외형 특징 |
+| -------- | ---------- |
+| VineTower | 지면에 낮게 퍼진 거대 덩굴 군집, 넓적한 실루엣 |
+| PrimalAltar | 돌 사원 + 동물 뼈 + 덩굴이 감긴 사원 |
+| MistShrine | 유기적 분수, 물 넘치는 포자 식물 + 낮은 연꽃 구조 |
+| WillowShrine | 은색 버드나무 + 고대 비석 성소, 수평 실루엣 |
 
 ---
 
@@ -132,24 +132,24 @@ Negative 키워드: multiple objects in frame, background objects
 
 #### 인간계 (Human)
 
-| 유닛명 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|----------|----------|
-| Tank | 중장갑 포격 — 높은 체력 + 광역 폭발 | 육중한 철갑 전차, 대형 포신 탑재 | TBD |
-| CannonCart | 원거리 포격 — 범위 공격 | 대포 탑재 수레, 화약 장전 구조 | TBD |
+| 유닛명 | 외형 특징 |
+| -------- | ---------- |
+| Tank | 육중한 철갑 전차, 대형 포신 탑재 |
+| CannonCart | 대포 탑재 수레, 화약 장전 구조 |
 
 #### 정령계 — 흙 원소 (Spirit / Earth)
 
-| 유닛명 | 단계 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|------|----------|----------|
-| DustSpirit | 1단계 | 근접 | 작은 흙먼지 형태의 정령 | TBD |
-| BoulderSpirit | 2단계 | 근접/탱커 | 바위 덩어리로 이루어진 중형 정령 | TBD |
-| QuakeSpirit | 3단계 | 광역 근접 | 대형 지진 정령, 다수의 바위 파편 | TBD |
+| 유닛명 | 외형 특징 |
+| -------- | ---------- |
+| DustSpirit | 작은 흙먼지 형태의 정령 |
+| BoulderSpirit | 바위 덩어리로 이루어진 중형 정령 |
+| QuakeSpirit | 대형 지진 정령, 다수의 바위 파편 |
 
 #### 초월계 — 동물 유닛 (Transcendence)
 
-| 유닛명 | 역할 | 외형 특징 | 게임 스탯 |
-|--------|------|----------|----------|
-| RhinoBreaker | 돌진 탱커 — 높은 HP + 돌진 공격 | 갑옷 착용 코뿔소 인간형 전사 | TBD |
-| EagleArcher | 원거리 — 긴 사거리 활 공격 | 독수리 인간형 궁수, 날개 + 활 + 화살통 | TBD |
-| RabbitTrickster | 민첩 근접 — 빠른 속도 + 단검 | 토끼 인간형 검사, 날렵한 체형 + 단검 2자루 | TBD |
-| MushroomBomber | 범위 딜 — 독/폭발 공격 | 버섯 형태 폭탄을 투척하는 식물 유닛 | TBD |
+| 유닛명 | 외형 특징 |
+| -------- | ---------- |
+| RhinoBreaker | 갑옷 착용 코뿔소 인간형 전사 |
+| EagleArcher | 독수리 인간형 궁수, 날개 + 활 + 화살통 |
+| RabbitTrickster | 토끼 인간형 검사, 날렵한 체형 + 단검 2자루 |
+| MushroomBomber | 버섯 형태 폭탄을 투척하는 식물 유닛 |

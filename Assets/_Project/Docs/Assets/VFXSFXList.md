@@ -1,28 +1,30 @@
 # VFX / SFX 에셋 목록
 
-이 문서는 VFX/SFX의 제작·연결·수용 상태 목록이다. 제작 방법은 [VFXSFXGuide](VFXSFXGuide.md), 유닛별 구조 이행과 개별 테스트 수용은 [전투 감사표](UnitCombatAssetMatrix.md)를 기준으로 한다.
+> **목적·답하는 질문:** 어떤 VFX/SFX가 제작·선택·연결됐고 어떤 시각·청각 수용과 제작 잔여가 남았는지 찾는 목록이다.
+> **포함:** 실제 선택 프리팹·preset 연결, 제작·자동 검증·실기 수용의 구분, 미제작·보류·교체 대상과 짧은 근거 포인터를 담는다. 파일 존재나 자동 PASS만으로 실기 수용을 확정하지 않는다.
+> **제외·담당 문서:** 제작 방법·배선 조건은 [VFXSFXGuide](VFXSFXGuide.md), 유닛별 구조 이행·개별 테스트 수용은 [전투 감사표](UnitCombatAssetMatrix.md), 수치는 [StatsReference](../StatsReference.md)가 담당한다. 해시 목록·컴파일·빌드 클릭·긴 경기 관측은 Task/History에 둔다.
+> **권위원본·주요 참조:** 효과 에셋의 현황 목록이며 실제 파일·Inspector의 Config/preset 연결을 우선 대조한다. 피해·힐·동기화 규범은 [유닛 규칙](../GameSystemRules/GameSystemRules_Units.md)과 [전투 동기화 규칙](../GameSystemRules/GameSystemRules_UnitCombatSynchronization.md)을 따른다.
+> **갱신 조건·방법:** 제작·실제 연결·선정·사용자 수용 또는 보류 결정이 바뀌면 해당 행과 잔여 요약을 제자리 수정한다. 이전 미연결·대기 문단을 현행 설명 옆에 누적하지 않고 근거를 이력으로 연결한다.
 
 - HumanTower는 별도 preset의 prefab 참조를 actual Assault VFX로 교체했다. Tank/CannonCart는 actual Tank를 유지한다. Human-only 변경의 정적 검증과 이전 세대 native PASS는 구분하며 새 native/실기 시각 수용은 미확인이다.
 - Mushroom/Bloom/Inferno burn 새 VFX와 RuneSpire 타워 번개는 연결된 상태로 시각 후속이 남는다. 상태 이펙트(화상·독·힐)의 대상 유닛 크기 맞춤, RuneSpire 번개의 원래 맞은 유닛 끝점 추적·크리스털→가슴 조준, 차지 VFX의 시전자 사망 정지는 2026-10-13 구현됐다([Plan](../_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md)). 차지 정지·크리스털 시작점·Bloom 힐(PS 4개) 재생·살아 있는 대상의 번개 가슴 높이 조준은 사용자 확인 PASS이고, 측정 도구 스케일 버그 수정(재작업 R3)·재측정 뒤 상태 이펙트 크기·높이는 프리셋 값으로 의도대로 조정된다(값 미세 조정은 사용자가 계속 — 데이터 작업). ⚠️ **OPEN: 맞는 순간 대상이 죽으면 번개 끝점이 살짝 어긋난다**(원인 미검증, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10-4). Tank/Cannon 간헐 diagnostics는 보류다. *(2026-10-15 갱신: 종전 「R3 수정·재측정 전이라 상태 이펙트 크기와 번개 가슴 높이의 시각 수용은 미판정」은 3차 실기로 해소)* 최신 Inferno 타격 수치는 [StatsReference](../StatsReference.md)를 따른다. *(2026-10-13 갱신: 종전 「Inferno burn fitting·Spirit 원래 대상 endpoint … 보류」는 위 구현으로 해소)*
+
+현재 연결의 작업 근거는 [Mushroom·Inferno·타워 연결](../_Tasks/2026-10-10/00_19_inferno-burn-and-race-tower-vfx-connection/Research.md)과 [Bloom VFX 연결](../_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/Research.md)이다. 개별 사용자 수용과 이후 관측 범위는 [전투 감사표](UnitCombatAssetMatrix.md)에서 확인한다.
 
 날짜별 인계와 이전 계약 원문: [상세 이력](../History/ImplementationVerificationHistory.md#vfx-list-handoff).
 
 ## Ⅰ. VFX (시각 이펙트)
 
 
-### 2026-10-10 현재 source freeze — 정적/native/수용 경계
+<a id="2026-10-10-현재-source-freeze--정적native수용-경계"></a>
+<a id="2026-10-10-확정-연결-계약과-진행-단계"></a>
 
-이 제목은 기존 참조를 위한 당시 범위다. source inventory·해시·fixture·실행 단계 원문은 [source freeze 이력](../History/ImplementationVerificationHistory.md#vfx-list-source-freeze)에 보존했다. 최신 연결 상태와 시각 후속은 이 문서 서두 및 아래 에셋 표를 따른다.
-
-
-### 2026-10-10 확정 연결 계약과 진행 단계
-
-현재 연결 계약은 [VFXSFXGuide](VFXSFXGuide.md)와 아래 에셋 표가 담당한다. 기존 구현 대기·확정 계약 원문은 [진행 단계 이력](../History/ImplementationVerificationHistory.md#vfx-list-contract-history)에 보존했다. HumanTower actual Assault 적용과 Tank/Cannon actual Tank 유지는 서로 다른 현재 참조다.
+현재 제작·연결·수용은 아래 표에서 확인하며 source inventory·동결·과거 진행 단계는 [source freeze 이력](../History/ImplementationVerificationHistory.md#vfx-list-source-freeze)과 [과거 계약](../History/ImplementationVerificationHistory.md#vfx-list-contract-history)에 둔다.
 
 ### 1. 제작 및 수용 상태
 
 > 프리팹 실물은 존재한다. **제작됨 / 게임 연결됨 / 자동 검증 / 실기·visual 수용**은 별도 상태이며, 제작 완료를 게임 전체 PASS로 취급하지 않는다. 아래 목록의 행별 상태를 따른다.
-> **2026-10-09 최신:** Bloom recipient HoT VFX는 코드·설정 연결과 native self-validation 후 Match5638580898903259950의 실제 양 peer playback/종료 로그를 확보했다. Publish/Receive 차이는 같은 frame revision 전환, Client Play 차이는 수신 후 LocalDeath 취소로 구분됐다. 강제 cleanup을 자연 종료로 확대하지 않으며 Client C3 failures64 FAIL·전체/visual 수용 OPEN을 유지한다. 신규 Mushroom3·Inferno burn·RuneSpire attack은 **2026-10-13 실측으로 모두 preset·config에 연결돼 있다**(아래 「신규 프리팹 연결 실측」의 2026-10-13 갱신. 종전 「GUID 참조 미검출·게임 미연결」은 2026-10-09 시점 값). 이전 시각별 인계는 아래 이력이며 최신은 이 요약과 「Bloom HoT 최신 관측 근거」가 우선한다.
+> 현재 Mushroom tracer/impact/poison·Inferno burn·RuneSpire는 연결 구현됐으며(2026-10-13 실측으로 프리팹 → preset → 설정 자산 연결 확인 — 아래 「신규 프리팹 연결 실측 (2026-10-13 현행)」) 시각·실기 수용은 행별로 별도다. Bloom의 실제 양 peer 재생 관측은 전체 Client HP/text·픽셀 수용을 뜻하지 않는다. 과거 GUID 참조0·미연결/검증 대기 표시(2026-10-09 시점 값)는 [당시 요약](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-01) 및 아래 이력 포인터로 구분한다.
 
 ---
 
@@ -40,8 +42,8 @@
 | Human | LittleKnight | `vfx_littleknight_attack.prefab` | 검 베기 |
 | Human | SpearMan | `vfx_spearman_attack.prefab` | 창 찌르기 |
 | Human | BattleAxe | `vfx_battleaxe_attack.prefab` | 도끼 내려치기 |
-| Human | Tank | `vfx_tank_attack.prefab` | shared Cannon preset 실제 prefab 참조 적용·Main 검토 완료; UnitAction16:42:39 전 경계 PASS·ROOT16:43:22 PASS·errors0/warnings30; 이전 fixture RED 이력 보존, build16:43:57 1회 시작 관찰·완료/visual OPEN *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_Cannon_Attack` → `UnitEffectConfig` Tank attackPreset. 같은 preset을 CannonCart도 쓴다)* |
-| Human | CannonCart | `vfx_tank_attack.prefab` | Tank와 실제 prefab 공유 유지; HumanTower 최신 승인 참조는 별도 Assault 교체 예정. 기존16:42 Action·16:43 ROOT PASS는 당시 이력; 간헐 효과 누락 원인·visual OPEN/diagnostics 보류. 기존 `vfx_cannoncart_attack.prefab` 제작/존재 이력 보존·현재 미선택 *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
+| Human | Tank | `vfx_tank_attack.prefab` | shared Cannon preset의 actual prefab 연결(2026-10-14 실측: `EffectPreset_Cannon_Attack` → `UnitEffectConfig` Tank attackPreset. 같은 preset을 CannonCart도 쓴다). 개별 테스트 완료·간헐 VFX 및 세부 diagnostics 보류; 시각 후속과 전체 이행은 별도. [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-03) |
+| Human | CannonCart | `vfx_tank_attack.prefab` | Tank와 actual prefab 공유(`EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`, `UnitEffectConfig` CannonCart attackPreset). HumanTower는 별도 actual Assault 적용(`EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`, 아래 「건물 공격 이펙트」). 간헐 VFX 후속 보류. *(2026-10-14 정정, 2026-10-19 병합 반영: 종전 「기존 `vfx_cannoncart_attack.prefab`은 제작/존재 이력이며 현재 미선택」은 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-03) |
 | Spirit | EmberSpirit | `vfx_emberspirit_attack.prefab` | 불 오브 발사 |
 | Spirit | FlameSpirit | `vfx_flamespirit_attack.prefab` | 화염 방출 |
 | Spirit | InfernoSpirit | `vfx_infernospirit_attack.prefab` | 인페르노 폭발. *(2026-10-13 실측: 실제 연결된 공격 VFX는 이 이름이 아니라 `vfx_infernospirit_charge.prefab`(차지, `EffectPreset_InfernoSpirit_Attack` → `UnitEffectConfig` attackPreset). 이 preset은 「Stop When Caster Dies」가 켜져 시전자 사망·제거 시 즉시 정지 — 사용자 확인 PASS 2026-10-13. 화상 상태 이펙트는 아래 「유닛 특수 효과 이펙트」)* |
@@ -57,8 +59,8 @@
 | Transcendence | RhinoBreaker | `vfx_rhinobreaker_attack.prefab` | 돌진 충격파 |
 | Transcendence | EagleArcher | `vfx_eaglearcher_attack.prefab` | 화살 발사 |
 | Transcendence | RabbitTrickster | `vfx_rabbittrickster_attack.prefab` | 단검 베기 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_tracer.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Tracer` → `UnitEffectConfig` tracerPreset)** — 비행 동안 루프 재생하는 포자 폭탄. 서버가 확정한 공격 표현 스냅샷이 남은 비행 트레이서와 착탄을 함께 소유한다(10-10 연결). 트레이서 단독의 시각 수용은 별도 확인 기록 없음 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_impact.prefab` | **프리팹 제작 실물 확인(2026-10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Impact` → `UnitEffectConfig` impactPreset) · 사용자 시각 승인(2026-10-13 1차 실기, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 8-2 T-3)** — 짧은 포자 확산 burst/fade·StopAction None 계약. 과거 독구름 표현은 superseded; 3초 지면 damage zone 없음. actual DoT 3초 유지 |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_tracer.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Tracer` → `UnitEffectConfig` tracerPreset). 비행 동안 루프 재생하는 포자 폭탄. 서버가 확정한 공격 표현 스냅샷이 남은 비행 트레이서와 착탄을 함께 소유한다(10-10 연결). 새 VFX 시각 수용 OPEN — 트레이서 단독의 시각 수용은 별도 확인 기록 없음. [이전 연결 단계](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-04) |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_impact.prefab` | 연결 구현(2026-10-13 실측: `EffectPreset_MushroomBomber_Impact` → `UnitEffectConfig` impactPreset)·양 peer ImpactPlay 관측 · **사용자 시각 승인(2026-10-13 1차 실기, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 8-2 T-3)**. 짧은 포자 burst/fade·nonloop·StopAction None. 과거 독구름 표현은 superseded; 3초 지면 damage zone은 없고 recipient DoT3초 유지. 정밀 visual·전체 lifecycle 수용 OPEN. [이전 연결 단계](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-04) |
 
 #### 유닛 사망 이펙트
 
@@ -104,49 +106,22 @@
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
-| Spirit | InfernoSpirit | `vfx_infernospirit_burn.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_InfernoSpirit_Burn` → `UnitEffectConfig` timedDamagePreset) · 프리팹 모양 사용자 승인 · R3 재측정 뒤 프리셋으로 위치·크기 조정됨 확인(2026-10-15 3차 실기) / 값 미세 조정 사용자 진행 중** — burn 루프 표현. *(2026-10-15 갱신: 종전 「위치·크기 조정 필요(1차 실기 「더 아래·조금 더 작게」) / R3 재측정 뒤 재확인」)* PS 2개(루트·`Flame_Haze`). 기존 attack(차지) VFX와 별개 |
-| Transcendence | MushroomBomber | `vfx_mushroombomber_poison.prefab` | **프리팹 사용자 재제작(커밋 `10a38cc0`, PS 4개) · 게임 연결됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Poison` → `UnitEffectConfig` timedDamagePreset) · 프리팹 사용자 승인(2026-10-15) · R3 재측정 뒤 프리셋으로 크기·높이 조정됨 확인(3차 실기) / 값 미세 조정 사용자 진행 중** *(2026-10-15 갱신: 종전 「모양 OK(2차 실기) / 유닛 위 크기·높이 과대 — R3 재측정 뒤 재확인」 — 과대는 측정 도구 버그 탓이었다)* — "이 유닛이 중독됐다"를 보여 주는, 유닛 중심에 모인 루프 표시(1차 실기의 「주변 칸으로 퍼짐」은 재제작으로 대체). DoT 만료·대상 사망 시 방출 정지(남은 입자는 자연 소멸), 재부여 시 끊지 않고 유지. 건물에는 붙지 않는다 |
-| Transcendence | BloomFairy | `vfx_bloomfairy_heal.prefab` | **프리팹·연동코드/설정 구현됨 · native Action/Root self-validation PASS · 실제 양 peer 로그 확보 / 전체·visual 수용 OPEN** — recipient 전 PS loop·동일 HoT refresh no restart·실제 종료 StopEmitting/natural drain/lease 연결. *(2026-10-13 갱신: 프리팹은 사용자 결정으로 `Bloom_Ring`을 빼 **PS 4개**이며, 코드의 「정확히 5개」 검사는 「1개 이상 + 시스템별 계약」으로 완화됐다(커밋 `d3f9abb1`). 종전 「all5PS」 표기는 옛 프리팹 기준. 1차 실기 「크기는 괜찮지만 너무 높이 올라간다」 → R2-3 조정·R3 재측정 대기)* *(2026-10-15 갱신: 3차 실기에서 PS 4개 프리팹 힐 재생 사용자 PASS, R3 재측정 뒤 크기·높이가 프리셋으로 조정됨 확인 — 값 미세 조정은 사용자 진행 중. 위 「전체·visual 수용 OPEN」 중 이 두 가지만 닫혔고 Client C3 failures64 등 나머지 축은 그대로다. [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10절)* Client NotStarted는 수신 후 LocalDeath 취소로 확인(미수신·MissingAsset 아님). 강제 cleanup은 자연 종료로 확대하지 않으며 별도 Client C3 failures64 FAIL 원인 분석 중. 빌드 시도1의 JDK preparation 관찰은 완료·성공·설치 확인이 아님 |
+| Spirit | InfernoSpirit | `vfx_infernospirit_burn.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_InfernoSpirit_Burn` → `UnitEffectConfig` timedDamagePreset). attack(차지) VFX와 별도 recipient burn loop; DoT 부여·refresh·종료 표현. PS 2개(루트·`Flame_Haze`). **프리팹 모양 사용자 승인 · R3 재측정 뒤 프리셋으로 위치·크기 조정됨 확인(2026-10-15 3차 실기) / 값 미세 조정 사용자 진행 중** · 전체 실기 수용 별도. *(2026-10-15 갱신, 2026-10-19 병합 반영: 종전 「fitting/크기 조정 보류」 및 「위치·크기 조정 필요(1차 실기 「더 아래·조금 더 작게」) / R3 재측정 뒤 재확인」)* [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-05) |
+| Transcendence | MushroomBomber | `vfx_mushroombomber_poison.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_MushroomBomber_Poison` → `UnitEffectConfig` timedDamagePreset). **프리팹 사용자 재제작(커밋 `10a38cc0`, PS 4개) · 프리팹 사용자 승인(2026-10-15) · R3 재측정 뒤 프리셋으로 크기·높이 조정됨 확인(3차 실기) / 값 미세 조정 사용자 진행 중** *(2026-10-15 갱신: 종전 「모양 OK(2차 실기) / 유닛 위 크기·높이 과대 — R3 재측정 뒤 재확인」 — 과대는 측정 도구 버그 탓이었다)*. "이 유닛이 중독됐다"를 보여 주는, DoT 대상 적 유닛 중심에 모여 따라가는 loop(1차 실기의 「주변 칸으로 퍼짐」은 재제작으로 대체). DoT 만료·대상 사망 시 방출 정지(남은 입자는 자연 소멸), 재부여 시 끊지 않고 유지 — same-owner refresh noRestart·overwrite 종료교체·drain/lease 계약 유지; 조기 Stop·forced Teardown 시간 경계와 정밀 visual 수용 OPEN. 건물에는 붙지 않는다(건물 DoT 신설 없음). [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-05) |
+| Transcendence | BloomFairy | `vfx_bloomfairy_heal.prefab` | healPreset→recipient VFX 연결됨. 전 PS loop·동일 HoT refresh noRestart·종료 StopEmitting/drain/lease. native self-validation과 양 peer 관측은 확보했지만 강제 cleanup은 자연 종료 PASS가 아니다. Client NotStarted는 수신 후 LocalDeath 취소로 확인(미수신·MissingAsset 아님). **3차 실기(2026-10-15)에서 PS 4개 프리팹 힐 재생 사용자 PASS, R3 재측정 뒤 크기·높이가 프리셋으로 조정됨 확인 — 값 미세 조정은 사용자 진행 중.** 전체·visual 수용 OPEN 중 이 두 가지만 닫혔고 Client C3 failures64 등 나머지 축은 그대로다([Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10절). *(2026-10-13 갱신: 프리팹은 사용자 결정으로 `Bloom_Ring`을 빼 **PS 4개**이며, 코드의 「정확히 5개」 검사는 「1개 이상 + 시스템별 계약」으로 완화됐다(커밋 `d3f9abb1`). 종전 「all5PS」 표기는 옛 프리팹 기준. 1차 실기 「크기는 괜찮지만 너무 높이 올라간다」 → R2-3 조정 → R3 재측정 뒤 위 확인)* [관측 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-02) |
 
 #### Bloom HoT 최신 관측 근거
 
-※ 근거 구분: **Match5638580898903259950**, Editor Host / Device Client. 다음 집계·exact-key 분류는 Main/programmer 확정 인계다. 문서 담당은 아래 두 파일에서 해당 MatchGeneration의 Host/Client 기록 존재를 직접 확인했다(집계 재분석은 하지 않음). 아래 Editor/Device 번호는 각각 이 파일의 행 anchor다.
+recipient HoT의 writer→current-state replication→presenter 연결과 양 peer playback/종료 관측을 확보했다. 동일 owner refresh는 재시작하지 않으며 종료 시 StopEmitting·tail drain·lease 반환을 구분한다. revision 전환·수신 후 LocalDeath 취소는 미수신/에셋 누락으로 세지 않는다. forced Teardown은 natural drain PASS가 아니고 local ROOT PASS는 formal CrossAudit가 아니다. Client C3 실패·clock 인과와 전체 visual·HP/text 수용은 별도 OPEN이다. 이후 관측과 잔여는 [전투 감사표](UnitCombatAssetMatrix.md)를 따른다. 상세 수치·raw 경로·행 근거는 [관측 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-02)에 보존한다.
 
-- Editor: [RuntimeLog.txt](../_Logs/_editor/2026-10-09/RuntimeLog.txt) — `Assets/_Project/Docs/_Logs/_editor/2026-10-09/RuntimeLog.txt`.
-- Device: [RuntimeLog_device.txt](../_Logs/2026-10-09/21_18_logcat/RuntimeLog_device.txt) — `Assets/_Project/Docs/_Logs/2026-10-09/21_18_logcat/RuntimeLog_device.txt`.
-- **빌드 관찰과 테스트 실행 분리:** 이전 Main Build And Run1회는 JDK preparation 관찰 후 polling을 중단했으며 내부 완료·성공·설치 확인은 없었다. 이후 이번 사용자 테스트는 위 양 peer 실제 runtime 로그로 실행 증거가 확보됐다. 테스트 실행을 빌드 내부 완료 관찰로 소급 변경하지 않는다.
+<a id="신규-프리팹-연결-실측-2026-10-09"></a>
+<a id="bloom-자동-검증빌드초기-fail-이력"></a>
 
-| 관측 | Host | Client |
-|------|------|--------|
-| details | 173 | 112 |
-| Grant / Publish / Receive | Grant19 / Publish33 | Receive32 |
-| Play / refresh | Play19 / refresh3 | Play18; refresh 수 추가 인계 대기 |
-| StopEmitting / Drain / Return | 19 / 18 / 18 | 18 / 17 / 17 |
-| 별도 종료 경계 | TeardownClear1 | NotStarted1 / LocalDeath instance8 target17 |
-| Drop / NotStarted (이미 Play 후 terminal 경계) | 8 / 8 | 해당 Host 집계와 분리 |
-| DetailsSuppressed / Overflow / DiagnosticFaults / PendingTails | 각0 | 각0 |
+당시 GUID 참조0·초기 fixture 실패·native 검증·빌드 관측은 [관측 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-02)에 보존한다. 현재 미연결 상태나 새 빌드 성공 판정으로 사용하지 않는다.
 
-- **Publish33 / Receive32:** 차이1건은 life5/instance6/target3/rev1 `ActiveTrue`. Host가 같은 frame에 rev2를 발행했고 양쪽 rev2 Play를 확인했다(Editor13371/13425, Device101840). 이 current-state revision 전환을 최종 owner 재생 누락 또는 원인 불명의 패킷 손실로 합산하지 않는다.
-- **Host Play19 / Client Play18:** life6/instance8/target17/rev1은 Client 수신 후 LocalDeath로 NotStarted가 됐다(Editor19381, Device140069/141392). 수신 누락·MissingAsset이 아니다. 해당 종료 취소를 visual 전수 PASS로 바꾸지도 않는다.
-- **Host Drop8 / NotStarted8:** 대상 TargetId0/10/13/17/22/23/27/36은 모두 앞서 Play됐다. RecipientDespawn 뒤 TargetUnavailable terminal의 `BindingRejectedChannelAccept + StopBeforeReady`이며 grant 누락이 아니다(Editor19688/19803). 이 목록은 EffectInstanceId가 아니라 TargetId다.
-- **Drain/Return Host18 / Client17:** 마지막 lease는 양쪽 `TeardownClear`, `NaturalDrainFalse / UnknownTrue`로 남는다(Editor94602, Device585565/585572). 강제 cleanup1을 natural-drain PASS로 확대하지 않는다. pending0·fault0은 모든 owner의 자연 종료·visual 수용 증거가 아니다.
-- **Device C3 FAIL64:** schedules3186 / results3160 / ready3096 / pending0. Editor Host는 failures0·EVIDENCE(Editor94591)이나 peer FAIL을 상쇄하지 않는다. detail cap16의 A16은 전량 Expired이며 모두 `publishAfterLimitFalse / receiveAfterLimitEstimateTrue / decisionAfterLimitTrue`; 나머지48의 분류는 미확정이다. clock·네트워크 지연 원인은 단정하지 않으며 PhaseClockRegression도 별도 OPEN·인과 미확정이다.
-- 양쪽 ROOT PASS는 **local observer** 결과로 formal cross-audit가 아니다. Client C3 required visual2887/2887은 방출된 ready 범위의 완료이며 64FAIL을 상쇄하지 않는다. Bloom 집계나 이전 자동 C3 PASS를 전체 게임·타유닛·시각/픽셀 PASS로 확대하지 않는다.
-- 서버 실제 recipient HoT provenance writer → current-state replication → single presenter가 연결됐다. 동일 owner refresh는 재시작하지 않으며 실제 종료 시 방출 정지 후 tail drain과 lease 반환을 구분한다. 기존 HP/HoT 정책·수치·타유닛 규칙은 불변이다.
+#### 신규 프리팹 연결 실측 (2026-10-13 현행)
 
-#### 신규 프리팹 연결 실측 (2026-10-09)
-
-Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 checkout 실물5개와 `.meta` GUID를 확인했다. `Assets` 내 `.asset/.unity/.prefab/.cs`에서 아래 GUID 참조는 각각0건이다(`.meta` 제외). **Main도 병합 후 현재 checkout을 독립 검사해 같은5개 refs0을 확인했다**(programmer snapshot 검토와 별개). 따라서 현재 설정/직렬화 연결은 미검출이며 게임 미연결로 기록한다. 이 검색은 native 재생·동적 로딩·visual acceptance 검증이 아니다.
-
-| 프리팹 식별 | GUID |
-|------------|------|
-| Mushroom tracer | `b9333de6dd687d84ea6795ef4dc7740b` |
-| Mushroom impact | `585b2da7e0f5d9d43b68ee8140e28482` |
-| Mushroom poison | `b26778bdfea3e174791e8fc01a003ffd` |
-| Inferno burn | `32b8d45a8ebc4984485a467f6b7cbda3` |
-| RuneSpire attack | `a1406d4f5b9f0544cab305479195055f` |
-
-> **[2026-10-13 갱신 — 위 2026-10-09 실측은 원문 유지]** 같은 방법(`.meta` GUID를 `Assets` 안 `.asset/.unity/.prefab/.cs`에서 검색)으로 다시 재면 다섯 GUID가 모두 각 preset에서 참조되고, 그 preset들은 다시 설정 자산에서 참조된다 — 즉 **현재는 모두 게임 연결 상태**다. native 재생·시각 수용 판정은 각 행 비고를 따른다.
+> **[2026-10-13 갱신 — 2026-10-09 실측(5개 GUID 참조 0건) 원문은 위 관측 원문에 보존]** 같은 방법(`.meta` GUID를 `Assets` 안 `.asset/.unity/.prefab/.cs`에서 검색)으로 다시 재면 다섯 GUID가 모두 각 preset에서 참조되고, 그 preset들은 다시 설정 자산에서 참조된다 — 즉 **현재는 모두 게임 연결 상태**다. native 재생·시각 수용 판정은 각 행 비고를 따른다.
 >
 > | 프리팹 | 참조하는 preset | preset을 참조하는 설정 칸 |
 > |---|---|---|
@@ -156,31 +131,12 @@ Main 병합 인계 `ad34bf93`(incoming `6a2f2403` 포함) 후 문서 담당이 c
 > | Inferno burn | `EffectPreset_InfernoSpirit_Burn` | `UnitEffectConfig` InfernoSpirit timedDamagePreset |
 > | RuneSpire attack | `EffectPreset_RuneSpire_Attack` | `BuildingEffectConfig` AutoTower 공격 목록의 Spirit(race 1) 행 |
 
-#### Bloom 자동 검증·빌드·초기 FAIL 이력
-
-아래 시각별 기록은 각 시점의 이력이며 최신 판정은 위 관측 근거를 따른다. 기존 Research/Plan은 원문 보존·갱신하지 않는다.
-
-> **최종 빌드 인계 추가:** Main Unity File → Build And Run element212 클릭1회, immediate capture에서 JDK checking progress 관찰로 preparation started까지 확인. 이후 사용자 지시에 따라 UI/log/process/build 결과 polling 없음. 완료·성공·설치 미확인/사용자 담당, 실제 멀티·기기 visual 미검증. Console Action/C3 PASS19:37:14·Root PASS19:38:13은 기존 log anchors와 같은 증거다. Scene/assets/source 수정 없음; source/protected hash unchanged는 prebuild 시점 인계다. 아래 19:39의 빌드 예정/시도0은 클릭 전 이력으로 보존하며 현재 빌드 상태는 이 문단이 우선한다.
-
-> **최종 최신 상태(19:39 추가):** Main latest Editor DLL19:35:39·final fixture SHA8D020… 적용 후 19:36 실제 Action stress 종료 전체 UAS-DIAG PASS1678501/C3 PASS1678534/Torrent production PASS1678448, 새 Root selfValidate PASS1678545. Main source18 hash match·보호6 unchanged 실측, 정적4 직접 재실행 exit0(19:39 전후). Release 기존 warnings3(CS0168×2/CS0219×1), CS0618/CS0414 suppressed이므로 warnings0 아님. Dev/Release57 Editor refs define-switch·pure identity CLR은 player/native build·particles/게임 runtime 검증이 아니다. Simulate paused-state fixture 원인을 NoClear StopEmitting reassert 후 count0 assertion으로 교정했고 production VfxPoolItem·predicate는 불변이다. 아래 pending/FAIL은 과거 이력으로 보존하며 이 문단이 현재 상태의 단일 요약이다. 실제 멀티/기기 visual 대기, 빌드는 문서/checker0 후 Main 시도 예정으로 아직0. 전체 인벤토리·정적 artifacts·한계는 기존 Research/Plan 최종 인계 참조.
-
-> **최신 상태(19:33 인계):** 강제 Simulate 후 5PS paused=true/stopped=false/playing=false/count0/IsAlive=true 관찰. fixture에서 count0&&!isEmitting 선검사 뒤 StopEmitting NoClear 재적용으로 native stopped state 복구 보고. 기존 predicate·production VfxPoolItem hash는 불변이며 production 원인 확정은 아니다. 정적4 exit0·source18 Main hash match·보호6 hash unchanged 보고와 별개로 Main Refresh 후 native compile 진행 중, 수정 후 Action/Root·빌드 최종 인계 대기다. 아래 “최신” 시각별 기록은 당시 이력; native 전체 PASS 없음·빌드 시도0·실기 미검증. 18파일 대조 목록·assertion 최종 SHA·static artifact 한계는 기존 Research/Plan 최신 요약 참조.
-
-> **19:30 probe 추가 인계:** 반환0 / Ended=false / Pending=1 / SnapshotEq=true. terminal 키는 일치하나 반환·종료 집계는 pending이다. 5PS stop 후 emit=false·count1, 강제 Simulate(30) 후 count0이나 IsAlive=true. 강제 Simulate 영향과 production 동작을 구별하는 중이므로 production 원인 확정이나 drain/회수 PASS가 아니다. Main programmer 재위임, 최종 인계 대기; native 전체 PASS 없음·Root 미실행·빌드 시도0·실기 미검증을 유지한다.
-
-> **19:24 최신 인계:** Main 확인상 Refresh 후 native Editor DLL19:23:41, 실제 Action19:24:50에서 새 source 로드. `All5PS lease starts` 통과 후 `All5PS drain/return once retains terminal key` fixture1357 FAIL. 이번은 최신 loaded source 실패이며 아래 19:16 이전 assembly FAIL과 별개다. Main programmer 재위임·구현 수정 중, native 전체 PASS 없음·Root 미실행·빌드 시도0·실기 미검증, 최종 증거 인계 대기. 아래 “19:16 최신 인계”와 compile/새 검증 pending은 당시 이력으로 보존한다.
-
-> **19:16 최신 인계:** Main 확인상 두 번째 Action FAIL은 이전 assembly 재실행이다(stack assertion1310 / disk1333, Editor DLL18:56:38). 수정된 소스의 새 native 검증 FAIL로 집계하지 않는다. Main Assets Refresh 후 native compile 진행 중이며 완료·로드·새 검증 결과는 pending이다. 아래 “수정 중”은 19:06 기록으로 보존한다. 초기화 원인은 여전히 미확정; native PASS 없음·빌드 시도0·Root 미실행·실기 미검증, 최종 증거 추가 인계 대기.
-
-> **이력 보존(2026-10-09 초기 단계):** 당시 표기는 “프리팹 제작됨(2026-10-09 확인) · 게임 미연결”, “연동은 기존 naming Task 확장 범위이나 아직 미구현/수용 전”이었다. 실제 구현 보고 후 최신 상태만 위와 같이 갱신했다.
-> **현재 연결 및 검증 경계:** `UnitEffectConfig.asset healPreset` GUID `e248f616d9334275a75e6a08405219ac` → `EffectPreset_BloomFairy_Heal.asset _vfxPrefab` GUID `ff068a5e9b80f3043a0517ebb1cfb00f` 연결 확인. Programmer 정적 컴파일4 errors0/순수 identity CLR PASS 보고와 별개로, Main 19:06:03/04 `ValidateBloomHoTEffectBoundary`의 `All5PS lease starts` require 조건은 FAIL했다. `PSPlayRecursive PS5/lease1` 로그만으로 native PASS를 인정하지 않는다. 초기화 원인은 미확정 가설이며 programmer 수정 중이다. 빌드 시도0·Root 미실행·실기 미검증; 상세 인계는 기존 [Research](../_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/Research.md) / [Plan](../_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/Plan.md).
-
 #### 건물 공격 이펙트
 
 | 종족 | 건물명 | 파일명 | 비고 |
 |------|--------|--------|------|
-| Human | CannonTower (AutoTower + Human) | actual Assault production vfx_pistoleer_attack 재사용 | Human 별도 preset _vfxPrefab ONLY 적용·Main2파일 검토 완료. GUID badc7c96fdc06564fb9f9af71d1ddf68/root5594113295059828660. Editor static exit0/errors0/warnings0, 새 native/build/visual 미검증. Tank/Cannon=Tank 유지·SFX/offset/다른 값 불변; 이전 Tank 계약/native는 이력 |
-| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | **프리팹 제작 확인(10-09) · 게임 연결됨(2026-10-13 실측: `EffectPreset_RuneSpire_Attack` → `BuildingEffectConfig` AutoTower Spirit 행) · 크리스털 시작점 사용자 확인 PASS(2026-10-13 2차 실기) · 살아 있는 대상 가슴 높이 조준 PASS(2026-10-15 3차 실기) / ⚠️ OPEN: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋남(원인 미검증 — [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10-4)** *(2026-10-15 갱신: 종전 「가슴 높이 조준은 R3 재측정 뒤 판정」)* — 타워 공격 번개. 2026-10-13부터 번개가 보이는 동안 **원래 맞은 유닛만** 화면 표현으로 따라가고(사망·제거·교체 시 마지막 지점에 고정, 다른 유닛으로 옮겨 가지 않음), 시작점 = 타워 + preset 위치 보정(현재 Y 0.65 = 크리스털 높이), 끝점 = 맞은 유닛 발밑 + 가슴 높이(크기 표의 키 × 0.6, 표에 없으면 0.6m), 조준·길이는 3D. 규칙: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12의 2026-10-13 블록. 즉발 서버 피해·타겟 선택 불변. SFX 미제작 |
+| Human | CannonTower (AutoTower + Human) | actual Assault production `vfx_pistoleer_attack` 재사용 | 별도 preset의 prefab 참조만 교체. Tank/Cannon=actual Tank, SFX/offset 불변. 정적 검증과 이전 세대 native를 구분하며 새 native·실기 visual 미확인. [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-06) |
+| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_RuneSpire_Attack` → `BuildingEffectConfig` AutoTower Spirit 행). **크리스털 시작점 사용자 확인 PASS(2026-10-13 2차 실기) · 살아 있는 대상 가슴 높이 조준 PASS(2026-10-15 3차 실기) / ⚠️ OPEN: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋남(원인 미검증 — [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10-4)** *(2026-10-15 갱신: 종전 「가슴 높이 조준은 R3 재측정 뒤 판정」. 2026-10-19 병합 반영: 종전 「원래 피격 대상 endpoint 추적 … 별도 후속/보류」는 2026-10-13 구현으로 해소)* — 타워 공격 번개. 2026-10-13부터 번개가 보이는 동안 **원래 맞은 유닛만** 화면 표현으로 따라가고(사망·제거·교체 시 마지막 지점에 고정, 다른 유닛으로 옮겨 가지 않음), 시작점 = 타워 + preset 위치 보정(현재 Y 0.65 = 크리스털 높이), 끝점 = 맞은 유닛 발밑 + 가슴 높이(크기 표의 키 × 0.6, 표에 없으면 0.6m), 조준·길이는 3D. 규칙: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12의 2026-10-13 블록. 기존 즉발 서버 피해·타겟 선택 불변. 정밀 시각 수용은 위 OPEN 포함 별도이며 SFX 미제작. [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-06) |
 | Transcendence | VineTower (AutoTower + Transcendence) | 미지정 → **계획: `vfx_vinetower_attack.prefab` (제안 파일명, 미착수 — 아래 블록)** | 타 종족 fallback 금지. VFX 미지정이 기존 서버 피해를 차단·변경하지 않음. *(2026-10-15 실측: `BuildingEffectConfig.asset` `_autoTowerAttacks`에는 race 0(Human)·1(Spirit) 두 행뿐이고, `EffectManager.cs` 529행이 Transcendence 타워를 `UnspecifiedTranscendence`로 재생하지 않는다. `Prefabs/VFX/Buildings/`에 vinetower 공격 프리팹 없음 — 현재 공격 VFX 연결 0건)* |
 
 > **VineTower 공격 VFX 계획 (2026-10-15 사용자 아이디어 기록 — 계획만, 미착수·미승인 구현):**

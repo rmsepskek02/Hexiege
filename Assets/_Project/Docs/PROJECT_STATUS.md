@@ -1,418 +1,131 @@
 # Hexiege - 프로젝트 진행 현황
 
-이 문서는 현재 구현·검증 상태를 요약한다. 다음 작업은 [ROADMAP](ROADMAP.md), 유닛별 수용·이행 상태는 [전투 감사표](Assets/UnitCombatAssetMatrix.md)를 기준으로 한다.
-
-날짜별 인계·fixture·native·빌드 시도 원문은 [구현·검증 상세 이력](History/ImplementationVerificationHistory.md#status-handoff)에 보존한다. native PASS와 빌드 클릭은 실기 시각 수용이나 빌드 완료가 아니다.
-
-### 현행 진행 경계 (2026-10-13 문서 정리 · 2026-10-15 VFX 후속 추가)
-
-- **VFX 코드 후속 (2026-10-13~15, 브랜치 `claude/vfx-code-followups`, 최신 `84b6ff2a`) — 사용자 실기 3회차까지 기록:** ✅ BloomFairy 힐 PS 4개 재생 · ✅ 차지 VFX(FoxMagician·InfernoSpirit) 시전자 사망 시 정지 · ✅ RuneSpire 번개 크리스털 시작·살아 있는 대상 가슴 높이 조준 · ✅ 측정 도구 스케일 버그 수정 뒤 화상·독·힐 크기·높이가 프리셋으로 조정됨 · ✅ 버섯 착탄·새 독 프리팹 승인. ⚠️ **과대 표기 금지 — 아직 완료가 아닌 것:** 맞는 순간 대상이 죽으면 번개 끝점이 살짝 어긋남(OPEN, 원인 미검증) · 상태 이펙트 값 미세 조정(사용자 데이터 작업 진행 중 — 현재 값은 커밋 `91371e55`: 재측정 표 + Heal·Poison Scale Multiplier 2) · 주석 비활성화한 옛 로직 6곳은 번개 사망 시 결함이 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정). *(2026-10-15 정정: 첫 판의 「재측정한 크기 표·조정한 프리셋 값은 이 체크아웃에 커밋돼 있지 않음」은 `91371e55`로 해소)* 서버 피해·타겟·HP·RPC는 바뀌지 않았다. 단일 소스: [Research 10절](_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) · [Plan 13절](_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md).
-- 사용자 추가 결정에 따라 유닛 스탯·공격 시간·건물 현재 기능 문서를 실제 구현값 기준으로 정정했다. 밸런싱은 추후이며, 생산 클립 조사와 기존 사용자 공격 교정 수용을 새 전체 migration·실기 정밀 검증으로 확대하지 않는다. EagleArcher 클립 열거 순서의 제한된 확인 경계는 [StatsReference](StatsReference.md#생산-타임라인-구현-근거), AI 시나리오 재논의는 [ROADMAP](ROADMAP.md#ai-시나리오-재논의-사용자-추가-결정-2026-10-13)을 따른다.
-
-- RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher의 사용자 개별 수용을 유지한다. Mushroom/Bloom 새 VFX·HumanTower 표현 후속, Tank/Cannon 세부 조정·Torrent 복구 회귀·공통 랠리 보류는 감사표의 현행 목록으로 구분한다. LittleKnight 다음 추천은 철회됐으며 MigrationRequired는 미테스트를 뜻하지 않는다.
-- wave 최신 경기 전달·표시 scoped PASS와 상위 clock/NGO 원인·pending 자연 회복 미실행·정밀 시각·전체 migration OPEN은 별개다. Assault/Sniper/Inferno focused 수용과 전체 Invalid·과거63 expiry 원인·dead-abort 미재현도 분리한다.
-- 로그 private 보관·source/main 반영 완료의 현행 근거는 [실제 영수증](_Tasks/2026-10-12/01_41_log-rules-history-archive/Research.md)이다. 이전 병합 대기 표시는 당시 이력으로 이관했다.
-
-## 전체 구현 현황
-
-### 🔴 P0 재오픈 — 서버 권위 유닛 ActionSequence
-
-- 권위·표현·observer의 현행 책임 경계는 유닛 규칙과 전투 동기화 계약을 따른다. 개별 테스트 수용은 [감사표](Assets/UnitCombatAssetMatrix.md)의 현행 목록을 따른다.
-- 전체25종·역할교대·Legacy rollback·정밀 시각 수용과 clock/Invalid 진단 미결은 개별 focused 결과로 닫지 않는다.
-- A0~C3 단계별 과거 수치와 회귀 범위: [상세 원문](History/ImplementationVerificationHistory.md#status-action-sequence). 계약 원본: [유닛 규칙](GameSystemRules/GameSystemRules_Units.md) / [전투 동기화](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md).
-
-### 📐 무작위 맵 — 본체 구현·검증 완료, 적용 후속 남음
-
-#### FlatTop 11×21 무작위 대전 맵 (2026-07-19 기획 확정)
-
-- 무작위 맵1~3단계 및 재경기 맵은 구현·실기 검증 기록이 있다. 멀티 최초 맵 준비 실패 안내도2026-10-13 실기로 확인됐다.
-- 잔여: 경로 완전 차단 대응(유닛 행동), 맵 InitialGold 실제 적용(추후 밸런싱과 함께 작업).
-- 맵 테스트 모드는 삭제됐고 매 재경기는 새 맵 한 갈래다. 세부 규칙·수치는 [맵](GameSystemRules/GameSystemRules_Map.md) / [무작위 맵](GameSystemRules/GameSystemRules_RandomMap.md), 당시 변경·미관측 경계는 [상세 원문](History/ImplementationVerificationHistory.md#status-random-map)을 따른다.
-
-### ✅ 완료된 시스템
-
-아래는 기존 구현·검증 기록의 인덱스다. 제목에 명시된 검증 범위를 유지하며 현재 전투 수용은 감사표, 잔여는 아래 미완성 항목과 ROADMAP이 우선한다. 세부 사양 사본은 아래 이력에 보존하고 현행 [게임 규칙](GameSystemRules.md)과 [스탯](StatsReference.md)을 기준으로 읽는다.
-
-#### MistShrine 물안개 힐 시스템 ✅ 구현 완료 · 에디터 싱글플레이 실기 검증 완료 (2026-08-12) — **멀티 미검증**
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-1).
-
-#### 스킬 건물 시스템 (Phase 1 타입 A·B + 조준/UI/좌표화/렌더링/버그수정, Phase 2 타입 C 전역 상태변경) ✅ 구현 완료 · 실기기 테스트 PASS (Phase 1: 2026-08-04, Phase 2: 2026-08-05 실기+멀티(클라) PASS)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-2).
-
-#### 연구소 유닛 강화 시스템 + 전투 스탯 ×10 스케일 + 연구 패널 UI ✅ 구현 완료 · 멀티플레이 실기 PASS (2026-07-31)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-3).
-
-#### 코어 게임플레이
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-4).
-
-#### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-5).
-
-#### BloomFairy(꽃요정) 힐러 + HoT/DoT 공용 시스템 (2026-07-18) — 특수 유닛 5종 중 3번째
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-6).
-
-#### MushroomBomber(버섯폭격기) 착탄형 범위 DoT (2026-07-19) — 특수 유닛 5종 중 4번째
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-7).
-
-#### InfernoSpirit(지옥불 정령) 단일 대상 DoT (2026-07-20) — 특수 유닛 5종 중 5번째
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-8).
-
-#### QuakeSpirit(대지의 정령) 착탄형 즉발 AoE (2026-07-20) — 특수 유닛 5종 전량 완료
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-9).
-
-#### 코드 정리 3건 — 죽은 코드 제거 / Animator 상태 의존 제거 / Firebase 게이트 제거 (2026-07-13)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-10).
-
-#### 플랫폼 / 빌드 최적화 (2026-07-15)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-11).
-
-#### 팀별 피아식별 + 신규 유닛 에셋 (2026-03-13)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-12).
-
-#### 싱글플레이 AI 시스템 (2026-06-07)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-13).
-
-#### 3D 전환 (2026-02-27 ~ 2026-03-01)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-14).
-
-#### Game UI Lifecycle Framework (2026-03-24)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-15).
-
-#### UI DOTween 애니메이션 프레임워크 (2026-03-19)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-16).
-
-#### 전역 로딩 스크린 (2026-03-17)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-17).
-
-#### 커스텀게임 재경기 시스템 (2026-03-17)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-18).
-
-#### Google 로그인 실기 디버깅 (2026-06-27~28)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-19).
-
-#### 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (2026-07-09, 실기 PASS)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-20).
-
-#### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-21).
-
-#### 매치메이킹 404 수정 — 호스트 결정 Lobby CreateOrJoin 전환 (2026-07-17)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-22).
-
-#### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-23).
-
-#### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-24).
-
-#### 멀티플레이 (Phase 1~8)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-25).
-
-#### 팀별 관점 (ViewConverter)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-26).
-
-#### 로비 종족 선택 UI (2026-04-04~06)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-27).
-
-#### 유닛/건물 스탯 확정 적용 (2026-04-12~13)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-28).
-
-#### 피격 시 부유 HP 텍스트 — World Space (2026-04-12~13, 2026-04-17 World Space 전환)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-29).
-
-#### 종족 인게임 적용 (2026-04-07)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-30).
-
-#### UnitType 개편 + 근접 사거리 시스템 (2026-04-10~11)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-31).
-
-#### 원거리 유닛 공격 중 회전 추적 (2026-04-11~12)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-32).
-
-#### 근접유닛 적 감지 사거리 + 추적 회전 개선 (2026-04-19~24)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-33).
-
-#### 타일 소유권 실시간 감지 — TileOwnershipService (2026-04-26)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-34).
-
-#### 근접유닛 뒷무빙 5차 개선 (2026-04-26)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-35).
-
-#### 유닛/건물 스탯 ScriptableObject 전환 (2026-04-25)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-36).
-
-#### Lobby 패널 CanvasGroup 사전 부착 + ProfileView 로그아웃 버튼 (2026-06-22)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-37).
-
-#### Lobby 씬 UI 규칙 재점검 및 추가 수정 (2026-06-15)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-38).
-
-#### Lobby UI 전체 규칙 준수 수정 (2026-05-30)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-39).
-
-#### 공통 UI 규칙 수립 및 Canvas Scaler / SafeArea 적용 (2026-05-25)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-40).
-
-#### 게임 화면 UI TC 전체 실기기 테스트 (2026-05-27)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-41).
-
-#### BuildingActionPanelUI 씬 계층 재설계 + 런타임 슬롯 제어 (2026-05-29)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-42).
-
-#### BuildingPlacementUI 씬 계층 재설계 (2026-05-29)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-43).
-
-#### 설계 규칙 문서 (GameSystemRules.md)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-44).
-
-#### 인증 시스템 설계 규칙 문서 (AuthSystemRules.md)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-45).
-
-#### 로그인 시스템 C# 구현 (2026-05-24)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-46).
-
-#### 유닛 이동/전투 시스템 재설계 (2026-05-11~13)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-47).
-
-#### 유닛 생산 실패 피드백 시스템 (2026-05-16)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-48).
-
-#### 건물 배치 패널 실패 피드백 + UI 개선 (2026-05-16)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-49).
-
-#### 건물 업그레이드 시스템 (2026-05-17~18)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-50).
-
-#### ProductionPopup UI 레이아웃 재구성 (2026-05-18)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-51).
-
-#### 건물 철거 시스템 (2026-05-18)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-52).
-
-#### 비생산 건물 공용 액션 패널 UI (2026-05-18~19)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-53).
-
-#### 인게임 설정 메뉴 + 게임 포기 기능 (2026-05-18~19)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-54).
-
-#### 코드 리팩토링 (2026-05-18)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-55).
-
-#### 코드 리팩토링 전체 완료 (2026-05-24)
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-56).
-
-#### 버그 수정 및 폴리싱
-
-구현·검증 범위와 당시 제약: [상세 원문](History/ImplementationVerificationHistory.md#status-system-57).
-
-### ⚠️ 알려진 미완성/버그 항목
-
-#### 로그 체계(`GameLog`) 전환 — 미완 항목 (2026-08-17 기준)
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| **컴파일 검증** (`4e027e68` · `675203ae` · `a253232e`) | ✅ **통과 확인됨 (2026-08-17)** | 205건 이관분(`668e0aeb` 계열)에 이어 **마스킹·파일명 단일화·헤더·정리 메뉴 변경분**과 **씬 무관 구현(`a253232e`)까지 사용자 유니티에서 통과가 확인**되었다 — 사용자가 그 상태로 실기 테스트를 수행했다. **⚠️ 단, 후속 커밋 `73574a23`(`Role` 값 표기 통일)은 명시적인 컴파일 확인을 받지 않았다** — 문자열 리터럴 대소문자 1줄 변경이지만 "통과했다"고 적지 않는다 |
-| **실기 동작 테스트** | ✅ **PASS (2026-08-17)** | ~~"⚠️ 하지 않았다"~~ → 사용자가 랜덤매칭 실기(에디터+실기기)로 확인했고 근거 로그가 `_Logs/_editor/2026-08-17/RuntimeLog.txt`(**199줄**)에 커밋되어 있다. 확인 항목: 파일명 `RuntimeLog.txt` · 헤더 3줄 규정(목적/시각/빈 줄) · 199줄 축적 · **같은 파일에 2번째 헤더**(일 단위 이어쓰기) · `Role=` 기록 · **`[Auth/...]` 7건**(씬 무관 구현의 목적 달성) · 마스킹(`Uid`·`PlayerId` **16자리 16진수** · `Email=` **0건** · `@` 포함 줄 0건) · 감사 누락분 `HostId` 가 `PlayerId` 와 **같은 해시** |
-| **수동 정리 메뉴 실기** (`Hexiege > Logcat > 3.`) | ✅ **PASS (2026-08-17)** | ~~"실제로 실행해 본 적이 없다"~~ → 실제로 실행했다. `_Logs/_editor/` 에 `2020-01-01`(날짜 형식)과 `2020.01.01`(점 구분)을 두고 확인: **`2020-01-01` 삭제 · `2020.01.01` 제외**(`TryParseExact("yyyy-MM-dd")` — **느슨한 `TryParse` 였다면 삭제됐을 케이스**) · **오늘 폴더 보존** · 취소 경로 · **정리 범위 한정 — `_Logs/` 직속 날짜 폴더 17개를 하나도 건드리지 않음**(`LogRules.md` **1.10** 이 *"작업에 귀속된 영구 보존물"* 로 규정한 영역이라 지워지면 복구 불가) |
-| **`Lobby.unity` 직접 진입 로그 수집** | **커버하지 않음 — 사용자 결정** | 이 씬에는 부트스트래퍼가 없어(참조 0건) 직접 열고 실행하면 sink 가 0개라 콘솔 폴백만 탄다. **사용자가 "로비를 직접 열어 실행하는 경우는 없다(항상 Login 을 거친다)" 고 판단해 커버하지 않기로 결정**했다 — 미해결 결함이 아니라 **범위 밖 확정 항목** |
-| **나머지 계층 `Debug.Log` 이관** | ✅ 이관 완료 (2026-08-19) | 2026-08-19 에 코드 전 계층 이관이 끝났다(위 「현재 단계」 문단: 누적 386건 이관 · 최종 잔존 46건). 2026-10-12 재측정(같은 `grep -rn "Debug\.Log" Assets/_Project/Scripts --include=*.cs`, 주석 포함): **58건**. `Application/GameLog.cs` **9건은 이관 대상이 아니다**(sink 폴백 구현 — `LogRules.md` **1.8** 이 요구하는 동작 그 자체). *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시(2026-08-17): 「미착수 (별도 task 분리 결정) — 잔존 234건, 이번 8파일 밖」)* |
-| **`NetworkCombatController.cs` raw `Debug.Log`** | ✅ 이관됨 (위 항목과 함께) | 2026-10-12 재측정: 이 파일의 `Debug.Log` 문자열은 **1건**이며 주석 처리된 줄이다. *(2026-10-12, 낡은 표시를 현재 사실로 고쳤다 — 종전 표시(2026-08-17): 「미이관 — 잔존 11건, 그중 하나가 새 역할 로그와 나란히 IsServer 를 찍는 중복」)* |
-| **`FileSink.EditorLogsRootRelativeToAssets` 가 `private`** | 미해결 (범위 밖) | `LogcatCapture.cs` 가 같은 경로 문자열을 **복제**하고 「FileSink 와 동기화 필요」 경고 주석을 달았다. `internal const` 로 올리면 복제를 없앨 수 있다 |
-| **`_Logs/_editor/` 의 `.meta` 취급 규정** | 규정 공백 — **사용자 판단 대기** | `.gitignore` 는 이미 규정에 부합한다. `LogRules.md` 는 `.meta` 를 언급하지 않는다. 사용자가 커밋 `23a8da06` 에서 `.meta` 를 실제로 커밋했으나, **그 관찰만으로 규정이 확정된 것으로 적지 않는다** |
-
-#### 멀티플레이 기능 미구현
-| 항목 | 파일 | 비고 |
-|------|------|------|
-| BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | RPC 구조 완성, UI 기획 후 구현 예정 |
-| EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | 싱글플레이 피드백 완료(2026-05-16). 멀티플레이 분기(RPC)는 별도 작업 예정 |
-| 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
-| 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 완료 (2026-05-30) — 비주얼 폴리싱 작업만 잔여 |
-
-#### GameConfig 코드 기본값 vs Inspector 값
-- AnimationFps 필드 제거 완료 (2026-03-09 — 미사용 필드)
-- TileHeight 코드 기본값 수정 완료: PointyTop=0.866, FlatTop=0.866
-- FlatTop GridHeight 코드 기본값 수정 완료: 20
-- CameraZoomDefault 수정 완료: 7
-
----
-
-### ❌ 미구현 기능
-
-| 기능 | 우선순위 | 관련 Phase |
-|------|---------|-----------|
-| 마법 타워 (Magic Tower) | 낮음 | Phase 3 |
-| ~~연구소 (Research Lab)~~ | ✅ 완료 | 유닛 강화 시스템·연구 패널 UI 구현·멀티 실기 완료(2026-07-31). 3D 모델/UI 레이아웃 다듬기만 후속 |
-| 유닛 AI 상태머신 | 낮음 | Phase 3 |
-| 타임라인/서든데스 시스템 | 낮음 | Phase 3 |
-| 사운드/BGM — Inspector 작업 + 실기 테스트 | 높음 | Phase 4 |
-| 튜토리얼 | 낮음 | Phase 4 |
-| 게임 내 밸런싱 | 중간 | Phase 4 |
-| 로그인 시스템 구현 (Login.unity) | 낮음 | Phase 4 |
-| Firebase 백엔드 (랭킹/실시간 리더보드/IAP) | 낮음 | Phase 4 |
-| 카드 수집 시스템 | 낮음 | Phase 4 |
-
----
-
-#### 개발 도구 / 에이전트 인프라
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| document-manager 에이전트 | ✅ 완료 (2026-06-23) | 프로젝트 전체 문서 통합 관리 전담. CLAUDE.md / AGENTS.md / WORKFLOW.md / 설계 문서 / 메모리 파일 / Task 문서 등 전 문서 담당. `.claude/agents/document-manager.md` |
-
----
-
-## 기술 스택 현황
-
-| 항목 | 기술 | 버전 |
-|------|------|------|
-| 게임 엔진 | Unity | 6000.0.x (Unity 6 LTS) |
-| 렌더 파이프라인 | URP | Universal Render Pipeline |
-| 네트워크 | Netcode for GameObjects | 2.9.2 |
-| 멀티플레이 서비스 | Unity Multiplayer Services | 2.0.0 (Lobby+Relay 전용) |
-| 인증 (로그인) | Firebase Authentication + Google Play Games Plugin | Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료 (런타임 설정 미완료) |
-| 이벤트 시스템 | UniRx | 7.1.0 |
-| 3D 모델링 도구 | Meshy.ai | Image-to-3D 파이프라인 |
-| 애니메이션 | Mixamo + Unity Animator | Mecanim |
-| 셰이더 | Shader Graph (SG_HexTile) | Object Space SDF 기반 |
-
----
-
-## 아키텍처 현황
-
-```
-Bootstrap
-  └── GameBootstrapper (유일한 composition root)
-
-Domain ← (참조 금지) Core
-  ├── HexCoord, HexGrid, HexPathfinder
-  ├── UnitData, BuildingData (IDamageable)
-  └── HexOrientationContext (정적 홀더)
-
-Application
-  ├── UseCases (Combat, Movement, Spawn, Production, ...)
-  ├── Interfaces/IEntityPositionProvider (2026-03-02 추가)
-  ├── NetworkContext (정적 홀더 — 네트워크 상태)
-  └── GameEvents (UniRx Subject 허브)
-
-Core
-  ├── HexMetrics (헥스↔월드 좌표 변환, XZ 평면)
-  └── ViewConverter (팀별 관점 반전, Red팀만)
-
-Infrastructure
-  ├── Config/GameConfig (ScriptableObject)
-  ├── Factories/UnitFactory, BuildingFactory
-  ├── UnitWorldPositionProvider (IEntityPositionProvider 구현)
-  └── Network/ (NetworkXxxController × 8)
-
-Presentation
-  ├── Grid/HexTileView, HexGridRenderer
-  ├── Unit/UnitView (Lerp + Animator + Register/Unregister)
-  ├── Camera/CameraController (XZ 레이캐스트 팬, 55도 틸트)
-  ├── Input/InputHandler (XZ 평면 입력)
-  ├── UI/ (HUD, 생산 패널, 건물 배치, 게임 종료)
-  └── UI/Views/Lobby/ (MVVM — LobbyRootView, TabBarView, BattleRootView + 서브뷰 8종)
-       └── UI/ViewModels/ (LobbyViewModel, BattleViewModel — UniRx ReactiveProperty)
-```
-
----
-
-## 에셋 현황
-
-### 3D 모델 (Meshy.ai)
-| 에셋 | 경로 | 상태 |
-|------|------|------|
-| Pistoleer 유닛 (Blue/Red) | Prefabs/Units/Unit_Pistoleer_Blue/Red.prefab | ✅ 완료 |
-| Assault 유닛 (Blue/Red) | Prefabs/Units/Unit_Assault_Blue/Red.prefab | ✅ 완료 |
-| Sniper 유닛 (Blue/Red) | Prefabs/Units/Unit_Sniper_Blue/Red.prefab | ✅ 완료 |
-| Castle (Blue/Red) | Prefabs/Buildings/Building_Castle_Blue/Red.prefab | ✅ 완료 |
-| Barracks (Blue/Red) | Prefabs/Buildings/Building_Barracks_Blue/Red.prefab | ✅ 완료 |
-| MiningPost | Prefabs/Buildings/Building_MiningPost.prefab | ✅ 완료 |
-| GoldMineTile | Prefabs/Buildings/GoldMineTile.prefab | ✅ 완료 |
-| RallyPointMarker | Prefabs/Misc/RallyPointMarker.prefab | ✅ 완료 |
-
-### 타일
-| 에셋 | 경로 | 상태 |
-|------|------|------|
-| HexTile (FlatTop) | Prefabs/Tiles/HexTile.prefab | ✅ 완료 (ProBuilder + SG_HexTile) |
-
-### 미제작 에셋
-| 에셋 | 용도 |
-|------|------|
-| 방어타워/마법타워/연구소 3D | 미구현 건물 타입 |
-## 2026-07-16 추가 완료: 로비 프로필/랭킹 클라우드 연동
-
-- `codex/profile-cloudsave-leaderboard-port` 작업에서 Firebase 인증 이후 UGS Cloud Save 기반 플레이어 프로필, 닉네임 코드, 전적 표시, 닉네임 변경 팝업, UGS Leaderboards 기반 랭킹 테이블을 로비 UI에 1차 통합했다.
-- 이메일 회원가입/인증 완료 후 최초 로그인 시 닉네임 설정 화면을 거치도록 보완했다.
-- Profile/Ranking 탭은 CanvasGroup 기반 표시/숨김 규칙을 유지하며, 숨겨진 랭킹 패널이 로비 진입 시 자동 로드되지 않도록 랭킹 데이터 로드 시점을 탭 선택/수동 새로고침으로 제한했다.
-- 기본 UI 레이아웃은 런타임 보정 + 에디터 생성 스크립트 기준값을 함께 조정했다. 세부 픽셀 튜닝은 Unity Inspector에서 후속 조정한다.
-- 후속 이메일 인증 플로우 보정은 2026-07-18 완료됨. 인증 대기 화면 이메일 표시, 가입 취소/계정 삭제 정책, 앱 재실행 자동 로그인 게이트, 닉네임 미설정 Lobby 우회 차단을 반영했다.
----
-
-## 2026-07-18 완료: 이메일 인증 플로우 보정
-
-- 이메일 인증 대기 화면 진입 시 실제 입력 이메일과 진입 원인(`SignUpPending` / `ExistingUnverifiedLogin`)을 명시적으로 전달하도록 보정했다.
-- 신규 이메일 회원가입 직후 인증 대기에서 뒤로가기를 누르면 가입 취소 확인 후 현재 미인증 Firebase 사용자를 삭제하는 흐름을 추가했다.
-- 기존 미인증 계정 로그인 후 인증 대기에서 뒤로가기를 누르면 계정은 삭제하지 않고 로그아웃 후 이전 로그인 화면으로 복귀한다.
-- 인증 대기 화면에서 앱을 종료/강제 종료하면 가입 취소로 보지 않고, 재실행 시 미인증 계정은 인증 화면으로 복귀한다.
-- 인증 완료 후 닉네임을 설정하지 않은 계정은 재실행/자동 로그인 경로에서도 Lobby로 우회 진입하지 않고 닉네임 설정 화면으로 복귀한다.
-- 사용자 실기 확인: 실제 이메일 표시, 가입 취소 팝업, 미인증 Firebase 계정 삭제, 인증 계속하기 유지, 인증 화면 재실행 복귀, 닉네임 설정 화면 재실행 복귀 PASS.
-
-## 2026-10-09 Assault bounded clock-history readiness 추가 기록
-
-이전 source 미구현/Unity 메뉴 대기는 당시 이력이며 현재는 승인4 source 구현 및 diagnostic gate 완료다. [Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md](_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md)의 “Clock-history 최종 파일 인벤토리 (2026-10-09)”에 전체 source4·Temp38·문서/기준값 목록과 정확한 근거를 연결했다. Main 실제 Unity Action13:41:11→13:41:36 overall/C2/C3 PASS, Root13:44:44 PASS; errors0/warnings27. static4 errors0, Main CLR3 exit0. Main frozen4 manifest hash 및 protected Game/Login/Stats/Assault anim baseline 동일 확인; 빌드/씬 저장 없음.
-
-실제00_10 Expired4/source-marker/PhaseClockRegression/실기기 오류/timing/pixel/성능/NGO native query count는 OPEN. 다음은 사용자 새 Development 빌드→경기 종료→로비 복귀→저장(EndSession dump); 강제 종료/종료 전 reset 시 누락 가능. 구현은 원인 분석용 numeric ring/frozen history이지 오류 해결 판정이 아니다.
+**문서 역할**
+- **목적·질문:** 시스템이 현재 어디까지 구현·확인됐는지 요약한다.
+- **포함:** 구현·검증 범위·알려진 한계와 상세 근거 링크.
+- **제외·담당:** 미완 우선순위는 [ROADMAP](ROADMAP.md), 개별 연결·수용은 [Matrix](Assets/UnitCombatAssetMatrix.md), 사양은 [규칙](GameSystemRules.md), 실행 과정은 [이력](History/ImplementationVerificationHistory.md).
+- **원본·참조:** 시스템 현재 상태의 요약 원본. 개별 사실의 증거는 연결된 기존 Task/Log·전문 원본을 따른다.
+- **갱신:** 실제 구현·검증·수용 축에 변화가 있을 때 해당 상태를 제자리 갱신한다. 날짜별 경기 receipt를 누적하지 않는다.
+
+## 현재 시스템 상태
+
+상태는 구현·검증·사용자 수용 근거의 확인 범위를 기준으로 읽는다. 초기 구현 완료를 최신 전투 전체 수용으로 해석하지 않는다.
+
+| 시스템 | 구현·확인된 범위 | 현재 한계·참조 |
+|---|---|---|
+| 랠리포인트 | 최초·후속 수정 싱글·멀티 및 AI 5번 싱글 사용자 수용, 코드 정리·별도 검증 후 main 통합·원격 push 완료 | 통합 후 신규 실기·역할별·장치별·정밀 로그 계약 및 전체 경로 차단 대응으로 확대하지 않음. [통합·원격 반영 결과](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-10-pr-없는-로컬-main-통합-완료-2026-10-18-메인-수행-인계>) |
+| 코어 경기 | 헥스 맵·건설/생산·자원·점령·전투·승패 및 싱글/멀티 기본 흐름 구현 기록 | 상세 동작은 게임 규칙, 남은 범위는 ROADMAP |
+| 유닛 행동·전투 | 서버 권위·행동/타격 결과·표현 구조 및 기존 개별 교정. 원래 승인 교정의 에셋/코드 반영 감사와 입증된 누락 복원은 종결 | 전체25종·역할교대·Legacy rollback·정밀 시각/구조 이행은 개별 수용과 별도. [Matrix](Assets/UnitCombatAssetMatrix.md) |
+| SOLO 이동 복귀 | 사용자 두 경기와 runtime 분석의 focused 수용으로 해당 복귀 범위 종결 | 광산·랠리는 제외. 초월8종 한 경기의 전달/힐 시간 관측을 멀티·전체 시각/global PASS로 확대하지 않음 |
+| 특수 공격·힐 | BattleAxe sweep, Torrent 파도, Bloom 힐/HoT, Mushroom 착탄 DoT, Inferno DoT, Quake 즉발 AoE 구현 근거 | 기존 사용자 개별 수용 유지. 새 VFX·정밀 시각·wave clock/Invalid 및 미관측 회복은 Matrix 현행 목록 |
+| VFX 표현 후속 (브랜치 `claude/vfx-code-followups`, 2026-10-13~15) | 사용자 실기 3회차까지: BloomFairy 힐 PS 4개 재생, 차지 VFX(FoxMagician·InfernoSpirit) 시전자 사망 시 정지, RuneSpire 번개 크리스털 시작·살아 있는 대상 가슴 높이 조준, 측정 도구 스케일 버그 수정 뒤 화상·독·힐 크기·높이의 프리셋 조정, 버섯 착탄·새 독 프리팹 승인. 서버 피해·타겟·HP·RPC 불변(표현 전용) | ⚠️ 완료 아님: 맞는 순간 대상이 죽으면 번개 끝점이 살짝 어긋남(OPEN, 원인 미검증) · 상태 이펙트 값 미세 조정은 사용자 데이터 작업 진행 중(현재 값은 커밋 `91371e55`: 재측정 표 + Heal·Poison Scale Multiplier 2) · 주석 비활성화한 옛 로직 6곳은 번개 사망 시 결함이 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정). *(2026-10-15 정정: 첫 판의 「재측정 표·프리셋 값 미커밋」은 `91371e55`로 해소)* 단일 소스: [Research 10절](_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) · [Plan 13절](_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md) |
+| 무작위 맵 | 생성·검증·폴백·전송·해시·재경기 및 최초 멀티 실패 UI의 구현/관측 근거. 매 경기 새 맵 | InitialGold 실제 적용·조각 크기 실측·차단 대응 및 자연 실패/복구 관측은 별도. [맵 규칙](GameSystemRules/GameSystemRules_RandomMap.md) |
+| 건물·스킬·연구 | 생산/업그레이드/철거와 싱글·기존 실패 피드백, 스킬 타입A/B/C, 연구 트랙·×10 스케일·연구 패널의 구현/기존 실기 근거 | 멀티 BuildFailed/EnqueueFailedClientRpc의 UI 피드백은 후속. 새 스킬 목록·밸런스·연구 UI/AI 연구 실기 등 보류는 별도. 값은 [Stats](StatsReference.md) |
+| MistShrine | 아군 유닛·건물 대상 물안개 힐 구현, 기존 에디터 싱글 확인 | 멀티 미검증·밸런싱 미확정. 현재 임시값을 확정값으로 인용하지 않음 |
+| AI | 난이도·빌드오더/반응·생산/배치와 핵심 흐름 구현·관측 근거 | 반응 트리거/무작위 시나리오 세부 검증과 밸런싱+3시나리오 재논의는 별개 후속 |
+| UI·로비 | lifecycle·DOTween·전역 로딩·SafeArea/CanvasGroup·건물 패널·설정/음소거·종족/초상화 및 경기 흐름 화면 구현 기록 | 현재 필수 동작은 각 UI 원본. 남은 레이아웃·관측·CanvasGroup 예외 결정은 ROADMAP |
+| 인증·프로필 | Login 씬/C#과 Google/이메일 흐름·이메일 인증/재실행·닉네임 gate의 구현/사용자 확인. 로비 프로필·랭킹 UI 1차 연결 | Firebase는 인증, UGS Cloud Save/Leaderboards는 프로필/랭킹 연결. UI 표시 완료가 서버 승패 기록·IAP/Functions 완료는 아님. [Auth](AuthSystemRules.md) |
+| 사운드 | AudioManager·BGM/SFX·볼륨/음소거 연결의 구현 기록, 기존 볼륨/음소거 UI 실기 확인 | BGM/SFX Inspector별 배선·제작/실기·수용 잔여는 에셋 목록. Victory/Defeat 분리는 Sound 규칙의 선행조건이 있는 추후 기획 |
+| 로그 | GameLog/FileSink·에디터 파일·Device 캡처·수동 정리와 기존 이관/실기 근거 | 현행 규범은 [LogRules](LogRules.md). Lobby 직접 진입은 사용자 범위 제외. 자연 엔진 오류 훅 발화의 미확인과 FileSink 경로 중복 정리는 ROADMAP |
+| 에셋·플랫폼 | 팀별 표현·3D 전환/자산 적용 및 AAB 최적화의 기록 | 보유/제작/연결은 에셋 목록. 과거 용량은 당시 빌드 값이며 현재 크기 보증이 아님 |
+| 개발 도구 | 필수 Editor7소스/17메뉴 보존, 불필요28소스/메타 최종 삭제·main 반영 | 명시 삭제 승인과 사용자 테스트 PASS는 별개. 사용법은 WORKFLOW/TDD/LogRules, 문서 검사 범위는 WORKFLOW [11] |
+
+## 현재 검증과 보류 경계
+
+- RhinoBreaker·QuakeSpirit·BattleAxe·DustSpirit·LittleKnight·EagleArcher의 기존 사용자 수용을 유지한다. MigrationRequired·과거 미주입/대기 도장 때문에 자동 재시험하지 않는다.
+- Assault/Sniper/Inferno의 focused 수용, wave의 한 경기 전달/표시 관측과 원인/정밀 시각·자연 pending 회복·전체 migration은 다른 축이다. 실제 잔여는 [Matrix 현행 목록](Assets/UnitCombatAssetMatrix.md)에서 한 번만 관리한다.
+- 구현·정적 검사·native 메뉴·기기/멀티·사용자 수용·빌드 시작/완료는 서로 다른 확인 범위다.
+- 밸런싱+AI 시나리오는 추후 별건이며 추가 기획은 낮은 우선으로 보류한다. 마법 타워·상태머신 확장·서든데스·튜토리얼·카드/IAP 등 미완 기획을 구현 완료로 옮기지 않는다.
+
+## 상세 원본과 작업 목록
+
+| 확인할 내용 | 담당 원본 |
+|---|---|
+| 현재 값·단위·Eagle 생산 클립 선택 경계 | [StatsReference](StatsReference.md) |
+| 아키텍처·기술 스택·계층/구현 패턴 | [TDD](TechnicalDesignDocument.md)·[네트워크 TDD](TechnicalDesignDocument_Network.md) |
+| 보유 에셋·제작/연결·개별 수용 | [AssetList](Assets/AssetList.md)·[VFXSFXList](Assets/VFXSFXList.md)·[Matrix](Assets/UnitCombatAssetMatrix.md) |
+| 실제 미완·우선순위·선행/미결 | [ROADMAP](ROADMAP.md) |
+| 완료 시점·과거 경위와 검증 영수증 | [WORK_HISTORY](WORK_HISTORY.md)·[구현 이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-management-status) |
+
+<!-- 기존 문서 참조의 호환 앵커 -->
+<a id="--후속-이메일-인증-플로우-보정은-2026-07-18-완료됨-인증-대기-화면-이메일-표시-가입-취소계정-삭제-정책-앱-재실행-자동-로그인-게이트-닉네임-미설정-lobby-우회-차단을-반영했다"></a>
+<a id="-p0-재오픈--서버-권위-유닛-actionsequence"></a>
+<a id="-무작위-맵--본체-구현검증-완료-적용-후속-남음"></a>
+<a id="-미구현-기능"></a>
+<a id="-알려진-미완성버그-항목"></a>
+<a id="-완료된-시스템"></a>
+<a id="2026-07-16-추가-완료-로비-프로필랭킹-클라우드-연동"></a>
+<a id="2026-07-18-완료-이메일-인증-플로우-보정"></a>
+<a id="2026-10-09-assault-bounded-clock-history-readiness-추가-기록"></a>
+<a id="3d-모델-meshyai"></a>
+<a id="3d-전환-2026-02-27--2026-03-01"></a>
+<a id="bloomfairy꽃요정-힐러--hotdot-공용-시스템-2026-07-18--특수-유닛-5종-중-3번째"></a>
+<a id="buildingactionpanelui-씬-계층-재설계--런타임-슬롯-제어-2026-05-29"></a>
+<a id="buildingplacementui-씬-계층-재설계-2026-05-29"></a>
+<a id="flattop-1121-무작위-대전-맵-2026-07-19-기획-확정"></a>
+<a id="game-ui-lifecycle-framework-2026-03-24"></a>
+<a id="gameconfig-코드-기본값-vs-inspector-값"></a>
+<a id="google-로그인-실기-디버깅-2026-06-2728"></a>
+<a id="infernospirit지옥불-정령-단일-대상-dot-2026-07-20--특수-유닛-5종-중-5번째"></a>
+<a id="lobby-ui-전체-규칙-준수-수정-2026-05-30"></a>
+<a id="lobby-씬-ui-규칙-재점검-및-추가-수정-2026-06-15"></a>
+<a id="lobby-패널-canvasgroup-사전-부착--profileview-로그아웃-버튼-2026-06-22"></a>
+<a id="mistshrine-물안개-힐-시스템--구현-완료--에디터-싱글플레이-실기-검증-완료-2026-08-12--멀티-미검증"></a>
+<a id="mushroombomber버섯폭격기-착탄형-범위-dot-2026-07-19--특수-유닛-5종-중-4번째"></a>
+<a id="productionpopup-ui-레이아웃-재구성-2026-05-18"></a>
+<a id="quakespirit대지의-정령-착탄형-즉발-aoe-2026-07-20--특수-유닛-5종-전량-완료"></a>
+<a id="ui-dotween-애니메이션-프레임워크-2026-03-19"></a>
+<a id="unittype-개편--근접-사거리-시스템-2026-04-1011"></a>
+<a id="개발-도구--에이전트-인프라"></a>
+<a id="건물-배치-패널-실패-피드백--ui-개선-2026-05-16"></a>
+<a id="건물-업그레이드-시스템-2026-05-1718"></a>
+<a id="건물-철거-시스템-2026-05-18"></a>
+<a id="게임-화면-ui-tc-전체-실기기-테스트-2026-05-27"></a>
+<a id="게임포기-로딩-인디케이터-미해제-버그-수정-2026-06-26"></a>
+<a id="경기-전-원래-교정-반영-감사-종결-2026-10-15"></a>
+<a id="공통-ui-규칙-수립-및-canvas-scaler--safearea-적용-2026-05-25"></a>
+<a id="근접유닛-뒷무빙-5차-개선-2026-04-26"></a>
+<a id="근접유닛-적-감지-사거리--추적-회전-개선-2026-04-1924"></a>
+<a id="기술-스택-현황"></a>
+<a id="도끼병battleaxe-휩쓸기형-aoe--특수-공격-아키텍처-2026-07-17"></a>
+<a id="랜덤-매칭-2회차-실패-버그-수정--runtimelogger-2026-06-25"></a>
+<a id="로그-체계gamelog-전환--미완-항목-2026-08-17-기준"></a>
+<a id="로그인-시스템-c-구현-2026-05-24"></a>
+<a id="로비-종족-선택-ui-2026-04-0406"></a>
+<a id="매치메이킹-404-수정--호스트-결정-lobby-createorjoin-전환-2026-07-17"></a>
+<a id="멀티플레이-phase-18"></a>
+<a id="멀티플레이-기능-미구현"></a>
+<a id="멀티플레이-로비-복귀-버그-수정-2026-03-17"></a>
+<a id="미제작-에셋"></a>
+<a id="버그-수정-및-폴리싱"></a>
+<a id="비생산-건물-공용-액션-패널-ui-2026-05-1819"></a>
+<a id="사용자-싱글-경기-관측-2026-10-15"></a>
+<a id="설계-규칙-문서-gamesystemrulesmd"></a>
+<a id="스킬-건물-시스템-phase-1-타입-ab--조준ui좌표화렌더링버그수정-phase-2-타입-c-전역-상태변경--구현-완료--실기기-테스트-pass-phase-1-2026-08-04-phase-2-2026-08-05-실기멀티클라-pass"></a>
+<a id="싱글플레이-ai-시스템-2026-06-07"></a>
+<a id="아키텍처-현황"></a>
+<a id="에셋-현황"></a>
+<a id="연구소-유닛-강화-시스템--전투-스탯-10-스케일--연구-패널-ui--구현-완료--멀티플레이-실기-pass-2026-07-31"></a>
+<a id="원거리-유닛-공격-중-회전-추적-2026-04-1112"></a>
+<a id="유닛-생산-실패-피드백-시스템-2026-05-16"></a>
+<a id="유닛-이동전투-시스템-재설계-2026-05-1113"></a>
+<a id="유닛건물-스탯-scriptableobject-전환-2026-04-25"></a>
+<a id="유닛건물-스탯-확정-적용-2026-04-1213"></a>
+<a id="인게임-설정-메뉴--게임-포기-기능-2026-05-1819"></a>
+<a id="인게임로비-볼륨음소거프로필-버튼-ui-로직-연결-2026-07-09-실기-pass"></a>
+<a id="인증-시스템-설계-규칙-문서-authsystemrulesmd"></a>
+<a id="전역-로딩-스크린-2026-03-17"></a>
+<a id="전체-구현-현황"></a>
+<a id="종족-인게임-적용-2026-04-07"></a>
+<a id="커스텀게임-재경기-시스템-2026-03-17"></a>
+<a id="코드-리팩토링-2026-05-18"></a>
+<a id="코드-리팩토링-전체-완료-2026-05-24"></a>
+<a id="코드-정리-3건--죽은-코드-제거--animator-상태-의존-제거--firebase-게이트-제거-2026-07-13"></a>
+<a id="코어-게임플레이"></a>
+<a id="타일"></a>
+<a id="타일-소유권-실시간-감지--tileownershipservice-2026-04-26"></a>
+<a id="팀별-관점-viewconverter"></a>
+<a id="팀별-피아식별--신규-유닛-에셋-2026-03-13"></a>
+<a id="플랫폼--빌드-최적화-2026-07-15"></a>
+<a id="피격-시-부유-hp-텍스트--world-space-2026-04-1213-2026-04-17-world-space-전환"></a>
+<a id="현행-진행-경계-2026-10-13-문서-정리"></a>

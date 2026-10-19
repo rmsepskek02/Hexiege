@@ -14,6 +14,8 @@
 
 ---
 
+> **[2026-10-19 main 병합 메모 — 아래 본문의 경로·메뉴 표기는 작성 당시 그대로 보존]** main(`0978d908`)의 에디터 도구 정리로 `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` · `RunUnitActionSelfValidation.VfxConnections.cs`는 `Assets/Editor/Tools/Combat/` 아래로 옮겨졌고(GUID·partial 보존), 전투 자기 검증 메뉴 이름은 `Hexiege/Combat/Run Full Regression Suite`, 루트 포즈 자기 검증은 `Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit`이 됐다. 본문의 「Unit Action 자기 검증 메뉴」 · 「Self Validate Unit Root Pose Cross Audit」는 이 두 메뉴를 가리킨다. 이 작업이 만든 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs`(`Hexiege/Effects/Measure Unit Recipient Fit`)는 경로 변경이 없으며, WORKFLOW [5-2] 「에디터 스크립트 최소 유지 기준」의 현재 진입점 표에 들어 있지 않다 — 유지 여부는 사용자 결정 대기다. 현행 도구 목록은 [WORKFLOW](../../../WORKFLOW.md) [5-2].
+
 ## 1. 🔴 기존 로직 제거·비활성화 항목 (WORKFLOW [4] — 최상단 명시)
 
 모두 **삭제가 아니라 주석 처리로 비활성화**한 뒤 새 코드를 옆에 둔다. 주석 처리분의 최종 삭제는 [6] 사용자 테스트 통과 후, [7] 문서/메모리 업데이트 전에 한다.

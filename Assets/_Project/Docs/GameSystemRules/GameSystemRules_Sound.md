@@ -1,6 +1,10 @@
 # Game System Rules — 사운드 시스템
 
-사운드 시스템(BGM, SFX, 볼륨 제어) 구현 시 따라야 하는 규칙 모음.
+- **목적·답하는 질문:** BGM 전환·효과음·볼륨 제어가 따라야 할 동작을 판단한다.
+- **포함:** AudioManager 책임, 최초 진입·씬/게임 상태별 BGM, SFX 호출·한도·2D 정책, 볼륨 저장·UI, 향후 보류
+- **제외·담당 문서:** 구체 VFX/SFX 연결·제작은 [VFXSFXList](../Assets/VFXSFXList.md)·[VFXSFXGuide](../Assets/VFXSFXGuide.md), 현재 완료/미완은 [PROJECT_STATUS](../PROJECT_STATUS.md)·[ROADMAP](../ROADMAP.md)
+- **권위원본·주요 참조:** 사운드 동작·책임 규칙 원본; 미확정 Victory/Defeat 분리를 현재 규범으로 승격하지 않음
+- **갱신 조건·방법:** 사운드 동작·Inspector 한도·저장 계약 승인 변경 때 본문을 갱신하며 날짜별 실행 경위는 상세 이력에 둔다.
 
 ---
 
@@ -82,8 +86,7 @@ V1에서는 싱글/멀티플레이 구분 없이 `GameEvents.OnGameEnd` 발생 �
 
 향후 조건이 충족되면 아래와 같이 분리한다:
 - 선행 조건: `LocalPlayerTeam.Set()`이 싱글/멀티플레이 모두에서 올바르게 호출됨을 보장
-- 싱글플레이: `GameEndEvent.Winner == TeamId.Red` → Victory BGM, `TeamId.Blue` → Defeat BGM
-- 멀티플레이: `GameEndEvent.Winner == LocalPlayerTeam.Current` → Victory BGM, 아니면 Defeat BGM
+- 싱글/멀티 모두 승리팀이 로컬 플레이어 팀과 같으면 Victory BGM, 다르면 Defeat BGM을 재생한다. 팀 판별 수단의 정확한 설정이 선행 조건이며 현재 V1 동작을 바꾸지 않는다. 이전 고정 색상 예시는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-sound-01)다.
 - 이 작업은 팀 판별 수단 확보 후 별도 태스크로 진행한다.
 
 ---

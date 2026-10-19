@@ -11,7 +11,17 @@ type: project
 - GameConfig.RallyMarkerEuler (Vector3, default: 0/0/0) — **에셋 실제값 -90/180/0**
 - ProductionTicker.CreateOrMoveMarker(): _config 참조
 
+## Rally lifecycle and moving-construction recovery (current, 2026-10-18)
+
+- User acceptance covers normal single-player and multiplayer behavior after the rally-destination construction correction; the user subsequently visually accepted the AI mine/flag item in single-player on 2026-10-18. This does not close complete-route obstruction rule 45 or prove the historical TerminalContact diagnosis for every unit. Exact implementation, execution evidence and acceptance: `Assets/_Project/Docs/_Tasks/2026-10-13/10_37_rally-point-fix/{Research,Plan}.md`.
+- Production and semantic-goal repaths share `UnitMovementUseCase.RequestRallyPath`: retain the original rally coordinate separately from the actual walkable endpoint; use the first reachable ring and shortest route within it. Recovery-prefix/rejoin candidate queries remain ordinary path requests.
+- Keep `PathFound`, `CurrentTileSelected`, `NoReachableCandidate` and `ProviderFailure` distinct. Candidate exhaustion is an explicit rally-skip policy; provider failure and ordinary Blocked are never successful arrival. Current-tile selection during movement uses the existing typed singleton only when authoritative tile and actual Root tile agree, then converges to its center.
+- `UnitView.MoveToRally` owns the rally context until normal `MoveTo` or cleanup. Commit endpoint changes with the accepted path at the safe coroutine boundary, preserve the same navigation guard and environment revision, and discard stale pending rally paths on environment changes.
+- Consume the skip reservation before final NoIntent publication; verify actual accepted closure before invoking the one-shot rally-to-castle callback. Never stop the owning coroutine or invoke its callback from the path query, and never fabricate a same-tile path to bypass Root validation.
+- Current input/server validation uses `CanSetRallyPointAt`; markers use per-barracks hide timers and the local-team filter also runs in single-player (Blue player/Red AI). The AI single-player visual report is user acceptance, not measured proof across all devices. User-authorized post-test cleanup removes the disabled rally implementation and its unreferenced ring helpers; retained active syntax and scoped compile/CLR checks are documented in the existing Task.
+
 ## 랠리포인트 시스템 구조 맵 (2026-08-08 코드 조사)
+> Historical investigation snapshot, preserved. The current rally lifecycle above supersedes its coordinate-validation, shared-timer and single-player-filter descriptions; other recorded observations are not silently revalidated by the focused rally fix.
 데이터/이벤트:
 - 상태: `Domain/Building/ProductionState.cs:150` `RallyPoint (HexCoord?)`, `BarracksPosition`(get-only, RegisterBarracks 시 확정)
 - 이벤트: `Application/Events/GameEvents.cs` `RallyPointChangedEvent(BarracksId, Coord?, Team)` / `UnitProducedEvent(Unit, RallyPoint?, BarracksId)`

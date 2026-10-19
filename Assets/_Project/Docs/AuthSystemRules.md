@@ -1,7 +1,11 @@
 # Auth System Rules
 
-로그인 및 계정 관리 시스템의 구현 규칙 모음.
-아이디어나 기획 의도가 아닌, 실제 코드로 구현할 때 기준이 되는 구체적인 규칙을 기록한다.
+**문서 역할**
+- **목적·질문:** 로그인·계정 관리가 따라야 할 동작과 구현 조건을 정한다.
+- **포함:** 인증 흐름·검증·화면·저장·보안 조건과 연결 계약.
+- **제외·담당:** 게임 전체 기획은 [GDD](GameDesignDocument.md), 공통 구조는 [TDD](TechnicalDesignDocument.md), 구현/실기 결과는 [Status](PROJECT_STATUS.md)·기존 Task.
+- **원본·참조:** 인증 도메인 규칙 원본. 기획 의도나 세션 완료 보고와 구별한다.
+- **갱신:** 승인된 인증 동작·계약이 바뀌면 해당 조항을 갱신한다. 현재 실행 증거를 규칙 사본으로 누적하지 않는다.
 
 ---
 
@@ -36,7 +40,7 @@
 | Firebase Authentication SDK | 로그인 시스템 전체 (계정 생성, 인증, 세션 관리) |
 | Google Play Games Plugin for Unity | Google 로그인 시 Google idToken 발급 |
 
-> **SDK 저장소 방침 (2026-07-13 확정)**: Firebase Unity SDK / Google Play Games Plugin은 용량이 커 프로젝트 `.gitignore` 정책상 git에 커밋하지 않고 각 개발자가 로컬에서 임포트한다(기준: Firebase Unity SDK 13.11.0, GooglePlayGames v2.1.0). 과거 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 컴파일 게이트가 심볼 미정의 시 스텁 `FirebaseAuthService`를 컴파일해 로그인이 무조건 실패하는 문제가 있어 게이트를 제거했다(커밋 4fe1cf0). **SDK 존재 여부는 컴파일 심볼이 아니라 임포트 자체로 판단하며, 별도 컴파일 게이트를 두지 않는다.** Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`에 명시된다. SDK/EDM 자체의 버전 관리(커밋/제외) 방침 확정은 별도 과제(ROADMAP Phase F-5). (참고: 게이트 제거와 별개로 에디터 "Firebase 초기화 실패" 런타임 로그가 남아 있을 수 있으며 이는 미해결 이슈다.)
+현재 프로젝트의 SDK 로컬 Import/제외 방침은 유지하며 기준 SDK는 Firebase Unity13.11.0·GooglePlayGames2.1.0이다. SDK 존재는 Import 자체로 판단하고 별도 Firebase 컴파일 심볼 게이트를 두지 않는다. Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`을 참조한다. SDK/EDM 버전 관리의 후속 결정과 초기화 실패의 현재 상태는 [ROADMAP](ROADMAP.md)·[PROJECT_STATUS](PROJECT_STATUS.md), 과거 stub 제거·커밋·관측 경위는 [이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-sdk-receipt)을 따른다.
 
 ### 레이어별 구성
 
@@ -117,7 +121,7 @@ Login 씬 내부에서 아래 화면들을 패널 전환 방식으로 구성한�
 
 **규칙 2. 로그인 완료 후 씬 전환**
 
-로그인 방식에 관계없이, 로그인 성공 시 Lobby 씬으로 전환한다.
+로그인 성공 뒤 [인증·닉네임 선행 조건](#인증-대기-취소와-재진입)을 충족하면 Lobby 씬으로 전환한다.
 
 **규칙 3. 로그인 선택 화면 구성**
 
@@ -133,7 +137,7 @@ Login 씬 내부에서 아래 화면들을 패널 전환 방식으로 구성한�
 
 **규칙 1. 자동 로그인 조건**
 
-앱 시작 시 Firebase 세션(Refresh Token)이 유효하게 남아있으면 로그인 화면을 표시하지 않고 Lobby 씬으로 바로 이동한다.
+앱 시작 시 Firebase 세션(Refresh Token)이 유효하면 자동 로그인을 시도한다. [인증·닉네임 선행 조건](#인증-대기-취소와-재진입)을 확인하고, 조건이 갖춰진 계정만 UGS 브릿지/Lobby 진입을 진행한다.
 
 **규칙 2. 자동 로그인 실패 처리**
 
@@ -172,7 +176,7 @@ Login 씬 내부에서 아래 화면들을 패널 전환 방식으로 구성한�
 
 **규칙 1. 로그인 흐름**
 
-Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Firebase UID 발급 → UGS PlayerId 발급 → Lobby 씬 이동
+Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.
 
 **규칙 2. Google Play Games 미설치 처리**
 
@@ -235,13 +239,13 @@ Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Fireb
 인증 메일 발송 후 인증 대기 화면을 표시한다.
 대기 화면에서 제공하는 기능은 다음과 같다.
 
-- 인증 완료 확인 버튼: Firebase에서 인증 상태를 재확인하고 완료 시 Lobby 씬으로 이동
+- 인증 완료 확인 버튼: Firebase에서 인증 상태를 재확인하고 완료 시 닉네임 선행 조건을 확인한 뒤 UGS 브릿지/Lobby 진입
 - 인증 메일 재발송 버튼: 메일을 받지 못한 경우 재발송
 
 **규칙 4. 인증 완료 확인 방식**
 
 "인증 완료 확인" 버튼을 누르면 Firebase에서 현재 계정의 이메일 인증 상태를 갱신하여 확인한다.
-인증이 완료된 경우 Lobby 씬으로 이동한다. 미완료 시 안내 메시지를 표시한다.
+인증이 완료되면 [닉네임 선행 조건](#인증-대기-취소와-재진입)을 확인한 뒤 UGS 브릿지/Lobby 진입을 진행한다. 미완료 시 안내 메시지를 표시한다.
 
 ---
 
@@ -400,11 +404,7 @@ await AuthenticationService.Instance.SignInAnonymouslyAsync();
 - 세션이 전혀 없는 경우(Login 씬을 거치지 않은 단독 테스트 진입 등)에만 익명 로그인으로 폴백한다.
 - LobbyManager, RelayManager, MatchmakerManager, NetworkGameManager 등 기존 멀티플레이 코드는 변경하지 않는다.
 
-> **참고 (기존 로직 비활성화)**
->
-> 과거 `InitializeAsync()`는 매 호출 시 `SignOut()` → `SignInAnonymouslyAsync()`로 항상 재로그인했다(HTTP 401 토큰 만료 회피 목적).
-> OIDC 전환으로 이 동작은 OIDC 세션을 덮어써 PlayerId가 매번 바뀌는 문제를 일으키므로 비활성화했다.
-> 해당 블록은 `UnityServicesInitializer.cs`에 주석으로 남아 있으며, 사용자 테스트 통과 후 최종 삭제 예정.
+UGS 초기화에서 유효한 OIDC/익명 세션을 매번 SignOut→익명 로그인으로 덮어쓰지 않는다. 과거 비활성화·삭제 대기 상태는 [당시 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-old-init)에 보존하며 현행 세션 보존 계약과 구분한다.
 
 ---
 
@@ -420,21 +420,19 @@ Build Index를 수동으로 조정하여 테스트 목적에 따라 진입점을
 로그인 시스템 검증이 완료되고 게임 기능이 충분히 완성된 시점에 Build Index를 Login = 0 으로 고정하여 정식 통합한다.
 ---
 
-## 2026-07-16 이메일 인증 취소 규칙
+<a id="2026-07-16-이메일-인증-취소-규칙"></a>
 
-이메일/비밀번호 회원가입은 Firebase `CreateUserWithEmailAndPasswordAsync()` 성공 시점에 Firebase Authentication 사용자 레코드를 즉시 생성한다. 인증 메일 발송이나 인증 완료는 계정 생성과 별개의 후속 절차다.
+## 인증 대기 취소와 재진입
 
-따라서 이메일 인증 대기 화면은 진입 원인을 구분한다.
+이 절은 이메일 인증·자동 로그인·계정 취소에 공통 적용하는 현행 계약이다. 날짜별 부록으로 별도 예외를 쌓지 않고 위 로그인 규칙에서도 이 조건을 적용한다.
 
-- 신규 회원가입 직후 인증 대기: `SignUpPending`
-- 기존 미인증 계정 로그인 시도 후 인증 대기: `ExistingUnverifiedLogin`
+| 진입 원인 | 뒤로가기·취소 |
+|---|---|
+| 신규 회원가입 `SignUpPending` | 가입 취소 확인 후 **현재 사용자가 미인증일 때만** 계정 삭제. 이미 인증됐다면 이 경로에서 삭제하지 않음 |
+| 기존 미인증 로그인 `ExistingUnverifiedLogin` | 계정은 유지하고 Firebase 세션만 로그아웃한 뒤 이전 화면으로 복귀 |
 
-신규 회원가입 직후 인증 대기 화면에서 뒤로가기를 누르면 가입 취소 확인 팝업을 표시한다. 사용자가 가입 취소를 확정하면 현재 Firebase 사용자가 미인증 상태일 때만 삭제한다. 이미 인증된 사용자는 가입 취소 경로에서 삭제하지 않는다.
+Firebase 계정은 `CreateUserWithEmailAndPasswordAsync()` 성공 시 이미 생성된다. 인증 메일·인증 완료는 후속 절차이며 앱 종료·강제 종료를 명시적 가입 취소로 보지 않는다. 다음 같은 이메일 로그인은 기존 미인증 계정의 인증 대기 화면으로 돌아간다.
 
-기존 미인증 계정 로그인 시도 후 인증 대기 화면에서 뒤로가기를 누르면 계정은 삭제하지 않고 Firebase 세션만 로그아웃한 뒤 이전 로그인 화면으로 돌아간다.
+자동 로그인에서도 **이메일 인증 → 닉네임 확인 → UGS 브릿지/Lobby 진입**의 선행 조건을 적용한다. 미인증이면 인증 대기, 인증됐지만 Cloud Save 닉네임이 없으면 닉네임 설정으로 보낸다. 세션 유효성만으로 Lobby에 바로 진입하지 않는다.
 
-인증 대기 화면에서 앱 종료, 강제 종료, 프로세스 종료가 발생하면 계정을 자동 삭제하지 않는다. 다음 실행에서 같은 이메일로 다시 로그인하면 기존 미인증 계정으로 인증 대기 화면에 복귀시킨다. 앱 종료는 명시적인 가입 취소 의사로 간주하지 않는다.
-
-Firebase 세션이 남아 있는 상태로 앱이 재실행되면 자동 로그인 경로에서도 이메일 인증 상태를 먼저 확인한다. 미인증 이메일 계정은 UGS 브릿지와 Lobby 진입을 진행하지 않고 인증 대기 화면으로 복귀한다. 이미 인증된 이메일 계정이지만 Cloud Save에 닉네임이 없으면 Lobby 진입 전에 닉네임 설정 화면으로 이동한다.
-
-인증 대기 화면에 표시되는 이메일 주소는 `EmailVerifyView.OnEnable()`에 의존하지 않고, 화면 전환 시 `LoginRootView.ShowEmailVerify(email, origin)`로 명시 전달한다. 로그인 UI는 `CanvasGroup` 기반 표시/숨김을 사용하므로 GameObject 활성화 생명주기에 표시 데이터 갱신을 의존하지 않는다.
+인증 대기 화면의 이메일·진입 원인은 `LoginRootView.ShowEmailVerify(email, origin)`로 명시 전달한다. CanvasGroup 표시/숨김은 GameObject OnEnable을 다시 부르지 않으므로 `EmailVerifyView.OnEnable()`만으로 화면 데이터를 갱신하지 않는다. [이전 날짜별 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-email-appendix).
