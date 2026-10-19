@@ -1020,6 +1020,7 @@ namespace Hexiege.Editor.Combat
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();
             ValidateInfernoSpiritProductionTimeline();
+            ValidateChargeUnitClipSetAndChargeLength(); // [T-4·T-5 — 2026-10-19 차지 유닛 발사 시점]
             ValidateInfernoAnimatorBodyApiAbsence();
             ValidateInfernoSpiritAnimatedFacingEvidence();
             ValidateInfernoSpiritMotionJumpEvidence();
@@ -1033,7 +1034,7 @@ namespace Hexiege.Editor.Combat
             Debug.Log("[UAS-DIAG][BLOOM-HEAL-TIMELINE] self-validation PASS: BloomFairy exact production clip/controller/Blue-Red/scene binding, single 30fps 1:00 marker, 1s preparation plus 3s post-cast cooldown, SeparateHealPipeline/N/A; server heal policy unchanged.");
 
             Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, blocked authoritative-start deterministic FlowField egress, center-reached checkpoint consumption, building-safe combat approach and Unit64-shaped same-walkable-tile center rejoin, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded v13 pre-Action target staging, Root-stop-before-Start prevention and pure-Client rendered attack-entry ordering, bounded center checkpoint error and Chase direct-safe/path evidence, bounded UnitView adapter failure evidence with post-GameEnd suppression, bounded server-checkpoint/client-final-root rotation replication evidence and compact ROOT terminal with full-line UTF-8 preflight, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, Unit30-shaped unchanged spatial recovery blocking/stale duplicate suppression/death retire, reduced/stationary/repath fallback and fatal separation, no same-frame retry, center-to-center 60-degree outgoing turn/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, C1 atomic Host-local provisional Attack handoff before remote RPC with precommit impact suppression and continuous marker-window commit without clip restart, staged candidate/provisional Start/active Change target publication separation, production stationary/5-degree attack-start gate, bounded source-marker Stop-before-marker preservation without target transfer or loop replay, exhaustive 25-type attack manifest, production-boundary sequence allocation, per-Legacy-cycle target scope including overlapping impacts, pending-reservation StopCombat isolation, sequence-first per-cycle revision reset classification shared by server/client, reservation-bound dispatch consistency independent of display-target lifecycle, fail-closed correlation, target lock/multi-hit lifecycle and atomic latest-scope replication classification, C2 single-source Legacy overshoot cooldown/impact offsets including same-zero multi-hit order, exact attacker/target unavailable authorization-result binding and both-unavailable rejection, writer-owned damage observation, dispatch/completion reservation lifecycle, attacker-death future non-persistent hit cancellation before dispatch/result/observer with authorized completion preservation, reliable full-key ImpactResult shadow and bounded duplicate/conflict/retire classification, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
-            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, TorrentSpirit launch, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; StreamSpirit bounded read-only production flow diagnostics.");
+            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, TorrentSpirit launch, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; charge units (exactly FoxMagician/InfernoSpirit) start the caster-owned charge at OnAttackCharge with a check-only lease and launch tracer+SFX at OnAttackHit, charge prefabs end by the launch; StreamSpirit bounded read-only production flow diagnostics.");
             Debug.Log("[UAS-DIAG][C2-AUTHORITY] self-validation PASS: absolute server-time due gate, authorization-gated single Legacy damage writer, authoritative combat-condition Miss, and canonical result classification.");
             Debug.Log("[UAS-DIAG][C3-PRESENTATION-SHADOW] self-validation PASS: match-fixed mode/schema/hash, v12 Host/Client contract gate, marker-time immutable replication evidence, normal timing/recovery timing separation with timeout-zero gate, atomic commit presentation scope independent of replicated-state arrival, continuous every-commit scope publication without Attack clip restart, one-shot production marker lease with exact old-sequence retire and late-result suppression, bounded source-only completion when Stop precedes a committed marker, all-manifest Supported scoped fail-closed versus Unresolved Legacy VFX preservation without fabricated scope, immutable ranged scope capture, bounded InfernoSpirit rendered-Hips start/impact/end evidence with exact-key dedupe, signed-yaw invalid rejection, and forbidden Animator body member source gate, bounded read-only InfernoSpirit rendered-anchor motion-jump allowance/classification with rotation-arc prediction, residual boundary, compact Android-safe full-line preflight, initialization no-event, first severe Walk/Attack transition reservation, exact-key/overflow/lifecycle reset, peer-gated client-only replication classification, production renderer/rootBone/Hips fail-closed contract, per-attacker-sequence 64-entry reorder isolation, named 8-degree direction boundary with exact-revision classification, bounded structural failure evidence, one causal Error plus one axis terminal Error aggregation, independent C2 result/C3 presentation/overall verdicts, exact-key scheduling, duplicate/conflict, both arrival orders, catch-up/expiry, retire, damage-writer-owned victim presentation snapshot, optional hit-VFX asset classification, victim presentation spatial proof, and read-only writer/emitter boundary. Android warning-zero remains a runtime device gate and is not claimed here.");
         }
@@ -7807,9 +7808,14 @@ namespace Hexiege.Editor.Combat
                 $"{unitName} UnitView must reference the verified VfxSpawnPoint exactly: {prefabPath}");
         }
 
+        // [T-6 — 2026-10-19 차지 유닛 발사 시점] 옛 요약(기록용 보존):
+        //   "FoxMagician의 현재 production은 권위 발사체나 tracer 없이 TimerImpact를 사용한다.
+        //    charge 1.00초와 서버 피해 30fps의 2:25를 분리하고, projectile 계약을 Supported로
+        //    승격하지 않도록 production 연결과 Unresolved 경계를 함께 확인한다."
         /// <summary>
-        /// FoxMagician의 현재 production은 권위 발사체나 tracer 없이 TimerImpact를 사용한다.
-        /// charge 1.00초와 서버 피해 30fps의 2:25를 분리하고, projectile 계약을 Supported로
+        /// FoxMagician의 현재 production은 권위 발사체 없이 서버 TimerImpact(30fps 2:25 = 85/30초)를 사용한다.
+        /// 화면에서는 1.00초 OnAttackCharge에서 charge VFX를 켜고, 2:25 OnAttackHit에서 화면 표현용 Legacy 트레이서(마법탄)를
+        /// 발사하며 공격 SFX를 낸다. charge와 서버 피해 시점을 분리하고, projectile 계약을 Supported로
         /// 승격하지 않도록 production 연결과 Unresolved 경계를 함께 확인한다.
         /// </summary>
         private static void ValidateFoxMagicianProductionTimeline()
@@ -7963,8 +7969,37 @@ namespace Hexiege.Editor.Combat
                     "FoxMagician UnitEffectConfig row must retain explicit unitType=21.");
                 Require(row.FindPropertyRelative("attackPreset").objectReferenceValue == expectedAttackPreset,
                     "FoxMagician must retain the verified production attack preset.");
-                Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
-                    "FoxMagician tracer is not implemented; wiring one requires a separate authoritative projectile design.");
+                // [V-3 비활성화 — 2026-10-19 차지 유닛 발사 시점, 사용자 승인] 예전에는 「Fox 트레이서 미구현」을 고정했다.
+                //   이제 Fox도 InfernoSpirit(R5 임시)과 같은 방식으로 화면 표현용 Legacy 트레이서(마법탄)와 착탄 이펙트를 연결한다.
+                //   서버 판정은 여전히 85/30초 TimerImpact이며 실제 권위 투사체(C 방식)는 아니다. 원래 검사는 주석으로 남긴다.
+                // Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
+                //     "FoxMagician tracer is not implemented; wiring one requires a separate authoritative projectile design.");
+                // [T-2] 트레이서 = 마법탄 프리셋, 착탄 = 공격자 기준 impact 슬롯. 피격(hit) 슬롯은 「맞은 유닛 타입」 기준이라 비워 둔다.
+                //   프리셋 파일 이름만 맞고 GUID가 다른 사본을 연결하는 실수를 막으려고 GUID도 확인한다(사용자 커밋 683e1566의 에셋).
+                const string foxTracerPresetPath = "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_FoxMagician_Tracer.asset";
+                const string foxImpactPresetPath = "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_FoxMagician_Impact.asset";
+                var expectedTracerPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(foxTracerPresetPath);
+                var expectedImpactPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(foxImpactPresetPath);
+                Require(expectedTracerPreset != null && expectedImpactPreset != null
+                        && AssetDatabase.AssetPathToGUID(foxTracerPresetPath) == "025332764a8d09e4d97973e8c76a487e"
+                        && AssetDatabase.AssetPathToGUID(foxImpactPresetPath) == "bbc25dda207ccb84a9068c4a63392e73"
+                        && row.FindPropertyRelative("tracerPreset").objectReferenceValue == expectedTracerPreset
+                        && row.FindPropertyRelative("impactPreset").objectReferenceValue == expectedImpactPreset
+                        && row.FindPropertyRelative("hitPreset").objectReferenceValue == null,
+                    "FoxMagician uses the wired Legacy tracer + attacker impact presets (exact GUIDs), and its victim-keyed hit slot stays empty.");
+                Require(expectedTracerPreset.VfxPrefab != null && expectedImpactPreset.VfxPrefab != null
+                        && AssetDatabase.GetAssetPath(expectedTracerPreset.VfxPrefab).EndsWith("vfx_foxmagician_tracer.prefab")
+                        && AssetDatabase.GetAssetPath(expectedImpactPreset.VfxPrefab).EndsWith("vfx_foxmagician_impact.prefab"),
+                    "FoxMagician tracer/impact presets point to the actual tracer/impact prefabs.");
+                // 트레이서 프리팹 루트에 TracerProjectile이 있어야 프리팹의 비행 속도(_speed)가 쓰인다(없으면 기본 14로 새로 붙는다).
+                var foxTracerComponent = expectedTracerPreset.VfxPrefab.GetComponent<Hexiege.Presentation.TracerProjectile>();
+                Require(foxTracerComponent != null,
+                    "FoxMagician tracer prefab root carries TracerProjectile (EffectManager reuses it instead of adding a default 14 speed).");
+                float foxTracerSpeed = new SerializedObject(foxTracerComponent).FindProperty("_speed").floatValue;
+                Require(foxTracerSpeed > 0f, "FoxMagician tracer prefab speed must be positive: " + foxTracerSpeed);
+                // 이미 손을 떠난 마법탄·착탄은 시전자가 죽어도 끝까지 재생돼야 하므로 시전자 귀속이 꺼져 있어야 한다.
+                Require(!expectedTracerPreset.StopWhenCasterDies && !expectedImpactPreset.StopWhenCasterDies,
+                    "FoxMagician tracer/impact presets must not be caster-owned (Stop When Caster Dies OFF).");
             }
             Require(effectRows == 1, "UnitEffectConfig must contain exactly one FoxMagician row.");
 
@@ -8078,40 +8113,151 @@ namespace Hexiege.Editor.Combat
                 damage = GameEvents.OnEntityDamaged.Subscribe(_ => hpEvents++);
                 var rotationProperty = typeof(Hexiege.Presentation.UnitView).GetProperty("AttackPhaseLastEmissionRotation");
                 Require(rotationProperty?.GetSetMethod(true) != null, "Fixture rotation seed seam must exist.");
+                // ── [T-1 — 2026-10-19 차지 유닛 발사 시점] 새 기준 ──────────────────────────────
+                //   차지(OnAttackCharge) = lease 「확인만」(source·impact 둘 다 소비 없음) + 회차당 1회 + charge VFX만.
+                //   타격(OnAttackHit) = lease 소비 + 투사체 발사 경로 진입(charge VFX 재생 없음 — 실제 EffectManager 검증은
+                //   VfxConnections의 ValidateChargeUnitLaunchTiming이 담당한다. 이 fixture는 EffectManager·AudioManager를 격리한다).
+                //   이 fixture의 UnitView에는 Animator가 없어 production 캐시(클립 이벤트 판별 — P2-1)를 계산할 수 없다.
+                //   그래서 판별값만 직접 연다. 실제 클립에 차지 이벤트가 있는지는 T-3/T-4(ValidateChargeUnitClipSet)가 고정한다.
+                var viewType = typeof(Hexiege.Presentation.UnitView);
+                var chargeUnitField = viewType.GetField("_hasAttackChargeMarker", BindingFlags.Instance | BindingFlags.NonPublic);
+                var chargeResolvedField = viewType.GetField("_attackChargeMarkerCacheResolved", BindingFlags.Instance | BindingFlags.NonPublic);
+                var chargeRevisionField = viewType.GetField("_lastChargePresentedRevision", BindingFlags.Instance | BindingFlags.NonPublic);
+                var acceptedRevisionField = viewType.GetField("_lastAttackPresentationRevision", BindingFlags.Instance | BindingFlags.NonPublic);
+                var impactLeaseField = viewType.GetField("_attackPresentationImpactLease", BindingFlags.Instance | BindingFlags.NonPublic);
+                var targetProperty = viewType.GetProperty("AttackPhaseLastEmissionTarget");
+                Require(chargeUnitField != null && chargeResolvedField != null && chargeRevisionField != null
+                        && acceptedRevisionField != null && impactLeaseField != null
+                        && targetProperty?.GetSetMethod(true) != null,
+                    "Charge-unit fixture seams (charge cache, revision fields, impact lease, emission target) must exist.");
+                chargeUnitField.SetValue(view, true); chargeResolvedField.SetValue(view, true);
+                const int unreachedTarget = 4242; // emitter가 실행되면 -1(차지는 recipient 없음)로 덮인다 → early return 증거
+                AttackPresentationSourceMarkerLease Source() => (AttackPresentationSourceMarkerLease)sourceField.GetValue(view);
+                AttackPresentationImpactLease Impact() => (AttackPresentationImpactLease)impactLeaseField.GetValue(view);
+                void Commit(ulong revision, AttackPresentationImpactMode mode)
+                {
+                    // 서버 커밋 1회를 흉내 낸다: 수락 회차 + source lease 1회분(HitFrameTimes 1개) + 모드.
+                    var armed = new AttackPresentationSourceMarkerLease();
+                    Require(armed.TryArm(revision, 1), "Fixture source lease must arm.");
+                    sourceField.SetValue(view, armed); modeField.SetValue(view, mode);
+                    acceptedRevisionField.SetValue(view, revision);
+                    impactLeaseField.SetValue(view, default(AttackPresentationImpactLease));
+                }
+                void SeedTarget() => targetProperty.GetSetMethod(true).Invoke(view, new object[] { unreachedTarget });
+
                 foreach (Quaternion seed in new[] { default(Quaternion), Quaternion.identity })
                 foreach (bool server in new[] { true, false })
                 {
                     NetworkContext.Set(server, true);
-                    var lease = new AttackPresentationSourceMarkerLease(); Require(lease.TryArm(1, 1), "Fixture source lease must arm.");
-                    sourceField.SetValue(view, lease); modeField.SetValue(view, AttackPresentationImpactMode.LegacyFallback);
+                    Commit(1UL, AttackPresentationImpactMode.LegacyFallback);
+                    chargeRevisionField.SetValue(view, 0UL);
                     rotationProperty.GetSetMethod(true).Invoke(view, new object[] { seed });
-                    int remainingBefore = ((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount;
+                    // [V-1 비활성화 — 2026-10-19 차지 유닛 발사 시점] 옛 기준(Fox 타격은 lease를 보존하고 아무것도 방출하지 않음).
+                    //   새 기준에서 Fox 타격은 lease를 소비하고 투사체를 쏜다. 원래 검사는 지우지 않고 주석으로 남긴다.
+                    // int remainingBefore = ((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount;
+                    // var scopeBefore = view.AttackPhaseLastEmissionScope;
+                    // int targetBefore = view.AttackPhaseLastEmissionTarget;
+                    // Vector3 positionBefore = view.AttackPhaseLastEmissionTargetPosition;
+                    // Quaternion before = view.AttackPhaseLastEmissionRotation;
+                    // view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                    // // 2026-10-19 Fox fixture: zero Quaternion에도 정확한 성분 불변을 검사한다.
+                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == remainingBefore,
+                    //     "Fox impact must preserve the charge lease count.");
+                    // Require(view.AttackPhaseLastEmissionScope.Equals(scopeBefore)
+                    //         && view.AttackPhaseLastEmissionTarget == targetBefore
+                    //         && view.AttackPhaseLastEmissionTargetPosition.Equals(positionBefore)
+                    //         && view.AttackPhaseLastEmissionRotation.Equals(before),
+                    //     "Fox impact must preserve emission metadata components.");
+                    // view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0
+                    //         && view.AttackPhaseLastEmissionTarget == -1,
+                    //     "Fox charge consumes its existing Host/Client source lease without a recipient.");
+                    // view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0,
+                    //     "Repeated charge cannot reacquire a consumed lease.");
+
+                    // ① 차지: 확인만 한다(소비 없음) — 그래도 charge emitter까지는 도달한다(recipient -1).
+                    SeedTarget();
+                    view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    Require(Source().IsArmed && Source().RemainingMarkerCount == 1,
+                        "Charge only checks the Host/Client source lease; the launch keeps the commit's single allowance.");
+                    Require(view.AttackPhaseLastEmissionTarget == -1 && (ulong)chargeRevisionField.GetValue(view) == 1UL,
+                        "Charge reaches the charge-VFX emitter without a recipient and records its presented revision.");
+                    // ② 같은 회차 두 번째 차지(루프): 아무것도 방출·소비하지 않는다. emitter 앞 early return의 증거로
+                    //    metadata 성분이 정확히 그대로인지 Equals로 본다(zero Quaternion seed 포함 — Quaternion == 는 쓰지 않는다).
+                    rotationProperty.GetSetMethod(true).Invoke(view, new object[] { seed });
+                    SeedTarget();
                     var scopeBefore = view.AttackPhaseLastEmissionScope;
-                    int targetBefore = view.AttackPhaseLastEmissionTarget;
                     Vector3 positionBefore = view.AttackPhaseLastEmissionTargetPosition;
-                    Quaternion before = view.AttackPhaseLastEmissionRotation;
-                    view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                    // 2026-10-19 Fox fixture: zero Quaternion에도 정확한 성분 불변을 검사한다.
-                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == remainingBefore,
-                        "Fox impact must preserve the charge lease count.");
-                    Require(view.AttackPhaseLastEmissionScope.Equals(scopeBefore)
-                            && view.AttackPhaseLastEmissionTarget == targetBefore
+                    view.OnAttackCharge(new AnimationEvent { time = 1f });
+                    Require(Source().RemainingMarkerCount == 1
+                            && view.AttackPhaseLastEmissionScope.Equals(scopeBefore)
+                            && view.AttackPhaseLastEmissionTarget == unreachedTarget
                             && view.AttackPhaseLastEmissionTargetPosition.Equals(positionBefore)
-                            && view.AttackPhaseLastEmissionRotation.Equals(before),
-                        "Fox impact must preserve emission metadata components.");
+                            && view.AttackPhaseLastEmissionRotation.Equals(seed),
+                        "A second charge in the same revision emits nothing and consumes nothing.");
+                    // ③ 타격: lease를 소비하고 발사 경로로 들어간다.
+                    // [V-2 비활성화 — 2026-10-19] 옛 기준 「localHits == 0」(Fox 타격은 피격 신호 없음)은 아래 루프 밖에 주석으로 남겼다.
+                    //   EffectManager가 격리돼 트레이서를 만들 수 없으므로, production은 같은 타격 순간 즉시 로컬 피격 신호로 폴백한다.
+                    //   이 신호가 1회 나온 것이 「source-only return을 지나 발사 경로에 진입했다」는 증거다.
+                    int hitsBefore = localHits;
+                    view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                    Require(Source().RemainingMarkerCount == 0 && !Source().IsArmed,
+                        "Fox launch consumes the commit's single source allowance.");
+                    Require(localHits == hitsBefore + 1,
+                        "Fox launch enters the tracer/local-hit path once (EffectManager absent: immediate signal fallback).");
+                    // ④ 소비된 lease로는 다음 루프의 차지도 타격도 통과하지 못한다.
+                    SeedTarget();
                     view.OnAttackCharge(new AnimationEvent { time = 1f });
-                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0
-                            && view.AttackPhaseLastEmissionTarget == -1,
-                        "Fox charge consumes its existing Host/Client source lease without a recipient.");
-                    view.OnAttackCharge(new AnimationEvent { time = 1f });
-                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0,
-                        "Repeated charge cannot reacquire a consumed lease.");
+                    view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                    Require(localHits == hitsBefore + 1 && view.AttackPhaseLastEmissionTarget == unreachedTarget,
+                        "A consumed lease admits neither another charge nor another launch.");
                 }
+
+                // ⑤ Scoped(정규 scope) 경로에서도 차지는 impact lease를 소비하지 않는다 — R-3에서 확인한 두 번째 소비 지점.
+                //   현재 두 차지 유닛은 LegacyFallback이라 impact lease를 쓰지 않지만, 나중에 Supported가 돼도 깨지지 않게 고정한다.
+                NetworkContext.Set(false, true);
+                Commit(2UL, AttackPresentationImpactMode.Scoped);
+                var scopedImpact = new AttackPresentationImpactLease();
+                Require(scopedImpact.TryArm(new AttackPresentationScope(
+                        new AttackerInstanceId(77UL), new AttackSequenceId(5UL), 0), 1),
+                    "Fixture impact lease must arm.");
+                impactLeaseField.SetValue(view, scopedImpact);
+                chargeRevisionField.SetValue(view, 0UL);
+                view.OnAttackCharge(new AnimationEvent { time = 1f });
+                Require(Impact().IsArmed && Source().RemainingMarkerCount == 1,
+                    "Charge leaves both the source and the impact lease unconsumed (Scoped).");
+                int scopedHitsBefore = localHits;
+                view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                Require(!Impact().IsArmed && Impact().Status == AttackPresentationImpactLeaseStatus.Consumed
+                        && Source().RemainingMarkerCount == 0 && localHits == scopedHitsBefore + 1,
+                    "The launch, not the charge, consumes the Scoped impact HitIndex and the source allowance.");
+
+                // ⑥ Stop이 먼저 온 경우(사용자 결정 D2): 차지를 시작하지 않고, SourceOnly 타격은 아무것도 내지 않는다.
+                Commit(3UL, AttackPresentationImpactMode.LegacyFallback);
+                chargeRevisionField.SetValue(view, 0UL);
+                view.StopCombatAnimation(); // Client Stop → 남은 marker를 SourceOnly로 보존
+                Require(Source().IsSourceOnly, "Client Stop preserves the committed marker as SourceOnly.");
+                SeedTarget();
+                view.OnAttackCharge(new AnimationEvent { time = 1f });
+                Require(view.AttackPhaseLastEmissionTarget == unreachedTarget && Source().RemainingMarkerCount == 1,
+                    "No charge starts after the attack was already stopped.");
+                int sourceOnlyHitsBefore = localHits;
+                view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                Require(Source().RemainingMarkerCount == 0 && localHits == sourceOnlyHitsBefore,
+                    "A SourceOnly launch of a charge unit consumes its allowance but launches nothing.");
+
                 NetworkContext.Set(false, false);
+                int soloHitsBefore = localHits;
                 view.OnAttackCharge(new AnimationEvent { time = 1f });
                 view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                Require(localHits == 0 && hpEvents == 0 && unit.Hp == 200,
-                    "Actual SOLO/Host/Client callbacks never publish recipient/local-hit or apply HP.");
+                // [V-2 비활성화 — 2026-10-19 차지 유닛 발사 시점] 옛 검사: Fox 콜백은 피격 신호를 전혀 내지 않는다.
+                // Require(localHits == 0 && hpEvents == 0 && unit.Hp == 200,
+                //     "Actual SOLO/Host/Client callbacks never publish recipient/local-hit or apply HP.");
+                Require(localHits == soloHitsBefore + 1,
+                    "SOLO Fox launch (no lease) also enters the launch path at the hit marker, not at the charge.");
+                Require(hpEvents == 0 && unit.Hp == 200,
+                    "Actual SOLO/Host/Client charge/launch callbacks never apply HP (damage stays with the server timer).");
             }
             finally
             {
@@ -8121,10 +8267,15 @@ namespace Hexiege.Editor.Combat
             }
         }
 
+        // [T-6 — 2026-10-19 차지 유닛 발사 시점] 옛 요약(기록용 보존):
+        //   "InfernoSpirit의 현재 production은 별도 tracer 없이 30fps 1:15(1.50초) marker에서 공격 VFX와
+        //    피격 표현을 함께 시작한다. 서버 fallback 설정과 marker가 다시 어긋나거나, 실제 투사체가
+        //    없는 상태를 Supported로 가장하면 즉시 실패하도록 production 연결 전체를 확인한다."
         /// <summary>
-        /// InfernoSpirit의 현재 production은 별도 tracer 없이 30fps 1:15(1.50초) marker에서 공격 VFX와
-        /// 피격 표현을 함께 시작한다. 서버 fallback 설정과 marker가 다시 어긋나거나, 실제 투사체가
-        /// 없는 상태를 Supported로 가장하면 즉시 실패하도록 production 연결 전체를 확인한다.
+        /// InfernoSpirit의 현재 production: 30fps 0:05(0.1667초) OnAttackCharge에서 기 모으기(charge) VFX를 켜고,
+        /// 30fps 1:15(1.50초) OnAttackHit에서 화면 표현용 Legacy 트레이서(R5 임시)를 발사하며 공격 SFX를 낸다.
+        /// 서버 피해는 OnAttackHit 1.50초만 추출한 TimerImpact다. 서버 fallback 설정과 marker가 다시 어긋나거나,
+        /// 실제 권위 투사체가 없는 상태를 Supported로 가장하면 즉시 실패하도록 production 연결 전체를 확인한다.
         /// </summary>
         private static void ValidateInfernoSpiritProductionTimeline()
         {
@@ -8204,9 +8355,20 @@ namespace Hexiege.Editor.Combat
                 "InfernoSpirit Attack clip orientation offset must remain the currently approved -58-degree controlled comparison value.");
 
             int hitEventCount = 0;
+            // [T-3 — 2026-10-19 차지 유닛 발사 시점] 「차지 시작」 신호 OnAttackCharge @ 30fps 0:05(= 5/30 = 0.1667초) 1개.
+            //   Fox 타임라인 검사(OnAttackCharge @ 1초)와 같은 방식이다. 차지 VFX는 이 신호에서, 화염구 발사·발사음은 1.5초 OnAttackHit에서 난다.
+            const float chargeMarkerTime = 5f / 30f;
+            int chargeEventCount = 0;
             AnimationEvent[] events = AnimationUtility.GetAnimationEvents(attackClip);
             for (int index = 0; index < events.Length; index++)
             {
+                if (events[index].functionName == "OnAttackCharge")
+                {
+                    chargeEventCount++;
+                    Require(Mathf.Abs(events[index].time - chargeMarkerTime) <= tolerance,
+                        "InfernoSpirit OnAttackCharge must remain at the approved 30fps 0:05 (0.1667-second) charge start.");
+                    continue;
+                }
                 if (events[index].functionName != "OnAttackHit") continue;
                 hitEventCount++;
                 Require(Mathf.Abs(events[index].time - impactTime) <= tolerance,
@@ -8214,6 +8376,11 @@ namespace Hexiege.Editor.Combat
             }
             Require(hitEventCount == 1,
                 "InfernoSpirit Attack clip must contain exactly one OnAttackHit event.");
+            // 서버 피해 시점이 바뀌지 않았다는 확인: Factory가 추출하는 타격 시간은 [1.5] 하나뿐이고 차지 신호는 포함되지 않는다.
+            float[] infernoExtracted = UnitFactory.GetHitFrameTimes(attackClip);
+            Require(chargeEventCount == 1 && chargeMarkerTime < impactTime
+                    && infernoExtracted.Length == 1 && Mathf.Abs(infernoExtracted[0] - impactTime) <= tolerance,
+                "InfernoSpirit has one charge and one hit event, but Factory extracts only the 1.50-second damage event.");
             ValidateInfernoSpiritPrefabController(
                 bluePrefabPath, controller, controllerGuid, expectedVfxRelativeX: -0.0085951f);
             ValidateInfernoSpiritPrefabController(
@@ -8300,6 +8467,131 @@ namespace Hexiege.Editor.Combat
                 && inferno.HasSecondaryResults
                 && inferno.Reason == "projectile-and-periodic-result-unresolved",
                 "InfernoSpirit must remain explicitly Unresolved ProjectileImpact with periodic secondary results.");
+        }
+
+        /// <summary>
+        /// [T-4·T-5 — 2026-10-19 차지 유닛 발사 시점]
+        /// T-4: 「차지 유닛」은 코드의 타입 목록이 아니라 공격 클립의 OnAttackCharge 이벤트로 판별된다(UnitView P2-1).
+        ///      그래서 이벤트를 빠뜨리거나 엉뚱한 클립에 넣으면 조용히 일반 유닛처럼 동작한다. 이 검사가 그 집합을
+        ///      {FoxMagician_Attack, InfernoSpirit_Attack} 두 개로 고정하고, 두 유닛의 charge 프리셋이 시전자 귀속(정지 가능)인지 확인한다.
+        /// T-5: charge VFX는 「차지 시작」부터 「발사」까지 점점 모이다가 발사 순간 끝나야 한다. 각 파티클 시스템이
+        ///      실제로 끝나는 시각(시작 지연 + 마지막 방출 시각 + 최대 수명)의 최댓값이 차지 구간(클립의 hit − charge)
+        ///      이하이면서, 구간 끝 1프레임(1/30초) 안까지는 이어지는지 확인한다.
+        ///      ※ Plan T-5 문구 「최대 Duration + 최대 Lifetime」은 연속 방출 시스템의 보수적 상한이다. 시작 순간 burst만 쓰는
+        ///        시스템(두 프리팹의 루트)은 마지막 방출이 0초라 실제 끝 = Lifetime이므로, 방출 방식별 실제 끝 시각으로 계산한다.
+        /// </summary>
+        private static void ValidateChargeUnitClipSetAndChargeLength()
+        {
+            const string foxClipPath = "Assets/_Project/Animations/Units/FoxMagician/FoxMagician_Attack.anim";
+            const string infernoClipPath = "Assets/_Project/Animations/Units/InfernoSpirit/InfernoSpirit_Attack.anim";
+
+            // ── T-4: OnAttackCharge가 있는 「_Attack」 클립 집합 ──
+            var chargeClipPaths = new List<string>();
+            string[] clipGuids = AssetDatabase.FindAssets("t:AnimationClip", new[] { "Assets/_Project/Animations/Units" });
+            for (int g = 0; g < clipGuids.Length; g++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(clipGuids[g]);
+                foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                {
+                    var clip = asset as AnimationClip;
+                    // FBX 안의 미리보기 클립(__preview__)은 UnitView가 고르는 공격 클립이 아니다.
+                    if (clip == null || clip.name.StartsWith("__preview__", StringComparison.Ordinal)
+                        || !clip.name.EndsWith("_Attack", StringComparison.Ordinal)) continue;
+                    foreach (AnimationEvent clipEvent in AnimationUtility.GetAnimationEvents(clip))
+                        if (clipEvent.functionName == "OnAttackCharge")
+                        {
+                            if (!chargeClipPaths.Contains(path)) chargeClipPaths.Add(path);
+                            break;
+                        }
+                }
+            }
+            Require(chargeClipPaths.Count == 2 && chargeClipPaths.Contains(foxClipPath) && chargeClipPaths.Contains(infernoClipPath),
+                "Charge units (Attack clips carrying OnAttackCharge) must be exactly FoxMagician and InfernoSpirit: "
+                + string.Join(", ", chargeClipPaths));
+
+            ValidateChargeUnitChargeLength("FoxMagician", foxClipPath,
+                "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_FoxMagician_Attack.asset",
+                "vfx_foxmagician_charge.prefab");
+            ValidateChargeUnitChargeLength("InfernoSpirit", infernoClipPath,
+                "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Attack.asset",
+                "vfx_infernospirit_charge.prefab");
+        }
+
+        /// <summary>
+        /// [T-4·T-5] 한 차지 유닛의 charge 프리셋(시전자 귀속)과 charge 프리팹 길이를 클립의 차지 구간과 비교한다.
+        /// </summary>
+        private static void ValidateChargeUnitChargeLength(string unitName, string clipPath, string attackPresetPath, string prefabFileName)
+        {
+            const float tolerance = 0.001f;   // float 직렬화 오차(1ms)만 허용한다
+            const float oneFrame = 1f / 30f;  // 차지는 발사 1프레임 전까지는 보여야 한다
+            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+            Require(clip != null, unitName + " Attack clip must exist for the charge-length check.");
+            float chargeTime = float.NaN, hitTime = float.NaN;
+            foreach (AnimationEvent clipEvent in AnimationUtility.GetAnimationEvents(clip))
+            {
+                if (clipEvent.functionName == "OnAttackCharge") chargeTime = clipEvent.time;
+                else if (clipEvent.functionName == "OnAttackHit") hitTime = clipEvent.time;
+            }
+            Require(!float.IsNaN(chargeTime) && !float.IsNaN(hitTime) && chargeTime < hitTime,
+                unitName + " charge marker must precede its launch (OnAttackHit) marker.");
+            float window = hitTime - chargeTime;
+
+            var preset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(attackPresetPath);
+            Require(preset != null && preset.VfxPrefab != null
+                    && AssetDatabase.GetAssetPath(preset.VfxPrefab).EndsWith(prefabFileName, StringComparison.Ordinal),
+                unitName + " attack preset must use the actual charge prefab " + prefabFileName + ".");
+            // 취소·사망 때 즉시 끌 수 있는 것은 시전자 귀속 프리셋뿐이다(UnitView.StopOwnedChargeEffects → EffectManager).
+            Require(preset.StopWhenCasterDies,
+                unitName + " charge preset must be caster-owned so a cancelled or dead caster's charge stops at once.");
+
+            float latestEnd = 0f;
+            foreach (ParticleSystem ps in preset.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                float end = ChargeParticleSystemEndSeconds(unitName, ps);
+                Require(end <= window + tolerance,
+                    $"{unitName} charge particle system '{ps.name}' must end by the launch: end={end:F4}s, window={window:F4}s.");
+                latestEnd = Mathf.Max(latestEnd, end);
+            }
+            Require(latestEnd >= window - oneFrame - tolerance,
+                $"{unitName} charge must keep building until the launch frame: latestEnd={latestEnd:F4}s, window={window:F4}s.");
+        }
+
+        /// <summary>
+        /// [T-5] 파티클 시스템 하나가 재생 시작부터 마지막 입자가 사라질 때까지 걸리는 시간(초)을 직렬화 값으로 계산한다.
+        /// 끝 = (시작 지연 + 마지막 방출 시각 + 최대 수명) ÷ 재생 속도.
+        /// 마지막 방출 시각: 초당/거리당 방출이 있으면 Duration 끝까지, burst만 있으면 마지막 burst 시각.
+        /// 루프·무한 반복 burst·곡선(Curve) 수명처럼 이 계산으로 끝을 정할 수 없는 설정은 실패로 알린다(검사를 고쳐야 한다는 신호).
+        /// </summary>
+        private static float ChargeParticleSystemEndSeconds(string unitName, ParticleSystem ps)
+        {
+            ParticleSystem.MainModule main = ps.main;
+            Require(!main.loop, $"{unitName} charge particle system '{ps.name}' must not loop (it has to end at the launch).");
+            bool ConstantMode(ParticleSystem.MinMaxCurve curve)
+                => curve.mode == ParticleSystemCurveMode.Constant || curve.mode == ParticleSystemCurveMode.TwoConstants;
+            Require(ConstantMode(main.startDelay) && ConstantMode(main.startLifetime),
+                $"{unitName} charge particle system '{ps.name}' start delay/lifetime must be constants for the length check.");
+            Require(main.simulationSpeed > 0f, $"{unitName} charge particle system '{ps.name}' must have a positive simulation speed.");
+            float duration = main.duration;
+            float lastEmission = 0f;
+            ParticleSystem.EmissionModule emission = ps.emission;
+            if (emission.enabled)
+            {
+                float RateScale(ParticleSystem.MinMaxCurve curve)
+                    => ConstantMode(curve) ? curve.constantMax : curve.curveMultiplier;
+                if (RateScale(emission.rateOverTime) > 0f || RateScale(emission.rateOverDistance) > 0f)
+                    lastEmission = duration;
+                for (int index = 0; index < emission.burstCount; index++)
+                {
+                    ParticleSystem.Burst burst = emission.GetBurst(index);
+                    Require(burst.cycleCount >= 1,
+                        $"{unitName} charge particle system '{ps.name}' burst {index} must not repeat forever.");
+                    float burstLast = burst.time + (burst.cycleCount - 1) * burst.repeatInterval;
+                    Require(burst.time <= duration + 0.0001f,
+                        $"{unitName} charge particle system '{ps.name}' burst {index} must fire inside its Duration.");
+                    lastEmission = Mathf.Max(lastEmission, Mathf.Min(burstLast, duration));
+                }
+            }
+            return (main.startDelay.constantMax + lastEmission + main.startLifetime.constantMax) / main.simulationSpeed;
         }
 
         private static void ValidateInfernoSpiritAnimatedFacingEvidence()

@@ -275,6 +275,8 @@ namespace Hexiege.Presentation
         /// <summary>
         /// [2026-10-13 R2-1] 이 시전자에게 귀속된 공격 이펙트(기 모으기 charge 등)를 모두 즉시 멈추고 풀에 반환한다.
         /// UnitView가 사망 이벤트와 OnDisable(파괴·디스폰)에서 호출한다. Host·Client 각자 자기 화면에서 실행된다.
+        /// [P4 — 2026-10-19 차지 유닛 발사 시점] 「공격 취소」 경계에서도 호출된다: 차지 도중 공격이 끊기면
+        /// UnitView.StopOwnedChargeEffects가 이 함수로 차지 VFX를 즉시 끈다(사용자 결정 D2 — 화면 표현 전용, 피해·lease 무변경).
         /// 사망 이펙트·트레이서·착탄·타워 번개·지속 이펙트처럼 귀속되지 않은 이펙트는 건드리지 않는다.
         /// </summary>
         /// <param name="caster">사망·제거되는 유닛의 UnitView(파괴 중이어도 같은 객체 참조로 찾는다).</param>

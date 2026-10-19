@@ -1142,16 +1142,108 @@ _slot = _nextEviction;
             finally { _nativeAttackMarker = null; }
         }
 
+        // [P4 — 2026-10-19 차지 유닛 발사 시점] 옛 요약(Fox 전용 기준) — 기록용으로 보존:
+        //   "Fox의 1초 charge는 기존 source 허가로 VFX/SFX만 재생한다.
+        //    피해 marker나 recipient 신호로 중계하지 않고 콜백 문맥은 종료 시 반드시 비운다."
         /// <summary>
-        /// Fox의 1초 charge는 기존 source 허가로 VFX/SFX만 재생한다.
-        /// 피해 marker나 recipient 신호로 중계하지 않고 콜백 문맥은 종료 시 반드시 비운다.
+        /// [P2-2] 「차지 시작」 Animation Event(OnAttackCharge) 입구 — 차지 유닛 공통.
+        /// 공격 클립에 OnAttackCharge 이벤트가 찍힌 유닛(현재 FoxMagician 1.0초, InfernoSpirit 0.1667초)만
+        /// 받아들이고, 기 모으기(charge) VFX 하나만 켠다. 공격 SFX는 내지 않는다(발사 순간인 OnAttackHit에서 낸다).
+        /// 멀티에서는 공격 1회분 허가표(lease)를 「확인만」 하고 쓰지 않는다 — 쓰는 것은 타격(OnAttackHit)이다.
+        /// 피해 marker나 recipient(피격 표현) 신호로 중계하지 않고, 콜백 문맥은 종료 시 반드시 비운다.
         /// </summary>
         public void OnAttackCharge(AnimationEvent marker)
         {
-            if (_unitData == null || _unitData.Type != UnitType.FoxMagician) return;
+            // [R-2 비활성화 — 2026-10-19 차지 유닛 발사 시점 P2-2] 옛 판별: 유닛 「타입 이름」이 FoxMagician인가.
+            //   이제는 「공격 클립에 OnAttackCharge 이벤트가 있는가」로 판별한다(_hasAttackChargeMarker, P2-1).
+            //   InfernoSpirit 클립에도 같은 이벤트를 넣었으므로 두 유닛이 같은 길을 쓴다.
+            // if (_unitData == null || _unitData.Type != UnitType.FoxMagician) return;
+            EnsureAttackChargeMarkerCache();
+            if (_unitData == null || !_hasAttackChargeMarker) return;
             _nativeAttackMarker = marker;
             try { ProcessAttackMarker(chargeOnly: true); }
             finally { _nativeAttackMarker = null; }
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // [P2-1 — 2026-10-19 차지 유닛 발사 시점] 「차지 유닛」 판별 캐시
+        //
+        //   차지 유닛 = 공격 클립(이름이 "_Attack"으로 끝나는 클립)에 OnAttackCharge 이벤트가 찍힌 유닛.
+        //   유닛 타입 목록을 코드에 적지 않고 애니메이션 이벤트 자체를 기준으로 삼는다(규칙 17 — 타이밍의 단일 출처는 클립 이벤트).
+        //   그래서 새 차지 유닛은 클립에 이벤트만 넣으면 된다. 반대로 이벤트를 빠뜨리면 일반 유닛처럼 동작하므로
+        //   자동 검증(RunUnitActionSelfValidation T-4)이 「차지 이벤트가 있는 유닛 = FoxMagician·InfernoSpirit」을 고정한다.
+        //
+        //   왜 캐시하나: AnimationClip.events는 읽을 때마다 배열을 새로 만든다(메모리 할당).
+        //   Animation Event는 공격마다 오므로 그때마다 읽지 않고, Initialize에서 한 번만 계산해 bool로 보관한다.
+        //   Initialize 시점에 Animator가 아직 없으면 "미확정"으로 두고, 첫 Animation Event가 올 때(=Animator가 있을 때) 한 번 계산한다.
+        // ────────────────────────────────────────────────────────────────
+        private bool _hasAttackChargeMarker;
+        private bool _attackChargeMarkerCacheResolved;
+        // [P2-3] 「같은 공격 회차에서 차지는 한 번만」 표시. 차지를 실제로 허락한 회차(presentation revision)를 기억한다.
+        //   공격 클립은 루프하므로, 허가표가 아직 소비되지 않은 채 다음 루프의 차지 신호가 오면 같은 회차로 한 번 더 통과할 수 있다.
+        //   0 = 아직 아무 회차에서도 차지를 내지 않음(서버 revision은 1부터 시작한다 — TryAcceptRevision이 0을 거부).
+        private ulong _lastChargePresentedRevision;
+
+        /// <summary>
+        /// [P2-1] 차지 유닛 판별 캐시를 아직 계산하지 않았으면 지금 계산한다.
+        /// Animator나 컨트롤러가 아직 없으면 아무 값도 바꾸지 않고 미확정으로 둔다(다음 호출에서 다시 시도).
+        /// 공격 클립 선택 규칙은 CanUseNativeAttackPhase(809~814행 부근)와 같다:
+        /// 이름이 "_Attack"으로 끝나는 클립이 정확히 하나여야 하고, 서로 다른 클립이 둘 이상이면 판별 불가로 보고 false로 둔다.
+        /// (CanUseNativeAttackPhase 자체는 FoxMagician을 제외하는 조건 안에 있어서 재사용하지 않는다.)
+        /// </summary>
+        private void EnsureAttackChargeMarkerCache()
+        {
+            if (_attackChargeMarkerCacheResolved) return;
+            if (_animator == null || _animator.runtimeAnimatorController == null) return;
+            AnimationClip found = null;
+            bool ambiguous = false;
+            foreach (var clip in _animator.runtimeAnimatorController.animationClips)
+            {
+                if (clip == null || !clip.name.EndsWith("_Attack", StringComparison.Ordinal)) continue;
+                if (found != null && found != clip) { ambiguous = true; break; }
+                found = clip;
+            }
+            bool hasCharge = false;
+            if (!ambiguous && found != null)
+            {
+                // 여기서만 events 배열을 만든다(Initialize 또는 첫 marker에서 유닛 수명당 1회).
+                foreach (var clipEvent in found.events)
+                    if (clipEvent.functionName == nameof(OnAttackCharge)) { hasCharge = true; break; }
+            }
+            _hasAttackChargeMarker = hasCharge;
+            _attackChargeMarkerCacheResolved = true;
+        }
+
+        /// <summary>
+        /// [P2-3] 멀티 차지 신호의 「확인 전용」 허가 판정. 허가표(lease)를 하나도 소비하지 않는다.
+        /// 모두 참일 때만 차지 VFX를 낸다:
+        ///   ① source lease가 장전(Armed)돼 있고 남은 횟수가 있다,
+        ///   ② 일반 Stop이 먼저 와서 SourceOnly로 바뀌지 않았다(취소가 이미 도착했으면 차지를 시작하지 않는다 — 사용자 결정 D2),
+        ///   ③ lease가 지금 수락된 공격 회차(_lastAttackPresentationRevision)의 것이다,
+        ///   ④ 이 회차에서 아직 차지를 낸 적이 없다(회차당 1회).
+        /// </summary>
+        private bool CanPresentAttackChargeWithoutConsuming()
+        {
+            ulong revision = _attackPresentationSourceMarkerLease.PresentationRevision;
+            return _attackPresentationSourceMarkerLease.IsArmed
+                && _attackPresentationSourceMarkerLease.RemainingMarkerCount > 0
+                && !_attackPresentationSourceMarkerLease.IsSourceOnly
+                && revision != 0UL
+                && revision == _lastAttackPresentationRevision
+                && revision != _lastChargePresentedRevision;
+        }
+
+        /// <summary>
+        /// [P2-6 — 사용자 결정 D2] 공격이 「진짜로 끊긴」 경계에서 이 유닛이 켜 둔 차지 VFX를 즉시 끈다.
+        /// 차지 유닛일 때만 동작한다. 정지 대상은 이 유닛이 소유한 attack 프리셋 이펙트(Stop When Caster Dies가 켜진 charge)뿐이라,
+        /// 이미 손을 떠나 날아가는 투사체(트레이서)·착탄·화상 이펙트는 끊기지 않는다.
+        /// 화면 표현 전용이다 — lease·피해·서버 결과는 바꾸지 않는다(NET-AUTH-001 · NET-CANCEL-005).
+        /// </summary>
+        /// <param name="reason">정지 사유(진단용 짧은 토큰).</param>
+        private void StopOwnedChargeEffects(string reason)
+        {
+            if (!_hasAttackChargeMarker) return;
+            EffectManager.Instance?.StopCasterOwnedAttackEffects(this, reason);
         }
         private AttackPresentationImpactMode _attackPresentationImpactMode;
         private ulong _lastAttackPresentationRevision;
@@ -1550,6 +1642,11 @@ _slot = _nextEviction;
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
         {
+            // [P2-1] 풀 재사용·재초기화 때 이전 유닛의 「차지 유닛」 판별값과 회차당 1회 표시가 남지 않게 먼저 지운다.
+            //   실제 계산은 아래에서 Animator를 캐시한 뒤 한다.
+            _hasAttackChargeMarker = false;
+            _attackChargeMarkerCacheResolved = false;
+            _lastChargePresentedRevision = 0UL;
             _attackPhaseNetworkUnit = GetComponent<NetworkUnit>();
             if (!ReferenceEquals(_unitData, unitData))
             {
@@ -1643,6 +1740,8 @@ _slot = _nextEviction;
 
             // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
+            // [P2-1] 공격 클립에 OnAttackCharge가 있는지 여기서 한 번만 계산한다(Animator가 없으면 첫 marker 때 계산).
+            EnsureAttackChargeMarkerCache();
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             CacheInfernoRenderedAnchor();
 #endif
@@ -7205,10 +7304,18 @@ _slot = _nextEviction;
         public void OnAttackHit()
             => ProcessAttackMarker(chargeOnly: false);
 
-        // 일반 유닛은 종전 marker 본문을 그대로 사용한다. Fox만 source charge와
-        // 관측용 피해 marker를 나누며, 어느 콜백도 권위 HP 타이머를 실행하지 않는다.
+        // 일반 유닛은 종전 marker 본문을 그대로 사용한다. 어느 콜백도 권위 HP 타이머를 실행하지 않는다.
+        // [P4 — 2026-10-19 차지 유닛 발사 시점] 옛 문장 「Fox만 source charge와 관측용 피해 marker를 나눈다」는
+        //   차지 유닛 공통 기준으로 바뀌었다. 차지 유닛(공격 클립에 OnAttackCharge가 있는 유닛 — FoxMagician·InfernoSpirit)은
+        //   ① chargeOnly=true(OnAttackCharge): lease 확인만 하고 기 모으기(charge) VFX만 켠다. SFX·트레이서·피격 신호 없음.
+        //   ② chargeOnly=false(OnAttackHit): lease를 소비하고, charge VFX는 다시 켜지 않으며, 트레이서(투사체) 발사 + 공격 SFX.
+        //   서버 피해 시점·피해량은 이 메서드와 무관하다(UnitFactory가 OnAttackHit 시간만 추출한 서버 타이머가 소유).
         private void ProcessAttackMarker(bool chargeOnly)
         {
+            // [P2-1] Initialize 때 Animator가 없어 판별을 못 했으면 여기서 한 번 계산한다(이미 계산했으면 즉시 반환).
+            EnsureAttackChargeMarkerCache();
+            // [P2-4] 차지 유닛의 「타격」 marker인가. 이 marker는 charge VFX를 다시 켜지 않고, 발사음은 트레이서 발사 옆에서 낸다.
+            bool chargeUnitLaunchMarker = !chargeOnly && _hasAttackChargeMarker;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (!chargeOnly && !NetworkContext.IsNetworkActive && _unitData != null && _animator != null)
             {
@@ -7230,9 +7337,14 @@ _slot = _nextEviction;
                         _nativeAttackMarker != null ? _nativeAttackMarker.time : double.NaN,
                         _nativeAttackMarker != null && _nativeAttackMarker.isFiredByAnimator);
 #endif
-                // 피해는 PendingHit/서버 TimerImpact가 소유한다. 여기서 charge lease를
-                // 소비하거나 VFX·recipient 큐·로컬 피격·트레이서를 다시 실행하지 않는다.
-                return;
+                // [R-1 비활성화 — 2026-10-19 차지 유닛 발사 시점, 사용자 승인] 옛 Fox 조기 종료.
+                //   예전에는 Fox 타격 marker가 진단만 남기고 여기서 끝나 투사체를 아예 쏘지 않았다.
+                //   이제 Fox 타격 marker도 아래 일반 경로(lease 소비 → 트레이서 발사 + 발사음)로 이어진다.
+                //   서버 피해는 이 return과 무관하다 — 피해 시점은 UnitFactory가 OnAttackHit만 추출한 서버 타이머가 소유한다.
+                //   위 진단 기록(RecordFoxMagicianNativeImpactMarker)은 그대로 살려 둔다.
+                // // 피해는 PendingHit/서버 TimerImpact가 소유한다. 여기서 charge lease를
+                // // 소비하거나 VFX·recipient 큐·로컬 피격·트레이서를 다시 실행하지 않는다.
+                // return;
             }
             PistoleerTimingDiagnostics.Event(_unitData, "RawMarker", _pistoleerTimingScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime,
@@ -7343,16 +7455,45 @@ _slot = _nextEviction;
             }
             else if (networkActive && !separateHeal)
             {
-                consumedSourceMarker =
-                    _attackPresentationSourceMarkerLease.TryConsume(out sourceOnlyMarker);
-                if (!sourceOnlyMarker)
-                    consumedValidScope = TryAcquirePresentationShadowMarkerScope(out markerScope);
+                if (chargeOnly)
+                {
+                    // [R-3 / P2-3 — 2026-10-19 차지 유닛 발사 시점] 차지 신호는 허가표(lease)를 「확인만」 한다.
+                    //   서버 커밋 1회는 lease를 공격 1회분(HitFrameTimes 개수 = 1)만 장전한다. 예전처럼 차지가 그 1회분을
+                    //   먼저 써 버리면 정작 타격(OnAttackHit) 때 lease가 없어 투사체가 나가지 않는다(멀티에서만 드러나는 문제).
+                    //   그래서 아래 두 lease 모두 상태를 바꾸지 않고 읽기만 한다. 소비는 타격 marker가 한다.
+                    //   옛 동작(차지도 아래 else 블록과 똑같이 소비)은 기록용으로 주석 보존:
+                    //   // consumedSourceMarker = _attackPresentationSourceMarkerLease.TryConsume(out sourceOnlyMarker);
+                    //   // if (!sourceOnlyMarker)
+                    //   //     consumedValidScope = TryAcquirePresentationShadowMarkerScope(out markerScope);  // ← impact lease도 1회분 소비했다
+                    //
+                    //   이름은 consumed…지만 차지일 때는 「소비했다면 성공했을 것인가」라는 뜻으로 쓴다.
+                    //   ① source lease: Armed · 남은 횟수 · SourceOnly 아님 · 현재 회차 · 회차당 1회(CanPresentAttackChargeWithoutConsuming).
+                    consumedSourceMarker = CanPresentAttackChargeWithoutConsuming();
+                    sourceOnlyMarker = false;
+                    //   ② impact lease: TryConsume는 IsArmed일 때만 성공하고, Armed 동안에는 남은 HitIndex가 항상 1개 이상이다
+                    //      (마지막 HitIndex를 쓰는 순간 상태가 Consumed로 바뀐다). 그래서 IsArmed 확인이 「소비 가능」과 같은 뜻이며
+                    //      새 읽기 API(P3)는 필요 없다. LegacyFallback(현재 두 차지 유닛)은 impact lease를 장전하지 않으므로 false다.
+                    consumedValidScope = consumedSourceMarker
+                        && _unitData != null
+                        && _attackPresentationImpactLease.IsArmed;
+                }
+                else
+                {
+                    // 타격 marker(차지 유닛 포함)는 종전 그대로 source lease와 impact lease를 소비한다.
+                    consumedSourceMarker =
+                        _attackPresentationSourceMarkerLease.TryConsume(out sourceOnlyMarker);
+                    if (!sourceOnlyMarker)
+                        consumedValidScope = TryAcquirePresentationShadowMarkerScope(out markerScope);
+                }
                 markerEmission =
                     UnitAttackPresentationPolicy.ResolveNetworkAttackMarkerEmission(
                         _attackPresentationImpactMode,
                         consumedValidScope,
                         consumedSourceMarker,
                         sourceOnlyMarker);
+                // [P2-3] 차지를 실제로 허락한 회차를 기억한다 → 같은 회차의 다음 루프 차지 신호는 위 ④에서 막힌다.
+                if (chargeOnly && markerEmission != AttackPresentationMarkerEmission.Suppressed)
+                    _lastChargePresentedRevision = _attackPresentationSourceMarkerLease.PresentationRevision;
                 if (markerEmission == AttackPresentationMarkerEmission.Suppressed)
                 {
                     PistoleerTimingDiagnostics.Event(_unitData, "MarkerSuppressed", _pistoleerTimingScope,
@@ -7413,7 +7554,10 @@ _slot = _nextEviction;
                     _lastAttackPresentationRevision,
                     _attackPresentationImpactMode);
             }
-            if (networkActive && _unitData.Type == UnitType.FoxMagician)
+            // [P2-5 — 2026-10-19] Fox 타격 marker도 이제 이 경로를 지나므로(R-1), Fox 진단 기록은 「차지」 marker일 때만 남긴다.
+            //   이 관측기의 marker 단계는 원래 1초 charge-marker 기록이다(타격 기록은 위 RecordFoxMagicianNativeImpactMarker).
+            //   옛 조건: if (networkActive && _unitData.Type == UnitType.FoxMagician)
+            if (chargeOnly && networkActive && _unitData.Type == UnitType.FoxMagician)
             {
                 UnitAttackShadowObserver.RecordFoxMagicianTimelineMarker(
                     _unitData.Id,
@@ -7501,7 +7645,8 @@ _slot = _nextEviction;
             }
             EffectManager effectManager = EffectManager.Instance;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            if (_unitData.Type == UnitType.FoxMagician)
+            // [P2-5] Fox VFX 시도 기록도 charge VFX를 실제로 켜는 차지 marker일 때만. 옛 조건: if (_unitData.Type == UnitType.FoxMagician)
+            if (chargeOnly && _unitData.Type == UnitType.FoxMagician)
             {
                 UnitAttackShadowObserver.RecordFoxMagicianTimelineVfxAttempt(
                     _unitData.Id,
@@ -7515,12 +7660,21 @@ _slot = _nextEviction;
             // [2026-10-13 R2-1] 마지막 인자 this = "이 이펙트의 시전자는 나다".
             //   기 모으기(charge)처럼 시전자 귀속으로 표시된 프리셋만 이 정보를 써서, 내가 죽거나 사라지면 즉시 멈춘다.
             //   귀속 표시가 없는 공격 이펙트(Pistoleer·Cannon 등)는 예전과 완전히 같게 끝까지 재생된다.
-            UnitAttackVfxPlaybackResult vfxResult = effectManager != null
-                ? effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot, this)
-                : new UnitAttackVfxPlaybackResult(
-                    UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
-                    0,
-                    false);
+            // [P2-4 — 2026-10-19 차지 유닛 발사 시점] 차지 유닛의 「타격」 marker에서는 공격 VFX(= 기 모으기 charge)를
+            //   다시 켜지 않는다. charge는 이미 「차지 시작」 marker에서 켜졌고, 프리팹 길이를 두 신호 사이 시간에 맞춰
+            //   두었으므로(Inferno 1.3333초, Fox 1.8333초) 바로 이 발사 순간에 스스로 끝난다. 여기서 또 켜면 발사 뒤에 charge가 새로 생긴다.
+            //   비차지 유닛(23종)은 아래 호출을 종전 그대로 실행한다. 생략한 경우 vfxResult는 기본값이며,
+            //   아래 진단 블록은 생략 사실을 「실패」로 세지 않도록 차지 유닛 타격 marker를 건너뛴다.
+            UnitAttackVfxPlaybackResult vfxResult = default;
+            if (!chargeUnitLaunchMarker)
+            {
+                vfxResult = effectManager != null
+                    ? effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot, this)
+                    : new UnitAttackVfxPlaybackResult(
+                        UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
+                        0,
+                        false);
+            }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // 실제 emitter 호출 직후의 문맥이다. fixture wrapper에서 만들어낸 값이 아니다.
             AttackPhaseLastEmissionScope = markerScope;
@@ -7552,7 +7706,9 @@ _slot = _nextEviction;
                     vfxResult.ParticleSystemCount,
                     vfxResult.PlaybackActive);
             }
-            if (_unitData.Type == UnitType.FoxMagician)
+            // [P2-5] Fox VFX 결과 기록도 차지 marker일 때만(타격 marker는 charge를 켜지 않는다 — P2-4).
+            //   옛 조건: if (_unitData.Type == UnitType.FoxMagician)
+            if (chargeOnly && _unitData.Type == UnitType.FoxMagician)
             {
                 string foxOutcome = effectManager == null
                     ? "manager-unavailable"
@@ -7568,7 +7724,12 @@ _slot = _nextEviction;
                     vfxResult.ParticleSystemCount,
                     vfxResult.PlaybackActive);
             }
-            if (_unitData.Type == UnitType.InfernoSpirit)
+            // [P2-4] Inferno 공격 VFX 시도 기록은 charge를 실제로 켜는 marker(이제는 차지 marker)에서만 남긴다.
+            //   차지 유닛의 타격 marker는 charge를 의도적으로 생략했으므로 「시도」가 아니다 — 여기서 기록하면
+            //   outcome이 started/gate-suppressed가 아니어서 관측기가 playback 실패로 세게 된다. 그래서 건너뛴다.
+            //   (클립에 차지 이벤트가 없으면 _hasAttackChargeMarker=false라 타격 marker에서 종전처럼 기록된다.)
+            //   옛 조건: if (_unitData.Type == UnitType.InfernoSpirit)
+            if (!chargeUnitLaunchMarker && _unitData.Type == UnitType.InfernoSpirit)
             {
                 bool managerAvailable = effectManager != null;
                 bool presetAvailable = managerAvailable
@@ -7602,13 +7763,22 @@ _slot = _nextEviction;
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime,
                 $"status={vfxResult.Status} systems={vfxResult.ParticleSystemCount} active={(vfxResult.PlaybackActive ? 1 : 0)} manager={(effectManager != null ? 1 : 0)}");
             if (_attackPhase.Active) AttackPhaseNativeEmissions++;
-            AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
+            // [R-4 — 2026-10-19 차지 유닛 발사 시점] 차지 유닛은 여기서 공격 SFX를 내지 않는다(사용자 결정 「발사음은 발사 순간」).
+            //   · 차지 marker: SFX 없음 — 차지 SFX는 추후 SFX 작업에서 다룬다(규칙 15 「하나만 재생하면 나머지를 주석으로 명시」).
+            //   · 타격 marker: 발사음은 아래 트레이서 발사(em.PlayTracer) 바로 아래 줄에서 낸다(규칙 15 — 트레이서 VFX와 짝).
+            //   비차지 유닛은 종전 그대로 이 줄에서 공격 VFX와 짝으로 SFX를 낸다.
+            // AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                 // (옛 줄 — 모든 유닛 무조건 재생)
+            if (!_hasAttackChargeMarker)
+                AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                // SFX (규칙 15 — VFX와 짝)
 
             // 일반 Stop이 marker보다 먼저 도착한 경우 서버가 이미 커밋한 공격자의 발사
             // VFX/SFX까지만 마친다. 타겟은 이미 사망·교체될 수 있으므로 Tracer와 로컬 피격
             // 신호를 만들지 않고 여기서 종료한다.
-            // charge는 허가와 source VFX/SFX까지만 사용한다. recipient 관측·피격 신호·
-            // 트레이서 진입보다 먼저 종료하므로 1초 표식이 피해 결과를 방출하지 않는다.
+            // [P2-4 — 사용자 결정 D2] 차지 유닛은 이 source-only 타격에서 아무것도 내지 않는다:
+            //   charge VFX는 위에서 생략했고(P2-4), SFX도 위에서 막았으며(R-4), 트레이서는 아래로 내려가지 않는다.
+            //   즉 「차지 도중 공격이 끊기면 투사체·발사음 없음」이 이 return으로 지켜진다(차지 VFX 정지는 StopOwnedChargeEffects).
+            // [P4] 옛 설명 「charge는 허가와 source VFX/SFX까지만 사용한다」 → 이제 charge는 허가 「확인」과 charge VFX만 쓴다(SFX 없음).
+            //   recipient 관측·피격 신호·트레이서 진입보다 먼저 종료하므로 차지 표식이 피해 결과를 방출하지 않는다.
             if (chargeOnly || sourceOnlyPresentation) return;
 
             // ────────────────────────────────────────────────────────────────
@@ -7652,6 +7822,10 @@ _slot = _nextEviction;
                         $"impact={PistoleerTimingDiagnostics.Number(impactTime)} delay={PistoleerTimingDiagnostics.Number(AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds)} remaining={PistoleerTimingDiagnostics.Number(remaining)} call={(committedSchedule.IsValid && remaining > 0d ? 1 : 0)}");
                     if (committedSchedule.IsValid && remaining > 0d)
                         em.PlayTracer(_unitData.Type, spawnPos, targetPos, null, (float)remaining);
+                    // [R-4] 차지 유닛 발사음(규칙 15 — 트레이서 VFX와 짝). 현재 두 차지 유닛은 LegacyFallback이라
+                    //   이 권위 분기에 오지 않지만, 나중에 Supported로 바뀌어도 발사 순간 소리가 빠지지 않게 같은 자리에 둔다.
+                    if (_hasAttackChargeMarker)
+                        AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
                     return;
                 }
 
@@ -7686,9 +7860,17 @@ _slot = _nextEviction;
                     //   착탄 이펙트(impactPreset)를 도착 지점에서 터뜨린다. 설정이 없는 타입은 변화 없음.
                     //   피해 시점(서버)과 어긋날 수 있지만 VFX 확인용으로 사용자 승인(2026-10-19)된 임시 동작이다.
                     playImpactOnArrive: true);
+                // [R-4 / P2-4 — 2026-10-19 차지 유닛 발사 시점] 차지 유닛의 공격 SFX는 투사체가 손을 떠나는 바로 이 순간에 낸다.
+                //   (규칙 15 — 트레이서 VFX와 짝. 비차지 유닛은 위 공격 VFX 옆에서 이미 냈으므로 여기서는 내지 않는다.)
+                if (_hasAttackChargeMarker)
+                    AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
             }
             else
             {
+                // [R-4] EffectManager가 없어 트레이서를 쏠 수 없는 경우(초기화 전·테스트 등)에도 차지 유닛의 발사음은 이 타격 순간에 낸다.
+                //   종전에도 공격 SFX는 VFX 재생 성공 여부와 상관없이 재생됐으므로 같은 원칙을 따른다(사거리 1.0 미만 차지 유닛도 이 분기).
+                if (_hasAttackChargeMarker)
+                    AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
                 if (authoritativePresentation) return;
                 // 근접 유닛(또는 EffectManager 부재 시): 발사 순간 = 타격 순간이므로 즉시 신호를 발행한다.
                 // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
@@ -7979,6 +8161,17 @@ _slot = _nextEviction;
                 _attackPresentationImpactMode = AttackPresentationImpactMode.Suppressed;
                 return;
             }
+            // [P2-6 — 2026-10-19 차지 유닛 발사 시점, 사용자 결정 D2] 차지 도중 공격이 끊기면 차지 VFX를 즉시 끈다.
+            //   이 함수가 lease를 닫으면 아직 오지 않은 타격 marker는 Suppressed가 되어 투사체·발사음을 내지 않는다.
+            //   그러니 켜져 있던 차지도 발사 없이 남지 않도록 같은 경계에서 끈다.
+            //   호출 경계(모두 「진짜 취소/종료」): target-tracking-clear(Stop·전투 루프 종료·이동 종료·초기화),
+            //   combat-target-change(멀티 타겟 교체), provisional-suppression, scope-arm-rejected,
+            //   CloseAttackPhasePresentation 경유(walk-entry·frozen-priority·movement-held·separate-heal-entry·attacker-death 등).
+            //   🔴 예외 "presentation-revision-replaced": 매 공격 회차의 정상 커밋(StartCombatAnimation)이 부르는 경계다.
+            //   이때는 곧바로 새 회차 lease가 장전되어 이번 루프의 타격 marker가 그 lease로 정상 발사하므로 끄지 않는다.
+            //   사유 토큰은 받은 reason을 그대로 넘긴다(문자열을 이어 붙이지 않아 비차지 유닛에 할당이 생기지 않는다).
+            if (reason != "presentation-revision-replaced")
+                StopOwnedChargeEffects(reason);
             ClosePendingNativeOwners(reason, false);
             var retiredOwner = _attackPhaseEntryTransaction ? _attackPhaseRetiringOwner : _attackPhase;
             PistoleerTimingDiagnostics.Event(_unitData, "Retire", _pistoleerTimingScope,
@@ -8008,6 +8201,10 @@ _slot = _nextEviction;
         /// </summary>
         private void PreserveCommittedSourceMarkerAndCloseTargetImpact()
         {
+            // [P2-6 — 사용자 결정 D2] 일반 Stop(멀티)이 타격 marker보다 먼저 왔다 = 차지 도중 공격이 끊겼다.
+            //   남은 marker는 SourceOnly가 되며, 차지 유닛은 SourceOnly 타격에서 VFX·SFX·트레이서를 하나도 내지 않는다(P2-4).
+            //   그래서 켜져 있던 차지 VFX도 지금 즉시 끈다. 비차지 유닛은 StopOwnedChargeEffects 안에서 아무 일도 하지 않는다.
+            StopOwnedChargeEffects("AttackCancel-SourceOnlyStop");
             ClosePendingNativeOwners("source-only-stop", true);
             ObserveNativeLease("preserve-before", _pistoleerTimingScope, _attackPhaseClockHighWater);
             _attackOccurrenceLease.PreserveSourceOnly();
@@ -8034,6 +8231,7 @@ _slot = _nextEviction;
             // 현재 타겟을 잃은 뒤 예전 회차 marker가 새 타겟 또는 victim=-1로 방출되지 않게
             // 아직 소비되지 않은 로컬 표현 lease도 같은 경계에서 닫는다. 이미 발사된 원거리
             // Tracer는 OnAttackHit에서 값으로 캡처한 scope/피해자를 계속 사용한다.
+            // [P2-6] 차지 VFX 정지는 아래 두 함수(Preserve…/Retire…) 안에서 한다 — 두 경우 모두 남은 타격 marker가 투사체를 쏘지 않기 때문이다.
             if (preserveCommittedSourceMarker)
                 PreserveCommittedSourceMarkerAndCloseTargetImpact();
             else
@@ -8556,7 +8754,10 @@ _slot = _nextEviction;
             // 행동 소유권이 열린 상태에서만 추적 대상을 교체한다.
             SetCombatTargetTracking(targetId, targetIsUnit);
             if (NetworkContext.IsNetworkActive)
-                RetireAndCloseAttackPresentationScope("combat-target-change");
+                RetireAndCloseAttackPresentationScope("combat-target-change");   // [P2-6] 멀티: 이 안에서 차지 VFX도 끈다(lease가 닫혀 투사체가 안 나가므로)
+            // [P2-6 검토 결과] 싱글 ChangeTarget에서는 차지를 끄지 않는다(위 Retire를 부르지 않으므로 끄는 경로도 없다).
+            //   싱글의 타겟 변경 이벤트는 UnitCombatUseCase.TryAttack이 「새 공격을 시작하는 순간」에 발행하고(진짜 취소가 아님),
+            //   싱글은 lease를 쓰지 않아 다음 타격 marker가 새 타겟으로 투사체를 그대로 쏜다. 여기서 끄면 정상 차지가 잘린다.
             ClearUnitActionShadowDesiredTarget();
         }
 
@@ -8566,7 +8767,7 @@ _slot = _nextEviction;
         public void SuppressPendingAttackImpactPresentation()
         {
             if (!NetworkContext.IsNetworkActive) return;
-            RetireAndCloseAttackPresentationScope("provisional-suppression");
+            RetireAndCloseAttackPresentationScope("provisional-suppression");   // [P2-6] 이 안에서 차지 VFX도 끈다
         }
 
         /// <summary>

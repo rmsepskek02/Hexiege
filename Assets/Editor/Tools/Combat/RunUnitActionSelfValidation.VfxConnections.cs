@@ -74,6 +74,173 @@ namespace Hexiege.Editor.Combat
             ValidateRuneSpireBoltEndpoint(units, buildings);
             ValidateCasterOwnedChargeVfx(units, buildings);
             ValidateLegacyTracerArrivalImpact(units, buildings); // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+            ValidateChargeUnitLaunchTiming(units, buildings);    // [T-1 보강 — 2026-10-19 차지 유닛 발사 시점]
+        }
+
+        /// <summary>
+        /// [T-1 보강 — 2026-10-19 차지 유닛 발사 시점] 실제 EffectManager로 두 차지 유닛(FoxMagician·InfernoSpirit)의
+        /// 「차지 시작 → 발사」 화면 표현을 확인한다. (메인 파일의 Fox fixture는 EffectManager를 격리해 lease 수명만 본다.)
+        ///   ① 정상: 차지 marker = charge VFX 1개·투사체 없음 / 같은 회차 두 번째 차지 = 추가 재생 없음 /
+        ///      타격 marker = 투사체(트레이서) 1발·charge 재생 없음 / 도착 = 로컬 피격 신호 1회 + 착탄 VFX.
+        ///   ② 차지 도중 취소(허가 차단): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (사용자 결정 D2).
+        ///   ③ Stop이 타격보다 먼저(SourceOnly): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (D2).
+        ///   ④ 싱글(lease 없음): 차지 = charge 1개, 타격 = 투사체 1발·charge 재생 없음.
+        /// 발사음(SFX)은 AudioManager를 격리했으므로 여기서 관측하지 않는다(코드 위치는 UnitView R-4 주석 — 실기 확인 항목).
+        /// EditMode에서는 Update가 돌지 않으므로 트레이서 도착(Arrive)은 리플렉션으로 직접 호출한다.
+        /// </summary>
+        private static void ValidateChargeUnitLaunchTiming(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            Require(!UnityEngine.Application.isPlaying, "Charge-unit launch fixture must not run in a match.");
+            var effectSingleton = typeof(EffectManager).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            var audioSingleton = typeof(SingletonMonoBehaviour<AudioManager>).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            var arrive = typeof(TracerProjectile).GetMethod("Arrive", VfxFields);
+            Require(effectSingleton != null && audioSingleton != null && arrive != null,
+                "Charge-unit launch fixture seams (EffectManager/AudioManager singletons, tracer arrival) must exist.");
+            object oldEffect = effectSingleton.GetValue(null), oldAudio = audioSingleton.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var root = new GameObject("ChargeUnitLaunchFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var casters = new List<GameObject>();
+            IDisposable localHitSubscription = null;
+            int localHits = 0;
+            try
+            {
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                // UnitView는 EffectManager.Instance를 쓴다 → 이 fixture 동안만 fixture manager로 바꾸고 finally에서 원래 값으로 되돌린다.
+                effectSingleton.SetValue(null, manager); audioSingleton.SetValue(null, null);
+                localHitSubscription = GameEvents.OnLocalAttackHit.Subscribe(_ => localHits++);
+                int Active(GameObject prefab)
+                {
+                    int count = 0;
+                    foreach (var item in root.GetComponentsInChildren<VfxPoolItem>(true))
+                        if (item.SourcePrefab == prefab && item.gameObject.activeSelf) count++;
+                    return count;
+                }
+                // 트레이서는 VfxPoolItem이 아니라 TracerProjectile 전용 풀로 관리된다(EffectManager.GetOrCreateTracer).
+                //   그래서 활성 TracerProjectile을 세고, 두 유닛의 트레이서를 섞지 않도록 프리팹 이름(복제본 이름의 앞부분)으로 거른다.
+                bool IsTracerOf(TracerProjectile t, GameObject prefab)
+                    => t.gameObject.activeSelf && t.gameObject.name.StartsWith(prefab.name, StringComparison.Ordinal);
+                int ActiveTracers(GameObject prefab)
+                {
+                    int count = 0;
+                    foreach (var t in root.GetComponentsInChildren<TracerProjectile>(true))
+                        if (IsTracerOf(t, prefab)) count++;
+                    return count;
+                }
+                TracerProjectile ActiveTracer(GameObject prefab)
+                {
+                    foreach (var t in root.GetComponentsInChildren<TracerProjectile>(true))
+                        if (IsTracerOf(t, prefab)) return t;
+                    return null;
+                }
+
+                foreach (var (type, chargeTime, hitTime) in new[]
+                         {
+                             (UnitType.FoxMagician, 1f, 85f / 30f),
+                             (UnitType.InfernoSpirit, 5f / 30f, 1.5f)
+                         })
+                {
+                    var charge = units.GetAttack(type);
+                    var tracer = units.GetTracer(type);
+                    var impact = units.GetImpact(type);
+                    Require(charge?.VfxPrefab != null && tracer?.VfxPrefab != null && impact?.VfxPrefab != null,
+                        type + " charge, tracer and impact presets are wired for the launch fixture.");
+                    var casterGo = new GameObject("ChargeUnitLaunch" + type) { hideFlags = HideFlags.HideAndDontSave };
+                    casters.Add(casterGo);
+                    var view = casterGo.AddComponent<UnitView>();
+                    var data = new UnitData(98100 + (int)type, type, TeamId.Blue, new HexCoord(0, 0), 1000, 10, 3f, 3f);
+                    typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, data);
+                    // Animator가 없는 fixture라 클립 이벤트 판별(P2-1)을 계산할 수 없다 → 판별값만 직접 연다(클립 집합은 T-4가 고정).
+                    typeof(UnitView).GetField("_hasAttackChargeMarker", VfxFields).SetValue(view, true);
+                    typeof(UnitView).GetField("_attackChargeMarkerCacheResolved", VfxFields).SetValue(view, true);
+                    void Commit(ulong revision)
+                    {
+                        // 서버 커밋 1회 흉내: 수락 회차 + source lease 1회분 + LegacyFallback(두 차지 유닛의 현재 모드).
+                        var lease = new AttackPresentationSourceMarkerLease();
+                        Require(lease.TryArm(revision, 1), "Fixture source lease must arm.");
+                        typeof(UnitView).GetField("_attackPresentationSourceMarkerLease", VfxFields).SetValue(view, lease);
+                        typeof(UnitView).GetField("_attackPresentationImpactMode", VfxFields)
+                            .SetValue(view, AttackPresentationImpactMode.LegacyFallback);
+                        typeof(UnitView).GetField("_lastAttackPresentationRevision", VfxFields).SetValue(view, revision);
+                    }
+                    var chargeEvent = new AnimationEvent { time = chargeTime };
+                    var hitEvent = new AnimationEvent { time = hitTime };
+
+                    // ① 정상 (Client 화면)
+                    NetworkContext.Set(false, true);
+                    Commit(1UL);
+                    view.OnAttackCharge(chargeEvent);
+                    Require(Active(charge.VfxPrefab) == 1 && ActiveTracers(tracer.VfxPrefab) == 0,
+                        type + " charge marker plays exactly one charge VFX and launches nothing.");
+                    view.OnAttackCharge(chargeEvent);
+                    Require(Active(charge.VfxPrefab) == 1,
+                        type + " second charge marker in the same revision does not replay the charge VFX.");
+                    int tracersBefore = ActiveTracers(tracer.VfxPrefab);
+                    view.OnAttackHit(hitEvent);
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
+                        type + " launch marker fires one tracer and does not replay the charge VFX.");
+                    TracerProjectile flying = ActiveTracer(tracer.VfxPrefab);
+                    Require(flying != null, type + " launched tracer is flying.");
+                    int hitsBefore = localHits, impactsBefore = Active(impact.VfxPrefab);
+                    arrive.Invoke(flying, null);
+                    Require(localHits == hitsBefore + 1 && Active(impact.VfxPrefab) == impactsBefore + 1,
+                        type + " tracer arrival raises one local-hit signal and plays one attacker impact VFX.");
+                    Require(manager.StopCasterOwnedAttackEffects(view, "fixture-cleanup") == 1,
+                        type + " the single charge VFX of the attack is owned by its caster.");
+
+                    // ② 차지 도중 취소: 허가표가 닫히면 charge가 즉시 꺼지고 타격은 아무것도 쏘지 않는다.
+                    Commit(2UL);
+                    view.OnAttackCharge(chargeEvent);
+                    Require(Active(charge.VfxPrefab) == 1, type + " charge plays for the cancel case.");
+                    tracersBefore = ActiveTracers(tracer.VfxPrefab); hitsBefore = localHits;
+                    view.SuppressPendingAttackImpactPresentation();
+                    Require(Active(charge.VfxPrefab) == 0,
+                        type + " cancelling the attack mid-charge stops the charge VFX immediately (D2).");
+                    view.OnAttackHit(hitEvent);
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 0 && localHits == hitsBefore,
+                        type + " a cancelled attack launches no tracer and replays no charge (D2).");
+
+                    // ③ Stop이 타격보다 먼저(SourceOnly): charge 즉시 정지, 투사체 없음.
+                    Commit(3UL);
+                    view.OnAttackCharge(chargeEvent);
+                    Require(Active(charge.VfxPrefab) == 1, type + " charge plays for the stop case.");
+                    tracersBefore = ActiveTracers(tracer.VfxPrefab); hitsBefore = localHits;
+                    view.StopCombatAnimation();
+                    Require(Active(charge.VfxPrefab) == 0,
+                        type + " a Stop that precedes the launch stops the charge VFX immediately (D2).");
+                    view.OnAttackHit(hitEvent);
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 0 && localHits == hitsBefore,
+                        type + " a SourceOnly launch of a charge unit launches no tracer and replays no charge (D2).");
+
+                    // ④ 싱글(lease 없음)
+                    NetworkContext.Set(false, false);
+                    view.OnAttackCharge(chargeEvent);
+                    Require(Active(charge.VfxPrefab) == 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
+                        type + " SOLO charge marker plays one charge VFX and launches nothing.");
+                    view.OnAttackHit(hitEvent);
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
+                        type + " SOLO launch fires one tracer and does not replay the charge VFX.");
+                    // 정리: 날고 있는 싱글 트레이서를 착탄시켜 풀로 돌려보내고(도착 시 피격 신호 1회), charge도 끈다.
+                    TracerProjectile soloFlying = ActiveTracer(tracer.VfxPrefab);
+                    Require(soloFlying != null, type + " SOLO launched tracer is flying.");
+                    hitsBefore = localHits;
+                    arrive.Invoke(soloFlying, null);
+                    Require(localHits == hitsBefore + 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
+                        type + " SOLO tracer arrival raises one local-hit signal and returns the tracer to its pool.");
+                    manager.StopCasterOwnedAttackEffects(view, "fixture-cleanup");
+                }
+            }
+            finally
+            {
+                localHitSubscription?.Dispose();
+                effectSingleton.SetValue(null, oldEffect); audioSingleton.SetValue(null, oldAudio);
+                NetworkContext.Set(oldServer, oldActive);
+                foreach (var go in casters) if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         /// <summary>
