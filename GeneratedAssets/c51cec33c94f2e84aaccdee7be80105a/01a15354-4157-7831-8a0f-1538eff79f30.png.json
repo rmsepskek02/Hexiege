@@ -1,0 +1,31 @@
+{
+    "asset": "c51cec33c94f2e84aaccdee7be80105a",
+    "fileName": "01a15354-4157-7831-8a0f-1538eff79f30.png",
+    "prompt": "A stylized cartoon game VFX sprite of a heavy dark iron cannonball, solid metal sphere, near-black dark charcoal iron (#2B2B2E) with a smooth soft top specular highlight reflection so it reads clearly as a solid 3D ball, perfectly circular round silhouette, clean crisp edges, mobile RTS game art style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 576
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
