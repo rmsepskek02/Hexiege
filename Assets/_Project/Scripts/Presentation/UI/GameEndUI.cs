@@ -807,6 +807,69 @@ namespace Hexiege.Presentation
         /// </summary>
         private RematchRequestPopup _rematchRequestPopup;
 
+        private GameUIManager _gameplayUi;
+        private UIManager _interactionUi;
+        private RematchRequestPopup _interactionModalSource;
+        private System.IDisposable _resultOverlayLease;
+        private CanvasGroup _restartInteractionGroup;
+        private CanvasGroup _lobbyInteractionGroup;
+
+        /// <summary>현재 경기와 공용 UI 참조는 Bootstrapper만 전달한다.</summary>
+        public void SetInteractionContext(GameUIManager gameplayUi, UIManager sharedUi, RematchRequestPopup modalSource)
+        {
+            if (_interactionUi != null)
+                _interactionUi.BlockingUiStateChanged -= RefreshResultButtonInteraction;
+            if (_interactionUi != sharedUi)
+            {
+                _interactionUi?.ClearResultModalSource(_interactionModalSource);
+                ReleaseResultOverlay();
+            }
+            _gameplayUi = gameplayUi;
+            _interactionUi = sharedUi;
+            _interactionModalSource = modalSource;
+            if (_interactionUi != null)
+                _interactionUi.BlockingUiStateChanged += RefreshResultButtonInteraction;
+            _restartInteractionGroup = GetResultButtonInteractionGroup(_restartButton);
+            _lobbyInteractionGroup = GetResultButtonInteractionGroup(_backToLobbyButton);
+            RefreshResultButtonInteraction();
+        }
+
+        private static CanvasGroup GetResultButtonInteractionGroup(Button button)
+        {
+            if (button == null) return null;
+            CanvasGroup group = button.GetComponent<CanvasGroup>();
+            if (group == null) group = button.gameObject.AddComponent<CanvasGroup>();
+            // AnimatedPanel root와 다른 group이므로 표시 Tween의 입력 설정과 경쟁하지 않는다.
+            group.ignoreParentGroups = false;
+            group.blocksRaycasts = true;
+            return group;
+        }
+
+        private void ShowResultWithInputBlock()
+        {
+            _gameplayUi?.SetGameplayInputBlocked(true);
+            if (_resultOverlayLease == null && _interactionUi != null)
+                _resultOverlayLease = _interactionUi.AcquireBlockingOverlayModal();
+            _panel?.Show();
+            RefreshResultButtonInteraction();
+        }
+
+        private void RefreshResultButtonInteraction()
+        {
+            bool allow = _panel != null && _panel.IsVisible
+                && !(_interactionUi != null && _interactionUi.HasForegroundModal);
+            if (_restartInteractionGroup != null) _restartInteractionGroup.interactable = allow;
+            if (_lobbyInteractionGroup != null) _lobbyInteractionGroup.interactable = allow;
+            // Button.interactable은 건드리지 않아 재시도 사유와 로비 선택지 정책을 유지한다.
+        }
+
+        private void ReleaseResultOverlay()
+        {
+            System.IDisposable lease = _resultOverlayLease;
+            _resultOverlayLease = null;
+            lease?.Dispose();
+        }
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -1043,6 +1106,13 @@ namespace Hexiege.Presentation
 
         private void OnDestroy()
         {
+            if (_interactionUi != null)
+                _interactionUi.BlockingUiStateChanged -= RefreshResultButtonInteraction;
+            _interactionUi?.ClearResultModalSource(_interactionModalSource);
+            _interactionModalSource = null;
+            ReleaseResultOverlay();
+            _interactionUi = null;
+            _gameplayUi = null;
             StopCountdown();
 
             // 🔴 [맵 준비 한도 정지 자리 — 오브젝트 파괴] 오브젝트가 사라질 때 시계도 함께 끊는다.
@@ -1111,7 +1181,7 @@ namespace Hexiege.Presentation
                     _resultText.color = isWin ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f);
             }
 
-            _panel?.Show();
+            ShowResultWithInputBlock();
             // 게임 일시정지
             Time.timeScale = 0f;
 
@@ -1252,7 +1322,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void RestoreResultScreenAfterMapLoadFailure()
         {
-            _panel?.Show();
+            ShowResultWithInputBlock();
 
             SetStatusLineText(SingleMapPreparationFailedStatusText);
         }
@@ -1277,6 +1347,9 @@ namespace Hexiege.Presentation
         {
             StopCountdown();
             _panel?.Hide();
+            ReleaseResultOverlay();
+            RefreshResultButtonInteraction();
+            // 게임 입력은 이곳에서 열지 않는다. 새 경기 UI 정리 완료가 여는 경계다.
         }
 
         // ====================================================================

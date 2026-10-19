@@ -74,6 +74,22 @@ namespace Hexiege.Presentation
         /// </summary>
         private CompositeDisposable _subscriptions;
 
+        /// <summary>결과가 잠깐 숨겨져도 새 경기 UI 정리 완료까지 유지하는 게임 입력 gate.</summary>
+        public bool BlocksGameplayInput { get; private set; }
+
+        /// <summary>같은 프레임 안에 종료와 재시작이 이어져도 입력 기억을 즉시 비우는 통보.</summary>
+        public event Action<bool> GameplayInputBlockedChanged;
+
+        /// <summary>상태를 공유하고 HUD 설정 버튼도 같은 경계에서 함께 잠근다.</summary>
+        public void SetGameplayInputBlocked(bool blocked)
+        {
+            bool changed = BlocksGameplayInput != blocked;
+            BlocksGameplayInput = blocked;
+            if (changed) GameplayInputBlockedChanged?.Invoke(blocked);
+            foreach (IGameUI ui in _uis)
+                if (ui is GameHudUI hud) hud.SetGameplayInputBlocked(blocked);
+        }
+
         // ====================================================================
         // 등록
         // ====================================================================
@@ -166,6 +182,8 @@ namespace Hexiege.Presentation
         /// </summary>
         public void NotifyGameEnded()
         {
+            // Bootstrapper의 구독 순서상 이 gate와 기존 종료 정리가 결과 표시보다 먼저 돈다.
+            SetGameplayInputBlocked(true);
             for (int i = 0; i < _uis.Count; i++)
             {
                 IGameUI ui = _uis[i];
@@ -190,6 +208,7 @@ namespace Hexiege.Presentation
             {
                 _uis[i].OnGameStarted();
             }
+            SetGameplayInputBlocked(false);
         }
     }
 }

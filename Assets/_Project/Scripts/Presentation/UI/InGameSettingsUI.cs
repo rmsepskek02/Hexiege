@@ -254,6 +254,10 @@ namespace Hexiege.Presentation
         // 표시 / 숨김
         // ====================================================================
 
+        private System.Func<bool> _gameplayInputBlocked;
+        /// <summary>결과 화면에서 설정이 다시 열리지 않도록 같은 입력 판정을 주입한다.</summary>
+        public void SetGameplayInputGate(System.Func<bool> isBlocked) => _gameplayInputBlocked = isBlocked;
+
         /// <summary>
         /// 설정 팝업을 표시.
         /// - 팝업을 열 때는 항상 "메인 버튼 그룹" 화면부터 시작한다(ResetToMainView).
@@ -265,6 +269,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Show()
         {
+            if (_gameplayInputBlocked?.Invoke() == true) return;
             // 팝업이 페이드 인되기 전에 화면 상태를 메인 버튼 그룹으로 리셋한다.
             // (페이드 인 도중 이전 서브 패널이 잠깐 비치는 것을 방지 — 항상 메인부터 시작)
             ResetToMainView();

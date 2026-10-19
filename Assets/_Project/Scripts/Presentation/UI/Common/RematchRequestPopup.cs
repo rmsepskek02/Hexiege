@@ -80,6 +80,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private bool _overlayShown;
 
+        /// <summary>이 팝업이 실제로 상위 모달 입력을 점유 중인지 읽는다.</summary>
+        public bool IsOverlayHeld => _overlayShown;
+
         /// <summary>
         /// 지금 화면에 <b>요청 팝업(수락/거절)</b>이 떠 있고 사용자가 아직 응답하지 않았는지 여부.
         ///

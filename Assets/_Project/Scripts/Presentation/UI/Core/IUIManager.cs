@@ -112,7 +112,7 @@ namespace Hexiege.Presentation
         ///     (예: InGameSettingsUI, BuildingPlacementUI — 바깥을 탭하면 닫힘)
         ///
         /// 중첩 호출(이미 표시된 상태에서 다시 Show)은 참조 카운터로 누적 관리한다.
-        /// HideBlockingOverlay()가 마지막 1건까지 모두 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
+        /// 익명 카운터와 별도로 획득한 보호 Modal 점유가 모두 없어야 실제로 숨겨진다.
         /// </summary>
         /// <param name="onTap">
         /// 오버레이 터치 시 실행할 콜백. null이면 Modal 모드(입력 차단만), 값이 있으면 Popup 모드(터치 시 콜백 실행).
@@ -121,9 +121,17 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 반투명 배경 오버레이(BlockingOverlay)를 숨긴다.
-        /// 중첩 표시 중이라면 참조 카운터를 1 감소시키고, 카운터가 0이 될 때에만 실제로 숨김 처리한다.
+        /// 익명 참조만 하나 반납한다. 보호 Modal 점유는 소비하지 않으며 둘 다 없어야 배경을 숨긴다.
         /// </summary>
         void HideBlockingOverlay();
+
+        /// <summary>익명 Hide로 반납할 수 없는 결과 화면의 보호된 Modal 점유.</summary>
+        System.IDisposable AcquireBlockingOverlayModal();
+        /// <summary>공용 배경 점유 또는 로딩의 실제 입력 상태 변경 직후 동기 통보.</summary>
+        event System.Action BlockingUiStateChanged;
+        /// <summary>결과 화면 자신을 제외한 실제 상위 모달/로딩의 입력 점유 여부.</summary>
+        bool HasForegroundModal { get; }
+
     }
 }
 

@@ -107,6 +107,12 @@
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/Plan.md`
 
+## Result-screen input acceptance boundaries
+
+- Separate user-reported single/multiplayer acceptance from Roslyn checks and agent native execution. A report that all six supplied scenarios passed covers those scenarios; do not invent device identities, precise Host roles, frame/timer measurements or runtime logs.
+- Exercise both visual modal ownership and independent input paths: UI raycasts alone do not cover rally branches before the UI check, skill Update or camera gestures. Verify input remains blocked through result Hide until new-game cleanup, and that forced preparation failure restores it.
+- Foreground modal ownership must gate result buttons without overwriting their gameplay reason flags. Request rejection text can still own the overlay; requestShowing/count heuristics are insufficient. Keep post-acceptance dead-comment cleanup evidence separate from a new user gameplay run.
+
 ## Bounded clock-history evidence gates
 
 - **Retry/receipt-phase regression boundary (2026-10-11):** Test the real IEnumerator/shared-owner seam including death/replacement during the final factory attempt, valid resume and GameEnd non-resume; prepared scenario count is not executed coverage (prior16→actual18). Require real CanonicalTickClock→Coordinator Ready and genuine Expired with0.10/0.50/HP unchanged; distinguish previous cached RPC estimates from fresh Tick and lifecycle/invalid sample unknowns. Received static4/CLR3 PASS and conservative D792-byte budget do not certify native callbacks/NGO/HP pixels or fix original63. Full evidence: existing Assault10_55 Research; no independent QA execution implied.

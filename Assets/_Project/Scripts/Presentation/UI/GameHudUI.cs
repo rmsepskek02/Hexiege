@@ -141,6 +141,12 @@ namespace Hexiege.Presentation
             UpdateDisplay();
         }
 
+        /// <summary>표시 정보는 유지하고 설정 진입 버튼만 게임 입력 수명에 맞춘다.</summary>
+        public void SetGameplayInputBlocked(bool blocked)
+        {
+            if (_settingsButton != null) _settingsButton.interactable = !blocked;
+        }
+
         /// <summary>
         /// 설정 버튼 클릭 시 호출. 인게임 설정 메뉴 팝업을 연다.
         /// _settingsUI가 Inspector에 연결되지 않은 경우 안전하게 무시.

@@ -77,6 +77,23 @@ namespace Hexiege.Presentation
 
         /// <summary> 마우스 버튼을 누른 시점의 스크린 좌표. 클릭/드래그 판정용. </summary>
         private Vector2 _pointerDownPos;
+        private bool _ignorePointerUntilReleased;
+
+        private System.Func<bool> _gameplayInputBlocked;
+        /// <summary>게임 입력 판정은 조합 루트가 주입한다. 없는 경우 기존 동작을 유지한다.</summary>
+        public void SetGameplayInputGate(System.Func<bool> isBlocked)
+        {
+            _gameplayInputBlocked = isBlocked;
+        }
+
+        /// <summary>종료/시작 전환의 이전 press와 release를 다음 경기로 넘기지 않는다.</summary>
+        public void ResetGameplayPointer()
+        {
+            _pointerDownPos = default;
+            _ignorePointerUntilReleased = true;
+        }
+
+
 
         /// <summary>
         /// 클릭으로 인정하는 최대 이동 거리 (픽셀).
@@ -139,6 +156,20 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+            if (_gameplayInputBlocked?.Invoke() == true)
+            {
+                _pointerDownPos = default;
+                _ignorePointerUntilReleased = true;
+                return;
+            }
+            if (_ignorePointerUntilReleased)
+            {
+                // 결과/재경기 버튼의 release가 새 경기 타일 클릭으로 넘어가지 않도록 버린다.
+                bool held = (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                    || (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed);
+                if (!held) _ignorePointerUntilReleased = false;
+                return;
+            }
             // 의존성 미주입 상태면 무시
             if (_mainCamera == null) return;
 
@@ -208,6 +239,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void HandleClick(Vector2 screenPos)
         {
+            if (_gameplayInputBlocked?.Invoke() == true) return;
             // --------------------------------------------------------
             // 0.5. 랠리포인트 설정 모드 (UI 체크보다 우선)
             //    팝업이 닫힌 상태에서 타일을 선택해야 하므로

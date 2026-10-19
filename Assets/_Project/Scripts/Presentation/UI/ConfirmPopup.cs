@@ -146,6 +146,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private bool _overlayShown;
 
+        /// <summary>이 팝업이 실제로 상위 모달 입력을 점유 중인지 읽는다.</summary>
+        public bool IsOverlayHeld => _overlayShown;
+
         // ====================================================================
         // 공개 메서드
         // ====================================================================
