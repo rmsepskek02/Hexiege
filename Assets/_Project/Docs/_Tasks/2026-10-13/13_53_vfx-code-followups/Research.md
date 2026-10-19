@@ -526,3 +526,52 @@ R4 뒤 전체 자동 검증을 다시 돌리자 급류 파도 검사는 통과�
 - 이 목록은 15-3(슬롯 의미 불일치 · 착탄 프리팹 크기 · 원래 비행 시간 문제)과 **별개**다. 15-3은 수정하지 않았다.
 - **[2026-10-19 덧붙임 — 15-3 원문 유지]** 15-3 1번이 인용한 `HitPresentationQueue.cs` 870·873행은 확정(authoritative) 결과 경로다. StreamSpirit 같은 Legacy 유닛이 실제로 타는 경로는 같은 파일 `Emit` 969~973행 `PlayUnitHit(맞은 유닛 종류)`이며, 이것도 맞은 유닛 종류로 고르므로 15-3의 결론(슬롯 의미 불일치)은 그대로다.
 - C 방식과의 관계: B2·B3는 14-3의 기획 질문 3번(비행 중 대상이 죽거나 움직일 때)과 같은 질문이다. B4의 「표면에서 터뜨리기」는 C 방식의 착탄 VFX에도 그대로 필요하다. 그래서 R5만 고치고 끝내지 말고 C 방식 설계 때 함께 다룬다(제안 — Plan 18-5).
+
+<a id="15-6-charge-unit-fire-timing"></a>
+
+### 15-6. 차지 유닛 발사 시점 기준과 InfernoSpirit 차지 어긋남 (2026-10-19 추가 — 기록만, 미착수)
+
+**쉬운 설명.** 지옥불 정령(InfernoSpirit)은 공격할 때 먼저 불덩이를 모으는 「차지」 이펙트를 보여 준다. 그런데 오늘 화염구(투사체)를 연결해 보니, 차지가 **공격 동작 중간쯤에야 나타나고 같은 순간에 화염구도 날아가** 「모으는 중에 이미 쏜」 것처럼 어긋나 보였다. 원인은 이 공격 동작에 「차지 시작」 신호가 없고 「타격」 신호 하나만 있어서, 차지와 발사가 둘 다 그 한 신호에서 시작되기 때문이다. 사용자는 차지하는 유닛의 기준을 **「차지 시작 → 차지가 끝나는 순간 투사체 발사」** 로 정했고(2026-10-19), 두 시점은 코드에서 시간을 늦추는 방식이 아니라 **애니메이션 이벤트로** 정한다. 사용자 지시("기록만 해두고 VFX를 마저 제작한 뒤 별건으로 작업")에 따라 **이번에는 기록만 하며 코드·애니메이션·규칙 문서는 바꾸지 않았다.**
+
+**근거 수준.** [확인] = document-manager가 이 checkout(HEAD `3306cf1b`)에서 파일·이력을 읽어 확인(행 번호는 이 시점 기준). [전달] = 메인 세션이 전달한 값으로, 다시 재지 않음. [사용자] = 사용자 결정·기억.
+
+#### 15-6-1. 사용자 확정 기준 (2026-10-19) [사용자]
+
+- 차지하는 유닛은 **차지 시작 → 차지가 끝나는 순간 투사체 발사**.
+- `OnAttackCharge` 이벤트 = **차지 VFX만** 재생. `OnAttackHit` 이벤트 = **투사체 발사**. 서버 피해도 지금처럼 `OnAttackHit` 시점이다 — **피해 시점은 바꾸지 않는다.**
+- 두 시점 모두 애니메이션 클립의 이벤트로 정한다(코드 지연 아님).
+
+#### 15-6-2. 확인된 사실
+
+| 항목 | 내용 | 근거 |
+|---|---|---|
+| Inferno 클립 이벤트 | `InfernoSpirit_Attack.anim`(30fps, 길이 3초)의 이벤트는 `OnAttackHit` @ 1.5초 **하나뿐**이다(93389~93391행). `OnAttackCharge`는 없다. | [확인] |
+| Inferno 이벤트 이력 | `d692cec1`(2026-06-20)·`38f56aeb`(2026-09-30): `OnAttackHit` 0.5초 → `b65751c6`(2026-10-12): 1.5초(사용자 교정 1:15@30fps). 그 이전 커밋에는 이벤트가 없다. **어떤 버전에도 `OnAttackCharge`는 없었다.** | [확인 — 클립 파일 `git log` + 각 버전 `git show`] |
+| 차지 이벤트 처리 | `UnitView.cs` `OnAttackCharge`(1149~1155행)는 1151행에서 **FoxMagician이 아니면 바로 return**한다. 이벤트 중계는 `AnimationEventRelay.cs` 40~44행. | [확인] |
+| 공격(차지) VFX 재생 위치 | 공격 VFX 재생 호출 `effectManager.PlayUnitAttack(…)`는 `UnitView.cs` 7519행 **한 곳뿐**이며 공격 마커 처리 `ProcessAttackMarker` 안에 있다. Inferno에는 차지 이벤트가 없으므로 이 호출은 **타격 마커(1.5초)** 에서만 실행된다. | [확인] |
+| Inferno 차지 프리팹 연결 | `UnitEffectConfig.asset` InfernoSpirit 행(unitType 12, 96행): `attackPreset` = `EffectPreset_InfernoSpirit_Attack`(97행) → `_vfxPrefab` = `vfx_infernospirit_charge.prefab`(GUID `386d8a44…` 일치). `impactPreset` = `EffectPreset_InfernoSpirit_Impact`(100행), `tracerPreset` = `EffectPreset_InfernoSpirit_Tracer`(103행). | [확인 — GUID 대조] |
+| 오늘 무변경 | 차지 프리팹 마지막 변경 `3151d0df`(2026-08-17), 공격 preset 마지막 변경 `a840a152`(2026-10-13, 시전자 사망 시 정지). 오늘(2026-10-19) 둘 다 바뀌지 않았다. | [확인 — `git log -1`] |
+| 오늘 달라진 것 | 사용자 커밋 `35150e8f`(2026-10-19 19:08, 메시지 「.」)가 Inferno tracer·impact 프리팹 2개와 preset 2개를 추가하고 `UnitEffectConfig.asset`을 수정했다. 그래서 화염구가 같은 1.5초 타격 마커의 기존(legacy) 트레이서 경로(`UnitView.cs` 7669행 `em.PlayTracer(…)`)에서 출발한다 → **차지와 화염구가 동시에 나가 어긋나 보인다.** | [확인 — `git show --name-status 35150e8f`, 행 위치] |
+| 피해 시점 추출 | 서버 피해 시점은 `UnitFactory.cs` 586행이 함수 이름 `OnAttackHit`인 이벤트만 모아 정한다. `UnitView.cs` 820·849행도 `OnAttackHit`만 센다. → 클립에 `OnAttackCharge`를 더해도 **피해 시점 추출은 바뀌지 않는다.** | [확인] |
+| Inferno 자동 검증 | `RunUnitActionSelfValidation.cs` `ValidateInfernoSpiritProductionTimeline`(8129행~)은 `OnAttackHit`만 세어 「정확히 1개 · 1.5초」를 요구한다(8208~8217행). `OnAttackCharge`를 더해도 이 검사는 그대로 통과할 것으로 **코드상 보인다**(실행 확인은 아님). | [확인 — 코드 읽기] |
+| FoxMagician 클립 | `FoxMagician_Attack.anim`(30fps, 길이 4초): `OnAttackCharge` @ 1.0초(113276~113277행), `OnAttackHit` @ 2.8333333초(113283~113284행). → **애니메이션은 이미 사용자 기준에 맞는다.** | [확인] |
+| Fox 타격 마커 | `UnitView.cs` 7224~7235행: Fox는 타격 마커에서 진단만 기록하고 **일찍 return**한다(주석: 「VFX·recipient 큐·로컬 피격·트레이서를 다시 실행하지 않는다」). → **투사체를 쏘지 않는다.** | [확인] |
+| Fox 검증 | `RunUnitActionSelfValidation.cs` 7966~7967행이 Fox `tracerPreset` = null을 요구한다(메시지: 「tracer 연결은 별도 권위 투사체 설계가 필요」). | [확인] |
+
+#### 15-6-3. 사용자 기억과의 대조
+
+- [사용자] 「차지가 중간쯤 나오고 그 뒤에 피해」.
+- [확인] 2026-10-12(`b65751c6`) 이후 차지는 3초 동작의 **1.5초(중간)** 에서 시작한다 — 기억의 「중간쯤」과 맞는다.
+- [전달] 차지 이펙트는 약 1초 동안 커진다. 「그 뒤에 피해」는 피해 대부분이 화상 지속 피해(초당 50 — [확인] `StatsReference.md` 289행; 지속 3초는 [전달])라 직접 피해 뒤에 숫자가 이어 뜨기 때문으로 보인다(해석 — 실기 측정 아님).
+
+#### 15-6-4. 🔴 규칙 문서와 맞닿는 곳 (변경 전 사용자 확인 대상 — 이번에 수정하지 않음)
+
+- `GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 **규칙 17** 「FoxMagician typed marker 계약」(320행) [확인]: `OnAttackCharge @ 1초`는 source VFX/SFX만 내고 tracer 경로 **전에 종료**, `OnAttackHit @ 85/30초`의 로컬 callback은 **VFX 재생을 하지 않는다**고 적혀 있다. 사용자 기준의 「Fox 타격 마커에서 투사체 발사」는 이 문장 중 **「OnAttackHit에서 VFX 재생 안 함」과 충돌**한다. 별건 작업에서 이 문장을 바꾸려면 변경 전에 사용자에게 보고하고 승인을 받는다.
+- 같은 내용이 `GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」(309행)에도 「damage callback에서 charge를 소비·재생하지 않는다」로 있다 [확인]. 「차지 VFX 재재생 금지」와는 맞지만 Fox 투사체 발사 위치는 위 규칙 17을 따른다.
+- `InfernoSpirit`의 차지 이벤트를 다루는 규칙 문장은 찾지 못했다(규칙 17은 Fox 전용) [확인 — `OnAttackCharge` 전체 검색]. 「차지 유닛 공통 기준」을 규칙 문서·`VFXSFXGuide.md`에 넣을지는 별건 작업 때 사용자 확인 뒤 정한다.
+
+#### 15-6-5. 다른 기록과의 관계
+
+- [14절](#14-projectile-visibility-decision)(C 방식)과 같은 투사체 주제다. C 방식은 「언제 피해를 줄지」(착탄 시각)를, 이 절은 「언제 쏘는 모습을 보일지」(발사 시각)를 다룬다. 사용자 기준은 피해 시점을 그대로 `OnAttackHit`에 두므로, C 방식에서도 발사 = `OnAttackHit`, 착탄 = 발사 + 거리 ÷ 속도로 이어 붙일 수 있다(해석 — 설계 결정 아님).
+- [15-5](#15-5-r5-field-bugs)(R5 버그 B2~B4)와는 별개 결함이다. 같은 R5 임시 트레이서 경로를 쓰므로 함께 다루기를 제안한다.
+- 후속 작업 항목(제안, 미착수)은 [Plan 18-6](Plan.md#18-6-charge-unit-fire-timing)이 단일 소스다.

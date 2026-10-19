@@ -636,3 +636,21 @@ R4 뒤 전체 검증이 Torrent 파도 검사는 통과했지만 그 뒤 여우 
 
 - 서버·피해·HP·RPC는 어느 제안에서도 바꾸지 않는다(이 작업의 화면 전용 경계).
 - 착수 시점: 사용자 지시 전까지 미착수. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속)의 C 방식 행에 이 목록을 가리키는 포인터만 둔다.
+
+<a id="18-6-charge-unit-fire-timing"></a>
+
+### 18-6. 후속 별건: 차지 유닛 발사 시점 (2026-10-19 추가 — 기록만, 미착수)
+
+**쉬운 설명.** 지옥불 정령은 지금 불덩이를 모으는(차지) 이펙트와 화염구 발사가 **같은 순간**에 시작돼 어긋나 보인다. 사용자는 차지하는 유닛을 **「차지 시작 → 차지가 끝나는 순간 투사체 발사」** 로 맞추기로 정했다(2026-10-19). 두 시점은 애니메이션 이벤트로 정하고(차지 시작 = `OnAttackCharge`, 발사 = `OnAttackHit`), **서버가 피해를 주는 시점은 바꾸지 않는다.** 사용자 지시("기록만 해두고 VFX를 마저 제작한 뒤 별건으로 작업")에 따라 **지금은 기록만 하고, VFX 제작을 마친 뒤 별건으로 진행한다.** 사실·근거의 단일 소스는 [Research 15-6](Research.md#15-6-charge-unit-fire-timing)이다.
+
+- 🔴 기존 로직 제거·비활성화(WORKFLOW [4]): 없음 — 이번에는 코드·애니메이션·규칙 변경이 없다. 아래 2번을 실제로 할 때는 Fox 타격 마커의 「일찍 return」(`UnitView.cs` 7224행 부근)과 차지 이벤트의 「Fox 전용 return」(1151행)을 바꾸게 되므로, 그 별건 Plan 최상단에 근거와 함께 다시 적는다.
+
+| # | 작업 (모두 **제안, 미착수**) | 담당 | 비고 |
+|---|---|---|---|
+| CH-1 | InfernoSpirit 공격 클립에 `OnAttackCharge` 이벤트 추가(예: 0.5초 부근 — **위치는 사용자 결정**). `OnAttackHit` 1.5초는 유지 | 사용자(애니메이션) | 피해 시점 추출은 `OnAttackHit`만 보므로 영향 없음(Research 15-6-2). FoxMagician 클립은 이미 기준에 맞아 변경 불필요 |
+| CH-2 | 코드: (가) `OnAttackCharge`를 Fox 전용이 아니라 **차지 유닛 공통**으로 처리 (나) 차지 유닛은 타격 마커에서 차지 VFX를 **다시 재생하지 않고 투사체만** 발사 (다) FoxMagician 타격 마커에서 투사체 발사 (라) 관련 자동 검증 갱신(Fox `tracerPreset` null 요구 7966행 등, Inferno 타임라인 검사) | game-programmer | 서버·피해·HP·RPC 무변경(이 작업의 화면 전용 경계). 「차지 유닛」을 무엇으로 판별할지(이벤트 존재 여부 / 설정 표시 등)는 별건 Plan에서 정한다 — **미정** |
+| CH-3 | 규칙 문서에 위 기준 반영: `GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 규칙 17 「FoxMagician typed marker 계약」, 필요하면 `GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」, `VFXSFXGuide.md` | document-manager | 🔴 **사용자 확인 후.** 규칙 17은 지금 「OnAttackHit callback은 VFX 재생을 하지 않는다」고 적고 있어 CH-2 (다)와 충돌한다(Research 15-6-4). 변경 전 사용자 보고·승인 필요. 규칙 번호는 바꾸지 않는다 |
+
+- 연결: [17절](#17-projectile-visibility-decision)(C 방식 — 피해를 착탄 시각에 확정) · [Research 14절](Research.md#14-projectile-visibility-decision) · [18-5](#18-5-r5-followup-fix-queue)(R5 버그 B2~B4). 같은 투사체 경로를 쓰므로 C 방식 또는 18-5와 묶어 진행하기를 제안한다(제안 — 묶을지는 사용자 결정).
+- 착수 시점: VFX 제작 완료 뒤 사용자 지시로. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속) C 방식 행의 포인터.
+- `Testcase.md` 없음 — 요청받지 않았다(WORKFLOW [8] 해당 없음).
