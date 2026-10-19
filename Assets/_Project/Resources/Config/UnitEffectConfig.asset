@@ -97,10 +97,10 @@ MonoBehaviour:
     attackPreset: {fileID: 11400000, guid: f87a957ad29c6b84c91a10de1bf97fe4, type: 2}
     healPreset: {fileID: 0}
     timedDamagePreset: {fileID: 11400000, guid: 131df3ac0231ef3db1a8064f3704b8dc, type: 2}
-    impactPreset: {fileID: 0}
+    impactPreset: {fileID: 11400000, guid: d392373eaebfe0344bf7d1a24becf84f, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
-    tracerPreset: {fileID: 0}
+    tracerPreset: {fileID: 11400000, guid: 0e67be21a8c4254469bf9438c5f83c5d, type: 2}
   - unitType: 13
     attackPreset: {fileID: 0}
     healPreset: {fileID: 0}
