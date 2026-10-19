@@ -362,7 +362,23 @@ namespace Hexiege.Presentation
             IsConnecting.Value = true;
             ErrorMessage.Value = "";
             UIManager.Instance?.ShowLoading(true, "게임에 참가하는 중...");
-            await _networkManager.JoinGameAsync(code);
+            try
+            {
+                await _networkManager.JoinGameAsync(code);
+            }
+            catch (Exception e)
+            {
+                // 하위 계층이 예외를 다시 던지는 경우도 정상 실패 반환과 같은 UI로 복구한다.
+                OnNetworkError(e.Message);
+            }
+            if (!IsConnecting.Value && !string.IsNullOrEmpty(ErrorMessage.Value))
+            {
+                // 없는 코드는 OnError 통지 후 정상 반환하므로 예외 catch만으로는 로딩이 남는다.
+                // 성공한 참가의 맵 준비 로딩은 유지하고, 실패한 경우에만 내려 안내한다.
+                UIManager.Instance?.ShowLoading(false);
+                UIManager.Instance?.ShowAlert(title: "참가 실패",
+                    message: "방에 참가하지 못했습니다. 방 코드와 방 상태를 확인해주세요.", onClick: null);
+            }
         }
 
         /// <summary>

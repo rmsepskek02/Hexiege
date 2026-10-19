@@ -51,11 +51,14 @@ namespace Hexiege.Presentation
 
         private LoginRootView _rootView;
         private LoginUseCase _loginUseCase;
+        private InputFormController _inputForm;
+        private bool _returnPending;
 
         // ====================================================================
         // 초기화
         // ====================================================================
 
+        /// <summary>재설정 요청과 단일 입력의 완료 동작을 연결한다.</summary>
         public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase)
         {
             _rootView = rootView;
@@ -65,6 +68,8 @@ namespace Hexiege.Presentation
             if (_backButton != null) _backButton.onClick.AddListener(() => _rootView.HandleBack());
 
             ClearStatus();
+            _inputForm = InputFormController.Attach(this, _sendButton, ClearStatus,
+                () => !_returnPending, _emailInput);
         }
 
         private void OnDestroy()
@@ -84,6 +89,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnSendClicked()
         {
+            if (_inputForm == null || !_inputForm.PrepareSubmit() || _returnPending || _loginUseCase == null) return;
             ClearStatus();
 
             string email = _emailInput != null ? _emailInput.text.Trim() : string.Empty;
@@ -94,12 +100,14 @@ namespace Hexiege.Presentation
             }
 
             SetInteractable(false);
+            int session = _inputForm.Session;
 
             try
             {
                 // 결과 무시 — 보안상 가입 여부를 노출하지 않기 위해 동일 메시지를 표시한다.
                 //   네트워크 오류만 별도 분기.
                 bool ok = await _loginUseCase.SendPasswordResetEmailAsync(email);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
 
                 if (!ok && _loginUseCase.LastError != null &&
                     _loginUseCase.LastError.Reason == AuthErrorReason.NetworkError)
@@ -111,13 +119,14 @@ namespace Hexiege.Presentation
                 {
                     // 성공이든 가입되지 않은 이메일이든 동일 메시지
                     SetStatus("입력하신 이메일로 재설정 링크를 보냈습니다. 메일함을 확인하세요.");
+                    _returnPending = true;
                     // 사용자가 메시지를 확인할 시간을 주고 자동으로 이메일 로그인 화면으로 복귀.
                     Invoke(nameof(GoBackToEmailLogin), 1.5f);
                 }
             }
             finally
             {
-                SetInteractable(true);
+                if (this != null) SetInteractable(true);
             }
         }
 
@@ -126,7 +135,15 @@ namespace Hexiege.Presentation
         /// </summary>
         private void GoBackToEmailLogin()
         {
-            if (_rootView != null) _rootView.ShowEmailLogin();
+            if (_inputForm != null && _inputForm.IsVisible && _rootView != null)
+                _rootView.ShowEmailLogin();
+        }
+
+        /// <summary>화면 종료 후 이전 요청의 지연 복귀가 새 화면을 덮지 않게 한다.</summary>
+        public void OnInputScreenClosed()
+        {
+            CancelInvoke(nameof(GoBackToEmailLogin));
+            _returnPending = false;
         }
 
         // ====================================================================
@@ -135,9 +152,11 @@ namespace Hexiege.Presentation
 
         private void SetInteractable(bool on)
         {
-            if (_sendButton != null) _sendButton.interactable = on;
+            // 기존 무조건 활성화 대신 필수값 및 지연 복귀 상태를 반영한다.
+            // if (_sendButton != null) _sendButton.interactable = on;
             if (_backButton != null) _backButton.interactable = on;
             if (_emailInput != null) _emailInput.interactable = on;
+            _inputForm?.SetBusy(!on);
         }
 
         private void SetStatus(string text)

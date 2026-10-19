@@ -247,6 +247,9 @@ namespace Hexiege.Presentation
         /// </summary>
         public void HandleBack()
         {
+            // UI 뒤로 버튼과 Android 뒤로가기가 동일한 요청 잠금 경계를 따른다.
+            foreach (var form in GetComponentsInChildren<InputFormController>(true))
+                if (form.IsVisible && form.IsBusy) return;
             // [확정 결정 1] 닉네임 설정 화면은 반드시 통과해야 하는 필수 게이트 화면이다.
             //   Android 백버튼(=Escape)과 UI 백 버튼이 모두 이 HandleBack() 한 곳을 경유하므로,
             //   여기서 최상단에 분기를 두면 두 경로의 뒤로가기를 동시에 완전 차단할 수 있다.
@@ -387,6 +390,7 @@ namespace Hexiege.Presentation
             cg.alpha = 1f;
             cg.blocksRaycasts = true;
             cg.interactable = true;
+            foreach (var form in cg.GetComponentsInChildren<InputFormController>(true)) form.Open();
         }
 
         /// <summary>
@@ -397,6 +401,8 @@ namespace Hexiege.Presentation
         private static void HideGroup(CanvasGroup cg)
         {
             if (cg == null) return;
+            foreach (var form in cg.GetComponentsInChildren<InputFormController>(true)) form.Close();
+            foreach (var view in cg.GetComponentsInChildren<PasswordResetView>(true)) view.OnInputScreenClosed();
             cg.alpha = 0f;
             cg.blocksRaycasts = false;
             cg.interactable = false;
