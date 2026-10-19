@@ -49,7 +49,7 @@
 | Spirit | InfernoSpirit | `vfx_infernospirit_attack.prefab` | 인페르노 폭발. *(2026-10-13 실측: 실제 연결된 공격 VFX는 이 이름이 아니라 `vfx_infernospirit_charge.prefab`(차지, `EffectPreset_InfernoSpirit_Attack` → `UnitEffectConfig` attackPreset). 이 preset은 「Stop When Caster Dies」가 켜져 시전자 사망·제거 시 즉시 정지 — 사용자 확인 PASS 2026-10-13. 화상 상태 이펙트는 아래 「유닛 특수 효과 이펙트」)* |
 | Spirit | DustSpirit | `vfx_dustspirit_attack.prefab` | 흙먼지 공격 |
 | Spirit | BoulderSpirit | `vfx_boulderspirit_attack.prefab` | 바위 투척 |
-| Spirit | QuakeSpirit | `vfx_quakespirit_attack.prefab` | 지진 광역. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_QuakeSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
+| Spirit | QuakeSpirit | `vfx_quakespirit_attack.prefab` | 지진 광역 — 6갈래 바닥 균열(`vfx_hex_fissures.png`) · 흙먼지 퍼프(공용 `Mat_VFX_Smoke`) · 흙줄기·흙알갱이·돌 파편 · 중심 섬광, 1회성 약 1초. 게임 연결됨 — 기존 `EffectPreset_QuakeSpirit_Attack` → `UnitEffectConfig` attackPreset(위치 보정 (0, 0.05, 0.5)), 공격 방향을 따라 회전. **재제작 사용자 승인 2026-10-19.** 보이는 범위(중심에서 약 1.6, 맞은 칸 + 이웃 6칸 바깥 가장자리 약 1.3 너머)가 피해 반경 1.0([Stats](../StatsReference.md))보다 넓은 것은 사용자가 고른 표현이다. 재작업 중 만든 `Mat_VFX_QuakeDust`·`Mat_VFX_GroundCracks`(와 각 텍스처)는 미사용으로 남아 있다. [근거](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md#13-quakespirit-attack-vfx-rework) *(2026-10-19 갱신: 종전 비고 「지진 광역. 2026-10-14 실측: 게임 연결됨」은 재제작 전 프리팹 기준)* |
 | Spirit | TideSpirit | `vfx_tidespirit_attack.prefab` | 물 튀김 |
 | Spirit | StreamSpirit | `vfx_streamspirit_attack.prefab` | 물줄기. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_StreamSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
 | Spirit | TorrentSpirit | `vfx_torrentspirit_attack.prefab` | 급류. *(2026-10-14 실측: 게임 연결됨 — `EffectPreset_TorrentSpirit_Attack` → `UnitEffectConfig` attackPreset)* |
