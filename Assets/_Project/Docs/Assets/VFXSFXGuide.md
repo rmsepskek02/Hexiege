@@ -230,7 +230,7 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - 루트 pivot = **유닛 발밑**. 모든 파티클이 **반경 0.25 원기둥 안, 높이 약 1.0까지**에 머물게 한다(제작 기준).
 - 🔴 **Circle·Sphere 형태에서 바깥으로 나가는 Start Speed를 주지 않는다** — 위로 움직임이 필요하면 **Velocity over Lifetime의 Y만** 쓴다. 첫 독 프리팹은 Start Speed 0.55~0.75 · 수명 약 1.2초로 약 0.9 월드 단위까지 나가 옆 칸(약 0.87)을 넘었고, 「주변 6칸으로 퍼지는 독」으로 보였다. 의도는 「이 유닛이 중독됐다」는 표시였다.
 - **오래 솟구치는 상승을 피한다** — 첫 힐은 1.2~1.5초 동안 위로 올라가 너무 높았다(그 높이도 유닛 크기 배율로 함께 커진다).
-- 크기·위치는 가져온 뒤 **EffectPreset**(`Local Position Offset` · `Scale Multiplier`)과 유닛별 **`UnitEffectConfig` 「상태 이펙트 크기 맞춤」 표**(에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움)로 맞춘다. 크기가 조금 안 맞는 것은 프리팹을 다시 만들 이유가 아니다.
+- 크기·위치는 가져온 뒤 **EffectPreset**(`Local Position Offset` · `Scale Multiplier`)과 유닛별 **`UnitEffectConfig` 「상태 이펙트 크기 맞춤」 표**(에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움 — 아래 [상태 이펙트 크기 측정 도구](#상태-이펙트-크기-측정-도구-2026-10-19-추가))로 맞춘다. 크기가 조금 안 맞는 것은 프리팹을 다시 만들 이유가 아니다.
 
 **3. 착탄 배치**
 
@@ -239,6 +239,16 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 **4. 길이가 바뀌는 빔(번개 등)**
 
 - 빔 본체(예: RuneSpire의 `Bolt`)는 **로컬 Z 0→1 길이**로 만든다. 코드는 그 오브젝트의 **Z 스케일만** 실제 거리로 바꾸고 X·Y는 그대로 둔다(`VfxPoolItem.TowerBolt.cs`). 끝점 불꽃(`Impact_Sparks`)은 빔 오브젝트의 **자식으로 로컬 Z = 1**에 두면 자동으로 끝점을 따라간다 — 따로 위치를 움직이게 만들지 않는다.
+
+#### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
+
+화상·독·힐처럼 유닛에 붙는 이펙트의 크기를 유닛 몸집에 맞추려면 먼저 유닛별 몸 크기 표가 있어야 한다. 이 표를 채우는 에디터 도구다.
+
+- **파일·메뉴:** `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` · 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`.
+- **무엇을 쓰나:** 생산 유닛 프리팹의 몸을 재서 `Assets/_Project/Resources/Config/UnitEffectConfig.asset`의 「상태 이펙트 크기 맞춤」 표(`_recipientFits`)에 유닛별 `radius`(반경)·`height`(키)·`footOffset`(발밑 가운데 보정)을 쓴다. Inspector에서 넣은 `manualScale`(수동 배율)은 지우지 않고, 표에 없던 유닛은 `manualScale` 0(자동)으로 새 줄을 만든다. 실행 전에 확인 창을 띄우며 프리팹·씬은 수정하지 않는다. 게임은 이 표만 읽는다.
+- **언제 다시 실행하나:** 유닛 모델·프리팹(중간 메시 포함)의 스케일이 바뀌었을 때, 새 유닛 종류가 추가됐을 때. 이펙트 크기를 조금 바꾸고 싶을 때는 다시 재지 않고 EffectPreset의 `Scale Multiplier` · `Local Position Offset`이나 `manualScale`로 맞춘다.
+- **정상 값 확인:** Pistoleer 키 약 0.34m(현재 표 0.342). 키가 1.2m를 넘거나, 반경이 0.43m(헥스 타일 폭의 절반)를 넘거나, 키가 0.1m보다 작으면 도구가 측정 오류 의심 경고를 남긴다. 사람형 유닛이 3~5배로 나오면 2026-10-13 스케일 버그(중간 메시 스케일 누락, `84b6ff2a`에서 수정)와 같은 모양이므로 표를 쓰기 전에 의심한다.
+- **유지 근거:** 이 도구는 WORKFLOW [5-2] 「에디터 스크립트 최소 유지 기준」의 유지 대상인 `Tools/Combat/RunUnitActionSelfValidation.cs`(`Hexiege/Combat/Run Full Regression Suite`)의 **실제 내부 의존**이다 — 그 메뉴가 부르는 `RunUnitActionSelfValidation.VfxConnections.cs`가 이 도구의 측정 함수와 의심 기준값을 직접 써서 Pistoleer 키 0.2~0.6m·Tank가 Pistoleer보다 큼을 검사한다. 그래서 WORKFLOW 진입점 표에 따로 올리지 않는다(2026-10-19 사용자 결정).
 
 ---
 

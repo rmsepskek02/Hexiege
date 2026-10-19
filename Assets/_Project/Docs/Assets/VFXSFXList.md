@@ -65,6 +65,7 @@
 #### 유닛 사망 이펙트
 
 > **2026-10-14 실측:** 아래 유닛별 파일은 아직 없다. 현재 25종 모두 공용 `EffectPreset_Unit_Death_Common` → `vfx_unit_death.prefab`(`UnitEffectConfig` deathPreset)을 쓴다.
+> *(2026-10-19: CannonCart 사망 VFX 행과 「Ⅱ. SFX」의 CannonCart 공격·사망 SFX 행에 잘못 복사된 공격 VFX 행 정정 문구를 제거하고 원래 비고로 되돌림 — 그 정정은 「유닛 공격 이펙트」 CannonCart 행에만 해당)*
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
@@ -75,7 +76,7 @@
 | Human | SpearMan | `vfx_spearman_death.prefab` | |
 | Human | BattleAxe | `vfx_battleaxe_death.prefab` | |
 | Human | Tank | `vfx_tank_death.prefab` | |
-| Human | CannonCart | `vfx_cannoncart_death.prefab` | *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
+| Human | CannonCart | `vfx_cannoncart_death.prefab` | |
 | Spirit | EmberSpirit | `vfx_emberspirit_death.prefab` | |
 | Spirit | FlameSpirit | `vfx_flamespirit_death.prefab` | |
 | Spirit | InfernoSpirit | `vfx_infernospirit_death.prefab` | |
@@ -102,7 +103,7 @@
 > MushroomBomber 독 상태 이펙트는 착탄 반경 안에서 **지속 피해**(DoT)를 받는 **적 유닛 각각에 붙어** 피해가 이어지는 동안 루프 재생된다 — 규칙: `GameSystemRules_Units.md` 규칙 34 · 규칙 40. 착탄 지점의 폭발·독구름(1회 재생)은 「유닛 공격 이펙트」 표에 있다.
 > ⚠️ 버섯폭격기의 `attackPreset`·`hitPreset` 칸에 연결하지 않는다 — `hitPreset` 은 **맞은 유닛의 종류**로 고르는 칸이라 버섯폭격기가 **맞았을 때** 재생된다.
 > InfernoSpirit 화상 상태 이펙트도 같은 부류다 — 단일 대상 on-hit DoT를 받는 적 유닛에 붙어 피해가 이어지는 동안 루프 재생된다(규칙: `GameSystemRules_Units.md` 규칙 34 · 규칙 41). 화상·독은 `UnitEffectConfig`의 `timedDamagePreset`, 힐은 `healPreset` 칸에 연결돼 있다(2026-10-13 실측).
-> **2026-10-13 대상 크기 맞춤:** 세 이펙트는 붙는 유닛의 크기 표(`UnitEffectConfig` 「상태 이펙트 크기 맞춤」, 에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움)에서 정한 균등 배율로 크기가 바뀐다. 측정 도구 스케일 버그(사람형 유닛에서 약 5배)는 재작업 R3(커밋 `84b6ff2a`)에서 고쳤고, 사용자가 재측정한 표로 세 이펙트의 크기·높이가 프리셋 `Local Position Offset` · `Scale Multiplier`로 의도대로 조정됨을 확인했다(2026-10-15 3차 실기, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10절). 재측정 표와 현재 프리셋 값은 커밋 `91371e55`(사용자)에 있다 — Pistoleer 키 0.342 · 최대 키 약 0.53 · 최대 반경 약 0.41 · `manualScale` 없음, Heal·Poison Scale Multiplier 2 · Burn 1 · 오프셋 0(같은 Research 10-3). 값 미세 조정은 사용자가 계속한다. *(2026-10-15 정정: 첫 판의 「`84b6ff2a` 표는 아직 옛 값 — 재측정분은 커밋 전으로 보인다」는 `91371e55`로 해소)* *(2026-10-15 갱신: 종전 「R3 수정·재측정 전에는 크기 시각 수용을 판정하지 않는다」는 해소)*
+> **2026-10-13 대상 크기 맞춤:** 세 이펙트는 붙는 유닛의 크기 표(`UnitEffectConfig` 「상태 이펙트 크기 맞춤」, 에디터 메뉴 `Hexiege/Effects/Measure Unit Recipient Fit`으로 채움 — 도구 사용법·재실행 시점·정상 값은 [VFXSFXGuide 「상태 이펙트 크기 측정 도구」](VFXSFXGuide.md#상태-이펙트-크기-측정-도구-2026-10-19-추가))에서 정한 균등 배율로 크기가 바뀐다. 측정 도구 스케일 버그(사람형 유닛에서 약 5배)는 재작업 R3(커밋 `84b6ff2a`)에서 고쳤고, 사용자가 재측정한 표로 세 이펙트의 크기·높이가 프리셋 `Local Position Offset` · `Scale Multiplier`로 의도대로 조정됨을 확인했다(2026-10-15 3차 실기, [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10절). 재측정 표와 현재 프리셋 값은 커밋 `91371e55`(사용자)에 있다 — Pistoleer 키 0.342 · 최대 키 약 0.53 · 최대 반경 약 0.41 · `manualScale` 없음, Heal·Poison Scale Multiplier 2 · Burn 1 · 오프셋 0(같은 Research 10-3). 값 미세 조정은 사용자가 계속한다. *(2026-10-15 정정: 첫 판의 「`84b6ff2a` 표는 아직 옛 값 — 재측정분은 커밋 전으로 보인다」는 `91371e55`로 해소)* *(2026-10-15 갱신: 종전 「R3 수정·재측정 전에는 크기 시각 수용을 판정하지 않는다」는 해소)*
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
@@ -308,7 +309,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Human | SpearMan | `sfx_spearman_attack.wav` | 창 찌르는 소리 |
 | Human | BattleAxe | `sfx_battleaxe_attack.wav` | 도끼 내려치는 소리 |
 | Human | Tank | `sfx_tank_attack.wav` | 포탄 발사음 |
-| Human | CannonCart | `sfx_cannoncart_attack.wav` | 범위 포격음 *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
+| Human | CannonCart | `sfx_cannoncart_attack.wav` | 범위 포격음 |
 | Spirit | EmberSpirit | `sfx_emberspirit_attack.wav` | 불 마법음 |
 | Spirit | FlameSpirit | `sfx_flamespirit_attack.wav` | 화염 방출음 |
 | Spirit | InfernoSpirit | `sfx_infernospirit_attack.wav` | 인페르노 폭발음 |
@@ -337,7 +338,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Human | SpearMan | `sfx_spearman_death.wav` | |
 | Human | BattleAxe | `sfx_battleaxe_death.wav` | |
 | Human | Tank | `sfx_tank_death.wav` | |
-| Human | CannonCart | `sfx_cannoncart_death.wav` | *(2026-10-14 정정: 이 행의 「HumanTower … 별도 Assault 교체 예정」은 이미 적용됐다 — Human 타워는 별도 `EffectPreset_HumanAutoTower_Attack` → `vfx_pistoleer_attack.prefab`(아래 「건물 공격 이펙트」). 실제 CannonCart 연결은 Tank와 같은 `EffectPreset_Cannon_Attack` → `vfx_tank_attack.prefab`(`UnitEffectConfig` CannonCart attackPreset). 「기존 `vfx_cannoncart_attack.prefab` 제작/존재」는 사실이 아니다 — 저장소에 그 이름의 파일은 없고, 실제로 남아 있는 옛 프리팹은 `Prefabs/VFX/Units/vfx_cannon_attack.prefab`이며 **어느 preset·config·코드에서도 참조되지 않는다(미사용)**)* |
+| Human | CannonCart | `sfx_cannoncart_death.wav` | |
 | Spirit | EmberSpirit | `sfx_emberspirit_death.wav` | |
 | Spirit | FlameSpirit | `sfx_flamespirit_death.wav` | |
 | Spirit | InfernoSpirit | `sfx_infernospirit_death.wav` | |
