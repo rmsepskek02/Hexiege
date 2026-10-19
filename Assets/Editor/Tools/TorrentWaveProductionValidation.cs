@@ -29,9 +29,16 @@ namespace Hexiege.EditorTools
         {
             Require(!UnityEngine.Application.isPlaying, "validation is Edit Mode only");
             ValidateClockRecovery(); ValidateCoordinator(); ValidateServerClockAndWriter(); ValidateContactAuthorityIsolation(); ValidateProductionAdapter();
-            Require(Hash("Assets/_Project/Prefabs/VFX/Units/vfx_torrentspirit_attack.prefab")
+            // [R4] 원본 에셋이 바뀌지 않았는지 해시로 고정 검사한다.
+            // 기대값은 저장소에 커밋된 LF 줄바꿈 원본 기준이다. Windows(autocrlf=true)에서는 디스크 파일이
+            // CRLF로 바뀌어 있으므로, 줄바꿈을 LF로 정규화한 뒤 해시해 운영체제와 무관하게 같은 값을 얻는다.
+            // Require(Hash("Assets/_Project/Prefabs/VFX/Units/vfx_torrentspirit_attack.prefab")
+            //     == "7F9C9314C04B0D5FF54EC28362EB7897F3E0B54E5E0F24AC5CAF9523018F1ED3", "source VFX hash changed");
+            // Require(Hash("Assets/_Project/Animations/Units/TorrentSpirit/TorrentSpirit_Attack.anim")
+            //     == "E8B96CDF405944BC27DA5DEDBED17D1697106A05CB5DFCA4125B70F7A0145421", "source clip hash changed");
+            Require(ContentHashWithNormalizedLineEndings("Assets/_Project/Prefabs/VFX/Units/vfx_torrentspirit_attack.prefab")
                 == "7F9C9314C04B0D5FF54EC28362EB7897F3E0B54E5E0F24AC5CAF9523018F1ED3", "source VFX hash changed");
-            Require(Hash("Assets/_Project/Animations/Units/TorrentSpirit/TorrentSpirit_Attack.anim")
+            Require(ContentHashWithNormalizedLineEndings("Assets/_Project/Animations/Units/TorrentSpirit/TorrentSpirit_Attack.anim")
                 == "E8B96CDF405944BC27DA5DEDBED17D1697106A05CB5DFCA4125B70F7A0145421", "source clip hash changed");
             Debug.Log("[TORRENT-WAVE] production validation PASS: actual writer newborn/stall/one-hit/keyed damage/heal, dedupe/conflict/reorder/retire/clock/capacity/channel/end, Blue/Red adapter, source hashes. Seeded particle/silhouette and device visual acceptance are separate gates.");
         }
@@ -485,10 +492,57 @@ namespace Hexiege.EditorTools
                 }
             }
         }
-        private static string Hash(string path)
+        // [R4 이전 구현 — 디스크 원본 바이트를 그대로 해시했다]
+        // 문제: Windows에서 git 설정 core.autocrlf=true 이면 체크아웃 시 텍스트 파일의 줄바꿈이
+        //       LF("\n") → CRLF("\r\n")로 바뀌어 디스크에 저장된다. git status는 깨끗한데(git은 내부적으로
+        //       LF로 비교) 디스크 바이트가 달라져 해시가 달라지고, "source VFX hash changed"로 오탐 실패했다.
+        // private static string Hash(string path)
+        // {
+        //     using var hash = SHA256.Create();
+        //     return BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
+        // }
+
+        /// <summary>
+        /// 줄바꿈을 LF로 정규화한 "내용 해시"(SHA256, 대문자 16진수)를 계산한다.
+        /// 파일을 읽은 뒤 CRLF("\r\n")만 LF("\n")로 바꾸고 해시하므로, 같은 내용이면
+        /// Windows(autocrlf=true, CRLF 체크아웃)와 Linux/macOS(LF 체크아웃)에서 같은 값이 나온다.
+        /// 기대값 상수는 저장소에 커밋된 LF 원본 기준이므로 그대로 유지된다.
+        /// </summary>
+        /// <param name="path">프로젝트 루트 기준 에셋 경로(예: "Assets/...prefab").</param>
+        /// <returns>줄바꿈 정규화 후 SHA256 해시 문자열("-" 없는 대문자 16진수 64자).</returns>
+        private static string ContentHashWithNormalizedLineEndings(string path)
         {
+            byte[] normalized = NormalizeCrLfToLf(File.ReadAllBytes(path));
             using var hash = SHA256.Create();
-            return BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
+            return BitConverter.ToString(hash.ComputeHash(normalized)).Replace("-", "");
+        }
+
+        /// <summary>
+        /// 바이트 배열에서 "\r\n"(0x0D 0x0A) 쌍의 "\r"만 제거해 "\n"으로 만든다.
+        /// 단독 "\r"(뒤에 "\n"이 없는 경우)은 그대로 둔다. 이유:
+        /// 1) git의 autocrlf 변환은 LF↔CRLF만 바꾸고 단독 CR을 만들지 않는다.
+        /// 2) 단독 CR까지 바꾸면 실제 내용 변경(예: 문자열 값 안의 CR)을 놓쳐 검사가 약해진다.
+        /// 문자열 디코딩 없이 바이트 단위로 처리하므로 BOM·UTF-8 인코딩에 영향받지 않는다.
+        /// (UTF-8에서 0x0D/0x0A 바이트는 다른 문자의 일부로 나타나지 않으므로 안전하다.)
+        /// </summary>
+        /// <param name="bytes">디스크에서 읽은 원본 바이트.</param>
+        /// <returns>CRLF가 LF로 바뀐 새 바이트 배열(CRLF가 없으면 원본과 같은 내용).</returns>
+        private static byte[] NormalizeCrLfToLf(byte[] bytes)
+        {
+            const byte CarriageReturn = 0x0D; // '\r'
+            const byte LineFeed = 0x0A;       // '\n'
+            var result = new byte[bytes.Length]; // 결과는 원본보다 길어질 수 없으므로 같은 크기로 시작
+            int written = 0;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                // 바로 뒤가 '\n'인 '\r'만 건너뛴다 → "\r\n"이 "\n"이 된다.
+                bool isCrBeforeLf = bytes[i] == CarriageReturn
+                    && i + 1 < bytes.Length && bytes[i + 1] == LineFeed;
+                if (isCrBeforeLf) continue;
+                result[written++] = bytes[i];
+            }
+            Array.Resize(ref result, written); // 실제로 쓴 길이만큼 잘라낸다
+            return result;
         }
     }
 }
