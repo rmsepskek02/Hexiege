@@ -68,11 +68,13 @@ namespace Hexiege.Presentation
         private LoginRootView _rootView;
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
+        private InputFormController _inputForm;
 
         // ====================================================================
         // 초기화
         // ====================================================================
 
+        /// <summary>회원가입 의존성과 입력 순서를 연결한다.</summary>
         public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper)
         {
             _rootView = rootView;
@@ -83,6 +85,8 @@ namespace Hexiege.Presentation
             if (_backButton != null) _backButton.onClick.AddListener(() => _rootView.HandleBack());
 
             ClearStatus();
+            _inputForm = InputFormController.Attach(this, _signUpButton, OnInputsChanged, null,
+                _emailInput, _passwordInput, _passwordConfirmInput);
         }
 
         private void OnDestroy()
@@ -101,6 +105,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnSignUpClicked()
         {
+            if (_inputForm == null || !_inputForm.PrepareSubmit() || _loginUseCase == null) return;
             ClearStatus();
 
             string email = _emailInput != null ? _emailInput.text.Trim() : string.Empty;
@@ -120,22 +125,26 @@ namespace Hexiege.Presentation
             }
             if (password.Length < MinPasswordLength)
             {
+                _inputForm.SetError(_passwordInput);
                 SetStatus($"비밀번호는 {MinPasswordLength}자 이상이어야 합니다.");
                 return;
             }
             if (password != confirm)
             {
+                _inputForm.SetError(_passwordConfirmInput);
                 SetStatus("비밀번호가 일치하지 않습니다.");
                 return;
             }
 
             SetInteractable(false);
+            int session = _inputForm.Session;
             _bootstrapper.ShowLoading(true);
 
             try
             {
                 // SignUpWithEmailAsync 는 회원가입 후 자동으로 인증 메일을 발송한다(LoginUseCase 내부).
                 LoginResult result = await _loginUseCase.SignUpWithEmailAsync(email, password, displayName: null);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
 
                 switch (result)
                 {
@@ -168,8 +177,11 @@ namespace Hexiege.Presentation
             }
             finally
             {
-                _bootstrapper.ShowLoading(false);
-                SetInteractable(true);
+                if (this != null)
+                {
+                    _bootstrapper.ShowLoading(false);
+                    SetInteractable(true);
+                }
             }
         }
 
@@ -179,11 +191,13 @@ namespace Hexiege.Presentation
 
         private void SetInteractable(bool on)
         {
-            if (_signUpButton != null) _signUpButton.interactable = on;
+            // 기존 무조건 활성화 대신 공통 입력 상태가 버튼을 결정한다.
+            // if (_signUpButton != null) _signUpButton.interactable = on;
             if (_backButton != null) _backButton.interactable = on;
             if (_emailInput != null) _emailInput.interactable = on;
             if (_passwordInput != null) _passwordInput.interactable = on;
             if (_passwordConfirmInput != null) _passwordConfirmInput.interactable = on;
+            _inputForm?.SetBusy(!on);
         }
 
         private void SetStatus(string text)
@@ -192,6 +206,16 @@ namespace Hexiege.Presentation
         }
 
         private void ClearStatus() => SetStatus(string.Empty);
+
+        private void OnInputsChanged()
+        {
+            ClearStatus();
+            // 비밀번호를 고쳐 확인 값과 일치한 경우에도 이전 확인 오류를 해제한다.
+            if (_passwordInput != null && _passwordInput.text.Length >= MinPasswordLength)
+                _inputForm?.SetError(_passwordInput, false);
+            if (_passwordInput != null && _passwordConfirmInput != null && _passwordInput.text == _passwordConfirmInput.text)
+                _inputForm?.SetError(_passwordConfirmInput, false);
+        }
 
         private void ShowError(AuthException error)
         {

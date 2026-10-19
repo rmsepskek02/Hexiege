@@ -65,6 +65,7 @@ namespace Hexiege.Presentation
         private LoginRootView _rootView;
         private PlayerProfileUseCase _profileUseCase;
         private LoginBootstrapper _bootstrapper;
+        private InputFormController _inputForm;
 
         // 자동 생성 닉네임 접두사 구분 플래그.
         //   true = Google 경로(스킵 시 "구글_"), false = 이메일 경로(스킵 시 "사용자_").
@@ -95,12 +96,18 @@ namespace Hexiege.Presentation
             // 입력 값이 바뀔 때마다 확인 버튼 활성/비활성을 실시간 갱신한다.
             // 빈 값이나 무효한 값에서는 아예 누를 수 없게 하는 방식을 택했다(규칙 문서 근거는 없고
             // 이 구현에서 정한 방식이다).
-            if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
+            // 공통 처리에서 값 변경과 조합 종료 검증을 관리한다.
+            // if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
 
             // 초기 상태: 입력이 비어 있으므로 확인 버튼을 비활성으로 시작한다.
             if (_confirmButton != null) _confirmButton.interactable = false;
 
             ClearStatus();
+            _inputForm = InputFormController.Attach(this, _confirmButton, ClearStatus,
+                () => _profileUseCase != null && _nicknameInput != null &&
+                      _profileUseCase.ValidateNickname(_nicknameInput.text) == NicknameValidation.Valid,
+                _nicknameInput);
+            _inputForm.SetValidationFeedback(ShowInputValidation);
         }
 
         private void OnDestroy()
@@ -156,6 +163,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnConfirmClicked()
         {
+            if (_inputForm == null || !_inputForm.PrepareSubmit() || _profileUseCase == null) return;
             ClearStatus();
 
             string input = _nicknameInput != null ? _nicknameInput.text.Trim() : string.Empty;
@@ -169,11 +177,13 @@ namespace Hexiege.Presentation
             }
 
             SetInteractable(false);
+            int session = _inputForm.Session;
             _bootstrapper.ShowLoading(true, "닉네임 저장 중...");
 
             try
             {
                 NicknameValidation result = await _profileUseCase.SaveNicknameAsync(input);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 if (result != NicknameValidation.Valid)
                 {
                     // 저장 직전 재검증에서 걸린 경우(이론상 preCheck 와 동일하나 방어적으로 처리).
@@ -185,6 +195,7 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 // [개발] Error + 개발 (원본 레벨 유지) — ⭐ 중복 집계 해소 지점.
                 //   여기서 잡히는 예외는 Infrastructure/Cloud/PlayerProfileService.SaveNicknameAsync 의
                 //   catch 가 이미 Ops.Warn(LogEvent.CloudSaveOperationFailed, ..., "Operation=SaveNickname")
@@ -201,8 +212,11 @@ namespace Hexiege.Presentation
             }
             finally
             {
-                _bootstrapper.ShowLoading(false);
-                SetInteractable(true);
+                if (this != null)
+                {
+                    _bootstrapper.ShowLoading(false);
+                    SetInteractable(true);
+                }
             }
         }
 
@@ -214,18 +228,22 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnSkipClicked()
         {
+            if (_inputForm == null || !_inputForm.IsVisible || _skipButton == null || !_skipButton.IsInteractable()) return;
             ClearStatus();
             SetInteractable(false);
+            int session = _inputForm.Session;
             _bootstrapper.ShowLoading(true, "닉네임 생성 중...");
 
             try
             {
                 string prefix = _isGooglePath ? "구글" : "사용자";
                 await _profileUseCase.SaveAutoNicknameAsync(prefix);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 GoToNextStep();
             }
             catch (System.Exception e)
             {
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 // [개발] Error + 개발 — 위와 완전히 같은 사건이다.
                 //   SaveAutoNicknameAsync 도 최종적으로 PlayerProfileService.SaveNicknameAsync 를 호출하며,
                 //   그 catch 가 같은 키(CloudSaveOperationFailed) · 같은 Operation 값으로 운영 기록한 뒤
@@ -237,8 +255,11 @@ namespace Hexiege.Presentation
             }
             finally
             {
-                _bootstrapper.ShowLoading(false);
-                SetInteractable(true);
+                if (this != null)
+                {
+                    _bootstrapper.ShowLoading(false);
+                    SetInteractable(true);
+                }
             }
         }
 
@@ -293,9 +314,11 @@ namespace Hexiege.Presentation
         /// <summary>버튼/입력 필드 활성화 토글 — 비동기 처리 중 중복 입력 방지.</summary>
         private void SetInteractable(bool on)
         {
-            if (_confirmButton != null) _confirmButton.interactable = on;
+            // 기존 무조건 활성화 대신 기존 닉네임 검증과 공통 상태로 갱신한다.
+            // if (_confirmButton != null) _confirmButton.interactable = on;
             if (_skipButton != null) _skipButton.interactable = on;
             if (_nicknameInput != null) _nicknameInput.interactable = on;
+            _inputForm?.SetBusy(!on);
         }
 
         private void SetStatus(string text)
@@ -304,6 +327,15 @@ namespace Hexiege.Presentation
         }
 
         private void ClearStatus() => SetStatus(string.Empty);
+
+        private void ShowInputValidation()
+        {
+            if (_nicknameInput == null || _profileUseCase == null || string.IsNullOrEmpty(_nicknameInput.text)) return;
+            var result = _profileUseCase.ValidateNickname(_nicknameInput.text);
+            if (result == NicknameValidation.Valid) return;
+            _inputForm.SetError(_nicknameInput);
+            SetStatus(ValidationMessage(result));
+        }
 
         // ====================================================================
         // 런타임 UI 레이아웃 보정

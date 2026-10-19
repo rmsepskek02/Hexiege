@@ -65,6 +65,7 @@ namespace Hexiege.Presentation
         private LoginRootView _rootView;
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
+        private InputFormController _inputForm;
 
         // 프로필/닉네임 UseCase. 로그인 성공 후 "최초 로그인" 여부(IsFirstLogin) 판정에 사용한다.
         //   최초면 닉네임 설정 화면을 먼저 표시하고, 아니면 곧바로 로비로 이동한다.
@@ -98,6 +99,8 @@ namespace Hexiege.Presentation
             if (_backButton != null) _backButton.onClick.AddListener(() => _rootView.HandleBack());
 
             ClearStatus();
+            _inputForm = InputFormController.Attach(this, _loginButton, ClearStatus, null,
+                _emailInput, _passwordInput);
         }
 
         private void OnDestroy()
@@ -117,6 +120,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnLoginClicked()
         {
+            if (_inputForm == null || !_inputForm.PrepareSubmit() || _loginUseCase == null) return;
             ClearStatus();
 
             string email = _emailInput != null ? _emailInput.text.Trim() : string.Empty;
@@ -130,11 +134,13 @@ namespace Hexiege.Presentation
             }
 
             SetInteractable(false);
+            int session = _inputForm.Session;
             _bootstrapper.ShowLoading(true);
 
             try
             {
                 LoginResult result = await _loginUseCase.SignInWithEmailAsync(email, password);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
 
                 switch (result)
                 {
@@ -144,6 +150,7 @@ namespace Hexiege.Presentation
                         //   재로그인이면 곧바로 로비로 이동한다. (Google 경로와 동일 패턴)
                         //   _profileUseCase 가 주입되지 않은 개발 환경을 대비해 null 검사를 함께 둔다.
                         bool isFirst = _profileUseCase != null && await _profileUseCase.IsFirstLogin();
+                        if (this == null || !_inputForm.IsCurrent(session)) return;
                         if (isFirst)
                             // 이메일 경로 최초 로그인 → 닉네임 화면.
                             //   isGooglePath 는 이제 "라우팅"이 아니라 스킵 시 자동닉네임 접두사 구분용이다.
@@ -165,8 +172,11 @@ namespace Hexiege.Presentation
             }
             finally
             {
-                _bootstrapper.ShowLoading(false);
-                SetInteractable(true);
+                if (this != null)
+                {
+                    _bootstrapper.ShowLoading(false);
+                    SetInteractable(true);
+                }
             }
         }
 
@@ -176,12 +186,14 @@ namespace Hexiege.Presentation
 
         private void SetInteractable(bool on)
         {
-            if (_loginButton != null) _loginButton.interactable = on;
+            // 기존 무조건 활성화 대신 공통 입력 상태가 버튼을 결정한다.
+            // if (_loginButton != null) _loginButton.interactable = on;
             if (_signUpButton != null) _signUpButton.interactable = on;
             if (_forgotPasswordButton != null) _forgotPasswordButton.interactable = on;
             if (_backButton != null) _backButton.interactable = on;
             if (_emailInput != null) _emailInput.interactable = on;
             if (_passwordInput != null) _passwordInput.interactable = on;
+            _inputForm?.SetBusy(!on);
         }
 
         private void SetStatus(string text)

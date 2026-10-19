@@ -83,6 +83,7 @@ namespace Hexiege.Presentation
 
         // 처리 중 중복 클릭 방지 플래그.
         private bool _busy;
+        private InputFormController _inputForm;
 
         private bool _runtimeLayoutPolished;
 
@@ -110,7 +111,14 @@ namespace Hexiege.Presentation
             if (_confirmButton != null) _confirmButton.onClick.AddListener(OnConfirmClicked);
             if (_cancelButton != null) _cancelButton.onClick.AddListener(OnCancelClicked);
             if (_purchaseButton != null) _purchaseButton.onClick.AddListener(OnPurchaseClicked);
-            if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
+            // 공통 처리에서 값 변경과 조합 종료 검증을 관리한다.
+            // if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
+            _inputForm = InputFormController.Attach(this, _confirmButton, ClearStatus,
+                () => !_busy && _profileUseCase != null && _nicknameInput != null &&
+                      _profileUseCase.ValidateNickname(_nicknameInput.text) == NicknameValidation.Valid,
+                _nicknameInput);
+            _inputForm.SetValidationFeedback(ShowInputValidation);
+            _inputForm.Close();
 
             // 확인 버튼 표시/숨김용 CanvasGroup 확보(없으면 추가).
             if (_confirmButton != null &&
@@ -173,11 +181,14 @@ namespace Hexiege.Presentation
             }
 
             if (_panel != null) _panel.Show();
+            if (!usedFree) _inputForm?.Open();
+            else _inputForm?.Close();
         }
 
         /// <summary>모달을 닫는다(오버레이 해제 + 퇴장 애니메이션).</summary>
         public void Hide()
         {
+            _inputForm?.Close();
             UIManager.Instance?.HideBlockingOverlay();
             if (_panel != null) _panel.Hide();
         }
@@ -196,7 +207,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnConfirmClicked()
         {
-            if (_busy || _profileUseCase == null) return;
+            if (_busy || _profileUseCase == null || _inputForm == null || !_inputForm.PrepareSubmit()) return;
 
             ClearStatus();
             string input = _nicknameInput != null ? _nicknameInput.text.Trim() : string.Empty;
@@ -210,6 +221,7 @@ namespace Hexiege.Presentation
             }
 
             _busy = true;
+            int session = _inputForm.Session;
             SetInteractable(false);
             UIManager.Instance?.ShowLoading(true, "닉네임 변경 중...");
 
@@ -217,6 +229,7 @@ namespace Hexiege.Presentation
             {
                 // 코드 유지 + hasUsedFreeNicknameChange=true 저장은 UseCase 가 담당(확정 결정 3).
                 NicknameValidation result = await _profileUseCase.ChangeNicknameAsync(input);
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 if (result != NicknameValidation.Valid)
                 {
                     SetStatus(ValidationMessage(result));
@@ -229,6 +242,7 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
+                if (this == null || !_inputForm.IsCurrent(session)) return;
                 // [개발] Error + 개발 (원본 레벨 유지) — NicknameSetupView 와 같은 중복 집계 해소다.
                 //   _profileUseCase.ChangeNicknameAsync 는 내부에서
                 //   PlayerProfileService.SaveNicknameAsync(nickname, code, hasUsedFreeNicknameChange) 를
@@ -244,9 +258,12 @@ namespace Hexiege.Presentation
             }
             finally
             {
-                UIManager.Instance?.ShowLoading(false);
-                SetInteractable(true);
-                _busy = false;
+                if (this != null)
+                {
+                    UIManager.Instance?.ShowLoading(false);
+                    _busy = false;
+                    SetInteractable(true);
+                }
             }
         }
 
@@ -282,10 +299,12 @@ namespace Hexiege.Presentation
         /// <summary>확인/취소/구매/입력 필드 활성화 토글 — 비동기 저장 중 중복 입력 방지.</summary>
         private void SetInteractable(bool on)
         {
-            if (_confirmButton != null) _confirmButton.interactable = on;
+            // 기존 무조건 활성화 대신 현재 입력·표시·요청 상태를 적용한다.
+            // if (_confirmButton != null) _confirmButton.interactable = on;
             if (_cancelButton != null) _cancelButton.interactable = on;
             if (_purchaseButton != null) _purchaseButton.interactable = on;
             if (_nicknameInput != null) _nicknameInput.interactable = on;
+            _inputForm?.SetBusy(!on);
         }
 
         /// <summary>CanvasGroup 표시/숨김(공통 UI 규칙 5, SetActive 금지). null 안전.</summary>
@@ -319,6 +338,15 @@ namespace Hexiege.Presentation
         }
 
         private void ClearStatus() => SetStatus(string.Empty);
+
+        private void ShowInputValidation()
+        {
+            if (_nicknameInput == null || _profileUseCase == null || string.IsNullOrEmpty(_nicknameInput.text)) return;
+            var result = _profileUseCase.ValidateNickname(_nicknameInput.text);
+            if (result == NicknameValidation.Valid) return;
+            _inputForm.SetError(_nicknameInput);
+            SetStatus(ValidationMessage(result));
+        }
 
         private void EnsureRuntimeLayoutPolished()
         {
