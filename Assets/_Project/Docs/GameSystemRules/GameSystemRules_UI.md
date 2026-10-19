@@ -95,7 +95,7 @@ SafeAreaContainer에는 SafeAreaFitter 컴포넌트를 부착하여 Safe Area �
 - 전체화면을 채워야 하는 배경 요소는 SafeAreaContainer 밖(Canvas 직속)에 배치한다.
 - 독립 Canvas를 가진 UI(ToastUI 등)는 해당 Canvas에도 SafeAreaFitter를 적용한다.
 - **반투명 배경 오버레이(BlockingOverlay)도 전체화면 배경과 동일하게 SafeAreaContainer 밖(UIManager Canvas 직속)에 두어야 한다.**
-  팝업 컴포넌트가 직접 소유하지 않고, `UIManager.ShowBlockingOverlay()` / `HideBlockingOverlay()`를 통해 제어한다.
+  팝업 컴포넌트가 직접 소유하지 않고 UIManager의 표시/반납 API로 제어한다. 결과 화면의 보호된 Modal 점유는 `AcquireBlockingOverlayModal()`을 사용한다.
   (각 팝업이 SafeAreaContainer 안에 개별 오버레이를 소유하면 노치/홈바 영역이 가려지지 않는 구조적 문제가 발생하므로, UIManager가 단일 소유한다.)
 
 **전체화면 배경 오브젝트 구현 방법**
@@ -129,13 +129,14 @@ SetActive(false)를 사용하면 두 가지 문제가 발생한다.
 - 배경 오버레이(`_backgroundOverlay`)도 GameObject는 항상 active 상태 유지. Show() 시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 시 `alpha=0 / false / false`로 즉시 전환한다.
 
 **반투명 배경 오버레이(BlockingOverlay) 단일 소유 패턴**:
-- 반투명 배경 오버레이는 **UIManager가 단일 소유**한다. 개별 팝업이 자체 오버레이를 들고 있지 않으며, `UIManager.ShowBlockingOverlay(onTap)` / `UIManager.HideBlockingOverlay()`로만 제어한다.
+- 반투명 배경 오버레이는 **UIManager가 단일 소유**한다. 개별 팝업이 자체 오버레이를 들고 있지 않으며, 일반 팝업은 `ShowBlockingOverlay(onTap)` / `HideBlockingOverlay()`, 결과 화면은 보호된 Modal 점유 API로 제어한다.
 - 두 가지 모드로 구분한다.
   - **Modal 모드** — `ShowBlockingOverlay()` (콜백 없음): 뒤쪽 입력만 차단한다. 오버레이를 터치해도 닫히지 않는다. (ConfirmPopup, AnonymousWarningPopup, RematchRequestPopup)
   - **Popup 모드** — `ShowBlockingOverlay(() => Close())` (콜백 있음): 오버레이를 터치하면 등록된 콜백(팝업 닫기)이 실행된다. (InGameSettingsUI, BuildingPlacementUI, 생산/건물 패널)
-- 팝업이 중첩될 수 있으므로 UIManager는 **참조 카운터**로 표시 횟수를 누적 관리한다. `HideBlockingOverlay()`가 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
+- 일반 팝업의 익명 Show/Hide는 **참조 카운터**, 결과 화면의 `AcquireBlockingOverlayModal()`은 **소유자별 IDisposable 점유**로 구분한다. 실제 배경은 익명 참조 수와 보호 점유가 모두 없어야 숨긴다. 익명 Hide는 보호 점유를 소비하지 않으며, 보호 점유의 Dispose는 멱등이다. 보호 점유 중 배경 탭 callback은 실행하지 않는다.
+- 상위 Modal의 실제 점유와 Loading의 실제 raycast 차단을 `BlockingUiStateChanged`로 통보한다. 결과 버튼은 개별 CanvasGroup으로 잠그고 기존 버튼 활성 사유·AnimatedPanel root tween은 유지한다. 익명 callback은 최신 하나만 보존하며 전체 중첩 callback stack 복원은 제공하지 않는다.
 - 호출은 항상 null-safe 패턴 `UIManager.Instance?.ShowBlockingOverlay(...)`를 사용한다 (씬 직접 진입 시 Instance가 null일 수 있음).
-- **팝업 Hide와 오버레이 Hide는 항상 짝을 이룬다.** 조준 모드 진입 등을 위해 팝업만 숨기는 경로에서도 오버레이를 그대로 두지 말고 `HideBlockingOverlay()`로 함께 내린다. 반대로 조준 완료/취소 처리가 `Close()`를 거치지 않고 끝나는 경로는, `Close()`가 대신 반납해 주던 참조 카운터를 해당 경로에서 직접 `HideBlockingOverlay()`를 호출해 반납해야 한다. (동일 결함이 스킬 패널·랠리포인트 두 곳에서 반복 발생했던 사례 — `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`)
+- **점유와 반납은 항상 짝을 이룬다.** 익명 API를 사용하는 팝업이 조준 진입 등으로 숨겨지면 `HideBlockingOverlay()`로 함께 반납한다. 조준 완료/취소가 `Close()`를 거치지 않는 경우에도 그 경로에서 자신의 익명 참조를 반납해야 한다. 보호 점유 사용자는 자신의 lease만 Dispose하며 익명 Hide로 대신 반납하지 않는다. (익명 반납 누락 사례 — `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`)
 
 ---
 

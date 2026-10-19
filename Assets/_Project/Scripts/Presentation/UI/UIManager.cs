@@ -41,6 +41,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -94,11 +95,85 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 반투명 배경 오버레이의 중첩 참조 카운터.
         /// ShowBlockingOverlay 호출마다 +1, HideBlockingOverlay 호출마다 -1.
-        /// 0이 될 때에만 실제로 오버레이를 숨긴다.
+        /// 이 수와 보호된 Modal owner 수가 모두 0일 때에만 실제 배경을 숨긴다.
         /// (예: ConfirmPopup이 떠 있는 상태에서 또 다른 모달이 Show되면 2가 되고,
         ///  하나가 Hide되어도 1이 남아 있으므로 오버레이는 유지된다.)
         /// </summary>
         private int _blockingOverlayRefCount;
+
+        // 익명 Show/Hide의 수와 결과 화면의 보호 점유는 서로 다른 장부다.
+        // 닫힌 다른 패널이 Hide를 호출해도 결과 화면 token을 반납할 수 없다.
+        private readonly HashSet<Guid> _blockingModalOwners = new HashSet<Guid>();
+        private Action _legacyOverlayTap;
+        private bool _overlayVisible;
+        private bool _overlayVisibilityChanged;
+        private RematchRequestPopup _resultModalSource;
+
+        /// <summary>배경 점유 또는 로딩의 실제 입력 상태를 바꾼 직후 동기 통보한다.</summary>
+        public event Action BlockingUiStateChanged;
+
+        /// <summary>결과 화면 자신을 제외한 상위 모달/로딩의 실제 입력 점유.</summary>
+        public bool HasForegroundModal => (_confirmPopup != null && _confirmPopup.IsOverlayHeld)
+            || (_resultModalSource != null && _resultModalSource.IsOverlayHeld)
+            || (_loadingIndicator != null && _loadingIndicator.blocksRaycasts);
+
+        /// <summary>현재 경기의 요청/거절 팝업 참조. 조합 루트만 갱신한다.</summary>
+        public void SetResultModalSource(RematchRequestPopup source)
+        {
+            _resultModalSource = source;
+            BlockingUiStateChanged?.Invoke();
+        }
+
+        /// <summary>이전 경기의 소유자가 파괴될 때 자신이 등록한 팝업 참조만 비운다.</summary>
+        public void ClearResultModalSource(RematchRequestPopup source)
+        {
+            if (!ReferenceEquals(_resultModalSource, source)) return;
+            _resultModalSource = null;
+            BlockingUiStateChanged?.Invoke();
+        }
+
+        /// <summary>공용 배경의 보호된 Modal 점유를 하나 획득한다. Dispose는 멱등이다.</summary>
+        public IDisposable AcquireBlockingOverlayModal()
+        {
+            Guid id = Guid.NewGuid();
+            _blockingModalOwners.Add(id);
+            RefreshBlockingOverlayState();
+            return new BlockingOverlayLease(this, id);
+        }
+
+        private sealed class BlockingOverlayLease : IDisposable
+        {
+            private UIManager _owner;
+            private readonly Guid _id;
+            public BlockingOverlayLease(UIManager owner, Guid id) { _owner = owner; _id = id; }
+            public void Dispose()
+            {
+                UIManager owner = _owner;
+                _owner = null;
+                if (owner != null && owner._blockingModalOwners.Remove(_id))
+                    owner.RefreshBlockingOverlayState();
+            }
+        }
+
+        private void RefreshBlockingOverlayState()
+        {
+            bool show = _blockingOverlayRefCount > 0 || _blockingModalOwners.Count > 0;
+            bool visible = show && _blockingOverlay != null;
+            _overlayVisibilityChanged = visible != _overlayVisible;
+            _overlayVisible = visible;
+            if (_blockingOverlayButton != null)
+            {
+                _blockingOverlayButton.onClick.RemoveAllListeners();
+                if (show && _blockingModalOwners.Count == 0 && _legacyOverlayTap != null)
+                    _blockingOverlayButton.onClick.AddListener(() => _legacyOverlayTap?.Invoke());
+            }
+            ApplyBlockingOverlayVisibility(show);
+            // 보호 점유가 남아 있는 익명 반납은 실제 꺼짐으로 기록하지 않는다.
+            LogOverlayTurnedOn();
+            LogOverlayTurnedOff();
+            BlockingUiStateChanged?.Invoke();
+        }
+
 
         /// <summary>
         /// ShowLoading(true)가 호출된 시각(Time.realtimeSinceStartup 기준).
@@ -332,14 +407,15 @@ namespace Hexiege.Presentation
         /// 동작:
         ///   1. 참조 카운터를 1 증가시킨다(중첩 표시 지원).
         ///   2. onClick 리스너를 항상 먼저 제거한다(이전 모드의 콜백이 남지 않도록).
-        ///   3. Popup 모드(onTap != null)면 onClick에 콜백을 등록한다.
-        ///      Modal 모드(onTap == null)면 리스너 없이 입력만 차단한다.
+        ///   3. 보호 owner가 없고 Popup 모드(onTap != null)일 때만 onClick에 콜백을 등록한다.
+        ///      보호 점유 중이거나 Modal 모드(onTap == null)이면 리스너 없이 입력만 차단한다.
         ///   4. CanvasGroup을 표시 상태(alpha=1, 입력 차단)로 만든다.
         ///
-        /// 주의: 중첩 시 가장 마지막에 등록된 onTap이 현재 오버레이 콜백이 된다.
+        /// 주의: 아래 기존 콜백 복원 결함 설명은 보호 점유가 없는 legacy 경로에 해당한다.
+        /// 중첩 시 가장 마지막에 등록된 onTap이 현재 legacy 오버레이 콜백이 된다.
         /// 🔴 그리고 이것은 실제로 문제가 된다 — 이전 주인의 콜백을 되돌려 놓는 코드가 어디에도 없다.
         ///   이 메서드는 막을 다시 잡을 때 기존 리스너를 전부 지우고, 콜백이 넘어온 경우에만 다시 단다.
-        ///   숨김과 리스너 정리는 점유 수가 0으로 떨어진 순간에만 일어난다(HideBlockingOverlay 참조).
+        ///   legacy 점유가 남으면 배경은 유지되지만 이전 콜백을 복원하지 않는다(HideBlockingOverlay 참조).
         ///   그래서 콜백을 가진 화면 위에 콜백 없는 확인 팝업이 겹쳤다가 그 팝업만 닫히면,
         ///   막은 그대로 떠 있는데 아무 리스너도 달려 있지 않은 상태로 남는다.
         ///
@@ -353,27 +429,13 @@ namespace Hexiege.Presentation
         ///
         ///   ⚠️ 이 결함은 아직 고치지 않았다(별도 작업) — 이 주석은 확인된 사실만 기록한다.
         /// </summary>
+        /// <remarks>보호된 Modal 점유 중에는 전달된 최신 콜백을 저장만 하고 배경 탭으로 실행하지 않는다.</remarks>
         /// <param name="onTap">터치 콜백. null이면 Modal 모드(입력 차단만).</param>
         public void ShowBlockingOverlay(Action onTap = null)
         {
-            // 중첩 표시 횟수를 누적한다.
             _blockingOverlayRefCount++;
-
-            // 막이 「꺼져 있다가 켜지는」 경계에서만 기록을 남긴다(아래 메서드가 그것을 판별한다).
-            LogOverlayTurnedOn();
-
-            // 버튼이 연결되어 있으면 이전 리스너를 제거하고 현재 모드에 맞게 다시 등록한다.
-            if (_blockingOverlayButton != null)
-            {
-                _blockingOverlayButton.onClick.RemoveAllListeners();
-
-                // Popup 모드: 터치 시 콜백 실행. Modal 모드: 리스너 없음(입력만 차단).
-                if (onTap != null)
-                    _blockingOverlayButton.onClick.AddListener(() => onTap.Invoke());
-            }
-
-            // 실제 표시는 카운터와 무관하게 항상 "보이는 상태"를 보장하면 된다.
-            ApplyBlockingOverlayVisibility(true);
+            _legacyOverlayTap = onTap;
+            RefreshBlockingOverlayState();
         }
 
         /// <summary>
@@ -381,33 +443,14 @@ namespace Hexiege.Presentation
         ///
         /// 동작:
         ///   1. 참조 카운터를 1 감소시킨다(0 미만으로는 내려가지 않도록 가드).
-        ///   2. 카운터가 0이 된 경우에만 실제로 오버레이를 숨기고 onClick 리스너를 정리한다.
-        ///   3. 아직 다른 팝업이 오버레이를 사용 중(카운터 > 0)이면 표시 상태를 유지한다.
+        ///   2. 익명 카운터와 보호된 Modal owner가 모두 없을 때에만 실제 배경을 숨긴다.
+        ///   3. 보호 owner가 남으면 표시와 배경 탭 금지를 유지한다. 이 메서드는 그 owner를 반납하지 않는다.
         /// </summary>
         public void HideBlockingOverlay()
         {
-            // 카운터 언더플로 방지 — 중복 Hide 호출에도 안전하게 동작.
-            if (_blockingOverlayRefCount > 0)
-            {
-                _blockingOverlayRefCount--;
-
-                // 막이 「켜져 있다가 꺼지는」 경계에서만 기록을 남긴다(아래 메서드가 판별한다).
-                //
-                // 🔴 이 중괄호 안에 둔 이유 — 감소가 실제로 일어난 경우에만 도달해야 한다.
-                //   중괄호 밖(아래 조기 반환 뒤)에 두면, 점유한 적 없는 몫을 놓으려 한 호출에서도
-                //   「막이 꺼졌다」가 남아 거짓이 된다(그때 막은 애초에 켜져 있지 않았다).
-                //   🔴 동작은 바뀌지 않는다 — 감소 한 줄을 중괄호로 감싼 것뿐이다.
-                LogOverlayTurnedOff();
-            }
-
-            // 아직 오버레이를 사용 중인 팝업이 남아 있으면 숨기지 않는다.
-            if (_blockingOverlayRefCount > 0) return;
-
-            // 마지막 사용자가 닫혔으므로 실제로 숨김 처리 + 콜백 해제.
-            if (_blockingOverlayButton != null)
-                _blockingOverlayButton.onClick.RemoveAllListeners();
-
-            ApplyBlockingOverlayVisibility(false);
+            if (_blockingOverlayRefCount > 0) _blockingOverlayRefCount--;
+            if (_blockingOverlayRefCount == 0) _legacyOverlayTap = null;
+            RefreshBlockingOverlayState();
         }
 
         // ====================================================================
@@ -446,11 +489,11 @@ namespace Hexiege.Presentation
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private void LogOverlayTurnedOn()
         {
-            if (_blockingOverlayRefCount != 1) return;   // 중첩 증가 — 경계가 아니다.
+            if (!_overlayVisibilityChanged || !_overlayVisible) return;
 
             GameLog.Dev.Info("UI", nameof(UIManager),
                              "반투명 배경 오버레이가 켜졌다 — 첫 점유자가 들어왔다",
-                             $"RefCount={_blockingOverlayRefCount}");
+                             $"RefCount={_blockingOverlayRefCount + _blockingModalOwners.Count}");
         }
 
         /// <summary>
@@ -467,11 +510,12 @@ namespace Hexiege.Presentation
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private void LogOverlayTurnedOff()
         {
-            if (_blockingOverlayRefCount != 0) return;   // 아직 점유자가 남았다 — 경계가 아니다.
+            // 익명 수가 아니라 공용 배경의 실제 가시성 전이를 판정한다.
+            if (!_overlayVisibilityChanged || _overlayVisible) return;
 
             GameLog.Dev.Info("UI", nameof(UIManager),
                              "반투명 배경 오버레이가 꺼진다 — 마지막 점유자가 놓았다",
-                             $"RefCount={_blockingOverlayRefCount}");
+                             $"RefCount={_blockingOverlayRefCount + _blockingModalOwners.Count}");
         }
 
         // ====================================================================
@@ -492,6 +536,7 @@ namespace Hexiege.Presentation
             // 로딩 중에는 뒤쪽 UI 입력을 막아 사용자가 중복 조작하지 못하게 한다.
             _loadingIndicator.blocksRaycasts = show;
             _loadingIndicator.interactable = show;
+            BlockingUiStateChanged?.Invoke();
         }
 
         /// <summary>

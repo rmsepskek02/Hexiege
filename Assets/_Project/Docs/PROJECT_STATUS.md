@@ -23,7 +23,7 @@
 | 건물·스킬·연구 | 생산/업그레이드/철거와 싱글·기존 실패 피드백, 스킬 타입A/B/C, 연구 트랙·×10 스케일·연구 패널의 구현/기존 실기 근거 | 멀티 BuildFailed/EnqueueFailedClientRpc의 UI 피드백은 후속. 새 스킬 목록·밸런스·연구 UI/AI 연구 실기 등 보류는 별도. 값은 [Stats](StatsReference.md) |
 | MistShrine | 아군 유닛·건물 대상 물안개 힐 구현, 기존 에디터 싱글 확인 | 멀티 미검증·밸런싱 미확정. 현재 임시값을 확정값으로 인용하지 않음 |
 | AI | 난이도·빌드오더/반응·생산/배치와 핵심 흐름 구현·관측 근거 | 반응 트리거/무작위 시나리오 세부 검증과 밸런싱+3시나리오 재논의는 별개 후속 |
-| UI·로비 | lifecycle·DOTween·전역 로딩·SafeArea/CanvasGroup·건물 패널·설정/음소거·종족/초상화 및 경기 흐름 화면 구현 기록 | 현재 필수 동작은 각 UI 원본. 남은 레이아웃·관측·CanvasGroup 예외 결정은 ROADMAP |
+| UI·로비 | lifecycle·DOTween·전역 로딩·SafeArea/CanvasGroup·건물 패널·설정/음소거·종족/초상화 및 경기 흐름 화면 구현. 결과 화면 공용 배경·입력 차단/복원은 6항목 사용자 정상 확인으로 수용하고 대체 주석 정리·별도 검사 완료 | 에이전트 native 실행·정밀 로그/장치별 측정과 구분. [확인 범위](<_Tasks/2026-10-19/04_39_game-end-modal-input/Research.md#7-사용자-6항목-정상-확인수용과-후속-정리>). 기존 레이아웃·CanvasGroup 예외 결정은 ROADMAP |
 | 인증·프로필 | Login 씬/C#과 Google/이메일 흐름·이메일 인증/재실행·닉네임 gate의 구현/사용자 확인. 로비 프로필·랭킹 UI 1차 연결 | Firebase는 인증, UGS Cloud Save/Leaderboards는 프로필/랭킹 연결. UI 표시 완료가 서버 승패 기록·IAP/Functions 완료는 아님. [Auth](AuthSystemRules.md) |
 | 사운드 | AudioManager·BGM/SFX·볼륨/음소거 연결의 구현 기록, 기존 볼륨/음소거 UI 실기 확인 | BGM/SFX Inspector별 배선·제작/실기·수용 잔여는 에셋 목록. Victory/Defeat 분리는 Sound 규칙의 선행조건이 있는 추후 기획 |
 | 로그 | GameLog/FileSink·에디터 파일·Device 캡처·수동 정리와 기존 이관/실기 근거 | 현행 규범은 [LogRules](LogRules.md). Lobby 직접 진입은 사용자 범위 제외. 자연 엔진 오류 훅 발화의 미확인과 FileSink 경로 중복 정리는 ROADMAP |

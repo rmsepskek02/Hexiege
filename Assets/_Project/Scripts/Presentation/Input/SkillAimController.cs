@@ -49,6 +49,14 @@ namespace Hexiege.Presentation
         /// </summary>
         public static bool IsAiming { get; private set; }
 
+        private System.Func<bool> _gameplayInputBlocked;
+        /// <summary>게임 입력 판정은 조합 루트가 주입한다. 없는 경우 기존 동작을 유지한다.</summary>
+        public void SetGameplayInputGate(System.Func<bool> isBlocked)
+        {
+            _gameplayInputBlocked = isBlocked;
+        }
+
+
         // ====================================================================
         // Inspector 설정
         // ====================================================================
@@ -187,6 +195,7 @@ namespace Hexiege.Presentation
         public void BeginAim(int buildingId, int skillSlot, float radius, Vector3 fallbackDomain,
             Action<int, int, Vector3> onConfirm, Action onCancel)
         {
+            if (_gameplayInputBlocked?.Invoke() == true) return;
             _buildingId = buildingId;
             _skillSlot = skillSlot;
             _radius = radius;
@@ -216,6 +225,11 @@ namespace Hexiege.Presentation
 
         private void Update()
         {
+            if (_gameplayInputBlocked?.Invoke() == true)
+            {
+                CancelAim();
+                return;
+            }
             if (!_isAiming) return;
 
             // 취소(X) 버튼 스케일을 목표값으로 매 프레임 부드럽게 보간(규칙 20-1). 1·2단계 모두에서 실행.
@@ -331,6 +345,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ResolveRelease(Vector2 screenPos)
         {
+            if (_gameplayInputBlocked?.Invoke() == true)
+            {
+                CancelAim();
+                return;
+            }
             bool overCancel = IsOverCancelZone(screenPos);
 
             // 조준 종료(플래그/조준점 정리)를 먼저 한다 — 콜백에서 패널을 닫아도 안전.

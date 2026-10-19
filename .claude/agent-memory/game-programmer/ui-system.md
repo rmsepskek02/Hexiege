@@ -4,6 +4,14 @@
 
 ---
 
+## Result modal ownership and gameplay input lifetime
+
+- `UIManager.AcquireBlockingOverlayModal()` owns protected leases independently of legacy anonymous Show/Hide counts. Visibility is the OR of both ownership sets; an unrelated legacy Hide cannot consume a result lease. Keep legacy callbacks as the latest single callback, not a new universal callback stack.
+- `GameUIManager` blocks gameplay before existing end cleanup and releases only after new-game UI cleanup. Preserve Bootstrapper initialization/subscription order: manager before GameEndUI. A hidden result during rematch preparation is not permission to reopen gameplay.
+- State changes synchronously reset pointer/camera gesture memory through `GameplayInputBlockedChanged`; Update polling alone misses end/start transitions within one frame. Cancel active skill aim on blocking and recheck before dispatch.
+- Gate each result button through its own CanvasGroup while actual foreground modal ownership/loading raycasts are active. Preserve Button.interactable reason policies and the AnimatedPanel root tween. Clear rematch modal sources by identity so an old destroyed owner cannot clear a newer source.
+- User acceptance and compiler/native evidence are separate. The six user-reported result-screen checks are scoped acceptance, not device/role inventories, exact timer logs or an agent native run. Detailed outcomes and cleanup generations belong in the existing `2026-10-19/04_39_game-end-modal-input` Task.
+
 ## 🔴 이 파일이 담는 것 — 색인에서 내려온 상세 목차 (2026-09-29 이동)
 
 > 이 목록은 `MEMORY.md` 「토픽 파일 인덱스」의 **이 파일 항목**에 들어 있던 상세다.

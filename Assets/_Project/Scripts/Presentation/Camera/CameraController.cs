@@ -65,6 +65,27 @@ namespace Hexiege.Presentation
 
         /// <summary> 현재 드래그 중인지 여부. </summary>
         private bool _isDragging;
+        private bool _ignoreGestureUntilReleased;
+
+        private System.Func<bool> _gameplayInputBlocked;
+        /// <summary>게임 입력 판정은 조합 루트가 주입한다. 없는 경우 기존 동작을 유지한다.</summary>
+        public void SetGameplayInputGate(System.Func<bool> isBlocked)
+        {
+            _gameplayInputBlocked = isBlocked;
+        }
+
+        /// <summary>사용자 입력의 잔여 드래그/줌만 취소한다. 프로그램 맵 배치는 유지한다.</summary>
+        public void ResetGameplayGesture()
+        {
+            _isDragging = false;
+            _dragOrigin = default;
+            _zoomTween?.Kill();
+            _zoomTween = null;
+            if (_cam != null) _targetZoom = _cam.orthographicSize;
+            _ignoreGestureUntilReleased = true;
+        }
+
+
 
         /// <summary> 맵 경계 (카메라 이동 제한용, XZ 평면). SetBounds()로 설정. </summary>
         private Bounds _mapBounds;
@@ -141,6 +162,18 @@ namespace Hexiege.Presentation
 
         private void Update()
         {
+            if (_gameplayInputBlocked?.Invoke() == true)
+            {
+                ResetGameplayGesture();
+                return;
+            }
+            if (_ignoreGestureUntilReleased)
+            {
+                bool held = (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                    || UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count > 0;
+                if (!held) _ignoreGestureUntilReleased = false;
+                return;
+            }
             HandleZoom();
             HandlePan();
             ClampPosition(); // 줌/팬 후 항상 즉시 보정 — 순간이동 방지
@@ -399,6 +432,7 @@ namespace Hexiege.Presentation
         /// <param name="speed">스크롤 속도(월드 단위/초).</param>
         public void EdgeScroll(Vector2 screenPos, float dt, float edgeMarginPx, float speed)
         {
+            if (_gameplayInputBlocked?.Invoke() == true) return;
             if (edgeMarginPx <= 0f || speed <= 0f || dt <= 0f) return;
 
             float w = Screen.width;

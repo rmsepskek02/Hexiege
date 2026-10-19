@@ -226,9 +226,17 @@ namespace Hexiege.Bootstrap
             if (_gameHudUI != null)
                 _gameHudUI.Initialize(_resource, _population);
 
+            // GameUIManager의 선행 종료 구독 → GameEndUI의 후행 결과 표시 순서를 유지한다.
+            // 현재 씬의 상위 팝업 참조도 조합 루트에서만 교체하여 DDOL에 이전 씬 참조를 남기지 않는다.
+            UIManager sharedUi = UIManager.Instance;
+            RematchRequestPopup resultModal = FindFirstObjectByType<RematchRequestPopup>();
+            sharedUi?.SetResultModalSource(resultModal);
             // 10-1. 게임 종료 UI 초기화
             if (_gameEndUI != null)
+            {
+                _gameEndUI.SetInteractionContext(_uiManager, sharedUi, resultModal);
                 _gameEndUI.Initialize();
+            }
 
             // 10-1-1. 인게임 설정 메뉴 초기화.
             // _gameEnd(GameEndUseCase)는 CreateUseCases() 내부에서 생성되므로 이 시점이면 준비됨.

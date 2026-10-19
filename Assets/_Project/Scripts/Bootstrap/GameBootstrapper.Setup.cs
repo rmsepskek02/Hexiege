@@ -550,11 +550,30 @@ namespace Hexiege.Bootstrap
         // 입력 연결
         // ====================================================================
 
+        private void ResetGameplayInputForUiState(bool blocked)
+        {
+            _inputHandler?.ResetGameplayPointer();
+            _cameraController?.ResetGameplayGesture();
+            if (blocked) _skillAimController?.CancelAim();
+        }
+
         /// <summary>
         /// InputHandler에 UseCase 의존성을 주입.
         /// </summary>
         private void SetupInput()
         {
+            // 게임 UI 수명은 한 곳에서 판정하고 각 독립 입력 경로에 같은 판정을 전달한다.
+            System.Func<bool> isGameplayBlocked = () => _uiManager != null && _uiManager.BlocksGameplayInput;
+            _inputHandler?.SetGameplayInputGate(isGameplayBlocked);
+            _skillAimController?.SetGameplayInputGate(isGameplayBlocked);
+            _cameraController?.SetGameplayInputGate(isGameplayBlocked);
+            _inGameSettingsUI?.SetGameplayInputGate(isGameplayBlocked);
+            if (_uiManager != null)
+            {
+                _uiManager.GameplayInputBlockedChanged -= ResetGameplayInputForUiState;
+                _uiManager.GameplayInputBlockedChanged += ResetGameplayInputForUiState;
+            }
+
             if (_inputHandler != null)
             {
                 // 비생산 건물 액션 패널(_buildingActionPanelUI)과 연구소 강화 패널(_researchPanelUI)을 함께 주입.
