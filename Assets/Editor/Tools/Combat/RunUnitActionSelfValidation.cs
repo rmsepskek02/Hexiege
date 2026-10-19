@@ -8221,6 +8221,9 @@ namespace Hexiege.Editor.Combat
 
             // 현재 production에는 공격 VFX는 있지만 tracer가 없다. 이 사실을 명시적으로
             // 검증해야 1.50초 즉시 피격 폴백과 향후 실제 projectile 추가를 혼동하지 않는다.
+            // [R5 임시 — 2026-10-19] 위 설명은 원래 계약이다. 지금은 사용자 승인으로 화면 표현용 Legacy
+            //   트레이서/착탄 프리셋이 임시 연결되어 있고, 아래 행 검사가 그 임시 연결을 확인한다.
+            //   서버 판정은 여전히 1.50초 TimerImpact 폴백이며 실제 권위 투사체(C 방식)는 아니다.
             var effectConfig = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>(effectConfigPath);
             var expectedAttackPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(attackPresetPath);
             Require(effectConfig != null && expectedAttackPreset != null,
@@ -8239,8 +8242,46 @@ namespace Hexiege.Editor.Combat
                 effectRows++;
                 Require(row.FindPropertyRelative("attackPreset").objectReferenceValue == expectedAttackPreset,
                     "InfernoSpirit must retain the verified production attack preset.");
-                Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
-                    "InfernoSpirit tracer is not implemented; a newly wired tracer requires a separate Launch/Impact design.");
+                // [R5 비활성화 — 2026-10-19 사용자 승인으로 임시 트레이서 연결. C 방식(서버 투사체) 구현 시 재검토]
+                //   예전에는 "트레이서 미구현"을 고정했지만, 사용자가 VFX 확인용으로 Legacy 트레이서(불덩이)와
+                //   착탄(불꽃 폭발)을 임시 연결하기로 승인했다(StreamSpirit R5와 같은 방식).
+                //   원래 검사는 지우지 않고 아래에 주석으로 남긴다.
+                // Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
+                //     "InfernoSpirit tracer is not implemented; a newly wired tracer requires a separate Launch/Impact design.");
+                // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+                //   트레이서 = 불덩이 프리셋, 착탄 = 불꽃 폭발 프리셋(공격자 기준 impact 슬롯),
+                //   피격(hit) 슬롯은 "맞은 유닛 타입" 기준이라 비워 둔다(공격자 이펙트가 엉뚱한 유닛에 뜨지 않게).
+                //   이 연결은 화면 표현만 바꾼다. 피해량·HP·화상(DoT)·서버 타격 시각(1.50초)은 그대로다.
+                var expectedTracerPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(
+                    "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Tracer.asset");
+                var expectedImpactPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(
+                    "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Impact.asset");
+                Require(expectedTracerPreset != null && expectedImpactPreset != null
+                    && row.FindPropertyRelative("tracerPreset").objectReferenceValue == expectedTracerPreset
+                    && row.FindPropertyRelative("impactPreset").objectReferenceValue == expectedImpactPreset
+                    && row.FindPropertyRelative("hitPreset").objectReferenceValue == null,
+                    "[R5 interim] InfernoSpirit uses the interim Legacy tracer + attacker impact preset, and its victim-keyed hit slot stays empty.");
+                // 프리셋 파일 이름만 맞고 안에 다른 프리팹이 들어가 있는 실수를 막으려고, 실제 프리팹 경로도 확인한다.
+                Require(expectedTracerPreset.VfxPrefab != null && expectedImpactPreset.VfxPrefab != null
+                    && AssetDatabase.GetAssetPath(expectedTracerPreset.VfxPrefab).EndsWith("vfx_infernospirit_tracer.prefab")
+                    && AssetDatabase.GetAssetPath(expectedImpactPreset.VfxPrefab).EndsWith("vfx_infernospirit_impact.prefab"),
+                    "[R5 interim] InfernoSpirit tracer/impact presets point to the actual tracer/impact prefabs.");
+                // 트레이서 프리팹 루트에 TracerProjectile이 미리 붙어 있어야 그 프리팹의 비행 속도(_speed)가 쓰인다.
+                //   붙어 있지 않으면 EffectManager가 실행 중에 기본값(14)으로 새로 붙이므로, 의도한 속도가 무시된다.
+                var infernoTracerComponent = expectedTracerPreset.VfxPrefab
+                    .GetComponent<Hexiege.Presentation.TracerProjectile>();
+                Require(infernoTracerComponent != null,
+                    "[R5 interim] InfernoSpirit tracer prefab root carries TracerProjectile (EffectManager reuses it instead of adding a default 14 speed).");
+                // _speed는 private 직렬화 필드라 SerializedObject로 인스펙터 값을 그대로 읽는다.
+                //   0 이하이면 TracerProjectile이 비행 시간을 0으로 계산해 날아가는 모습 없이 바로 도착한다.
+                float infernoTracerSpeed = new SerializedObject(infernoTracerComponent).FindProperty("_speed").floatValue;
+                Require(infernoTracerSpeed > 0f,
+                    "[R5 interim] InfernoSpirit tracer prefab speed must be positive: " + infernoTracerSpeed);
+                // 시전자 귀속(Stop When Caster Dies)은 기 모으기(charge) 공격 이펙트 전용이다.
+                //   트레이서는 이미 손을 떠나 날아가는 불덩이이므로, 시전자가 죽어도 끝까지 날아가야 해서 OFF여야 한다.
+                //   (attackPreset의 ON 검사는 VfxConnections의 ValidateCasterOwnedChargeVfx가 그대로 담당한다.)
+                Require(!expectedTracerPreset.StopWhenCasterDies,
+                    "[R5 interim] InfernoSpirit tracer preset must not be caster-owned (Stop When Caster Dies OFF).");
             }
             Require(effectRows == 1, "UnitEffectConfig must contain exactly one InfernoSpirit row.");
 
