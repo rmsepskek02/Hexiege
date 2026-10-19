@@ -121,7 +121,9 @@
 - [vfx-presentation.md](vfx-presentation.md) — VFX presentation (2026-10-15): `BakeMesh(true)` output is renderer-local
   (use `localToWorldMatrix` — the measuring tool once inflated skinned units 3~5x), code-enforced particle contracts
   (Bloom / burn / poison), status-VFX fitting via `UnitEffectConfig` recipient table + presets, RuneSpire bolt
-  3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」.
+  3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」,
+  and (§8, 2026-10-19) charge units: clip-event detection, charge marker = lease check-only (consuming it kills the
+  multiplayer projectile), launch SFX at the tracer, cancel-stop placement excluding the normal revision commit.
   🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

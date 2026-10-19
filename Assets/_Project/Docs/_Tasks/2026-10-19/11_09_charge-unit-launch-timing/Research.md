@@ -1,6 +1,6 @@
 # Research — 차지 유닛 발사 시점 (InfernoSpirit · FoxMagician)
 
-> 작성 2026-10-19 · 기준 checkout HEAD `4fb37139` · D1~D3 사용자 결정 완료(2026-10-19, 1절 결정 기록) → 같은 폴더 `Plan.md` 작성됨(승인 전)
+> 작성 2026-10-19 · 기준 checkout HEAD `4fb37139` · D1~D3 사용자 결정 완료(2026-10-19, 1절 결정 기록) → 같은 폴더 `Plan.md` 승인·구현됨 · **상태: 완료** — 사용자 싱글·멀티 시각 확인(2026-10-19). 결과·한계는 [9절](#9-implementation-result) *(2026-10-19 갱신: 종전 「Plan 작성됨(승인 전)」)*
 
 ## 0. 쉬운 설명
 
@@ -209,3 +209,63 @@
 - [vfx-code-followups Plan 18-6](../../2026-10-13/13_53_vfx-code-followups/Plan.md#18-6-charge-unit-fire-timing) CH-1(Inferno 클립 이벤트) · CH-2(코드) · CH-3(규칙 문서)을 이 작업이 진행한다. 그 Plan의 표는 당시 기록으로 두고 고치지 않는다(`_Tasks/`는 이력).
 - 옵션 C(서버 권위 투사체 — [vfx-code-followups Research 14절](../../2026-10-13/13_53_vfx-code-followups/Research.md#14-projectile-visibility-decision))는 별건이다. 이 작업은 「언제 쏘는 모습을 보일지」만 다루고 「언제 피해를 줄지」는 옵션 C가 다룬다.
 - Testcase.md: 사용자 요청이 없어 만들지 않았다(WORKFLOW [5-1]).
+
+---
+
+<a id="9-implementation-result"></a>
+
+## 9. 구현 결과와 사용자 확인 (2026-10-19 추가)
+
+**쉬운 설명.** 계획대로 고쳤고, 사용자가 싱글과 멀티에서 지옥불 정령·여우 마법사의 「차지 → 발사」가 제대로 보이는 것을 눈으로 확인했다. 확인 뒤 지옥불 정령의 화염구·착탄 불티가 초록빛으로 보이는 문제가 하나 더 나와, 불티 재질만 흰색 재질로 바꿨고 사용자가 확인했다. 게임 결과(피해 시점·피해량·HP)는 바뀌지 않았다. 이 절 이전 내용(1~8절)은 조사 당시 기록이라 고치지 않았다.
+
+근거 표기: [직접] = document-manager가 이 checkout(HEAD `609ba447`)에서 커밋 diff·파일을 읽어 확인 · [전달] = 메인 세션 인계 · [사용자] = 사용자 보고.
+
+### 9-1. 사용자 결과 (2026-10-19) [사용자 — 메인 세션 경유]
+
+| 항목 | 결과 |
+|---|---|
+| 싱글·멀티 테스트에서 두 차지 유닛 VFX 재생 | **정상 — 사용자 시각 확인** |
+| Inferno 투사체·착탄 불티 초록빛 | 재질 교체(9-3) 뒤 **사용자 확인** |
+| 로그 기반 검증 | **없음.** 사용자가 로그를 저장했으나 본문(`_Logs/2026-10-19/21_43_logcat/RuntimeLog_device.txt`)은 `.gitignore` 814행 규칙으로 저장소에 올라오지 않아 읽지 못했다 [직접 — `git check-ignore -v`]. 저장소에는 `.meta`만 있다(사용자 커밋 `7da90f92`) |
+| 회귀 스위트(`Hexiege/Combat/Run Full Regression Suite`) | **미보고** — 사용자가 결과를 따로 알리지 않았다. PASS로 적지 않는다 |
+| Plan 7절 항목별(S-1~S-5, M-1~M-4) | 항목별 결과는 따로 보고되지 않았다. 위 「VFX 정상 재생」이 어느 항목까지 덮는지(예: 차지 도중 취소 S-3·M-4, Client 차지 누락 빈도 M-3)는 **확인되지 않았다** |
+
+### 9-2. 실제 구현 [직접 — 커밋 `8330b5d9` diff]
+
+- `InfernoSpirit_Attack.anim`: `m_Events`에 `OnAttackCharge` @ 0.16666667 추가, `OnAttackHit` @ 1.5 유지.
+- `vfx_infernospirit_charge.prefab`: `lengthInSec`·Start Lifetime 1 → **1.3333334**.
+- `vfx_foxmagician_charge.prefab`: 루트 `lengthInSec`·Start Lifetime 2 → **1.8333334**. 자식 Wisps `lengthInSec` 2 → **0.8333333**(Lifetime 0.6~1.0은 그대로 → 끝 약 1.8333초).
+- `UnitEffectConfig.asset` FoxMagician(unitType 21): `impactPreset` = `EffectPreset_FoxMagician_Impact`(`bbc25dda…`), `tracerPreset` = `EffectPreset_FoxMagician_Tracer`(`02533276…`).
+- `UnitView.cs`: 차지 유닛 = 공격 클립(`_Attack`)에 `OnAttackCharge`가 있는 유닛(캐시) · 차지 신호는 source lease를 **확인만**(Armed·남은 횟수·SourceOnly 아님·현재 회차·회차당 1회), impact lease는 `IsArmed` 확인만 · 타격 신호는 종전대로 두 lease 소비 → 차지 VFX 재재생 생략 → 투사체(트레이서) 발사 + 발사음 · 취소 시 차지 정지(`RetireAndCloseAttackPresentationScope` — 정상 회차 교체 사유 `presentation-revision-replaced` 제외 — 와 `PreserveCommittedSourceMarkerAndCloseTargetImpact` 2곳) · Fox 타격 조기 return 주석 처리.
+- 주석만: `AnimationEventRelay.cs`·`EffectManager.cs`·`EffectPreset.cs`·`VfxPoolItem.CasterOwned.cs`.
+- 자동 검증: `RunUnitActionSelfValidation.cs`(Fox fixture 새 기준·옛 단언 주석 보존, Fox tracer/impact 연결 검사, Inferno 차지 0.1667 검사, 차지 클립 집합·차지 프리팹 길이 검사) · `RunUnitActionSelfValidation.VfxConnections.cs`(실제 EffectManager로 차지→발사·취소·SourceOnly·싱글 경로 fixture 추가).
+- 바뀌지 않음: `UnitAttackPresentationPolicy.cs`(P3 불필요) · `UnitCombatUseCase.cs` · `HitPresentationQueue.cs` · `NetworkCombatController.cs` · `UnitFactory.cs` · `FoxMagician_Attack.anim` [직접 — 커밋 파일 목록].
+
+계획과 달라진 점은 [Plan 9-2](Plan.md#9-2-plan과-달라진-점)가 단일 소스다.
+
+<a id="9-3-추가-수정--inferno-불티-초록빛-커밋-f899238f609ba447"></a>
+
+### 9-3. 추가 수정 — Inferno 불티 초록빛 (커밋 `f899238f`·`609ba447`)
+
+| 프리팹 | 레이어 | 재질 변경 |
+|---|---|---|
+| `vfx_infernospirit_impact.prefab` | `Embers` | `Mat_VFX_SharpSpark`(GUID `ba98d9c3…`) → `Mat_VFX_GlowAdditive`(GUID `b1f44011…`) [직접] |
+| `vfx_infernospirit_tracer.prefab` | `Ember_Trail` | 같음 [직접] |
+
+- 원인: `Mat_VFX_SharpSpark`의 텍스처는 `Art/VFX/RuneSpire/vfx_sharp_spark.png`(RuneSpire 번개용) [직접 — 재질의 텍스처 GUID → `.meta`]이며 청록색이다(평균 RGB 약 89/237/238 [전달 — 이 checkout에는 이미지 측정 도구가 없어 다시 재지 못함]). 파티클 색은 레이어의 색(Start Color·Color over Lifetime)에 텍스처 색이 **곱해져** 나오므로, 주황 불티가 초록빛으로 보였다. `Mat_VFX_GlowAdditive`의 텍스처는 `Art/VFX/Pistoleer/vfx_soft_glow.png`(흰색 [전달])라 레이어 색이 그대로 나온다.
+- 🔴 같은 `Mat_VFX_SharpSpark`를 FoxMagician `vfx_foxmagician_impact.prefab`·`vfx_foxmagician_tracer.prefab`의 `Sparkles` 레이어와 `vfx_runespire_attack.prefab`도 쓴다 [직접 — GUID 검색, 렌더러 소유 GameObject 이름 확인]. 사용자는 Inferno만 바꾸라고 지시했으므로 Fox 쪽은 **그대로**다(사실 기록 — 후속 작업으로 정하지 않았다).
+
+<a id="9-4-알려진-한계-유지"></a>
+
+### 9-4. 알려진 한계 (유지)
+
+- Fox 피해 숫자가 투사체 도착보다 먼저 뜬다(D1, 규칙 19 유지 — 옵션 C에서 다룬다).
+- 차지 도중 취소돼도 피해 숫자만 뜰 수 있다(D2 — 옵션 C에서 다룬다).
+- Client 화면에서 Inferno 차지가 가끔 빠질 수 있다 **[추정 — 실기 빈도 미보고]**.
+- Fox 차지의 Wisps 입자 수는 방출 구간이 2 → 0.8333초로 줄어 약 2.4배 적어졌다(rate-over-time 곡선은 그대로) [전달]. 사용자 이의 없음.
+- Fox `Sparkles`는 청록 텍스처 재질 그대로다(9-3).
+- 차지 SFX는 없다 — 추후 SFX 작업(사용자 결정, 3절).
+
+### 9-5. 상시 문서 반영
+
+규칙 개정(Units 규칙 17 「차지 유닛 typed marker 계약」, UnitCombatSynchronization 「8. Animation Event와 표현」 NET-PRESENT-001)과 `StatsReference.md`·`VFXSFXList.md`·`VFXSFXGuide.md`·감사표·현황 문서 반영 내역, 개정 전 원문은 [Plan 9-4](Plan.md#9-4-상시-문서-반영과-개정-전-원문)에 있다. [vfx-code-followups Research 15-6](../../2026-10-13/13_53_vfx-code-followups/Research.md#15-6-charge-unit-fire-timing)의 머리 상태 표시는 이 작업으로 완료 표시했다.

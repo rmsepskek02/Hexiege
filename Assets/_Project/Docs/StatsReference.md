@@ -46,7 +46,7 @@
 ## 유닛 — 인간계 (Human)
 
 > **시간 컬럼:** 권위 타격·발사·힐 발동 offset과 실제 생산 주기를 초 단위로 구분한다. 콜론 표기를 일괄 환산하지 않고 선택 클립의 저장값·소비 경로를 따른다. 이전 시간 사본은 이력에 보존한다.
-> 시간은 권위 행동 회차 시작부터 해당 사건까지의 offset이다. 일반 공격은 권위 피해 예약 시점, TorrentSpirit는 파도 발사 시점(대상별 피해·힐은 그 뒤 전선 접촉), BloomFairy는 힐 발동 시점이다. FoxMagician은 피해 `OnAttackHit @ 85/30초`와 charge `OnAttackCharge @ 1초`를 구분하며 로컬 이벤트가 HP를 적용하지 않는다. `초:프레임(30fps)` 마커는 `초 + 프레임/30`으로 환산한다.
+> 시간은 권위 행동 회차 시작부터 해당 사건까지의 offset이다. 일반 공격은 권위 피해 예약 시점, TorrentSpirit는 파도 발사 시점(대상별 피해·힐은 그 뒤 전선 접촉), BloomFairy는 힐 발동 시점이다. 차지 유닛(InfernoSpirit·FoxMagician)은 피해·발사 `OnAttackHit`(Inferno 1.5초, Fox 85/30초)와 차지 시작 `OnAttackCharge`(Inferno 5/30초, Fox 1초)를 구분하며, 시간 칸에는 피해·발사 시점을 쓰고 차지 시작을 괄호에 적는다. 투사체 발사·공격 SFX는 `OnAttackHit` 순간이고 차지 시작은 피해 offset이 아니며 로컬 이벤트가 HP를 적용하지 않는다(`GameSystemRules_Units.md` 규칙 17 「차지 유닛 typed marker 계약」). *(2026-10-19 갱신: 종전 「FoxMagician은 피해 `OnAttackHit @ 85/30초`와 charge `OnAttackCharge @ 1초`를 구분하며 로컬 이벤트가 HP를 적용하지 않는다.」)* `초:프레임(30fps)` 마커는 `초 + 프레임/30`으로 환산한다.
 > **HP·공격력은 ×10 스케일 값(구현 완료 — config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)).** 이동속도·사거리·쿨다운·생산시간·골드비용·인구는 불변.
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 타격·발동 시점 (초) | 전체 주기 (초) | 생산 시간 | 골드 비용 | 인구 | 비고 |
@@ -68,7 +68,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | EmberSpirit | 350 | 60 | 0.5 | 1 | 0.5 | 1 | 2.6666667 | 5초 | 50 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | FlameSpirit | 350 | 30 | 0.5 | 1 | 2 | 0.6666667, 1.1666667, 1.4333334, 1.6666667, 1.9, 2.1 | 3 | 10초 | 100 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
-| InfernoSpirit | 600 | 250 | 4 | 4 | 1 | 1.5 | 3 | 30초 | 400 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
+| InfernoSpirit | 600 | 250 | 4 | 4 | 1 | 1.5 (피해·발사; charge 0.1667) | 3 | 30초 | 400 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | DustSpirit | 500 | 60 | 0.5 | 1 | 0.5 | 1.04 | 3 | 5초 | 50 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | BoulderSpirit | 800 | 80 | 0.5 | 1 | 0.5 | 1.3333333 | 4 | 15초 | 100 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | QuakeSpirit | 2500 | 200 | 0.5 | 1 | 0.5 | 1.667 | 5 | 30초 | 400 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
@@ -80,7 +80,7 @@
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 타격·발동 시점 (초) | 전체 주기 (초) | 생산 시간 | 골드 비용 | 인구 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FoxMagician | 200 | 150 | 3 | 3 | 0.5 | 2.8333333 (피해; charge 1) | 4 | 5초 | 70 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
+| FoxMagician | 200 | 150 | 3 | 3 | 0.5 | 2.8333333 (피해·발사; charge 1) | 4 | 5초 | 70 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | BearGuard | 1000 | 60 | 0.5 | 1 | 1 | 0.43333334 | 1.6666666 | 25초 | 300 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | LionKnight | 500 | 90 | 0.5 | 1 | 2 | 0.6, 1.4333333 | 2 | 15초 | 200 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | RhinoBreaker | 600 | 100 | 0.5 | 1 | 2 | 1.05 | 2 | 20초 | 200 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
@@ -97,7 +97,7 @@
 
 ### 생산 타임라인 구현 근거
 
-일반 공격의 타격은 선택된 Attack 클립의 `OnAttackHit` 이벤트를 추출한다. 주기는 선택된 클립 길이로 덮어쓴다. Fox도 SOLO/server/client Factory 생성에서 피해 `OnAttackHit @ 85/30초`를 추출하며 type21 설정 fallback은2.8333333초다. 별도 `OnAttackCharge @ 1초`는 source VFX/SFX만 시작하고 피해 offset에 포함하지 않는다. Bloom은 marker 1초 뒤 **발동 후 쿨다운 3초**를 세므로 명목 주기는 4초이며 클립 길이와 같은 이유로 일반 공격 규칙을 적용한 값이 아니다. Torrent의 2.3333333은 파도 발사이며 실제 피해·힐은 이후 대상 접촉 시점이다.
+일반 공격의 타격은 선택된 Attack 클립의 `OnAttackHit` 이벤트를 추출한다. 주기는 선택된 클립 길이로 덮어쓴다. Fox도 SOLO/server/client Factory 생성에서 피해 `OnAttackHit @ 85/30초`를 추출하며 type21 설정 fallback은2.8333333초다. 별도 `OnAttackCharge @ 1초`는 차지 VFX만 시작하고(공격 SFX는 `OnAttackHit` 발사 순간) 피해 offset에 포함하지 않는다. InfernoSpirit도 같은 차지 유닛이며 `OnAttackCharge @ 5/30초`는 피해 offset에 포함하지 않는다(추출 타격은 1.5초 하나). *(2026-10-19 갱신: 종전 「…는 source VFX/SFX만 시작하고 피해 offset에 포함하지 않는다.」)* Bloom은 marker 1초 뒤 **발동 후 쿨다운 3초**를 세므로 명목 주기는 4초이며 클립 길이와 같은 이유로 일반 공격 규칙을 적용한 값이 아니다. Torrent의 2.3333333은 파도 발사이며 실제 피해·힐은 이후 대상 접촉 시점이다.
 
 Fox의 원래 `2:25@30fps`는85/30초이며 이전2.25초 환산값을 현재값으로 사용하지 않는다. 이는 새 밸런싱이 아니다. [복원·검증 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-stats-fox-01)과 [현재 개별 수용](Assets/UnitCombatAssetMatrix.md)을 구분한다.
 

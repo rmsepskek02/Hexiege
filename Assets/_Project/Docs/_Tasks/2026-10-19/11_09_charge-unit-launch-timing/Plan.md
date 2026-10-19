@@ -1,7 +1,7 @@
 # Plan — 차지 유닛 발사 시점 (InfernoSpirit · FoxMagician)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `4fb37139` · 근거 조사: 같은 폴더 `Research.md`(D1~D3 결정 기록 포함)
-> **상태: 사용자 승인 전.** 승인 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]).
+> **상태: 완료** — P1~P5 구현(커밋 `8330b5d9`) · Inferno 불티 재질 추가 수정(`f899238f`·`609ba447`) · 사용자 싱글·멀티 시각 확인 2026-10-19 · P6 문서 반영 2026-10-19. 회귀 스위트 결과는 미보고, 로그 기반 검증 없음. 결과·한계는 [9절](#9-구현-결과-2026-10-19-추가). *(2026-10-19 갱신: 종전 「사용자 승인 전. 승인 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]).」)*
 > 근거 표기: [확인] = 이 Plan 작성 때 파일을 직접 다시 읽은 행 · [전달] = Research가 programmer 보고서에서 옮긴 값 · [추정] · [미확인] — Research 2절과 같은 기준. 행 번호는 HEAD `4fb37139` 기준이며 메서드 이름을 함께 적는다.
 
 ## 0. 이 계획이 무엇인가 (쉬운 설명)
@@ -263,3 +263,143 @@
 | 날짜 | 변경 | 이유 |
 |---|---|---|
 | 2026-10-19 | 최초 작성 | Research D1~D3 사용자 결정(2026-10-19) 반영. 작성 중 확인한 사항을 함께 적었다: 차지 마커가 source lease에 더해 impact lease도 소비한다(R-3, `UnitView.cs` 7348·7779행 [확인]). 위험 9~11을 추가했다 |
+| 2026-10-19 | 구현 결과·사용자 확인·P6 문서 반영 기록 (9절 추가) | 구현 `8330b5d9`, 추가 재질 수정 `f899238f`·`609ba447`, 사용자 싱글·멀티 시각 확인. 위 1~8절 계획 본문은 고치지 않았다 — 달라진 점은 9-2 |
+
+---
+
+<a id="9-구현-결과-2026-10-19-추가"></a>
+
+## 9. 구현 결과 (2026-10-19 추가)
+
+**쉬운 설명.** 계획한 P1~P5를 한 커밋(`8330b5d9`)으로 구현했다. 지옥불 정령은 이제 0.1667초에 차지를 시작해 1.5초에 화염구를 쏘고, 여우 마법사는 1.0초에 차지를 시작해 2.8333초에 마법탄을 쏜다. 발사음은 발사 순간에 나고, 차지는 발사 순간에 스스로 끝나며, 공격이 끊기면 차지가 바로 사라진다. 사용자가 싱글·멀티에서 눈으로 확인했다. 확인 중 지옥불 정령의 불티가 초록빛으로 보여 재질만 바꿨다(9-3). 서버 피해·HP·RPC는 바뀌지 않았다.
+
+근거 표기: [직접] = document-manager가 HEAD `609ba447`에서 커밋 diff·파일을 읽어 확인 · [전달] = 메인 세션 인계 · [사용자] = 사용자 보고. 사용자 결과와 로그·회귀 스위트의 범위는 [Research 9-1](Research.md#9-implementation-result)이 단일 소스다.
+
+### 9-1. 실행 기록
+
+| 단계 | 상태 | 비고 |
+|---|---|---|
+| P1-1 Inferno 클립 이벤트 | ✅ 구현 | `OnAttackCharge` @ 0.16666667 [직접] |
+| P1-2 Inferno 차지 프리팹 | ✅ 구현 | 1 → 1.3333334 (Duration·Lifetime) [직접] |
+| P1-3 Fox 차지 프리팹 | ✅ 구현 | 루트 2 → 1.8333334, Wisps Duration 2 → 0.8333333(Lifetime 0.6~1.0 유지) [직접] |
+| P1-4 Fox tracer·impact 연결 | ✅ 구현 | 기존 행과 같은 `{fileID: 11400000, guid: …, type: 2}` 형식 [직접] |
+| P2-1~P2-6 `UnitView.cs` | ✅ 구현 | 달라진 점 9-2 |
+| P3 확인 전용 API | ⬜ **불필요로 판단 — 만들지 않음** | 9-2 #3 |
+| P4 주석 | ✅ 구현 | 4개 파일 주석 + `UnitView.cs` |
+| P5 자동 검증 T-1~T-6 | ✅ 구현 | 실행 결과: **미보고**(Research 9-1) |
+| (추가) Inferno 불티 재질 | ✅ 구현 · 사용자 확인 | 9-3 |
+| P6 문서 | ✅ 반영 | 9-4 |
+| 1절 「주석 처리분 최종 삭제」 | ⬜ **미실행** | 사용자 지시가 없었다. R-1~R-4·V-1~V-3 주석 블록은 코드에 남아 있다 [직접] |
+
+<a id="9-2-plan과-달라진-점"></a>
+
+### 9-2. Plan과 달라진 점 [직접 — diff, 이유는 코드 주석에서 옮김]
+
+| # | Plan | 실제 | 이유 |
+|---|---|---|---|
+| 1 | P2-6: 정지 헬퍼를 4곳(`ClearCombatTargetTracking` · `PreserveCommittedSourceMarkerAndCloseTargetImpact` · `RetireAndCloseAttackPresentationScope` · 싱글 `ChangeTarget`)에서 부름 | **2곳**으로 통합: `RetireAndCloseAttackPresentationScope`(사유가 `presentation-revision-replaced`이면 **끄지 않음**)와 `PreserveCommittedSourceMarkerAndCloseTargetImpact`. `ClearCombatTargetTracking`은 이 두 함수를 부르므로 따로 넣지 않았다. **싱글 `ChangeTarget`에서는 끄지 않는다** | `presentation-revision-replaced`는 매 공격 회차의 정상 커밋 경계라, 여기서 끄면 정상 차지가 잘린다(Plan 위험 10). 싱글의 타겟 변경 이벤트는 「새 공격을 시작하는 순간」에 발행되고 싱글은 lease를 쓰지 않아 다음 타격이 새 타겟으로 그대로 발사하므로 진짜 취소가 아니다 |
+| 2 | T-5: 「최대 Duration + 최대 Lifetime ≤ 차지 구간」 | 파티클 시스템별 **실제 끝 시각** = (시작 지연 + 마지막 방출 시각 + 최대 수명) ÷ 재생 속도. 마지막 방출 시각은 초당/거리당 방출이 있으면 Duration 끝, burst만 있으면 마지막 burst 시각. 그 최댓값이 차지 구간 이하이면서 **구간 끝 1프레임(1/30초) 안까지 이어지는지**도 확인. 루프·무한 burst·곡선 수명이면 검사 실패로 알림 | Plan 문구는 연속 방출 시스템의 보수적 상한이다. 두 루트는 시작 순간 burst만 써서 실제 끝 = Lifetime이다 |
+| 3 | P3: impact lease의 남은 `HitIndex` 확인이 필요하면 읽기 전용 API 추가 | 추가하지 않음. `IsArmed`만 확인 | `TryConsume`은 Armed일 때만 성공하고, Armed 동안 남은 `HitIndex`는 항상 1개 이상이다(마지막을 쓰는 순간 Consumed로 바뀐다). 현재 두 차지 유닛(LegacyFallback)은 impact lease를 장전하지 않으므로 이 값은 false다 |
+| 4 | V-1~V-3만 주석 보존 | 같은 Fox fixture의 옛 기준 단언 몇 개(lease 남은 횟수 불변·emission scope 불변 등)도 **주석으로 보존**하고 새 기준 단언으로 대체 | 새 기준(타격은 lease 소비·투사체 발사)과 반대를 요구하는 단언이다 |
+| 5 | P2-1: `Initialize`에서만 판별 계산 | `Initialize`에서 계산하되, 그때 Animator가 없으면 **첫 Animation Event 때 한 번** 계산(`EnsureAttackChargeMarkerCache`) | Animator가 없으면 판별을 못 하기 때문. 유닛 수명당 1회는 그대로 |
+| 6 | T-1: Fox 이벤트 fixture 갱신 | 갱신 + `RunUnitActionSelfValidation.VfxConnections.cs`에 실제 EffectManager로 「차지→발사·같은 회차 두 번째 차지·차지 중 허가 차단·SourceOnly Stop·싱글」을 보는 fixture(`ValidateChargeUnitLaunchTiming`) 추가. 발사음은 AudioManager를 격리해 관측하지 않음 | Plan 4절의 「선택: VfxConnections」를 실행 |
+| 7 | (Plan 범위 밖) | Inferno tracer `Ember_Trail`·impact `Embers` 재질 교체(9-3) | 사용자 시각 확인 중 발견, 사용자 지시 |
+
+### 9-3. 추가 수정 — Inferno 불티 초록빛
+
+사실·원인·FoxMagician에 남은 같은 재질은 [Research 9-3](Research.md#9-3-추가-수정--inferno-불티-초록빛-커밋-f899238f609ba447)이 단일 소스다. 요약: `Mat_VFX_SharpSpark`(청록 RuneSpire 텍스처) → `Mat_VFX_GlowAdditive`(흰색 텍스처). FoxMagician `Sparkles` 2개 레이어는 사용자 지시 범위 밖이라 그대로다.
+
+<a id="9-4-상시-문서-반영과-개정-전-원문"></a>
+
+### 9-4. 상시 문서 반영과 개정 전 원문
+
+| 문서 | 반영 |
+|---|---|
+| `GameSystemRules/GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 규칙 17 | 「FoxMagician typed marker 계약」 문단을 **「차지 유닛 typed marker 계약」**으로 교체(규칙 번호 유지). 규칙 19는 유지 |
+| `GameSystemRules/GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」 NET-PRESENT-001 | Fox 문단을 차지 유닛 공통 문단으로 교체 |
+| `StatsReference.md` | 49행 시간 설명 · 71행 Inferno 「1.5 (피해·발사; charge 0.1667)」 · 83행 Fox 「2.8333333 (피해·발사; charge 1)」(사용자 승인) · 100행 「생산 타임라인 구현 근거」의 charge 설명(같은 옛 주장 「source VFX/SFX」가 있어 함께 고침) |
+| `Assets/VFXSFXList.md` | 35행 연결 요약 · 49행 InfernoSpirit · 56행 FoxMagician |
+| `Assets/VFXSFXGuide.md` 「코드 계약」 | 6번(공용 재질의 텍스처 색) · 7번(차지 프리팹 길이) 추가 |
+| `Assets/UnitCombatAssetMatrix.md` | 「Fox 현행 복원」 문단 · InfernoSpirit·FoxMagician 행 |
+| `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` | VFX 표현 후속 행 · C 방식 행의 18-6 덧붙임 상태 · 마일스톤 1행 |
+| [vfx-code-followups Research 15-6](../../2026-10-13/13_53_vfx-code-followups/Research.md#15-6-charge-unit-fire-timing) · [Plan 18-6](../../2026-10-13/13_53_vfx-code-followups/Plan.md#18-6-charge-unit-fire-timing) | 머리 상태 표시와 CH-1~CH-3을 이 작업으로 완료 표시(제자리 수정 + 날짜 조각) |
+
+**개정 전 원문 (2026-10-19 교체 직전, HEAD `609ba447` — 글자 그대로 보존):**
+
+`GameSystemRules_Units.md` 320행:
+
+````markdown
+**FoxMagician typed marker 계약:** `OnAttackCharge @ 1초`는 기존 lease·생명주기 gate를 거쳐 source VFX/SFX만 방출하고 recipient observation·LocalAttackHit·tracer·HP 경로 전에 종료한다. `OnAttackHit @ 85/30초`는 피해 의도 marker로, 로컬 callback은 읽기 전용 metadata만 기록하고 charge lease 소비나 VFX 재생을 하지 않는다. SOLO/server/client 생성은 실제 OnAttackHit만 권위 피해 offset으로 추출하며 charge는 제외한다. type21 fallback은2.8333333초다. 실제 피해는 기존 권위 timer/writer가 소유한다. 이는 사용자 원래 `2:25@30fps = 85/30초`이며2.25초는 잘못된 환산이다. Unresolved/LegacyFallback·기존 writer/Immediate bool·range·다른 타입 의미는 유지한다.
+````
+
+`GameSystemRules_UnitCombatSynchronization.md` 309행:
+
+````markdown
+FoxMagician의 typed source charge·damage marker와 추출·HP 경계는 `GameSystemRules_Units.md` 규칙17을 따른다. `OnAttackCharge @ 1초`와 `OnAttackHit @ 85/30초`를 구분하며 charge를 피해 offset으로 추출하거나 damage callback에서 charge를 소비·재생하지 않는다. Unresolved/LegacyFallback·Immediate intent·기존 권위 writer를 유지한다. 원래 `2:25@30fps`의 복원이며 이전2.25초 환산은 현행 값이 아니다. source8 manifest·controlled compile·일반23종 감사 및 native/멀티/시각 미실행 경계 원문은 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-unitcombatsynchronization-05), 현재 개별 수용은 [감사표](../Assets/UnitCombatAssetMatrix.md)를 따른다. 이 한정 결과를 전체 SOLO 완료로 확대하지 않는다.
+````
+
+`StatsReference.md` 49행 중 해당 문장: 「FoxMagician은 피해 `OnAttackHit @ 85/30초`와 charge `OnAttackCharge @ 1초`를 구분하며 로컬 이벤트가 HP를 적용하지 않는다.」 · 71행 시간 칸 「1.5」 · 83행 시간 칸 「2.8333333 (피해; charge 1)」 · 100행 해당 문장: 「별도 `OnAttackCharge @ 1초`는 source VFX/SFX만 시작하고 피해 offset에 포함하지 않는다.」
+
+(2026-10-14 계약의 더 긴 원문은 이미 [History 「규칙 17 유닛별 타임라인 변경·Fox receipt」](../../../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-units-02)에 있다.)
+
+### 9-5. 알려진 한계
+
+[Research 9-4](Research.md#9-4-알려진-한계-유지)가 단일 소스다(Fox 숫자 선행 L-1 · 취소 후 숫자만 L-2 · Client Inferno 차지 간헐 누락 [추정] · Fox Wisps 입자 수 감소 · Fox `Sparkles` 청록 재질 · 차지 SFX 없음).
+
+<a id="9-6-변경-파일-리스트업-workflow-12"></a>
+
+### 9-6. 변경 파일 리스트업 (WORKFLOW [12])
+
+[직접 — 커밋 `e2b12593`·`8330b5d9`·`7da90f92`·`f899238f`·`609ba447`의 `git show --name-status` + 이번 문서 반영(미커밋)]
+
+```
+[수정 — 코드]  (8330b5d9)
+- Assets/_Project/Scripts/Presentation/Unit/UnitView.cs
+- Assets/_Project/Scripts/Presentation/Unit/AnimationEventRelay.cs          (주석)
+- Assets/_Project/Scripts/Presentation/Effects/EffectManager.cs            (주석)
+- Assets/_Project/Scripts/Presentation/Effects/EffectPreset.cs             (주석)
+- Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.CasterOwned.cs  (주석)
+- Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs
+- Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.VfxConnections.cs
+
+[수정 — 에셋]
+- Assets/_Project/Animations/Units/InfernoSpirit/InfernoSpirit_Attack.anim   (8330b5d9)
+- Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_charge.prefab          (8330b5d9)
+- Assets/_Project/Prefabs/VFX/Units/vfx_foxmagician_charge.prefab            (8330b5d9)
+- Assets/_Project/Resources/Config/UnitEffectConfig.asset                    (8330b5d9)
+- Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_impact.prefab          (f899238f)
+- Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_tracer.prefab          (609ba447)
+
+[수정 — 상시 문서]  (이번 반영, 미커밋)
+- Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md
+- Assets/_Project/Docs/GameSystemRules/GameSystemRules_UnitCombatSynchronization.md
+- Assets/_Project/Docs/StatsReference.md
+- Assets/_Project/Docs/Assets/VFXSFXList.md
+- Assets/_Project/Docs/Assets/VFXSFXGuide.md
+- Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md
+- Assets/_Project/Docs/PROJECT_STATUS.md
+- Assets/_Project/Docs/ROADMAP.md
+- Assets/_Project/Docs/WORK_HISTORY.md
+
+[수정 — 에이전트 메모리]
+- .claude/agent-memory/document-manager/MEMORY.md     (e2b12593 · 이번 반영)
+- .claude/agent-memory/_baseline.json                 (e2b12593 · 이번 반영 — --update-baseline)
+- .claude/MEMORY.md                                   (이번 반영)
+- .claude/agent-memory/game-programmer/vfx-presentation.md   (이번 반영)
+- .claude/agent-memory/game-programmer/MEMORY.md      (이번 반영 — 인덱스 설명)
+- .claude/agent-memory/asset-prompt-crafter/MEMORY.md (이번 반영)
+
+[추가 — 작업 문서]
+- Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Research.md   (e2b12593, 이번 9절)
+- Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Plan.md       (e2b12593, 이번 9절)
+- Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing.meta          (7da90f92, 사용자)
+- Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Plan.md.meta  (7da90f92, 사용자)
+- Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Research.md.meta (7da90f92, 사용자)
+- Assets/_Project/Docs/_Logs/2026-10-19.meta                                           (7da90f92, 사용자)
+- Assets/_Project/Docs/_Logs/2026-10-19/21_43_logcat.meta                              (7da90f92, 사용자)
+- Assets/_Project/Docs/_Logs/2026-10-19/21_43_logcat/RuntimeLog_device.txt.meta        (7da90f92, 사용자 — 로그 본문은 .gitignore로 저장소 밖)
+
+[수정 — 작업 문서]
+- Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md   (15-6 완료 표시)
+- Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md       (18-6 완료 표시)
+```

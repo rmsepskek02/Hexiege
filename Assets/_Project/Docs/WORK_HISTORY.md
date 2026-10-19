@@ -13,6 +13,7 @@
 
 | 날짜 | 마일스톤 |
 |---|---|
+| 2026-10-19 | 차지 유닛(InfernoSpirit·FoxMagician) 차지→발사 시점 분리(클립 `OnAttackCharge` = 차지 VFX·lease 확인만, `OnAttackHit` = 투사체+발사음, 취소 시 차지 정지)·Fox tracer/impact 연결·Inferno 불티 재질 교체를 싱글·멀티 사용자 시각 확인 범위에서 수용. 서버 피해 시점 무변경, 로그 검증 없음·회귀 스위트 미보고. [근거](<_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Research.md#9-implementation-result>) |
 | 2026-10-19 | QuakeSpirit 공격 VFX 재제작(6갈래 바닥 균열·흙먼지 퍼프·파편, 기존 공격 슬롯) 사용자 승인. 보이는 범위 약 1.6 > 피해 반경 1.0은 사용자 선택이며 피해 규칙 무변경. [근거](<_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md#13-quakespirit-attack-vfx-rework>) |
 | 2026-10-19 | Fox marker fixture의 기본 Quaternion 비교 교정 후 전체 회귀 suite 사용자 PASS 수용. production·Bloom 무변경, 기기 플레이/공격 시각·HP 수용과 구분. [근거](<_Tasks/2026-10-19/15_21_regression-suite-contract-fixes/Research.md#6-사용자-전체-suite-pass-수용과-최종-정리>) |
 | 2026-10-19 | 결과 화면의 공용 배경·게임 입력 차단/복원과 중첩·재경기·이탈·강제 실패 대응을 안내된 6항목 사용자 정상 확인 범위에서 수용. [근거](<_Tasks/2026-10-19/04_39_game-end-modal-input/Research.md#7-사용자-6항목-정상-확인수용과-후속-정리>) |

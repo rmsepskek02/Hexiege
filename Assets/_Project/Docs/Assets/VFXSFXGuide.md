@@ -252,6 +252,23 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - **Scaling Mode가 Local인 레이어는 루트·preset의 `Scale Multiplier`를 따르지 않는다** — 그런 레이어는 레이어마다 따로 조정해야 한다. 전체를 한 번에 키우고 줄이려면 모든 레이어를 Hierarchy로 둔다(QuakeSpirit 최종본은 전부 Hierarchy).
 - 공격자 방향을 따라 회전하는 공격 슬롯(`EffectPreset_*_Attack`)에서 재생되므로, 균열 갈래 방향은 월드 헥스 격자가 아니라 **공격 방향**을 따른다. 격자에 맞춘 모양이 필요하면 제작 전에 코드 쪽 재생 방식을 따로 확인한다.
 
+**6. 공용 재질의 텍스처 색은 파티클 색과 곱해진다 (2026-10-19 추가)**
+
+출처: InfernoSpirit 화염구·착탄 불티 초록빛 수정(사용자 확인 2026-10-19, `_Tasks/2026-10-19/11_09_charge-unit-launch-timing/` Research 9-3).
+
+- 파티클에 보이는 색 = 레이어 색(Start Color · Color over Lifetime) × **재질 텍스처의 색**이다. 텍스처가 흰색·회색이 아니면 레이어 색을 아무리 주황으로 줘도 그 텍스처 색이 섞인다.
+- `Mat_VFX_SharpSpark`의 텍스처는 RuneSpire 번개용 **청록색** `vfx_sharp_spark.png`이다. 따뜻한 색(불·불티·황금) 이펙트에 쓰면 **초록빛**으로 보인다(Inferno `Ember_Trail`·`Embers`가 그랬다). 따뜻한 색 불티에는 흰색 텍스처 재질 **`Mat_VFX_GlowAdditive`**(`vfx_soft_glow.png`)를 쓰고 색은 레이어 색으로 입힌다.
+- 프롬프트·수작업 모두 공용 재질을 고를 때 **그 재질의 텍스처가 무슨 색인지 먼저 확인**한다. 재질 이름(「Spark」)만 보고 고르지 않는다. 공용 재질 자체는 고치지 않는다(위 5번 — 다른 이펙트가 같이 쓴다).
+
+**7. 차지(기 모으기) 프리팹의 길이 = 차지 구간 (2026-10-19 추가)**
+
+출처: InfernoSpirit·FoxMagician 차지→발사 시점 작업(사용자 확인 2026-10-19, 같은 Task Plan 9-2). 규칙: [유닛 규칙 17](../GameSystemRules/GameSystemRules_Units.md) 「차지 유닛 typed marker 계약」.
+
+- 차지 이펙트는 공격 클립의 `OnAttackCharge`(차지 시작)에서 켜지고, `OnAttackHit`(발사)에서는 **다시 켜지지 않는다.** 코드가 따로 끄지도 않으므로 프리팹이 **발사 순간에 스스로 끝나야** 한다. 길이 = 클립의 (`OnAttackHit` − `OnAttackCharge`) — 현재 InfernoSpirit 1.3333초, FoxMagician 1.8333초.
+- 🔴 **자식 파티클 시스템까지 끝 시각을 계산한다.** 한 시스템이 실제로 끝나는 시각 = 시작 지연 + 마지막 방출 시각 + 최대 수명(재생 속도로 나눔)이다. 초당 방출(rate over time)이 있으면 마지막 방출은 Duration 끝, 시작 순간 burst만 있으면 burst 시각이다. 그래서 「Duration = 차지 구간」만 맞추면 꼬리가 넘친다 — Fox `Wisps`는 Duration 2 + 수명 최대 1.0이라 약 3초까지 남았고, Duration 0.8333 + 수명 1.0 = 1.8333으로 맞췄다. 자동 검증이 이 끝 시각을 차지 구간과 비교한다(구간 이하 · 구간 끝 1프레임 안까지 이어짐).
+- 「점점 모이는」 느낌은 Size over Lifetime·rate 곡선처럼 **정규화 곡선**으로 만든다. Duration을 줄이면 같은 곡선이 짧은 시간에 압축되며, 초당 방출량을 그대로 두면 **입자 총수는 Duration에 비례해 줄어든다**(Fox `Wisps`는 약 2.4배 감소 — 사용자 이의 없음).
+- 차지 이펙트 preset은 「Stop When Caster Dies」를 켠다 — 시전자 사망·제거, 그리고 발사 전 공격 취소 때 코드가 즉시 끈다.
+
 #### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
 
 화상·독·힐처럼 유닛에 붙는 이펙트의 크기를 유닛 몸집에 맞추려면 먼저 유닛별 몸 크기 표가 있어야 한다. 이 표를 채우는 에디터 도구다.

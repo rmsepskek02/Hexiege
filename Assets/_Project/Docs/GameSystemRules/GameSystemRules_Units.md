@@ -317,7 +317,13 @@ Assault는 명시 `attackTimelineClip`의 30fps `0:05`(5/30초) marker를 사용
 
 DustSpirit과 RabbitTrickster는 `UnitFactory.attackTimelineClip`에 실제 `Base Layer/Attack` motion을 명시한다. 서버/싱글·Client가 같은 선택 클립에서 주기와 이벤트를 읽고 양 팀 controller의 motion과 일치하는지 검증한다. 유사 이름 `Attack2`·`Attack3` 열거 순서로 바뀌어서는 안 된다. Rabbit의 생산 Attack은 2초/30fps이고 `OnAttackHit`·type25 fallback·검증 기대값은 `0:20`(0.6666667초)이다. 서버는 해당 offset으로 권위 피해를 예약한다.
 
-**FoxMagician typed marker 계약:** `OnAttackCharge @ 1초`는 기존 lease·생명주기 gate를 거쳐 source VFX/SFX만 방출하고 recipient observation·LocalAttackHit·tracer·HP 경로 전에 종료한다. `OnAttackHit @ 85/30초`는 피해 의도 marker로, 로컬 callback은 읽기 전용 metadata만 기록하고 charge lease 소비나 VFX 재생을 하지 않는다. SOLO/server/client 생성은 실제 OnAttackHit만 권위 피해 offset으로 추출하며 charge는 제외한다. type21 fallback은2.8333333초다. 실제 피해는 기존 권위 timer/writer가 소유한다. 이는 사용자 원래 `2:25@30fps = 85/30초`이며2.25초는 잘못된 환산이다. Unresolved/LegacyFallback·기존 writer/Immediate bool·range·다른 타입 의미는 유지한다.
+**차지 유닛 typed marker 계약 (InfernoSpirit · FoxMagician):** 차지 유닛은 생산 Attack 클립에 `OnAttackCharge`(차지 시작)와 `OnAttackHit`(발사)를 함께 가진 유닛이며, 코드는 타입 목록이 아니라 이 클립 이벤트로 판별한다. 현재 InfernoSpirit `OnAttackCharge @ 5/30초(0.1667초)`·`OnAttackHit @ 1.5초`, FoxMagician `OnAttackCharge @ 1초`·`OnAttackHit @ 85/30초`다.
+- `OnAttackCharge`는 차지 VFX만 켠다. 공격 SFX·tracer·recipient observation·LocalAttackHit·HP 경로로 가지 않는다. 멀티에서는 공격 회차 lease를 **확인만 하고 소비하지 않으며**(Armed·남은 횟수·SourceOnly 아님·현재 회차), 같은 회차에서 한 번만 낸다.
+- `OnAttackHit`는 종전대로 lease를 소비하고 투사체(tracer)를 발사하며 그 순간 공격 SFX를 낸다(사운드 규칙 15 — tracer VFX와 짝). 차지 VFX를 다시 켜지 않는다. 차지 프리팹 길이는 두 이벤트 사이 구간(Inferno 1.3333초, Fox 1.8333초)에 맞춰 발사 순간 스스로 끝난다.
+- 발사 전에 공격이 끊기면(타겟 교체·Stop·SourceOnly 등 미래 marker 허가가 닫히는 경계) 차지 VFX는 즉시 정지하고 투사체·공격 SFX는 내지 않는다. 표현 전용이며 이미 예약된 서버 피해를 취소하지 않는다. 차지 SFX는 아직 없다.
+- SOLO/server/client 생성은 실제 `OnAttackHit`만 권위 피해 offset으로 추출하며 `OnAttackCharge`는 제외한다. 서버 피해 시점·피해량은 이 계약으로 바뀌지 않는다. type21 fallback은2.8333333초다. 실제 피해는 기존 권위 timer/writer가 소유한다. Fox 값은 사용자 원래 `2:25@30fps = 85/30초`이며2.25초는 잘못된 환산이다. Unresolved/LegacyFallback·기존 writer/Immediate bool·range·다른 타입 의미는 유지한다. Fox 피해 숫자 즉시 표시는 규칙 19를 따른다.
+
+*(2026-10-19 개정 — 사용자 승인: 종전 「FoxMagician typed marker 계약」은 Fox 전용이었고 `OnAttackCharge`가 source VFX/SFX를 내며 `OnAttackHit` 로컬 callback은 metadata만 기록하고 VFX·tracer를 내지 않았다. 개정 전 문장 원문은 [작업 Plan 9-4](../_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Plan.md#9-4-상시-문서-반영과-개정-전-원문), 2026-10-14 계약 원문은 [당시 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-units-02). 구현·사용자 싱글·멀티 시각 확인: [Research 9절](../_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Research.md#9-implementation-result))*
 
 Rabbit focused 수용과 Fox source/controlled 검증은 전체 migration·전체 SOLO 완료가 아니다. 현재 타입별 수용과 미실행 native/멀티/시각 범위는 [감사표](../Assets/UnitCombatAssetMatrix.md), [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-units-02)에서 구분한다.
 
