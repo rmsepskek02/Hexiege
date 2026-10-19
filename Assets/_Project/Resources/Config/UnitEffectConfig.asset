@@ -65,17 +65,17 @@ MonoBehaviour:
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
     healPreset: {fileID: 0}
     timedDamagePreset: {fileID: 0}
-    impactPreset: {fileID: 0}
+    impactPreset: {fileID: 11400000, guid: f1b34352eb8d5d14d9579a5fb81b9c28, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
-    hitPreset: {fileID: 11400000, guid: f1b34352eb8d5d14d9579a5fb81b9c28, type: 2}
+    hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 7
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
     healPreset: {fileID: 0}
     timedDamagePreset: {fileID: 0}
-    impactPreset: {fileID: 0}
+    impactPreset: {fileID: 11400000, guid: f1b34352eb8d5d14d9579a5fb81b9c28, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
-    hitPreset: {fileID: 11400000, guid: f1b34352eb8d5d14d9579a5fb81b9c28, type: 2}
+    hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 10
     attackPreset: {fileID: 0}
@@ -137,9 +137,9 @@ MonoBehaviour:
     attackPreset: {fileID: 11400000, guid: 381cd1a1fe7f6e34497904a1ffbe495c, type: 2}
     healPreset: {fileID: 0}
     timedDamagePreset: {fileID: 0}
-    impactPreset: {fileID: 0}
+    impactPreset: {fileID: 11400000, guid: 495039404e254fe438a6b28f0ad6cc60, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
-    hitPreset: {fileID: 11400000, guid: 495039404e254fe438a6b28f0ad6cc60, type: 2}
+    hitPreset: {fileID: 0}
     tracerPreset: {fileID: 11400000, guid: f81ee8d909f506047aa1e4cbed138148, type: 2}
   - unitType: 18
     attackPreset: {fileID: 11400000, guid: 06aeda7f35f745a9b948be020f6acdc0, type: 2}

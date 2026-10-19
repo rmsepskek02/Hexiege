@@ -50,7 +50,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36f8f72720e82cd67b790f6b6b98211a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.TracerProjectile
-  _speed: 8
+  _speed: 4
 --- !u!198 &7962861565133969109
 ParticleSystem:
   m_ObjectHideFlags: 0

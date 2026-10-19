@@ -7504,8 +7504,23 @@ namespace Hexiege.Editor.Combat
                 effectRows++;
                 Require(row.FindPropertyRelative("attackPreset").objectReferenceValue == expectedAttackPreset,
                     "StreamSpirit must retain the verified production attack preset.");
-                Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
-                    "StreamSpirit tracer is not implemented; wiring one requires a separate authoritative projectile design.");
+                // [R5 비활성화 — 2026-10-19 사용자 승인으로 임시 트레이서 연결. C 방식(서버 투사체) 구현 시 재검토]
+                //   예전에는 "트레이서 미구현"을 고정했지만, 사용자가 VFX 확인용으로 Legacy 트레이서를
+                //   임시 연결하기로 승인했다. 원래 검사는 지우지 않고 아래에 주석으로 남긴다.
+                // Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
+                //     "StreamSpirit tracer is not implemented; wiring one requires a separate authoritative projectile design.");
+                // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+                //   트레이서 = 물폭탄 프리셋, 착탄 = 물보라 프리셋(공격자 기준 impact 슬롯),
+                //   피격(hit) 슬롯은 "맞은 유닛 타입" 기준이라 비워 둔다(공격자 이펙트가 엉뚱한 유닛에 뜨지 않게).
+                var expectedTracerPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(
+                    "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_StreamSpirit_Tracer.asset");
+                var expectedImpactPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(
+                    "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_StreamSpirit_Hit.asset");
+                Require(expectedTracerPreset != null && expectedImpactPreset != null
+                    && row.FindPropertyRelative("tracerPreset").objectReferenceValue == expectedTracerPreset
+                    && row.FindPropertyRelative("impactPreset").objectReferenceValue == expectedImpactPreset
+                    && row.FindPropertyRelative("hitPreset").objectReferenceValue == null,
+                    "[R5 interim] StreamSpirit uses the interim Legacy tracer + attacker impact preset, and its victim-keyed hit slot stays empty.");
             }
             Require(effectRows == 1, "UnitEffectConfig must contain exactly one StreamSpirit row.");
 

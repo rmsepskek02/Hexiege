@@ -349,6 +349,8 @@
 | 2026-10-15 | 13절 「최종 결과 — 여기까지의 기록」 추가(문서 끝) | 3차 사용자 실기(Research 10절) 결과 기록. 계획 변경이 아니라 결과 기록이며, 남은 결함 1건(타워 번개 사망 시 끝점 어긋남)은 별도 승인 대상으로 남겼다. 사용자 지시 원문: "우선 여기까지 작업한 것을 기록하자". |
 | 2026-10-19 | 14절 「재작업 R4 — 검증 해시 줄바꿈 문제」 추가(문서 끝) | main(`0978d908`) 병합 뒤 Edit Mode 전체 회귀 검증에서 `TorrentWaveProductionValidation`이 "source VFX hash changed"로 실패(Research 11절). 원인은 사용자 PC `core.autocrlf=true`로 디스크 파일이 CRLF가 되어 원본 바이트 해시가 LF 기준 상수와 달라진 것 — 병합·VFX 작업 결함이 아니다. 병합 전 검사를 끝내려면 이 검증을 줄바꿈에 무관하게 만들어야 하므로 이 브랜치에서 고친다. 사용자 승인 원문: "1번대로 진행하자" · "가로 진행해". |
 | 2026-10-19 | 16절 「QuakeSpirit 공격 VFX 재제작 결과」 추가(문서 끝) | 원래 계획에 없던 사용자 프리팹 작업(Unity AI + Inspector 조정, 커밋 `97239372`~`d1a994fb`)의 결과 기록. 계획 변경이 아니라 결과 기록이며 코드 변경은 없다. 사용자 원문: "이정도면 괜찮은거같아 이렇게 완료하도록하자" · "문서 갱신진행하자". |
+| 2026-10-19 | 17절 「원거리·마법 투사체 표시 — 사용자 결정 기록」 추가(문서 끝) | 투사체가 거의 보이지 않는 문제의 해결 방식으로 C(서버 권위 투사체)를 채택하고 구현은 별건으로 미룬 결정의 기록. 계획 변경·구현 없음. 사용자 원문: "C 방식으로 하는게 맞다고 생각해. … 문서에 기록만 남겨줘". |
+| 2026-10-19 | 18절 「재작업 R5 — VFX 확인용 임시 착탄 연결」 추가(문서 끝) | 사용자 StreamSpirit VFX(`bb5132ce`)의 착탄 preset이 맞은 유닛 종류로 재생되는 `hitPreset`에 들어가 엉뚱한 때에 나왔다(Research 15-3). C 방식 전까지 VFX를 확인하려고 피해와의 어긋남을 감수하고 느린 투사체 + 도착 지점 착탄으로 임시 연결하기로 사용자가 정했다(2026-10-19). C 방식 구현 시 교체. |
 
 ---
 
@@ -560,5 +562,59 @@ R4 뒤 전체 검증이 Torrent 파도 검사는 통과했지만 그 뒤 여우 
 **[수정] 에이전트 메모리** — `.claude/MEMORY.md` · `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` · `.claude/agent-memory/document-manager/MEMORY.md` · `.claude/agent-memory/_baseline.json`
 
 **[작업 문서 — 별도]** — 이 `Plan.md` 16절과 11절 표 한 행, `Research.md` 13절
+
+- `Testcase.md` 없음 — 요청받지 않았다(WORKFLOW [8] 해당 없음).
+
+<a id="17-projectile-visibility-decision"></a>
+
+## 17. 원거리·마법 투사체 표시 — 사용자 결정 기록 (2026-10-19 추가 — 0~16절은 보존)
+
+### 17-0. 쉬운 설명
+
+물폭탄·화염구·마법탄·포탄이 거의 보이지 않는 문제를 **서버가 투사체의 발사·착탄 시각을 관리하는 방식(C)** 으로 고치기로 사용자가 정했다. **이 계획에서는 구현하지 않으며 구현은 별건이다.** 지금은 VFX 제작을 계속하고, 완성된 VFX로 그 별건을 진행한다. 결정·조사 사실·미결 기획 질문의 단일 소스는 [Research 14절](Research.md#14-projectile-visibility-decision)이다.
+
+- 근거 규칙(변경 없음): `GameSystemRules_UnitCombatSynchronization.md` 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE` · `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-IMPACT-LOCKEDPOINT`.
+- 🔴 기존 로직 제거·비활성화(WORKFLOW [4]): 없음. 코드 변경 없음, `Testcase.md` 없음.
+- 미착수 항목 위치: [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속).
+
+---
+
+<a id="18-r5-interim-impact-hookup"></a>
+
+## 18. 재작업 R5 — VFX 확인용 임시 착탄 연결 (C 방식 구현 시 교체) (2026-10-19 추가, WORKFLOW [6] 재작업 — 0~17절은 보존)
+
+### 18-0. 쉬운 설명
+
+사용자가 만든 물의 정령 물폭탄 트레이서·물 튀김 VFX를 지금 눈으로 확인할 수 있게, **투사체를 느리게 날리고 도착한 자리에서 착탄 VFX를 재생**하도록 화면 표시만 임시로 연결한다. 지금은 물 튀김이 「맞은 유닛 종류」로 골라져 엉뚱한 때에 나오기 때문이다(Research 15-3). 피해는 지금처럼 서버가 타격 순간에 주므로 **화면의 착탄과 피해가 어긋나는 것은 사용자가 받아들였다**(2026-10-19). 진짜 해결은 17절의 C 방식(서버 권위 투사체)이며, 그때 이 연결은 교체된다. 사실 근거는 [Research 15절](Research.md#15-r5-interim-impact-hookup).
+
+### 18-1. 🔴 기존 로직 제거·비활성화 항목 (WORKFLOW [4])
+
+- 코드 로직 제거 없음. 서버·피해 판정·MushroomBomber 착탄 경로는 바꾸지 않는다.
+- **config 슬롯 이동**: StreamSpirit · Tank · CannonCart 행의 `hitPreset`에 사용자가 넣은 착탄 preset(`EffectPreset_StreamSpirit_Hit`, `EffectPreset_Cannon_Impact`)을 `impactPreset`으로 옮긴다 — 근거: `hitPreset`은 맞은 유닛 종류로 재생돼(`HitPresentationQueue.cs` 870·873행) 의도와 반대로 나온다. preset·프리팹 파일은 지우지 않는다.
+
+### 18-2. 수정 항목 (game-programmer — 진행 중)
+
+| # | 내용 |
+|---|---|
+| R5-1 | StreamSpirit 트레이서 프리팹에 `TracerProjectile`을 달고 `_speed`를 낮춘다(약 4) — 날아가는 모습이 보이게 |
+| R5-2 | 기존(legacy) 트레이서가 **도착하면** 공격자 유닛 종류의 `impactPreset`을 도착 지점에서 재생한다. MushroomBomber 경로는 그대로, 서버·피해는 그대로 |
+| R5-3 | config: 위 18-1의 슬롯 이동(StreamSpirit, Tank/CannonCart) |
+| R5-4 | 위 변경에 맞춰 기존 검증(validation) 갱신 |
+
+- 근거 규칙(변경 없음): 목표 설계는 `GameSystemRules_UnitCombatSynchronization.md` 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE` · `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-IMPACT-LOCKEDPOINT`이며, R5는 그 전까지의 **화면 전용 임시 조치**다. 규칙 문장은 바꾸지 않는다.
+- 최종 변경 파일 목록(WORKFLOW [12])은 game-programmer 인계 뒤 확정한다.
+
+### 18-3. 알려진 임시 부작용 (사용자가 받아들임 — C 방식에서 해소 예정)
+
+- **피해 숫자가 도착 때 뜬다** — legacy 경로가 로컬 도착 신호를 기다리므로, 서버가 실제로 피해를 준 시각보다 늦다.
+- **마지막 일격이면** 투사체가 도착하기 전에 대상이 먼저 죽을 수 있다.
+- **안전 시간 제한**: 공격 주기의 1.5배(StreamSpirit 2.25초) 안에 도착하지 않으면 끝낸다.
+
+### 18-4. 진행 순서와 점검
+
+1. game-programmer가 R5-1~R5-4를 구현하고 변경 파일을 보고한다.
+2. 사용자가 인게임에서 StreamSpirit이 때릴 때 물폭탄이 날아가고 **맞은 자리에서** 물 튀김이 나오는지, StreamSpirit·Tank·CannonCart가 **맞을 때** 물 튀김·포탄 착탄이 더는 나오지 않는지 확인한다.
+3. 착탄 프리팹 크기 조정(Research 15-3 2번 제안)은 사용자 에셋 작업이다.
+4. Tank/CannonCart 트레이서 프리팹은 나중 작업이며, 만들어지면 같은 경로를 쓴다.
 
 - `Testcase.md` 없음 — 요청받지 않았다(WORKFLOW [8] 해당 없음).

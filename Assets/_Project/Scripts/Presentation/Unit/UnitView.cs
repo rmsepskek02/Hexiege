@@ -7681,7 +7681,11 @@ _slot = _nextEviction;
                                 attackerId,
                                 markerScope,
                                 markerReplicatedSnapshot));
-                    });
+                    },
+                    // [R5 임시 — C 방식(서버 투사체) 구현 시 교체] 트레이서가 도착하면 공격자 타입의
+                    //   착탄 이펙트(impactPreset)를 도착 지점에서 터뜨린다. 설정이 없는 타입은 변화 없음.
+                    //   피해 시점(서버)과 어긋날 수 있지만 VFX 확인용으로 사용자 승인(2026-10-19)된 임시 동작이다.
+                    playImpactOnArrive: true);
             }
             else
             {

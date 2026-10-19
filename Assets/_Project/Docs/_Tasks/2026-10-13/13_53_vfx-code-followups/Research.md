@@ -442,3 +442,67 @@ R4 뒤 전체 자동 검증을 다시 돌리자 급류 파도 검사는 통과�
 
 - **사용자 승인 — 완료**(2026-10-19). 사용자 화면 확인이며 정밀 픽셀·멀티 양 peer 비교·자동 검증 대상은 아니다. `Testcase.md`는 요청받지 않아 만들지 않았다(WORKFLOW [8] 해당 없음).
 - 이 결과는 10-4의 OPEN 결함(타워 번개 사망 시 끝점)과 무관하며 그 상태를 바꾸지 않는다.
+
+<a id="14-projectile-visibility-decision"></a>
+
+## 14. 원거리·마법 투사체가 보이지 않는 문제 — 사용자 결정 (2026-10-19 추가 — 1~13절은 당시 기록으로 보존)
+
+### 14-0. 쉬운 설명
+
+물폭탄·화염구·마법탄·포탄처럼 「날아가서 맞는」 공격이 화면에서 거의 보이지 않는다. 지금은 공격 동작의 타격 순간에 서버가 바로 피해를 주므로 날아가는 시간이 없기 때문이다. 사용자는 **C 방식(서버가 투사체의 발사·착탄 시각을 관리)** 으로 고치기로 정했고, **구현은 별건**으로 미뤘다. 지금은 VFX 제작을 계속하고, 완성된 VFX로 그 별건을 진행한다. 사용자 원문(2026-10-19): "C 방식으로 하는게 맞다고 생각해. 지금은 vfx작업을 진행하고 별건으로 완성된 vfx들을 활용하여 진행하도록할게 문서에 기록만 남겨줘". **이번에는 기록만 하며 코드는 바꾸지 않았다.**
+
+### 14-1. 대상과 결정
+
+- 대상: StreamSpirit 물폭탄 · InfernoSpirit 화염구 · FoxMagician 마법탄 · Tank/CannonCart 포탄 · MushroomBomber 기존 포자 트레이서.
+- **채택 C — 서버 권위 투사체**: 서버가 발사 시각과 착탄 시각(= 발사 + 거리 ÷ 투사체 속도)을 정하고 **착탄 시각에 피해를 확정**한다 → 비행·피해·피해 숫자·사망·착탄 VFX가 모든 화면에서 맞는다. 이미 규칙에 있는 목표 설계다 [직접 확인]: `GameSystemRules_UnitCombatSynchronization.md` 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`(268~270행) · `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-IMPACT-LOCKEDPOINT`(225~229행). 규칙 변경은 없다.
+- 보류(기각): **A** 발사 표시를 더 앞당김(사용자: 완성도 부족) · **B** 타격 표시를 뒤로 미룸(거리와 무관한 고정 비행 시간) · **D** 화면만 느린 투사체(피해 숫자·사망·착탄 VFX와 어긋남).
+
+### 14-2. 조사 사실 [전달 — game-programmer 읽기 전용 조사, HEAD `ec000217`, 행 번호는 근사]
+
+- 피해는 공격 클립의 OnAttackHit 시각에 서버에서 발생한다(`NetworkCombatController.cs` ~1430–1518, `UnitCombatUseCase.cs` ~709–718; 타격 시각 추출 `UnitFactory.cs` ~577–593). 게임플레이상 투사체 비행 시간은 없다.
+- 이 유닛들은 「Unresolved」 프로파일이다(`UnitAttackShadowProfileResolver.cs` ~62–68).
+- MushroomBomber 트레이서 비행 = ImpactTime + 0.10 − 현재 ≈ Host에서 0.10초(`HitPresentationQueue.cs` ~210–214, `EffectManager.cs` ~500–506) → 약 10~18 단위/초로 거의 안 보인다. 착탄 VFX 재생은 MushroomBomber 전용(`EffectManager.cs` ~531, `HitPresentationQueue.cs` ~206).
+- FoxMagician 타격 표시는 일찍 반환한다(`UnitView.cs` ~7224) → 별도 경로가 필요하다.
+- 타격 표시 시각 / 클립 길이(초): StreamSpirit 0.5/1.5 · MushroomBomber 1.0/3 · FoxMagician 차지 1.0·타격 2.8333/4 · InfernoSpirit 1.5/3 · Tank/CannonCart 0.1667/4.
+
+### 14-3. 별건에서 정할 기획 질문 (game-design-lead — 미결정)
+
+1. 유닛별 투사체 속도. 2. 비행 중 공격자가 죽으면 피해를 그대로 줄지. 3. 비행 중 대상이 죽거나 움직일 때 — 고정 지점(LockedPoint)인지 유도(Homing)인지. 4. 피해가 늦어지는 데 따른 밸런스 영향.
+
+### 14-4. 그 사이 할 일
+
+- VFX 프리팹(파티클 트레이서 + 착탄)은 지금 만들고, 연결은 그 별건에서 한다.
+- 파티클 트레이서 계약: Looping ON · Stop Action None · 몸체 Local / 꼬리(trail) World · +Z 앞 방향 · 스크립트 없음.
+- 미착수 기록: [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속) · 계획 쪽 기록 [Plan 17절](Plan.md#17-projectile-visibility-decision).
+
+<a id="15-r5-interim-impact-hookup"></a>
+
+## 15. 재작업 R5 — VFX 확인용 임시 착탄 연결 (C 방식 구현 시 교체) (2026-10-19 추가 — 1~14절은 당시 기록으로 보존)
+
+### 15-0. 쉬운 설명
+
+사용자가 물의 정령(StreamSpirit)의 물폭탄 트레이서와 착탄(물 튀김) VFX를 만들어 게임에 연결했지만, 착탄 VFX가 **물폭탄을 맞은 쪽이 아니라 엉뚱한 때에** 나왔다. 착탄 슬롯이 「때린 유닛」이 아니라 「맞은 유닛」의 종류로 고르는 칸(hitPreset)이었기 때문이다. 그래서 StreamSpirit이 남을 때릴 때는 물 튀김이 안 나오고, 반대로 StreamSpirit·Tank·CannonCart가 **맞을 때** 나왔다. 사용자는 C 방식(14절)이 구현되기 전에 **지금 VFX를 눈으로 확인**하기 위해, 피해 시각과 어긋나는 것을 감수하고 **투사체를 느리게 날리고 도착한 자리에서 착탄 VFX를 재생**하는 임시 연결을 하기로 정했다(2026-10-19). 이 연결은 C 방식 구현 때 교체된다. Tank/CannonCart도 나중에 트레이서 프리팹을 받아 같은 경로를 쓴다.
+
+### 15-1. 근거 수준
+
+- [직접] = document-manager가 이 checkout(HEAD `d302e54e`)에서 파일을 읽어 확인. [전달] = 사용자·메인 세션·game-programmer가 전달한 값으로 다시 확인하지 않음.
+
+### 15-2. 사용자가 만든 에셋 — 커밋 `bb5132ce`(2026-10-19, 메시지 「.」), 이어서 병합 커밋 `d302e54e`
+
+- [직접 `git show --name-status bb5132ce`] 추가: `Assets/_Project/Prefabs/VFX/Units/vfx_streamspirit_tracer.prefab` · `vfx_streamspirit_impact.prefab`, preset `EffectPreset_StreamSpirit_Tracer` · `EffectPreset_StreamSpirit_Hit` · `EffectPreset_Cannon_Impact`(`Assets/_Project/Resources/Config/EffectPresets/`), 텍스처 `Assets/_Project/Art/VFX/StreamSpirit/vfx_water_orb.png` · `vfx_water_ripple.png`, 머티리얼 `Mat_VFX_WaterOrb` · `Mat_VFX_WaterRipple`, Unity AI 원본 `GeneratedAssets/…`(png+json 4쌍), 각 `.meta`. 수정: `Assets/_Project/Resources/Config/UnitEffectConfig.asset` · `Assets/_Project/Scenes/Login.unity`.
+- [전달] 트레이서: 파티클 시스템 5개, Looping ON, Stop Action None, 몸체 3개 Local + 꼬리 2개 World — 14-4의 트레이서 계약에 맞는다. 착탄: 파티클 시스템 5개, 1회성, Stop Action None.
+- [전달] preset 연결: `EffectPreset_StreamSpirit_Hit` → `vfx_streamspirit_impact`, `EffectPreset_Cannon_Impact` → `vfx_cannon_impact`(Plan 16-3에서 「아무도 참조하지 않음」으로 남겼던 프리팹 — 이제 이 preset이 참조한다).
+- [직접 GUID 검색] `UnitEffectConfig.asset`: StreamSpirit 행 `tracerPreset` = `EffectPreset_StreamSpirit_Tracer`(143행, 정상) · `hitPreset` = `EffectPreset_StreamSpirit_Hit`(142행). Tank·CannonCart 두 행 `hitPreset` = `EffectPreset_Cannon_Impact`(70·78행).
+- `Login.unity`의 키보드 UI 변경은 사용자가 **의도한 별도 UI 작업**이라고 확인했다 [전달]. 이 작업과 무관하며 내용은 검토하지 않았다.
+
+### 15-3. 발견된 문제
+
+1. **슬롯 의미 불일치** [직접]: `HitPresentationQueue.cs` 870·873행이 `TryPlayUnitHit(prepared.VictimUnitType, …)`로 **맞은 유닛 종류**의 hitPreset을 재생한다. 그래서 물 튀김이 StreamSpirit이 때릴 때는 안 나오고, StreamSpirit·Tank·CannonCart가 맞을 때 나왔다.
+2. **착탄 프리팹이 작고 짧다** [전달]: Splash_Burst 입자 2~4개, 크기 0.2~0.32, 수명 0.18~0.24초. 사용자에게 키우는 값을 제안했다(제안일 뿐 적용 여부는 사용자 결정): Splash 4~6개 / 크기 0.35~0.5 / 수명 0.3~0.4초, 물방울 8~10개 / 0.08~0.12, 물결 0.7~0.8 / 0.6초, 전체 반경 약 0.4까지.
+3. 투사체가 거의 안 보이는 원래 문제는 14절 그대로다(비행 약 0.1초).
+
+### 15-4. 사용자 결정 (2026-10-19)
+
+- C 방식(14절) 구현 전 **임시 조치**로, 피해와 어긋나는 것을 받아들이고 투사체를 느리게 날린 뒤 **도착 지점에서 착탄 VFX 재생**. C 방식 구현 시 이 연결을 교체한다. 서버·피해 판정은 바꾸지 않는다.
+- Tank/CannonCart는 나중에 트레이서 프리팹을 만들어 같은 경로를 쓴다.
+- 계획 항목과 알려진 부작용은 [Plan 18절](Plan.md#18-r5-interim-impact-hookup)이 단일 소스다.

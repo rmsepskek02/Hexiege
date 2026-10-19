@@ -73,6 +73,7 @@ namespace Hexiege.Editor.Combat
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
             ValidateCasterOwnedChargeVfx(units, buildings);
+            ValidateLegacyTracerArrivalImpact(units, buildings); // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
         }
 
         /// <summary>
@@ -197,6 +198,123 @@ namespace Hexiege.Editor.Combat
                 UnityEngine.Object.DestroyImmediate(foxGo);
                 UnityEngine.Object.DestroyImmediate(infernoGo);
                 if (removedGo != null) UnityEngine.Object.DestroyImmediate(removedGo);
+            }
+        }
+
+        /// <summary>
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// Legacy 트레이서가 "도착한 순간" 공격자 타입의 착탄 이펙트(impactPreset)를 도착 지점에서 터뜨리는지 확인한다.
+        /// (a) 설정: StreamSpirit/Tank/CannonCart의 착탄 이펙트는 공격자 기준 impact 슬롯에 있고,
+        ///     "맞은 유닛 타입" 기준인 hit 슬롯은 비어 있다. StreamSpirit 트레이서 프리팹 루트에는
+        ///     TracerProjectile이 미리 붙어 있어 프리팹의 느린 속도(_speed)가 실제로 쓰인다.
+        /// (b) 실제 EffectManager 경로: 비행 중에는 착탄 이펙트 없음 → 도착하면 기존 콜백이 먼저 1회 실행되고
+        ///     그 다음 착탄 이펙트 1개가 도착 지점에 재생된다. 플래그를 안 넘긴 호출, 트레이서가 없는 타입(즉시 콜백 폴백),
+        ///     MushroomBomber(서버 확정 스냅샷 경로가 착탄을 단독 소유)는 착탄 이펙트를 만들지 않는다.
+        /// EditMode에서는 Update가 돌지 않으므로 도착(Arrive)을 리플렉션으로 직접 호출한다.
+        /// </summary>
+        private static void ValidateLegacyTracerArrivalImpact(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            // (a) 설정 계약
+            var streamImpact = AssetDatabase.LoadAssetAtPath<EffectPreset>(
+                "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_StreamSpirit_Hit.asset");
+            var cannonImpact = AssetDatabase.LoadAssetAtPath<EffectPreset>(
+                "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_Cannon_Impact.asset");
+            Require(streamImpact?.VfxPrefab != null && cannonImpact?.VfxPrefab != null
+                && AssetDatabase.GetAssetPath(streamImpact.VfxPrefab).EndsWith("vfx_streamspirit_impact.prefab")
+                && AssetDatabase.GetAssetPath(cannonImpact.VfxPrefab).EndsWith("vfx_cannon_impact.prefab"),
+                "[R5] StreamSpirit/Cannon impact presets point to the actual impact prefabs.");
+            Require(units.GetImpact(UnitType.StreamSpirit) == streamImpact && units.GetHit(UnitType.StreamSpirit) == null,
+                "[R5] StreamSpirit splash is attacker-keyed (impact slot), not victim-keyed (hit slot).");
+            Require(units.GetImpact(UnitType.Tank) == cannonImpact && units.GetHit(UnitType.Tank) == null
+                && units.GetImpact(UnitType.CannonCart) == cannonImpact && units.GetHit(UnitType.CannonCart) == null,
+                "[R5] Tank/CannonCart impact is attacker-keyed (impact slot), victim-keyed hit slot is empty.");
+            var streamTracer = units.GetTracer(UnitType.StreamSpirit);
+            Require(streamTracer?.VfxPrefab != null, "[R5] StreamSpirit interim tracer preset is wired.");
+            var tracerComponent = streamTracer.VfxPrefab.GetComponent<TracerProjectile>();
+            Require(tracerComponent != null,
+                "[R5] StreamSpirit tracer prefab root carries TracerProjectile (EffectManager reuses it instead of adding a default 14 speed).");
+            float speed = new SerializedObject(tracerComponent).FindProperty("_speed").floatValue;
+            Require(speed > 0f && speed < 14f,
+                "[R5] StreamSpirit tracer prefab speed is positive and slower than the default so the flight is visible: " + speed);
+
+            // (b) 실제 EffectManager 경로
+            var root = new GameObject("LegacyTracerArrivalImpactFixture") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                var arrive = typeof(TracerProjectile).GetMethod("Arrive", VfxFields);
+                Require(arrive != null, "[R5] TracerProjectile arrival method exists for the fixture.");
+                // 지금 활성 상태인, 특정 프리팹에서 만든 착탄 이펙트 개수.
+                int ActiveImpacts(GameObject prefab)
+                {
+                    int count = 0;
+                    foreach (var item in root.GetComponentsInChildren<VfxPoolItem>(true))
+                        if (item.SourcePrefab == prefab && item.gameObject.activeSelf) count++;
+                    return count;
+                }
+                // 지금 비행 중(활성)인 트레이서 1개를 찾는다.
+                TracerProjectile ActiveTracer()
+                {
+                    foreach (var t in root.GetComponentsInChildren<TracerProjectile>(true))
+                        if (t.gameObject.activeSelf) return t;
+                    return null;
+                }
+
+                // ① StreamSpirit + 플래그 true: 비행 중엔 없음 → 도착 시 콜백 먼저, 그 다음 착탄 1개.
+                Vector3 start = new Vector3(0f, 0.5f, 0f);
+                Vector3 target = new Vector3(2f, 0f, 0f);
+                int callbackCount = 0, impactsSeenInCallback = -1;
+                manager.PlayTracer(UnitType.StreamSpirit, start, target,
+                    () => { callbackCount++; impactsSeenInCallback = ActiveImpacts(streamImpact.VfxPrefab); },
+                    playImpactOnArrive: true);
+                var tracer = ActiveTracer();
+                Require(tracer != null && callbackCount == 0 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
+                    "[R5] While the StreamSpirit tracer is flying there is no splash and no arrival callback yet.");
+                arrive.Invoke(tracer, null);
+                Require(callbackCount == 1 && impactsSeenInCallback == 0 && ActiveImpacts(streamImpact.VfxPrefab) == 1,
+                    "[R5] On arrival the existing callback runs once first, then exactly one attacker splash plays.");
+                VfxPoolItem splash = null;
+                foreach (var item in root.GetComponentsInChildren<VfxPoolItem>(true))
+                    if (item.SourcePrefab == streamImpact.VfxPrefab && item.gameObject.activeSelf) splash = item;
+                Quaternion flight = Quaternion.LookRotation(new Vector3(target.x - start.x, 0f, target.z - start.z));
+                Require(splash != null && VfxApprox(splash.transform.position, target + flight * streamImpact.LocalPositionOffset),
+                    "[R5] Splash plays at the tracer arrival point (target) with the preset offset applied.");
+                splash.Return();
+
+                // ② 플래그를 넘기지 않은 호출(기존 호출 방식)은 착탄 이펙트를 만들지 않는다.
+                int plainCallbacks = 0;
+                manager.PlayTracer(UnitType.StreamSpirit, start, target, () => plainCallbacks++);
+                tracer = ActiveTracer();
+                Require(tracer != null, "[R5] Plain tracer call launches a tracer.");
+                arrive.Invoke(tracer, null);
+                Require(plainCallbacks == 1 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
+                    "[R5] A tracer call without the arrival-impact flag keeps the old behavior (no splash).");
+
+                // ③ 트레이서가 없는 타입(Tank): 콜백은 즉시 실행, 착탄 이펙트는 재생하지 않는다(폴백 유지).
+                if (units.GetTracer(UnitType.Tank)?.VfxPrefab == null)
+                {
+                    int tankCallbacks = 0;
+                    manager.PlayTracer(UnitType.Tank, start, target, () => tankCallbacks++, playImpactOnArrive: true);
+                    Require(tankCallbacks == 1 && ActiveImpacts(cannonImpact.VfxPrefab) == 0 && ActiveTracer() == null,
+                        "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
+                }
+
+                // ④ MushroomBomber: 플래그가 true여도 Legacy 도착 착탄을 만들지 않는다(스냅샷 경로가 단독 소유).
+                var mushroomImpact = units.GetImpact(UnitType.MushroomBomber);
+                Require(mushroomImpact?.VfxPrefab != null && units.GetTracer(UnitType.MushroomBomber)?.VfxPrefab != null,
+                    "[R5] Mushroom impact/tracer presets exist for the exclusion check.");
+                manager.PlayTracer(UnitType.MushroomBomber, start, target, null, playImpactOnArrive: true);
+                tracer = ActiveTracer();
+                Require(tracer != null, "[R5] Mushroom tracer launches through the generic call for the exclusion check.");
+                arrive.Invoke(tracer, null);
+                Require(ActiveImpacts(mushroomImpact.VfxPrefab) == 0,
+                    "[R5] MushroomBomber never gets a Legacy arrival impact (confirmed snapshot path owns its impact).");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
             }
         }
 

@@ -589,23 +589,91 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). 발사 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 1회 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
+        /// <param name="authoritativeDuration">서버 표시 시점까지 남은 비행 시간(초). 음수면 프리팹 속도(_speed)를 쓴다.</param>
+        /// <param name="playImpactOnArrive">
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체] true면 트레이서가 "도착하는 순간" 공격자 타입의
+        /// 착탄 이펙트(impactPreset)를 도착 지점에서 1회 재생한다. Legacy 트레이서 호출부(UnitView)만 true를 넘긴다.
+        /// </param>
         public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive,
-            float authoritativeDuration = -1f)
+            float authoritativeDuration = -1f, bool playImpactOnArrive = false)
         {
             EffectPreset preset = _unitConfig?.GetTracer(type);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
 
             // 트레이서 프리팹 미설정 → 비행 연출 없이 즉시 착탄 콜백 실행(폴백).
             //   이 경우 호출부의 피격 연출은 지연 없이 기존처럼 즉시 방출된다.
+            // [R5 임시] 이 폴백에서는 착탄 이펙트를 재생하지 않는다.
+            //   "날아가서 도착"한 투사체가 없으므로 도착 지점 이펙트도 없다. 그래서 착탄 이펙트만
+            //   설정되고 트레이서가 아직 없는 유닛(Tank/CannonCart)은 트레이서 프리셋이 연결될 때까지
+            //   화면 변화가 없다(데이터만 채우면 그때부터 자동으로 켜진다).
             if (prefab == null)
             {
                 onArrive?.Invoke();
                 return;
             }
 
+            // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+            //   기존 착탄 콜백(피해 텍스트 등)을 그대로 먼저 실행하고, 그 직후 착탄 이펙트를 재생하도록
+            //   콜백을 한 겹 감싼다. 착탄 이펙트가 설정되지 않은 타입이면 감싸지 않아 기존 동작과 완전히 같다.
+            Action arrive = onArrive;
+            if (playImpactOnArrive)
+            {
+                EffectPreset impact = ResolveLegacyArrivalImpact(type);
+                if (impact != null)
+                {
+                    // 발사 순간의 시작/도착 좌표를 값으로 복사해 둔다(비행 중 대상이 사라져도 안전).
+                    Vector3 impactStart = start;
+                    Vector3 impactPoint = target;
+                    arrive = () =>
+                    {
+                        onArrive?.Invoke();
+                        PlayLegacyArrivalImpact(impact, impactStart, impactPoint);
+                    };
+                }
+            }
+
             // Pool에서 트레이서를 꺼내(또는 새로 만들어) 발사.
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(start, target, onArrive, authoritativeDuration);
+            tracer.Launch(start, target, arrive, authoritativeDuration);
+        }
+
+        /// <summary>
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// Legacy 트레이서가 도착할 때 재생할 "공격자 타입"의 착탄 이펙트 프리셋을 고른다.
+        /// 프리셋이 없거나 프리팹이 비어 있으면 null(= 추가로 아무것도 하지 않음).
+        ///
+        /// MushroomBomber는 항상 null이다. 버섯의 착탄은 서버가 확정한 스냅샷 경로
+        /// (PlayAttackEffect의 MushroomImpact)가 단독으로 소유하므로, 여기서 또 재생하면 두 번 터진다.
+        /// (현재 UnitView는 버섯의 Legacy 트레이서 호출 자체를 꺼 두었지만, 실수로 다시 켜져도 안전하도록 막는다.)
+        /// </summary>
+        /// <param name="attackerType">공격한(트레이서를 쏜) 유닛 타입.</param>
+        /// <returns>재생할 착탄 프리셋 또는 null.</returns>
+        private EffectPreset ResolveLegacyArrivalImpact(UnitType attackerType)
+        {
+            if (attackerType == UnitType.MushroomBomber) return null;
+            EffectPreset impact = _unitConfig?.GetImpact(attackerType);
+            return impact != null && impact.VfxPrefab != null ? impact : null;
+        }
+
+        /// <summary>
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// 트레이서 도착 지점에서 착탄 이펙트를 일반 1회성(풀링) 재생으로 터뜨린다.
+        /// 위치 = 트레이서가 도착한 지점(발사 순간의 대상 발밑 위치), 회전 = 날아온 방향(수평)이다.
+        /// 프리셋의 위치 오프셋·회전 오프셋·배율은 Play()가 그대로 적용한다. 피해·HP와는 무관한 화면 표현이다.
+        /// </summary>
+        /// <param name="impact">재생할 착탄 프리셋(null 아님).</param>
+        /// <param name="start">트레이서 발사 지점(방향 계산용).</param>
+        /// <param name="arrival">트레이서 도착 지점(이펙트 위치).</param>
+        private void PlayLegacyArrivalImpact(EffectPreset impact, Vector3 start, Vector3 arrival)
+        {
+            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(물보라가 기울어지지 않도록).
+            Vector3 direction = arrival - start;
+            direction.y = 0f;
+            Quaternion rotation = direction.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(direction)
+                : Quaternion.identity;
+            Play(impact, arrival, rotation);
+            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect와 동일).
         }
 
         // ====================================================================
