@@ -8061,16 +8061,29 @@ namespace Hexiege.Editor.Combat
                 int localHits = 0, hpEvents = 0;
                 localHit = GameEvents.OnLocalAttackHit.Subscribe(_ => localHits++);
                 damage = GameEvents.OnEntityDamaged.Subscribe(_ => hpEvents++);
+                var rotationProperty = typeof(Hexiege.Presentation.UnitView).GetProperty("AttackPhaseLastEmissionRotation");
+                Require(rotationProperty?.GetSetMethod(true) != null, "Fixture rotation seed seam must exist.");
+                foreach (Quaternion seed in new[] { default(Quaternion), Quaternion.identity })
                 foreach (bool server in new[] { true, false })
                 {
                     NetworkContext.Set(server, true);
                     var lease = new AttackPresentationSourceMarkerLease(); Require(lease.TryArm(1, 1), "Fixture source lease must arm.");
                     sourceField.SetValue(view, lease); modeField.SetValue(view, AttackPresentationImpactMode.LegacyFallback);
+                    rotationProperty.GetSetMethod(true).Invoke(view, new object[] { seed });
+                    int remainingBefore = ((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount;
+                    var scopeBefore = view.AttackPhaseLastEmissionScope;
+                    int targetBefore = view.AttackPhaseLastEmissionTarget;
+                    Vector3 positionBefore = view.AttackPhaseLastEmissionTargetPosition;
                     Quaternion before = view.AttackPhaseLastEmissionRotation;
                     view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 1
-                            && view.AttackPhaseLastEmissionRotation == before,
-                        "Fox impact metadata must not consume charge lease or call the emitter.");
+                    // 2026-10-19 Fox fixture: zero Quaternion에도 정확한 성분 불변을 검사한다.
+                    Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == remainingBefore,
+                        "Fox impact must preserve the charge lease count.");
+                    Require(view.AttackPhaseLastEmissionScope.Equals(scopeBefore)
+                            && view.AttackPhaseLastEmissionTarget == targetBefore
+                            && view.AttackPhaseLastEmissionTargetPosition.Equals(positionBefore)
+                            && view.AttackPhaseLastEmissionRotation.Equals(before),
+                        "Fox impact must preserve emission metadata components.");
                     view.OnAttackCharge(new AnimationEvent { time = 1f });
                     Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0
                             && view.AttackPhaseLastEmissionTarget == -1,

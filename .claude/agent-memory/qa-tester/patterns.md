@@ -140,3 +140,9 @@ Programmer-side details: `.claude/agent-memory/game-programmer/vfx-presentation.
 - **Caster-owned VFX:** test "caster dies mid-charge" (FoxMagician 2 s, InfernoSpirit 1 s charge) — the effect must vanish
   for that caster only. Data values committed to the branch may lag the user's local re-measure/tuning: say which
   revision the numbers came from.
+
+## Quaternion fixture equality and suite acceptance
+
+- Default zero Quaternion can be unchanged while Unity `==` returns false. For metadata immutability, use exact `Equals` and check zero/identity plus copied/modified components; preserve lease assertions independently.
+- A passing isolated Unity-DLL CLR comparison is not native suite execution. Record user whole-suite PASS separately from agent compiler checks, device gameplay and visual/HP acceptance.
+- Keep initial stale response-file failures distinct from final current-source-set compilation. Revalidate branch generation after concurrent integrations; an earlier Bloom particle-count fix may already be present and must not be re-applied or reverted.

@@ -115,3 +115,10 @@ task's "do not change" scope — separate design). None changes damage/target/HP
 R-1 `VfxPoolItem.cs` ~164 · R-5 `VfxPoolItem.cs` ~210 · R-4 `VfxPoolItem.TimedDamage.cs` ~42 · R-3
 `RunUnitActionSelfValidation.cs` ~1385 · R2-X1 `VfxPoolItem.TowerBolt.cs` ~204 · R3 `UnitRecipientFitMeasureTool.cs` ~332
 (line numbers as of `84b6ff2a`; search the `[R… 비활성화` / `[버그 — 2026-10-13 주석 처리]` markers).
+
+## 7. Fixture value equality and generation boundaries
+
+- An inactive UnitView fixture can retain default zero Quaternion metadata. Unity Quaternion `==` is orientation comparison and can reject two unchanged zero values; use `Equals` for exact unchanged components, and exercise both zero and valid identity seeds. Do not hide the fixture bug by changing production initialization.
+- Assert lease lifetime separately from emission metadata (scope, target, position, rotation), then preserve charge-once/duplicate-no-consumption checks. Metadata stability alone does not prove every emitter was unreachable; retain the production early-return evidence.
+- Re-read the current branch before applying an earlier fix: concurrent main integration may already contain the authored-particle contract. Preserve unrelated recipient-fit/tower work. Refresh scratch compiler inputs against the actual source set before interpreting missing-source failures.
+- User full-suite PASS is a native-menu acceptance report, not an agent native run or every device/role/gameplay/HP acceptance. After authorized obsolete-assertion cleanup, compare active tokens with exact literal text and keep that no-behavior-change evidence separate from the earlier user run. Exact generations remain in the existing `2026-10-19/15_21_regression-suite-contract-fixes` Task.

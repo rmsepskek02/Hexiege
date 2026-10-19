@@ -13,6 +13,7 @@
 
 | 날짜 | 마일스톤 |
 |---|---|
+| 2026-10-19 | Fox marker fixture의 기본 Quaternion 비교 교정 후 전체 회귀 suite 사용자 PASS 수용. production·Bloom 무변경, 기기 플레이/공격 시각·HP 수용과 구분. [근거](<_Tasks/2026-10-19/15_21_regression-suite-contract-fixes/Research.md#6-사용자-전체-suite-pass-수용과-최종-정리>) |
 | 2026-10-19 | 결과 화면의 공용 배경·게임 입력 차단/복원과 중첩·재경기·이탈·강제 실패 대응을 안내된 6항목 사용자 정상 확인 범위에서 수용. [근거](<_Tasks/2026-10-19/04_39_game-end-modal-input/Research.md#7-사용자-6항목-정상-확인수용과-후속-정리>) |
 | 2026-10-18 | 사용자 승인으로 PR 없이 랠리 작업 `af5ac268`을 로컬 main에 fast-forward 통합. 원격 push 미실행. [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-10-pr-없는-로컬-main-통합-완료-2026-10-18-메인-수행-인계>) |
 | 2026-10-18 | 랠리 사용자 수용 후 승인된 비활성·미참조 코드 정리와 별도 검증 완료. 활성 토큰 동일성 확인과 신규 실기·main 병합은 구분. [근거](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-9-불필요-코드-정리-완료별도-검증-programmer메인-전달값>) |
