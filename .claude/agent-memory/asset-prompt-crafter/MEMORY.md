@@ -210,8 +210,9 @@ Dirt_Specks, Rock_Debris, Impact_Flash_Core; all Looping OFF, Stop Action None, 
   to Hierarchy if the whole effect must scale together.
 - Attack-slot effects rotate with the attacker's facing, so radial patterns follow the attack direction, not the world
   hex grid.
-- Iteration leftovers kept (not deleted, user decides): `Mat_VFX_QuakeDust` + `vfx_quake_dust.png`,
-  `Mat_VFX_GroundCracks` + `vfx_ground_cracks.png` — unreferenced as of `d1a994fb`.
+- Iteration leftovers `Mat_VFX_QuakeDust` + `vfx_quake_dust.png`, `Mat_VFX_GroundCracks` + `vfx_ground_cracks.png`
+  (unreferenced as of `d1a994fb`) were **deleted 2026-10-19 by user decision** (`344dfa42`, GUID refs 0). Lesson kept:
+  check GUID references before deleting iteration leftovers — `Mat_VFX_QuakeDustGrain` is still in use.
 
 ## Unity AI VFX prompt lessons — material texture colour, charge length (2026-10-19)
 
