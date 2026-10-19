@@ -28,7 +28,7 @@
 | 사운드 | AudioManager·BGM/SFX·볼륨/음소거 연결의 구현 기록, 기존 볼륨/음소거 UI 실기 확인 | BGM/SFX Inspector별 배선·제작/실기·수용 잔여는 에셋 목록. Victory/Defeat 분리는 Sound 규칙의 선행조건이 있는 추후 기획 |
 | 로그 | GameLog/FileSink·에디터 파일·Device 캡처·수동 정리와 기존 이관/실기 근거 | 현행 규범은 [LogRules](LogRules.md). Lobby 직접 진입은 사용자 범위 제외. 자연 엔진 오류 훅 발화의 미확인과 FileSink 경로 중복 정리는 ROADMAP |
 | 에셋·플랫폼 | 팀별 표현·3D 전환/자산 적용 및 AAB 최적화의 기록 | 보유/제작/연결은 에셋 목록. 과거 용량은 당시 빌드 값이며 현재 크기 보증이 아님 |
-| 개발 도구 | 필수 Editor7소스/17메뉴 보존, 불필요28소스/메타 최종 삭제·main 반영 | 명시 삭제 승인과 사용자 테스트 PASS는 별개. 사용법은 WORKFLOW/TDD/LogRules, 문서 검사 범위는 WORKFLOW [11] |
+| 개발 도구 | 필수 Editor7소스/17메뉴 보존, 불필요28소스/메타 최종 삭제·main 반영 | 명시 삭제 승인과 사용자 테스트 PASS는 별개. 사용법은 WORKFLOW/TDD/LogRules, 문서 검사 범위는 WORKFLOW [11]. ⚠️ 2026-10-19: `Run Full Regression Suite`가 main·VFX 브랜치 모두 Fox 표시 검사(Run 1019행)에서 멈춰 그 뒤 검사가 미실행(원인 미조사) — [ROADMAP](ROADMAP.md) 「전투·유닛 후속」 |
 
 ## 현재 검증과 보류 경계
 

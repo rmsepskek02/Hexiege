@@ -349,3 +349,31 @@ main 브랜치를 이 브랜치에 합친 뒤, 사용자가 전체 자동 검증
 ### 11-5. 다음 단계
 
 - `Plan.md` 「재작업 R4 — 검증 해시 줄바꿈 문제」. 사용자 승인(2026-10-19): "1번대로 진행하자"(이 브랜치에서 수정) · "가로 진행해"(기존 task 문서에 기록).
+
+---
+
+## 12. 범위 밖 별건 — 전체 검증이 Fox 표시 검사에서 멈춤 (2026-10-19 추가 — 1~11절은 당시 기록으로 보존)
+
+### 12-0. 쉬운 설명
+
+R4 뒤 전체 자동 검증을 다시 돌리자 급류 파도 검사는 통과했지만, 그 바로 뒤 **여우 마법사(FoxMagician) 표시 검사에서 실패**했다. 사용자가 main에서도 똑같이 실패하는 것을 확인했으므로 **이 VFX 작업의 결함이 아니라 main 쪽 별건**으로 따로 기록한다(사용자 승인 2026-10-19: "그렇게 정리하자"). 원인은 아직 조사하지 않았다. 남은 일은 [ROADMAP](../../../ROADMAP.md) 「전투·유닛 후속」 표에서 관리한다.
+
+### 12-1. 사실 (근거 수준 표시)
+
+- [전달] 메뉴 `Hexiege/Combat/Run Full Regression Suite`(Edit Mode)가 실패. 메시지: "Fox impact metadata must not consume charge lease or call the emitter."
+- [직접] 호출 경로: `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs` Run 1019행 `ValidateFoxMagicianProductionTimeline()` → 7908행 `ValidateFoxMagicianMarkerCallbacks()` → 8073행이 위 메시지를 낸다(2026-10-19 작업 트리, 읽기만 함).
+- [전달] 사용자가 **main에서도 같은 실패**를 확인했다.
+- [전달] `UnitView.ProcessAttackMarker`의 Fox 분기는 main과 이 브랜치가 같다. 이 브랜치는 시전자 소유 차지 정지 3줄(R2-1)만 더했다.
+- [전달] 이 Fox 검사는 main `dbc48a8c`(2026-10-15)에서 들어왔다. main의 전체 검증은 `88f60e38`(2026-10-13) 이후 늘 그보다 앞의 Bloom 「PS 5개」 검사에서 멈췄으므로 **이 검사는 main에서 한 번도 도달하지 못했을 가능성이 높다**(11-3의 Torrent 검사와 같은 양상). 그 뒤 main 커밋들이 `UnitView`도 바꿨다(랠리 수정).
+- **원인은 미조사**다. 에이전트 환경에 Unity가 없어 재현하지 못했다. 위 경위에서 원인을 추정하지 않는다.
+
+### 12-2. 영향
+
+- 전체 검증이 Run 1019행에서 멈추므로 그 뒤 검사(Inferno 타임라인·애니메이션, C1~C3 검사, `RunAuthoritativeAttackPresentationValidation`, FlameSpirit 등)는 **실행되지 않는다** — 통과도 실패도 아닌 미실행이다.
+- 이 작업과 관련된 검사는 그보다 앞에 있으며 이 브랜치에서 통과했다 [전달]: Bloom(Run 약 1006~1008행) · VfxConnections(1009행) · Torrent 파도(1016행).
+
+### 12-3. 이 작업의 테스트 방침
+
+- 이 VFX 작업의 자동 검증 기준은 **Run 1016행(Torrent 파도)까지 통과**로 본다.
+- 미실행 구간 중 `RunAuthoritativeAttackPresentationValidation`이 다루는 **방어 타워·버섯 착탄 표시 경로는 Fox 결함이 고쳐질 때까지 인게임 실기로 눈으로 확인**한다.
+- Fox 결함의 조사·수정은 이 작업 범위가 아니다.
