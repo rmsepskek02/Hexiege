@@ -120,13 +120,34 @@ namespace Hexiege.Presentation
         //   투사체 번호표가 붙은 피해 이벤트는 공격자별 FIFO(로컬 타격 신호 대기)에 넣지 않는다.
         //   FIFO에 넣으면 "빈 큐 신호 버림"(아래 OnLocalAttackHit 주석) 때문에 숫자가 다음 공격·타임아웃까지 밀린다(위험 1).
         //   대신 투사체 화면 소비자가 "화면상 착탄 순간"에 ReleaseProjectileImpact를 불러 1회 방출한다.
+        //   [2026-10-21 제안 A] 사망타는 그 순간 대상 오브젝트가 이미 디스폰돼 있을 수 있다(Client 0.10초 지연).
+        //   그때는 화면 착탄 지점(또는 보관 때 기억한 대상 위치)에 숫자 "0"을 낸다(EmitProjectile 참조).
+        //   비행 중 대상이 먼저 죽은 투사체는 서버가 TargetLost로 끝내 HP 이벤트 자체가 없다 → 숫자도 없다(착탄 VFX만).
         //   소비자가 준비되지 않았으면(_projectileOwnerReady=false) 받는 즉시 방출해 표시가 사라지지 않게 한다.
         //   FIFO 코드 자체는 다른 유닛이 계속 쓰므로 그대로 둔다.
         // ────────────────────────────────────────────────────────────────
         private Func<bool> _projectileOwnerReady;
-        private readonly ProjectileImpactPresentationHold<EntityDamagedEvent> _projectileHold =
-            new ProjectileImpactPresentationHold<EntityDamagedEvent>();
-        private readonly List<EntityDamagedEvent> _projectileReleased = new List<EntityDamagedEvent>();
+        // [2026-10-21 사망타 숫자 누락 수정 — 제안 A] 보관함에는 피해 이벤트만이 아니라
+        //   "보관한 순간(HP 이벤트 도착 시점)의 대상 화면 위치"도 같이 넣는다(ProjectileHeldHit 참조).
+        //   옛 줄(기록용): ProjectileImpactPresentationHold<EntityDamagedEvent> _projectileHold / List<EntityDamagedEvent> _projectileReleased
+        private readonly ProjectileImpactPresentationHold<ProjectileHeldHit> _projectileHold =
+            new ProjectileImpactPresentationHold<ProjectileHeldHit>();
+        private readonly List<ProjectileHeldHit> _projectileReleased = new List<ProjectileHeldHit>();
+
+        // [제안 A] 화면 착탄 신호(Release)가 HP 이벤트보다 먼저 온 경우(순서 역전) 그 착탄 지점을 잠시 기억한다.
+        //   나중에 HP 이벤트가 와서 "바로 방출"될 때 대상이 이미 사라졌으면 이 지점에 숫자를 낸다.
+        //   보관함의 "먼저 온 신호" 기억과 같은 시간(TimeoutSeconds)만 유지하고, 같은 상한(Capacity)을 넘기지 않는다.
+        private readonly Dictionary<ProjectileDeliveryKey, ReleasePoint> _projectileReleasePoints =
+            new Dictionary<ProjectileDeliveryKey, ReleasePoint>();
+        private readonly List<ProjectileDeliveryKey> _projectileReleasePointsExpired = new List<ProjectileDeliveryKey>();
+
+        // [제안 A 진단] 투사체 피해 숫자의 실제 표시 결과(읽기 전용 관측 — 방출 판단에는 쓰지 않는다).
+        //   played      = 살아 있는 대상의 현재 화면 위치에 표시(기존과 같은 정상 경로).
+        //   fallback    = 대상 화면 오브젝트가 이미 없어(사망 디스폰·건물 파괴) 대체 지점(화면 착탄 지점 또는 보관 때 기억한 위치)에 표시.
+        //   missing     = 결국 표시하지 못한 수(스포너 미준비·대체 지점 없음 등 모든 사유).
+        //   missingDead = missing 중 "대상 화면 오브젝트가 없었던" 수(이번 버그의 증상 그대로 — 0이어야 정상).
+        //   불변식: played + fallback + missing = atImpact + immediateAfterRelease + immediateCapacity + timeout(보관함 계수).
+        private int _projectileTextPlayed, _projectileTextFallback, _projectileTextMissing, _projectileTextMissingDead;
 
         /// <summary>조합 루트에서 투사체 화면 소비자 준비 조건을 전달한다.</summary>
         /// <param name="ready">소비자가 준비됐으면 true를 돌려주는 함수.</param>
@@ -148,24 +169,71 @@ namespace Hexiege.Presentation
         public int ProjectileHoldTimeoutItems => _projectileHold.TimeoutItems;
 
         /// <summary>
+        /// [진단] 투사체 피해 숫자의 표시 결과 END 줄 조각 — "played:N|fallback:N|missing:N|missingDead:N".
+        /// END 줄에서는 "text=" 뒤에 붙는다(hold= 바로 다음 토큰).
+        /// </summary>
+        public string DescribeProjectileTextForDiagnostics()
+            => string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "played:{0}|fallback:{1}|missing:{2}|missingDead:{3}",
+                _projectileTextPlayed, _projectileTextFallback, _projectileTextMissing, _projectileTextMissingDead);
+
+        /// <summary>[진단] 표시하지 못한 투사체 피해 숫자 수(END verdict 판정용).</summary>
+        public int ProjectileTextMissingItems => _projectileTextMissing;
+
+        /// <summary>
         /// 투사체 화면 소비자가 "화면상 착탄 순간"에 부른다. 그 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 한 번 방출한다.
         /// 피해 이벤트가 아직 안 왔으면(순서 역전) 잠시 기억했다가 도착하는 즉시 방출한다.
+        ///
+        /// [2026-10-21 제안 A] screenImpactPoint = 화면에서 투사체가 실제로 닿은 지점(숫자·피격 VFX의 대체 위치).
+        ///   왜 필요한가(초급자 설명): 서버는 대상을 죽이는 한 발을 처리하면서 같은 호출 안에서 유닛 오브젝트를 디스폰한다.
+        ///   Client 화면은 0.10초 늦게 착탄을 그리므로, 이 함수가 불릴 때 대상 오브젝트는 이미 파괴돼 위치를 알 수 없다.
+        ///   그때 이 지점에 숫자("0")를 낸다. 대상이 살아 있으면 지금까지처럼 대상 위치를 쓴다(이 지점은 쓰지 않는다).
+        ///   NaN·무한대 값이면 "지점 없음"으로 본다(보관할 때 기억한 위치를 대신 쓴다).
         /// </summary>
         /// <param name="key">투사체 번호표.</param>
-        public void ReleaseProjectileImpact(ProjectileDeliveryKey key)
+        /// <param name="screenImpactPoint">화면 착탄 지점(화면 좌표 — Red Client 반전이 이미 적용된 값).</param>
+        public void ReleaseProjectileImpact(ProjectileDeliveryKey key, Vector3 screenImpactPoint)
         {
             if (!key.IsValid) return;
+            bool hasPoint = IsFinite(screenImpactPoint);
+            double now = Time.realtimeSinceStartupAsDouble;
+            // 순서 역전 대비: HP 이벤트가 나중에 오면 이 지점을 대체 위치로 쓴다(상한을 넘으면 기억하지 않는다 — 기억한 위치로 대신한다).
+            if (hasPoint && (_projectileReleasePoints.Count < ProjectileImpactPresentationHold<ProjectileHeldHit>.Capacity
+                             || _projectileReleasePoints.ContainsKey(key)))
+                _projectileReleasePoints[key] = new ReleasePoint(screenImpactPoint, now);
             _projectileReleased.Clear();
-            _projectileHold.Release(key, Time.realtimeSinceStartupAsDouble, _projectileReleased);
-            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedMarker);
+            _projectileHold.Release(key, now, _projectileReleased);
+            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedMarker, hasPoint, screenImpactPoint);
         }
 
-        private void EmitProjectileReleased(LegacyPresentationObservationKind kind)
+        // 꺼낸 보관 항목을 차례로 방출한다. hasPoint=false(타임아웃 등)면 각 항목이 보관 때 기억한 위치를 대체값으로 쓴다.
+        private void EmitProjectileReleased(LegacyPresentationObservationKind kind, bool hasPoint, Vector3 point)
         {
             for (int i = 0; i < _projectileReleased.Count; i++)
-                Emit(_projectileReleased[i], kind);
+                EmitProjectile(_projectileReleased[i], kind, hasPoint, point);
             _projectileReleased.Clear();
         }
+
+        // 화면 착탄 신호가 끝내 오지 않은 보관 항목을 강제 방출하고, 오래된 "먼저 온 착탄 지점" 기억을 지운다.
+        private void TickProjectileHold(double now)
+        {
+            _projectileReleased.Clear();
+            _projectileHold.CollectExpired(now, _projectileReleased);
+            // 타임아웃 방출은 착탄 지점이 없다 → 각 항목이 보관 때 기억한 위치가 대체값이 된다(제안 A 범위 2).
+            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedTimeout, false, default);
+            if (_projectileReleasePoints.Count == 0) return;
+            _projectileReleasePointsExpired.Clear();
+            foreach (KeyValuePair<ProjectileDeliveryKey, ReleasePoint> pair in _projectileReleasePoints)
+                if (now - pair.Value.At > ProjectileImpactPresentationHold<ProjectileHeldHit>.TimeoutSeconds)
+                    _projectileReleasePointsExpired.Add(pair.Key);
+            for (int i = 0; i < _projectileReleasePointsExpired.Count; i++)
+                _projectileReleasePoints.Remove(_projectileReleasePointsExpired[i]);
+            _projectileReleasePointsExpired.Clear();
+        }
+
+        private static bool IsFinite(Vector3 v)
+            => !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)
+                 || float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
 
         /// <summary> 유닛 GameObject 조회용(VFX 위치 + 스케일 펀치 대상). </summary>
         private UnitFactory _unitFactory;
@@ -347,6 +415,30 @@ namespace Hexiege.Presentation
         /// <summary>프레임 대기 없이 transient View 재시도를 검증하는 Editor 전용 seam.</summary>
         public void RetryAuthoritativePresentationForValidation(double now)
             => RetryAuthoritativePresentations(now);
+
+        // [제안 A 검증 seam] Edit Mode fixture는 실제 텍스트 프리팹·VFX 프리셋·코루틴을 쓰지 않는다.
+        //   이 셋이 설정되면 "그리기 직전" 호출만 가로채 위치·값을 기록한다. 위치를 고르는 판단 코드는 실제와 같다.
+        private Func<EntityDamagedEvent, Vector3, bool> _projectileTextDrawForValidation;
+        private Action<UnitType, Vector3> _projectileHitVfxForValidation;
+        private Action<GameObject> _projectilePunchForValidation;
+
+        /// <summary>
+        /// [Editor 전용] 피해 숫자·피격 VFX·펀치의 최종 그리기 호출을 가로챈다(fixture 전용). null을 넣으면 실제 경로로 돌아간다.
+        /// </summary>
+        /// <param name="text">숫자 그리기(이벤트, 표시 위치) → 성공 여부.</param>
+        /// <param name="hitVfx">유닛 피격 VFX(유닛 종류, 위치).</param>
+        /// <param name="punch">스케일 펀치 대상.</param>
+        public void SetPresentationChannelsForValidation(Func<EntityDamagedEvent, Vector3, bool> text,
+            Action<UnitType, Vector3> hitVfx, Action<GameObject> punch)
+        {
+            _projectileTextDrawForValidation = text;
+            _projectileHitVfxForValidation = hitVfx;
+            _projectilePunchForValidation = punch;
+        }
+
+        /// <summary>[Editor 전용] Update를 기다리지 않고 투사체 보관함 타임아웃 검사를 지정 시각으로 돌린다.</summary>
+        /// <param name="now">실제 시계(Time.realtimeSinceStartupAsDouble 기준) 값.</param>
+        public void TickProjectileHoldForValidation(double now) => TickProjectileHold(now);
 #endif
 
         // ====================================================================
@@ -390,6 +482,9 @@ namespace Hexiege.Presentation
             _pendingByAttacker.Clear();
             _projectileHold.Clear();
             _projectileReleased.Clear();
+            _projectileReleasePoints.Clear();
+            _projectileReleasePointsExpired.Clear();
+            _projectileTextPlayed = _projectileTextFallback = _projectileTextMissing = _projectileTextMissingDead = 0;
             _projectileOwnerNotReadyEvents = 0;
             _exactRendezvous.Clear();
             _releasedExact.Clear();
@@ -468,8 +563,16 @@ namespace Hexiege.Presentation
             if (evt.ProjectilePresentationKey.IsValid && _projectileOwnerReady?.Invoke() == true)
             {
                 ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
-                if (_projectileHold.HoldOrRelease(evt.ProjectilePresentationKey, evt, Time.realtimeSinceStartupAsDouble))
-                    Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
+                // [제안 A] 지금(HP 이벤트 도착 순간) 대상 화면 위치를 기억해 둔다. 화면 착탄 지점 없이 방출되는 경로
+                //   (타임아웃·보관 상한 초과)에서 대상이 이미 사라졌을 때의 대체 위치다. 대상이 없으면 기억하지 않는다.
+                //   옛 줄(기록용): if (_projectileHold.HoldOrRelease(key, evt, now)) Emit(evt, EmittedImmediate);
+                var held = new ProjectileHeldHit(evt, TryReadTargetPosition(evt, out Vector3 remembered), remembered);
+                if (_projectileHold.HoldOrRelease(evt.ProjectilePresentationKey, held, Time.realtimeSinceStartupAsDouble))
+                {
+                    // 바로 방출: 화면 착탄 신호가 먼저 왔으면(순서 역전) 그때 기억한 착탄 지점을 대체 위치로 쓴다.
+                    bool hasPoint = _projectileReleasePoints.TryGetValue(evt.ProjectilePresentationKey, out ReleasePoint early);
+                    EmitProjectile(held, LegacyPresentationObservationKind.EmittedImmediate, hasPoint, early.Point);
+                }
                 return;
             }
             ObserveFoxLegacyPresentation(evt, "received", "not-dispatched");
@@ -675,9 +778,9 @@ namespace Hexiege.Presentation
         private void Update()
         {
             // [2026-10-20] 화면 착탄 신호가 끝내 오지 않은 투사체 피해 표현은 상한 시간 뒤 강제 방출한다(표시 유실 방지).
-            _projectileReleased.Clear();
-            _projectileHold.CollectExpired(Time.realtimeSinceStartupAsDouble, _projectileReleased);
-            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedTimeout);
+            //   옛 3줄(기록용): _projectileReleased.Clear(); _projectileHold.CollectExpired(now, _projectileReleased);
+            //                   EmitProjectileReleased(EmittedTimeout);  → 같은 일 + 착탄 지점 기억 정리를 TickProjectileHold로 옮겼다.
+            TickProjectileHold(Time.realtimeSinceStartupAsDouble);
             EmitAttackEffects();
             RetryAuthoritativePresentations(Time.realtimeSinceStartupAsDouble);
             _releasedExact.Clear();
@@ -1028,7 +1131,78 @@ namespace Hexiege.Presentation
             ObserveFoxLegacyPresentation(evt, "emitted",
                 textDisplayed ? "text-played" : "text-missing");
 
-            // 타겟 GameObject 조회 (VFX 위치 + 스케일 펀치 대상). 파괴되었으면 null.
+            // [제안 A] 타겟 조회와 ②·③을 아래 두 헬퍼로 옮겼다(투사체 보관 항목 방출도 같은 코드를 쓰게). 동작은 그대로다.
+            //   옛 코드(기록용): targetGo = 팩토리 조회 → targetPresentation = pose 조회(없으면 targetGo.transform)
+            //                    → 유닛이면 EffectManager.PlayUnitHit(type, targetPresentation.position) → HitReactionPunch.Play(...)
+            Transform targetPresentation = ResolveTargetPresentation(evt);
+            PlayHitReaction(evt, targetPresentation, false, default);
+        }
+
+        /// <summary>
+        /// [2026-10-21 제안 A] 투사체 보관함에서 꺼낸 피격 표현 1건을 방출한다(숫자 → 피격 VFX → 펀치 순서는 Emit과 같다).
+        ///
+        /// 숫자 위치를 고르는 규칙(초급자 설명):
+        ///   1) 대상 화면 오브젝트가 살아 있으면 → 지금 대상 위치(기존과 같다. 싱글·Host 대부분이 여기).
+        ///   2) 대상이 이미 사라졌으면(사망 디스폰·건물 파괴) → 대체 위치.
+        ///      · 화면 착탄 지점이 있으면 그 지점(착탄 방출·순서 역전 즉시 방출).
+        ///      · 없으면(타임아웃·상한 초과) HP 이벤트가 왔을 때 기억해 둔 대상 위치.
+        ///   3) 대체 위치도 없으면 숫자를 내지 못한다(missing으로 센다 — 조용히 사라지지 않게).
+        /// 숫자 값은 언제나 이벤트의 남은 HP(evt.CurrentHp)다 — 사망타면 "0".
+        /// 펀치는 흔들 대상이 없으면 생략한다. 이 함수는 HP·서버 판정을 바꾸지 않는다(표현 전용).
+        /// </summary>
+        private void EmitProjectile(ProjectileHeldHit held, LegacyPresentationObservationKind kind,
+            bool hasImpactPoint, Vector3 impactPoint)
+        {
+            EntityDamagedEvent evt = held.Event;
+            if (evt.Entity == null) return;
+            ObserveLegacy(evt, kind);
+
+            Transform targetPresentation = ResolveTargetPresentation(evt);
+            bool targetAvailable = targetPresentation != null && targetPresentation.position != Vector3.zero;
+            bool hasFallback = hasImpactPoint && IsFinite(impactPoint);
+            Vector3 fallback = impactPoint;
+            if (!hasFallback && held.HasRememberedPosition)
+            {
+                hasFallback = true;
+                fallback = held.RememberedPosition;
+            }
+
+            // ① 숫자. 살아 있는 대상이면 그 위치(= 기존 TryShowDamage와 같은 pose 제공자·같은 zero 판정), 아니면 대체 위치.
+            bool shown;
+            if (targetAvailable)
+            {
+                shown = DrawDamageText(evt, targetPresentation.position);
+                if (shown) _projectileTextPlayed++;
+            }
+            else
+            {
+                shown = hasFallback && DrawDamageText(evt, fallback);
+                if (shown) _projectileTextFallback++;
+            }
+            if (!shown)
+            {
+                _projectileTextMissing++;
+                if (!targetAvailable) _projectileTextMissingDead++;
+            }
+            ObserveFoxLegacyPresentation(evt, "emitted", shown ? "text-played" : "text-missing");
+
+            // ②·③ 피격 VFX(대상이 없으면 같은 대체 위치) · 펀치(대상이 없으면 생략).
+            PlayHitReaction(evt, targetPresentation, hasFallback, fallback);
+        }
+
+        // 숫자 그리기 단일 지점. 실제로는 스포너의 위치 지정 경로(TryShowDamageAt — C3가 쓰는 경로)를 쓴다.
+        private bool DrawDamageText(EntityDamagedEvent evt, Vector3 position)
+        {
+#if UNITY_EDITOR
+            if (_projectileTextDrawForValidation != null) return _projectileTextDrawForValidation(evt, position);
+#endif
+            return _hpTextSpawner != null && _hpTextSpawner.TryShowDamageAt(evt, position);
+        }
+
+        // 피격 대상의 화면 Transform(VFX 위치 + 펀치 대상). 파괴됐으면 null(Unity null 비교).
+        private Transform ResolveTargetPresentation(EntityDamagedEvent evt)
+        {
+            if (evt.Entity == null) return null;
             GameObject targetGo = evt.IsUnit
                 ? (_unitFactory != null ? _unitFactory.GetUnitObject(evt.Entity.Id) : null)
                 : (_buildingFactory != null ? _buildingFactory.GetBuildingObject(evt.Entity.Id) : null);
@@ -1037,21 +1211,46 @@ namespace Hexiege.Presentation
                 : _presentationPoseProvider?.GetBuildingTransform(evt.Entity.Id);
             if (targetPresentation == null && targetGo != null)
                 targetPresentation = targetGo.transform;
+            return targetPresentation;
+        }
 
+        // 지금 대상 화면 위치를 읽는다(HP 이벤트 시점에 "기억할 위치"용). 없거나 zero면 false(FloatingHpTextSpawner와 같은 규칙).
+        private bool TryReadTargetPosition(EntityDamagedEvent evt, out Vector3 position)
+        {
+            Transform target = ResolveTargetPresentation(evt);
+            position = target != null ? target.position : default;
+            return target != null && position != Vector3.zero;
+        }
+
+        /// <summary>
+        /// ② 피격 VFX ③ 스케일 펀치. targetPresentation이 있으면 기존과 같다.
+        /// 없을 때 hasFallback이면 유닛 피격 VFX만 대체 위치에서 낸다(투사체 사망타 전용 — 일반 Emit은 false를 넘긴다).
+        /// </summary>
+        private void PlayHitReaction(EntityDamagedEvent evt, Transform targetPresentation, bool hasFallback, Vector3 fallback)
+        {
             // ② 피격 VFX — 유닛 타겟만 재생(PlayUnitHit은 UnitType 기반). 프리셋 미설정이면 내부에서 조용히 스킵.
             //    (건물 피격 VFX는 이번 범위 아님 — Phase 2는 유닛 피격 VFX만 다룬다.)
-            if (evt.IsUnit && targetPresentation != null && evt.Entity is UnitData targetUnit)
-            {
-                EffectManager.Instance?.PlayUnitHit(
-                    targetUnit.Type,
-                    targetPresentation.position);
-            }
+            //    대상이 사라졌어도 evt.Entity(UnitData)는 남아 있어 유닛 종류를 알 수 있다.
+            if (evt.IsUnit && evt.Entity is UnitData targetUnit && (targetPresentation != null || hasFallback))
+                PlayUnitHitVfx(targetUnit.Type, targetPresentation != null ? targetPresentation.position : fallback);
 
-            // ③ 타격 반응 — 유닛/건물 GameObject에 짧은 스케일 펀치(원 스케일 캐시 후 복원 보장).
+            // ③ 타격 반응 — 유닛/건물 GameObject에 짧은 스케일 펀치(원 스케일 캐시 후 복원 보장). 대상이 없으면 생략.
             if (targetPresentation != null)
             {
+#if UNITY_EDITOR
+                if (_projectilePunchForValidation != null) { _projectilePunchForValidation(targetPresentation.gameObject); return; }
+#endif
                 HitReactionPunch.Play(targetPresentation.gameObject);
             }
+        }
+
+        // 유닛 피격 VFX 재생 단일 지점(Editor fixture는 위치만 기록한다).
+        private void PlayUnitHitVfx(UnitType type, Vector3 position)
+        {
+#if UNITY_EDITOR
+            if (_projectileHitVfxForValidation != null) { _projectileHitVfxForValidation(type, position); return; }
+#endif
+            EffectManager.Instance?.PlayUnitHit(type, position);
         }
 
         // ====================================================================
@@ -1333,6 +1532,42 @@ namespace Hexiege.Presentation
                 Event = evt;
                 EnqueueTime = enqueueTime;
                 Timeout = timeout;
+            }
+        }
+
+        /// <summary>
+        /// [2026-10-21 제안 A] 투사체 보관함에 넣는 1건 = 피해 이벤트 + 보관한 순간의 대상 화면 위치.
+        /// 위치는 "화면 착탄 지점 없이 방출될 때 대상이 이미 사라졌으면" 쓰는 대체값이다.
+        /// </summary>
+        private readonly struct ProjectileHeldHit
+        {
+            /// <summary>원본 피해 이벤트(대상·남은 HP·팀·투사체 번호표).</summary>
+            public readonly EntityDamagedEvent Event;
+
+            /// <summary>보관 순간 대상 위치를 읽었는가(대상이 이미 없었으면 false).</summary>
+            public readonly bool HasRememberedPosition;
+
+            /// <summary>보관 순간 대상 화면 위치(HasRememberedPosition이 true일 때만 의미가 있다).</summary>
+            public readonly Vector3 RememberedPosition;
+
+            public ProjectileHeldHit(EntityDamagedEvent evt, bool hasRememberedPosition, Vector3 rememberedPosition)
+            {
+                Event = evt;
+                HasRememberedPosition = hasRememberedPosition;
+                RememberedPosition = rememberedPosition;
+            }
+        }
+
+        /// <summary>[제안 A] 먼저 온 화면 착탄 신호의 지점과 받은 시각(실제 시계).</summary>
+        private readonly struct ReleasePoint
+        {
+            public readonly Vector3 Point;
+            public readonly double At;
+
+            public ReleasePoint(Vector3 point, double at)
+            {
+                Point = point;
+                At = at;
             }
         }
 

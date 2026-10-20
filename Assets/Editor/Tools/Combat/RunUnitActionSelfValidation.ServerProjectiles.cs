@@ -19,6 +19,8 @@
 //   B-2   Tank(유닛 대상)·CannonCart(건물 대상, 건물 2배) — 발사 때 피해 0, 착탄 때 같은 writer로 1회.
 //   B-3   진단 END 형식: 서버 [PROJECTILE-END] side=server 합계·취소 사유·balance·verdict, 분포 상자, 화면 일정표 거부 사유·
 //         도착 순서, 피해 숫자 보관함 방출 경로, UnitView marker 계수(공격자별 marker − 발사).
+//   A-1~6 [2026-10-21 제안 A] 사망타 숫자: 대상 디스폰 뒤 착탄 지점에 "0" 1회, 건물, 살아 있는 대상 회귀 없음, 타임아웃 기억 위치,
+//         순서 역전 1회, 중복 Release 1회, 이미 죽은 대상에 닿는 후속 투사체 숫자 없음, text= 계수.
 //   B-4   의심 1: 새 경로 marker는 총구 VFX·발사음을 내지 않고, 발사 신호는 서버 발사 기록을 화면에 꺼낼 때만 낸다(소스 게이트).
 //         진단 오표기 C: 발사 시점 StreamSpirit timer-impact가 writerResult=NotInvoked로 찍힌다(소스 게이트).
 // 실제 Animator·VFX·NGO 전송·화면 픽셀은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 7절).
@@ -124,6 +126,7 @@ namespace Hexiege.Editor.Combat
             ValidateServerProjectileContracts();
             ValidateServerProjectilePresentationCoordinator();
             ValidateServerProjectileImpactHold();
+            ValidateServerProjectileKillShotNumbers();          // [2026-10-21 제안 A] 사망타 숫자 대체 위치 ①~⑥ + 죽은 대상 후속 투사체 숫자 없음
             ValidateServerProjectileConfigAsset();
             ValidateServerProjectileDiagnosticFormats();       // [단계 B] 분포 상자 · marker 계수 형식
             ValidateServerProjectileStageBSourceGates();       // [단계 B] 의심 1 수정 · 진단 오표기 C
@@ -164,7 +167,7 @@ namespace Hexiege.Editor.Combat
                 NetworkContext.Set(oldServer, oldActive);
             }
             // [단계 B] PASS 문구 앞부분 갱신. 옛 앞부분(기록용): "self-validation PASS: stage-A switch (StreamSpirit only), schema 4 + ..."
-            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
+            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
         // ── 분류·스위치·handshake ───────────────────────────────────────────
@@ -621,6 +624,147 @@ namespace Hexiege.Editor.Combat
                 "Clearing the hold (map reload) resets its counters.");
         }
 
+        // ── [2026-10-21 제안 A] 사망타 피해 숫자 — 대상이 이미 사라진 뒤의 방출 ──────────────────────
+        /// <summary>fixture 전용 화면 pose 공급자 — 테스트가 유닛/건물 화면 오브젝트를 넣고 파괴할 수 있다(파괴되면 Unity null).</summary>
+        private sealed class KillShotFixturePoses : Hexiege.Presentation.IPresentationPoseProvider
+        {
+            public readonly Dictionary<int, Transform> Units = new Dictionary<int, Transform>();
+            public readonly Dictionary<int, Transform> Buildings = new Dictionary<int, Transform>();
+            public Transform GetUnitTransform(int unitId) => Units.TryGetValue(unitId, out Transform t) && t != null ? t : null;
+            public Transform GetBuildingTransform(int buildingId) => Buildings.TryGetValue(buildingId, out Transform t) && t != null ? t : null;
+            public Vector3 GetUnitPosition(int unitId) { Transform t = GetUnitTransform(unitId); return t != null ? t.position : Vector3.zero; }
+            public Vector3 GetBuildingPosition(int buildingId) { Transform t = GetBuildingTransform(buildingId); return t != null ? t.position : Vector3.zero; }
+        }
+
+        /// <summary>
+        /// 분석 문서 7절 fixture ①~⑥ + 사용자 확인(2026-10-21): 사망타는 착탄 지점에 "0", 그 뒤 죽은 대상에 닿는 투사체는 숫자 없음.
+        /// 실제 HitPresentationQueue를 Edit Mode에서 만들고, 그리기 직전 호출(숫자·피격 VFX·펀치)만 가로채 위치·값을 확인한다.
+        /// </summary>
+        private static void ValidateServerProjectileKillShotNumbers()
+        {
+            var root = new GameObject("Kill-shot number fixture") { hideFlags = HideFlags.HideAndDontSave };
+            var spawned = new List<GameObject>();
+            Hexiege.Presentation.HitPresentationQueue queue = null;
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            try
+            {
+                NetworkContext.Set(false, false);
+                var poses = new KillShotFixturePoses();
+                var texts = new List<(int Hp, Vector3 Position)>();
+                var vfx = new List<Vector3>();
+                int punches = 0;
+                queue = root.AddComponent<Hexiege.Presentation.HitPresentationQueue>();
+                queue.Initialize(null, null, null, null, null, poses);
+                queue.SetProjectileOwnerReady(() => true);
+                queue.SetPresentationChannelsForValidation(
+                    (e, p) => { texts.Add((e.CurrentHp, p)); return true; },
+                    (_, p) => vfx.Add(p),
+                    _ => punches++);
+
+                Transform View(Dictionary<int, Transform> table, int id, Vector3 position)
+                {
+                    var go = new GameObject("Kill-shot view " + id) { hideFlags = HideFlags.HideAndDontSave };
+                    go.transform.position = position;
+                    spawned.Add(go);
+                    table[id] = go.transform;
+                    return go.transform;
+                }
+                UnitData Unit(int id) => new UnitData(id, UnitType.LittleKnight, TeamId.Red, new HexCoord(0, 0), 100, 10, .5f, 1f);
+                void Damage(IDamageable entity, int hp, bool isUnit, ProjectileDeliveryKey key)
+                    => GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(entity, hp, isUnit, 9700, true, false,
+                        default, projectilePresentationKey: key));
+                ProjectileDeliveryKey Key(ulong id) => new ProjectileDeliveryKey(77UL, id);
+
+                // ① 유닛 사망타: HP 0 보관 → 사망 이벤트(보관함은 비우지 않는다 — Q7) → 디스폰 → 화면 착탄 → 착탄 지점에 "0" 1회.
+                UnitData dead = Unit(9801);
+                Transform deadView = View(poses.Units, dead.Id, new Vector3(3f, 0f, 4f));
+                Damage(dead, 0, true, Key(1));
+                GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(dead));
+                Require(texts.Count == 0, "Q7: the target-death flush does not release a projectile-held number before the visual impact.");
+                UnityEngine.Object.DestroyImmediate(deadView.gameObject);
+                var point1 = new Vector3(5f, .1f, 6f);
+                queue.ReleaseProjectileImpact(Key(1), point1);
+                Require(texts.Count == 1 && texts[0].Hp == 0 && texts[0].Position == point1,
+                    "[A-1] Unit kill shot after despawn shows \"0\" once at the screen impact point: " + Describe(texts));
+                Require(vfx.Count == 1 && vfx[0] == point1 && punches == 0,
+                    "[A-1] Hit VFX uses the same fallback point; the punch is skipped without a target.");
+                // ⑥ 같은 키 중복 Release → 추가 표시 없음.
+                queue.ReleaseProjectileImpact(Key(1), point1);
+                Require(texts.Count == 1, "[A-6] A duplicate release of the same key does not show the number twice.");
+                // 사용자 확인: 이미 죽은 대상에 나중에 닿는 투사체는 서버가 TargetLost로 끝내 HP 이벤트가 없다 → 숫자 없음.
+                //   (Presenter는 TargetLost에서 Release를 부르지 않지만, 불려도 보관 항목이 없으므로 아무것도 내지 않는다.)
+                queue.ReleaseProjectileImpact(Key(2), new Vector3(5.2f, .1f, 6.1f));
+                Require(texts.Count == 1 && vfx.Count == 1,
+                    "[A-user] A later projectile reaching an already-dead target (no HP event) shows no number.");
+
+                // ② 건물 사망타: 사전 제거(오브젝트 파괴) 후 Release → 1회, 건물이라 피격 VFX 없음.
+                var castle = new BuildingData(9901, BuildingType.Castle, TeamId.Red, new HexCoord(0, 0), 1000);
+                Transform castleView = View(poses.Buildings, castle.Id, new Vector3(8f, 0f, 2f));
+                Damage(castle, 0, false, Key(3));
+                UnityEngine.Object.DestroyImmediate(castleView.gameObject);
+                var point3 = new Vector3(7.5f, 0f, 2f);
+                queue.ReleaseProjectileImpact(Key(3), point3);
+                Require(texts.Count == 2 && texts[1].Hp == 0 && texts[1].Position == point3 && vfx.Count == 1,
+                    "[A-2] Building kill shot after removal shows \"0\" once at the impact point: " + Describe(texts));
+
+                // ③ 살아 있는 대상: 착탄 지점이 아니라 지금 대상 위치에 표시(회귀 없음), VFX·펀치 정상.
+                UnitData alive = Unit(9802);
+                var alivePosition = new Vector3(7f, 0f, 8f);
+                View(poses.Units, alive.Id, alivePosition);
+                Damage(alive, 40, true, Key(4));
+                queue.ReleaseProjectileImpact(Key(4), new Vector3(6.6f, .3f, 7.9f));
+                Require(texts.Count == 3 && texts[2].Hp == 40 && texts[2].Position == alivePosition
+                        && vfx.Count == 2 && vfx[1] == alivePosition && punches == 1,
+                    "[A-3] A living target keeps the existing target-position number, hit VFX and punch: " + Describe(texts));
+
+                // ⑤ 순서 역전: 화면 착탄(Release)이 먼저 → 디스폰 → HP 이벤트 → 기억한 착탄 지점에 바로 1회.
+                UnitData reversed = Unit(9803);
+                Transform reversedView = View(poses.Units, reversed.Id, new Vector3(1f, 0f, 9f));
+                var point5 = new Vector3(1.2f, 0f, 8.8f);
+                queue.ReleaseProjectileImpact(Key(5), point5);
+                Require(texts.Count == 3, "[A-5] A release without a held item shows nothing yet.");
+                UnityEngine.Object.DestroyImmediate(reversedView.gameObject);
+                Damage(reversed, 0, true, Key(5));
+                Require(texts.Count == 4 && texts[3].Hp == 0 && texts[3].Position == point5,
+                    "[A-5] Reversed order (release first, HP later) shows the number once at the remembered impact point: " + Describe(texts));
+
+                // ④ 타임아웃 방출: 보관할 때(HP 이벤트 순간) 기억한 대상 위치로 1회.
+                UnitData timedOut = Unit(9804);
+                var rememberedPosition = new Vector3(9f, 0f, 1f);
+                Transform timedOutView = View(poses.Units, timedOut.Id, rememberedPosition);
+                Damage(timedOut, 0, true, Key(6));
+                UnityEngine.Object.DestroyImmediate(timedOutView.gameObject);
+                // 보관 때부터 대상 화면이 없던 항목(대체 위치 없음) → 타임아웃 때 missing·missingDead로 센다(조용한 실패 금지).
+                Damage(Unit(9805), 0, true, Key(7));
+                queue.TickProjectileHoldForValidation(Time.realtimeSinceStartupAsDouble
+                    + ProjectileImpactPresentationHold<int>.TimeoutSeconds + .5d);
+                Require(texts.Count == 5 && texts[4].Hp == 0 && texts[4].Position == rememberedPosition,
+                    "[A-4] A timed-out held number uses the target position remembered at the HP event: " + Describe(texts));
+
+                string text = queue.DescribeProjectileTextForDiagnostics();
+                Require(text == "played:1|fallback:4|missing:1|missingDead:1" && queue.ProjectileTextMissingItems == 1,
+                    "[A-diag] Projectile number results are counted: " + text);
+                string hold = queue.DescribeProjectileHoldForDiagnostics();
+                Require(hold == "held:5|atImpact:3|immediateAfterRelease:1|immediateCapacity:0|timeout:2|emptyRelease:3|heldNow:0|ownerNotReady:0",
+                    "[A-diag] played+fallback+missing equals atImpact+immediate+timeout: " + hold);
+            }
+            finally
+            {
+                queue?.Dispose();
+                foreach (GameObject go in spawned) if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(root);
+                NetworkContext.Set(oldServer, oldActive);
+            }
+        }
+
+        private static string Describe(List<(int Hp, Vector3 Position)> texts)
+        {
+            var parts = new List<string>(texts.Count);
+            foreach (var t in texts)
+                parts.Add(FormattableString.Invariant($"{t.Hp}@({t.Position.x:F2},{t.Position.y:F2},{t.Position.z:F2})"));
+            return "[" + string.Join(", ", parts) + "]";
+        }
+
         // ── 설정 에셋 계약 ──────────────────────────────────────────────────
         private static void ValidateServerProjectileConfigAsset()
         {
@@ -712,6 +856,11 @@ namespace Hexiege.Editor.Combat
             Require(transport.Contains("BeginProjectileEpochClientRpc(combat.ProjectileEpoch, _projectileSnapshotBuffer.Count, rpc)")
                     && transport.Contains("BeginProjectileEpochClientRpc(combat.ProjectileEpoch, -1)"),
                 "Late-join snapshot announces its launch count; the normal epoch broadcast uses -1.");
+            // [2026-10-21 제안 A] 화면 착탄 지점을 숫자 대체 위치로 넘기고, view END는 logcat 잘림 대응으로 2줄이다.
+            Require(presenter.Contains("_hits?.ReleaseProjectileImpact(slot.Key, NumberFallbackPoint(slot, visual));")
+                    && presenter.Contains("\"part=1/2 \"") && presenter.Contains("\"part=2/2\"")
+                    && presenter.Contains("\" text=\" + (_hits != null ? _hits.DescribeProjectileTextForDiagnostics()"),
+                "Option A: the presenter passes the screen impact point; the view END is split into two lines with text= results.");
         }
     }
 }

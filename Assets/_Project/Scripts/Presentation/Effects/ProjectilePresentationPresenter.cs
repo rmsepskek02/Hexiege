@@ -14,13 +14,14 @@
 //                 대상이 사라지면 마지막 위치에 고정한다(Q4). 서버 결과가 오면 서버 착탄 지점으로 부드럽게 맞춘다.
 //      · 위치   = 출발점 → 끝점을 진행도(서버 발사/착탄 시각 기준)로 보간 — 그래서 서버 착탄 시각에 정확히 닿는다.
 //      · 착탄   = 착탄 이펙트(명중·대상 소실 공통) + 명중이면 피격 표현 큐에 "지금 숫자를 내라"(ReleaseProjectileImpact).
+//                 [2026-10-21] 화면 착탄 지점도 함께 넘긴다 — 사망타로 대상이 이미 디스폰됐으면 큐가 그 지점에 "0"을 낸다.
 //   4) 게임 종료·재초기화·파괴 때 남은 투사체를 즉시 거둔다(착탄 이펙트·숫자 없음).
 //   5) [2026-10-20 단계 B — 의심 1 수정] 투사체를 꺼내는 순간(Begin) 쏜 유닛의 "발사 신호"(총구 VFX + 발사음)를 낸다
 //      (UnitView.PlayServerProjectileLaunchCue). 예전에는 애니메이션 marker가 냈는데, 순수 Client는 서버가 발사를
 //      취소했는지 몰라 취소된 공격에도 총구 VFX가 났다. 발사 기록이 있을 때만 내므로 세 실행 형태(싱글·Host·Client)가
 //      같은 서버 권위 정보로 판정한다. 늦은 접속으로 비행 중간부터 그리는 투사체는 발사 신호를 생략한다(이미 쏜 뒤다).
 //   6) [단계 B 진단] 받은 수·그린 수·착탄 VFX 수·거부 사유·결과/화면 도착 순서·화면 착탄 지연 분포를 세어
-//      경기 종료 때 [PROJECTILE-END] side=view 1줄로 남기고, 처음 24발은 [PROJECTILE-VIEW] 표본 줄을 남긴다.
+//      경기 종료 때 [PROJECTILE-END] side=view 2줄(2026-10-21 전에는 1줄)로 남기고, 처음 24발은 [PROJECTILE-VIEW] 표본 줄을 남긴다.
 //
 // [화면 시각 = 서버 시각 − 지연]
 //   · 싱글·Host: 지연 0 — 서버 피해·사망과 화면 착탄이 같은 순간이다.
@@ -279,8 +280,11 @@ namespace Hexiege.Presentation
                 }
                 DiagFinish(slot, withResult, impactVfx);
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).
+                //   [2026-10-21 제안 A] 화면 착탄 지점도 함께 넘긴다. 사망타는 이 순간 대상 오브젝트가 이미 디스폰돼 있을 수 있어
+                //   (Client는 0.10초 늦게 그린다) 큐가 이 지점에 숫자 "0"을 낸다. 대상이 살아 있으면 큐는 이 지점을 쓰지 않는다.
+                //   옛 줄(기록용): _hits?.ReleaseProjectileImpact(slot.Key);
                 if (withResult && slot.Result.Outcome == ProjectileImpactOutcome.Hit)
-                    _hits?.ReleaseProjectileImpact(slot.Key);
+                    _hits?.ReleaseProjectileImpact(slot.Key, NumberFallbackPoint(slot, visual));
             }
             catch (Exception exception) { Fault("finish", slot, exception); }
             finally { EndVisual(slot); }
@@ -358,6 +362,18 @@ namespace Hexiege.Presentation
             return view;
         }
 
+        /// <summary>
+        /// [2026-10-21 제안 A] 피해 숫자·피격 VFX의 대체 위치 = 화면 착탄 지점(착탄 이펙트와 같은 XZ).
+        /// 높이는 착탄 높이(가슴께) 대신 "대상 화면 중심의 마지막 높이"를 쓴다. 평소 숫자·피격 VFX는 대상 화면 위치
+        /// (발밑 기준)에서 나오므로, 같은 높이를 써야 사망타 숫자가 다른 숫자들과 같은 높이에 뜬다.
+        /// 화면 오브젝트를 못 만든 투사체(Begin 실패)는 지점이 없다 → NaN을 넘겨 큐가 "보관 때 기억한 위치"를 쓰게 한다.
+        /// </summary>
+        private static Vector3 NumberFallbackPoint(ProjectilePresentationCoordinator.Slot slot, Visual visual)
+        {
+            if (visual == null) return new Vector3(float.NaN, float.NaN, float.NaN);
+            return ServerPoint(slot.Result, visual.LastCenter.y);
+        }
+
         private void EndVisual(ProjectilePresentationCoordinator.Slot slot)
         {
             if (!(slot.Visual is Visual visual)) return;
@@ -399,7 +415,9 @@ namespace Hexiege.Presentation
         //
         // [다음 실기 분석에서 grep할 태그]
         //   [PROJECTILE-VIEW] stage=begin|finish  — 맵당 처음 24발의 꺼냄/착탄 시각 표본(서버 시각·화면 시각·지연).
-        //   [PROJECTILE-END] side=view            — 경기 종료 때 1줄(싱글·Host·Client 각각).
+        //   [PROJECTILE-END] side=view            — 경기 종료 때 2줄(v=2 part=1/2 · part=2/2, 싱글·Host·Client 각각).
+        //     ※ 2026-10-21부터 logcat 줄 잘림(약 1024자) 때문에 2줄로 나눴다. 아래 목록 중 displayLag~verdict가 2줄째다.
+        //     text=played:N|fallback:N|missing:N|missingDead:N — 투사체 피해 숫자 표시 결과(1줄째, hold= 바로 뒤).
         //     launch=recv:N|accepted:N  result=recv:N|accepted:N  begins=all:N|midFlight:N|tracerMissing:N
         //     cue=played:N|vfxStarted:N|skippedMidFlight:N|noAttackerView:N  finish=hit:N|lost:N  impactVfx=played:N|missing:N
         //     aborts=N  rejected=...|order=...|timeouts=N  (ProjectilePresentationCoordinator)
@@ -470,8 +488,17 @@ namespace Hexiege.Presentation
             if (ServerProjectileDiagnostics.ServerMarkerMuzzleCount > 0) attention.Add("muzzle-at-marker");
             if (_faults > 0) attention.Add("faults");
             if (v.LaunchAccepted > 0 && v.Begins == 0) attention.Add("never-drawn");
-            string body = FormattableString.Invariant(
-                $"side=view v=1 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} switch={ServerProjectileDeliveryPolicy.ManifestToken} ")
+            // [2026-10-21 제안 A 진단] 투사체 피해 숫자를 끝내 못 낸 수가 있으면 주의 표시(관측만 — 동작 판단에 쓰지 않는다).
+            if (_hits != null && _hits.ProjectileTextMissingItems > 0) attention.Add("text-missing");
+
+            // [2026-10-21] 기기 logcat은 한 줄을 약 1024자에서 자른다(2026-10-21 실기에서 Host END 뒷부분 유실 확인).
+            //   그래서 END를 2줄(part=1/2 · part=2/2)로 나눈다. 두 줄 모두 같은 머리(role·epoch·reason)를 달아 짝을 맞출 수 있다.
+            //   형식이 바뀌었으므로 v=1 → v=2. 1줄째 = 개수(받음·그림·착탄·일정표·보관함·숫자 결과), 2줄째 = 시간 분포·marker·verdict.
+            //   옛 1줄 형식(기록용): "side=view v=1 role=.. epoch=.. reason=.. switch=.. launch=.. ... hold=.. markers=.. verdict=.."
+            string head = FormattableString.Invariant(
+                $"side=view v=2 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
+            string part1 = head + "part=1/2 "
+                + FormattableString.Invariant($"switch={ServerProjectileDeliveryPolicy.ManifestToken} ")
                 + FormattableString.Invariant(
                 $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
                 + FormattableString.Invariant(
@@ -479,11 +506,14 @@ namespace Hexiege.Presentation
                 + FormattableString.Invariant(
                 $"finish=hit:{v.FinishHit}|lost:{v.FinishLost} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
                 + _coordinator.DescribeForDiagnostics()
-                + " displayLag=" + v.DisplayLag.Format() + " resultLag=" + v.ResultLag.Format() + " beginLag=" + v.BeginLag.Format()
                 + " hold=" + (_hits != null ? _hits.DescribeProjectileHoldForDiagnostics() : "unavailable")
+                + " text=" + (_hits != null ? _hits.DescribeProjectileTextForDiagnostics() : "unavailable");
+            string part2 = head + "part=2/2"
+                + " displayLag=" + v.DisplayLag.Format() + " resultLag=" + v.ResultLag.Format() + " beginLag=" + v.BeginLag.Format()
                 + " " + ServerProjectileDiagnostics.DescribeView()
                 + " verdict=" + (attention.Count == 0 ? "PASS" : "ATTENTION attention=" + string.Join(",", attention));
-            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", body);
+            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", part1);
+            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", part2);
         }
     }
 }
