@@ -392,9 +392,20 @@ namespace Hexiege.Editor.Combat
                 "[R5] StreamSpirit/Cannon impact presets point to the actual impact prefabs.");
             Require(units.GetImpact(UnitType.StreamSpirit) == streamImpact && units.GetHit(UnitType.StreamSpirit) == null,
                 "[R5] StreamSpirit splash is attacker-keyed (impact slot), not victim-keyed (hit slot).");
-            Require(units.GetImpact(UnitType.Tank) == cannonImpact && units.GetHit(UnitType.Tank) == null
-                && units.GetImpact(UnitType.CannonCart) == cannonImpact && units.GetHit(UnitType.CannonCart) == null,
-                "[R5] Tank/CannonCart impact is attacker-keyed (impact slot), victim-keyed hit slot is empty.");
+            // [2026-10-20 서버 권위 투사체 단계 B] Tank·CannonCart는 이제 R5 임시 경로가 아니라 서버 투사체 경로다.
+            //   같은 설정 계약(착탄 = 공격자 기준 impact 슬롯, hit 슬롯 비움)에 트레이서 프리셋 연결까지 함께 확인한다 —
+            //   서버 투사체 화면 소비자가 이 두 프리셋(EffectPreset_Cannon_Tracer · EffectPreset_Cannon_Impact)을 그린다.
+            //   옛 단언(R5, 기록용 — 주석 보존):
+            //   Require(units.GetImpact(UnitType.Tank) == cannonImpact && units.GetHit(UnitType.Tank) == null
+            //       && units.GetImpact(UnitType.CannonCart) == cannonImpact && units.GetHit(UnitType.CannonCart) == null,
+            //       "[R5] Tank/CannonCart impact is attacker-keyed (impact slot), victim-keyed hit slot is empty.");
+            var cannonTracer = AssetDatabase.LoadAssetAtPath<EffectPreset>(
+                "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_Cannon_Tracer.asset");
+            Require(cannonTracer?.VfxPrefab != null
+                && units.GetImpact(UnitType.Tank) == cannonImpact && units.GetHit(UnitType.Tank) == null
+                && units.GetImpact(UnitType.CannonCart) == cannonImpact && units.GetHit(UnitType.CannonCart) == null
+                && units.GetTracer(UnitType.Tank) == cannonTracer && units.GetTracer(UnitType.CannonCart) == cannonTracer,
+                "[SERVER-PROJECTILE] Tank/CannonCart draw EffectPreset_Cannon_Tracer in flight and EffectPreset_Cannon_Impact (attacker-keyed impact slot) on impact; victim-keyed hit slot stays empty.");
             var streamTracer = units.GetTracer(UnitType.StreamSpirit);
             Require(streamTracer?.VfxPrefab != null, "[R5] StreamSpirit interim tracer preset is wired.");
             var tracerComponent = streamTracer.VfxPrefab.GetComponent<TracerProjectile>();
@@ -459,12 +470,24 @@ namespace Hexiege.Editor.Combat
                 Require(plainCallbacks == 1 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
                     "[R5] A tracer call without the arrival-impact flag keeps the old behavior (no splash).");
 
-                // ③ 트레이서가 없는 타입(Tank): 콜백은 즉시 실행, 착탄 이펙트는 재생하지 않는다(폴백 유지).
-                if (units.GetTracer(UnitType.Tank)?.VfxPrefab == null)
+                // ③ 트레이서가 없는 타입: 콜백은 즉시 실행, 착탄 이펙트는 재생하지 않는다(폴백 유지).
+                //   [2026-10-20 단계 B] 옛 예시 Tank는 트레이서 프리셋이 연결돼(EffectPreset_Cannon_Tracer) 이 블록이 실행되지 않았고,
+                //   이제 서버 투사체 유닛이라 R5 경로를 쓰지 않는다. 트레이서가 없는 Pistoleer로 같은 폴백 계약을 확인한다.
+                //   옛 블록(기록용 — 주석 보존):
+                //   if (units.GetTracer(UnitType.Tank)?.VfxPrefab == null)
+                //   {
+                //       int tankCallbacks = 0;
+                //       manager.PlayTracer(UnitType.Tank, start, target, () => tankCallbacks++, playImpactOnArrive: true);
+                //       Require(tankCallbacks == 1 && ActiveImpacts(cannonImpact.VfxPrefab) == 0 && ActiveTracer() == null,
+                //           "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
+                //   }
+                if (units.GetTracer(UnitType.Pistoleer)?.VfxPrefab == null)
                 {
-                    int tankCallbacks = 0;
-                    manager.PlayTracer(UnitType.Tank, start, target, () => tankCallbacks++, playImpactOnArrive: true);
-                    Require(tankCallbacks == 1 && ActiveImpacts(cannonImpact.VfxPrefab) == 0 && ActiveTracer() == null,
+                    int fallbackCallbacks = 0;
+                    var pistoleerImpact = units.GetImpact(UnitType.Pistoleer);
+                    manager.PlayTracer(UnitType.Pistoleer, start, target, () => fallbackCallbacks++, playImpactOnArrive: true);
+                    Require(fallbackCallbacks == 1 && ActiveTracer() == null
+                        && (pistoleerImpact?.VfxPrefab == null || ActiveImpacts(pistoleerImpact.VfxPrefab) == 0),
                         "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
                 }
 

@@ -224,11 +224,16 @@ namespace Hexiege.Application
         // [RM-9 — 테스트 완료 전까지만 존재하는 유닛별 이행 스위치]
         //   단계 A(2026-10-20): StreamSpirit 1종만 켠다. 나머지 투사체 유닛은 꺼진 상태로 기존 동작
         //   (타격 순간 즉시 피해 + 로컬 트레이서)을 유지한다. 다음 단계에서 한 종씩 이 목록에 추가한다.
+        //   단계 B(2026-10-20 사용자 승인): Tank · CannonCart를 추가로 켠다. 두 유닛은 특수 공격 핸들러가 없는
+        //   단일 타격 유닛이고, 화면 프리셋(트레이서 EffectPreset_Cannon_Tracer · 착탄 EffectPreset_Cannon_Impact)이
+        //   UnitEffectConfig.asset의 type 6·7 행에 이미 연결돼 있다(2026-10-20 에셋 직접 확인). 건물 2배 피해는
+        //   착탄 때 같은 단일 writer(ComputeFinalDamage)가 그대로 적용한다.
         //   ⚠️ 이 목록을 바꾸면 ManifestToken이 바뀌어 다른 빌드와는 경기가 시작되지 않는다(의도된 안전장치).
+        //   옛 목록(단계 A, 기록용): { UnitType.StreamSpirit }  → ManifestToken "17"
         // ────────────────────────────────────────────────────────────────
         private static readonly UnitType[] EnabledUnitTypes =
         {
-            UnitType.StreamSpirit
+            UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit
         };
 
         /// <summary>이 유닛 종류가 "투사체 유닛"(Q11 분류)인가. 스위치와 무관한 분류 자체다.</summary>
@@ -247,7 +252,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열(켜진 유닛 번호를 오름차순으로 ","로 연결).
-        /// 예: 단계 A = "17". 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
+        /// 예: 단계 A = "17", 단계 B = "6,7,17". 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
         /// </summary>
         public static string ManifestToken
         {

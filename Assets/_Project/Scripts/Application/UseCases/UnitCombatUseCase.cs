@@ -732,6 +732,9 @@ namespace Hexiege.Application
             // HitFrameTimes가 null이거나 비어 있으면 안전망으로 즉시 1회 데미지를 적용한다
             // (Inspector 미설정 대비).
             float[] hitTimes = attacker.HitFrameTimes;
+            // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(커밋)가 새 경로/기존 경로 중 어디로 갔는지 센다(읽기 전용).
+            //   스위치가 꺼진 투사체 유닛이 기존 경로를 지켰는지 경기 종료 END(path=)로 확인한다. 비투사체 유닛은 세지 않는다.
+            if (!torrentReserved) RecordProjectileUnitAttackPath(attacker.Type, serverProjectile);
             if (torrentReserved)
             {
                 // Torrent는 공통 예약 owner가 실제 wave를 발사한다.

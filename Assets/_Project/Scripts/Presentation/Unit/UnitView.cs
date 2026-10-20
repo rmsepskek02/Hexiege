@@ -1394,6 +1394,60 @@ _slot = _nextEviction;
             : PresentationTransform.position;
 
         /// <summary>
+        /// [2026-10-20 단계 B — 의심 1 수정] 서버 투사체의 "발사 신호"(총구 VFX + 발사음)를 지금 1회 낸다.
+        ///
+        /// [언제 불리는가 — 유니티 초급자용]
+        ///   투사체 화면 소비자(ProjectilePresentationPresenter)가 서버 발사 기록을 화면에 꺼내는 순간(Begin)에만 부른다.
+        ///   싱글·Host는 서버 발사 순간과 같은 프레임, Client는 투사체와 같은 0.10초 화면 지연 뒤다.
+        ///   서버가 발사를 취소한 공격에는 발사 기록 자체가 없으므로 이 메서드가 불리지 않는다 → 총구 VFX·소리 없음(Q6).
+        ///
+        /// [무엇을 내는가 — 예전 marker 자리와 같은 규칙]
+        ///   · 총구 VFX: 비차지 유닛만. 위치 = 총구 기준점(VfxSpawnPoint, 없으면 화면 Root), 회전 = 화면 Root 정면.
+        ///     (차지 유닛은 차지 VFX가 발사 순간 스스로 끝나도록 맞춰져 있어 발사 때 공격 VFX를 다시 켜지 않는다 — P2-4.)
+        ///   · 발사음: 모든 서버 투사체 유닛(규칙 15 — 차지 유닛도 "발사음은 발사 순간").
+        /// HP·피해·타겟·Simulation Root를 읽거나 쓰지 않는다(표현 전용).
+        /// </summary>
+        /// <returns>총구 VFX 재생 결과(차지 유닛이거나 EffectManager가 없으면 기본값).</returns>
+        public UnitAttackVfxPlaybackResult PlayServerProjectileLaunchCue()
+        {
+            // 기본값(Status=Started)이 "재생됨"으로 읽히지 않도록, 재생하지 않은 경우의 값을 먼저 정해 둔다(marker 자리와 같은 대체값).
+            var vfxResult = new UnitAttackVfxPlaybackResult(UnitAttackVfxPlaybackStatus.PoolItemUnavailable, 0, false);
+            if (_unitData == null) return vfxResult;
+            EffectManager effectManager = EffectManager.Instance;
+            Transform presentationTransform = PresentationTransform;
+            if (!_hasAttackChargeMarker && effectManager != null)
+            {
+                Vector3 spawnPos = _vfxSpawnPoint != null ? _vfxSpawnPoint.position : presentationTransform.position;
+                Quaternion spawnRot = Quaternion.LookRotation(presentationTransform.forward);
+                // 마지막 인자 this = 시전자 귀속(시전자 사망 시 멈춤 표시가 있는 프리셋만 사용 — R2-1과 같은 규칙).
+                vfxResult = effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot, this);
+            }
+            AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                // SFX (규칙 15 — 발사 VFX와 짝)
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // StreamSpirit 시간축 진단의 VFX 단계도 실제 총구 VFX를 낸 이 자리에서 기록한다(예전 marker 자리에서 옮김).
+            //   같은 공격 회차(_lastAttackPresentationRevision)에 붙는다 — 다음 공격 커밋은 쿨다운(1.5초) 뒤라 회차가 섞이지 않는다.
+            if (_unitData.Type == UnitType.StreamSpirit)
+            {
+                string streamOutcome = effectManager == null
+                    ? "manager-unavailable"
+                    : vfxResult.Status == UnitAttackVfxPlaybackStatus.Started ? "started" : vfxResult.Status.ToString();
+                UnitAttackShadowObserver.RecordStreamSpiritTimelineVfx(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode,
+                    streamOutcome,
+                    vfxResult.ParticleSystemCount,
+                    vfxResult.PlaybackActive);
+            }
+#endif
+            return vfxResult;
+        }
+
+        /// <summary>[진단·검증용] 이 유닛의 공격 클립에 차지 marker가 있는가(있으면 발사 신호에서 총구 VFX를 내지 않는다).</summary>
+        public bool HasAttackChargeMarker => _hasAttackChargeMarker;
+
+        /// <summary>
         /// 이동 완료 시 호출되는 콜백. 1회성 — 호출 후 자동 null 리셋.
         /// ProductionTicker에서 랠리→Castle 자동 이동 체인에 사용.
         /// </summary>
@@ -7686,14 +7740,31 @@ _slot = _nextEviction;
             // ────────────────────────────────────────────────────────────────
             bool serverProjectileMarker = !chargeOnly
                 && ServerProjectileDeliveryPolicy.IsServerProjectile(_unitData.Type);
-            if (serverProjectileMarker
-                && (sourceOnlyPresentation
-                    || (_combatUseCase != null && _combatUseCase.WasLatestProjectileLaunchCancelled(_unitData))))
-            {
-                PistoleerTimingDiagnostics.Event(_unitData, "MarkerSuppressed", _pistoleerTimingScope,
-                    UnitAttackResultPresentationShadowBridge.CurrentServerTime, "noVfx=1 reason=server-projectile-launch-cancelled");
-                return;
-            }
+            // ────────────────────────────────────────────────────────────────
+            // [2026-10-20 단계 B — 의심 1 수정] 새 경로 투사체 유닛의 타격 marker는 이제 아무것도 내지 않는다.
+            //   단계 A에서는 이 marker가 총구 VFX·발사음을 냈고, "발사 전 끊김"은 싱글·Host만 서버 UseCase 값으로 막았다.
+            //   순수 Client는 서버 취소 정보가 없어(WasLatestProjectileLaunchCancelled는 서버에서만 값이 생긴다)
+            //   서버가 발사를 취소한 공격에도 총구 VFX가 났다(단계 A 실기: Host 총구 577 = 서버 발사 577, Client marker 595).
+            //   → 총구 VFX·발사음을 "서버 발사 기록을 화면이 꺼내는 순간"(ProjectilePresentationPresenter.Begin →
+            //     PlayServerProjectileLaunchCue)으로 옮겼다. 서버가 발사하지 않은 공격에는 발사 기록이 없으므로
+            //     싱글·Host·Client 모두 같은 서버 권위 정보로 "투사체·소리 없음"이 지켜진다(Q6, 같은 화면 원칙).
+            //   차지 marker(chargeOnly)는 이 분기와 무관하게 기존 차지 VFX 규칙(규칙 17)을 그대로 따른다.
+            //   옛 억제 블록(단계 A, 기록용 — 주석 보존):
+            //     if (serverProjectileMarker
+            //         && (sourceOnlyPresentation
+            //             || (_combatUseCase != null && _combatUseCase.WasLatestProjectileLaunchCancelled(_unitData))))
+            //     {
+            //         PistoleerTimingDiagnostics.Event(_unitData, "MarkerSuppressed", _pistoleerTimingScope,
+            //             UnitAttackResultPresentationShadowBridge.CurrentServerTime, "noVfx=1 reason=server-projectile-launch-cancelled");
+            //         return;
+            //     }
+            //   (그 PistoleerTimingDiagnostics 기록은 Pistoleer/Assault/Sniper만 관측해 StreamSpirit에서는 한 줄도 남지 않았다 —
+            //    그래서 단계 A 로그에 "억제 수"가 없었다. 아래 ServerProjectileDiagnostics가 대신 센다.)
+            // ────────────────────────────────────────────────────────────────
+            if (!chargeOnly)
+                ServerProjectileDiagnostics.RecordProjectileUnitMarker(_unitData.Type, _unitData.Id,
+                    serverProjectileMarker, sourceOnlyPresentation, muzzleAtMarker: false);
+            if (serverProjectileMarker) return;
             UnitAttackVfxPlaybackResult vfxResult = default;
             if (!chargeUnitLaunchMarker)
             {
@@ -7815,12 +7886,14 @@ _slot = _nextEviction;
             //   남겨 두면 서버 투사체와 로컬 트레이서가 함께 날아 착탄 이펙트·숫자가 두 번 나온다(Plan 위험 2).
             //   아래 코드는 아직 옮기지 않은 다른 유닛이 그대로 쓰므로 지우거나 주석 처리하지 않는다(사용자 테스트 PASS 뒤 정리 — RM-2).
             //   차지 유닛이 나중에 스위치를 켜면 발사음은 이 자리(발사 순간)에서 낸다(차지 유닛은 위 공통 SFX 줄을 건너뛴다).
-            if (serverProjectileMarker)
-            {
-                if (_hasAttackChargeMarker)
-                    AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
-                return;
-            }
+            // [2026-10-20 단계 B] 아래 옛 분기는 새 경로 marker가 위에서 먼저 return하므로 더 이상 닿지 않는다.
+            //   차지 유닛의 발사음도 서버 발사 기록 수신 시(PlayServerProjectileLaunchCue)로 옮겼다. 기록용 주석 보존:
+            // if (serverProjectileMarker)
+            // {
+            //     if (_hasAttackChargeMarker)
+            //         AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
+            //     return;
+            // }
 
             // ────────────────────────────────────────────────────────────────
             // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)
@@ -7881,6 +7954,8 @@ _slot = _nextEviction;
                 }
                 // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
                 //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
+                // [2026-10-20 단계 B 진단] 스위치가 꺼진 투사체 유닛이 기존 로컬 트레이서를 쓴 수(종류별, 읽기 전용).
+                ServerProjectileDiagnostics.RecordLegacyTracer(_unitData.Type);
                 em.PlayTracer(_unitData.Type, spawnPos, targetPos,
                     () =>
                     {

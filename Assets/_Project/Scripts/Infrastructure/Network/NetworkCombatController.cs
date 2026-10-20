@@ -1083,7 +1083,12 @@ namespace Hexiege.Infrastructure
                     //   대상이 죽은 경우는 TickProjectiles가 이미 예약을 취소했으므로 여기서 미루지 않는다.
                     if (unitSpawn.Units.TryGetValue(kvp.Key, out UnitData pendingUnit)
                         && combat.HasPendingProjectileLaunch(pendingUnit))
+                    {
+                        // [2026-10-20 단계 B 진단] 정지 통보를 미룬 사건 수(사거리 이탈 = 원래 대상에게 발사, Q5) — 읽기 전용.
+                        DiagProjectileStopDeferred(kvp.Key);
                         continue;
+                    }
+                    DiagProjectileStopReleased(kvp.Key);
                     toRemove.Add(kvp.Key);
                 }
             }
@@ -1531,6 +1536,12 @@ namespace Hexiege.Infrastructure
                 //   피해 시각과 같은 값(서버 시각 + 오버슈트 보정된 hitTime)이다. 피해는 착탄 시각에 같은 단일 writer가 준다.
                 //   투사체 유닛은 C3 축에서 Unresolved라 attackShadowToken이 없으므로(토큰 검사·due 대기 대상 아님) 잃는 것이 없다.
                 //   스위치가 꺼진 유닛과 비투사체 유닛은 아래 기존 코루틴 경로를 그대로 탄다(호출문 보존).
+                // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(첫 타격 = 커밋 1회)가 새/기존 경로 중 어디로 갔는지 센다.
+                //   읽기 전용 관측이며 릴리스 빌드에서는 호출이 사라진다([Conditional]). 비투사체 유닛은 세지 않는다.
+                UnitCombatUseCase pathDiagnosticsCombat = hitIndex == 0 ? _services?.GetCombatUseCase() : null;
+                if (pathDiagnosticsCombat != null)
+                    pathDiagnosticsCombat.RecordProjectileUnitAttackPath(
+                        unit.Type, ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type));
                 if (ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type))
                 {
                     _services?.GetCombatUseCase()?.TryReserveProjectileLaunch(

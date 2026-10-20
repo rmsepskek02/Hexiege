@@ -85,11 +85,49 @@ namespace Hexiege.Application
         /// <summary>현재 epoch.</summary>
         public ulong Epoch => _epoch;
 
-        /// <summary>중복·epoch 불일치·상한 초과로 거부한 수(진단용).</summary>
+        /// <summary>중복·epoch 불일치·상한 초과로 거부한 수(진단용). 아래 Rejected* 사유별 값의 합이다.</summary>
         public int Rejected { get; private set; }
 
         /// <summary>결과를 끝내 받지 못해 투사체만 거둔 수(진단용).</summary>
         public int ResultTimeouts { get; private set; }
+
+        // ── [2026-10-20 단계 B 진단 보강] 거부 사유·도착 순서 계수(표현 판단에는 쓰지 않는다 — 읽기 전용 관측) ──
+
+        /// <summary>값 검사(IsValid) 실패로 거부한 발사 기록·결과 수.</summary>
+        public int RejectedInvalid { get; private set; }
+
+        /// <summary>다른 epoch(이전 맵·다른 서버 수명)라서 거부한 수.</summary>
+        public int RejectedEpoch { get; private set; }
+
+        /// <summary>같은 키의 발사 기록이 이미 있어 거부한 수(정상 전송 + 늦은 접속 스냅샷 중복 등).</summary>
+        public int RejectedDuplicateLaunch { get; private set; }
+
+        /// <summary>같은 키의 결과가 이미 있어 거부한 수(= 중복 착탄 거부).</summary>
+        public int RejectedDuplicateResult { get; private set; }
+
+        /// <summary>이미 끝난 키의 발사 기록이 늦게 와서 거부한 수.</summary>
+        public int RejectedFinishedLaunch { get; private set; }
+
+        /// <summary>이미 끝난 키의 결과가 늦게 와서 거부한 수(= 착탄을 이미 보여 준 뒤의 중복 착탄).</summary>
+        public int RejectedFinishedResult { get; private set; }
+
+        /// <summary>슬롯 상한(MaxSlots) 초과로 거부한 수.</summary>
+        public int RejectedCapacity { get; private set; }
+
+        /// <summary>발사 기록보다 결과가 먼저 도착한 수(순서 역전).</summary>
+        public int ResultsBeforeLaunch { get; private set; }
+
+        /// <summary>발사 기록은 있고 화면 투사체가 끝점에 닿기 전에 결과가 도착한 수(= 결과 먼저 도착).</summary>
+        public int ResultsBeforeArrival { get; private set; }
+
+        /// <summary>화면 투사체가 끝점에 먼저 닿아 결과를 기다리기 시작한 수(= 화면 먼저 도착).</summary>
+        public int ArrivalsBeforeResult { get; private set; }
+
+        /// <summary>끝점에서 결과를 기다린 실제 시간의 최댓값(초). 기다린 적이 없으면 0.</summary>
+        public double MaxEndpointWaitSeconds { get; private set; }
+
+        /// <summary>발사 기록 없이 결과만 와서 보관 상한(OrphanResultSeconds)이 지나 버린 수.</summary>
+        public int OrphanResultsExpired { get; private set; }
 
         /// <summary>새 epoch로 시작한다. 남은 슬롯은 sink로 거둔다(sink가 null이면 기록만 지운다).</summary>
         /// <param name="epoch">새 epoch.</param>
@@ -102,6 +140,10 @@ namespace Hexiege.Application
             _finishedOrder.Clear();
             Rejected = 0;
             ResultTimeouts = 0;
+            RejectedInvalid = RejectedEpoch = RejectedDuplicateLaunch = RejectedDuplicateResult = 0;
+            RejectedFinishedLaunch = RejectedFinishedResult = RejectedCapacity = 0;
+            ResultsBeforeLaunch = ResultsBeforeArrival = ArrivalsBeforeResult = OrphanResultsExpired = 0;
+            MaxEndpointWaitSeconds = 0d;
         }
 
         /// <summary>남은 표현을 모두 거둔다(게임 종료 등). epoch는 유지한다.</summary>
@@ -118,15 +160,19 @@ namespace Hexiege.Application
         /// <param name="local">받은 순간의 실제 시계.</param>
         public bool AcceptLaunch(ProjectileLaunchPresentation launch, double local)
         {
-            if (!launch.IsValid || launch.Key.Epoch != _epoch || _finished.Contains(launch.Key.Id))
-            { Rejected++; return false; }
+            // [2026-10-20 단계 B] 거부 판단 순서·결과는 그대로 두고, 사유별 계수만 함께 센다(진단).
+            //   옛 첫 줄(기록용): if (!launch.IsValid || launch.Key.Epoch != _epoch || _finished.Contains(launch.Key.Id)) { Rejected++; return false; }
+            if (!launch.IsValid) { Rejected++; RejectedInvalid++; return false; }
+            if (launch.Key.Epoch != _epoch) { Rejected++; RejectedEpoch++; return false; }
+            if (_finished.Contains(launch.Key.Id)) { Rejected++; RejectedFinishedLaunch++; return false; }
             if (_slots.TryGetValue(launch.Key.Id, out Slot slot))
             {
-                if (slot.HasLaunch) { Rejected++; return false; }   // 정상 전송 + 늦은 접속 스냅샷 중복
+                // 정상 전송 + 늦은 접속 스냅샷 중복
+                if (slot.HasLaunch) { Rejected++; RejectedDuplicateLaunch++; return false; }
                 slot.Launch = launch; slot.HasLaunch = true;
                 return true;
             }
-            if (_slots.Count >= MaxSlots) { Rejected++; return false; }
+            if (_slots.Count >= MaxSlots) { Rejected++; RejectedCapacity++; return false; }
             _slots.Add(launch.Key.Id, new Slot { Key = launch.Key, HasLaunch = true, Launch = launch, CreatedLocal = local });
             return true;
         }
@@ -136,15 +182,21 @@ namespace Hexiege.Application
         /// <param name="local">받은 순간의 실제 시계.</param>
         public bool AcceptResult(ProjectileImpactPresentation result, double local)
         {
-            if (!result.IsValid || result.Key.Epoch != _epoch || _finished.Contains(result.Key.Id))
-            { Rejected++; return false; }
+            // [2026-10-20 단계 B] 판단은 그대로, 사유별 계수만 함께 센다(진단).
+            //   옛 첫 줄(기록용): if (!result.IsValid || result.Key.Epoch != _epoch || _finished.Contains(result.Key.Id)) { Rejected++; return false; }
+            if (!result.IsValid) { Rejected++; RejectedInvalid++; return false; }
+            if (result.Key.Epoch != _epoch) { Rejected++; RejectedEpoch++; return false; }
+            if (_finished.Contains(result.Key.Id)) { Rejected++; RejectedFinishedResult++; return false; }
             if (!_slots.TryGetValue(result.Key.Id, out Slot slot))
             {
-                if (_slots.Count >= MaxSlots) { Rejected++; return false; }
+                if (_slots.Count >= MaxSlots) { Rejected++; RejectedCapacity++; return false; }
                 slot = new Slot { Key = result.Key, CreatedLocal = local };
                 _slots.Add(result.Key.Id, slot);
             }
-            if (slot.HasResult) { Rejected++; return false; }
+            if (slot.HasResult) { Rejected++; RejectedDuplicateResult++; return false; }
+            // 도착 순서 계수(진단): 발사 기록 없음 / 화면이 끝점 전 / 화면이 끝점에서 기다리는 중.
+            if (!slot.HasLaunch) ResultsBeforeLaunch++;
+            else if (double.IsNaN(slot.ArrivedLocal)) ResultsBeforeArrival++;
             slot.Result = result; slot.HasResult = true; slot.ResultReceivedLocal = local;
             return true;
         }
@@ -164,7 +216,7 @@ namespace Hexiege.Application
             {
                 if (!slot.HasLaunch)
                 {
-                    if (local - slot.CreatedLocal > OrphanResultSeconds) _remove.Add(slot.Key.Id);
+                    if (local - slot.CreatedLocal > OrphanResultSeconds) { _remove.Add(slot.Key.Id); OrphanResultsExpired++; }
                     continue;
                 }
                 if (!slot.Started)
@@ -178,11 +230,14 @@ namespace Hexiege.Application
                 if (progress < 1f) continue;
                 if (slot.HasResult)
                 {
+                    // 끝점에서 결과를 기다렸다면 그 시간을 진단 최댓값에 반영한다(표현 판단 무관).
+                    if (!double.IsNaN(slot.ArrivedLocal))
+                        MaxEndpointWaitSeconds = Math.Max(MaxEndpointWaitSeconds, local - slot.ArrivedLocal);
                     sink.Finish(slot, true);
                     _remove.Add(slot.Key.Id);
                     continue;
                 }
-                if (double.IsNaN(slot.ArrivedLocal)) slot.ArrivedLocal = local;
+                if (double.IsNaN(slot.ArrivedLocal)) { slot.ArrivedLocal = local; ArrivalsBeforeResult++; }
                 if (local - slot.ArrivedLocal > ResultWaitSeconds)
                 {
                     ResultTimeouts++;
@@ -191,6 +246,23 @@ namespace Hexiege.Application
                 }
             }
             for (int i = 0; i < _remove.Count; i++) Retire(_remove[i]);
+        }
+
+        /// <summary>
+        /// [2026-10-20 단계 B] END 줄 조각(진단 전용) —
+        /// "rejected=total:N|invalid:N|epoch:N|dupLaunch:N|dupResult:N|finishedLaunch:N|finishedResult:N|capacity:N
+        ///  order=resultBeforeLaunch:N|resultBeforeArrival:N|arrivalBeforeResult:N|orphanExpired:N|maxEndpointWait:0.000 timeouts=N open=N".
+        /// </summary>
+        public string DescribeForDiagnostics()
+        {
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "rejected=total:{0}|invalid:{1}|epoch:{2}|dupLaunch:{3}|dupResult:{4}|finishedLaunch:{5}|finishedResult:{6}|capacity:{7} "
+                + "order=resultBeforeLaunch:{8}|resultBeforeArrival:{9}|arrivalBeforeResult:{10}|orphanExpired:{11}|maxEndpointWait:{12:F3} "
+                + "timeouts={13} open={14}",
+                Rejected, RejectedInvalid, RejectedEpoch, RejectedDuplicateLaunch, RejectedDuplicateResult,
+                RejectedFinishedLaunch, RejectedFinishedResult, RejectedCapacity,
+                ResultsBeforeLaunch, ResultsBeforeArrival, ArrivalsBeforeResult, OrphanResultsExpired,
+                MaxEndpointWaitSeconds, ResultTimeouts, _slots.Count);
         }
 
         /// <summary>진행도 = (화면 시각 − 발사) ÷ (착탄 − 발사), 0~1로 자른다. 비행 시간이 0이면 1.</summary>
@@ -241,6 +313,35 @@ namespace Hexiege.Application
         /// <summary>보관 중인 키 수(진단·검증용).</summary>
         public int HeldKeys => _held.Count;
 
+        // ── [2026-10-20 단계 B 진단 보강] 방출 경로별 계수(방출 판단에는 쓰지 않는다 — 읽기 전용 관측) ──
+
+        /// <summary>보관함에 넣은 항목 수(화면 착탄까지 기다리게 한 숫자·피격 표현).</summary>
+        public int HeldItems { get; private set; }
+
+        /// <summary>화면 착탄 신호(Release)로 꺼낸 항목 수 = "착탄 방출".</summary>
+        public int ReleasedAtImpactItems { get; private set; }
+
+        /// <summary>화면 착탄 신호가 먼저 와 있어 받자마자 바로 방출하라고 돌려준 항목 수 = "즉시 방출(순서 역전·범위 2차 대상)".</summary>
+        public int ImmediateAfterReleaseItems { get; private set; }
+
+        /// <summary>보관 상한(Capacity) 초과로 바로 방출하라고 돌려준 항목 수.</summary>
+        public int ImmediateCapacityItems { get; private set; }
+
+        /// <summary>화면 착탄 신호가 끝내 오지 않아 시간 초과로 강제 방출한 항목 수 = "타임아웃 방출".</summary>
+        public int TimeoutItems { get; private set; }
+
+        /// <summary>보관 항목이 하나도 없는 상태에서 온 화면 착탄 신호 수(피해 이벤트보다 화면이 먼저 닿은 경우).</summary>
+        public int ReleaseSignalsWithoutItems { get; private set; }
+
+        /// <summary>END 줄 조각 — "held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N".</summary>
+        public string DescribeForDiagnostics()
+        {
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "held:{0}|atImpact:{1}|immediateAfterRelease:{2}|immediateCapacity:{3}|timeout:{4}|emptyRelease:{5}|heldNow:{6}",
+                HeldItems, ReleasedAtImpactItems, ImmediateAfterReleaseItems, ImmediateCapacityItems,
+                TimeoutItems, ReleaseSignalsWithoutItems, _held.Count);
+        }
+
         /// <summary>
         /// 항목을 받는다. 이미 화면 착탄 신호가 먼저 왔으면 true(= 지금 바로 방출하라). 아니면 보관하고 false.
         /// 상한을 넘으면 보관하지 않고 true(= 표시 유실을 막기 위해 바로 방출)를 돌려준다.
@@ -250,14 +351,15 @@ namespace Hexiege.Application
         /// <param name="local">실제 시계.</param>
         public bool HoldOrRelease(ProjectileDeliveryKey key, T item, double local)
         {
-            if (_releasedEarly.ContainsKey(key)) return true;
+            if (_releasedEarly.ContainsKey(key)) { ImmediateAfterReleaseItems++; return true; }
             if (!_held.TryGetValue(key, out Entry entry))
             {
-                if (_held.Count >= Capacity) return true;
+                if (_held.Count >= Capacity) { ImmediateCapacityItems++; return true; }
                 entry = new Entry { Since = local };
                 _held.Add(key, entry);
             }
             entry.Items.Add(item);
+            HeldItems++;
             return false;
         }
 
@@ -272,7 +374,12 @@ namespace Hexiege.Application
             if (_held.TryGetValue(key, out Entry entry))
             {
                 output.AddRange(entry.Items);
+                ReleasedAtImpactItems += entry.Items.Count;
                 _held.Remove(key);
+            }
+            else
+            {
+                ReleaseSignalsWithoutItems++;
             }
             // 같은 착탄의 다른 대상(범위 피해 등) 이벤트가 조금 뒤에 와도 바로 방출되도록 잠시 기억한다.
             if (_releasedEarly.Count < Capacity) _releasedEarly[key] = local;
@@ -288,7 +395,9 @@ namespace Hexiege.Application
                 if (local - pair.Value.Since > TimeoutSeconds) _expired.Add(pair.Key);
             for (int i = 0; i < _expired.Count; i++)
             {
-                output.AddRange(_held[_expired[i]].Items);
+                List<T> items = _held[_expired[i]].Items;
+                output.AddRange(items);
+                TimeoutItems += items.Count;
                 _held.Remove(_expired[i]);
             }
             _expired.Clear();
@@ -297,12 +406,14 @@ namespace Hexiege.Application
             for (int i = 0; i < _expired.Count; i++) _releasedEarly.Remove(_expired[i]);
         }
 
-        /// <summary>모든 보관을 버린다(재초기화·파괴). 버린 항목은 방출하지 않는다.</summary>
+        /// <summary>모든 보관을 버린다(재초기화·파괴). 버린 항목은 방출하지 않는다. 진단 계수도 0으로 되돌린다.</summary>
         public void Clear()
         {
             _held.Clear();
             _releasedEarly.Clear();
             _expired.Clear();
+            HeldItems = ReleasedAtImpactItems = ImmediateAfterReleaseItems = ImmediateCapacityItems = 0;
+            TimeoutItems = ReleaseSignalsWithoutItems = 0;
         }
     }
 }

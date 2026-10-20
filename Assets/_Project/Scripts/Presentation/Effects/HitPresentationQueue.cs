@@ -132,6 +132,21 @@ namespace Hexiege.Presentation
         /// <param name="ready">소비자가 준비됐으면 true를 돌려주는 함수.</param>
         public void SetProjectileOwnerReady(Func<bool> ready) => _projectileOwnerReady = ready;
 
+        // [2026-10-20 단계 B 진단] 투사체 번호표가 붙은 피해 이벤트가 왔는데 화면 소비자가 준비되지 않아(경기 종료 뒤 등)
+        //   보관함을 거치지 않고 기존 경로로 흘러간 수. 읽기 전용 관측이며 방출 판단에는 쓰지 않는다.
+        private int _projectileOwnerNotReadyEvents;
+
+        /// <summary>
+        /// [진단] 투사체 피해 숫자 보관함의 방출 경로별 계수 — END 줄 조각
+        /// "held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N|ownerNotReady:N".
+        /// 착탄 방출 = atImpact, 즉시 방출 = immediateAfterRelease + immediateCapacity, 타임아웃 방출 = timeout.
+        /// </summary>
+        public string DescribeProjectileHoldForDiagnostics()
+            => _projectileHold.DescribeForDiagnostics() + "|ownerNotReady:" + _projectileOwnerNotReadyEvents;
+
+        /// <summary>[진단] 타임아웃 방출 수(END verdict 판정용).</summary>
+        public int ProjectileHoldTimeoutItems => _projectileHold.TimeoutItems;
+
         /// <summary>
         /// 투사체 화면 소비자가 "화면상 착탄 순간"에 부른다. 그 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 한 번 방출한다.
         /// 피해 이벤트가 아직 안 왔으면(순서 역전) 잠시 기억했다가 도착하는 즉시 방출한다.
@@ -375,6 +390,7 @@ namespace Hexiege.Presentation
             _pendingByAttacker.Clear();
             _projectileHold.Clear();
             _projectileReleased.Clear();
+            _projectileOwnerNotReadyEvents = 0;
             _exactRendezvous.Clear();
             _releasedExact.Clear();
             _confirmedUnitViews.Clear();
@@ -444,6 +460,11 @@ namespace Hexiege.Presentation
 
             // [2026-10-20 서버 권위 투사체] 투사체 착탄 피해는 화면상 착탄 순간까지 보관했다가 1회 방출한다(Q7).
             //   이미 화면 착탄 신호가 먼저 왔거나 보관함이 가득 찼으면 지금 방출한다.
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // [단계 B 진단] 번호표가 있는데 소비자가 준비되지 않은 경우(아래 기존 경로로 흘러간다)를 센다. 판단은 바꾸지 않는다.
+            if (evt.ProjectilePresentationKey.IsValid && _projectileOwnerReady?.Invoke() != true)
+                _projectileOwnerNotReadyEvents++;
+#endif
             if (evt.ProjectilePresentationKey.IsValid && _projectileOwnerReady?.Invoke() == true)
             {
                 ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);

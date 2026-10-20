@@ -19,7 +19,10 @@ namespace Hexiege.Infrastructure
         // [2026-10-20 서버 권위 투사체] 3 → 4. 새 전송 계약(발사/착탄 ClientRpc, HP 동기화 RPC의 투사체 번호표,
         //   MushroomBomber 행 TargetLocked)이 생겼으므로 구버전 빌드와의 경기를 handshake에서 거부한다(Plan 위험 5).
         //   옛 값(기록용): public const int PresentationContractSchemaRevision = 3;
-        public const int PresentationContractSchemaRevision = 4;
+        // [2026-10-20 단계 B] 4 → 5. 투사체 epoch 알림 RPC(BeginProjectileEpochClientRpc)에 "늦은 접속 스냅샷 발사 기록 수"
+        //   인자가 추가돼 RPC 모양이 바뀌었다. 단계 A 빌드(스키마 4)와 섞인 경기는 handshake에서 거부한다.
+        //   옛 값(기록용, 단계 A): public const int PresentationContractSchemaRevision = 4;
+        public const int PresentationContractSchemaRevision = 5;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

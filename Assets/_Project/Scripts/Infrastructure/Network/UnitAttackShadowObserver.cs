@@ -1216,8 +1216,11 @@ namespace Hexiege.Infrastructure
             UnitType unitType,
             int targetId,
             bool targetIsUnit,
-            AttackDamageApplyStatus writerResult)
+            AttackDamageApplyStatus writerResult,
+            string writerResultOverride = null)
         {
+            // [2026-10-20 단계 B — 진단 오표기 수정] writerResultOverride: writer가 실행되지 않은 타이머(서버 투사체 "발사")처럼
+            //   enum 값으로 의미를 나타낼 수 없을 때 로그 글자만 바꾼다. 매칭·계수·완료 판정은 예전과 같다(null이면 종전 그대로).
             if (!_active || !_isServer || unitType != UnitType.StreamSpirit) return;
 
             StreamSpiritTimelineFlow match = null;
@@ -1243,7 +1246,7 @@ namespace Hexiege.Infrastructure
             LogStreamSpiritFlowStage(
                 match,
                 "timer-impact",
-                $"writerResult={writerResult}");
+                $"writerResult={(writerResultOverride ?? writerResult.ToString())}");
         }
 
         public const string StreamSpiritTimelineSchema = "streamspirit-production-timeline-v1";

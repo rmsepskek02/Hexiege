@@ -15,6 +15,12 @@
 //      · 위치   = 출발점 → 끝점을 진행도(서버 발사/착탄 시각 기준)로 보간 — 그래서 서버 착탄 시각에 정확히 닿는다.
 //      · 착탄   = 착탄 이펙트(명중·대상 소실 공통) + 명중이면 피격 표현 큐에 "지금 숫자를 내라"(ReleaseProjectileImpact).
 //   4) 게임 종료·재초기화·파괴 때 남은 투사체를 즉시 거둔다(착탄 이펙트·숫자 없음).
+//   5) [2026-10-20 단계 B — 의심 1 수정] 투사체를 꺼내는 순간(Begin) 쏜 유닛의 "발사 신호"(총구 VFX + 발사음)를 낸다
+//      (UnitView.PlayServerProjectileLaunchCue). 예전에는 애니메이션 marker가 냈는데, 순수 Client는 서버가 발사를
+//      취소했는지 몰라 취소된 공격에도 총구 VFX가 났다. 발사 기록이 있을 때만 내므로 세 실행 형태(싱글·Host·Client)가
+//      같은 서버 권위 정보로 판정한다. 늦은 접속으로 비행 중간부터 그리는 투사체는 발사 신호를 생략한다(이미 쏜 뒤다).
+//   6) [단계 B 진단] 받은 수·그린 수·착탄 VFX 수·거부 사유·결과/화면 도착 순서·화면 착탄 지연 분포를 세어
+//      경기 종료 때 [PROJECTILE-END] side=view 1줄로 남기고, 처음 24발은 [PROJECTILE-VIEW] 표본 줄을 남긴다.
 //
 // [화면 시각 = 서버 시각 − 지연]
 //   · 싱글·Host: 지연 0 — 서버 피해·사망과 화면 착탄이 같은 순간이다.
@@ -50,6 +56,15 @@ namespace Hexiege.Presentation
         /// <summary>쏜 유닛 화면을 찾지 못했을 때 서버 발사 위치에서 띄우는 높이(미터, 화면 표현 전용 대체값).</summary>
         private const float FallbackLaunchHeight = 0.3f;
 
+        /// <summary>
+        /// 발사 시각보다 이만큼(초) 넘게 늦게 꺼낸 투사체는 "비행 중간부터 복원"(늦은 접속 스냅샷 등)으로 보고
+        /// 발사 신호(총구 VFX·발사음)를 생략한다. 정상 꺼냄은 한 프레임(0.016~0.05초) 안쪽이다.
+        /// </summary>
+        public const double MidFlightBeginSeconds = 0.2d;
+
+        /// <summary>[진단] [PROJECTILE-VIEW] 표본 줄을 남기는 투사체 수(맵당 처음 N발의 begin/finish).</summary>
+        private const int ViewSampleLimit = 24;
+
         // 투사체 1발의 화면 오브젝트·추적 상태(일정표 Slot.Visual에 붙인다).
         private sealed class Visual
         {
@@ -75,6 +90,30 @@ namespace Hexiege.Presentation
         private ulong _epoch;
         private bool _ended;
         private int _faults;
+        // 이번 프레임 일정표 Tick에 넘긴 화면 시각(Begin이 "얼마나 늦게 꺼냈는가"를 계산할 때 쓴다).
+        private double _tickPresentationTime = double.NaN;
+
+        // ── [2026-10-20 단계 B 진단] 화면 쪽 계수(읽기 전용 관측 — 그리기 판단에는 쓰지 않는다) ──
+        private sealed class ViewCounters
+        {
+            public int LaunchReceived, LaunchAccepted, ResultReceived, ResultAccepted, EpochResets;
+            public int Begins, BeginsMidFlight, TracerMissing;
+            public int CuePlayed, CueVfxStarted, CueSkippedMidFlight, CueNoAttackerView;
+            public int FinishHit, FinishLost, ImpactVfxPlayed, ImpactVfxMissing, Aborts, Samples;
+            public readonly System.Collections.Generic.HashSet<ulong> Sampled = new System.Collections.Generic.HashSet<ulong>();
+            // 화면 착탄 지연 = 화면이 착탄을 보여 준 순간의 서버 시각 − 서버 착탄 시각(Client 표시 지연, 초).
+            public readonly ProjectileTimeDistribution DisplayLag =
+                new ProjectileTimeDistribution(0.05d, 0.1d, 0.15d, 0.2d, 0.3d, 0.5d);
+            // 결과 도착 지연 = 결과를 받은 순간의 서버 시각 − 서버 착탄 시각(네트워크 한쪽 지연 추정, 초).
+            public readonly ProjectileTimeDistribution ResultLag =
+                new ProjectileTimeDistribution(0d, 0.05d, 0.1d, 0.2d, 0.5d);
+            // 꺼냄 지연 = 꺼낸 순간의 화면 시각 − 서버 발사 시각(초). 늦은 접속 복원이면 큰 값이 된다.
+            public readonly ProjectileTimeDistribution BeginLag =
+                new ProjectileTimeDistribution(0.02d, 0.05d, 0.1d, 0.2d);
+            public bool EndWritten;
+        }
+
+        private ViewCounters _view = new ViewCounters();
 
         /// <summary>표현을 맡을 준비가 됐는가. 피격 표현 큐는 이 값이 false면 투사체 피해 숫자를 즉시 방출한다.</summary>
         public bool IsReady => _combat != null && !_ended;
@@ -96,6 +135,8 @@ namespace Hexiege.Presentation
             _epoch = combat.ProjectileEpoch;
             _ended = false;
             _faults = 0;
+            _view = new ViewCounters();
+            ServerProjectileDiagnostics.ResetView();   // [진단] UnitView marker 계수도 이 맵부터 새로 센다.
             _coordinator.Reset(_epoch, this);
             combat.ProjectileLaunched += ReceiveLaunch;
             combat.ProjectileResolved += ReceiveResult;
@@ -104,6 +145,7 @@ namespace Hexiege.Presentation
                 // 게임 종료 — 서버도 남은 투사체를 피해 없이 닫았다. 화면도 즉시 거둔다(착탄 이펙트·숫자 없음).
                 _ended = true;
                 _coordinator.Close(this);
+                WriteViewEnd("game-end");   // [진단] 거둔 수(aborts)까지 센 뒤 END 1줄.
             });
         }
 
@@ -113,21 +155,36 @@ namespace Hexiege.Presentation
             if (_combat == null || _epoch == _combat.ProjectileEpoch) return;
             _epoch = _combat.ProjectileEpoch;
             _coordinator.Reset(_epoch, this);
+            _view.EpochResets++;   // [진단] Client가 서버 epoch를 받으면 1회(정상). 2 이상이면 경기 중 epoch가 바뀌었다.
         }
 
         private void ReceiveLaunch(ProjectileLaunchPresentation launch)
         {
             if (_ended) return;
             EnsureEpoch();
-            _coordinator.AcceptLaunch(launch, Time.realtimeSinceStartupAsDouble);
+            _view.LaunchReceived++;
+            if (_coordinator.AcceptLaunch(launch, Time.realtimeSinceStartupAsDouble))
+            {
+                _view.LaunchAccepted++;
+                // [진단] 공격자별 "받은 발사 수" — UnitView marker 수와 비교해 "서버 발사 없이 나온 marker"를 센다.
+                if (launch.AttackerIsUnit) ServerProjectileDiagnostics.RecordServerLaunchAccepted(launch.AttackerId);
+            }
         }
 
         private void ReceiveResult(ProjectileImpactPresentation result)
         {
             if (_ended) return;
             EnsureEpoch();
-            _coordinator.AcceptResult(result, Time.realtimeSinceStartupAsDouble);
+            _view.ResultReceived++;
+            if (_coordinator.AcceptResult(result, Time.realtimeSinceStartupAsDouble))
+            {
+                _view.ResultAccepted++;
+                _view.ResultLag.Add(ReadServerNow() - result.ImpactTime);
+            }
         }
+
+        // [진단 전용] 지금 서버 시계 값(없으면 NaN — 분포 상자는 NaN을 넣지 않는다).
+        private double ReadServerNow() => _combat != null ? _combat.ProjectileServerTime : double.NaN;
 
         private void Update()
         {
@@ -137,6 +194,7 @@ namespace Hexiege.Presentation
             if (double.IsNaN(serverNow) || double.IsInfinity(serverNow)) return;
             bool pureClient = NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer;
             double presentationTime = serverNow - (pureClient ? ClientPresentationDelaySeconds : 0d);
+            _tickPresentationTime = presentationTime;
             _coordinator.Tick(presentationTime, Time.realtimeSinceStartupAsDouble, this);
         }
 
@@ -156,13 +214,27 @@ namespace Hexiege.Presentation
                     AttackerType = (UnitType)launch.AttackerKind,
                     LastCenter = ViewConverter.ToView(launch.TargetCenter)
                 };
-                visual.Start = ResolveLaunchPoint(launch);
+                UnitView attackerView = ResolveAttackerView(launch);
+                // 옛 줄(기록용): visual.Start = ResolveLaunchPoint(launch);  — 같은 규칙을 아래 두 줄로 나눴다(공격자 화면을 한 번만 찾는다).
+                visual.Start = attackerView != null
+                    ? attackerView.ProjectileLaunchPoint
+                    : ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
                 ResolveTarget(launch, visual);
                 visual.LastEndpoint = SurfacePoint(visual.Start, visual.LastCenter, launch.TargetRadius);
                 EffectManager effects = EffectManager.Instance;
                 if (effects != null && launch.AttackerIsUnit)
                     visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, visual.Start);
                 slot.Visual = visual;
+
+                // [단계 B — 의심 1 수정] 발사 신호(총구 VFX + 발사음)는 "서버 발사 기록이 화면에 나오는 이 순간"에만 낸다.
+                //   늦은 접속 복원처럼 비행 중간부터 꺼낸 투사체는 이미 쏜 뒤라 발사 신호를 생략한다.
+                double beginLag = double.IsNaN(_tickPresentationTime) ? 0d : _tickPresentationTime - launch.LaunchTime;
+                bool midFlight = beginLag > MidFlightBeginSeconds;
+                UnitAttackVfxPlaybackResult cueResult = default;
+                if (launch.AttackerIsUnit && !midFlight && attackerView != null)
+                    cueResult = attackerView.PlayServerProjectileLaunchCue();
+                DiagBegin(slot, beginLag, midFlight, visual.Tracer != null, cueResult.Status,
+                    attackerView != null, attackerView != null && attackerView.HasAttackChargeMarker);
             }
             catch (Exception exception) { Fault("begin", slot, exception); }
         }
@@ -194,13 +266,18 @@ namespace Hexiege.Presentation
             Visual visual = slot.Visual as Visual;
             try
             {
+                bool impactVfx = false;
                 if (withResult && visual != null)
                 {
                     Vector3 point = ServerPoint(slot.Result, visual.LastEndpoint.y);
                     // 착탄 이펙트는 명중·대상 소실 공통으로 같은 표면 지점에서 낸다(Q4 — 대상 소실이면 이펙트만).
-                    if (visual.AttackerIsUnit)
-                        EffectManager.Instance?.PlayServerProjectileImpact(visual.AttackerType, point, point - visual.Start);
+                    // [단계 B 진단] 재생 여부(프리셋 유무)를 받아 센다. 옛 줄은 반환값을 버렸다(동작 같음):
+                    //   EffectManager.Instance?.PlayServerProjectileImpact(visual.AttackerType, point, point - visual.Start);
+                    EffectManager effects = EffectManager.Instance;
+                    if (visual.AttackerIsUnit && effects != null)
+                        impactVfx = effects.PlayServerProjectileImpact(visual.AttackerType, point, point - visual.Start);
                 }
+                DiagFinish(slot, withResult, impactVfx);
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).
                 if (withResult && slot.Result.Outcome == ProjectileImpactOutcome.Hit)
                     _hits?.ReleaseProjectileImpact(slot.Key);
@@ -210,23 +287,29 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>즉시 거둔다(게임 종료·epoch 교체) — 착탄 이펙트·숫자 없음.</summary>
-        public void Abort(ProjectilePresentationCoordinator.Slot slot) => EndVisual(slot);
+        public void Abort(ProjectilePresentationCoordinator.Slot slot)
+        {
+            _view.Aborts++;   // [진단] 거둔 수(읽기 전용)
+            EndVisual(slot);
+        }
 
         // ====================================================================
         // 내부 — 위치 해석
         // ====================================================================
 
-        private Vector3 ResolveLaunchPoint(ProjectileLaunchPresentation launch)
+        // [단계 B] 옛 ResolveLaunchPoint를 "공격자 화면 찾기"와 "출발점 계산"으로 나눴다(발사 신호도 같은 화면에 내기 위해).
+        //   옛 메서드(기록용 — 같은 규칙):
+        //     if (launch.AttackerIsUnit && _unitFactory != null) { go = GetUnitObject(id); view = go.GetComponent<UnitView>();
+        //         if (view != null && view.Data != null && view.Data.Id == launch.AttackerId && go.activeInHierarchy) return view.ProjectileLaunchPoint; }
+        //     return ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
+        private UnitView ResolveAttackerView(ProjectileLaunchPresentation launch)
         {
-            if (launch.AttackerIsUnit && _unitFactory != null)
-            {
-                GameObject go = _unitFactory.GetUnitObject(launch.AttackerId);
-                UnitView view = go != null ? go.GetComponent<UnitView>() : null;
-                // 같은 객체 확인: View가 들고 있는 Data의 Id가 발사 기록과 같을 때만 그 총구를 쓴다(ID 재사용 안전).
-                if (view != null && view.Data != null && view.Data.Id == launch.AttackerId && go.activeInHierarchy)
-                    return view.ProjectileLaunchPoint;
-            }
-            return ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
+            if (!launch.AttackerIsUnit || _unitFactory == null) return null;
+            GameObject go = _unitFactory.GetUnitObject(launch.AttackerId);
+            UnitView view = go != null ? go.GetComponent<UnitView>() : null;
+            // 같은 객체 확인: View가 들고 있는 Data의 Id가 발사 기록과 같을 때만 그 총구를 쓴다(ID 재사용 안전).
+            return view != null && view.Data != null && view.Data.Id == launch.AttackerId && go.activeInHierarchy
+                ? view : null;
         }
 
         private void ResolveTarget(ProjectileLaunchPresentation launch, Visual visual)
@@ -303,10 +386,104 @@ namespace Hexiege.Presentation
             _endSubscription?.Dispose();
             _endSubscription = null;
             _coordinator.Close(this);
+            // [진단] 경기 종료 END를 아직 안 남겼으면(종료 없이 맵이 바뀌거나 파괴된 경우) 거둔 수까지 센 뒤 지금 남긴다.
+            if (_combat != null) WriteViewEnd("detach");
             _combat = null;
             _hits = null;
         }
 
         private void OnDestroy() => Detach();
+
+        // ====================================================================
+        // [2026-10-20 단계 B 진단 보강] 화면 쪽 계수·표본·END (읽기 전용 관측 — 릴리스 빌드에서는 호출이 사라진다)
+        //
+        // [다음 실기 분석에서 grep할 태그]
+        //   [PROJECTILE-VIEW] stage=begin|finish  — 맵당 처음 24발의 꺼냄/착탄 시각 표본(서버 시각·화면 시각·지연).
+        //   [PROJECTILE-END] side=view            — 경기 종료 때 1줄(싱글·Host·Client 각각).
+        //     launch=recv:N|accepted:N  result=recv:N|accepted:N  begins=all:N|midFlight:N|tracerMissing:N
+        //     cue=played:N|vfxStarted:N|skippedMidFlight:N|noAttackerView:N  finish=hit:N|lost:N  impactVfx=played:N|missing:N
+        //     aborts=N  rejected=...|order=...|timeouts=N  (ProjectilePresentationCoordinator)
+        //     displayLag=...(화면 착탄 − 서버 착탄)  resultLag=...(결과 수신 − 서버 착탄)  beginLag=...(꺼냄 − 서버 발사)
+        //     hold=held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N|ownerNotReady:N
+        //     markers=...|path=...|legacyTracer=...  (ServerProjectileDiagnostics — UnitView marker 계수)
+        // ====================================================================
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBegin(ProjectilePresentationCoordinator.Slot slot, double beginLag, bool midFlight,
+            bool tracer, UnitAttackVfxPlaybackStatus cueStatus, bool attackerView, bool chargeUnit)
+        {
+            _view.Begins++;
+            _view.BeginLag.Add(beginLag);
+            if (!tracer) _view.TracerMissing++;
+            string cue;
+            if (!slot.Launch.AttackerIsUnit) cue = "not-unit";
+            else if (midFlight) { cue = "skipped-mid-flight"; _view.CueSkippedMidFlight++; }
+            else if (!attackerView) { cue = "no-attacker-view"; _view.CueNoAttackerView++; }
+            else
+            {
+                _view.CuePlayed++;
+                // 차지 유닛은 설계상 발사 신호에서 총구 VFX를 켜지 않는다(발사음만) — VFX 시작 수에 넣지 않는다.
+                bool started = !chargeUnit && cueStatus == UnitAttackVfxPlaybackStatus.Started;
+                if (started) _view.CueVfxStarted++;
+                cue = chargeUnit ? "played-sfx-only-charge" : started ? "played-vfx-started" : "played-vfx-" + cueStatus;
+            }
+            if (midFlight) _view.BeginsMidFlight++;
+            if (_view.Samples >= ViewSampleLimit) return;
+            _view.Samples++;
+            _view.Sampled.Add(slot.Key.Id);
+            ProjectileLaunchPresentation launch = slot.Launch;
+            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-VIEW]",
+                FormattableString.Invariant($"role={ServerProjectileDiagnostics.RoleName}, stage=begin, projectile={slot.Key}, attacker={launch.AttackerId}, type={launch.AttackerKind}, target={launch.TargetId}, targetIsUnit={launch.TargetIsUnit}, launch={launch.LaunchTime:G17}, impact={launch.ImpactTime:G17}, presentation={_tickPresentationTime:G17}, beginLag={beginLag:F3}, midFlight={(midFlight ? 1 : 0)}, tracer={(tracer ? 1 : 0)}, cue={cue}, local={Time.realtimeSinceStartupAsDouble:F3}, sample={_view.Samples}/{ViewSampleLimit}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagFinish(ProjectilePresentationCoordinator.Slot slot, bool withResult, bool impactVfx)
+        {
+            double serverNow = ReadServerNow();
+            double displayLag = double.NaN;
+            if (withResult)
+            {
+                if (slot.Result.Outcome == ProjectileImpactOutcome.Hit) _view.FinishHit++;
+                else _view.FinishLost++;
+                if (impactVfx) _view.ImpactVfxPlayed++; else _view.ImpactVfxMissing++;
+                displayLag = serverNow - slot.Result.ImpactTime;
+                _view.DisplayLag.Add(displayLag);
+            }
+            if (!_view.Sampled.Contains(slot.Key.Id)) return;
+            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-VIEW]",
+                FormattableString.Invariant($"role={ServerProjectileDiagnostics.RoleName}, stage=finish, projectile={slot.Key}, withResult={(withResult ? 1 : 0)}, outcome={(withResult ? slot.Result.Outcome.ToString() : "timeout")}, serverImpact={(withResult ? slot.Result.ImpactTime : slot.Launch.ImpactTime):G17}, serverNow={serverNow:G17}, presentation={_tickPresentationTime:G17}, displayLag={displayLag:F3}, impactVfx={(impactVfx ? 1 : 0)}, waitedAtEndpoint={(double.IsNaN(slot.ArrivedLocal) ? 0 : 1)}, local={Time.realtimeSinceStartupAsDouble:F3}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void WriteViewEnd(string reason)
+        {
+            ViewCounters v = _view;
+            if (v == null || v.EndWritten) return;
+            v.EndWritten = true;
+            int holdTimeouts = _hits != null ? _hits.ProjectileHoldTimeoutItems : 0;
+            int coordinatorAttention = _coordinator.RejectedInvalid + _coordinator.RejectedEpoch
+                + _coordinator.RejectedCapacity + _coordinator.RejectedDuplicateResult + _coordinator.RejectedFinishedResult;
+            var attention = new System.Collections.Generic.List<string>(6);
+            if (_coordinator.ResultTimeouts > 0) attention.Add("result-timeouts");
+            if (coordinatorAttention > 0) attention.Add("rejected");
+            if (holdTimeouts > 0) attention.Add("hold-timeouts");
+            if (ServerProjectileDiagnostics.ServerMarkerMuzzleCount > 0) attention.Add("muzzle-at-marker");
+            if (_faults > 0) attention.Add("faults");
+            if (v.LaunchAccepted > 0 && v.Begins == 0) attention.Add("never-drawn");
+            string body = FormattableString.Invariant(
+                $"side=view v=1 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} switch={ServerProjectileDeliveryPolicy.ManifestToken} ")
+                + FormattableString.Invariant(
+                $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
+                + FormattableString.Invariant(
+                $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing} cue=played:{v.CuePlayed}|vfxStarted:{v.CueVfxStarted}|skippedMidFlight:{v.CueSkippedMidFlight}|noAttackerView:{v.CueNoAttackerView} ")
+                + FormattableString.Invariant(
+                $"finish=hit:{v.FinishHit}|lost:{v.FinishLost} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
+                + _coordinator.DescribeForDiagnostics()
+                + " displayLag=" + v.DisplayLag.Format() + " resultLag=" + v.ResultLag.Format() + " beginLag=" + v.BeginLag.Format()
+                + " hold=" + (_hits != null ? _hits.DescribeProjectileHoldForDiagnostics() : "unavailable")
+                + " " + ServerProjectileDiagnostics.DescribeView()
+                + " verdict=" + (attention.Count == 0 ? "PASS" : "ATTENTION attention=" + string.Join(",", attention));
+            GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", body);
+        }
     }
 }

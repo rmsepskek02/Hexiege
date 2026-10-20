@@ -80,6 +80,9 @@ namespace Hexiege.Application
             public int AttackPower;
             public bool TargetLost;
             public ProjectileLaunchPresentation Launch;
+            // ── [2026-10-20 단계 B 진단 전용] 발사 뒤 공격자가 처음 죽은 것으로 보인 시각(판정에는 쓰지 않는다) ──
+            public bool AttackerDeadObserved;
+            public double AttackerDeadAt;
 
             public void Reset()
             {
@@ -87,7 +90,7 @@ namespace Hexiege.Application
                 AttackerType = default; Team = default; Target = null; TargetId = -1; TargetIsUnit = false;
                 Due = 0d; HitIndex = 0; LaunchTime = 0d; ImpactTime = 0d; Source = Vector3.zero;
                 LastTargetCenter = Vector3.zero; TargetRadius = 0f; AttackPower = 0; TargetLost = false;
-                Launch = default;
+                Launch = default; AttackerDeadObserved = false; AttackerDeadAt = 0d;
             }
         }
 
@@ -172,9 +175,16 @@ namespace Hexiege.Application
                 || !ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type)
                 || !IsCurrentProjectileAttacker(attacker)
                 || double.IsNaN(due) || double.IsInfinity(due) || due < 0d)
+            {
+                DiagProjectileReserve(false);   // [진단] 예약 거절 수(판정 무관)
                 return false;
+            }
             IDamageable target = FindTargetById(targetId, targetIsUnit);
-            if (target == null || !target.IsAlive || !CanReserveProjectileLaunches(1)) return false;
+            if (target == null || !target.IsAlive || !CanReserveProjectileLaunches(1))
+            {
+                DiagProjectileReserve(false);
+                return false;
+            }
 
             ProjectileRecord record = _projectilePool.Count > 0 ? _projectilePool.Pop() : new ProjectileRecord();
             record.Reset();
@@ -191,6 +201,7 @@ namespace Hexiege.Application
             record.HitIndex = hitIndex;
             _projectiles.Add(record);
             _projectileCueStates[attacker.Id] = new ProjectileCueState { Attacker = attacker, Cancelled = false };
+            DiagProjectileReserve(true);
             ProjectileLog("reserved", record, due);
             return true;
         }
@@ -209,7 +220,7 @@ namespace Hexiege.Application
                 ProjectileRecord record = _projectiles[i];
                 if (record.Active && record.Stage == ProjectileStage.Reserved
                     && ReferenceEquals(record.Attacker, attacker))
-                    CancelReservation(record, reason);
+                    CancelReservation(record, reason, reason);
             }
             CompactProjectiles();
         }
@@ -282,7 +293,12 @@ namespace Hexiege.Application
                     }
                 }
             }
-            finally { _projectileTicking = false; }
+            finally
+            {
+                _projectileTicking = false;
+                // [단계 B 진단] 착탄 피해로 게임이 끝나 Tick 도중에 닫혔다면, 그 착탄까지 센 뒤 END를 여기서 남긴다.
+                DiagProjectileFlushPendingEnd();
+            }
             CompactProjectiles();
         }
 
@@ -300,6 +316,9 @@ namespace Hexiege.Application
             if (!alreadyClosed && open > 0)
                 GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE] close",
                     $"epoch={ProjectileEpoch:x16}, reason={reason}, cancelled={open}, capacity={ProjectileCapacity}");
+            // [2026-10-20 단계 B] 처음 닫힐 때 경기 전체 합계 END 1줄을 남긴다. 남은 투사체가 0발이어도 항상 남긴다(진단 전용).
+            //   남은 예약/비행 수(closedReserved/closedInFlight)를 세야 하므로 아래 초기화보다 먼저 부른다.
+            if (!alreadyClosed) DiagProjectileClose(reason);
 #endif
             for (int i = 0; i < _projectiles.Count; i++)
             {
@@ -378,7 +397,9 @@ namespace Hexiege.Application
             // ① 발사 전 공격자 사망·객체 교체 → 발사 안 함(Q6 · NET-CANCEL-003).
             if (!record.Attacker.IsAlive || !IsCurrentProjectileAttacker(record.Attacker))
             {
-                CancelReservation(record, "attacker-unavailable");
+                // [단계 B 진단] 사유 토큰(reason)은 단계 A와 같게 두고, 세부 원인(cause)만 갈라 기록한다.
+                CancelReservation(record, "attacker-unavailable",
+                    !record.Attacker.IsAlive ? "attacker-dead" : "attacker-replaced");
                 return;
             }
             // ② 발사 전(또는 발사 순간) 대상 사망·객체 교체 → 발사 안 함(Q6 · Q15).
@@ -386,14 +407,18 @@ namespace Hexiege.Application
             IDamageable current = FindTargetById(record.TargetId, record.TargetIsUnit);
             if (current == null || !ReferenceEquals(current, record.Target) || !current.IsAlive)
             {
-                CancelReservation(record, "target-unavailable");
+                // 세부 원인: 붙잡아 둔 대상 객체가 죽었으면 target-dead(사망 뒤 목록에서 빠진 경우 포함),
+                //   살아 있는데 목록에 없으면 target-missing, 같은 Id에 다른 객체가 있으면 target-replaced.
+                string cause = record.Target == null || !record.Target.IsAlive ? "target-dead"
+                    : current == null ? "target-missing" : "target-replaced";
+                CancelReservation(record, "target-unavailable", cause);
                 return;
             }
             if (now < record.Due) return;
-            LaunchProjectile(record, current);
+            LaunchProjectile(record, current, now);
         }
 
-        private void LaunchProjectile(ProjectileRecord record, IDamageable target)
+        private void LaunchProjectile(ProjectileRecord record, IDamageable target, double now)
         {
             Vector3 source = ResolveWorldPosition(record.Attacker);
             Vector3 center = ResolveWorldPosition(target);
@@ -431,16 +456,20 @@ namespace Hexiege.Application
             if (!record.Launch.IsValid)
             {
                 // 좌표가 비정상(NaN 등)이면 착탄 지점을 정할 수 없다 — 피해를 주지 않고 취소로 닫는다(fail-closed).
-                CancelReservation(record, "invalid-launch-geometry");
+                CancelReservation(record, "invalid-launch-geometry", "invalid-launch-geometry");
                 return;
             }
             _projectileCueStates[record.Attacker.Id] = new ProjectileCueState { Attacker = record.Attacker, Cancelled = false };
-            ProjectileLog("launched", record, impactTime);
+            DiagProjectileLaunch(record, now, centerDistance);
+            ProjectileLog("launched", record, impactTime,
+                FormattableString.Invariant($"distance={centerDistance:F3}, flight={impactTime - launchTime:F3}"));
             PublishProjectileLaunched(record.Launch);
         }
 
         private void ProcessProjectileFlight(ProjectileRecord record, double now)
         {
+            // [단계 B 진단] 발사 뒤 공격자가 처음 죽은 것으로 보인 시각을 기억한다(판정 무관 — Q3 확인용).
+            DiagProjectileObserveAttacker(record, now);
             // Homing: 원래 대상 "객체"가 살아 있는 동안 위치를 따라간다. 한 번 사라지면 마지막 위치에 고정한다.
             if (!record.TargetLost)
             {
@@ -460,6 +489,9 @@ namespace Hexiege.Application
             int targetId = record.TargetId;
             bool targetIsUnit = record.TargetIsUnit;
             double impactTime = record.ImpactTime;
+            // [단계 B 진단] 피해 적용이 게임 종료 닫기로 재진입하면 record가 초기화되므로, 진단에 필요한 값을 먼저 복사해 둔다
+            //   (공격자 생사는 이 메서드 맨 앞에서 이번 프레임 기준으로 이미 확인했다 — 같은 프레임 사망 포함).
+            ProjectileImpactDiagnosticSnapshot diag = CaptureProjectileImpactDiagnostics(record);
             if (!record.TargetLost)
             {
                 AttackDamageObservation observation = ApplyProjectileImpactDamage(record, key);
@@ -467,14 +499,26 @@ namespace Hexiege.Application
                 //   (피해는 이미 확정됐다. 화면 소비자는 게임 종료 이벤트에서 스스로 남은 표현을 닫는다).
                 if (observation.Status == AttackDamageApplyStatus.Applied)
                 {
-                    ProjectileLog("hit", record, impactTime);
+                    DiagProjectileImpact(diag, now, true, false, observation.Status,
+                        observation.AppliedAmount, observation.ResultingHp);
+                    ProjectileLog("hit", diag, impactTime,
+                        FormattableString.Invariant($"attackerAlive={(diag.AttackerDeadObserved ? 0 : 1)}, applied={observation.AppliedAmount}, hp={observation.ResultingHp}"));
                     PublishProjectileResolved(new ProjectileImpactPresentation(key, ProjectileImpactOutcome.Hit,
                         point, targetId, targetIsUnit, observation.ResultingHp,
                         observation.AppliedAmount, impactTime));
                     return;
                 }
+                // 대상은 살아 있었지만 writer가 피해를 적용하지 않았다(예: writer 내부 조건) — 결과는 기존대로 TargetLost.
+                DiagProjectileImpact(diag, now, false, true, observation.Status, 0, -1);
+                ProjectileLog("target-lost", diag, impactTime,
+                    FormattableString.Invariant($"cause=writer-{observation.Status}, attackerAlive={(diag.AttackerDeadObserved ? 0 : 1)}"));
             }
-            ProjectileLog("target-lost", record, impactTime);
+            else
+            {
+                DiagProjectileImpact(diag, now, false, false, AttackDamageApplyStatus.TargetUnavailable, 0, -1);
+                ProjectileLog("target-lost", diag, impactTime,
+                    FormattableString.Invariant($"cause=target-gone-in-flight, attackerAlive={(diag.AttackerDeadObserved ? 0 : 1)}"));
+            }
             PublishProjectileResolved(new ProjectileImpactPresentation(key, ProjectileImpactOutcome.TargetLost,
                 point, targetId, targetIsUnit, -1, 0, impactTime));
         }
@@ -518,12 +562,16 @@ namespace Hexiege.Application
             return new Vector3(center.x + offset.x, center.y, center.z + offset.y);
         }
 
-        private void CancelReservation(ProjectileRecord record, string reason)
+        /// <param name="record">취소할 예약.</param>
+        /// <param name="reason">단계 A와 같은 사유 토큰(개별 로그 stage 이름 "cancelled-" + reason).</param>
+        /// <param name="cause">[단계 B 진단] 세부 원인(attacker-dead / target-dead / move-command 등) — END 합계와 개별 로그 cause= 칸.</param>
+        private void CancelReservation(ProjectileRecord record, string reason, string cause)
         {
             record.Active = false;
             if (record.Attacker != null)
                 _projectileCueStates[record.Attacker.Id] = new ProjectileCueState { Attacker = record.Attacker, Cancelled = true };
-            ProjectileLog("cancelled-" + reason, record, record.Due);
+            DiagProjectileCancel(cause);
+            ProjectileLog("cancelled-" + reason, record, record.Due, "cause=" + cause);
         }
 
         private void CompactProjectiles()
@@ -577,12 +625,20 @@ namespace Hexiege.Application
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        private void ProjectileLog(string stage, ProjectileRecord record, double time)
+        private void ProjectileLog(string stage, ProjectileRecord record, double time, string detail = null)
+            => ProjectileLog(stage, CaptureProjectileImpactDiagnostics(record), time, detail);
+
+        // [단계 B] 개별 로그 형식은 단계 A와 같고, 끝에 선택 칸(detail — cause= / distance= 등)만 덧붙인다.
+        //   상한(96줄)을 넘긴 줄은 버리되 몇 줄 버렸는지 END의 detailOmitted로 센다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ProjectileLog(string stage, ProjectileImpactDiagnosticSnapshot record, double time, string detail = null)
         {
-            if (_projectileDiagnosticLines >= ProjectileDiagnosticLimit) return;
+            if (_projectileDiagnosticLines >= ProjectileDiagnosticLimit) { DiagProjectileDetailOmitted(); return; }
             _projectileDiagnosticLines++;
+            string extra = string.IsNullOrEmpty(detail) ? string.Empty : ", " + detail;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE]",
-                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, stage={stage}, id={record.Id}, attacker={(record.Attacker != null ? record.Attacker.Id : -1)}, type={(int)record.AttackerType}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, hit={record.HitIndex}, due={record.Due:G17}, launch={record.LaunchTime:G17}, impact={record.ImpactTime:G17}, time={time:G17}, radius={record.TargetRadius:F3}, attack={record.AttackPower}, detail={_projectileDiagnosticLines}/{ProjectileDiagnosticLimit}"));
+                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, stage={stage}, id={record.Id}, attacker={record.AttackerId}, type={(int)record.AttackerType}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, hit={record.HitIndex}, due={record.Due:G17}, launch={record.LaunchTime:G17}, impact={record.ImpactTime:G17}, time={time:G17}, radius={record.TargetRadius:F3}, attack={record.AttackPower}, detail={_projectileDiagnosticLines}/{ProjectileDiagnosticLimit}") + extra);
         }
     }
 }
