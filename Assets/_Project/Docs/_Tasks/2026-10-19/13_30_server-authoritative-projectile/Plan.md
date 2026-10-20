@@ -1,7 +1,7 @@
 # Plan — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 근거 조사: 같은 폴더 [Research.md](Research.md)
-> **상태: 결정 반영 초안 — 남은 미결(1-3절의 「열림」 행) + 4-2절 개정안 승인 + Plan 승인 대기(구현 전).** Q1~Q17 결정이 모두 [1-1절](#1-1-사용자-결정-기록-2026-10-1920)·[1-1-2절](#1-1-2-추가-결정-2026-10-20-2차)·[1-1-3절](#1-1-3-mushroombomber-예외-철회-2026-10-20-3차)에 기록됐고(Q12는 2026-10-20 2차에 확정, Mushroom 예외는 3차에 철회), 남은 미결·확인 항목은 [1-3절](#1-3-남은-미결확인-항목)에 있다. *(2026-10-20 2차 갱신 — 1차 때는 「Q12를 뺀 결정 … 남은 미결·확인 U-1~U-12」였다)* 이것들이 닫히고 이 Plan이 승인되기 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]). 규칙 개정 문안은 4-2절에 **승인 대기 개정안**으로만 두었다. *(2026-10-20 갱신 — 종전 상태 「초안 — 사용자 결정 대기(승인 전)」. 2·3·4·5·6·7절은 결정에 맞춰 고쳐 썼고, 2026-10-19 초안 원문은 커밋 `e5958406`의 이 파일에 그대로 있다. 1절 질문 표는 원문 그대로 두었다)*
+> **상태: 승인됨 — 구현 진행** *(2026-10-20 4차 갱신 — 사용자 승인 「나머지는 추천방식대로 진행해」. 1-3절 미결 전부 닫힘, 4-2절 개정안 F-1~F-9를 규칙 문서·`StatsReference.md`에 **승인된 목표 계약(미구현 표시)**으로 반영 — [4-2-3절](#4-2-3-규칙-문서-반영과-개정-전-원문). 코드·에셋은 아직 바뀌지 않았다. 종전 상태 「결정 반영 초안 — 남은 미결(1-3절의 「열림」 행) + 4-2절 개정안 승인 + Plan 승인 대기(구현 전)」. 아래 이 줄의 나머지는 2차 당시 문장이다)* Q1~Q17 결정이 모두 [1-1절](#1-1-사용자-결정-기록-2026-10-1920)·[1-1-2절](#1-1-2-추가-결정-2026-10-20-2차)·[1-1-3절](#1-1-3-mushroombomber-예외-철회-2026-10-20-3차)에 기록됐고(Q12는 2026-10-20 2차에 확정, Mushroom 예외는 3차에 철회), 남은 미결·확인 항목은 [1-3절](#1-3-남은-미결확인-항목)에 있다. *(2026-10-20 2차 갱신 — 1차 때는 「Q12를 뺀 결정 … 남은 미결·확인 U-1~U-12」였다)* 이것들이 닫히고 이 Plan이 승인되기 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]). 규칙 개정 문안은 4-2절에 **승인 대기 개정안**으로만 두었다. *(2026-10-20 갱신 — 종전 상태 「초안 — 사용자 결정 대기(승인 전)」. 2·3·4·5·6·7절은 결정에 맞춰 고쳐 썼고, 2026-10-19 초안 원문은 커밋 `e5958406`의 이 파일에 그대로 있다. 1절 질문 표는 원문 그대로 두었다)*
 > 갱신 기준 checkout HEAD `a11b5381`(2026-10-20 1차) → **`968e56bc`(2026-10-20 2차 — 사용자 커밋: `EagleArcher_Attack.anim` `OnAttackHit` 0.1 → 0.2초)**. 이번 회차에 새로 다시 읽은 행은 [확인]으로 적었다.
 > 근거 표기는 Research와 같다: [확인] · [전달] · [추정] · [미확인]. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 > 읽은 규칙 원본(WORKFLOW [4]): `GameSystemRules.md` 인덱스 · `GameSystemRules_Units.md`(「공격 회차 안정 ID」, 「전투 연출 동기화 규칙」 규칙 17~20, 「착탄형 DoT 확장」 규칙 38~40) · `GameSystemRules_UnitCombatSynchronization.md`(「6. 방향과 타겟 동기화」, 「7. 전달 방식별 동기화」, 「9. 취소·사망·중단」) · `GameSystemRules_Buildings.md`(「방어 타워 시스템」 규칙 12).
@@ -40,7 +40,7 @@
 | **RM-8** | MushroomBomber 스냅샷 경로 — `AttackEffectPresentation` 생성(1732~1742행), `OnAttackEffectConfirmed` ClientRpc(`NetworkCombatController.cs` 60~86행), `HitPresentationQueue.cs` 197~256행, `EffectManager` Mushroom 고정 프리셋 조회(505 · 533행) [전달] | 기존 구조(Mushroom) | **실행 확정 (Q1·Q13·Q17 결정, 2026-10-20 — 종전 「결정 의존」). P4의 Mushroom 차례에** 새 경로로 옮긴 뒤 주석 처리(3차: 다른 투사체와 같은 **Homing** 경로 — 지점 공격 아님). 타워 표현(`AttackEffectVisual` Tower)은 **Spirit RuneSpire가 계속 쓰므로** 건드리지 않는다(인간 타워는 RM-10) | 착탄 뒤 1회 메시지라 발사·결과 분리가 안 된다(Research 3-1). 남겨 두면 이중 재생 |
 | **RM-9** | 유닛별 이행 스위치(P1에서 새로 만드는 것) | 이 작업 | **2026-10-20 신설 (Q17 결정).** 대상 전체의 사용자 테스트가 끝나면 스위치를 제거하고 항상 새 경로로 동작하게 한다. 스위치가 꺼진 쪽의 옛 경로는 RM-1·RM-10과 함께 정리한다 | 사용자 결정 「모든 테스트 완료 전까지만 두고 완료 후 제거」 [전달 — 메인 세션] |
 | **RM-10** | 인간 방어타워의 즉발 피해 — `TowerCombatUseCase.cs` 241행 `target.TakeDamage(damage)`와 그 뒤 Tower 스냅샷 발행(245~248행) [확인], 화면 쪽 Tower 표현 중 Human 분기 | 기존 구조(`GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 「즉발 데미지 유지」) | **2026-10-20 신설 (Q10 결정).** Race가 Human인 타워만 발사 기록 생성으로 분기하고 즉발 호출은 주석 보존. **Spirit RuneSpire·Transcendence VineTower 경로는 그대로** | 규칙 12 개정(4-2절, 승인 대기)이 먼저다. 타워는 유닛 전투 경로(`UnitCombatUseCase`)가 아니라 `TowerCombatUseCase`에서 피해를 주므로 P1 발사 기록이 건물 공격자를 받아야 한다 [확인 — 파일 분리 / 설계는 추정] |
-| **RM-11** | `EagleArcher_Attack2.anim` (컨트롤러 미참조 클립) | 기존 에셋 | **2026-10-20 신설 — 정리 후보, 사용자 확인 필요.** 사용자가 커밋 `a11b5381`에서 컨트롤러의 Attack2 상태를 지웠고 파일만 남았다(Research 11절). 삭제 여부·시점은 사용자 지시로만 정한다 | 컨트롤러·프리팹·에셋·씬·코드 어디에서도 이 클립 GUID나 이름을 찾지 못했다(Research 11-1) |
+| **RM-11** | `EagleArcher_Attack2.anim` (컨트롤러 미참조 클립) | 기존 에셋 | **2026-10-20 신설 → 4차: 사용자가 직접 삭제한다(U-11).** 이 작업의 어느 단계에서도 손대지 않는다(주석·삭제 대상 아님). 사용자가 커밋 `a11b5381`에서 컨트롤러의 Attack2 상태를 지웠고 파일만 남았다(Research 11절). *(종전 「정리 후보, 사용자 확인 필요 … 삭제 여부·시점은 사용자 지시로만 정한다」)* | 컨트롤러·프리팹·에셋·씬·코드 어디에서도 이 클립 GUID나 이름을 찾지 못했다(Research 11-1) |
 | **RM-12** | `UnitEffectConfig._recipientFits`의 `radius`(Presentation 설정) | 기존 구조 | **2026-10-20 2차 신설 (Q12 결정).** 반경을 서버 권위 데이터로 **옮긴 뒤** Presentation 쪽 값을 남길지(다른 용도 — 상태 이펙트 크기 맞춤 등)·주석 처리할지는 game-programmer 설계에서 정한다 | 서버와 화면이 다른 반경을 읽으면 착탄 지점이 어긋난다(위험 17). 「옮겨 사용」은 사용자 결정 [전달 — 메인 세션] |
 
 ---
@@ -90,7 +90,7 @@
 
 | # | 사용자 결정 | 1절 표 선택지와의 대응 | 메인 추천과 | 비고 |
 |---|---|---|---|---|
-| **Q1** | Homing(MushroomBomber 제외) **[🔴 2026-10-20 3차 — 사용자가 Mushroom 예외를 철회, 1-1-3]** — MushroomBomber도 Homing | (나) 또는 (다) — **둘 중 어느 쪽인지는 결정 문장에 없다** [1-3절 U-1] | 일치(대상 쪽) | 대상: StreamSpirit · Tank · CannonCart · InfernoSpirit · FoxMagician · **EagleArcher · 인간 타워**(Q10). Mushroom은 Q13 |
+| **Q1** | Homing(MushroomBomber 제외) **[🔴 2026-10-20 3차 — 사용자가 Mushroom 예외를 철회, 1-1-3]** — MushroomBomber도 Homing | (나) 또는 (다) — **둘 중 어느 쪽인지는 결정 문장에 없다** [1-3절 U-1] *(2026-10-20 4차: U-1이 (나) 발사 때 고정으로 닫힘)* | 일치(대상 쪽) | 대상: StreamSpirit · Tank · CannonCart · InfernoSpirit · FoxMagician · **EagleArcher · 인간 타워**(Q10). Mushroom은 Q13 |
 | **Q2** | 속도를 **Inspector에서 조절**할 수 있게(서버 권위 데이터), 테스트로 튜닝. MushroomBomber는 지금 너무 빨라 조금 낮춰 시작 | (가) `UnitStatsConfig` 서버 전용 필드 — Inspector에서 고치는 ScriptableObject(`UnitStatsConfig.cs` 98~99행 `CreateAssetMenu` · `ScriptableObject` [확인]) | 일치. 단 초기값의 Mushroom 7은 **낮춘 값으로 변경** | 초기값·인간 타워·EagleArcher 속도는 미결 [1-3절 U-4] |
 | **Q3** | 발사된 투사체는 공격자가 죽어도 맞으면 피해 | (가) `PersistsAfterSourceDeath`=true | 일치 | 착탄용 진입점·발사 때 공격력 저장 필수(위험 3). 인간 타워가 비행 중 파괴되는 경우도 같은 원칙으로 본다 [추정 — 결정 문장은 「공격자」, 1-3절 U-6] |
 | **Q4** | 비행 중 대상 사망 → 마지막 지점까지 비행, **착탄 이펙트만**, 피해·피해 숫자 없음 | (나) | 일치 | 기본 원칙 4. 착탄 이펙트는 서버 결과(대상 소실) 기준으로 양쪽 화면 같은 지점 |
@@ -108,7 +108,7 @@
 | **Q16** | C 사용자 테스트 PASS 뒤 RM 항목 삭제(재확인) | 기존 결정 재확인 | 일치 | RM-2·3·4 (+5·6·7·8·10의 주석 보존분, RM-9 스위치) |
 | **Q17** | 유닛별 켜고 끄는 스위치는 **모든 테스트 완료 전까지만** 두고 완료 후 제거 | (가) 유닛별 스위치 | 일치 + 스위치 제거 시점 추가 | RM-9. 순서에 EagleArcher·인간 타워 추가 필요 [1-3절 U-7] |
 
-- **game-design-lead 검토:** 1절 머리말은 「Q1·Q13·Q15는 game-design-lead 검토 후 사용자가 결정」이라고 했다. 이번 결정은 사용자가 직접 내렸고, game-design-lead 검토가 있었는지는 전달받지 않았다 [미확인]. P0의 검토 단계를 둘지는 1-3절 U-8.
+- **game-design-lead 검토:** 1절 머리말은 「Q1·Q13·Q15는 game-design-lead 검토 후 사용자가 결정」이라고 했다. 이번 결정은 사용자가 직접 내렸고, game-design-lead 검토가 있었는지는 전달받지 않았다 [미확인]. P0의 검토 단계를 둘지는 1-3절 U-8. *(2026-10-20 4차: U-8 닫힘 — 사용자가 직접 결정했으므로 검토 생략)*
 
 **Q11 설계안 (제안 — game-programmer 검토 · 사용자 승인 대상, document-manager 작성)**
 
@@ -117,7 +117,7 @@
 - **즉발 유닛** = 공격 타격 순간에 피해. 근접·Hitscan 유닛, Spirit RuneSpire, Transcendence VineTower. 지금 동작 그대로.
 - 분류가 놓일 자리: resolver의 `UnresolvedProjectile(...)` 행이 이미 투사체 7종을 가리킨다(`UnitAttackShadowProfileResolver.cs` 62~68행 [확인]). 새 분류를 이 행에서 읽게 할지, 별도 표를 둘지는 game-programmer가 정한다. 사유 문자열(예: EagleArcher 67행 「projectile-animation-selection-unresolved」)은 이 작업에서 갱신 후보다(Research 11-2).
 - 스키마: 새 전송 계약이므로 `PresentationContractSchemaRevision` 3 → 4(원래 추천 유지, 위험 5).
-- ✚ **설계 주의 — resolver의 MushroomBomber `LockedPoint` (2026-10-20 3차):** `UnitAttackShadowProfileResolver.cs` `UnresolvedProjectile` 167~169행은 `type == UnitType.MushroomBomber ? AttackTargetMode.LockedPoint : AttackTargetMode.TargetLocked`로 Mushroom만 LockedPoint로 만든다 [확인]. 사용자 결정으로 Mushroom도 Homing이 됐으므로 **이 값은 실제 게임플레이(대상 추적)와 다르다.** 처리 선택지: (a) 행을 TargetLocked로 바꾼다 — 25종 manifest 해시가 바뀌므로 스키마 상향(3 → 4)과 같은 커밋에서 처리, 이 값을 단언하는 검증 갱신 (b) C3 축 분류값으로만 남기고 새 투사체 경로는 이 값을 읽지 않는다 — 어긋난 값이 남아 이후 오독 위험. Q11 「투사체 유닛」 분류는 대상 처리 방식을 **모든 투사체 Homing**으로 두고, 어느 쪽을 고를지는 game-programmer 설계 + 메인 확인(1-3절 U-16). Research 4-4의 「Mushroom은 resolver상 LockedPoint지만 실제 범위 중심은 착탄 시점 대상 위치」 [전달]와도 이어진다.
+- ✚ **설계 주의 — resolver의 MushroomBomber `LockedPoint` (2026-10-20 3차):** `UnitAttackShadowProfileResolver.cs` `UnresolvedProjectile` 167~169행은 `type == UnitType.MushroomBomber ? AttackTargetMode.LockedPoint : AttackTargetMode.TargetLocked`로 Mushroom만 LockedPoint로 만든다 [확인]. 사용자 결정으로 Mushroom도 Homing이 됐으므로 **이 값은 실제 게임플레이(대상 추적)와 다르다.** 처리 선택지: (a) 행을 TargetLocked로 바꾼다 — 25종 manifest 해시가 바뀌므로 스키마 상향(3 → 4)과 같은 커밋에서 처리, 이 값을 단언하는 검증 갱신 (b) C3 축 분류값으로만 남기고 새 투사체 경로는 이 값을 읽지 않는다 — 어긋난 값이 남아 이후 오독 위험. Q11 「투사체 유닛」 분류는 대상 처리 방식을 **모든 투사체 Homing**으로 두고, 어느 쪽을 고를지는 game-programmer 설계 + 메인 확인(1-3절 U-16). *(2026-10-20 4차: U-16 닫힘 — **(a)** TargetLocked로 변경, 스키마 3 → 4 상향과 같은 커밋에서. 구현 단계)* Research 4-4의 「Mushroom은 resolver상 LockedPoint지만 실제 범위 중심은 착탄 시점 대상 위치」 [전달]와도 이어진다.
 
 <a id="1-1-2-추가-결정-2026-10-20-2차"></a>
 
@@ -131,12 +131,12 @@
 | **인간 타워 발사 위치** | 사용자 지시 「**대포 입구에서 발사**」. 위치는 메인/game-programmer가 프리팹 기준으로 정한다(사용자 조정 불필요). **발사 이펙트도 같은 위치** | (1차 Q10 「위치 조정」의 구체화) | `EffectPreset_HumanAutoTower_Attack` `_localPositionOffset` 지금 (0,0,0) [확인] |
 | **속도 초기값** | Inspector 조절 · 서버 권위 데이터. **StreamSpirit 4 · Tank 4 · CannonCart 4 · 인간 타워 4 · InfernoSpirit 5 · FoxMagician 5 · EagleArcher 6 · MushroomBomber 5**(기존 프리팹 7에서 낮춤) | U-4(값) | 인간 타워 속도를 둘 자리(제안 `BuildingStatsConfig` 종족별 칸)는 설계 단계에서 확정 |
 | **진행 순서** | **메인 재량**(사용자: 「순서는 알아서, 모두 완료하기만 하면 돼」) | U-7 | 2절 P4 순서는 제안으로 남긴다 |
-| **EagleArcher 발사 시점** | `OnAttackHit` **0.2초**(30fps `0:06`) — 사용자 커밋 `968e56bc` [확인: `EagleArcher_Attack.anim` 20749행 `time: 0.2`]. 상시 문서의 0.1초 표기를 0.2초로 고치는 것을 사용자가 승인 → `StatsReference.md` 87·118행, `UnitCombatAssetMatrix.md` 115·133행 반영함 | U-9 | ⚠️ `UnitStatsConfig.asset` EagleArcher(type 24) `hitFrameTimes` fallback은 **0.1 그대로**다 [확인]. marker가 있으면 clip 값을 쓰므로(`UnitFactory.cs` 529~530행 `markerCount > 0` [확인]) 지금 동작에는 영향이 없지만 두 값이 다르다 — 에셋 수정은 이번 범위 밖, 메인 판단 필요 |
-| **`EagleArcher_Attack2.anim`** | 컨트롤러 미참조(메인 GUID 확인 0건, Research 11-1과 같음) — **정리 후보로 기록** | U-11(기록) | 삭제는 사용자 지시가 있을 때만(RM-11) |
+| **EagleArcher 발사 시점** | `OnAttackHit` **0.2초**(30fps `0:06`) — 사용자 커밋 `968e56bc` [확인: `EagleArcher_Attack.anim` 20749행 `time: 0.2`]. 상시 문서의 0.1초 표기를 0.2초로 고치는 것을 사용자가 승인 → `StatsReference.md` 87·118행, `UnitCombatAssetMatrix.md` 115·133행 반영함 | U-9 | ⚠️ `UnitStatsConfig.asset` EagleArcher(type 24) `hitFrameTimes` fallback은 **0.1 그대로**다 [확인]. marker가 있으면 clip 값을 쓰므로(`UnitFactory.cs` 529~530행 `markerCount > 0` [확인]) 지금 동작에는 영향이 없지만 두 값이 다르다 — 에셋 수정은 이번 범위 밖, 메인 판단 필요 *(2026-10-20 4차: U-15 닫힘 — 0.2로 맞춘다, 구현 단계에서 game-programmer)* |
+| **`EagleArcher_Attack2.anim`** | 컨트롤러 미참조(메인 GUID 확인 0건, Research 11-1과 같음) — **정리 후보로 기록** | U-11(기록) | 삭제는 사용자 지시가 있을 때만(RM-11) *(2026-10-20 4차: 사용자가 직접 삭제 — 이 작업에서는 손대지 않음)* |
 | **인간 타워 비행 중 파괴** | **공격자 사망과 같다** — 이미 발사된 포탄은 계속 날아가 맞으면 피해 | U-6 | Q3(Persist=true)를 건물 공격자에게도 적용. 발사 때 공격력 저장 필요(위험 3과 같은 이유) |
 | ~~**Mushroom 지점**~~ **[🔴 2026-10-20 3차 — 사용자가 Mushroom 예외를 철회, 1-1-3]** | 지점 = **발사 순간의 대상 위치로 고정**(지점 공격) | U-5(고정 시각) | 사용자 결정 |
 | ~~**Mushroom 비켜난 주 타깃**~~ **[🔴 2026-10-20 3차 — 사용자가 Mushroom 예외를 철회, 1-1-3]** — **기본안 폐기** | ~~🔶 **메인 기본안 — 사용자 승인 대상(사용자가 명시하지 않음):** 「지점 공격」이므로 착탄 때 **그 지점의 `blastRadius` 안에 있는 적에게만** 피해·독을 준다. **주 타깃도 반경 밖이면 피해 없음**~~ | U-5(직접 피해 조건) — 승인 전까지 「기본안」 | 1절 Q13 (가)와 같은 방향. 규칙 38·39·40 개정안(4-2절)에 포함하고 승인 대상으로 표시 |
-| **EagleArcher 화살** | 유닛 프리팹의 `EagleArrow` 메시를 **복사해 투사체 프리팹**으로 만들어 쓴다. **착탄 이펙트 없음**(impactPreset 비움) | U-10 | 손에 든 화살(자식 메시)을 발사 때 숨길지는 결정 문장에 없다 [1-3절 U-13] |
+| **EagleArcher 화살** | 유닛 프리팹의 `EagleArrow` 메시를 **복사해 투사체 프리팹**으로 만들어 쓴다. **착탄 이펙트 없음**(impactPreset 비움) | U-10 | 손에 든 화살(자식 메시)을 발사 때 숨길지는 결정 문장에 없다 [1-3절 U-13] *(2026-10-20 4차: U-13 닫힘 — 그대로 둔다)* |
 
 <a id="1-1-3-mushroombomber-예외-철회-2026-10-20-3차"></a>
 
@@ -157,7 +157,7 @@
 ### 1-2. 공격 「끊김」의 경계 (Q5 · Q6 · Q15) — ✅ 확정 (2026-10-20 2차)
 
 > *(2026-10-20 2차 갱신 — 1차 제목은 「🔴 메인 확인 필요」였고 ★ 세 행(이동 명령 · 시스템 자동 타겟 교체 · 사거리 이탈 뒤 추격/재선정)이 확인 대상이었다. 셋 모두 아래 표와 「타겟 교체」 근거로 닫혔다. 1차 표 원문은 이 회차 작업 중의 초안이라 따로 보존하지 않았고 닫힌 질문은 이 문단에 남긴다.)*
-> 「발사 전」 = 공격 커밋 뒤, 서버 발사 시각(= `OnAttackHit` offset) 전 — 차지 유닛은 차지 중. 차지 VFX가 없는 투사체 유닛(Stream · Tank · CannonCart · EagleArcher · Mushroom · 인간 타워)의 발사 전 구간에도 같은 표를 적용하는 것으로 읽었다 [추정 — 결정 문장은 「차지 중」, 1-3절 U-14].
+> 「발사 전」 = 공격 커밋 뒤, 서버 발사 시각(= `OnAttackHit` offset) 전 — 차지 유닛은 차지 중. 차지 VFX가 없는 투사체 유닛(Stream · Tank · CannonCart · EagleArcher · Mushroom · 인간 타워)의 발사 전 구간에도 같은 표를 적용하는 것으로 읽었다 [추정 — 결정 문장은 「차지 중」, 1-3절 U-14]. *(2026-10-20 4차: U-14 닫힘 — 사용자 승인으로 이 읽기가 확정됐다)*
 
 | 상황 | 처리 | 근거 |
 |---|---|---|
@@ -184,30 +184,30 @@
 
 ### 1-3. 남은 미결·확인 항목
 
-> 상태 칸이 현재 상태다(2026-10-20 2차 갱신). 「항목」 칸은 1차 때 연 질문 원문이다.
+> 상태 칸이 현재 상태다(2026-10-20 4차 갱신 — **모든 항목 닫힘**, 사용자 승인 「나머지는 추천방식대로 진행해」 [전달 — 메인 세션]). 「항목」 칸은 1차 때 연 질문 원문이다.
 
 | # | 항목 | 상태 | 막는 단계 |
 |---|---|---|---|
-| **U-1** | Q1 Homing의 비행 시간: (나) 발사 때 고정 vs (다) 매 틱 재계산. 「눈에 보이는 속도」를 지키려면 대상이 움직일 때 속도와 비행 시간 중 무엇을 고정할지가 갈린다 | 🔴 **열림** — 메인 → 사용자 | P1 |
+| **U-1** | Q1 Homing의 비행 시간: (나) 발사 때 고정 vs (다) 매 틱 재계산. 「눈에 보이는 속도」를 지키려면 대상이 움직일 때 속도와 비행 시간 중 무엇을 고정할지가 갈린다 | ✅ **닫힘(4차) — (나) 비행 시간은 발사 때 계산해 고정**(사용자). Units 규칙 17 F-2 문장에 반영 | — |
 | **U-2** | Q6 끊김 경계 — 1-2절 ★ 세 행과 화면 경계와의 일치 여부 | ✅ 닫힘(2차) — 1-2절 확정표 | — |
 | **U-3** | Q12 — 서버 표면 거리안을 고르면 서버가 읽을 반경 데이터(유닛·건물)의 위치를 정해야 한다 | ✅ 결정 닫힘(2차 — 1-1-2 Q12). 반경 데이터의 구체 위치·형식은 game-programmer 설계 | P1 설계 |
 | **U-4** | 속도 초기값 — 현재 프리팹 `_speed` [확인]: Stream 4 · Cannon 4 · Inferno 5 · Fox 5 · Mushroom 7. 인간 타워·EagleArcher 값과 인간 타워 속도 자리 | ✅ 값 닫힘(2차 — 4·4·4·타워 4·5·5·Eagle 6·Mushroom 5). 인간 타워 속도 자리(제안 `BuildingStatsConfig` 종족별 칸 — `humanAttackRange` 94행 등 [확인])는 설계 | P1 설계 |
 | **U-5** | Q13 — 지점 고정 시각과 「주 타깃 직접 피해」 처리 | ✅ **닫힘(3차 — 질문 자체가 사라짐)**: 사용자가 Mushroom 예외를 철회해 지점 공격이 없다. 2차의 「고정 시각 = 발사 순간 대상 위치」와 🔶 메인 기본안(반경 안의 적만)은 **폐기** | — |
 | **U-6** | 인간 타워가 비행 중 파괴되면 피해가 들어가는가 | ✅ 닫힘(2차) — 들어간다 | — |
 | **U-7** | P4 이행 순서 | ✅ 닫힘(2차) — 메인 재량 | — |
-| **U-8** | P0의 game-design-lead 검토(Q1·Q13·Q15)를 둘지 생략할지 | 🔴 **열림** — 메인 판단 | P0 |
+| **U-8** | P0의 game-design-lead 검토(Q1·Q13·Q15)를 둘지 생략할지 | ✅ **닫힘(4차) — 생략.** 사용자가 Q1·Q13·Q15를 직접 결정했으므로 game-design-lead 검토를 두지 않는다 | — |
 | **U-9** | EagleArcher 발사 시점 — `OnAttackHit` 0.1초가 화살을 놓는 순간인지 | ✅ 닫힘(2차) — 사용자가 0.2초로 옮김(`968e56bc`). ⚠️ config fallback 0.1 불일치는 1-1-2 비고 | — |
 | **U-10** | EagleArcher 화살 투사체를 무엇으로 만들지 | ✅ 닫힘(2차) — `EagleArrow` 메시 복사 투사체 프리팹, 착탄 이펙트 없음 | — |
-| **U-11** | `EagleArcher_Attack2.anim` 정리(RM-11) 여부 | 🔴 **열림** — 정리 후보로 기록, 삭제는 사용자 지시 | 없음(정리) |
-| **U-12** | 4-2절 승인 대기 개정안의 승인 | 🔴 **열림** — 사용자 | 해당 단계 |
-| **U-13** ✚ | EagleArcher 발사 때 손에 든 화살(유닛 프리팹의 `EagleArrow` 자식 메시)을 숨길지 — 결정 문장에 없다. 착탄 이펙트가 없으므로 Q4(비행 중 대상 사망)에도 화면엔 화살이 마지막 지점에서 사라지기만 한다 [추정] | 🔴 **열림** — 메인 → 사용자 | P4 EagleArcher |
-| **U-14** ✚ | 1-2절 확정표(「차지 중」)를 차지가 없는 투사체 유닛의 발사 전 구간에도 똑같이 적용하는지 | 🔴 **열림** — 메인 확인 | P1 |
-| **U-16** ✚ | resolver의 MushroomBomber `LockedPoint`(167~169행)를 TargetLocked로 바꿀지, C3 축 값으로만 남길지(1-1 Q11 설계 주의) | 🔴 **열림** — game-programmer 설계 → 메인 확인 | P1·P2(스키마) |
-| **U-15** ✚ | `UnitStatsConfig.asset` EagleArcher fallback 0.1을 marker 0.2에 맞출지(에셋 수정은 이번 범위 밖) | 🔴 **열림** — 메인 판단 | 없음(정합) |
+| **U-11** | `EagleArcher_Attack2.anim` 정리(RM-11) 여부 | ✅ **닫힘(4차) — 사용자가 직접 삭제한다.** 이 작업(구현·정리 단계 포함)에서는 손대지 않는다(RM-11) | — |
+| **U-12** | 4-2절 승인 대기 개정안의 승인 | ✅ **닫힘(4차) — 승인·반영.** F-1~F-5·F-8·F-9 반영, F-6·F-7 개정 없음(근거 기록) — 4-2-3절 | — |
+| **U-13** ✚ | EagleArcher 발사 때 손에 든 화살(유닛 프리팹의 `EagleArrow` 자식 메시)을 숨길지 — 결정 문장에 없다. 착탄 이펙트가 없으므로 Q4(비행 중 대상 사망)에도 화면엔 화살이 마지막 지점에서 사라지기만 한다 [추정] | ✅ **닫힘(4차) — 그대로 둔다.** 손에 든 화살은 숨기지 않는다 | — |
+| **U-14** ✚ | 1-2절 확정표(「차지 중」)를 차지가 없는 투사체 유닛의 발사 전 구간에도 똑같이 적용하는지 | ✅ **닫힘(4차) — 적용한다.** 차지 없는 투사체 유닛도 공격 시작~발사 사이에 끊기면 취소(1-2절 같은 상황표). Units 규칙 17 F-1 항목 끝 문장에 반영 | — |
+| **U-16** ✚ | resolver의 MushroomBomber `LockedPoint`(167~169행)를 TargetLocked로 바꿀지, C3 축 값으로만 남길지(1-1 Q11 설계 주의) | ✅ **닫힘(4차) — (a) TargetLocked로 변경**, 스키마 3 → 4 상향과 **같은 커밋**에서(구현 단계, game-programmer). 이 값을 단언하는 검증도 함께 갱신 | P1·P2(스키마) 구현 |
+| **U-15** ✚ | `UnitStatsConfig.asset` EagleArcher fallback 0.1을 marker 0.2에 맞출지(에셋 수정은 이번 범위 밖) | ✅ **닫힘(4차) — 0.2로 맞춘다.** 에셋 수정은 구현 단계에서 game-programmer가 한다(이번 문서 회차에서는 에셋을 고치지 않았다) | P4 EagleArcher 구현 |
 
 ---
 
-## 2. 구현 단계 (2026-10-20 결정 반영 — 승인 전 초안)
+## 2. 구현 단계 (2026-10-20 결정 반영 — 4차: 승인됨, 구현 진행)
 
 순서: **P0 → P1 → P2 → P3 → P4(대상별 반복) → 사용자 테스트 → P5.** P1~P3은 공통 기반이며 대상별 스위치가 모두 꺼진 상태로 들어가므로, P4 전까지 게임 동작은 바뀌지 않아야 한다.
 
@@ -215,12 +215,12 @@
 
 | 단계 | 내용 | 담당 | 근거 규칙 |
 |---|---|---|---|
-| **P0** | 1-3절 미결·확인 항목 정리(최소 U-1·U-2·U-3은 P1 전), 4-2절 개정안 승인. game-design-lead 검토 여부(U-8) | 메인 + 사용자 (+ game-design-lead) | — |
+| **P0** | ✅ **완료(2026-10-20 4차)** — 1-3절 미결 전부 닫힘, 4-2절 개정안 승인·규칙 문서 반영(4-2-3), game-design-lead 검토 생략(U-8). *(종전: 「1-3절 미결·확인 항목 정리(최소 U-1·U-2·U-3은 P1 전), 4-2절 개정안 승인. game-design-lead 검토 여부(U-8)」)* | 메인 + 사용자 · document-manager(규칙 반영) | — |
 | **P1** | Application 공통 기반: 신규 `UnitCombatUseCase.Projectiles.cs` — 발사 기록(공격자·대상 **객체 참조**, 발사 때 공격력, 대상 처리 방식 Homing / 지점 공격, 착탄 시각), **매 프레임** 진행, 착탄 시 기존 writer 호출, 닫기(게임 종료·맵 정리·디스폰·서비스 교체), 발사·결과(명중 / 대상 소실 / 취소) 이벤트. 속도는 Inspector에서 고치는 서버 데이터(Q2 — 유닛 `UnitStatsConfig`, 인간 타워는 U-4). Persist=true 착탄용 진입점(Q3, 위험 3). **발사 전 끊김 시 서버 발사 취소**(Q6 — 1-2절 경계, 지금 없는 판정이라 새로 넣는다). **발사 시점 대상 생존 확인**(Q15). 인간 타워 공격(`TowerCombatUseCase`)이 같은 발사 기록을 쓰도록 건물 공격자 지원(RM-10, 타워 파괴 뒤에도 비행 계속 — 1-1-2). **Q12(2차 확정): 비행 거리 = 중심 거리 − 대상 반경, 착탄 지점 = 같은 표면 지점** — 유닛 반경을 `UnitEffectConfig._recipientFits` radius에서 서버 권위 데이터로 옮기고 건물 종류별 반경 신설(RM-12). **커밋된 투사체 회차 중에는 사거리 이탈로 타겟을 바꾸거나 표현을 닫지 않는다**(1-2절 구현 주의, 위험 16). ~~Mushroom = 발사 순간 대상 위치에 고정한 지점 공격, 착탄 때 그 지점 `blastRadius` 안의 적만(메인 기본안, U-5 승인 대기)~~ → *3차:* Mushroom도 Homing, 착탄 때 주 타깃 위치 기준 기존 Blast/독(1-1-3) | game-programmer | `NET-DELIVERY-PROJECTILE` · `U-IMPACT-INDEPENDENT` / `U-IMPACT-LOCKEDPOINT` · `NET-CANCEL-003`·`004`·`005` · 규칙 18(서버 타이머 소유) · Buildings 「방어 타워 시스템」 규칙 9(서버 권위) |
 | **P2** | 네트워크: 신규 `NetworkCombatController.Projectiles.cs` — 발사/결과 ClientRpc, epoch, 중복 거부, **늦은 접속 비행 중 투사체 복원(Q14 — 필수)**, 매 프레임 Tick 연결(634행 부근), 스키마 3 → 4(Q11 설계안) | game-programmer | `NET-AUTH-001`·`002` · `NET-TIME-002`·`003`·`005` · `NET-CANCEL-005` |
 | **P3** | 화면: 투사체 전담 단일 소비자(파도 `WavePresentationPresenter` 선례), Homing 화면 추적(`TracerProjectile` 확장), 착탄 VFX와 숫자를 **서버 착탄** 시각에 연결(Q7), 비행 중 대상 소실 시 마지막 지점 착탄 이펙트만(Q4), 착탄 이펙트는 서버와 같은 표면 지점(Q12), 대상 marker = 총구 VFX·SFX만이고 트레이서는 서버 발사 기록 수신 때(Q9), 발사 취소 시 투사체·소리 없음(Q6) | game-programmer | 규칙 19 · 규칙 20 · 사운드 규칙 15 · `NET-PRESENT-001`·`002` |
 | **P4** | 대상별 이행(Q17): 스위치 켜기 → RM 해당분 주석 처리 → 검증 갱신 → 사용자 실기 확인. **순서는 메인 재량**(2026-10-20 2차, 사용자 「순서는 알아서, 모두 완료하기만 하면 돼」). 아래는 1차 때 적은 **제안 순서**(EagleArcher 선행 조건 U-9·U-10은 2차에 닫힘 — 0.2초 marker, `EagleArrow` 메시 복사 투사체·착탄 이펙트 없음): StreamSpirit(단일, DoT 없음, 에셋 있음) → Tank/CannonCart(건물 2배) → **인간 타워**(Cannon 투사체·착탄 재사용, 발사 이펙트 위치 조정 — 같은 에셋이라 Tank/CannonCart 다음) → InfernoSpirit(화상 + 차지) → FoxMagician(차지 + 규칙 19 제거) → **EagleArcher**(발사 시점 U-9·화살 투사체 U-10 확인 뒤) → MushroomBomber(*3차: Homing — 종전 「지점 공격」*, 기존 스냅샷 교체, 속도 낮춤) | game-programmer → 사용자 실기 (qa-tester는 사용자 지시 시) · 화살 투사체 에셋이 필요하면 asset-prompt-crafter | 위 단계의 규칙 + 규칙 38~40(Mushroom) + Buildings 규칙 12(인간 타워) |
-| **P5** | 검증 정리·문서 반영. **모든 대상의 사용자 테스트 PASS 뒤** 스위치 제거(RM-9, Q17), RM-1~RM-8·RM-10 주석 블록 삭제(Q16), RM-11은 사용자 지시가 있을 때만 → 문서/메모리 갱신 | game-programmer, document-manager | WORKFLOW [4]·[6]·[7] |
+| **P5** | 검증 정리·문서 반영. **모든 대상의 사용자 테스트 PASS 뒤** 스위치 제거(RM-9, Q17), RM-1~RM-8·RM-10 주석 블록 삭제(Q16), RM-11은 사용자가 직접 삭제하므로 손대지 않음(4차, U-11) → 문서/메모리 갱신(규칙 문서의 「🔴 코드 미반영(미구현)」 표시를 결과에 맞춰 고친다 — 4-2-3) | game-programmer, document-manager | WORKFLOW [4]·[6]·[7] |
 
 - 50ms 전투 틱이 아니라 매 프레임으로 진행해야 착탄이 격자만큼 늦지 않는다(위험 4, `TickTorrentLaunches` 선례). 인간 타워 쪽 진행도 같은 매 프레임 진행에 묶는다 [제안].
 - *(2026-10-20: 초안의 「EagleArcher(공격 애니메이션 결정 후)와 방어 타워(「즉발 유지」)는 범위 밖이다(Q10)」는 Q10 결정으로 뒤집혔다 — EagleArcher·인간 타워 포함, RuneSpire 제외.)*
@@ -254,12 +254,12 @@
 | 에셋 ✚ | `Resources/Config/EffectPresets/EffectPreset_HumanAutoTower_Attack.asset` | 발사 이펙트 위치(`_localPositionOffset` 지금 0,0,0 [확인]) — **2차 확정: 「대포 입구」, 메인/game-programmer가 타워 프리팹 기준으로 정함(사용자 조정 불필요). 투사체 발사 위치도 같은 지점** |
 | 에셋 ✚ | EagleArcher 화살 투사체 프리팹(신규) · tracer EffectPreset(신규) | **2차 확정: `Unit_EagleArcher_Blue/Red.prefab`의 `EagleArrow` 메시를 복사해 투사체 프리팹을 만든다. impactPreset은 비운다(착탄 이펙트 없음).** 손의 화살 처리는 U-13 |
 | 에셋 ✚ | `vfx_*_tracer.prefab` `_speed`(Stream 4 · Cannon 4 · Inferno 5 · Fox 5 · Mushroom 7) | 서버 속도 초기값(2차 확정): Stream 4 · Tank 4 · CannonCart 4 · 인간 타워 4 · Inferno 5 · Fox 5 · **EagleArcher 6** · **Mushroom 5**. 화면 프리팹 값의 역할은 game-programmer가 정한다(서버 판정·Client 비행 계산에 쓰지 않는다 — 위험 15) |
-| 에셋 ✚ | `Resources/Config/UnitStatsConfig.asset` EagleArcher(type 24) `hitFrameTimes` 0.1 | marker 0.2와 불일치 — 맞출지는 U-15(이번 범위 밖) |
-| 에셋 ✚ | `Animations/Units/EagleArcher/EagleArcher_Attack2.anim` | RM-11 — 사용자 지시가 있을 때만 |
+| 에셋 ✚ | `Resources/Config/UnitStatsConfig.asset` EagleArcher(type 24) `hitFrameTimes` 0.1 | marker 0.2와 불일치 → **4차: 0.2로 맞춘다(U-15), 구현 단계에서 game-programmer** |
+| 에셋 ✚ | `Animations/Units/EagleArcher/EagleArcher_Attack2.anim` | RM-11 — **4차: 사용자가 직접 삭제, 이 작업에서 손대지 않음(U-11)** |
 | Bootstrap | `GameBootstrapper.cs` | 621~628 Tick 순서에 투사체 진행 추가, 닫기 호출 5곳(`.Map` 375, `.Setup` 346 · 535 · 551 등 [전달]) |
 | Editor | `RunUnitActionSelfValidation.cs` · `.VfxConnections.cs` | 6절 |
-| 문서 | `GameSystemRules_Units.md` 규칙 17·19·20·38·40 + 419행 인용 블록, `StatsReference.md` 49행 + 표, `UnitCombatAssetMatrix.md`, `VFXSFXGuide.md`, `VFXSFXList.md` | 4절 승인 뒤, P5 |
-| 문서 ✚ | `GameSystemRules_UnitCombatSynchronization.md` `NET-PRESENT-001`(309행), `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12, `StatsReference.md` 87·118행(EagleArcher Attack2 서술) | 4-2절 승인 뒤. *(2026-10-20 2차: `StatsReference.md` 87·118행과 `UnitCombatAssetMatrix.md` 115·133행의 EagleArcher 0.1 → 0.2초·Attack2 미참조 서술은 **사용자 승인으로 반영 완료** — A-12)* |
+| 문서 | `GameSystemRules_Units.md` 규칙 17·19·20·38·40 + 419행 인용 블록, `StatsReference.md` 49행 + 표, `UnitCombatAssetMatrix.md`, `VFXSFXGuide.md`, `VFXSFXList.md` | 4절 승인 뒤, P5. **4차: 규칙 17·19·20·419행과 `StatsReference.md` 49행·속도 열은 목표 계약으로 반영 완료(4-2-3), 규칙 38·40은 개정 없음(F-6·F-7).** `UnitCombatAssetMatrix.md`·`VFXSFXGuide.md`·`VFXSFXList.md`는 구현 결과를 적는 문서라 P5에 |
+| 문서 ✚ | `GameSystemRules_UnitCombatSynchronization.md` `NET-PRESENT-001`(309행), `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12, `StatsReference.md` 87·118행(EagleArcher Attack2 서술) | 4-2절 승인 뒤. **4차: `NET-PRESENT-001`·Buildings 규칙 12 반영 완료(4-2-3).** *(2026-10-20 2차: `StatsReference.md` 87·118행과 `UnitCombatAssetMatrix.md` 115·133행의 EagleArcher 0.1 → 0.2초·Attack2 미참조 서술은 **사용자 승인으로 반영 완료** — A-12)* |
 
 아키텍처 제약: 속도·발사 기록은 Application/Infrastructure에 두고 Presentation 값(프리팹 `_speed`)을 서버 판정에 쓰지 않는다(Domain → Application → Core → Infrastructure → Presentation → Bootstrap 방향 유지).
 
@@ -274,17 +274,17 @@
 - `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-ATK-TIMELINE` · `U-IMPACT-LOCKEDPOINT` · `U-IMPACT-INDEPENDENT`, 「전투 연출 동기화 규칙」 규칙 18.
 - ✚ (2026-10-20) **결정과 대조해 충돌 없음을 확인한 조항** [확인 — 원문 다시 읽음]: `GameSystemRules_Units.md` 342행(타겟 전환·StopCombat은 확정 결과를 취소하지 않는다 — 발사 전엔 확정 결과가 없다), `NET-CANCEL-002`(커밋 후 취소는 Units 전달 방식별 규칙을 따른다), `NET-CANCEL-004`(새 타겟으로 옮기지 않음 — Q15의 「발사 시점 사망이면 미발사」와 같은 방향), `NET-CANCEL-005`(취소된 future 타격은 결과를 만들지 않는다 — Q6), `NET-CANCEL-003`(발사한 ProjectileImpact만 Persist에 따라 진행 — Q3), `GameSystemRules_Buildings.md` 「방어 타워 시스템」 212행 「바꾸지 않는 것 … 즉발 피해」(Spirit RuneSpire 블록 안의 문장이라 RuneSpire 즉발 유지 결정과 맞다), 규칙 20 349행 마지막 문장(「서버 투사체 판정이 있는 ProjectileImpact는 별도 권위 착탄 계약을 유지한다」).
 
-### 4-2. 🔴 승인 대기 개정안 — **사용자 승인 후에만** 규칙 문서에 반영한다
+### 4-2. ✅ 개정안 — 사용자 승인·규칙 문서 반영됨 (2026-10-20 4차)
 
-> **규칙 문서 본문은 이번 회차에 고치지 않았다.** 아래 「개정안」은 2026-10-20 결정을 반영한 **문안 초안**이며 승인 전에는 어디에도 적용하지 않는다. 규칙 번호는 바꾸지 않는다. 반영 때는 현재 문장을 이 Plan에 원문 그대로 보존하고(아래 「현재 문장」 칸이 그 원문 발췌다) 규칙 문서에는 날짜 붙은 개정 조각을 남긴다. 행 번호는 HEAD `a11b5381` 기준 [확인].
+> **2026-10-20 4차: 사용자가 승인했고 F-1~F-5·F-8·F-9를 규칙 문서·`StatsReference.md`에 승인된 목표 계약(🔴 코드 미반영 표시)으로 반영했다. F-6·F-7은 개정하지 않았다. 반영 위치와 개정 전 원문은 [4-2-3절](#4-2-3-규칙-문서-반영과-개정-전-원문).** *(종전 제목 「🔴 승인 대기 개정안 — 사용자 승인 후에만 규칙 문서에 반영한다」, 종전 첫 문장 「규칙 문서 본문은 이번 회차에 고치지 않았다.」 — 1~3차 회차에 대해서는 참이다)* 아래 「개정안」은 2026-10-20 결정을 반영한 **문안 초안**이며 승인 전에는 어디에도 적용하지 않는다. 규칙 번호는 바꾸지 않는다. 반영 때는 현재 문장을 이 Plan에 원문 그대로 보존하고(아래 「현재 문장」 칸이 그 원문 발췌다) 규칙 문서에는 날짜 붙은 개정 조각을 남긴다. 행 번호는 HEAD `a11b5381` 기준 [확인].
 > *(2026-10-20 갱신 — 초안 당시 이 절은 「개정 방향」 표였다. 그중 Q6 행 「서버가 발사하면 화면도 서버 기록으로 투사체를 보여 준다」는 **결정으로 반대 방향이 됐고**, Q10 행 「타워를 범위에 넣을 때만(추천은 제외 → 변경 없음)」은 **인간 타워 포함**으로 바뀌었다. 원문은 커밋 `e5958406`.)*
 > *(2026-10-20 2차 — 결정이 추가돼 **4-2-1 최종안**을 새로 두었다. 4-2-2 대조표의 「승인 대기 개정안」 칸은 1차 초안이며, 두 곳이 다르면 **4-2-1이 우선**이다. 규칙 문서 행 번호는 HEAD `968e56bc`에서도 같다 — 그 커밋은 `.anim` 한 파일뿐 [확인].)*
 
 <a id="4-2-1-최종-승인-대기-개정안"></a>
 
-#### 4-2-1. 최종 승인 대기 개정안 (2026-10-20 2차 — 사용자에게 보여 줄 짧은 문안)
+#### 4-2-1. 최종 개정안 (2026-10-20 2차 작성 — 4차에 사용자 승인·반영)
 
-> 모두 **승인 전 문안**이다. 🔶 = 메인 기본안이 들어 있어 따로 승인이 필요한 부분.
+> **2026-10-20 4차: 아래 문안은 사용자가 승인했고 반영됐다(4-2-3).** 반영 때 U-1(비행 시간 발사 때 고정)·U-14(차지 없는 투사체 유닛도 같은 경계) 결정을 F-2·F-1 문장에 한 구절씩 더했다. *(종전: 「모두 승인 전 문안이다. 🔶 = 메인 기본안이 들어 있어 따로 승인이 필요한 부분.」 — 3차 철회 뒤 🔶 표시 행은 남지 않았다)*
 
 | # | 규칙 · 위치 | 개정안 (짧은 문안) |
 |---|---|---|
@@ -301,6 +301,82 @@
 
 - **규칙 38·39·40 개정 불필요의 근거 (2026-10-20 3차):** 사용자 결정 「MushroomBomber의 예외를 처리하지 말자. 그냥 똑같이 대상에게 날아가도록 하자, 복잡하니까」 [전달 — 메인 세션]. Mushroom이 Homing으로 대상에게 맞으면 규칙 38 「판정 중심 = 주 타깃(착탄 지점) 월드 위치」(535행), 규칙 39 「주 타깃이 적 유닛이면 직접 피해+DoT」(544행), 규칙 40 「착탄 때 한 번 수집한 대상」(551행) [확인]이 그대로 참이다. 바뀌는 것은 「착탄 때」가 서버 착탄 시각이 된다는 것뿐이고 이는 F-2·F-5가 다룬다.
 - **설계 주의 — 범위 중심과 Q12 표면 착탄점:** Q12로 착탄 이펙트·피해 시각은 대상 **표면** 기준이 되지만, Blast/독 판정 중심은 지금처럼 **주 타깃 월드 위치**(중심)로 둔다고 읽어야 규칙 38 개정이 필요 없다. 표면점을 범위 중심으로 쓰면 반경 판정이 대상 반경만큼 공격자 쪽으로 밀리므로 규칙 38 개정이 다시 필요해진다 — game-programmer가 이 구분을 지켜야 한다 [추정 — 설계 해석, 메인 확인 권장].
+
+<a id="4-2-3-규칙-문서-반영과-개정-전-원문"></a>
+
+#### 4-2-3. 규칙 문서 반영과 개정 전 원문 (2026-10-20 4차 — 사용자 승인 「나머지는 추천방식대로 진행해」)
+
+> 🔴 **반영된 문장은 승인된 목표 계약이며 구현·테스트 전이다.** 규칙 문서의 각 개정 자리에 「사용자 승인 목표 계약 · 🔴 코드 미반영(미구현)」 표시와 「구현 전인 지금 코드는 개정 전 문장대로 동작한다」를 함께 적었다. 구현·사용자 테스트가 끝나면 그 표시를 고친다(P5). 규칙 번호는 바꾸지 않았다.
+> 반영 기준 checkout HEAD `6a557edf`. 아래 「개정 전 원문」은 그 커밋의 해당 행을 글자 그대로 옮긴 것이다.
+
+| # | 반영 위치 | 반영 내용 |
+|---|---|---|
+| **F-1** | `GameSystemRules/GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 규칙 17 차지 계약 셋째 항목(종전 323행) | 4-2-1 F-1 문안 그대로 + **U-14 결정** 문장 「차지가 없는 투사체 유닛도 공격 시작부터 발사 전까지 같은 경계를 적용한다」 |
+| **F-2** | 같은 규칙 17 넷째 항목(종전 324행) | 4-2-1 F-2 문안 + **U-1 결정** 구절 「비행 시간은 발사 때 계산해 고정한다」. 「서버 피해 시점·피해량은 이 계약으로 바뀌지 않는다」·「Immediate bool」·끝 문장 「Fox 피해 숫자 즉시 표시는 규칙 19를 따른다」 삭제. 「기존 권위 timer/writer」 → 「기존 권위 writer」(투사체 유닛은 timer가 아니라 착탄이 피해 시각이므로). 두 항목 아래에 날짜 붙은 개정 조각 1개 |
+| **F-3** | `GameSystemRules/GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」 `NET-PRESENT-001`(종전 309행) | 4-2-1 F-3 문안으로 해당 두 문장 교체 + 개정 조각(종전 문장 인용). 첫 문단(Animation Event는 결과를 만들지 않는다)과 2026-10-19 개정 조각은 그대로 |
+| **F-4** | Units 규칙 19 첫 문단(종전 336행) | Fox 즉시 표시 예외 두 문장 삭제 → 4-2-1 F-4 문안. 같은 문단 뒷부분(큐 재분류 금지 · 다른 Legacy/특수 피해 경로 유지 · 규칙 17 참조 · 이력 링크)은 유지 |
+| **F-5** | Units 규칙 20 첫 줄(종전 347행) + 「특수 공격 시스템 규칙」 2026-10-13 MushroomBomber 인용 블록 둘째 문단(종전 419행) | 347: 4-2-1 F-5 문안. 348·349행 유지(A-5). 419: 앞 문장(marker 역할 변경 사실)은 유지하고 스냅샷 소유 서술 뒤쪽을 「포자 폭탄도 … 서버 투사체 기록(Homing) …」으로 교체, 「C3 축 Unresolved 유지」를 남김 |
+| **F-6 · F-7** | Units 규칙 38(535행) · 39(544행) · 40(551행) | **개정하지 않음.** 근거는 4-2-1 아래 「규칙 38·39·40 개정 불필요의 근거」 그대로다 — Mushroom이 Homing으로 대상에게 맞으므로 「판정 중심 = 주 타깃(착탄 지점) 월드 위치」·「주 타깃이 적 유닛이면 직접 피해+DoT」·「착탄 때 한 번 수집한 대상」이 그대로 참이고, 바뀌는 「착탄 시각」은 F-2·F-5가 다룬다. 범위 중심 = 주 타깃 월드 위치(표면 착탄점 아님) 설계 주의도 그대로 유효 |
+| **F-8** | `GameSystemRules/GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12(종전 197·199행) — **인간 타워만** | 197: 4-2-1 F-8 문안(+ 「히트 딜레이를 도입하지 않는다」는 RuneSpire·VineTower 쪽에 유지). 199: Human은 서버 착탄 결과·착탄 시각, 그 밖은 현행. 200행 뒤에 개정 조각. RuneSpire 블록의 「바꾸지 않는 것 … 즉발 피해」(Spirit 한정)는 그대로 |
+| **F-9** | `StatsReference.md` 「유닛 — 인간계」 시간 컬럼 설명(종전 49행) + 유닛 표 3개 · 방어 건물 표 3개 | 49: 「즉발 유닛 … / 투사체 유닛은 서버 발사 시점(피해는 착탄)」 + 미구현 조각. 「투사체 속도 (초기값)」 열 신설: Stream 4 · Tank 4 · CannonCart 4 · 인간 타워(CannonTower) 4 · Inferno 5 · Fox 5 · EagleArcher 6 · Mushroom 5, 나머지 「—」(RuneSpire·VineTower는 「— (즉발 유지)」). 열 설명 줄에 「초기값 · Inspector 조절 · 서버 필드 아직 없음 · 단위는 `TracerProjectile._speed`와 같은 월드 유닛/초」 |
+
+**개정 전 원문 (HEAD `6a557edf` — 글자 그대로 보존):**
+
+`GameSystemRules_Units.md` 323행:
+
+````markdown
+- 발사 전에 공격이 끊기면(타겟 교체·Stop·SourceOnly 등 미래 marker 허가가 닫히는 경계) 차지 VFX는 즉시 정지하고 투사체·공격 SFX는 내지 않는다. 표현 전용이며 이미 예약된 서버 피해를 취소하지 않는다. 차지 SFX는 아직 없다.
+````
+
+`GameSystemRules_Units.md` 324행:
+
+````markdown
+- SOLO/server/client 생성은 실제 `OnAttackHit`만 권위 피해 offset으로 추출하며 `OnAttackCharge`는 제외한다. 서버 피해 시점·피해량은 이 계약으로 바뀌지 않는다. type21 fallback은2.8333333초다. 실제 피해는 기존 권위 timer/writer가 소유한다. Fox 값은 사용자 원래 `2:25@30fps = 85/30초`이며2.25초는 잘못된 환산이다. Unresolved/LegacyFallback·기존 writer/Immediate bool·range·다른 타입 의미는 유지한다. Fox 피해 숫자 즉시 표시는 규칙 19를 따른다.
+````
+
+`GameSystemRules_Units.md` 336행:
+
+````markdown
+FoxMagician이면서 결과 key가 유효하지 않은 Legacy 주 타깃 피해에만 `UnitCombatUseCase.ExecuteAttack`이 기존 `immediatePresentation` 의도를 확정한다. 이벤트·bool RPC·큐로 전달하여 다음 marker를 기다리지 않고 결과 수신 시 한 번 표시한다. 큐에서 공격자 조회로 타입을 재분류하지 않는다. Supported bridge·유효 exact key·다른 Legacy/특수 피해 경로는 유지한다. 현행 charge/damage marker는 규칙17을 따른다. 이전2.25초 및 focused 수용 기록은 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-units-03)이며 최신 typed 계약의 native queue·멀티 표시·시각 수용을 대신하지 않는다.
+````
+
+`GameSystemRules_Units.md` 347행:
+
+````markdown
+원거리 유닛은 `OnAttackHit` 시점에 연출 전용 발사체(트레이서: 발사→비행→착탄)를 재생한다.
+````
+
+`GameSystemRules_Units.md` 419행:
+
+````markdown
+> 같은 연결 작업으로 이 marker의 **역할이 바뀌었다**: MushroomBomber의 1.0초 marker는 이제 로컬 트레이서를 발사하지 않고(옛 호출은 주석 비활성화) 기존 레거시 HP·텍스트 맞춤 신호만 낸다. 포자 폭탄 트레이서와 착탄 이펙트는 서버 writer가 확정한 공격 표현 스냅샷 하나가 함께 소유한다(남은 비행 시간 동안 트레이서, 예정 시각에 착탄 1회 — `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs`의 MushroomBomber 분기). 피해는 그대로 규칙 18의 서버 타이머다. 규칙 20의 "원거리 유닛은 `OnAttackHit` 시점에 트레이서를 재생한다"는 MushroomBomber에 한해 이 스냅샷 소유 방식으로 대체돼 있다(Unresolved/Legacy 유지, C3 Supported 승격 없음).
+````
+
+`GameSystemRules_UnitCombatSynchronization.md` 309행:
+
+````markdown
+차지 유닛(InfernoSpirit·FoxMagician)의 typed charge·launch marker와 추출·HP 경계는 `GameSystemRules_Units.md` 규칙17 「차지 유닛 typed marker 계약」을 따른다. `OnAttackCharge`(차지 시작 — 차지 VFX만, lease 확인만·소비 없음)와 `OnAttackHit`(발사 — lease 소비·tracer 발사·공격 SFX)를 구분하며 charge를 피해 offset으로 추출하거나 `OnAttackHit`에서 charge를 다시 재생하지 않는다. 발사 전 취소 시 차지 VFX는 즉시 정지하고 tracer·SFX는 없으며, 서버 피해 시점은 바뀌지 않는다. Unresolved/LegacyFallback·Immediate intent·기존 권위 writer를 유지한다. *(2026-10-19 개정 — 사용자 승인: 종전은 Fox 전용 문단이었고 「damage callback에서 charge를 소비·재생하지 않는다」였다. 개정 전 원문: [작업 Plan 9-4](../_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Plan.md#9-4-상시-문서-반영과-개정-전-원문))* 원래 `2:25@30fps`의 복원이며 이전2.25초 환산은 현행 값이 아니다. source8 manifest·controlled compile·일반23종 감사 및 native/멀티/시각 미실행 경계 원문은 [당시 원문·검증 근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-rules-unitcombatsynchronization-05), 현재 개별 수용은 [감사표](../Assets/UnitCombatAssetMatrix.md)를 따른다. 이 한정 결과를 전체 SOLO 완료로 확대하지 않는다.
+````
+
+`GameSystemRules_Buildings.md` 197행:
+
+````markdown
+방어 타워는 즉발 데미지를 유지한다(히트 딜레이를 도입하지 않는다).
+````
+
+`GameSystemRules_Buildings.md` 199행:
+
+````markdown
+맞은 유닛의 피격 표현은 서버의 동일 타워 공격 결과 ID와 Impact 시각에 연결해 즉시 재생한다. 유닛 공격자 FIFO나 Animation Event를 사용하지 않는다. 타워 공격도 중복·순서 역전 시 멱등하게 식별할 수 있는 결과 ID를 가져야 한다.
+````
+
+`StatsReference.md` 49행:
+
+````markdown
+> 시간은 권위 행동 회차 시작부터 해당 사건까지의 offset이다. 일반 공격은 권위 피해 예약 시점, TorrentSpirit는 파도 발사 시점(대상별 피해·힐은 그 뒤 전선 접촉), BloomFairy는 힐 발동 시점이다. 차지 유닛(InfernoSpirit·FoxMagician)은 피해·발사 `OnAttackHit`(Inferno 1.5초, Fox 85/30초)와 차지 시작 `OnAttackCharge`(Inferno 5/30초, Fox 1초)를 구분하며, 시간 칸에는 피해·발사 시점을 쓰고 차지 시작을 괄호에 적는다. 투사체 발사·공격 SFX는 `OnAttackHit` 순간이고 차지 시작은 피해 offset이 아니며 로컬 이벤트가 HP를 적용하지 않는다(`GameSystemRules_Units.md` 규칙 17 「차지 유닛 typed marker 계약」). *(2026-10-19 갱신: 종전 「FoxMagician은 피해 `OnAttackHit @ 85/30초`와 charge `OnAttackCharge @ 1초`를 구분하며 로컬 이벤트가 HP를 적용하지 않는다.」)* `초:프레임(30fps)` 마커는 `초 + 프레임/30`으로 환산한다.
+````
+
+(`StatsReference.md` 유닛 표 3개와 방어 건물 표 3개는 「투사체 속도 (초기값)」 열이 없던 것 말고는 바뀌지 않았다 — 원래 표는 같은 커밋에 있다.)
 
 #### 4-2-2. 대조표 — 현재 문장 원문 발췌와 1차 초안
 
@@ -335,11 +411,11 @@
 | 6 | ID만 보관하면 ID 재사용으로 다른 대상 적중 | 객체 참조 보관 + 동일성 확인(Torrent 선례) |
 | 7 | 게임 종료·맵 정리 후 착탄 피해 | 닫기 호출 5곳 연결, fixture |
 | 8 | 기존 검증 다수 깨짐(Research 8-1) | P4 유닛별로 갱신, 옛 검사는 주석 보존 |
-| 9 | 밸런스 체감 변화(첫 피해 0.25~0.7초 지연 [추정]) | Q15는 「발사 시점 생존이면 발사」로 결정(2026-10-20). 속도를 Inspector에서 튜닝(Q2), 실기 확인. game-design-lead 검토 여부는 U-8 |
+| 9 | 밸런스 체감 변화(첫 피해 0.25~0.7초 지연 [추정]) | Q15는 「발사 시점 생존이면 발사」로 결정(2026-10-20). 속도를 Inspector에서 튜닝(Q2), 실기 확인. game-design-lead 검토 여부는 U-8 *(4차: 생략으로 닫힘)* |
 | 10 | 서버 착탄 좌표(유닛 루트)와 화면 위치 차이 — 타워 번개 H1과 같은 종류 [미확인] | Q12 2차 확정 — 서버·화면이 같은 표면 지점(중심 거리 − 반경)을 쓴다. 실기 확인 |
 | 11 ✚ | Q6 서버 발사 취소는 **지금 없는 판정**이다. 서버 취소 경계와 화면(차지 VFX 정지·marker 허가 닫힘) 경계가 다르면 「화면엔 투사체가 날았는데 피해 없음」 또는 그 반대가 생긴다 | 1-2절 경계를 확정(U-2)하고 서버·화면이 같은 입력으로 끊김을 판정, fixture(Stop · 타겟 교체 · 사거리 이탈 · 발사 시점 대상 사망 각각) |
 | 12 ✚ | 인간 타워는 `TowerCombatUseCase`라는 **다른 피해 경로**다. 건물 공격자를 발사 기록에 넣다가 Spirit RuneSpire·VineTower의 즉발 경로까지 바뀔 수 있다 | Race 분기를 Human 한정으로, RuneSpire 번개·즉발 회귀 fixture. 비행 중 타워 파괴 처리(U-6) |
-| 13 ✚ | EagleArcher — 화살 투사체 에셋이 없고, 손에 든 화살(`EagleArrow` 자식 메쉬)과 날아가는 화살이 동시에 보일 수 있다. `OnAttackHit` 0.1초가 화살을 놓는 순간이 아닐 수 있다 | 2차: marker 0.2초로 교정(U-9 닫힘), 메시 복사 투사체·착탄 이펙트 없음(U-10 닫힘). 손의 화살 처리 U-13, config fallback 0.1 불일치 U-15 |
+| 13 ✚ | EagleArcher — 화살 투사체 에셋이 없고, 손에 든 화살(`EagleArrow` 자식 메쉬)과 날아가는 화살이 동시에 보일 수 있다. `OnAttackHit` 0.1초가 화살을 놓는 순간이 아닐 수 있다 | 2차: marker 0.2초로 교정(U-9 닫힘), 메시 복사 투사체·착탄 이펙트 없음(U-10 닫힘). 손의 화살 처리 U-13, config fallback 0.1 불일치 U-15. *(4차: U-13 그대로 둠 — 손의 화살과 날아가는 화살이 함께 보일 수 있는 것은 사용자 선택, U-15 0.2로 맞춤 — 구현 단계)* |
 | 14 ✚ | ~~Mushroom 속도를 낮추고 지점 공격으로 바꾸면 움직이는 적이 직접 피해를 피한다 — 새 게임플레이~~ | **해소(2026-10-20 3차)** — 지점 공격 철회로 회피가 생기지 않는다. 남는 것은 속도 7 → 5에 따른 비행 시간 증가뿐(위험 9) |
 | 15 ✚ | 속도는 서버 데이터인데 `UnitStatsConfig`는 handshake 해시에 들어가지 않는다(Research 4-2 [전달]). Client가 자기 에셋 속도로 투사체를 움직이면 Host 화면과 어긋난다 | Client는 서버가 보낸 발사·착탄 시각(과 지점)만 쓴다. 속도값 자체를 Client 계산에 쓰지 않는다(Q14 「같은 화면」) |
 | 16 ✚ | 멀티 서버 `IsCurrentTargetStillValid`(`NetworkCombatController.cs` 826행)는 현재 타겟이 **사거리를 벗어나면 교체를 허용**한다. 투사체 회차가 커밋된 뒤(차지·발사 전) 이 경로가 타겟을 바꾸거나 표현을 닫으면 「사거리 이탈 = 원래 타겟에 발사」(Q5)가 깨진다 | 커밋된 투사체 회차가 끝날 때까지 타겟 교체·표현 닫기를 미룬다(1-2절 구현 주의). fixture 16. Units 187행·`NET-CANCEL-004`(타겟 이전 금지)와 같은 방향이라 규칙 예외는 필요 없다 |
@@ -387,7 +463,7 @@
 - S-7. FoxMagician → 차지 → 발사 → 착탄 때 숫자(L-1 해소 — 즉시 표시 예외 없음, Q8).
 - S-8. ✚ 차지 중(발사 전) 정지 명령·이동 명령, 또는 차지 중 대상이 죽음 → 투사체·공격 소리·피해·숫자가 **모두 없고** 차지 VFX가 꺼진 뒤 다음 동작으로 이어진다(Q6, L-2 해소). 차지 중 대상이 사거리 밖으로 걸어 나감 → **원래 대상에게** 쏘고 맞으면 피해(Q5). 발사 순간 대상이 이미 죽어 있음 → 쏘지 않는다(Q15). 차지 중 공격자가 죽음 → 쏘지 않는다.
 - S-9. ✚ 인간 방어타워(CannonTower) → **대포 입구**에서 발사 이펙트와 포탄이 함께 나오고, 포탄이 날아가 착탄 때 피해·숫자. 포탄이 날아가는 중 타워가 파괴돼도 맞으면 피해. Spirit RuneSpire는 지금처럼 번개와 동시에 피해(변화 없음).
-- S-10. ✚ EagleArcher → 공격 동작 0.2초(활을 놓는 순간)에 화살이 날아가 맞을 때 피해·숫자, 착탄 이펙트는 없다. 손의 화살 처리는 U-13 결정대로.
+- S-10. ✚ EagleArcher → 공격 동작 0.2초(활을 놓는 순간)에 화살이 날아가 맞을 때 피해·숫자, 착탄 이펙트는 없다. 손의 화살 처리는 U-13 결정대로(4차: 숨기지 않고 그대로 둔다).
 
 **멀티플레이 (Host 화면 · Client 화면 각각)**
 - M-1. S-1~S-10을 Host와 Client 양쪽 화면에서 확인 — 두 화면의 발사·투사체 위치·착탄·숫자·사망 시점이 맞는다(Q14 「어느 순간이든 같은 화면」).
@@ -407,3 +483,4 @@
 | 2026-10-20 | 사용자 결정(2026-10-19~20) 기록: 1-0 기본 원칙 · 1-1 결정 표(Q12만 대기) · 1-2 끊김 경계 · 1-3 미결 U-1~U-12 · Q11 설계안. RM-5~RM-8 「결정 의존」→「실행 확정」, RM-9(스위치 제거) · RM-10(인간 타워 즉발) · RM-11(`EagleArcher_Attack2.anim`) 신설. 2·3·4·5·6·7절을 결정에 맞춰 고쳐 씀 — 범위에 EagleArcher·인간 타워 추가, RuneSpire 제외. 4-2절을 「승인 대기 개정안」 A-1~A-12로 교체(**규칙 문서 본문은 수정하지 않음**). 1절 질문 표는 원문 유지, 초안 원문은 커밋 `e5958406` | 메인 세션이 전달한 사용자 결정(원문 취지) [전달]. HEAD `a11b5381`에서 document-manager가 규칙 문서 행 · EagleArcher 컨트롤러/클립 · 프리셋 연결 · `TowerCombatUseCase` · 속도 값을 다시 읽음 [확인]. 메인 목록에 없던 개정 후보 2건(규칙 39 — A-9, `StatsReference.md` 87·118행 — A-12)과 규칙 문서 밖 낡은 서술 1건(`UnitCombatAssetMatrix.md` 133행)을 추가 |
 | 2026-10-20 (2차) | 추가 사용자 결정 기록(1-1-2): Q12/B4 서버 표면 거리 확정 · 발사 전후 상황표(1-2절 확정, ★ 닫힘) · 「차지 중 타겟 교체」 독립 발생 없음(코드 근거) · 인간 타워 대포 입구 발사·비행 중 파괴 시 피해 · 속도 초기값 · 순서 메인 재량 · EagleArcher 0.2초·메시 복사 화살·착탄 이펙트 없음 · Mushroom 발사 순간 지점 고정 + 비켜난 주 타깃 처리(🔶 메인 기본안, 승인 대상). 1-3절에 상태 칸 추가(U-2·3·4·6·7·9·10 닫힘, U-13~U-15 신설). RM-12 신설. 2·3·5·6·7절 갱신(위험 16·17, fixture 16~18). 4-2-1 최종 승인 대기 개정안 F-1~F-9 신설. **상시 문서 반영(사용자 승인):** `StatsReference.md` 87·118행, `UnitCombatAssetMatrix.md` 115·133행 — EagleArcher 0.2초·Attack2 미참조 | 메인 세션 전달 [전달]. HEAD `968e56bc`에서 document-manager가 `.anim` 20749행(0.2), `UnitCombatUseCase.cs` 657·660·683행, `NetworkCombatController.cs` 819~826행, Units 187행, `UnitFactory.cs` 529~530행, `UnitStatsConfig.asset` type 24 fallback 0.1을 다시 읽음 [확인]. fallback 불일치(U-15)는 document-manager가 찾은 것 |
 | 2026-10-20 (3차) | **MushroomBomber 예외 철회**(사용자: 「예외를 처리하지 말자 … 복잡하니까」) — 1-1-3 신설. 1-0 원칙 5 · 1-1 Q1·Q13 · 1-1-2 Mushroom 두 행 · U-5(🔶 기본안 폐기) · RM-8 · 2절 범위·P1·P4 · 3절 Blast 행 · 위험 14 · fixture 4·13 · S-2를 표시·갱신(지운 문장은 취소선으로 남김). 4-2-1 F-6·F-7과 4-2-2 A-7~A-9를 「개정 불필요」로 정리하고 근거 기록, F-5 419행 문구에서 「지점 공격」 삭제. Q11 설계 주의(resolver Mushroom `LockedPoint` 167~169행)와 U-16 신설, 범위 중심 = 주 타깃 위치 설계 주의 추가. 위험 표 순서 정리(14·15 → 16·17) | 메인 세션 전달 [전달]. resolver 167~169행과 규칙 38·39·40 원문(535·544·551행)을 document-manager가 다시 읽음 [확인] |
+| 2026-10-20 (4차) | **사용자 승인 — Plan 상태 「승인됨 — 구현 진행」.** 4-2-1 F-1~F-9 반영: Units 규칙 17 두 항목(F-1 + U-14 문장, F-2 + U-1 구절) · 규칙 19 Fox 예외 삭제(F-4) · 규칙 20 첫 줄과 419행 Mushroom 인용 블록(F-5, Homing) · `NET-PRESENT-001`(F-3) · Buildings 「방어 타워 시스템」 규칙 12 인간 타워만(F-8) · `StatsReference.md` 49행과 「투사체 속도 (초기값)」 열(F-9). 규칙 38·39·40은 개정 없음(F-6·F-7, 근거 기록). 모든 반영 자리에 「사용자 승인 목표 계약 · 🔴 코드 미반영(미구현)」 표시. 4-2-3절 신설(반영 위치 + 개정 전 원문 글자 그대로). 1-3절 U-1(발사 때 고정) · U-8(검토 생략) · U-11(사용자 직접 삭제) · U-12(승인·반영) · U-13(손 화살 그대로) · U-14(차지 없는 투사체도 같은 상황표) · U-15(fallback 0.2로 — 구현 단계) · U-16(TargetLocked로, 스키마 상향과 같은 커밋 — 구현 단계) 닫음. 머리 상태 · RM-11 · 2절 제목 · P0 · P5 · 3절 문서·에셋 행 · 4-2 제목·머리 · 4-2-1 제목 · 1-1 Q1 · game-design-lead 문단 · Q11 설계 주의 · 1-1-2 두 행 · 1-2 머리 · 위험 9·13 · S-10에 날짜 조각 | 사용자 승인 「나머지는 추천방식대로 진행해」(2026-10-20) [전달 — 메인 세션]. 반영 기준 HEAD `6a557edf`, 개정 전 원문은 그 커밋에서 옮김 [확인]. **코드·에셋은 바꾸지 않았다**(U-15 에셋·U-16 resolver는 구현 단계 game-programmer) |
