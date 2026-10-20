@@ -1,7 +1,7 @@
 # Research — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 원 조사: game-programmer 읽기 전용 기술 조사 보고서(HEAD `657a4f31` 기준. 그 뒤 커밋 `344dfa42`·`ab9d55d7`은 문서와 미사용 VFX 에셋 삭제뿐이라 행 번호는 유효하다고 보았다 — [추정, 메인 세션 판단])
-> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))*
+> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))* *(2026-10-21: 코드는 `639ac1aa`(단계 B — Tank·CannonCart ON, 의심 1 수정)·`ac05e189`(회귀 검증 수정)에서 다시 바뀌었다. 단계 B 실기 로그 분석 — 🔴 사망타 피해 숫자 누락(회귀), 수정 사용자 승인 대기 — 은 [13절](#13-stage-b-field-log-analysis-20261021))*
 > 근거 표기: **[확인]** = document-manager가 이 checkout에서 파일을 다시 읽어 확인한 행 · **[전달]** = game-programmer 보고서 값을 옮긴 것(다시 읽지 않음) · **[추정]** = 코드로 확정하지 못한 해석 · **[미확인]** = 실행·실기 증거 없음. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 
 ## 0. 쉬운 설명
@@ -451,13 +451,15 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
    - 관측 [전달]: Host 총구 VFX 577 = 서버 발사 577. Client는 marker 595개가 **전부** VFX를 냈다(차이 약 18).
    - 코드 [확인]: `UnitCombatUseCase.Projectiles.cs` 105~108행 — `_projectileCueStates` 주석이 「싱글·Host처럼 이 UseCase가 서버 권위인 곳에서만 값이 생긴다(순수 Client는 서버 lease가 대신 막는다)」라고 적는다. 242~248행 `WasLatestProjectileLaunchCancelled`는 그 상태가 없으면 false다. `UnitView.cs` 7687~7696행은 `sourceOnlyPresentation || WasLatestProjectileLaunchCancelled(...)`일 때만 marker를 막는다 → 순수 Client에서는 사실상 `sourceOnlyPresentation`만 남는다. 주석의 「서버 lease가 대신 막는다」가 발사 취소까지 막는지는 확인되지 않았고, 관측 차이 약 18은 막지 못했을 가능성을 가리킨다 [추정].
    - 영향: 사용자 결정 1-2절 「발사 전 끊김 = 투사체·소리·피해 없음」(Plan 1-1 Q6, 규칙 17 개정 F-1)과 어긋날 가능성. 서버 피해에는 영향 없음.
-   - 🔴 **수정 여부는 사용자 판단 대기**(Plan 8절 5차). 지금은 기록만이다.
-2. **[진단 오표기]** 발사 확정 시점의 `timer-impact` 기록이 `writerResult=Applied`로 남는다 — `NetworkCombatController.Projectiles.cs` 121~126행이 발사 순간에 `RecordStreamSpiritTimerImpact(..., AttackDamageApplyStatus.Applied)`를 부른다 [확인]. 주석(121~122행)은 의도적으로 「예전 타격 피해 시각 = 이제 발사 시각」 자리에 같은 기록을 남긴다고 적는다. 실제 피해는 착탄 때이므로 `Applied` 표기는 진단상 오해를 낳는다.
+   - ✅ **수정됨 — `639ac1aa`(단계 B), 실기 로그로 효과 확인** *(2026-10-21 갱신 — 종전 「🔴 수정 여부는 사용자 판단 대기(Plan 8절 5차). 지금은 기록만이다」. 근거 [13-6절](#13-6-suspect1-latejoin-errors))*
+2. **[진단 오표기]** 발사 확정 시점의 `timer-impact` 기록이 `writerResult=Applied`로 남는다 — `NetworkCombatController.Projectiles.cs` 121~126행이 발사 순간에 `RecordStreamSpiritTimerImpact(..., AttackDamageApplyStatus.Applied)`를 부른다 [확인]. 주석(121~122행)은 의도적으로 「예전 타격 피해 시각 = 이제 발사 시각」 자리에 같은 기록을 남긴다고 적는다. 실제 피해는 착탄 때이므로 `Applied` 표기는 진단상 오해를 낳는다. *(2026-10-21: `639ac1aa`에서 `writerResultOverride: "NotInvoked(...)"`로 정정 — 코드 [확인], 로그 표기는 [미확인]. [13-6절](#13-6-suspect1-latejoin-errors). 위 행 번호 121~126은 단계 A 당시 값이며 지금은 172~182행)*
 3. **[진단 FAIL]** StreamSpirit 시간축 END가 overflow/incomplete = 64로 FAIL. 새 경로가 발사 취소를 이 진단에 기록하지 않는 것이 Host 쪽 원인에 기여할 수 있다 [추정 — 분석]. Client도 overflow.
 4. **[관찰]** 가까운 대상은 비행 시간이 0.04~0.05초다(사용자 원칙 「눈으로 보이는 속도」 — Plan 1-0 원칙 2). 육안 확인 필요.
 5. **[알려진 차이]** Client의 HP 막대가 화면 착탄보다 최대 약 0.1초 먼저 줄어든다 [전달]. HP 동기화는 서버 착탄 직후 도착하고(12-4) 화면 착탄은 Client 표현 지연 0.10초를 두기 때문으로 읽힌다 [추정 — document-manager].
 
 ### 12-8. 진단 보강 제안 (제안 — 미실행, 코드 변경은 별도 승인)
+
+> *(2026-10-21 갱신: 앞 네 항목은 `639ac1aa`(단계 B)에서 진단으로 들어갔다 — 경기 전체 `[PROJECTILE-END]` server·view·transport 합계, 보관함 계수, HP 동기화 `Projectile=epoch:id`, Client `markers=…withoutLaunch` 계수(커밋 본문·[13-4절](#13-4-match-and-figures) 로그 줄 [전달]). 「미실행」은 단계 A 회차 당시 상태다. 마지막 항목(볼 장면)은 13-8절 미확인 목록으로 이어진다)*
 
 - 경기 종료 때 투사체 단계·취소 사유 합계를 **96줄 상한과 무관하게 항상 1줄** 남긴다.
 - 화면 쪽 요약 1줄: 발사·결과 수신 수, Rejected, ResultTimeouts, 숫자 보관함의 착탄/즉시/타임아웃 방출 수.
@@ -481,3 +483,208 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | J-1 늦은 접속 복원 | — | 미관측 |
 | 스위치 OFF 유닛 기존 동작 | 같은 경기의 FlameSpirit·LittleKnight·EmberSpirit 기존 경로 | Tank·CannonCart·Inferno·Fox·EagleArcher·Mushroom 미등장 |
 | 회귀 스위트 | — | **미보고** |
+
+---
+
+<a id="13-stage-b-field-log-analysis-20261021"></a>
+
+## 13. 단계 B 실기 로그 분석 (2026-10-21)
+
+> 기준 checkout HEAD `fd4c04cb` · 대상 구현 커밋 `639ac1aa`(단계 B — 진단 보강 + 의심 1 수정 + 스위치 **Tank · CannonCart · StreamSpirit ON**, `ProjectileDeliveryContracts.cs` 234~237행 `EnabledUnitTypes = { Tank, CannonCart, StreamSpirit }` [확인]) · 검증 수정 커밋 `ac05e189`(회귀 검증만, 운영 코드 무변경 — 커밋 본문 [확인]).
+> 출처: 메인 세션의 읽기 전용 로그 분석 원문(scratchpad `stageB_log_analysis.md`)을 전달받음 [전달]. 로그 수치는 모두 [전달]이며, document-manager는 로그 본문을 다시 분석하지 않았다. **영수증의 해시와 이번 회차에 다시 읽은 코드 행만 [확인]이다.**
+> 사용자 상시 승인(로그 분석 결과는 확인 없이 해당 Task에 기록)에 따라 작성했다. 이 기록은 코드·에셋·빌드 변경을 승인하지 않는다. 🔴 **13-7절의 수정은 사용자 승인 대기다.**
+
+<a id="13-1-plain-explanation"></a>
+
+### 13-1. 쉬운 설명
+
+단계 B는 Tank와 CannonCart(대포 수레)를 새 방식 — 서버가 「쐈다」를 기록하고 포탄이 닿는 순간에 피해를 주는 방식 — 으로 바꾼 것이다. 함께 단계 A의 의심 1(서버가 취소한 공격에도 Client 화면에서 총구 이펙트가 나옴)도 고쳤다.
+
+사용자는 멀티 한 경기를 하고 **「Tank·CannonCart는 포탄이 발사되고 맞았는데 피해 숫자가 안 나오는 경우가 있었다」**고 알렸다.
+
+로그와 코드를 보면, 그 경우는 **포탄이 대상을 죽이는 한 발**일 때다. 서버는 대상이 죽으면 「죽었다」를 알리고 **곧바로 그 유닛 오브젝트를 없앤다.** Client 화면은 서버보다 0.1초 늦게 포탄을 그리므로, 화면에서 포탄이 닿아 숫자를 띄우려는 순간에는 숫자를 띄울 자리(대상 오브젝트)가 이미 없다. 숫자 표시는 자리를 못 찾으면 **아무 기록 없이 그냥 건너뛴다.** Tank는 한 발에 300을 줘서 이번 경기의 Tank 명중이 모두 처치 한 발이었기 때문에 특히 눈에 띄었다. 바꾸기 전의 옛 방식에서는 대상이 죽는 순간 남은 숫자를 바로 띄웠으므로 이번 문제는 **단계 B로 생긴 회귀**다.
+
+서버의 피해 판정 자체는 정상이었고, Host와 Client의 수치도 맞았다. 의심 1 수정도 로그로 효과가 확인됐다. 고치는 방법은 세 가지를 제안했으며(13-7) **사용자가 고르기 전에는 고치지 않는다.**
+
+<a id="13-2-log-archive-receipt"></a>
+
+### 13-2. 로그 보관 영수증 (LogRules §1.10)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 보관 위치 | private 저장소 `rmsepskek02/Hexiege-Logs`, Release `logs-2026-10` | [전달 — 메인 세션] |
+| 업로드 주체 | 사용자 | [전달] |
+| 만든 도구 | `Assets/Editor/Tools/LogArchiveZip.cs`(manifest `tool` 값), schema `hexiege-log-archive-v1` | [확인 — manifest 사본] |
+| 다운로드 검증 | 메인 세션이 manifest의 SHA256과 대조 OK | [전달 — 메인 세션] |
+| document-manager 재계산 | 메인이 내려받은 scratchpad 사본에서 ZIP 1의 SHA256, 두 로그 본문의 SHA256을 다시 계산 → 아래 표 값과 일치 | [확인] |
+
+| 회차 | ZIP (remote 이름) | ZIP asset id / 크기(B) | ZIP SHA256 | manifest asset id | 안의 로그 (manifest `sources[]`) |
+|---|---|---|---|---|---|
+| 01 | `2026-10-21_00_02_server-projectile-stageB_01.zip` | 659639844 / 1158902 | `d6e8cb64e97052fd9097c63d7700e407d57d09f0dd7312998f7a0f9db062d78f` [전달 + 확인] | 659639798 | 에디터 `_Logs/_editor/2026-10-20/RuntimeLog.txt` 14314720 B, sha256 `b1443cc042e2a0d3c8bf440d49cffdeb06f1bf9ce2decc0bbb0ff84dd5e3ed34`, kind `editor_daily` (스냅샷 — 이후 덧붙은 바이트는 없다는 manifest 주석) |
+| 02 | `2026-10-21_00_11_server-projectile-stageB_02.zip` | 659661908 / 127378 | `f9708f90e53e65dbcb3c05bca1d61b4685e12cd6826a0fa93f41f2d3e869ff11` [확인 — document-manager 계산, 메인 전달값 없음] | 659661975 | 기기 `_Logs/2026-10-21/00_11_logcat/RuntimeLog_device.txt` 1794974 B, sha256 `7a5b4652874a3c8b7a89ea4f7d6a81ae11e453cfb3d7f657fdb1811e6bea7c4d`, kind `device_capture` |
+
+- 두 manifest 모두 `file_count` 1, `prior_archive_dedupe: not checked by tool`(옛 보관본과의 중복은 도구가 보지 않음 — 도구 쪽 사실이며 이번 분석에는 영향 없음) [확인 — manifest 사본].
+- **소스 저장소 쪽 [확인]:** 이 checkout에는 `_Logs/2026-10-21/` 이 없고 git 추적 파일도 없다. 로그 본문은 위 Release에만 있다.
+- 에디터 로그 폴더 날짜(`_editor/2026-10-20`)와 ZIP 이름 날짜(`2026-10-21`)가 다른 것은 원시 로그 폴더가 PC 로컬 날짜, ZIP 이름이 KST 날짜를 쓰기 때문으로 읽힌다 [추정]. 같은 로그다(manifest 경로·해시가 일치).
+
+<a id="13-3-conclusion"></a>
+
+### 13-3. 결론
+
+| 축 | 판정 | 범위·근거 |
+|---|---|---|
+| 서버 판정(발사·착탄·피해·취소·닫기) | **정상 — scoped** | 멀티 1경기(13-4). `[PROJECTILE-END]` server·transport·Client view verdict PASS [전달] |
+| 숫자 보관함(Client) | 정상 — 잃어버린 항목 없음 | 보관 221 = 착탄 방출 218 + 경기 종료 때 남은 3. 타임아웃·빈 방출·키 불일치·준비 안 됨 0 [전달] |
+| **사망타 피해 숫자(Client 화면)** | 🔴 **누락 — 단계 B 회귀** | 숫자가 「꺼내졌지만 그려지지 못했다」. 원인 경로는 코드로 [확인](13-5), 「실제로 실패했다」는 직접 로그는 없다(숫자 방출 성공·실패 계수가 없음) — 근거 수준은 13-5 끝 |
+| 의심 1 수정(Client 총구 VFX) | **효과 확인** | 13-6 |
+| 늦은 접속 | **미발생** | 13-6 |
+| 오류 | 예외 0, ERROR는 진단 관측기 FAIL만 | 13-6 |
+| 사용자 육안 | 「Tank·CannonCart 투사체 발사·피격, 피해 숫자가 안 나오는 경우가 있었다」 | **어느 화면(Host/Client)에서 봤는지 미전달** [미확인] |
+| 회귀 스위트(`Run Full Regression Suite`) | 1차 **FAIL** → `ac05e189` 검증 수정 → 재실행 **미보고** | 1차 실패 「Switch OFF keeps the legacy hit-time damage…」: EagleArcher 0.2f · Tank 0.4f를 double 리터럴로 tick해 float 타격 시각보다 일찍 판정 — 검증 코드 오류, 운영 코드 무관(커밋 본문 [확인]). 재실행은 했다는 전달만 있고 결과는 받지 않았다 — PASS로 적지 않는다 |
+
+<a id="13-4-match-and-figures"></a>
+
+### 13-4. 경기와 수치 [전달]
+
+| 항목 | 값 |
+|---|---|
+| 대상 경기 | MatchId `f33024a1-072b-4d25-9519-3de3cf3ee953`, epoch `4c0d166ccbcc73dd`, 00:00:20 ~ 00:02:17.886, Blue(Host) 승, IsRandomMatch=True |
+| 역할 | **에디터 = Client(Red)** · 기기 SM_S901N = Host(Blue) — 단계 A와 반대 |
+| 같은 세션의 다른 매치 | MatchId `8352a565…`, 00:00:05 Red 포기로 종료, 투사체 0발 (분석 대상 아님) |
+| 싱글 | 없음 |
+| 스위치(handshake) | `6,7,17` (Tank, CannonCart, StreamSpirit) |
+
+**`[PROJECTILE-END]` 요약 (epoch 4c0d166c)**
+
+| 항목 | Host server | Client view | Host view |
+|---|---|---|---|
+| 발사 | reserved 289 / launched 263 (건물 대상 172) | recv·accepted 263 | 263 |
+| 결과 | hit 221 (건물 138) / targetLost 37 | 257 | 257 |
+| 취소 | 22 (공격자 사망 2 · 대상 사망 20), 닫기 예약 4 + 비행 5 | — | — |
+| 화면 finish | — | hit 218 / lost 37, aborts 7 | hit 220 / lost 37, aborts 6 |
+| 착탄 VFX | — | played 255 / missing 0 | played 257 / missing 0 |
+| rejected · timeouts · open | — | 모두 0 | 모두 0 |
+| 순서 | — | resultBeforeArrival 246, **arrivalBeforeResult 11**, maxEndpointWait 0.294 | arrivalBeforeResult 0 |
+| displayLag | — | 0.100 ~ 0.234초 (평균 0.105) | 0.000 ~ 0.034초 |
+| 숫자 보관함 | — | held 221, atImpact 218, heldNow 3, ownerNotReady 0 | held 221, atImpact 220, 나머지 [미확인] |
+| verdict | PASS | PASS | [미확인] |
+
+- transport(Host sent ↔ Client recv/delivered)는 발사 263 · 결과 257 일치, dropped 0, verdict PASS [전달].
+- **Host view END 줄은 logcat 줄 길이 한도(약 1024자)에서 잘렸다**(기기 로그 10431행). Host 보관함 뒷부분·markers·verdict는 [미확인].
+- 정합: Host 명중 221 = Client 투사체 번호표가 붙은 HP 동기화 221(유닛 83 + 건물 138, id 중복 0). 번호표 없는 HP 동기화 5줄(150 피해)은 비투사체 공격. Host 서버 `path=6:s7|7:s6|17:s276` 합 289 = reserved → Tank 7회 · CannonCart 6회 예약.
+- 경기 종료 때 남은 3건(heldNow 3)은 id 277·279·280의 HQ 마지막 타격으로, 게임 종료로 화면이 거둬져 숫자가 없다 — 설계대로 [전달].
+
+<a id="13-5-death-blow-number-missing"></a>
+
+### 13-5. 사망타 피해 숫자 누락 — 원인
+
+**사망타 대조 (Client 로그) [전달]**
+
+| id | 종류 | 대상 | 피해 → HP | HP 동기화 | 사망 RPC | 화면 finish |
+|---|---|---|---|---|---|---|
+| 4 | CannonCart | 유닛 0 | 200 → 100 | 01:03.090 | — | 01:03.095 → 숫자 정상 경로 |
+| 8 | CannonCart | 유닛 0 | 100 → **0** | 01:06.867 | 01:06.868 | 01:07.028 (+0.16초) |
+| 12 | Tank | 유닛 1 | 300 → **0** | 01:11.225 | 01:11.225 | 01:11.391 |
+| 18 | Tank | 유닛 5 | 300 → **0** | 01:15.195 | 01:15.196 | 01:15.375 |
+| 23 | Tank | 유닛 2 | 300 → **0** | 01:19.214 | 01:19.216 | 01:19.375 |
+| 29 | CannonCart | 유닛 4 | 200 → 100 | 01:22.365 | — | 표본 밖 |
+| 31 | Tank | 유닛 7 | 300 → **0** | 01:23.377 | 01:23.377 | 표본 밖 |
+| 42 · 61 | CannonCart [추정] | 유닛 4 · 11 | 100 → **0** | — | 같은 ms | 표본 밖 |
+| 43 · 73 · 114 | Tank [추정] | 유닛 6 · 8 · 12 | 300 → **0** | — | 같은 ms | 표본 밖 |
+
+- 종류는 Host `[PROJECTILE] stage=hit` 줄로 확인했으나 Host 상세 로그가 96줄 상한이라 id 31까지만 있다. 그 뒤는 피해량(300 = Tank, 200·100 = CannonCart)으로 구분한 [추정].
+- **사망타 비율: Tank 7/7, CannonCart 3/6.** StreamSpirit(60 피해)도 사망타가 있다(유닛 대상 6건 id 11·41·47·62·120·133, 건물 대상 8건) — 같은 문제를 겪되 마지막 한 발뿐이라 덜 보였을 것이다 [추정].
+- 모든 사망타가 「HP 동기화 → 사망 RPC(0~2ms 뒤) → 화면 finish(0.10초 이상 뒤)」 순서였다. Client displayLag 최솟값이 0.100이므로 finish가 사망보다 먼저 오는 경우는 없다.
+- 점검했지만 해당 없는 경로 [전달]: 보관 타임아웃, 빈 방출, ownerNotReady, 결과 먼저 도착(rejected 0), 키 불일치(held = atImpact + heldNow), 다중 대상, 건물 2배 피해(Tank·CannonCart는 이번 경기에서 건물을 때리지 않음).
+
+**코드 경로 (HEAD `fd4c04cb`)**
+
+| # | 위치 | 내용 | 근거 |
+|---|---|---|---|
+| 1 | `NetworkCombatController.cs` `OnUnitDied`(2793행~) 2858 · 2901 | 서버가 `EntityDiedClientRpc(unitId, true)`를 보내고, **같은 함수 안에서** `netObj.Despawn(destroy: true)`를 부른다. 사망 연출을 기다리는 지연이 없다 | [확인] |
+| 2 | `UnitView.cs` 2002~2006 | 멀티 순수 Client는 사망 시 아무것도 하지 않고 반환(파괴는 NGO 디스폰) | [확인] |
+| 3 | `ProjectilePresentationPresenter.cs` 195~196 · 50 | 순수 Client는 서버 시각 − `ClientPresentationDelaySeconds`(= `AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds` 0.10, 67행)로 그린다 | [확인] |
+| 4 | 같은 파일 281~283 | 화면 착탄(명중) 순간에야 `_hits?.ReleaseProjectileImpact(slot.Key)` | [확인] |
+| 5 | `HitPresentationQueue.cs` 468~473 | 번호표가 있고 소비자가 준비되면 투사체 피해는 보관함(`_projectileHold`)에만 들어간다 | [확인] |
+| 6 | 같은 파일 654 `OnUnitDied` → 657 · 1084 `FlushTarget` | `_exactRendezvous`와 공격자 대기열(`_pendingByAttacker`)만 비운다. `_projectileHold`를 쓰는 곳은 127 · 145 · 148 · 159 · 391 · 471 · 679행뿐이고 `FlushTarget`에는 없다 — Plan 1-1 Q7 결정 「피해 숫자·착탄은 서버 착탄 기준」과 코드 주석(`ProjectilePresentationPresenter.cs` 281행 「숫자는 착탄 시각 1회」)에 맞는 동작 | [확인] |
+| 7 | 같은 파일 1027 | `Emit`이 `_hpTextSpawner.TryShowDamage(evt)`를 호출, 결과는 `ObserveFoxLegacyPresentation`에 넘길 뿐 투사체 쪽 계수는 없다 | [확인] |
+| 8 | `FloatingHpTextSpawner.cs` 217~222 | 대상 위치가 `Vector3.zero`면 `return false` — 실패 로그 없음 | [확인] |
+| 9 | `PresentationPoseProvider.cs` 31~37 · 53~57 | 오브젝트가 없으면(Unity null) Transform null → 위치 `Vector3.zero` | [확인] |
+| 10 | `HitPresentationQueue.cs` 1031~1049 | 같은 이유로 `Emit`의 피격 VFX·펀치도 생략된다. 착탄 VFX는 서버 착탄 지점에 따로 나오므로 impactVfx는 정상(13-4) | [확인 — 코드] |
+| 11 | `BuildingFactory.cs` 113~116 | 건물은 사망 즉시 사전에서 지우고 `Destroy` — 건물 사망타도 같은 결과. 이 경로는 Host에서도 같은 프레임에 사전에서 빠지므로 **Host 건물 사망타도 누락 가능** | 코드 [확인] · Host 누락 [추정] |
+
+- **옛 경로와의 차이 — 회귀 [전달 — 분석]:** 단계 B 전 Tank·CannonCart(옛 경로)는 타격 순간 피해 → 공격자 대기열에 보류 → 대상 사망 순간 `FlushTarget`이 **오브젝트가 아직 살아 있을 때** 숫자 「0」을 냈다. 6행의 `FlushTarget`이 `_pendingByAttacker` 매칭 항목을 `Emit`하는 것은 [확인]이고, 옛 Tank 피해가 그 대기열을 탔다는 것은 [전달]이다.
+- **근거 수준:** 원인 경로는 코드로 [확인]. 「숫자가 실제로 실패했다」는 직접 로그는 없다 — 투사체 숫자 방출의 성공·실패 계수가 없다. Client에서 디스폰이 처리된 정확한 시각도 로그가 없어 [추정]이다. 다만 디스폰은 사망 RPC와 같은 서버 호출에서 나오고 finish는 0.16초 뒤라 근거는 강하다(분석 판정).
+
+**Host 화면 · 싱글 [추정 / 미확인]**
+
+- Host는 arrivalBeforeResult 0이고 displayLag 분포가 resultLag와 같다 — 결과를 받은 그 프레임에 finish한다 [전달]. Host의 `Despawn(destroy: true)`는 프레임 끝에 파괴되고 UnitFactory 사전에서도 그 자리에서 지우지 않으므로 **Host 화면의 유닛 사망타 숫자는 나왔을 가능성이 높다** [추정 — 분석]. 표시 성공 로그는 없다.
+- 싱글은 `GameBootstrapper` 틱과 Presenter의 실행 순서가 정해져 있지 않아(두 스크립트 모두 executionOrder 0 [전달]) [미확인].
+
+<a id="13-6-suspect1-latejoin-errors"></a>
+
+### 13-6. 의심 1 수정 효과 · 늦은 접속 · 오류 [전달]
+
+**의심 1 수정 효과 (Client) — 확인**
+
+- 수정 내용(커밋 `639ac1aa` 본문 [확인]): 새 경로 유닛의 총구 VFX·발사음을 **서버 발사 기록을 화면에 표시하는 시점**에 재생한다. 애니메이션 marker는 총구 VFX를 내지 않는다(기존 억제 블록은 주석으로 보존).
+- `markers=server:267|sourceOnly:0|muzzleAtMarker:0|withoutLaunch:5|launchWithoutMarker:1|attackers:34`. 단계 A에서는 Client marker 595개 전부가 총구 VFX를 냈는데(12-7 의심 1) 이번에는 **marker 자리 총구 VFX 0**. 서버 발사 없이 나온 marker 5개도 총구 VFX를 내지 않았다 → 효과 [확인 — 분석 판정].
+- `cue=played:260|vfxStarted:260|skippedMidFlight:1|noAttackerView:1` — 발사 신호는 서버 발사 기록 기준으로만 나왔다. Host 263/263.
+- `path=6:s6|7:s6|17:s255`, `legacyTracer=none` — Tank·CannonCart가 새 경로만 탔다(이중 트레이서 없음). Client Tank marker 6 대 명중 7은 launchWithoutMarker 1과 맞는다 [추정].
+- 발사음이 실제로 들리지 않았는지는 소리 로그가 없어 [미확인].
+
+**진단 오표기 수정(12-7 항목 2)** — `NetworkCombatController.Projectiles.cs` 172~182행이 발사 순간 `writerResultOverride: "NotInvoked(server-projectile-launch; damage-at-impact)"`를 넘긴다(옛 호출은 176~177행 주석 보존) [확인 — 코드]. 이번 로그에서 그 표기를 본 기록은 전달받지 않았다 [미확인].
+
+**늦은 접속 — 미발생.** 스냅샷 requests 1 / sends 1 / launches 0, Client requested 1 / expected 0 / received 0, epochResets 1(정상). midFlight 1건은 beginLag 최대 0.256초로 프레임 끊김으로 보인다 [추정]. → Plan 7절 J-1은 이번에도 **미관측**.
+
+**오류·예외**
+
+- 예외 0. 기기 로그의 「Exception」 1081건은 `Debug.Log` 스택트레이스 문구.
+- ERROR 양쪽 각 2건: `UAS-MOVE-AUTH` END(첫 매치), `UAS-ATTACK-SHADOW` END(본 매치) — 진단 관측기 FAIL이며 게임플레이 오류가 아니다(단계 A와 같은 종류, 12-6).
+- WARN: UnitFactory 296건은 `InitializeUnitView` 재시도(정상 경로), WAVE-DIAG clock-invalid 3건. 투사체 관련 WARN·fault 0.
+
+<a id="13-7-fix-proposals"></a>
+
+### 13-7. 수정 방향 제안 (제안 — 미실행, 🔴 사용자 승인 대기)
+
+> 아래는 분석의 제안을 옮긴 것이다 [전달]. 어느 것도 실행하지 않았다. 코드 변경은 사용자 승인 뒤 game-programmer가 한다.
+
+| 안 | 내용 | 장점 | 단점 |
+|---|---|---|---|
+| **A (추천)** | 숫자를 내보낼 때 대상 위치가 없으면 **대체 위치**를 쓴다. `ReleaseProjectileImpact(key, Vector3 screenImpactPoint)`로 Presenter가 화면 착탄 지점을 넘기고, 보관함이 내보낸 항목은 `TryShowDamage`가 실패하면 기존 `TryShowDamageAt(evt, point)`(`FloatingHpTextSpawner.cs` 232행 — C3가 쓰는 경로 [확인 — 메서드 존재])로 표시. 피격 VFX도 같은 지점(`evt.Entity`의 UnitData는 남아 있음). 타임아웃 방출용으로는 보관할 때(HP 이벤트 시점) 대상 위치를 함께 기억해 대체값으로 쓴다 | Q7(숫자는 착탄 기준, 1회)을 지킨다. 서버·HP·RPC 무변경. 건물 사망타와 Host·싱글 순서 문제도 함께 해결 | 사망타에서는 대상이 사라진 자리에 숫자가 뜬다. 펀치는 생략 |
+| B (비추천) | 대상 사망 시 보관함을 즉시 비운다 | 변경이 작다 | 숫자가 착탄보다 최대 0.1초 이상 먼저 나와 **Q7을 어긴다** |
+| C (비추천) | Client 디스폰을 지연시킨다 | 오브젝트가 남아 기존 경로로 표시 | 네트워크·사망 흐름 전체에 영향 |
+
+- 규칙 문서 영향: A는 Plan 1-1 Q7 「피해 숫자·착탄은 서버 착탄 기준」을 그대로 지키므로 규칙 문장 변경은 분석 범위에서 제기되지 않았다. B는 Q7과 그 반영 문장을 바꿔야 한다 [추정 — document-manager]. 어느 안이든 규칙 문장이 바뀌면 변경 전 사용자 보고 대상이다.
+
+**검증 fixture 후보 [전달]**
+
+1. 유닛 사망타: HP 0 보관 → `OnUnitDied` → 위치 null → Release(key, point) → 텍스트 1회, 「0」, 위치 = point.
+2. 건물 사망타: 사전 제거 후 Release → 1회 표시.
+3. 살아 있는 대상: 기존과 같이 대상 위치에 1회(회귀 없음).
+4. 타임아웃 방출: 보관할 때 기억한 위치로 1회.
+5. 순서 역전: Release가 먼저, HP가 나중 → 바로 1회.
+6. 중복 0: 같은 키를 두 번 Release해도 1회.
+
+**추가 진단 제안 [전달]**
+
+- 투사체 숫자 방출 결과 계수를 보관함 END에 붙인다: `text=played:N|missing:N|fallback:N|missingDead:N` — 지금은 실패가 로그에 남지 않는다.
+- Host view END 줄이 logcat에서 잘리므로 2줄로 나눈다.
+- 다음 실기에서 Tank 사망타를 **Client·Host 화면 양쪽에서** 육안 확인한다.
+
+<a id="13-8-unconfirmed"></a>
+
+### 13-8. 미확인 목록
+
+| 항목 | 이번 근거 | 남은 것 |
+|---|---|---|
+| 사용자가 누락을 본 화면 | — | Host / Client 어느 쪽인지 |
+| Host 화면 유닛 사망타 숫자 | 구조상 나왔을 가능성 [추정] | 표시 성공 로그·육안 |
+| Host 건물 사망타 숫자 | 같은 프레임 사전 제거 [추정] | 로그·육안 |
+| Host view 보관함 뒷부분 · markers · verdict | 줄 잘림 | 줄 분할 뒤 재관측 |
+| 싱글 모드 동작 | — | 이번 회차 싱글 없음 |
+| Client 디스폰 처리 정확한 시각 | 같은 서버 호출에서 나옴 [추정] | 로그 |
+| 발사음 미재생(의심 1) | 총구 VFX 계수만 | 소리 계수·청취 |
+| Plan 7절 S-1 ~ S-10 · M-1 · M-2 (Tank·CannonCart) | 서버 판정 [전달] · 사망타 숫자 누락 | 화면 항목별 판정은 전달되지 않았다 |
+| J-1 늦은 접속 | 미발생 | 미관측 |
+| 회귀 스위트 재실행 | 사용자가 실행함 [전달] | **결과 미보고** |
