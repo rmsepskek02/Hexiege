@@ -84,7 +84,7 @@
 | BearGuard | 1000 | 60 | 0.5 | 1 | 1 | 0.43333334 | 1.6666666 | 25초 | 300 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | LionKnight | 500 | 90 | 0.5 | 1 | 2 | 0.6, 1.4333333 | 2 | 15초 | 200 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | RhinoBreaker | 600 | 100 | 0.5 | 1 | 2 | 1.05 | 2 | 20초 | 200 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
-| EagleArcher | 350 | 60 | 3 | 3 | 1 | 0.1 | Attack 1 / Attack2 0.70000005 (선택 순서 미확인) | 15초 | 150 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
+| EagleArcher | 350 | 60 | 3 | 3 | 1 | 0.2 (2026-10-20 갱신 — 종전 0.1) | Attack 1 (2026-10-20 갱신 — 종전 「Attack 1 / Attack2 0.70000005 (선택 순서 미확인)」, 컨트롤러 Attack2 상태 삭제) | 15초 | 150 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | RabbitTrickster | 200 | 100 | 0.5 | 1 | 2 | 0.6666667 | 2 | 5초 | 50 | 1 | [생산 시간 근거](#생산-타임라인-구현-근거) |
 | MushroomBomber | 400 | 100 | 2 | 2 | 1 | 1 | 3 | 15초 | 200 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
 | BloomFairy | 500 | 0 (공격 불가) | 4 | 4 | 1 | 1 (힐 발동) | 4 (명목: 준비 1 + 발동 후 3) | 20초 | 150 | 1 | [현행 감사표](Assets/UnitCombatAssetMatrix.md) |
@@ -115,7 +115,7 @@ Fox의 원래 `2:25@30fps`는85/30초이며 이전2.25초 환산값을 현재값
 | BearGuard | 타격 0.43333334 / 주기 1.2 | 타격 0.43333334 / 주기 1.6666666 |
 | LionKnight | 타격 0.6, 1.4333333 / 주기 3 | 타격 0.6, 1.4333333 / 주기 2 |
 
-**남은 구현 선택 경계:** EagleArcher의 controller Attack은 1초·marker0.1이며 Attack2는 0.70000005초·이벤트 없음이다. Factory가 이름에 Attack이 포함된 첫 클립을 선택하므로 실제 `animationClips` 순서를 실행 관측하지 않은 상태에서는 주기를 하나로 확정하지 않는다. 두 경로의 타격은 marker0.1 또는 config fallback0.1이며 동일하다. 사용자 개별 공격 교정·수용을 철회하거나 재시험 요청으로 바꾸는 항목이 아니다.
+**EagleArcher 공격 클립 경계 (2026-10-20 갱신):** controller에는 Attack·Walk 상태만 남았고(사용자 커밋 `a11b5381`이 Attack2 상태 삭제) Attack은 1초·marker **0.2**초다(사용자 커밋 `968e56bc`, 0:06@30fps). Factory는 이름에 Attack이 포함된 첫 클립을 고르므로 선택 가능한 클립은 Attack 하나다(실행 관측은 없음). `EagleArcher_Attack2.anim` 파일은 남아 있으나 controller가 참조하지 않는다(정리 후보). ⚠️ `UnitStatsConfig.asset`의 config fallback은 아직 **0.1**초라 marker 0.2초와 다르다(fallback은 클립 marker가 없을 때만 쓰인다 — `UnitFactory.cs` 529~530행 `markerCount > 0`). *(종전 제목 「남은 구현 선택 경계」, 종전 문장: 「EagleArcher의 controller Attack은 1초·marker0.1이며 Attack2는 0.70000005초·이벤트 없음이다. Factory가 이름에 Attack이 포함된 첫 클립을 선택하므로 실제 `animationClips` 순서를 실행 관측하지 않은 상태에서는 주기를 하나로 확정하지 않는다. 두 경로의 타격은 marker0.1 또는 config fallback0.1이며 동일하다.」)* 사용자 개별 공격 교정·수용을 철회하거나 재시험 요청으로 바꾸는 항목이 아니다.
 
 <a id="비시간-수치의-문서설정-충돌-구현-기준-정정-완료"></a>
 

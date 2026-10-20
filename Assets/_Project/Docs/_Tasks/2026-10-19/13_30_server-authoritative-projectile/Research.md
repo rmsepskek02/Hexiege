@@ -1,7 +1,7 @@
 # Research — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 원 조사: game-programmer 읽기 전용 기술 조사 보고서(HEAD `657a4f31` 기준. 그 뒤 커밋 `344dfa42`·`ab9d55d7`은 문서와 미사용 VFX 에셋 삭제뿐이라 행 번호는 유효하다고 보았다 — [추정, 메인 세션 판단])
-> **상태: 조사 완료 — 사용자 결정 대기.** 결정할 질문 Q1~Q17과 단계 계획은 같은 폴더 [Plan.md](Plan.md)에 있다. 코드·에셋·규칙 문서는 바뀌지 않았다.
+> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)*
 > 근거 표기: **[확인]** = document-manager가 이 checkout에서 파일을 다시 읽어 확인한 행 · **[전달]** = game-programmer 보고서 값을 옮긴 것(다시 읽지 않음) · **[추정]** = 코드로 확정하지 못한 해석 · **[미확인]** = 실행·실기 증거 없음. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 
 ## 0. 쉬운 설명
@@ -12,7 +12,7 @@
 
 이 문서는 그 작업을 시작하기 전의 조사다. 지금 피해가 어디서 생기는지, 이미 비슷하게 만들어 둔 것(버섯 폭격기·급류 정령의 파도)을 얼마나 재사용할 수 있는지, 바꾸면 함께 깨지는 것이 무엇인지를 정리했다. 「어떻게 할지」를 정하는 질문 17개는 Plan에 있으며 **사용자가 정하기 전에는 구현하지 않는다.**
 
-대상 유닛: StreamSpirit(물의 정령) · InfernoSpirit(지옥불 정령) · FoxMagician(여우 마법사) · Tank · CannonCart · MushroomBomber(버섯 폭격기). EagleArcher와 방어 타워는 제외를 제안한다(Plan Q10).
+대상 유닛: StreamSpirit(물의 정령) · InfernoSpirit(지옥불 정령) · FoxMagician(여우 마법사) · Tank · CannonCart · MushroomBomber(버섯 폭격기). EagleArcher와 방어 타워는 제외를 제안한다(Plan Q10). *(2026-10-20: 사용자 결정으로 **EagleArcher와 인간 방어타워(CannonTower)가 범위에 들어갔고**, Spirit RuneSpire는 즉시 피해를 유지한다 — Plan 1-1절 Q10. EagleArcher 사실은 11절.)*
 
 ---
 
@@ -266,3 +266,80 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 8. 기존 검증 다수 깨짐(8-1)
 9. 밸런스 체감 변화
 10. 서버 착탄 좌표(유닛 루트)와 화면 위치 차이 — 타워 번개 H1과 같은 종류 [미확인]
+
+---
+
+<a id="11-eaglearcher-facts-20261020"></a>
+
+## 11. EagleArcher 사실 (2026-10-20 추가 — Q10 결정으로 범위에 들어옴)
+
+> **쉬운 설명.** 독수리 궁수는 지금까지 「공격 애니메이션이 둘(Attack · Attack2)이라 어느 쪽이 쓰이는지 확정하지 못한다」는 이유로 투사체 작업에서 빠져 있었다. 사용자가 애니메이션 컨트롤러에서 Attack2를 지워 공격 동작이 하나만 남았다. 그래서 이번 작업에 넣을 수 있게 됐다. 남은 확인은 「0.1초의 타격 표식이 정말 화살을 놓는 순간인가」와 「날아갈 화살을 무엇으로 만들 것인가」다. *(2026-10-20 2차: 둘 다 정해졌다 — 사용자가 표식을 0.2초로 옮겼고, 화살은 유닛 프리팹의 화살 메시를 복사한 투사체로 만들며 착탄 이펙트는 없다. Plan 1-1-2)*
+> 기준 HEAD `a11b5381` → 2차 갱신 `968e56bc`. [확인] = document-manager가 이 회차에 파일을 읽거나 `git show`로 본 것.
+
+### 11-1. 컨트롤러와 공격 클립 [확인]
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 커밋 `a11b5381` (사용자, 2026-10-20) | `EagleArcher.controller`에서 상태 `EagleArcher_Attack2`(motion GUID `689bae402518d2c4c885a5b20038740d`)와 그 상태 목록 항목을 삭제(29행 감소). 같은 커밋의 나머지는 `.meta` 파일뿐 | `git show --stat a11b5381`, 컨트롤러 diff |
+| 현재 컨트롤러 상태 | **Attack · Walk 두 개뿐**. Attack → GUID `573c970a…`(= `EagleArcher_Attack.anim`), Walk → GUID `e3c040dc…` | `Assets/_Project/Animations/Units/EagleArcher/EagleArcher.controller` 35·48·83·96행 |
+| `EagleArcher_Attack.anim` | 샘플레이트 30, 길이(`m_StopTime`) **1초**, Animation Event는 **`OnAttackHit` 하나, 0.2초**(30fps `0:06`). `OnAttackCharge` 없음(차지 유닛 아님). *(2026-10-20 2차 갱신 — 1차 때 0.1초, 사용자 커밋 `968e56bc`가 0.1 → 0.2로 옮김. `git show --stat 968e56bc` = 이 `.anim` 한 파일 1행)* | 같은 폴더 `.anim` 9631·10859·20749~20750행 |
+| `EagleArcher_Attack2.anim` | 파일은 **남아 있다**. 길이 0.70000005초, Animation Event 없음 | 같은 폴더 `.anim` 13092·14275행, `functionName` 0건 |
+| Attack2를 참조하는 곳 | **찾지 못했다** — `Assets/` 아래 `.controller` · `.overrideController` · `.prefab` · `.asset` · `.unity` · `.cs`에서 GUID `689bae40…`와 이름 `EagleArcher_Attack2` 모두 0건 | `grep -rl` (탐색 범위는 이 6개 확장자) |
+
+- 정리 후보: Plan RM-11(사용자 확인 필요, U-11).
+- 사용자 개별 테스트·수용(2026-10-11, 공용 메모리 기록)은 이 삭제로 철회되지 않는다. 이번 삭제 뒤의 실기 확인은 없다 [미확인].
+
+### 11-2. resolver 사유와 Factory 클립 선택
+
+- `UnitAttackShadowProfileResolver.cs` **67행**: `case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-animation-selection-unresolved", out profile);` [확인]. 코드는 바뀌지 않았다.
+- `UnitFactory.cs` 494~497행은 명시 클립(`attackTimelineClip`)이 없으면 컨트롤러의 `animationClips`를 넘기고, 510행은 **이름에 `Attack`이 들어간 첫 클립**을 고른다 [확인]. 지금 컨트롤러가 참조하는 클립은 Attack·Walk 둘이므로 고를 수 있는 Attack 클립은 `EagleArcher_Attack` 하나다 → 사유 「animation-selection-unresolved」의 근거(두 클립 중 어느 쪽인지 모름)는 **해소된 것으로 본다** [추정, 강함 — Unity `animationClips`가 컨트롤러 참조 클립만 돌려준다는 일반 동작에 기댄 판단이며 실행 관측은 없다]. EagleArcher 항목에 명시 클립이 연결돼 있는지는 이번에 확인하지 않았다 [미확인].
+- 이 사실로 낡는 문서 서술(1차: 수정하지 않음, Plan 4-2 A-12 → **2026-10-20 2차: 사용자 승인으로 0.2초와 함께 반영 완료**): `StatsReference.md` 87행 「Attack 1 / Attack2 0.70000005 (선택 순서 미확인)」, 118행 「남은 구현 선택 경계」, `Assets/UnitCombatAssetMatrix.md` 133행 「Attack2: 이벤트 0 · 컨트롤러 클립 순서 변경 시 타격점 손실 가능」 [확인].
+
+### 11-3. 화살 오브젝트와 이펙트 프리셋 [확인]
+
+- 화살 모델: `Assets/_Project/Models/Units/Transcendence/EagleArcher/EagleArrow/EagleArrow.fbx`, 머티리얼 `mat_eaglearrow_blue.mat` · `mat_eaglearrow_red.mat`, 텍스처 4장.
+- 이 FBX를 쓰는 곳은 유닛 프리팹 `Unit_EagleArcher_Blue.prefab` · `Unit_EagleArcher_Red.prefab` 두 개뿐이며, 그 안의 **자식 오브젝트 `EagleArrow`**(같은 프리팹에 `EagleBow`도 있다)의 메쉬다. **따로 떨어진 화살 투사체 프리팹은 찾지 못했다**(FBX GUID `581e593c…` 검색, `.prefab`·`.asset`·`.unity`).
+- `Assets/_Project/Resources/Config/EffectPresets/`에 이름에 `Eagle`이 들어간 프리셋이 없다. `Prefabs/VFX/Units/`의 트레이서 프리팹은 cannon · foxmagician · infernospirit · mushroombomber · streamspirit 다섯 개다.
+- 결론: 사용자 결정 「화살 오브젝트를 투사체로 사용」을 구현하려면 **날아갈 화살을 무엇으로 만들지**(자식 메쉬를 복제한 투사체 프리팹 · 새 에셋)와 **발사 때 손의 화살을 어떻게 할지**를 정해야 한다(Plan U-10). 발사 시점 0.1초가 화살을 놓는 순간인지는 사용자 확인 대기(Plan U-9). *(2026-10-20 2차: U-9·U-10 닫힘 — `EagleArrow` 메시 복사 투사체 프리팹, impactPreset 비움, marker 0.2초. 손의 화살 처리는 Plan U-13으로 열려 있다)*
+
+### 11-4. 다른 절과의 관계
+
+| 절 | 상태 |
+|---|---|
+| 0절 「EagleArcher와 방어 타워는 제외를 제안」 | **낡음** — 결정으로 포함(같은 줄에 2026-10-20 조각을 달았다) |
+| 2-1 ② Unresolved 7종 목록(EagleArcher 포함) | **그대로 유효** — 분류 행은 바뀌지 않았다 |
+| 4-2 속도 표 | **그대로 유효**(현재 프리팹 값). EagleArcher 행이 없는 것은 화살 트레이서 프리팹이 없기 때문이다(11-3). MushroomBomber 7은 사용자 결정으로 낮춰 시작한다(Plan 1-1 Q2). *(2차: 서버 속도 초기값 확정 — Stream 4 · Tank 4 · CannonCart 4 · 인간 타워 4 · Inferno 5 · Fox 5 · EagleArcher 6 · Mushroom 5, Plan 1-1-2)* |
+| 9절 규칙 문서 영향 | **보완됨** — 결정 뒤 개정안은 Plan 4-2 A-1~A-12(규칙 39 · `StatsReference.md` 87·118행 · `NET-PRESENT-001` · Buildings 규칙 12 Human 한정 추가) |
+
+### 11-5. 인간 방어타워 피해 경로 (Q10 결정 관련 사실) [확인]
+
+- 타워 피해는 유닛 전투 경로가 아니라 `Assets/_Project/Scripts/Application/UseCases/TowerCombatUseCase.cs` `ExecuteTowerAttack`(216행~)에서 난다. 241행 `target.TakeDamage(damage)`가 **즉시** 피해를 주고, 245~248행이 `AttackEffectVisual.Tower` 표현 스냅샷을 발행한다. 종족 구분은 230행 `ResolveRace(tower.Team)`.
+- 발사 이펙트 프리셋: `EffectPreset_HumanAutoTower_Attack.asset` 15행 `_vfxPrefab` → `vfx_pistoleer_attack.prefab`, 16행 `_localPositionOffset` (0,0,0). 사용자가 쓰라고 한 CannonCart 투사체·착탄: `EffectPreset_Cannon_Tracer` → `vfx_cannon_tracer.prefab`(`_speed` 4), `EffectPreset_Cannon_Impact` → `vfx_cannon_impact.prefab`.
+- 건물 스탯은 `BuildingStatsConfig`(ScriptableObject)에 종족별 칸이 있다(`humanAttackRange` 94행 등) — 인간 타워 속도를 둘 후보(Plan U-4, 제안).
+
+<a id="11-6-target-change-facts-20261020"></a>
+
+### 11-6. 공격 중 타겟이 바뀌는 경로 (2026-10-20 2차 — Plan 1-2 근거) [확인, HEAD `968e56bc`]
+
+- **싱글** `UnitCombatUseCase.cs` `TryAttack`: 657행 `if (attacker.AttackCooldownRemaining > 0f) return null;` 뒤 660행 `FindFirstEnemyTarget(attacker)`로 타겟을 고르고, 680~684행에서 이전 타겟과 다르면 `OnCombatTargetChanged`를 발행한다. 즉 타겟은 **쿨다운이 끝난 새 공격 시작 때만** 바뀐다.
+- **멀티 서버** `NetworkCombatController.cs` 819~826행: 이전 타겟과 새 후보가 다르면 826행 `combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit)`가 false일 때만 교체한다. 825행 주석 「현재 타겟이 사망했거나 사거리를 벗어난 경우에만 교체를 허용한다」.
+- 따라서 차지(발사 전) 중의 「타겟 교체」는 독립 사건이 아니라 **대상 사망** 또는 **사거리 이탈**의 결과다(메인 확인과 같음). 사거리 이탈 쪽은 사용자 결정 「원래 대상에게 발사」와 맞추려면 커밋된 투사체 회차 동안 교체·표현 닫기를 막아야 한다(Plan 위험 16).
+- `GameSystemRules_Units.md` 187행 「커밋된 회차의 타겟은 … 다른 대상에 이전하지 않는다 … 새 타겟은 반드시 새 `AttackSequenceId`를 가진 새 회차에서만 사용한다」 — 이 방향과 같다.
+
+### 11-7. EagleArcher 타격 시각의 두 출처 (2026-10-20 2차) [확인]
+
+- 클립 marker: `EagleArcher_Attack.anim` `OnAttackHit` **0.2초**.
+- 설정 fallback: `Resources/Config/UnitStatsConfig.asset` type 24(EagleArcher = 24, `UnitType.cs` 46행) `hitFrameTimes` **0.1**.
+- 선택 규칙: `UnitFactory.cs` 529~530행 `ShouldUseAttackClipHitFrameTimes` = `markerCount > 0` → marker가 있으면 clip 값(0.2)을 쓴다. 지금 동작은 0.2초이고 fallback 0.1은 쓰이지 않지만 **두 값이 다르다**(Plan U-15).
+
+### 11-8. Q12(B4) 결정과 관련한 데이터 위치 (2026-10-20 2차) [확인]
+
+- 사용자 결정: 서버가 비행 거리를 「중심 거리 − 대상 반경」으로 계산하고, 유닛 반경은 `UnitEffectConfig._recipientFits` `radius`를 서버 권위 데이터로 옮겨 쓰며, 건물은 종류별 반경을 새로 만든다 [전달 — 메인 세션].
+- 지금 그 radius가 있는 `UnitEffectConfig.cs`와 `BuildingEffectConfig.cs`는 `Assets/_Project/Scripts/Presentation/Effects/`에 있다. 서버 판정은 Presentation 값을 읽지 않으므로(아키텍처 방향 Domain → … → Presentation) 값을 Application/Infrastructure 쪽 데이터로 옮겨야 한다 — 그래서 「옮겨 사용」이 필요하다. 건물 쪽은 5-6절대로 크기 값이 `BuildingDetectionRadius` 0.2뿐이다 [전달].
+
+### 11-9. MushroomBomber 대상 처리 — 예외 철회 관련 사실 (2026-10-20 3차) [확인]
+
+- 사용자 결정(3차): MushroomBomber도 다른 투사체처럼 Homing으로 대상에게 날아간다. 지점 공격 없음 [전달 — 메인 세션, Plan 1-1-3].
+- resolver: `UnitAttackShadowProfileResolver.cs` `UnresolvedProjectile` 167~169행이 `type == UnitType.MushroomBomber ? AttackTargetMode.LockedPoint : AttackTargetMode.TargetLocked`로 Mushroom만 LockedPoint로 둔다. 4-4절의 「Mushroom은 resolver상 LockedPoint(167~169행)지만 실제 범위 중심은 착탄 시점 대상 위치」 [전달]와 같은 행이며, 결정 뒤에는 이 값이 실제 게임플레이와 다르다 → Plan 1-1 Q11 설계 주의 · U-16.
+- 규칙 원문: 규칙 38 535행 「판정 중심 = 주 타깃(착탄 지점) 월드 위치」, 규칙 39 544행 「주 타깃이 적 유닛이면 직접 피해+DoT」, 규칙 40 551행 「착탄 때 한 번 수집한 대상」 — Homing 착탄이면 그대로 참이라 개정이 필요 없다(Plan 4-2-1 F-6·F-7).
+- 이 절로 **낡은 것:** 4-4절 표의 LockedPoint 행을 Mushroom에 적용하는 해석, Plan 2차의 Mushroom 지점 고정·기본안. **그대로 유효한 것:** 3-1절 스냅샷 경로 교체 필요성(RM-8), 2-5절 DoT 시작 = 착탄.
