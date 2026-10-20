@@ -1,5 +1,12 @@
 # QA 패턴 및 버그 히스토리
 
+## Anonymous matchmaking acceptance boundaries
+
+- Compare Firebase and UGS identity separately without reproducing raw identifiers. A user reporting logout on both peers is not log proof that both acquired new UGS IDs; compare each peer before/after and the latest cross-peer pair independently.
+- Match assignment equality, Host/Client admission and game-start RPC establish scoped connection evidence. Zero matching/sign-out errors in a bounded run is not zero application errors; preserve unrelated combat diagnostic failures as a separate scope.
+- Device cached-guest automatic restoration is log-confirmed; nickname/stat preservation across restart, real-account progress and cancellation races remain separate unobserved boundaries. The later 2026-10-21 accepted normal admission, Host deadline recovery after peer disconnection, and successful rematch closes that focused correction; keep remaining auth/race/role-swap cases separate without mandatory repetition. Original HTTP 429 remains unproven.
+- These are received user/log acceptance boundaries, not a new QA execution. Current evidence: `Assets/_Project/Docs/_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md`, “랜덤 매칭 세 단계 사용자 수용 완료”.
+
 ## Rally endpoint recovery and acceptance scope (2026-10-18)
 
 - The user reported single-player behavior normal, then multiplayer normal after the moving-rally-destination construction fix, and subsequently accepted the AI mine/flag item visually in single-player on 2026-10-18. This is received user acceptance, not a new independent QA run; do not expand it to every Host/Client role, device, unit type or measured runtime-log gate.
@@ -146,3 +153,8 @@ Programmer-side details: `.claude/agent-memory/game-programmer/vfx-presentation.
 - Default zero Quaternion can be unchanged while Unity `==` returns false. For metadata immutability, use exact `Equals` and check zero/identity plus copied/modified components; preserve lease assertions independently.
 - A passing isolated Unity-DLL CLR comparison is not native suite execution. Record user whole-suite PASS separately from agent compiler checks, device gameplay and visual/HP acceptance.
 - Keep initial stale response-file failures distinct from final current-source-set compilation. Revalidate branch generation after concurrent integrations; an earlier Bloom particle-count fix may already be present and must not be re-applied or reverted.
+
+### Preparation deadline evidence boundaries
+
+- Measure Found-to-deadline on one peer clock, and distinguish scene-transition start from game-start RPC. A game starting near 30 seconds can be normal when scene loading began earlier.
+- A disconnected peer that fails ticket polling before Found correctly has no preparation deadline event. Pair that evidence with the online Host deadline/UI/cleanup and the later successful rematch; do not report every SDK cleanup race or role swap as covered.

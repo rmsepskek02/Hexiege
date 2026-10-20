@@ -189,6 +189,9 @@ namespace Hexiege.Presentation
         /// </para>
         /// </summary>
         private bool _awaitingMapPreparation;
+        private int _matchmakingRequestVersion;
+        private bool _matchmakingHandedOff;
+        private bool _disposed;
 
         /// <summary>
         /// 맵 준비 실패가 <b>어느 길로</b> 들어왔는가. 처리는 길과 무관하게 완전히 같고(규칙 M-2 —
@@ -224,6 +227,7 @@ namespace Hexiege.Presentation
             _networkManager.OnHostStarted += OnHostStarted;
             _networkManager.OnClientConnected += OnClientConnected;
             _networkManager.OnError += OnNetworkError;
+            _networkManager.OnRandomMatchPreparationFailed += OnRandomMatchPreparationFailed;
             // 무작위 맵 3단계 I: 맵 준비 실패 시 로딩 UI 를 내리기 위해 구독한다.
             //   구독하지 않으면 실패했을 때 로딩 화면이 영영 내려가지 않는다.
             _networkManager.OnMapTransferFailed += OnMapTransferFailed;
@@ -271,43 +275,20 @@ namespace Hexiege.Presentation
                 .AddTo(_disposables);
 
             CmdStartMatchmaking
-                .Subscribe(async _ =>
-                {
-                    try
-                    {
-                        CurrentScreen.Value = BattleScreen.RandomMatch;
-                        IsMatchmaking.Value = true;
-                        MatchWaitSeconds.Value = 0;
-                        ErrorMessage.Value = "";
-
-                        await _networkManager.StartMatchmakingAsync(
-                            onWaitSecond: sec => MatchWaitSeconds.Value = sec,
-                            onMatchFound: () => UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중..."));
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // 사용자가 취소한 경우
-                        IsMatchmaking.Value = false;
-                        CurrentScreen.Value = BattleScreen.Main;
-                        UIManager.Instance?.ShowLoading(false);
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorMessage.Value = e.Message;
-                        IsMatchmaking.Value = false;
-                        UIManager.Instance?.ShowLoading(false);
-                    }
-                })
+                // 기존 인라인 요청은 아래 메서드로 옮겨 회차와 화면 수명을 함께 검사한다.
+                // await _networkManager.StartMatchmakingAsync(
+                //     onWaitSecond: sec => MatchWaitSeconds.Value = sec,
+                //     onMatchFound: () => UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중..."));
+                .Subscribe(async _ => await StartRandomMatchmakingAsync())
                 .AddTo(_disposables);
 
             CmdCancelMatchmaking
-                .Subscribe(async _ =>
-                {
-                    try { await _networkManager.CancelMatchmakingAsync(); }
-                    catch { /* 취소 실패는 무시 — 이미 매칭 완료됐을 수 있음 */ }
-                    IsMatchmaking.Value = false;
-                    CurrentScreen.Value = BattleScreen.Main;
-                })
+                // 기존 await 뒤 무조건 화면을 바꾸던 처리는 늦은 취소가 다음 요청을 닫을 수 있었다.
+                // try { await _networkManager.CancelMatchmakingAsync(); }
+                // catch { /* 취소 실패는 무시 — 이미 매칭 완료됐을 수 있음 */ }
+                // IsMatchmaking.Value = false;
+                // CurrentScreen.Value = BattleScreen.Main;
+                .Subscribe(async _ => await CancelRandomMatchmakingAsync())
                 .AddTo(_disposables);
 
             CmdBack
@@ -318,6 +299,78 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 내부 로직
         // ====================================================================
+
+        private async Task StartRandomMatchmakingAsync()
+        {
+            if (_disposed || IsMatchmaking.Value || _matchmakingHandedOff) return;
+            int version = ++_matchmakingRequestVersion;
+            CurrentScreen.Value = BattleScreen.RandomMatch;
+            IsMatchmaking.Value = true;
+            MatchWaitSeconds.Value = 0;
+            ErrorMessage.Value = "";
+
+            try
+            {
+                await _networkManager.StartMatchmakingAsync(
+                    onWaitSecond: seconds =>
+                    {
+                        if (IsCurrentMatchmakingRequest(version)) MatchWaitSeconds.Value = seconds;
+                    },
+                    onMatchFound: () =>
+                    {
+                        if (!IsCurrentMatchmakingRequest(version)) return;
+                        _matchmakingHandedOff = true;
+                        // 랜덤 최초 경기는 원격 접속 전부터 준비 실패 UI의 보호 범위에 들어간다.
+                        _awaitingMapPreparation = true;
+                        IsMatchmaking.Value = false;
+                        UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중...");
+                    });
+            }
+            catch (OperationCanceledException)
+            {
+                if (IsCurrentMatchmakingRequest(version)) RestoreMatchmakingUi();
+            }
+            catch (Exception)
+            {
+                if (!IsCurrentMatchmakingRequest(version)) return;
+                // 원인 예외는 manager가 한 번 기록한다. UI에는 내부 SDK 식별자를 표시하지 않는다.
+                RestoreMatchmakingUi();
+                const string notice = "매칭을 진행하지 못했습니다. 잠시 후 다시 시도해주세요.";
+                ErrorMessage.Value = notice;
+                UIManager.Instance?.ShowAlert(title: "알림", message: notice, onClick: null);
+            }
+        }
+
+        private async Task CancelRandomMatchmakingAsync()
+        {
+            if (_disposed || !IsMatchmaking.Value || _matchmakingHandedOff) return;
+            ++_matchmakingRequestVersion;
+            // 화면은 즉시 복구하고 서버 ticket 정리는 해당 회차가 끝내도록 기다린다.
+            RestoreMatchmakingUi();
+            await _networkManager.CancelMatchmakingAsync();
+        }
+
+        private bool IsCurrentMatchmakingRequest(int version) =>
+            !_disposed && version == _matchmakingRequestVersion;
+
+        private void OnRandomMatchPreparationFailed(string reason)
+        {
+            if (_disposed || !_matchmakingHandedOff) return;
+            ++_matchmakingRequestVersion;
+            IsMatchmaking.Value = false;
+            MatchWaitSeconds.Value = 0;
+            EnterMapPreparationFailed(_networkManager.IsHost
+                ? MapFailureOrigin.HostOwnFailure : MapFailureOrigin.ConnectionLost, reason);
+        }
+
+        private void RestoreMatchmakingUi()
+        {
+            _matchmakingHandedOff = false;
+            IsMatchmaking.Value = false;
+            MatchWaitSeconds.Value = 0;
+            CurrentScreen.Value = BattleScreen.Main;
+            UIManager.Instance?.ShowLoading(false);
+        }
 
         /// <summary>
         /// 싱글플레이 씬 로드. 로딩 스크린 표시 후 Game 씬으로 전환.
@@ -403,6 +456,7 @@ namespace Hexiege.Presentation
         private void CancelHosting()
         {
             _awaitingMapPreparation = false;
+            _matchmakingHandedOff = false;
 
             IsConnecting.Value = false;
             LobbyCode.Value = "";
@@ -683,6 +737,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnNetworkError(string msg)
         {
+            _matchmakingHandedOff = false;
             ErrorMessage.Value = msg;
             IsConnecting.Value = false;
         }
@@ -693,11 +748,16 @@ namespace Hexiege.Presentation
 
         public void Dispose()
         {
+            _disposed = true;
+            ++_matchmakingRequestVersion;
+            if (_networkManager != null && !_matchmakingHandedOff && IsMatchmaking.Value)
+                _ = _networkManager.CancelMatchmakingAsync();
             if (_networkManager != null)
             {
                 _networkManager.OnHostStarted -= OnHostStarted;
                 _networkManager.OnClientConnected -= OnClientConnected;
                 _networkManager.OnError -= OnNetworkError;
+                _networkManager.OnRandomMatchPreparationFailed -= OnRandomMatchPreparationFailed;
                 _networkManager.OnMapTransferFailed -= OnMapTransferFailed;
                 _networkManager.OnMapFailureNoticeReceived -= OnMapFailureNoticeReceived;
                 _networkManager.OnServerDisconnected -= OnServerDisconnected;

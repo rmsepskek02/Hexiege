@@ -44,6 +44,7 @@
 | 중간 | 멀티 건설/생산 실패 RPC의 UI 피드백 |
 | 관찰 중 | 매치메이킹404 수정 뒤 간헐 재현·Host/Client 연결과 RelayJoinCode 대기 경계. 레거시 비활성 코드 삭제는 기존 확인 조건 충족 뒤 판정 |
 | 환경 확인 | UGS OIDC 제공자/실계정 브릿지의 환경 설정·연결 범위 |
+| 별도 미관측 | 기기 기존 게스트 자동복원은 로그 확인. 재실행 전후 닉네임/전적 상세 보존・실계정 진행도 보존/익명 이전 진행도 미승계・취소 직후 경쟁/늦은 결과・역할 교환. 2026-10-21 랜덤 매칭 정상 진입・Host 30초 복구・복구 후 재매칭은 수용 완료로 이 잔여 목록에서 제외하며 반복 필수검사로 남기지 않음. [검증 범위](_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md#13-랜덤-매칭-세-단계-사용자-수용-완료--2026-10-21) |
 
 제품 조건은 [네트워크 규칙](GameSystemRules/GameSystemRules_Network.md)·[경기 운영](GameSystemRules/GameSystemRules_MatchFlow.md), 구현 구조는 [네트워크 TDD](TechnicalDesignDocument_Network.md), 화면 조건은 [경기 흐름 UI](GameSystemRules/GameSystemRules_MatchFlowUI.md)에서 확인한다. 판정 시계·맵 응답·UI countdown·재접속 대기는 서로 다른 책임이다.
 
