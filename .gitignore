@@ -815,3 +815,9 @@ __pycache__/
 /Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_device_2.txt
 /Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_host.txt
 /Assets/_Project/Docs/_Logs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/*/**/RuntimeLog_client.txt
+
+# 로그 보관 ZIP 산출물(Hexiege > Logs > Create Log Archive ZIP 메뉴가 만드는 ZIP·manifest) — 사용자 승인 2026-10-20.
+# 사용자가 private 로그 저장소(rmsepskek02/Hexiege-Logs) Release 에 직접 올리는 전송용 묶음이라 소스 Git 에 넣지 않는다.
+# 폴더 자체와 Unity 가 만드는 그 폴더의 .meta 만 제외한다. 다른 _Logs 문서/meta 는 위 규칙대로 계속 추적한다.
+/Assets/_Project/Docs/_Logs/_zip/
+/Assets/_Project/Docs/_Logs/_zip.meta
