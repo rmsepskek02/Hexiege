@@ -455,7 +455,11 @@ namespace Hexiege.Editor.Combat
                 int hp = f.Victim.Hp;
                 Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue, "EagleArcher TryAttack commits one attack.");
                 Require(!f.Combat.HasPendingProjectileLaunch(f.Attacker), "A switched-off unit creates no projectile reservation.");
-                f.Tick(.2d);
+                // [2026-10-20 검증 수정] 타격 예정 시각은 float 타격 시각(.2f)을 double로 넓힌 값(0 + 0.20000000298…)이다.
+                //   옛 줄 f.Tick(.2d)는 그보다 아주 조금 이른 0.2라서 운영 코드의 "now < DueAt" 판정에 걸려 피해가 아직 안 들어갔다.
+                //   그래서 유닛 데이터의 실제 타격 시각을 그대로 읽어 Tick 한다(하드코딩 시각 금지).
+                //   옛 줄(기록용): f.Tick(.2d);
+                f.Tick(f.Attacker.HitFrameTimes[0]);
                 Require(f.Launches.Count == 0 && f.Impacts.Count == 0 && f.Victim.Hp == hp - 20 && f.VictimDamage.Count == 1
                         && !f.VictimDamage[0].ProjectilePresentationKey.IsValid,
                     "Switch OFF keeps the legacy hit-time damage with no projectile key (no double damage).");
@@ -473,10 +477,16 @@ namespace Hexiege.Editor.Combat
                 int hp = f.Victim.Hp;
                 Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
                     "Tank (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
-                f.Tick(.4d);
+                // [2026-10-20 검증 수정] 발사 예약 시각 = float 타격 시각(.4f)을 double로 넓힌 값(0.40000000596…)이다.
+                //   옛 줄 f.Tick(.4d)·.4d 기준 착탄 시각은 그보다 조금 이르므로 운영 코드의 "now < Due"/"now < ImpactTime"
+                //   판정에 걸려 발사·착탄이 일어나지 않는다. 유닛 데이터의 실제 타격 시각을 읽어 기준으로 삼는다.
+                //   옛 줄(기록용): f.Tick(.4d);
+                //   옛 줄(기록용): double expectedImpact = .4d + (2.0d - .25d) / 4d;
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(hitAt);
                 Require(f.Launches.Count == 1 && f.Victim.Hp == hp && f.VictimDamage.Count == 0,
                     "Tank launches at its OnAttackHit offset (0.4) with no damage at launch.");
-                double expectedImpact = .4d + (2.0d - .25d) / 4d;
+                double expectedImpact = hitAt + (2.0d - .25d) / 4d;
                 Require(Math.Abs(f.Launches[0].ImpactTime - expectedImpact) < 1e-5 && f.Launches[0].AttackerKind == (int)UnitType.Tank,
                     "Tank impact time = launch + (centre distance - target radius) / speed 4.");
                 f.Tick(expectedImpact - .001d);
