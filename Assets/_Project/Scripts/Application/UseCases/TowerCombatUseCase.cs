@@ -27,6 +27,16 @@
 //   기존에 연결된 NetworkHealthSync(HP 동기화) / NetworkCombatController(사망 RPC 전파)가
 //   자동으로 클라이언트에 결과를 전달한다 — 별도 RPC 작성 불필요.
 //
+// [2026-10-21 단계 C — 인간 방어타워(CannonTower) 투사체 전환 · RM-10]
+//   사용자 결정(Q10 · Buildings 규칙 12 개정 F-8): Human CannonTower는 서버 권위 투사체로 피해를 준다.
+//     · 공격 순간 = 발사 순간(타워에는 애니메이션 marker가 없다). 대포 입구(포구)에서 발사한다.
+//     · 피해는 착탄 시각에 이 파일의 타워 writer(ApplyTowerProjectileImpact)가 1회 준다.
+//     · 비행 중 타워가 파괴돼도 맞으면 피해를 준다(공격자 사망과 같다).
+//   Spirit RuneSpire · Transcendence VineTower는 바뀌지 않는다 — 아래 ExecuteTowerAttack의 기존 즉발 경로 그대로다.
+//   분기 기준은 ServerProjectileDeliveryPolicy.IsServerProjectileTower(이행 스위치 RM-9 포함)다.
+//   ⚠️ RM-10: 인간 타워의 옛 즉발 피해·Tower 발사 스냅샷은 지우지 않았다 — 같은 코드를 RuneSpire가 계속 쓰고,
+//      스위치를 끄면 인간 타워도 다시 그 경로를 탄다. 모든 대상 테스트 PASS 뒤 스위치 제거(P5) 때 정리 범위를 정한다.
+//
 // Application 레이어 — Domain에 의존. Infrastructure(NetworkManager/GameRaceContext)에
 //   직접 의존하지 않기 위해 NetworkContext 정적 홀더와 race 해석 델리게이트를 사용한다.
 // ============================================================================
@@ -42,7 +52,7 @@ namespace Hexiege.Application
     /// 방어 타워(AutoTower)의 자동 공격을 처리하는 UseCase.
     /// 매 Tick마다 모든 타워를 순회하며 사거리 내 가장 가까운 적 유닛에게 데미지를 준다.
     /// </summary>
-    public class TowerCombatUseCase
+    public class TowerCombatUseCase : IBuildingProjectileImpactWriter
     {
         // 부동소수점 경계 오차 방지용 여유값. UnitCombatUseCase와 동일한 의도.
         private const float Epsilon = 0.05f;
@@ -61,6 +71,10 @@ namespace Hexiege.Application
         // [Phase 2] 연구소 강화 UseCase(생성 후 주입). 타워→유닛 방어 감쇄를 "피격 유닛 팀"의
         //   방어 연구 레벨로 조회하기 위해 사용한다. 미주입 시 스냅샷 필드(target.Defense)로 폴백(하위호환).
         private UnitUpgradeUseCase _upgrade;
+
+        // [단계 C] 서버 권위 투사체 수명 관리자(발사·비행·착탄·닫기). 조합 루트가 SetProjectileLauncher로 주입한다.
+        //   null이면(주입 전·Editor fixture) 인간 타워도 기존 즉발 경로를 탄다 — 아래 ExecuteTowerAttack 참고.
+        private UnitCombatUseCase _projectiles;
         private readonly AttackEffectIdentity _effectIdentity = new AttackEffectIdentity();
         private Func<double> _effectClock = () => Time.timeAsDouble;
         public void SetEffectClock(Func<double> clock) { _effectClock = clock ?? throw new ArgumentNullException(nameof(clock)); }
@@ -94,6 +108,16 @@ namespace Hexiege.Application
         public void SetUpgradeUseCase(UnitUpgradeUseCase upgrade)
         {
             _upgrade = upgrade;
+        }
+
+        /// <summary>
+        /// [단계 C] 서버 권위 투사체 수명 관리자(UnitCombatUseCase)를 주입한다(GameBootstrapper에서 1회 — 맵마다 새로).
+        /// 주입되면 투사체 타워(인간 CannonTower)의 공격이 즉발 대신 "발사 → 비행 → 착탄 피해"가 된다.
+        /// </summary>
+        /// <param name="projectiles">같은 경기의 전투 UseCase(투사체 기록 소유자).</param>
+        public void SetProjectileLauncher(UnitCombatUseCase projectiles)
+        {
+            _projectiles = projectiles;
         }
 
         /// <summary>
@@ -136,7 +160,11 @@ namespace Hexiege.Application
                 if (target == null) continue;
 
                 // 데미지 적용 + 이벤트 발행 + 사망 처리.
-                ExecuteTowerAttack(building, target);
+                // [단계 C] 투사체 타워는 여기서 "발사"만 하고 피해는 착탄 때 준다. 발사를 못 했으면(투사체 용량 초과·
+                //   서비스 닫힘) 공격 자체가 없었던 것이므로 쿨다운을 시작하지 않는다(유닛 투사체 커밋 거절과 같은 원칙).
+                //   즉발 타워(RuneSpire·VineTower)는 항상 true라 동작이 예전과 같다.
+                //   옛 줄(기록용): ExecuteTowerAttack(building, target);
+                if (!ExecuteTowerAttack(building, target)) continue;
 
                 // 규칙 5: 공격 직후 쿨다운 시작.
                 // 종족별 쿨다운 값을 조회하여 리셋.
@@ -213,8 +241,25 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="tower">공격하는 타워.</param>
         /// <param name="target">피격당하는 적 유닛.</param>
-        private void ExecuteTowerAttack(BuildingData tower, UnitData target)
+        /// <returns>
+        /// 공격이 일어났으면 true(즉발 피해를 줬거나 투사체를 발사했다). [단계 C] 투사체 타워가 발사를 못 했으면 false.
+        /// ⚠️ 이 메서드 이름·매개변수(BuildingData, UnitData)는 Editor 검증(VfxConnections)이 리플렉션으로 부르므로 바꾸지 않는다.
+        /// </returns>
+        private bool ExecuteTowerAttack(BuildingData tower, UnitData target)
         {
+            // [단계 C] 투사체 타워(인간 CannonTower) — 즉발 피해 대신 서버 발사 기록을 만든다(RM-10).
+            //   Tower 발사 스냅샷(OnAttackEffectConfirmed)도 내지 않는다: 발사 이펙트는 화면 소비자
+            //   (ProjectilePresentationPresenter)가 서버 발사 기록을 꺼내는 순간 포구 위치에 낸다(이중 재생 방지).
+            RaceId projectileRace = ResolveRace(tower.Team);
+            if (_projectiles != null && ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, projectileRace))
+            {
+                int launchPower = BuildingStats.GetAttackPower(tower.Type, projectileRace);
+                bool launched = _projectiles.TryLaunchTowerProjectile(tower, projectileRace, target, launchPower, this);
+                if (launched) _projectiles.RecordProjectileTowerAttackPath(projectileRace, true);   // [진단] 판정 무관
+                return launched;
+            }
+            // 아래는 기존 즉발 경로(RuneSpire·VineTower, 그리고 스위치가 꺼졌거나 launcher가 없을 때의 인간 타워) — 동작 무변경.
+            if (_projectiles != null) _projectiles.RecordProjectileTowerAttackPath(projectileRace, false);   // [진단] 즉발 경로 수(RuneSpire 회귀 확인용)
             Vector3 effectSource = default, effectImpact = default;
             double effectTime = double.NaN;
             // 표현 좌표/시계의 실패도 기존 피해 및 사망 workflow를 막아서는 안 된다.
@@ -273,6 +318,58 @@ namespace Hexiege.Application
                 // 데이터 정리 — 유닛 Dictionary에서 제거.
                 _unitSpawn.RemoveUnit(target.Id);
             }
+            return true;
+        }
+
+        /// <summary>
+        /// [2026-10-21 단계 C] 투사체 타워(인간 CannonTower)의 착탄 피해 1회 — 타워 피해의 단일 writer.
+        /// UnitCombatUseCase가 착탄 시각에 부른다(IBuildingProjectileImpactWriter). 서버/싱글 전용.
+        ///
+        /// 계산·이벤트·사망 처리는 즉발 경로(ExecuteTowerAttack 아래쪽)와 같다. 다른 점은 세 가지뿐이다.
+        ///   ① 공격력은 발사 때 저장한 값(attackPowerAtLaunch)이다. 방어 감쇄는 "지금(착탄 순간)" 피격 유닛 팀의 연구 레벨로 한다
+        ///      — 유닛 투사체도 착탄 때 같은 writer(ComputeFinalDamage)로 감쇄하므로 같은 원칙이다.
+        ///   ② 타워가 이미 파괴됐어도 진행한다(사용자 결정 U-6 — 공격자 사망과 같다). 타워가 살아 있는지 보지 않는다.
+        ///   ③ 피격 이벤트에 투사체 번호표(key)를 싣는다 → 화면은 숫자를 착탄 순간에 1회만 낸다(Q7).
+        ///      Tower 발사 스냅샷은 내지 않는다(발사 이펙트는 화면 소비자가 발사 때 이미 냈다).
+        /// </summary>
+        /// <param name="tower">쏜 타워(파괴됐을 수 있음).</param>
+        /// <param name="target">원래 대상 유닛(호출자가 착탄 순간 살아 있는 같은 객체임을 확인했다).</param>
+        /// <param name="attackPowerAtLaunch">발사 때 저장한 원래 공격력.</param>
+        /// <param name="key">투사체 번호표.</param>
+        /// <returns>Applied(적용량·남은 HP) 또는 대상 무효 시 TargetUnavailable.</returns>
+        public AttackDamageObservation ApplyTowerProjectileImpact(BuildingData tower, UnitData target,
+            int attackPowerAtLaunch, ProjectileDeliveryKey key)
+        {
+            if (tower == null || target == null || !target.IsAlive || _unitSpawn == null)
+                return AttackDamageObservation.Unavailable(AttackDamageApplyStatus.TargetUnavailable);
+
+            // 데미지 적용 — 즉발 경로와 같은 식(규칙 44 / 규칙 5 방어 감쇄, 타워는 건물 2배 무관).
+            int defense = _upgrade != null
+                ? _upgrade.GetDefense(target.Team, target.Type)
+                : target.Defense;
+            int damage = DamageCalculator.ApplyDefense(Math.Max(0, attackPowerAtLaunch), defense);
+            int hpBefore = target.Hp;
+            target.TakeDamage(damage);
+            int applied = Math.Max(0, hpBefore - target.Hp);
+
+            // 공격 이벤트(공격자=타워 — 파괴된 타워 객체여도 그대로 싣는다. 구독자는 Id·종류만 읽는다).
+            GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(tower, target));
+
+            // 피격 이벤트 — NetworkHealthSync가 HP를 Client에 동기화하고 투사체 번호표도 함께 보낸다.
+            //   번호표가 있으므로 피격 표현 큐는 "타워 즉시 방출"이 아니라 화면 착탄 순간 방출 경로를 탄다.
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, true,
+                    attackerId: tower.Id, attackerIsUnit: false,
+                    immediatePresentation: false, presentationResultKey: default,
+                    projectilePresentationKey: key));
+
+            // 타겟 사망 처리 — 즉발 경로와 같은 순서(사망 이벤트 → 유닛 목록에서 제거).
+            if (!target.IsAlive)
+            {
+                GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(target));
+                _unitSpawn.RemoveUnit(target.Id);
+            }
+            return new AttackDamageObservation(AttackDamageApplyStatus.Applied, applied, Math.Max(0, target.Hp));
         }
 
         /// <summary>

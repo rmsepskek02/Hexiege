@@ -23,6 +23,15 @@
 //         순서 역전 1회, 중복 Release 1회, 이미 죽은 대상에 닿는 후속 투사체 숫자 없음, text= 계수.
 //   B-4   의심 1: 새 경로 marker는 총구 VFX·발사음을 내지 않고, 발사 신호는 서버 발사 기록을 화면에 꺼낼 때만 낸다(소스 게이트).
 //         진단 오표기 C: 발사 시점 StreamSpirit timer-impact가 writerResult=NotInvoked로 찍힌다(소스 게이트).
+// [2026-10-21 단계 C — 인간 방어타워(CannonTower)]
+//   C-1   스위치 토큰 "6,7,17;tower:human" · 투사체 타워 분류(Human AutoTower만, RuneSpire·VineTower 제외).
+//   C-2   인간 타워: 공격 순간 발사(피해 0) → 착탄 때 타워 writer로 1회(투사체 번호표, 공격자=건물), Tower 스냅샷 없음,
+//         발사 원점 = 포구(Blue +Z · Red −Z), 착탄 시각 = 발사 + (포구→대상 중심 XZ 거리 − 반경) ÷ 타워 속도, 쿨다운 시작.
+//   C-3   비행 중 타워 파괴 → 그래도 피해(byTower destroyedThenHit), 비행 중 대상 사망 → TargetLost·피해 0,
+//         공격 순간 대상이 죽어 있으면 발사 0·쿨다운 미시작, 서비스가 닫혔으면 발사 거절·쿨다운 미시작.
+//   C-4   타워는 건물을 공격하지 않는다(적 건물만 사거리 안 → 발사 0).
+//   C-5   RuneSpire(Spirit) 회귀: 즉발 피해·번호표 없음·Tower 스냅샷 1건, 서버 END path tower-Spirit:s0/l1.
+//   C-6   화면 소비자 소스 게이트: 건물 공격자 출발점 = 서버 포구 위치, 타워 트레이서·발사 신호·착탄 프리셋 경로.
 // 실제 Animator·VFX·NGO 전송·화면 픽셀은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 7절).
 // ============================================================================
 
@@ -130,6 +139,7 @@ namespace Hexiege.Editor.Combat
             ValidateServerProjectileConfigAsset();
             ValidateServerProjectileDiagnosticFormats();       // [단계 B] 분포 상자 · marker 계수 형식
             ValidateServerProjectileStageBSourceGates();       // [단계 B] 의심 1 수정 · 진단 오표기 C
+            ValidateServerProjectileStageCSourceGates();       // [단계 C] 타워 화면 소비자 경로
             var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
             var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
             Require(dataField != null && idField != null, "Server projectile fixture global-state seams must exist.");
@@ -159,6 +169,7 @@ namespace Hexiege.Editor.Combat
                 ValidateServerProjectilePrelaunchCancellation();
                 ValidateServerProjectileSwitchOffKeepsLegacy();
                 ValidateServerProjectileTankAndCannonCart();   // [단계 B]
+                ValidateServerProjectileHumanTower();          // [단계 C] 인간 방어타워 투사체 + RuneSpire 즉발 회귀
             }
             finally
             {
@@ -167,7 +178,8 @@ namespace Hexiege.Editor.Combat
                 NetworkContext.Set(oldServer, oldActive);
             }
             // [단계 B] PASS 문구 앞부분 갱신. 옛 앞부분(기록용): "self-validation PASS: stage-A switch (StreamSpirit only), schema 4 + ..."
-            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
+            // [단계 C] PASS 문구 앞부분에 인간 타워 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: kill-shot numbers (..."
+            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
         // ── 분류·스위치·handshake ───────────────────────────────────────────
@@ -183,9 +195,18 @@ namespace Hexiege.Editor.Combat
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.FoxMagician)
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.EagleArcher)
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer)
-                    && ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17",
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer),
                 "Stage B switches on Tank, CannonCart and StreamSpirit; every other projectile unit keeps the legacy path.");
+            // [단계 C] 옛 단언(단계 B, 기록용): ... && ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17"
+            Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17;tower:human",
+                "[C-1] Stage C switch token adds the Human CannonTower: " + ServerProjectileDeliveryPolicy.ManifestToken);
+            Require(ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Human)
+                    && ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Human)
+                    && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Transcendence)
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.Castle, RaceId.Human),
+                "[C-1] Only the Human AutoTower (CannonTower) is a projectile tower; RuneSpire and VineTower stay instant.");
             UnitType[] projectileUnits = { UnitType.Tank, UnitType.CannonCart, UnitType.InfernoSpirit,
                 UnitType.StreamSpirit, UnitType.FoxMagician, UnitType.EagleArcher, UnitType.MushroomBomber };
             int projectileCount = 0;
@@ -279,12 +300,19 @@ namespace Hexiege.Editor.Combat
                 // [단계 B — B-3] 서버 END 1줄 형식: 전 경기 합계 · 수 맞춤(balance) · 판정.
                 string end = f.Combat.BuildProjectileEndLine("fixture");
                 Require(end.StartsWith("side=server v=1 role=Single authority=local ") && end.Contains(" reason=fixture ")
-                        && end.Contains(" switch=6,7,17 ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
+                        // [단계 C] 옛 조각(기록용): end.Contains(" switch=6,7,17 ")
+                        && end.Contains(" switch=6,7,17;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
                         && end.Contains(" hit=1 ") && end.Contains(" targetLost=0 ") && end.Contains(" cancelled=0 ")
                         && end.Contains(" cancel=attacker-dead:0|attacker-replaced:0|target-dead:0|target-missing:0|target-replaced:0|move-command:0|invalid-launch-geometry:0|other:0 ")
                         && end.Contains(" flight=n:1|") && end.Contains(" path=17:s1/l0 ")
                         && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
                     "Server END line carries whole-match totals, every cancel cause, path counts, balance and verdict: " + end);
+                // [단계 C] 건물 공격자 합계 줄 — 유닛만 쏜 경기에서는 모두 0이고 PASS다.
+                string towerEnd = f.Combat.BuildProjectileTowerEndLine("fixture");
+                Require(towerEnd == "side=server-tower v=1 role=Single epoch=" + f.Combat.ProjectileEpoch.ToString("x16")
+                        + " reason=fixture byTower=launched:0|hit:0|targetLost:0|destroyedThenHit:0|destroyedThenLost:0"
+                        + " towerPath=Human:s0/l0|Spirit:s0/l0|Transcendence:s0/l0 balance=ok verdict=PASS",
+                    "[C-2] Server tower END line format (no tower attacks): " + towerEnd);
             }
         }
 
@@ -523,6 +551,263 @@ namespace Hexiege.Editor.Combat
                 string end = f.Combat.BuildProjectileEndLine("fixture");
                 Require(end.Contains(" launchedAtBuilding=1 ") && end.Contains(" hitBuilding=1 ") && end.Contains(" balance=ok "),
                     "[B-3] Server END separates building-target launches/hits: " + end);
+            }
+        }
+
+        // ── [단계 C — C-2~C-5] 인간 방어타워(CannonTower) 투사체 · RuneSpire 즉발 회귀 ─────────────────
+        /// <summary>
+        /// 실제 TowerCombatUseCase.Tick(→ ExecuteTowerAttack → TryLaunchTowerProjectile)과 실제 투사체 수명 관리자로 돌린다.
+        /// 타워 수치(공격력·쿨다운·사거리)는 실제 BuildingStatsConfig.asset 표를 임시 주입해 읽고(하드코딩 금지),
+        /// 끝나면 원래 BuildingStats 표 "참조 그대로"를 되돌린다(VfxConnections fixture와 같은 복원 규칙).
+        /// </summary>
+        private static void ValidateServerProjectileHumanTower()
+        {
+            var statsField = typeof(BuildingStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+            Require(statsField != null, "Building stats seam exists for the tower fixture.");
+            object oldBuildingStats = statsField.GetValue(null);
+            try
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<BuildingStatsConfig>("Assets/_Project/Resources/Config/BuildingStatsConfig.asset");
+                Require(asset != null, "Tower fixture resolves the actual BuildingStatsConfig.");
+                var table = new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
+                foreach (var row in asset.Stats)
+                {
+                    table[(row.buildingType, RaceId.Human)] = new BuildingStats.StatValues { MaxHp = row.humanMaxHp, GoldCost = row.humanGoldCost,
+                        AttackPower = row.humanAttackPower, AttackCooldown = row.humanAttackCooldown, AttackRange = row.humanAttackRange, UpgradeCost = row.upgradeCost };
+                    table[(row.buildingType, RaceId.Spirit)] = new BuildingStats.StatValues { MaxHp = row.spiritMaxHp, GoldCost = row.spiritGoldCost,
+                        AttackPower = row.spiritAttackPower, AttackCooldown = row.spiritAttackCooldown, AttackRange = row.spiritAttackRange, UpgradeCost = row.upgradeCost };
+                    table[(row.buildingType, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = row.transcendenceMaxHp, GoldCost = row.transcendenceGoldCost,
+                        AttackPower = row.transcendenceAttackPower, AttackCooldown = row.transcendenceAttackCooldown, AttackRange = row.transcendenceAttackRange, UpgradeCost = row.upgradeCost };
+                }
+                BuildingStats.Initialize(table);
+                int humanPower = BuildingStats.GetAttackPower(BuildingType.AutoTower, RaceId.Human);
+                int spiritPower = BuildingStats.GetAttackPower(BuildingType.AutoTower, RaceId.Spirit);
+                Require(humanPower > 0 && spiritPower > 0 && BuildingStats.GetAttackRange(BuildingType.AutoTower, RaceId.Human) > 0f,
+                    "Actual AutoTower rows give positive tower attack power and range.");
+
+                ValidateHumanTowerLaunchAndImpact(humanPower);
+                ValidateHumanTowerRedMuzzle();
+                ValidateHumanTowerFlightOutcomes(humanPower);
+                ValidateHumanTowerNoLaunchCases();
+                ValidateSpiritTowerStaysInstant(spiritPower);
+            }
+            finally
+            {
+                // 사본을 다시 만들지 않고 원래 표 참조(null 포함)를 그대로 되돌린다.
+                statsField.SetValue(null, oldBuildingStats);
+            }
+        }
+
+        /// <summary>타워 fixture 한 벌 — ProjectileFixture(대상 = Red LittleKnight, Blue 유닛 1기) 위에 실제 TowerCombatUseCase를 얹는다.</summary>
+        private sealed class TowerFixture : IDisposable
+        {
+            public readonly ProjectileFixture Base;
+            public readonly TowerCombatUseCase Tower;
+            public readonly BuildingData TowerData;
+            public readonly ProjectileSettings Settings;
+            public readonly List<AttackEffectPresentation> Snapshots = new List<AttackEffectPresentation>();
+            public double Now;
+            private readonly IDisposable _snapshots;
+
+            // 타워 위치 (0.6, 0.1, −0.9): Y 0.1 = 건물 Y 오프셋(GameConfig.BuildingYOffset 기본값과 같은 높이).
+            //   대상(2.1, 0, 0.1)까지 3D 거리 ≈ 1.81 → 실제 사거리(4타일 × 0.866 + 0.05) 안이다.
+            public static readonly Vector3 TowerPosition = new Vector3(.6f, .1f, -.9f);
+
+            public TowerFixture(TeamId towerTeam, RaceId race)
+            {
+                Base = new ProjectileFixture(UnitType.Tank);
+                Settings = new ProjectileSettings(humanTowerSpeed: 4f, humanTowerMuzzleOffset: ProjectileSettings.DefaultHumanTowerMuzzleOffset);
+                Settings.SetUnitRadius(UnitType.LittleKnight, .25f);
+                Settings.SetUnitRadius(UnitType.Tank, .3f);
+                Base.Combat.SetProjectileSettings(Settings);
+                Base.Combat.SetWaveClock(() => Now);
+                TowerData = Base.BuildingsUseCase.PlaceBuildingWithId(9850, BuildingType.AutoTower, towerTeam, new HexCoord(2, 0), race);
+                Require(TowerData != null && TowerData.IsAlive, "Fixture tower is placed.");
+                Base.Positions.Buildings[TowerData.Id] = TowerPosition;
+                Tower = new TowerCombatUseCase(Base.BuildingsUseCase, Base.Spawn, new ProjectileFixtureMapper(), Base.Positions, _ => race);
+                Tower.SetEffectClock(() => Now);
+                Tower.SetProjectileLauncher(Base.Combat);
+                _snapshots = GameEvents.OnAttackEffectConfirmed.Subscribe(Snapshots.Add);
+            }
+
+            /// <summary>타워 공격 판단(서버 Tick) — dt 0이면 쿨다운만 그대로 두고 공격 가능 여부만 본다.</summary>
+            public void TickTower(double now, float dt = 0f) { Now = now; Tower.Tick(dt); }
+
+            /// <summary>투사체 진행(발사 뒤 비행·착탄).</summary>
+            public void TickProjectiles(double now) { Now = now; Base.Tick(now); }
+
+            public void Dispose() { _snapshots?.Dispose(); Base.Dispose(); }
+        }
+
+        private static void ValidateHumanTowerLaunchAndImpact(int humanPower)
+        {
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                UnitData victim = t.Base.Victim;
+                int hp = victim.Hp;
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 1 && victim.Hp == hp && t.Base.VictimDamage.Count == 0 && t.Snapshots.Count == 0,
+                    "[C-2] Human tower attack launches a server projectile with no damage at launch and no Tower snapshot.");
+                Require(Mathf.Approximately(t.TowerData.AttackCooldownRemaining,
+                        BuildingStats.GetAttackCooldown(BuildingType.AutoTower, RaceId.Human)),
+                    "[C-2] The tower cooldown starts at the launch (same cadence as the old instant attack).");
+                ProjectileLaunchPresentation launch = t.Base.Launches[0];
+                Vector3 muzzle = TowerFixture.TowerPosition + ProjectileSettings.DefaultHumanTowerMuzzleOffset;   // Blue: 그대로(+Z)
+                Require(!launch.AttackerIsUnit && launch.AttackerId == t.TowerData.Id
+                        && launch.AttackerKind == (int)BuildingType.AutoTower && launch.AttackerRace == (int)RaceId.Human
+                        && launch.TargetId == victim.Id && launch.TargetIsUnit && launch.Homing
+                        && (launch.Source - muzzle).sqrMagnitude < 1e-8f && Math.Abs(launch.LaunchTime - 1d) < 1e-9,
+                    "[C-2] Launch record: building attacker, Human race, Blue muzzle = tower + (0, 0.405, 0.17), launch at the attack moment: " + launch.Source);
+                float centre = new Vector2(2.1f - muzzle.x, .1f - muzzle.z).magnitude;
+                double expectedImpact = 1d + (centre - .25f) / 4d;
+                Require(Math.Abs(launch.ImpactTime - expectedImpact) < 1e-5 && Mathf.Approximately(launch.TargetRadius, .25f),
+                    "[C-2] Impact time = launch + (muzzle-to-centre XZ distance - target radius) / tower speed 4.");
+                // ⚠️ 진행 시각은 발사 기록의 실제 착탄 시각(서버가 float 거리로 계산한 double 값)을 그대로 쓴다.
+                //   위 expectedImpact(이 검증이 따로 계산한 값)와는 1e-7 안쪽으로 다를 수 있어, 그것으로 Tick 하면
+                //   운영 코드의 "now < ImpactTime" 판정에 걸려 착탄이 안 날 수 있다(ac05e189 교훈 — 데이터 값으로 tick).
+                double impactAt = launch.ImpactTime;
+                t.TickProjectiles(impactAt - .001d);
+                Require(t.Base.Impacts.Count == 0 && victim.Hp == hp, "[C-2] No tower damage before the authoritative impact.");
+                // 쿨다운 동안 타워가 다시 쏘지 않는다(Tick이 와도 같은 쿨다운 규칙).
+                t.TickTower(impactAt - .0005d, .01f);
+                Require(t.Base.Launches.Count == 1, "[C-2] The tower does not fire again while its cooldown runs.");
+                t.TickProjectiles(impactAt);
+                int expected = DamageCalculator.ApplyDefense(humanPower, victim.Defense);
+                Require(t.Base.Impacts.Count == 1 && t.Base.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                        && victim.Hp == hp - expected && t.Base.Impacts[0].AppliedAmount == expected
+                        && t.Base.VictimDamage.Count == 1,
+                    "[C-2] At impact the tower writer applies the launch-time tower power once (defence applied).");
+                EntityDamagedEvent damage = t.Base.VictimDamage[0];
+                Require(damage.ProjectilePresentationKey.Equals(launch.Key) && !damage.AttackerIsUnit
+                        && damage.AttackerId == t.TowerData.Id && !damage.ImmediatePresentation,
+                    "[C-2] The impact damage event carries the projectile key and the building attacker (number waits for the visual impact).");
+                Require(t.Snapshots.Count == 0, "[C-2] No Tower attack snapshot is published for the projectile tower (launch cue comes from the presenter).");
+                string end = t.Base.Combat.BuildProjectileEndLine("fixture");
+                Require(end.Contains(" path=tower-Human:s1/l0 ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
+                        && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
+                    "[C-2] Server END path separates the building attacker (tower-Human): " + end);
+                string towerEnd = t.Base.Combat.BuildProjectileTowerEndLine("fixture");
+                Require(towerEnd.Contains(" byTower=launched:1|hit:1|targetLost:0|destroyedThenHit:0|destroyedThenLost:0 ")
+                        && towerEnd.Contains(" towerPath=Human:s1/l0|Spirit:s0/l0|Transcendence:s0/l0 ")
+                        && towerEnd.EndsWith(" balance=ok verdict=PASS"),
+                    "[C-2] Server tower END line counts the building-attacker launch and hit: " + towerEnd);
+            }
+        }
+
+        private static void ValidateHumanTowerRedMuzzle()
+        {
+            using (var t = new TowerFixture(TeamId.Red, RaceId.Human))
+            {
+                // Red 타워는 Blue 유닛(fixture 공격자 자리, (0.1, 0, 0.1))을 노린다. 포구는 180° 돌아 −Z 쪽이다.
+                t.TickTower(2d);
+                Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == t.Base.Attacker.Id,
+                    "[C-2] A Red Human tower targets the enemy (Blue) unit.");
+                Vector3 offset = ProjectileSettings.DefaultHumanTowerMuzzleOffset;
+                Vector3 muzzle = new Vector3(TowerFixture.TowerPosition.x - offset.x, TowerFixture.TowerPosition.y + offset.y,
+                    TowerFixture.TowerPosition.z - offset.z);
+                Require((t.Base.Launches[0].Source - muzzle).sqrMagnitude < 1e-8f && t.Base.Launches[0].Team == TeamId.Red,
+                    "[C-2] Red tower muzzle = tower + (−x, y, −z) offset (the Red tower stands rotated 180°): " + t.Base.Launches[0].Source);
+            }
+        }
+
+        private static void ValidateHumanTowerFlightOutcomes(int humanPower)
+        {
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 비행 중 타워 파괴 → 이미 쏜 포탄은 맞으면 피해(공격자 사망과 같음 — U-6).
+                UnitData victim = t.Base.Victim;
+                int hp = victim.Hp;
+                t.TickTower(1d);
+                double impact = t.Base.Launches[0].ImpactTime;
+                t.TowerData.TakeDamage(t.TowerData.Hp);
+                t.Base.BuildingsUseCase.RemoveBuilding(t.TowerData.Id);
+                t.TickProjectiles((1d + impact) * .5d);
+                t.TickProjectiles(impact);
+                Require(t.Base.Impacts.Count == 1 && t.Base.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                        && victim.Hp == hp - DamageCalculator.ApplyDefense(humanPower, victim.Defense),
+                    "[C-3] A tower destroyed in flight still damages on impact with the launch-time power.");
+                string end = t.Base.Combat.BuildProjectileEndLine("fixture");
+                string towerEnd = t.Base.Combat.BuildProjectileTowerEndLine("fixture");
+                Require(towerEnd.Contains("|destroyedThenHit:1|destroyedThenLost:0 ") && end.Contains(" attackerDead=hit:1|lost:0 ")
+                        && end.Contains(" balance=ok ") && towerEnd.EndsWith(" balance=ok verdict=PASS"),
+                    "[C-3] Server END lines count the hit after the tower was destroyed: " + end + " / " + towerEnd);
+            }
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 비행 중 대상 사망(다른 원인) → 착탄 이펙트만, 피해·숫자 없음(Q4).
+                t.TickTower(1d);
+                t.Base.Victim.TakeDamage(t.Base.Victim.Hp);
+                t.TickProjectiles(t.Base.Launches[0].ImpactTime);
+                Require(t.Base.Impacts.Count == 1 && t.Base.Impacts[0].Outcome == ProjectileImpactOutcome.TargetLost
+                        && t.Base.VictimDamage.Count == 0,
+                    "[C-3] A target lost while the cannonball flies takes no damage; the result is TargetLost.");
+                Require(t.Base.Combat.BuildProjectileTowerEndLine("fixture").Contains(" byTower=launched:1|hit:0|targetLost:1|"),
+                    "[C-3] Server tower END line counts the tower target-lost result.");
+            }
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 게임 종료 닫기 → 비행 중 포탄 피해 없음(위험 7).
+                int hp = t.Base.Victim.Hp;
+                t.TickTower(1d);
+                t.Base.Combat.CloseProjectiles("game-end");
+                t.TickProjectiles(5d);
+                Require(t.Base.Impacts.Count == 0 && t.Base.Victim.Hp == hp,
+                    "[C-3] Closing the service cancels the in-flight tower projectile without damage.");
+            }
+        }
+
+        private static void ValidateHumanTowerNoLaunchCases()
+        {
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 공격 순간 대상이 이미 죽어 있으면 쏘지 않는다(Q15) — 쿨다운도 시작하지 않는다(공격 자체가 없었다).
+                t.Base.Victim.TakeDamage(t.Base.Victim.Hp);
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[C-3] A dead target is never shot and the tower cooldown does not start.");
+            }
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 서비스가 닫혔으면(게임 종료 뒤) 발사를 거절하고 쿨다운도 시작하지 않는다(유닛 커밋 거절과 같은 원칙).
+                t.Base.Combat.CloseProjectiles("game-end");
+                int hp = t.Base.Victim.Hp;
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.Base.Victim.Hp == hp && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[C-3] A closed projectile service refuses the tower launch without instant fallback damage or cooldown.");
+            }
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                // 타워는 건물을 공격하지 않는다(방어 타워 규칙 1) — 사거리 안에 적 건물만 있으면 발사 0.
+                t.Base.Spawn.RemoveUnit(t.Base.Victim.Id);
+                BuildingData enemy = t.Base.BuildingsUseCase.PlaceBuildingWithId(9851, BuildingType.Castle, TeamId.Red, new HexCoord(1, 0));
+                Require(enemy != null, "Fixture enemy building is placed.");
+                t.Base.Positions.Buildings[enemy.Id] = new Vector3(1.2f, 0f, -.4f);
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0, "[C-4] The tower never targets buildings (units only), so nothing is launched.");
+            }
+        }
+
+        private static void ValidateSpiritTowerStaysInstant(int spiritPower)
+        {
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Spirit))
+            {
+                // RuneSpire(Spirit AutoTower)는 투사체가 아니다 — 공격 순간 즉발 피해 + Tower 스냅샷(번개) 그대로.
+                UnitData victim = t.Base.Victim;
+                int hp = victim.Hp;
+                t.TickTower(1d);
+                int expected = DamageCalculator.ApplyDefense(spiritPower, victim.Defense);
+                Require(t.Base.Launches.Count == 0 && victim.Hp == hp - expected && t.Base.VictimDamage.Count == 1
+                        && !t.Base.VictimDamage[0].ProjectilePresentationKey.IsValid && !t.Base.VictimDamage[0].AttackerIsUnit,
+                    "[C-5] RuneSpire keeps instant damage with no projectile record or key.");
+                Require(t.Snapshots.Count == 1 && t.Snapshots[0].Visual == AttackEffectVisual.Tower && t.Snapshots[0].Race == RaceId.Spirit,
+                    "[C-5] RuneSpire still publishes its Tower attack snapshot (bolt presentation unchanged).");
+                Require(Mathf.Approximately(t.TowerData.AttackCooldownRemaining,
+                        BuildingStats.GetAttackCooldown(BuildingType.AutoTower, RaceId.Spirit)),
+                    "[C-5] RuneSpire cooldown cadence is unchanged.");
+                string end = t.Base.Combat.BuildProjectileEndLine("fixture");
+                Require(end.Contains(" path=tower-Spirit:s0/l1 ") && end.Contains(" reserved=0 ") && end.Contains(" launched=0 ")
+                        && t.Base.Combat.BuildProjectileTowerEndLine("fixture").Contains(" towerPath=Human:s0/l0|Spirit:s0/l1|Transcendence:s0/l0 "),
+                    "[C-5] Server END shows the RuneSpire attack on the instant path: " + end);
             }
         }
 
@@ -780,6 +1065,11 @@ namespace Hexiege.Editor.Combat
                     && Mathf.Approximately(settings.GetUnitSpeed(UnitType.MushroomBomber), 5f)
                     && Mathf.Approximately(settings.HumanTowerSpeed, 4f),
                 "Initial server speeds match the 2026-10-20 decision (Inspector-tunable; update this check when tuned).");
+            // [단계 C] 인간 타워 포구(발사 원점) — 에셋 값이 측정값(CannonTower 메시 포신 끝)과 같고 설정 묶음으로 그대로 넘어간다.
+            Require((config.HumanTowerMuzzleOffset - ProjectileSettings.DefaultHumanTowerMuzzleOffset).sqrMagnitude < 1e-8f
+                    && (settings.HumanTowerMuzzleOffset - config.HumanTowerMuzzleOffset).sqrMagnitude < 1e-8f,
+                "[C-2] ProjectileConfig carries the measured CannonTower muzzle offset (0, 0.405, 0.17) into the server settings "
+                + "(update this check when the Inspector value is tuned): " + config.HumanTowerMuzzleOffset);
             var unitTypes = new HashSet<UnitType>();
             foreach (var row in config.UnitRadii)
                 if (row.radius > 0f && row.radius < 1f) unitTypes.Add(row.unitType);
@@ -861,6 +1151,36 @@ namespace Hexiege.Editor.Combat
                     && presenter.Contains("\"part=1/2 \"") && presenter.Contains("\"part=2/2\"")
                     && presenter.Contains("\" text=\" + (_hits != null ? _hits.DescribeProjectileTextForDiagnostics()"),
                 "Option A: the presenter passes the screen impact point; the view END is split into two lines with text= results.");
+        }
+
+        // ── [단계 C — C-6] 타워 화면 소비자 경로 소스 게이트 ─────────────────────────
+        private static void ValidateServerProjectileStageCSourceGates()
+        {
+            string Read(string relative)
+            {
+                string path = Path.Combine(UnityEngine.Application.dataPath, relative);
+                Require(File.Exists(path), "Stage C source gate file exists: " + relative);
+                return File.ReadAllText(path);
+            }
+            string Active(string source)
+            {
+                var kept = new System.Text.StringBuilder(source.Length);
+                foreach (string line in source.Split('\n'))
+                    if (!line.TrimStart().StartsWith("//", StringComparison.Ordinal)) kept.Append(line).Append('\n');
+                return kept.ToString();
+            }
+            string presenter = Active(Read("_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs"));
+            string tower = Active(Read("_Project/Scripts/Application/UseCases/TowerCombatUseCase.cs"));
+            Require(presenter.Contains("visual.Start = ViewConverter.ToView(launch.Source);")
+                    && presenter.Contains("effects.BeginServerTowerProjectile(visual.TowerType, visual.TowerRace, visual.Start)")
+                    && presenter.Contains("effects.PlayServerTowerLaunchCue(visual.TowerType, visual.TowerRace, visual.Start,")
+                    && presenter.Contains("!launch.AttackerIsUnit && !midFlight && effects != null")
+                    && presenter.Contains("effects.PlayServerTowerProjectileImpact(visual.TowerType, visual.TowerRace, point, point - visual.Start)"),
+                "[C-6] Tower projectiles start at the server muzzle, use the tower tracer/impact presets and emit the muzzle launch cue only for non-mid-flight begins.");
+            Require(tower.Contains("ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, projectileRace)")
+                    && tower.Contains("_projectiles.TryLaunchTowerProjectile(tower, projectileRace, target, launchPower, this)")
+                    && tower.Contains("projectilePresentationKey: key"),
+                "[C-6] The tower writer branches only projectile towers to the server launch and tags impact damage with the projectile key.");
         }
     }
 }

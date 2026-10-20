@@ -5,7 +5,11 @@
 // 담는 값 (모두 서버만 읽는다 — Client 화면은 서버가 보낸 발사/착탄 시각만 쓴다):
 //   · 유닛 종류별 투사체 속도(월드 미터/초) — 2026-10-20 사용자 결정 Q2 「Inspector에서 조절, 서버 권위 데이터」.
 //       초기값: StreamSpirit 4 · Tank 4 · CannonCart 4 · InfernoSpirit 5 · FoxMagician 5 · EagleArcher 6 · MushroomBomber 5.
-//   · 인간 방어타워 투사체 속도(초기 4) — 다음 단계(인간 타워 전환)에서 사용한다. 지금은 보관만 한다.
+//   · 인간 방어타워 투사체 속도(초기 4) — 2026-10-21 단계 C(인간 타워 전환)부터 실제로 쓴다.
+//     (옛 줄, 기록용: 「다음 단계(인간 타워 전환)에서 사용한다. 지금은 보관만 한다.」)
+//   · 인간 방어타워 포구 위치(발사 원점, 단계 C) — 타워 루트 기준 "타워 정면" 좌표계 오프셋.
+//       서버 발사 위치와 화면 발사 이펙트·투사체 출발점이 모두 이 한 값을 쓴다(사용자 결정 「대포 입구에서 발사」).
+//       초기값 (0, 0.405, 0.17)은 CannonTower 메시 포신 끝을 측정한 값이다(ProjectileSettings.DefaultHumanTowerMuzzleOffset 주석).
 //   · 대상 반경 표 — 투사체가 "대상 표면"에 닿는 순간을 계산할 때 비행 거리에서 빼는 값(Q12).
 //       유닛: UnitEffectConfig._recipientFits의 radius(측정 도구 값)를 복제해 둔 표(RM-12 — Presentation 값을 서버가 직접 읽지 않으려고 옮김).
 //       건물: 종류별 반경을 새로 둔 표. 초기값은 모두 같은 임시값이며 실기에서 튜닝한다(측정 근거 없음 — 미확인).
@@ -73,8 +77,14 @@ namespace Hexiege.Infrastructure
         [Tooltip("유닛 종류별 투사체 속도. 표에 없는 유닛은 코드 안전값(4)을 쓴다")]
         [SerializeField] private List<UnitSpeedEntry> _unitSpeeds = new List<UnitSpeedEntry>();
 
-        [Tooltip("인간 방어타워(CannonTower) 투사체 속도 — 다음 단계(인간 타워 전환)에서 사용. 지금은 보관만 한다")]
+        // [단계 C] 옛 Tooltip(기록용): "인간 방어타워(CannonTower) 투사체 속도 — 다음 단계(인간 타워 전환)에서 사용. 지금은 보관만 한다"
+        [Tooltip("인간 방어타워(CannonTower) 투사체 속도(월드 미터/초). 0 이하면 코드 안전값(4)을 쓴다")]
         [SerializeField] private float _humanTowerSpeed = 4f;
+
+        [Header("인간 방어타워 발사 원점 (서버 판정 + 화면 공용)")]
+        [Tooltip("CannonTower 포구(대포 입구) 위치 — 타워 루트 기준, x=타워 오른쪽 · y=위 · z=대포가 향한 앞쪽(월드 미터). "
+            + "Red 타워는 180° 돌아 놓이므로 코드가 x·z 부호를 뒤집는다. 서버 발사 위치와 화면 발사 이펙트가 같은 값을 쓴다")]
+        [SerializeField] private Vector3 _humanTowerMuzzleOffset = new Vector3(0f, 0.405f, 0.17f);
 
         [Header("대상 반경 (서버 판정 전용 — 표면 착탄)")]
         [Tooltip("유닛 종류별 몸통 반경. UnitEffectConfig 크기 표(radius)를 복제한 값이다")]
@@ -98,6 +108,9 @@ namespace Hexiege.Infrastructure
         /// <summary>건물 반경 표(읽기 전용 — 검증용).</summary>
         public IReadOnlyList<BuildingRadiusEntry> BuildingRadii => _buildingRadii;
 
+        /// <summary>[단계 C] 인간 방어타워 포구 위치(읽기 전용 — 검증용).</summary>
+        public Vector3 HumanTowerMuzzleOffset => _humanTowerMuzzleOffset;
+
         /// <summary>
         /// Inspector 값을 Application 순수 데이터(ProjectileSettings)로 바꾼다. 조합 루트가 UseCase에 주입한다.
         /// 표에 같은 종류가 두 번 있으면 뒤의 값이 이긴다. 잘못된 값(0 이하 속도 등)은 ProjectileSettings가 무시한다.
@@ -105,7 +118,9 @@ namespace Hexiege.Infrastructure
         /// <returns>서버 비행 계산용 값 묶음.</returns>
         public ProjectileSettings ToSettings()
         {
-            var settings = new ProjectileSettings(_defaultUnitRadius, _defaultBuildingRadius, _humanTowerSpeed);
+            // [단계 C] 옛 줄(기록용): new ProjectileSettings(_defaultUnitRadius, _defaultBuildingRadius, _humanTowerSpeed);
+            var settings = new ProjectileSettings(_defaultUnitRadius, _defaultBuildingRadius, _humanTowerSpeed,
+                _humanTowerMuzzleOffset);
             // 표가 비어 있어도 결정된 초기 속도는 유지되도록 코드 기본값을 먼저 깔고 Inspector 값으로 덮는다.
             ProjectileSettings defaults = ProjectileSettings.CreateDefault();
             foreach (UnitType type in new[] { UnitType.StreamSpirit, UnitType.Tank, UnitType.CannonCart,

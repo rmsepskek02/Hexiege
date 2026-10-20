@@ -54,6 +54,47 @@ namespace Hexiege.Presentation
             foreach (var entry in _autoTowerAttacks) if (entry.race == race) return entry.preset;
             return null;
         }
+        /// <summary>
+        /// [2026-10-21 서버 권위 투사체 단계 C] 투사체 타워(종족별)의 투사체(트레이서)·착탄 이펙트 프리셋 한 줄.
+        /// 사용자 결정(Q10 ①): 인간 CannonTower는 CannonCart의 투사체(EffectPreset_Cannon_Tracer)·
+        /// 착탄(EffectPreset_Cannon_Impact) 프리셋을 그대로 쓴다. 발사(총구) 이펙트는 위 _autoTowerAttacks의 프리셋이다.
+        /// </summary>
+        [System.Serializable]
+        public struct RaceProjectile
+        {
+            [Tooltip("이 줄이 적용되는 타워 종족")]
+            public RaceId race;
+
+            [Tooltip("서버 투사체 비행 중 보이는 트레이서 프리셋(TracerProjectile이 붙은 VFX). 비우면 투사체 없이 착탄만 보인다")]
+            public EffectPreset tracerPreset;
+
+            [Tooltip("서버 착탄 지점(대상 표면)에서 1회 재생할 착탄 프리셋. 비우면 착탄 이펙트 없음")]
+            public EffectPreset impactPreset;
+        }
+
+        [Tooltip("[단계 C] 투사체 타워 종족별 투사체·착탄 프리셋. 지금은 Human(CannonTower)만 — CannonCart 프리셋 재사용")]
+        [SerializeField] private List<RaceProjectile> _autoTowerProjectiles = new List<RaceProjectile>();
+
+        /// <summary>[단계 C] 투사체 타워의 트레이서 프리셋. AutoTower가 아니거나 줄이 없으면 null.</summary>
+        /// <param name="type">건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        public EffectPreset GetTowerTracer(BuildingType type, RaceId race)
+        {
+            if (type != BuildingType.AutoTower || _autoTowerProjectiles == null) return null;
+            foreach (var entry in _autoTowerProjectiles) if (entry.race == race) return entry.tracerPreset;
+            return null;
+        }
+
+        /// <summary>[단계 C] 투사체 타워의 착탄 프리셋. AutoTower가 아니거나 줄이 없으면 null.</summary>
+        /// <param name="type">건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        public EffectPreset GetTowerImpact(BuildingType type, RaceId race)
+        {
+            if (type != BuildingType.AutoTower || _autoTowerProjectiles == null) return null;
+            foreach (var entry in _autoTowerProjectiles) if (entry.race == race) return entry.impactPreset;
+            return null;
+        }
+
         [Tooltip("각 건물 타입별 파괴/업그레이드 이펙트 프리셋. Inspector에서 편집")]
         [SerializeField] private List<BuildingEffectEntry> _entries = new List<BuildingEffectEntry>();
 

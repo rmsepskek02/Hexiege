@@ -20,6 +20,11 @@
 //      (UnitView.PlayServerProjectileLaunchCue). 예전에는 애니메이션 marker가 냈는데, 순수 Client는 서버가 발사를
 //      취소했는지 몰라 취소된 공격에도 총구 VFX가 났다. 발사 기록이 있을 때만 내므로 세 실행 형태(싱글·Host·Client)가
 //      같은 서버 권위 정보로 판정한다. 늦은 접속으로 비행 중간부터 그리는 투사체는 발사 신호를 생략한다(이미 쏜 뒤다).
+//   5-1) [2026-10-21 단계 C — 인간 방어타워(CannonTower)] 건물 공격자의 발사 기록도 같은 일정표로 그린다.
+//      · 출발점 = 서버가 보낸 포구 위치(발사 기록 Source — 높이 포함). 타워에는 UnitView 총구가 없다.
+//      · 투사체·착탄 이펙트 = BuildingEffectConfig의 타워 종족별 프리셋(인간 = CannonCart 것 재사용).
+//      · 발사 신호 = 포구에서 타워 발사 이펙트(EffectPreset_HumanAutoTower_Attack) 1회 — 사용자 결정 「발사 이펙트도 같은 위치」.
+//        늦은 접속 중간 복원이면 생략한다(유닛과 같은 규칙). 숫자·피격 반응은 유닛 투사체와 같은 착탄 순간 방출이다.
 //   6) [단계 B 진단] 받은 수·그린 수·착탄 VFX 수·거부 사유·결과/화면 도착 순서·화면 착탄 지연 분포를 세어
 //      경기 종료 때 [PROJECTILE-END] side=view 2줄(2026-10-21 전에는 1줄)로 남기고, 처음 24발은 [PROJECTILE-VIEW] 표본 줄을 남긴다.
 //
@@ -79,6 +84,9 @@ namespace Hexiege.Presentation
             public Vector3 LastEndpoint;
             public UnitType AttackerType;
             public bool AttackerIsUnit;
+            // [단계 C] 건물 공격자(타워)일 때만 의미가 있다 — 프리셋 선택용.
+            public BuildingType TowerType;
+            public RaceId TowerRace;
         }
 
         private readonly ProjectilePresentationCoordinator _coordinator = new ProjectilePresentationCoordinator();
@@ -100,6 +108,8 @@ namespace Hexiege.Presentation
             public int LaunchReceived, LaunchAccepted, ResultReceived, ResultAccepted, EpochResets;
             public int Begins, BeginsMidFlight, TracerMissing;
             public int CuePlayed, CueVfxStarted, CueSkippedMidFlight, CueNoAttackerView;
+            // [단계 C] 타워 발사 신호(포구 발사 이펙트) 계수 — played = 재생, skippedMidFlight = 중간 복원이라 생략, noPreset = 프리셋 없음.
+            public int TowerCuePlayed, TowerCueSkippedMidFlight, TowerCueNoPreset;
             public int FinishHit, FinishLost, ImpactVfxPlayed, ImpactVfxMissing, Aborts, Samples;
             public readonly System.Collections.Generic.HashSet<ulong> Sampled = new System.Collections.Generic.HashSet<ulong>();
             // 화면 착탄 지연 = 화면이 착탄을 보여 준 순간의 서버 시각 − 서버 착탄 시각(Client 표시 지연, 초).
@@ -213,18 +223,30 @@ namespace Hexiege.Presentation
                 {
                     AttackerIsUnit = launch.AttackerIsUnit,
                     AttackerType = (UnitType)launch.AttackerKind,
+                    // [단계 C] 건물 공격자면 AttackerKind = BuildingType, AttackerRace = RaceId(서버가 채운다).
+                    TowerType = (BuildingType)launch.AttackerKind,
+                    TowerRace = (RaceId)launch.AttackerRace,
                     LastCenter = ViewConverter.ToView(launch.TargetCenter)
                 };
                 UnitView attackerView = ResolveAttackerView(launch);
                 // 옛 줄(기록용): visual.Start = ResolveLaunchPoint(launch);  — 같은 규칙을 아래 두 줄로 나눴다(공격자 화면을 한 번만 찾는다).
-                visual.Start = attackerView != null
-                    ? attackerView.ProjectileLaunchPoint
-                    : ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
+                // [단계 C] 건물 공격자(타워)는 서버가 보낸 포구 위치(높이 포함)를 그대로 출발점으로 쓴다.
+                //   Red 화면은 ToView가 XZ를 반전한다 — 타워도 그 화면에서 180° 돌아 놓여 있어 같은 포구에 맞는다.
+                //   유닛 공격자 줄은 예전과 같다(공격자 화면이 있으면 총구, 없으면 서버 위치 + 대체 높이).
+                if (!launch.AttackerIsUnit)
+                    visual.Start = ViewConverter.ToView(launch.Source);
+                else
+                    visual.Start = attackerView != null
+                        ? attackerView.ProjectileLaunchPoint
+                        : ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
                 ResolveTarget(launch, visual);
                 visual.LastEndpoint = SurfacePoint(visual.Start, visual.LastCenter, launch.TargetRadius);
                 EffectManager effects = EffectManager.Instance;
                 if (effects != null && launch.AttackerIsUnit)
                     visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, visual.Start);
+                // [단계 C] 타워 투사체 — CannonCart 트레이서 프리셋(BuildingEffectConfig 종족별 줄).
+                if (effects != null && !launch.AttackerIsUnit)
+                    visual.Tracer = effects.BeginServerTowerProjectile(visual.TowerType, visual.TowerRace, visual.Start);
                 slot.Visual = visual;
 
                 // [단계 B — 의심 1 수정] 발사 신호(총구 VFX + 발사음)는 "서버 발사 기록이 화면에 나오는 이 순간"에만 낸다.
@@ -234,8 +256,15 @@ namespace Hexiege.Presentation
                 UnitAttackVfxPlaybackResult cueResult = default;
                 if (launch.AttackerIsUnit && !midFlight && attackerView != null)
                     cueResult = attackerView.PlayServerProjectileLaunchCue();
+                // [단계 C] 타워 발사 신호 — 포구(= 투사체 출발점)에서 타워 발사 이펙트를 1회. 방향 = 포구 → 대상 화면 위치.
+                //   예전에는 서버 Tower 스냅샷(HitPresentationQueue → EffectManager.PlayAttackEffect)이 타워 루트에서 냈다.
+                //   인간 타워는 이제 그 스냅샷을 내지 않으므로(TowerCombatUseCase) 여기 한 곳에서만 난다(이중 재생 없음).
+                bool towerCue = false;
+                if (!launch.AttackerIsUnit && !midFlight && effects != null)
+                    towerCue = effects.PlayServerTowerLaunchCue(visual.TowerType, visual.TowerRace, visual.Start,
+                        visual.LastCenter - visual.Start);
                 DiagBegin(slot, beginLag, midFlight, visual.Tracer != null, cueResult.Status,
-                    attackerView != null, attackerView != null && attackerView.HasAttackChargeMarker);
+                    attackerView != null, attackerView != null && attackerView.HasAttackChargeMarker, towerCue);
             }
             catch (Exception exception) { Fault("begin", slot, exception); }
         }
@@ -277,6 +306,9 @@ namespace Hexiege.Presentation
                     EffectManager effects = EffectManager.Instance;
                     if (visual.AttackerIsUnit && effects != null)
                         impactVfx = effects.PlayServerProjectileImpact(visual.AttackerType, point, point - visual.Start);
+                    // [단계 C] 타워 투사체 착탄 — CannonCart 착탄 프리셋(BuildingEffectConfig 종족별 줄), 같은 표면 지점.
+                    if (!visual.AttackerIsUnit && effects != null)
+                        impactVfx = effects.PlayServerTowerProjectileImpact(visual.TowerType, visual.TowerRace, point, point - visual.Start);
                 }
                 DiagFinish(slot, withResult, impactVfx);
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).
@@ -420,6 +452,7 @@ namespace Hexiege.Presentation
         //     text=played:N|fallback:N|missing:N|missingDead:N — 투사체 피해 숫자 표시 결과(1줄째, hold= 바로 뒤).
         //     launch=recv:N|accepted:N  result=recv:N|accepted:N  begins=all:N|midFlight:N|tracerMissing:N
         //     cue=played:N|vfxStarted:N|skippedMidFlight:N|noAttackerView:N  finish=hit:N|lost:N  impactVfx=played:N|missing:N
+        //     towerCue=played:N|skippedMidFlight:N|noPreset:N  ([단계 C] 타워 포구 발사 이펙트 — 건물 공격자만)
         //     aborts=N  rejected=...|order=...|timeouts=N  (ProjectilePresentationCoordinator)
         //     displayLag=...(화면 착탄 − 서버 착탄)  resultLag=...(결과 수신 − 서버 착탄)  beginLag=...(꺼냄 − 서버 발사)
         //     hold=held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N|ownerNotReady:N
@@ -428,13 +461,20 @@ namespace Hexiege.Presentation
 
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private void DiagBegin(ProjectilePresentationCoordinator.Slot slot, double beginLag, bool midFlight,
-            bool tracer, UnitAttackVfxPlaybackStatus cueStatus, bool attackerView, bool chargeUnit)
+            bool tracer, UnitAttackVfxPlaybackStatus cueStatus, bool attackerView, bool chargeUnit, bool towerCue)
         {
             _view.Begins++;
             _view.BeginLag.Add(beginLag);
             if (!tracer) _view.TracerMissing++;
             string cue;
-            if (!slot.Launch.AttackerIsUnit) cue = "not-unit";
+            // [단계 C] 옛 줄(기록용): if (!slot.Launch.AttackerIsUnit) cue = "not-unit";
+            //   건물 공격자(타워)의 발사 신호를 따로 센다. 유닛 공격자 칸(played/vfxStarted/...)에는 섞지 않는다.
+            if (!slot.Launch.AttackerIsUnit)
+            {
+                if (midFlight) { cue = "tower-skipped-mid-flight"; _view.TowerCueSkippedMidFlight++; }
+                else if (towerCue) { cue = "tower-played"; _view.TowerCuePlayed++; }
+                else { cue = "tower-no-preset"; _view.TowerCueNoPreset++; }
+            }
             else if (midFlight) { cue = "skipped-mid-flight"; _view.CueSkippedMidFlight++; }
             else if (!attackerView) { cue = "no-attacker-view"; _view.CueNoAttackerView++; }
             else
@@ -503,6 +543,9 @@ namespace Hexiege.Presentation
                 $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
                 + FormattableString.Invariant(
                 $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing} cue=played:{v.CuePlayed}|vfxStarted:{v.CueVfxStarted}|skippedMidFlight:{v.CueSkippedMidFlight}|noAttackerView:{v.CueNoAttackerView} ")
+                // [단계 C] 타워 발사 신호 칸(건물 공격자만). 옛 1줄째에는 이 칸이 없었다.
+                + FormattableString.Invariant(
+                $"towerCue=played:{v.TowerCuePlayed}|skippedMidFlight:{v.TowerCueSkippedMidFlight}|noPreset:{v.TowerCueNoPreset} ")
                 + FormattableString.Invariant(
                 $"finish=hit:{v.FinishHit}|lost:{v.FinishLost} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
                 + _coordinator.DescribeForDiagnostics()

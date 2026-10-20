@@ -732,6 +732,76 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-10-21 서버 권위 투사체 단계 C] 투사체 타워(인간 CannonTower) 화면 표현
+        //   ProjectilePresentationPresenter가 서버 발사 기록(건물 공격자)을 꺼낼 때·착탄할 때 부른다.
+        //   프리셋은 BuildingEffectConfig에서 고른다: 발사(총구) = _autoTowerAttacks(EffectPreset_HumanAutoTower_Attack),
+        //   투사체·착탄 = _autoTowerProjectiles(CannonCart의 EffectPreset_Cannon_Tracer / _Impact 재사용 — Q10 ①).
+        //   피해·HP와 무관한 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 서버 투사체 화면 오브젝트(트레이서)를 외부 구동 모드로 꺼낸다.
+        /// 트레이서 프리셋이 없으면 null(투사체 없이 착탄 이펙트·숫자만 착탄 순간에 나온다 — 유닛과 같은 규칙).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류(AutoTower).</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="start">발사 지점(화면 좌표 — 포구).</param>
+        /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
+        public TracerProjectile BeginServerTowerProjectile(BuildingType towerType, RaceId race, Vector3 start)
+        {
+            EffectPreset preset = _buildingConfig?.GetTowerTracer(towerType, race);
+            GameObject prefab = preset != null ? preset.VfxPrefab : null;
+            if (prefab == null) return null;
+            TracerProjectile tracer = GetOrCreateTracer(prefab);
+            tracer.BeginDriven(start);
+            return tracer;
+        }
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 "발사 신호"(포구 발사 이펙트)를 포구 위치에서 1회 재생한다.
+        /// 사용자 결정 「발사 이펙트도 대포 입구 위치로」 — 위치는 서버가 보낸 포구(발사 기록 Source)를 그대로 쓴다.
+        /// 회전은 기존 타워 발사 이펙트(PlayAttackEffect · PlayBuildingAttack)와 같이 "타워 → 대상" 수평 방향이다.
+        /// 프리셋의 Local Position Offset은 회전된 정면 기준으로 더해진다(지금 값 0,0,0 — 포구 그 자리).
+        /// 타워 발사 SFX는 아직 지정되지 않았다(사운드 규칙 15 — 추가하지 않는다).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="muzzle">포구 위치(화면 좌표).</param>
+        /// <param name="towardTarget">포구 → 대상 방향(수평 회전 계산용).</param>
+        /// <returns>발사 프리셋이 있어 재생했으면 true.</returns>
+        public bool PlayServerTowerLaunchCue(BuildingType towerType, RaceId race, Vector3 muzzle, Vector3 towardTarget)
+        {
+            EffectPreset preset = _buildingConfig?.GetAttack(towerType, race);
+            if (preset == null || preset.VfxPrefab == null) return false;
+            towardTarget.y = 0f;
+            Quaternion rotation = towardTarget.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(towardTarget)
+                : Quaternion.identity;
+            Play(preset, muzzle, rotation);
+            return true;
+        }
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 착탄 이펙트를 서버 착탄 지점(대상 표면)에서 1회 재생한다(명중·대상 소실 공통 — Q4).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="point">착탄 지점(화면 좌표).</param>
+        /// <param name="flightDirection">날아온 방향(수평 회전 계산용).</param>
+        /// <returns>착탄 프리셋이 있어 재생했으면 true.</returns>
+        public bool PlayServerTowerProjectileImpact(BuildingType towerType, RaceId race, Vector3 point, Vector3 flightDirection)
+        {
+            EffectPreset impact = _buildingConfig?.GetTowerImpact(towerType, race);
+            if (impact == null || impact.VfxPrefab == null) return false;
+            flightDirection.y = 0f;
+            Quaternion rotation = flightDirection.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(flightDirection)
+                : Quaternion.identity;
+            Play(impact, point, rotation);
+            return true;
+        }
+
+        // ====================================================================
         // 내부 — 실제 재생 로직
         // ====================================================================
 

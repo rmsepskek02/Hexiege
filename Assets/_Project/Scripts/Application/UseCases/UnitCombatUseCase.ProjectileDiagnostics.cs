@@ -19,6 +19,16 @@
 //   flight=... 은 서버 비행 시간 분포(초), dist=... 은 발사 순간 중심 거리 분포(월드 미터)다.
 //   attackerDead=... 은 "발사 뒤 공격자가 죽었는데 착탄"한 발의 수와 사망~착탄 간격(초)이다.
 //   path=... 은 투사체 유닛 종류별 "새 경로(s)/기존 경로(l)" 타격 수다(스위치 off 유닛이 기존 경로를 지켰는가).
+//   [2026-10-21 단계 C — 건물 공격자 구분]
+//     path=... 끝에 방어 타워 공격이 종족별로 붙는다: "tower-Human:s3/l0|tower-Spirit:s0/l5".
+//       타워의 s = 서버 투사체 경로(인간 CannonTower), l = 기존 즉발 경로(RuneSpire·VineTower — 즉발 유지가 설계).
+//       → RuneSpire 회귀 확인: tower-Spirit의 s가 0이고 l이 공격 수만큼이면 즉발을 지켰다.
+//     건물 공격자 합계는 별도 줄 [PROJECTILE-END] side=server-tower 에 있다(서버 END 1줄이 기기 logcat 약 1024자 한도에
+//       가까워 칸을 더 붙이지 않았다 — 2026-10-21 view END 잘림과 같은 위험):
+//       byTower=launched:N|hit:N|targetLost:N|destroyedThenHit:N|destroyedThenLost:N
+//       = 건물 공격자(타워)가 쏜 투사체만 따로 센 값. destroyedThenHit = "발사 뒤 타워가 파괴됐는데 착탄해 피해를 준" 발 수
+//         (공격자 사망과 같은 규칙 U-6 확인용). 이 값들은 server 줄의 launched/hit/targetLost/attackerDead 합계에도 함께 들어 있다.
+//       towerPath=Human:sN/lN|Spirit:sN/lN|Transcendence:sN/lN — 종족별 타워 공격 경로(공격 0회 종족도 0으로 찍는다).
 // ============================================================================
 
 using System;
@@ -50,6 +60,11 @@ namespace Hexiege.Application
             public int ClosedReserved, ClosedInFlight;
             public int HitAfterAttackerDeath, LostAfterAttackerDeath, AttackerDeathSamples;
             public int DetailOmitted;
+            // [단계 C] 건물 공격자(타워) 몫 — 위 합계의 부분 집합.
+            public int TowerLaunched, TowerHit, TowerTargetLost, TowerDestroyedThenHit, TowerDestroyedThenLost;
+            // [단계 C] 방어 타워 공격 경로(종족별, RaceId 0~2): s = 서버 투사체, l = 기존 즉발.
+            public readonly int[] TowerServerPathByRace = new int[3];
+            public readonly int[] TowerInstantPathByRace = new int[3];
             public double LaunchLagMax, ImpactLagMax;
             public readonly int[] Cancels = new int[ProjectileCancelCauses.Length];
             public readonly int[] ServerPathByType = new int[32];
@@ -79,13 +94,19 @@ namespace Hexiege.Application
             public int TargetId; public bool TargetIsUnit; public int HitIndex;
             public double Due, LaunchTime, ImpactTime; public float TargetRadius; public int AttackPower;
             public bool AttackerDeadObserved; public double AttackerDeadAt;
+            // [단계 C] 건물 공격자 구분(로그 type 칸·타워 계수용).
+            public bool AttackerIsUnit; public RaceId AttackerRace;
         }
 
         private static ProjectileImpactDiagnosticSnapshot CaptureProjectileImpactDiagnostics(ProjectileRecord record)
         {
             return new ProjectileImpactDiagnosticSnapshot
             {
-                Id = record.Id, AttackerId = record.Attacker != null ? record.Attacker.Id : -1,
+                // [단계 C] 옛 칸(기록용): AttackerId = record.Attacker != null ? record.Attacker.Id : -1,
+                Id = record.Id,
+                AttackerId = record.Attacker != null ? record.Attacker.Id
+                    : record.AttackerBuilding != null ? record.AttackerBuilding.Id : -1,
+                AttackerIsUnit = record.AttackerIsUnit, AttackerRace = record.AttackerRace,
                 AttackerType = record.AttackerType, TargetId = record.TargetId, TargetIsUnit = record.TargetIsUnit,
                 HitIndex = record.HitIndex, Due = record.Due, LaunchTime = record.LaunchTime,
                 ImpactTime = record.ImpactTime, TargetRadius = record.TargetRadius, AttackPower = record.AttackPower,
@@ -109,6 +130,22 @@ namespace Hexiege.Application
             else _projectileDiag.LegacyPathByType[slot]++;
         }
 
+        /// <summary>
+        /// [진단 — 2026-10-21 단계 C] 방어 타워 공격 1회가 서버 투사체 경로(인간 CannonTower)와 기존 즉발 경로
+        /// (RuneSpire·VineTower) 중 어디로 갔는지 종족별로 센다. TowerCombatUseCase.ExecuteTowerAttack에서 부른다.
+        /// 판정에는 쓰지 않는다(읽기 전용 관측). END 줄 path= 끝의 "tower-종족:sN/lN" 조각이 이 값이다.
+        /// </summary>
+        /// <param name="race">타워 소유 팀의 종족.</param>
+        /// <param name="serverPath">서버 투사체로 발사했으면 true, 즉발 피해면 false.</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public void RecordProjectileTowerAttackPath(RaceId race, bool serverPath)
+        {
+            int slot = (int)race;
+            if (slot < 0 || slot >= _projectileDiag.TowerServerPathByRace.Length) return;
+            if (serverPath) _projectileDiag.TowerServerPathByRace[slot]++;
+            else _projectileDiag.TowerInstantPathByRace[slot]++;
+        }
+
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
         private void DiagProjectileReserve(bool accepted)
         {
@@ -128,6 +165,7 @@ namespace Hexiege.Application
         {
             _projectileDiag.Launched++;
             if (!record.TargetIsUnit) _projectileDiag.LaunchedAtBuilding++;
+            if (!record.AttackerIsUnit) _projectileDiag.TowerLaunched++;   // [단계 C] 건물 공격자 몫
             _projectileDiag.Flight.Add(record.ImpactTime - record.LaunchTime);
             _projectileDiag.Distance.Add(centerDistance);
             // 발사 처리 지연 = 실제로 처리한 프레임 시각 − 예약된 발사 시각(프레임 격자 지연 관측).
@@ -142,6 +180,15 @@ namespace Hexiege.Application
         private void DiagProjectileObserveAttacker(ProjectileRecord record, double now)
         {
             if (record.AttackerDeadObserved) return;
+            // [단계 C] 건물 공격자(타워)는 "파괴됐거나 건물 목록의 그 객체가 아니면" 죽은 것으로 본다(공격자 사망과 같은 규칙).
+            if (!record.AttackerIsUnit)
+            {
+                if (record.AttackerBuilding != null && record.AttackerBuilding.IsAlive
+                    && IsCurrentProjectileTower(record.AttackerBuilding)) return;
+                record.AttackerDeadObserved = true;
+                record.AttackerDeadAt = now;
+                return;
+            }
             if (record.Attacker != null && record.Attacker.IsAlive && IsCurrentProjectileAttacker(record.Attacker)) return;
             record.AttackerDeadObserved = true;
             record.AttackerDeadAt = now;
@@ -159,6 +206,15 @@ namespace Hexiege.Application
                 if (!record.TargetIsUnit) _projectileDiag.HitBuilding++;
             }
             else _projectileDiag.TargetLost++;
+            // [단계 C] 건물 공격자(타워) 몫 — 비행 중 타워가 파괴된 뒤의 착탄 결과도 따로 센다(U-6 확인용).
+            if (!record.AttackerIsUnit)
+            {
+                if (hit) _projectileDiag.TowerHit++; else _projectileDiag.TowerTargetLost++;
+                if (record.AttackerDeadObserved)
+                {
+                    if (hit) _projectileDiag.TowerDestroyedThenHit++; else _projectileDiag.TowerDestroyedThenLost++;
+                }
+            }
             if (!record.AttackerDeadObserved) return;
 
             // 발사 뒤 공격자가 죽은 발 — 착탄 결과와 사망~착탄 간격을 남긴다(표본 16줄 + END 합계).
@@ -169,7 +225,7 @@ namespace Hexiege.Application
             if (_projectileDiag.AttackerDeathSamples >= ProjectileAttackerDeathSampleLimit) return;
             _projectileDiag.AttackerDeathSamples++;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE] attacker-dead-before-impact",
-                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, id={record.Id}, attacker={record.AttackerId}, type={(int)record.AttackerType}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, launch={record.LaunchTime:G17}, attackerDeadSeenAt={record.AttackerDeadAt:G17}, impact={record.ImpactTime:G17}, gap={gap:F3}, outcome={(hit ? "hit" : "target-lost")}, writer={writerStatus}, applied={applied}, hp={resultingHp}, sample={_projectileDiag.AttackerDeathSamples}/{ProjectileAttackerDeathSampleLimit}"));
+                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, id={record.Id}, attacker={record.AttackerId}, type={ProjectileAttackerTypeToken(record)}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, launch={record.LaunchTime:G17}, attackerDeadSeenAt={record.AttackerDeadAt:G17}, impact={record.ImpactTime:G17}, gap={gap:F3}, outcome={(hit ? "hit" : "target-lost")}, writer={writerStatus}, applied={applied}, hp={resultingHp}, sample={_projectileDiag.AttackerDeathSamples}/{ProjectileAttackerDeathSampleLimit}"));
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -188,6 +244,8 @@ namespace Hexiege.Application
             if (_projectileTicking) { _projectileDiag.PendingEndReason = reason; return; }
             _projectileDiag.EndWritten = true;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileEndLine(reason));
+            // [단계 C] 건물 공격자(타워) 합계 줄 — server 줄 바로 뒤, 같은 epoch·reason 머리로 짝을 맞춘다.
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileTowerEndLine(reason));
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -198,6 +256,7 @@ namespace Hexiege.Application
             _projectileDiag.PendingEndReason = null;
             _projectileDiag.EndWritten = true;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileEndLine(reason));
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileTowerEndLine(reason));   // [단계 C]
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -253,6 +312,15 @@ namespace Hexiege.Application
                 first = false;
                 text.Append(slot).Append(":s").Append(d.ServerPathByType[slot]).Append("/l").Append(d.LegacyPathByType[slot]);
             }
+            // [단계 C] 방어 타워 공격 경로(종족별) — 공격이 있었던 종족만 붙인다(유닛 칸과 같은 "0이면 생략" 규칙).
+            for (int race = 0; race < d.TowerServerPathByRace.Length; race++)
+            {
+                if (d.TowerServerPathByRace[race] == 0 && d.TowerInstantPathByRace[race] == 0) continue;
+                if (!first) text.Append('|');
+                first = false;
+                text.Append("tower-").Append(((RaceId)race).ToString())
+                    .Append(":s").Append(d.TowerServerPathByRace[race]).Append("/l").Append(d.TowerInstantPathByRace[race]);
+            }
             if (first) text.Append("none");
             text.Append(" detail=").Append(Math.Min(_projectileDiagnosticLines, ProjectileDiagnosticLimit))
                 .Append('/').Append(ProjectileDiagnosticLimit)
@@ -267,5 +335,48 @@ namespace Hexiege.Application
             else text.Append("PASS");
             return text.ToString();
         }
+
+        /// <summary>
+        /// [진단 — 2026-10-21 단계 C] 건물 공격자(방어 타워) 합계 END 1줄을 만든다. 검증(fixture)도 같은 형식을 확인한다.
+        /// 형식: "side=server-tower v=1 role=.. epoch=.. reason=.. byTower=launched:N|hit:N|targetLost:N|destroyedThenHit:N|destroyedThenLost:N
+        ///        towerPath=Human:sN/lN|Spirit:sN/lN|Transcendence:sN/lN balance=ok|mismatch verdict=PASS|FAIL".
+        /// balance = 타워가 쏜 발 수가 명중 + 대상 소실 + (아직 남은 비행)과 맞는가. 비행 중 닫힌 타워 발은 server 줄 closedInFlight에
+        /// 함께 들어가 여기서 따로 셀 수 없으므로 "launched ≥ hit + targetLost"로만 본다(진단 전용 — 판정 무관).
+        /// </summary>
+        /// <param name="reason">닫은 이유(server 줄과 같은 값).</param>
+        public string BuildProjectileTowerEndLine(string reason)
+        {
+            ProjectileDiagnosticCounters d = _projectileDiag;
+            bool balanced = d.TowerLaunched >= d.TowerHit + d.TowerTargetLost
+                && d.TowerHit >= d.TowerDestroyedThenHit && d.TowerTargetLost >= d.TowerDestroyedThenLost;
+            var text = new StringBuilder(320);
+            text.Append("side=server-tower v=1 role=").Append(ServerProjectileDiagnostics.RoleName)
+                .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))
+                .Append(" reason=").Append(string.IsNullOrEmpty(reason) ? "unknown" : reason)
+                .Append(" byTower=launched:").Append(d.TowerLaunched)
+                .Append("|hit:").Append(d.TowerHit)
+                .Append("|targetLost:").Append(d.TowerTargetLost)
+                .Append("|destroyedThenHit:").Append(d.TowerDestroyedThenHit)
+                .Append("|destroyedThenLost:").Append(d.TowerDestroyedThenLost)
+                .Append(" towerPath=");
+            for (int race = 0; race < d.TowerServerPathByRace.Length; race++)
+            {
+                if (race > 0) text.Append('|');
+                text.Append(((RaceId)race).ToString())
+                    .Append(":s").Append(d.TowerServerPathByRace[race]).Append("/l").Append(d.TowerInstantPathByRace[race]);
+            }
+            text.Append(" balance=").Append(balanced ? "ok" : "mismatch")
+                .Append(" verdict=").Append(balanced ? "PASS" : "FAIL");
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// [진단 — 단계 C] 개별 로그의 type= 칸 값. 유닛 공격자는 예전과 같은 UnitType 숫자(로그 형식 무변경),
+        /// 건물 공격자는 "tower-종족"(예: tower-Human)이다 — UnitType 숫자와 BuildingType 숫자가 겹쳐 오독되지 않게.
+        /// </summary>
+        private static string ProjectileAttackerTypeToken(ProjectileImpactDiagnosticSnapshot record)
+            => record.AttackerIsUnit
+                ? ((int)record.AttackerType).ToString(CultureInfo.InvariantCulture)
+                : "tower-" + record.AttackerRace;
     }
 }

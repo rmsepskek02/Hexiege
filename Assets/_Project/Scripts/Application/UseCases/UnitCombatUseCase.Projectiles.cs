@@ -20,6 +20,14 @@
 //        · 착탄 시각: 대상이 살아 있으면 피해 1회 + 결과(Hit), 사라졌으면 결과(TargetLost)만 — 피해 없음(Q4).
 //   3) 게임 종료·맵 정리·디스폰·서비스 교체 → CloseProjectiles: 남은 예약/비행을 모두 피해 없이 닫는다(위험 7).
 //
+// [2026-10-21 단계 C — 건물 공격자(인간 방어타워 CannonTower)]
+//   타워는 공격 애니메이션 marker가 없어 "공격 순간 = 발사 순간"이다. 그래서 예약 단계 없이
+//   TryLaunchTowerProjectile가 곧바로 비행 중(InFlight) 기록을 만든다(발사 전 끊김 구간이 없다 — 대상은 그 순간 살아 있다).
+//   발사 위치는 타워 포구(ProjectileSettings.ResolveTowerMuzzle), 속도는 HumanTowerSpeed, 공격력은 발사 때 저장한다.
+//   비행·Homing·대상 소실·닫기는 유닛 투사체와 똑같은 코드(ProcessProjectileFlight)를 탄다.
+//   다른 점은 착탄 피해 writer 하나뿐이다 — 유닛은 ApplyAttackDamageCore, 타워는 IBuildingProjectileImpactWriter
+//   (= TowerCombatUseCase의 타워 피해 writer). 비행 중 타워가 파괴돼도 맞으면 피해를 준다(공격자 사망과 같음 — U-6).
+//
 // [왜 50ms 전투 틱이 아니라 매 프레임인가]
 //   멀티 전투 틱(_attackInterval 0.05초)에 묶으면 착탄이 최대 50ms 늦어진다(위험 4).
 //   그래서 TorrentSpirit 발사 예약(TickTorrentLaunches)과 같은 매 프레임 진행에 붙인다.
@@ -63,8 +71,14 @@ namespace Hexiege.Application
             public bool Active;
             public ProjectileStage Stage;
             public ulong Id;
+            // 유닛 공격자면 Attacker(UnitData), 건물 공격자(단계 C 타워)면 AttackerBuilding이 채워진다(둘 중 하나만).
             public UnitData Attacker;
             public UnitType AttackerType;
+            // ── [단계 C] 건물 공격자 칸 ──
+            public bool AttackerIsUnit = true;
+            public BuildingData AttackerBuilding;
+            public RaceId AttackerRace;
+            public IBuildingProjectileImpactWriter BuildingWriter;
             public TeamId Team;
             public IDamageable Target;
             public int TargetId;
@@ -88,6 +102,7 @@ namespace Hexiege.Application
             {
                 Active = false; Stage = ProjectileStage.Reserved; Id = 0; Attacker = null;
                 AttackerType = default; Team = default; Target = null; TargetId = -1; TargetIsUnit = false;
+                AttackerIsUnit = true; AttackerBuilding = null; AttackerRace = default; BuildingWriter = null;
                 Due = 0d; HitIndex = 0; LaunchTime = 0d; ImpactTime = 0d; Source = Vector3.zero;
                 LastTargetCenter = Vector3.zero; TargetRadius = 0f; AttackPower = 0; TargetLost = false;
                 Launch = default; AttackerDeadObserved = false; AttackerDeadAt = 0d;
@@ -203,6 +218,93 @@ namespace Hexiege.Application
             _projectileCueStates[attacker.Id] = new ProjectileCueState { Attacker = attacker, Cancelled = false };
             DiagProjectileReserve(true);
             ProjectileLog("reserved", record, due);
+            return true;
+        }
+
+        /// <summary>
+        /// [2026-10-21 단계 C] 투사체 타워(인간 방어타워 CannonTower)의 공격 1회 = "지금 발사"한다(서버/싱글 전용).
+        ///
+        /// [유닛 투사체와 다른 점 — 유니티 초급자용]
+        ///   · 예약 단계가 없다. 타워에는 공격 애니메이션 marker가 없어 공격 순간이 곧 발사 순간이다.
+        ///     그래서 "발사 전 대상 사망 → 취소"는 "공격 순간 대상이 살아 있어야 발사"로 대신한다(Q15 — 죽은 대상은 쏘지 않는다).
+        ///   · 발사 위치 = 타워 포구(ProjectileSettings.ResolveTowerMuzzle — 사용자 결정 「대포 입구에서 발사」).
+        ///   · 속도 = ProjectileSettings.GetTowerSpeed(인간 타워 4 — ProjectileConfig.asset의 _humanTowerSpeed).
+        ///   · 착탄 피해 = writer(TowerCombatUseCase)가 발사 때 저장한 공격력으로 1회 준다. 비행 중 타워가 파괴돼도 준다(U-6).
+        /// 비행 시간 고정(U-1)·Homing·비행 중 대상 소실(Q4)·닫기(위험 7)는 유닛 투사체와 같은 코드가 처리한다.
+        /// </summary>
+        /// <param name="tower">쏘는 타워(객체 참조로 보관 — ID 재사용 안전).</param>
+        /// <param name="race">타워 소유 팀의 종족(프리셋 선택·분류 확인용).</param>
+        /// <param name="target">원래 대상 유닛(타워는 유닛만 공격한다 — 방어 타워 규칙 1).</param>
+        /// <param name="attackPower">발사 순간의 타워 공격력(방어 감쇄 전 원래 값). 착탄 때 이 값으로 맞는다.</param>
+        /// <param name="writer">착탄 피해를 적용할 타워 writer.</param>
+        /// <returns>발사했으면 true. false면 호출자는 공격·쿨다운을 커밋하지 않는다(용량 초과·닫힘·무효 입력).</returns>
+        public bool TryLaunchTowerProjectile(BuildingData tower, RaceId race, UnitData target, int attackPower,
+            IBuildingProjectileImpactWriter writer)
+        {
+            double now = ProjectileServerTime;
+            if (_projectilesClosed || tower == null || !tower.IsAlive || target == null || !target.IsAlive
+                || writer == null || attackPower < 0
+                || !ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, race)
+                || !IsCurrentProjectileTower(tower) || !IsCurrentProjectileTargetUnit(target)
+                || double.IsNaN(now) || double.IsInfinity(now) || now < 0d || !CanReserveProjectileLaunches(1))
+            {
+                DiagProjectileReserve(false);   // [진단] 발사 거절 수(판정 무관) — 유닛 예약 거절과 같은 칸
+                return false;
+            }
+
+            ProjectileRecord record = _projectilePool.Count > 0 ? _projectilePool.Pop() : new ProjectileRecord();
+            record.Reset();
+            record.Active = true;
+            record.Id = ++_nextProjectileId;
+            record.AttackerIsUnit = false;
+            record.AttackerBuilding = tower;
+            record.AttackerRace = race;
+            record.BuildingWriter = writer;
+            record.Team = tower.Team;
+            record.Target = target;
+            record.TargetId = target.Id;
+            record.TargetIsUnit = true;
+            record.Due = now;
+            record.HitIndex = 0;
+            _projectiles.Add(record);
+            // [진단] 수지(reserved = launched + cancelled + closedReserved)가 유닛과 같은 식으로 맞도록 "예약 1 + 발사 1"로 센다.
+            DiagProjectileReserve(true);
+
+            // 발사 위치 = 타워 루트(서버 화면 = 도메인 좌표, 건물 Y 오프셋 포함) + 팀 방향으로 돌린 포구 오프셋.
+            Vector3 towerPosition = ResolveWorldPosition(tower);
+            Vector3 source = _projectileSettings.ResolveTowerMuzzle(towerPosition, tower.Team);
+            Vector3 center = ResolveWorldPosition(target);
+            float radius = _projectileSettings.GetTargetRadius(target);
+            float speed = _projectileSettings.GetTowerSpeed(tower.Type, race);
+            // 비행 거리 = 포구에서 대상 중심까지의 XZ 거리 − 대상 반경(Q12). 유닛 투사체(LaunchProjectile)와 같은 식이다.
+            float centerDistance = new Vector2(center.x - source.x, center.z - source.z).magnitude;
+            float travel = Mathf.Max(0f, centerDistance - radius);
+            double impactTime = now + travel / Mathf.Max(0.0001f, speed);
+
+            record.Stage = ProjectileStage.InFlight;
+            record.LaunchTime = now;
+            record.ImpactTime = impactTime;
+            record.Source = source;
+            record.LastTargetCenter = center;
+            record.TargetRadius = radius;
+            record.AttackPower = attackPower;
+            record.Launch = new ProjectileLaunchPresentation(
+                new ProjectileDeliveryKey(ProjectileEpoch, record.Id), tower.Id, attackerIsUnit: false,
+                attackerKind: (int)tower.Type, attackerRace: (int)race, team: tower.Team,
+                targetId: target.Id, targetIsUnit: true,
+                source: source, targetCenter: center, targetRadius: radius,
+                launchTime: now, impactTime: impactTime, homing: true);
+            if (!record.Launch.IsValid)
+            {
+                // 좌표가 비정상이면 착탄 지점을 정할 수 없다 — 피해 없이 취소로 닫는다(fail-closed, 유닛과 같다).
+                CancelReservation(record, "invalid-launch-geometry", "invalid-launch-geometry");
+                CompactProjectiles();
+                return false;
+            }
+            DiagProjectileLaunch(record, now, centerDistance);
+            ProjectileLog("launched", record, impactTime,
+                FormattableString.Invariant($"distance={centerDistance:F3}, flight={impactTime - now:F3}"));
+            PublishProjectileLaunched(record.Launch);
             return true;
         }
 
@@ -385,6 +487,16 @@ namespace Hexiege.Application
             => _unitSpawn != null && _unitSpawn.Units.TryGetValue(attacker.Id, out UnitData current)
                && ReferenceEquals(current, attacker);
 
+        // [단계 C] 이 타워 객체가 아직 건물 목록의 "그 객체"인가(파괴·철거·ID 재사용이면 false).
+        private bool IsCurrentProjectileTower(BuildingData tower)
+            => _buildingPlacement != null && _buildingPlacement.Buildings.TryGetValue(tower.Id, out BuildingData current)
+               && ReferenceEquals(current, tower);
+
+        // [단계 C] 이 대상 유닛 객체가 아직 유닛 목록의 "그 객체"인가.
+        private bool IsCurrentProjectileTargetUnit(UnitData target)
+            => _unitSpawn != null && _unitSpawn.Units.TryGetValue(target.Id, out UnitData current)
+               && ReferenceEquals(current, target);
+
         private int CountActiveProjectiles()
         {
             int active = 0;
@@ -394,6 +506,12 @@ namespace Hexiege.Application
 
         private void ProcessProjectileReservation(ProjectileRecord record, double now)
         {
+            // [단계 C] 건물 공격자는 예약 없이 바로 발사하므로 여기에 올 수 없다. 와도(코드 오류) 피해 없이 닫는다(fail-closed).
+            if (!record.AttackerIsUnit || record.Attacker == null)
+            {
+                CancelReservation(record, "attacker-unavailable", "other");
+                return;
+            }
             // ① 발사 전 공격자 사망·객체 교체 → 발사 안 함(Q6 · NET-CANCEL-003).
             if (!record.Attacker.IsAlive || !IsCurrentProjectileAttacker(record.Attacker))
             {
@@ -529,6 +647,16 @@ namespace Hexiege.Application
         /// </summary>
         private AttackDamageObservation ApplyProjectileImpactDamage(ProjectileRecord record, ProjectileDeliveryKey key)
         {
+            // [단계 C] 건물 공격자(인간 타워) — 타워 피해의 단일 writer(TowerCombatUseCase)에 맡긴다.
+            //   타워는 유닛만 공격하므로 대상은 UnitData다. 타워가 이미 파괴됐어도 진행한다(공격자 사망과 같음 — U-6).
+            //   공격력은 발사 때 저장한 원래 값(record.AttackPower), 방어 감쇄는 writer가 착탄 순간의 연구 레벨로 한다.
+            if (!record.AttackerIsUnit)
+            {
+                if (record.BuildingWriter == null || record.AttackerBuilding == null || !(record.Target is UnitData unitTarget))
+                    return AttackDamageObservation.Unavailable(AttackDamageApplyStatus.AttackerUnavailable);
+                return record.BuildingWriter.ApplyTowerProjectileImpact(record.AttackerBuilding, unitTarget,
+                    record.AttackPower, key);
+            }
             _projectileImpactAttacker = record.Attacker;
             _projectileImpactAttackPower = record.AttackPower;
             _projectileImpactKey = key;
@@ -638,7 +766,7 @@ namespace Hexiege.Application
             _projectileDiagnosticLines++;
             string extra = string.IsNullOrEmpty(detail) ? string.Empty : ", " + detail;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE]",
-                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, stage={stage}, id={record.Id}, attacker={record.AttackerId}, type={(int)record.AttackerType}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, hit={record.HitIndex}, due={record.Due:G17}, launch={record.LaunchTime:G17}, impact={record.ImpactTime:G17}, time={time:G17}, radius={record.TargetRadius:F3}, attack={record.AttackPower}, detail={_projectileDiagnosticLines}/{ProjectileDiagnosticLimit}") + extra);
+                FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, stage={stage}, id={record.Id}, attacker={record.AttackerId}, type={ProjectileAttackerTypeToken(record)}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, hit={record.HitIndex}, due={record.Due:G17}, launch={record.LaunchTime:G17}, impact={record.ImpactTime:G17}, time={time:G17}, radius={record.TargetRadius:F3}, attack={record.AttackPower}, detail={_projectileDiagnosticLines}/{ProjectileDiagnosticLimit}") + extra);
         }
     }
 }

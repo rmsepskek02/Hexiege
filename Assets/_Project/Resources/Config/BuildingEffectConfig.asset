@@ -17,6 +17,10 @@ MonoBehaviour:
     preset: {fileID: 11400000, guid: 1ddf58caf0af4ccdb04822bcb0fc7935, type: 2}
   - race: 1
     preset: {fileID: 11400000, guid: a01e8a0e35619b02dcd055e935a715d7, type: 2}
+  _autoTowerProjectiles:
+  - race: 0
+    tracerPreset: {fileID: 11400000, guid: d6770727cae145341a419751a9037530, type: 2}
+    impactPreset: {fileID: 11400000, guid: f1b34352eb8d5d14d9579a5fb81b9c28, type: 2}
   _entries:
   - buildingType: 0
     destroyPreset: {fileID: 0}

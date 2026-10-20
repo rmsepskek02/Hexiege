@@ -8,7 +8,10 @@
 //   3) ProjectileImpactPresentation: 서버가 "지금 닿았다/대상이 사라졌다"고 확정한 기록(착탄 결과).
 //   4) ServerProjectileDeliveryPolicy: 어떤 유닛이 "투사체 유닛"인가(Q11 분류)와,
 //      그중 어느 유닛을 지금 새 경로로 돌릴지(유닛별 이행 스위치 — RM-9)를 정하는 표.
+//      [2026-10-21 단계 C] 같은 클래스에 "투사체 타워"(인간 CannonTower) 분류·스위치도 있다.
 //   5) ProjectileSettings          : 서버가 비행 시간을 계산할 때 쓰는 속도·대상 반경 값(Inspector 값에서 만들어 주입).
+//      [단계 C] 인간 타워 속도·포구 위치(발사 원점)도 여기 있다.
+//   6) IBuildingProjectileImpactWriter: [단계 C] 타워 투사체의 착탄 피해를 타워 writer(TowerCombatUseCase)에 맡기는 창구.
 //
 // 왜 Application 레이어인가:
 //   발사·착탄·피해 판정은 서버 권위 게임 규칙이라 UseCase(Application)가 소유한다.
@@ -85,7 +88,7 @@ namespace Hexiege.Application
         /// <summary>쏜 쪽 Id(유닛이면 UnitData.Id, 건물이면 BuildingData.Id).</summary>
         public readonly int AttackerId;
 
-        /// <summary>쏜 쪽이 유닛인가. false면 건물(예: 다음 단계의 인간 방어타워).</summary>
+        /// <summary>쏜 쪽이 유닛인가. false면 건물(2026-10-21 단계 C부터 인간 방어타워 CannonTower).</summary>
         public readonly bool AttackerIsUnit;
 
         /// <summary>쏜 쪽 종류 번호. 유닛이면 (int)UnitType, 건물이면 (int)BuildingType. 화면 프리셋 선택에만 쓴다.</summary>
@@ -103,7 +106,12 @@ namespace Hexiege.Application
         /// <summary>원래 대상이 유닛인가(false면 건물).</summary>
         public readonly bool TargetIsUnit;
 
-        /// <summary>발사 순간 공격자 위치(도메인 월드 좌표, 바닥 기준).</summary>
+        /// <summary>
+        /// 발사 순간 공격자 위치(도메인 월드 좌표).
+        /// · 유닛 공격자: 유닛 위치(바닥 기준). 화면은 총구(UnitView.ProjectileLaunchPoint)를 따로 찾는다.
+        /// · 건물 공격자(단계 C 인간 타워): 서버가 계산한 "포구 위치" 그 자체(높이 포함). 화면은 이 점에서 투사체·발사 이펙트를 낸다.
+        /// 비행 거리는 XZ 평면으로만 재므로 높이는 착탄 시각에 영향이 없다.
+        /// </summary>
         public readonly Vector3 Source;
 
         /// <summary>발사 순간 대상 중심 위치(도메인 월드 좌표, 바닥 기준).</summary>
@@ -236,6 +244,38 @@ namespace Hexiege.Application
             UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit
         };
 
+        // ────────────────────────────────────────────────────────────────
+        // [2026-10-21 단계 C — 인간 방어타워(CannonTower) 전환]
+        //   "투사체 타워" 분류(Q10 결정): 방어 타워(AutoTower) 중 Human 종족(CannonTower)만 투사체 타워다.
+        //   Spirit RuneSpire(번개)는 투사체 개념이 아니라 즉발 피해를 유지하고(Q10 ②),
+        //   Transcendence VineTower는 결정이 없어 바꾸지 않는다(Buildings 규칙 12 「인간 타워만」).
+        //   ⚠️ 아래 두 표는 "분류"(ProjectileTowerRaces)와 "이행 스위치"(EnabledTowerRaces — RM-9)를 나눠 둔다.
+        //      유닛 쪽 ProjectileUnitTypes / EnabledUnitTypes와 같은 구조다. 스위치를 끄면(목록에서 Human을 빼면)
+        //      인간 타워는 옛 즉발 피해 + 발사 스냅샷 경로로 돌아간다.
+        //   ⚠️ 이 목록도 ManifestToken에 들어가 경기 시작 handshake 해시에 반영된다(다른 빌드끼리는 경기가 시작되지 않는다).
+        // ────────────────────────────────────────────────────────────────
+        private static readonly RaceId[] ProjectileTowerRaces = { RaceId.Human };
+        private static readonly RaceId[] EnabledTowerRaces = { RaceId.Human };
+
+        /// <summary>
+        /// 이 건물(종류 + 종족)이 "투사체 타워"(Q10 분류)인가. 스위치와 무관한 분류 자체다.
+        /// 지금은 방어 타워(AutoTower) + Human(CannonTower)만 true다.
+        /// </summary>
+        /// <param name="type">건물 종류.</param>
+        /// <param name="race">건물 소유 팀의 종족.</param>
+        public static bool IsProjectileTower(BuildingType type, RaceId race)
+            => type == BuildingType.AutoTower && Array.IndexOf(ProjectileTowerRaces, race) >= 0;
+
+        /// <summary>
+        /// 이 타워의 공격을 지금 "서버 권위 투사체" 경로로 처리하는가(분류 + 이행 스위치).
+        /// true면 즉발 피해 대신 서버 발사 기록 → 비행 → 착탄 피해로 동작한다.
+        /// false면 기존 경로(공격 순간 즉발 피해 + 발사 스냅샷)를 그대로 탄다 — RuneSpire·VineTower는 항상 false.
+        /// </summary>
+        /// <param name="type">건물 종류.</param>
+        /// <param name="race">건물 소유 팀의 종족.</param>
+        public static bool IsServerProjectileTower(BuildingType type, RaceId race)
+            => IsProjectileTower(type, race) && Array.IndexOf(EnabledTowerRaces, race) >= 0;
+
         /// <summary>이 유닛 종류가 "투사체 유닛"(Q11 분류)인가. 스위치와 무관한 분류 자체다.</summary>
         /// <param name="type">유닛 종류.</param>
         public static bool IsProjectileUnit(UnitType type)
@@ -251,8 +291,11 @@ namespace Hexiege.Application
             => IsProjectileUnit(type) && Array.IndexOf(EnabledUnitTypes, type) >= 0;
 
         /// <summary>
-        /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열(켜진 유닛 번호를 오름차순으로 ","로 연결).
-        /// 예: 단계 A = "17", 단계 B = "6,7,17". 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
+        /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열.
+        /// 앞부분 = 켜진 유닛 번호를 오름차순으로 ","로 연결, 뒤에 켜진 투사체 타워 종족을 ";tower:" 뒤에 붙인다.
+        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human".
+        /// 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
+        /// 공백이 없어야 한다 — 진단 END 줄(공백으로 칸을 나눈다)의 switch= 칸에 그대로 들어간다.
         /// </summary>
         public static string ManifestToken
         {
@@ -262,7 +305,13 @@ namespace Hexiege.Application
                 foreach (UnitType type in EnabledUnitTypes)
                     if (IsProjectileUnit(type)) values.Add((int)type);
                 values.Sort();
-                return string.Join(",", values);
+                // [단계 C] 옛 반환(단계 A·B, 기록용): return string.Join(",", values);
+                string units = string.Join(",", values);
+                var towers = new List<string>(EnabledTowerRaces.Length);
+                foreach (RaceId race in EnabledTowerRaces)
+                    if (IsProjectileTower(BuildingType.AutoTower, race)) towers.Add(race.ToString().ToLowerInvariant());
+                towers.Sort(StringComparer.Ordinal);
+                return towers.Count == 0 ? units : units + ";tower:" + string.Join(",", towers);
             }
         }
     }
@@ -293,8 +342,22 @@ namespace Hexiege.Application
         /// <summary>표에 없는 건물 대상 반경. 생성자에서 정한다.</summary>
         public float DefaultBuildingRadius { get; }
 
-        /// <summary>인간 방어타워 투사체 속도(다음 단계에서 사용 — 지금은 보관만 한다).</summary>
+        /// <summary>
+        /// 인간 방어타워(CannonTower) 대포 입구(포구)의 기본 위치 — 타워 루트 기준 "타워가 바라보는 방향" 좌표계(월드 미터).
+        ///   x = 타워 오른쪽, y = 위, z = 대포가 향한 앞쪽.
+        /// [근거 — 2026-10-21 측정] 프리팹 Building_CannonTower_Blue/Red.prefab에는 포구 Transform이 없다(메시 1개뿐).
+        ///   그래서 메시(CannonTower.fbx, 정점 1,483개)를 직접 읽어 프리팹 배치(자식 위치 y 0.28 · X축 −90° · 크기 35,
+        ///   FBX 단위 cm → 0.01)를 적용해 계산했다. 본체와 떨어진 작은 덩어리(정점 45개)가 포신이며,
+        ///   그 축(주성분)은 거의 +Z(위로 약 4.8°), 포신 끝 중심 = (−0.001, 0.405, 0.170), 포신 반지름 ≈ 0.026이다.
+        ///   반올림해 (0, 0.405, 0.17)을 쓴다. 실제 운영 값은 ProjectileConfig.asset(Inspector)이 정한다.
+        /// </summary>
+        public static readonly Vector3 DefaultHumanTowerMuzzleOffset = new Vector3(0f, 0.405f, 0.17f);
+
+        /// <summary>인간 방어타워(CannonTower) 투사체 속도(월드 미터/초). 2026-10-21 단계 C부터 실제로 쓴다.</summary>
         public float HumanTowerSpeed { get; }
+
+        /// <summary>인간 방어타워 포구 위치(타워 루트 기준 타워 정면 좌표계). 서버 발사 위치와 화면 발사 이펙트 위치가 같은 이 값을 쓴다.</summary>
+        public Vector3 HumanTowerMuzzleOffset { get; }
 
         /// <summary>
         /// 값 묶음을 만든다. 잘못된 값(음수·NaN)은 기본값으로 바꿔 서버 계산이 멈추지 않게 한다.
@@ -302,12 +365,44 @@ namespace Hexiege.Application
         /// <param name="defaultUnitRadius">표에 없는 유닛 반경.</param>
         /// <param name="defaultBuildingRadius">표에 없는 건물 반경.</param>
         /// <param name="humanTowerSpeed">인간 방어타워 투사체 속도.</param>
+        /// <param name="humanTowerMuzzleOffset">인간 방어타워 포구 위치. null이면 측정 기본값(DefaultHumanTowerMuzzleOffset).</param>
         public ProjectileSettings(float defaultUnitRadius = FallbackUnitRadius,
-            float defaultBuildingRadius = FallbackBuildingRadius, float humanTowerSpeed = FallbackSpeed)
+            float defaultBuildingRadius = FallbackBuildingRadius, float humanTowerSpeed = FallbackSpeed,
+            Vector3? humanTowerMuzzleOffset = null)
         {
             DefaultUnitRadius = ValidRadius(defaultUnitRadius) ? defaultUnitRadius : FallbackUnitRadius;
             DefaultBuildingRadius = ValidRadius(defaultBuildingRadius) ? defaultBuildingRadius : FallbackBuildingRadius;
             HumanTowerSpeed = ValidSpeed(humanTowerSpeed) ? humanTowerSpeed : FallbackSpeed;
+            // 포구 위치가 비정상(NaN·무한대·타워에서 2m 넘게 떨어짐)이면 측정 기본값을 쓴다 — 발사 위치가 맵 밖으로 튀지 않게.
+            Vector3 muzzle = humanTowerMuzzleOffset ?? DefaultHumanTowerMuzzleOffset;
+            HumanTowerMuzzleOffset = ProjectileLaunchPresentation.Finite(muzzle) && muzzle.magnitude <= 2f
+                ? muzzle : DefaultHumanTowerMuzzleOffset;
+        }
+
+        /// <summary>
+        /// 투사체 타워의 서버 속도. 지금은 인간 타워만 투사체 타워라 HumanTowerSpeed를 돌려준다.
+        /// 다른 타워가 들어오면 이 메서드에 분기를 더한다(분류는 ServerProjectileDeliveryPolicy.IsProjectileTower).
+        /// </summary>
+        /// <param name="type">건물 종류.</param>
+        /// <param name="race">건물 종족.</param>
+        public float GetTowerSpeed(BuildingType type, RaceId race) => HumanTowerSpeed;
+
+        /// <summary>
+        /// 투사체 타워의 "포구 위치"를 도메인 월드 좌표(Blue 기준)로 계산한다. 서버 발사 위치 = 이 값.
+        ///
+        /// [팀별 방향 규칙 — 유니티 초급자용]
+        ///   BuildingFactory.GetInitialRotation은 인간 타워를 "내 타워는 회전 없음, 상대 타워는 Y축 180°"로 놓는다.
+        ///   그래서 어느 화면에서 보든 도메인 좌표로는 Blue 타워 포신이 +Z, Red 타워 포신이 −Z를 향한다
+        ///   (Red 화면은 맵을 반전해 보여 주므로 Red 타워가 화면 위쪽(+Z)을 향해 보인다).
+        ///   따라서 Red 타워는 정면 좌표계 오프셋의 x·z 부호를 뒤집으면(= 180° 회전) 도메인 포구 위치가 된다.
+        /// </summary>
+        /// <param name="towerPosition">타워 루트 위치(도메인 월드 좌표 — 건물 Y 오프셋 포함).</param>
+        /// <param name="team">타워 소유 팀.</param>
+        public Vector3 ResolveTowerMuzzle(Vector3 towerPosition, TeamId team)
+        {
+            Vector3 offset = HumanTowerMuzzleOffset;
+            float sign = team == TeamId.Red ? -1f : 1f;
+            return new Vector3(towerPosition.x + offset.x * sign, towerPosition.y + offset.y, towerPosition.z + offset.z * sign);
         }
 
         /// <summary>코드 기본값만 가진 묶음(설정 에셋이 없을 때의 폴백).</summary>
@@ -360,5 +455,28 @@ namespace Hexiege.Application
 
         private static bool ValidSpeed(float v) => !float.IsNaN(v) && !float.IsInfinity(v) && v > 0.0001f;
         private static bool ValidRadius(float v) => !float.IsNaN(v) && !float.IsInfinity(v) && v >= 0f && v < 10f;
+    }
+
+    /// <summary>
+    /// [2026-10-21 단계 C] 건물 공격자(투사체 타워)의 "착탄 피해 writer" 창구.
+    ///
+    /// [왜 필요한가 — 유니티 초급자용]
+    ///   투사체 1발의 수명(예약·비행·착탄·닫기)은 UnitCombatUseCase가 한곳에서 관리한다(네트워크 전송·화면 소비자가
+    ///   모두 그 이벤트를 구독하므로). 하지만 타워 피해의 "단일 HP writer"는 TowerCombatUseCase다
+    ///   (방어 감쇄 · 피격/사망 이벤트 · 유닛 제거). 그래서 착탄 순간에는 투사체 수명 관리자가 이 창구로
+    ///   타워 writer를 한 번 불러 피해를 준다. 타워 피해 계산을 두 곳에 복사하지 않기 위한 다리다.
+    /// </summary>
+    public interface IBuildingProjectileImpactWriter
+    {
+        /// <summary>
+        /// 투사체 타워의 착탄 피해 1회를 적용한다(서버/싱글 전용). 타워가 이미 파괴됐어도 진행한다(Q3 · 1-1-2 U-6).
+        /// </summary>
+        /// <param name="tower">쏜 타워(발사 때 붙잡은 객체 — 이미 파괴됐을 수 있다).</param>
+        /// <param name="target">원래 대상 유닛(착탄 순간 살아 있음을 호출자가 확인했다).</param>
+        /// <param name="attackPowerAtLaunch">발사 때 저장한 원래 공격력(방어 감쇄 전).</param>
+        /// <param name="key">이 투사체 번호표 — 피격 이벤트에 실어 화면이 착탄 순간에 숫자를 1회 내게 한다(Q7).</param>
+        /// <returns>적용 결과(Applied면 적용량·남은 HP).</returns>
+        AttackDamageObservation ApplyTowerProjectileImpact(BuildingData tower, UnitData target,
+            int attackPowerAtLaunch, ProjectileDeliveryKey key);
     }
 }

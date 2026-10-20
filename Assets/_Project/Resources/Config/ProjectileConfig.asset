@@ -28,6 +28,7 @@ MonoBehaviour:
   - unitType: 26
     speed: 5
   _humanTowerSpeed: 4
+  _humanTowerMuzzleOffset: {x: 0, y: 0.405, z: 0.17}
   _unitRadii:
   - unitType: 0
     radius: 0.09558075
