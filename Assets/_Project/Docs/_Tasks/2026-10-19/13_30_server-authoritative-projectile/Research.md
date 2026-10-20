@@ -1,7 +1,7 @@
 # Research — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 원 조사: game-programmer 읽기 전용 기술 조사 보고서(HEAD `657a4f31` 기준. 그 뒤 커밋 `344dfa42`·`ab9d55d7`은 문서와 미사용 VFX 에셋 삭제뿐이라 행 번호는 유효하다고 보았다 — [추정, 메인 세션 판단])
-> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))* *(2026-10-21: 코드는 `639ac1aa`(단계 B — Tank·CannonCart ON, 의심 1 수정)·`ac05e189`(회귀 검증 수정)에서 다시 바뀌었다. 단계 B 실기 로그 분석 — 🔴 사망타 피해 숫자 누락(회귀), 수정 사용자 승인 대기 — 은 [13절](#13-stage-b-field-log-analysis-20261021))* *(2026-10-21 B-2: 그 수정은 13-7 A안으로 `64b743c8`에서 들어갔고(화면 표현·진단·회귀 검증만), 실기 로그상 사망타 숫자 누락 0 — [14절](#14-stage-b2-kill-shot-number-check-20261021). 회귀 스위트 결과는 미보고)*
+> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))* *(2026-10-21: 코드는 `639ac1aa`(단계 B — Tank·CannonCart ON, 의심 1 수정)·`ac05e189`(회귀 검증 수정)에서 다시 바뀌었다. 단계 B 실기 로그 분석 — 🔴 사망타 피해 숫자 누락(회귀), 수정 사용자 승인 대기 — 은 [13절](#13-stage-b-field-log-analysis-20261021))* *(2026-10-21 B-2: 그 수정은 13-7 A안으로 `64b743c8`에서 들어갔고(화면 표현·진단·회귀 검증만), 실기 로그상 사망타 숫자 누락 0 — [14절](#14-stage-b2-kill-shot-number-check-20261021). 회귀 스위트 결과는 미보고)* *(2026-10-21 단계 C: 코드는 `b819dc51`(인간 대포 타워 투사체 전환)에서 다시 바뀌었다. 실기 로그상 인간 타워 투사체 정상(scoped), 사용자 「테스트 완료 · 육안상 특별한 문제 없음」, **회귀 스위트 PASS(사용자 Console 확인 — RuntimeLog에는 남지 않음)** — [15절](#15-stage-c-human-cannon-tower-check-20261021). 앞 조각의 「회귀 스위트 결과는 미보고」는 B-2 회차 당시 상태다)*
 > 근거 표기: **[확인]** = document-manager가 이 checkout에서 파일을 다시 읽어 확인한 행 · **[전달]** = game-programmer 보고서 값을 옮긴 것(다시 읽지 않음) · **[추정]** = 코드로 확정하지 못한 해석 · **[미확인]** = 실행·실기 증거 없음. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 
 ## 0. 쉬운 설명
@@ -540,7 +540,7 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | 늦은 접속 | **미발생** | 13-6 |
 | 오류 | 예외 0, ERROR는 진단 관측기 FAIL만 | 13-6 |
 | 사용자 육안 | 「Tank·CannonCart 투사체 발사·피격, 피해 숫자가 안 나오는 경우가 있었다」 | **어느 화면(Host/Client)에서 봤는지 미전달** [미확인] |
-| 회귀 스위트(`Run Full Regression Suite`) | 1차 **FAIL** → `ac05e189` 검증 수정 → 재실행 **미보고** | 1차 실패 「Switch OFF keeps the legacy hit-time damage…」: EagleArcher 0.2f · Tank 0.4f를 double 리터럴로 tick해 float 타격 시각보다 일찍 판정 — 검증 코드 오류, 운영 코드 무관(커밋 본문 [확인]). 재실행은 했다는 전달만 있고 결과는 받지 않았다 — PASS로 적지 않는다 |
+| 회귀 스위트(`Run Full Regression Suite`) | 1차 **FAIL** → `ac05e189` 검증 수정 → 재실행 **미보고** | 1차 실패 「Switch OFF keeps the legacy hit-time damage…」: EagleArcher 0.2f · Tank 0.4f를 double 리터럴로 tick해 float 타격 시각보다 일찍 판정 — 검증 코드 오류, 운영 코드 무관(커밋 본문 [확인]). 재실행은 했다는 전달만 있고 결과는 받지 않았다 — PASS로 적지 않는다 *(2026-10-21 단계 C: 사용자가 `b819dc51` 빌드에서 회귀 스위트 **모두 PASS**를 Console로 확인 — RuntimeLog에는 남지 않는 확인, [15-4](#15-4-conclusion). 「미보고」는 13절 회차 당시 상태다)* |
 
 <a id="13-4-match-and-figures"></a>
 
@@ -691,7 +691,7 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | J-1 늦은 접속 | 미발생 | 미관측 |
 | 회귀 스위트 재실행 | 사용자가 실행함 [전달] | **결과 미보고** |
 
-*(2026-10-21 단계 B-2: 위 표 중 「Host view 보관함 뒷부분 · markers · verdict」·「Host 건물 사망타 숫자」는 [14절](#14-stage-b2-kill-shot-number-check-20261021)에서 다시 관측됐다. 표 원문은 13절 회차 당시 상태로 둔다)*
+*(2026-10-21 단계 B-2: 위 표 중 「Host view 보관함 뒷부분 · markers · verdict」·「Host 건물 사망타 숫자」는 [14절](#14-stage-b2-kill-shot-number-check-20261021)에서 다시 관측됐다. 표 원문은 13절 회차 당시 상태로 둔다)* *(2026-10-21 단계 C: 「회귀 스위트 재실행」 행은 사용자 Console 확인 **PASS**로 닫혔다(RuntimeLog에는 남지 않음) — [15-4](#15-4-conclusion))*
 
 ---
 
@@ -767,7 +767,7 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | 의심 1 수정(총구 VFX) | **효과 유지** | `muzzleAtMarker:0`(양쪽) [전달] |
 | 오류 | 예외 0, ERROR는 진단 관측기 FAIL만 | 14-9 |
 | 사용자 육안 | 「테스트했고 육안상으론 괜찮아 보여」 | 어느 화면(Host/Client)을 봤는지·싱글 여부는 전달 없음 [미확인] |
-| 회귀 스위트(`Run Full Regression Suite`) | **미확인 — 결과 미보고** | PASS 문구(`[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS`)는 `Debug.Log`(검증 파일 170행 [확인])로 Console에만 나온다. RuntimeLog의 Unity 로그 훅은 Error·Exception만 받는다(`LogSessionOwner.cs` 389행 [확인]). 에디터 로그에도 그 줄 0건 [전달]. 사용자 Console 결과 미보고 — PASS로 적지 않는다 |
+| 회귀 스위트(`Run Full Regression Suite`) | **미확인 — 결과 미보고** | PASS 문구(`[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS`)는 `Debug.Log`(검증 파일 170행 [확인])로 Console에만 나온다. RuntimeLog의 Unity 로그 훅은 Error·Exception만 받는다(`LogSessionOwner.cs` 389행 [확인]). 에디터 로그에도 그 줄 0건 [전달]. 사용자 Console 결과 미보고 — PASS로 적지 않는다 *(2026-10-21 단계 C: 사용자 Console 확인 **PASS**(`b819dc51` 빌드의 스위트) — 위 코드 근거대로 RuntimeLog에는 남지 않는 확인이다, [15-4](#15-4-conclusion). 「미확인」은 14절 회차 당시 상태다)* |
 
 <a id="14-5-match-and-figures"></a>
 
@@ -857,9 +857,186 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 
 > 아래 2~5는 분석의 제안을 옮긴 것이다 [전달]. 코드·진단 추가는 별도 승인 대상이다.
 
-1. **회귀 스위트 결과 [미확인].** 사용자 Console의 `[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS` 여부를 받아야 한다(13-8 「회귀 스위트 재실행」도 여전히 미보고). 로그로 남기려면 별도 승인.
+1. **회귀 스위트 결과 [미확인].** 사용자 Console의 `[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS` 여부를 받아야 한다(13-8 「회귀 스위트 재실행」도 여전히 미보고). 로그로 남기려면 별도 승인. *(2026-10-21 단계 C: 사용자 Console 확인 **PASS** — 닫힘, [15-4](#15-4-conclusion). 로그에 남기는 것은 여전히 별도 승인 대상)*
 2. **사망타별 표시 방식은 개수로만 확인.** 숫자 결과에 id별 표본 줄이 없어 Client fallback 23 중 7건이 「디스폰된 대상의 남은 HP 숫자」라는 해석은 [추정]이다. 필요하면 사망타 표본 진단 추가(승인 필요).
 3. **육안 확인 권장 장면 [추정]:** 사망한 대상 자리에 사망타가 아닌 「40」 같은 숫자가 「0」과 함께 연달아 뜨는 장면이 Client에서 약 7건 있었을 것이다. 각 발의 남은 HP라 설계상 정상(사용자 기준 「그 **뒤에** 도착한 투사체는 숫자 없음」과도 충돌하지 않는다 — 이 7발은 서버에서 사망 **전에** 맞았다)이지만, 보기 좋은지는 사용자 판단 대상이다.
 4. **실기에서 아직 안 나온 경로:** 타임아웃 방출(기억한 위치), 순서 역전 즉시 방출, 늦은 접속, 근접 비행, 싱글, Host 화면 played/fallback의 id별 구분, 기기가 Host일 때의 view END 2줄(14-7).
 5. **다음 유닛 전에 정할 것:** 남은 대상(인간 타워 · InfernoSpirit · FoxMagician · EagleArcher · MushroomBomber) 중 범위형(Mushroom — 착탄 때 주 타깃 위치 기준 Blast/독, Plan 1-1-3)은 사망타 숫자의 대체 위치가 대상마다 달라야 할 수 있다. 이번 수정은 단일 대상 Tank · CannonCart · StreamSpirit에서만 확인됐다. 진행 전에 범위형의 숫자 위치 규칙을 기획에서 확인하고, 차지 유닛(Inferno · Fox)은 규칙 19 개정(Fox 즉시 표시 예외 삭제, Plan 4-2-3 F-4)과의 관계도 같이 본다.
    - *document-manager 주:* 분석 원문은 「다중 대상 투사체(MushroomBomber는 TargetLocked)」라고 적었다. resolver의 Mushroom 값을 TargetLocked로 바꾸는 것은 Plan U-16 결정(스키마 상향과 같은 커밋)이며, Mushroom의 범위 피해는 여전히 여러 대상에게 들어간다(Plan 1-1-3) — 「다중 대상」은 범위 피해 쪽을 가리키는 것으로 읽었다 [추정].
+
+---
+
+<a id="15-stage-c-human-cannon-tower-check-20261021"></a>
+
+## 15. 단계 C 인간 대포 타워 실기 확인 (2026-10-21)
+
+> 기준 checkout HEAD `b819dc51` · 대상 구현 커밋 `b819dc51` 「feat(combat): 서버 권위 투사체 단계 C — 인간 대포 타워 투사체 전환」, 12개 파일(+978 / −26) [확인 — `git show --stat`].
+> 출처: 메인 세션의 읽기 전용 로그 분석 원문(scratchpad `stageC_log_analysis.md`)을 전달받음 [전달]. 로그 수치는 모두 [전달]이며 document-manager는 로그 본문을 다시 분석하지 않았다. **영수증의 해시와 이번 회차에 다시 읽은 코드 행만 [확인]이다.**
+> 사용자 상시 승인(로그 분석 결과는 확인 없이 해당 Task에 기록)에 따라 작성했다. 이 기록은 코드·에셋·빌드·규칙 문서 변경을 승인하지 않는다.
+
+<a id="15-1-plain-explanation"></a>
+
+### 15-1. 쉬운 설명
+
+단계 C는 **인간 방어타워(CannonTower)** 를 새 방식으로 바꾼 것이다. 전에는 타워가 쏘는 순간 바로 피해가 들어갔다. 이제는 서버가 대포 입구에서 포탄을 「쐈다」고 기록하고, 포탄이 날아가 닿는 순간 피해를 준다. 정령 타워(RuneSpire)의 번개는 투사체가 아니므로 예전처럼 즉시 피해를 준다.
+
+사용자는 테스트를 마치고 **「육안상 특별한 문제 없음」**, 그리고 **회귀 스위트가 모두 PASS**라고 알렸다(Unity Console에서 확인). 로그로 봐도 인간 타워가 쏜 두 경기 모두 서버·통신·화면 집계가 맞았고, Red 쪽 인간 타워(화면이 뒤집힌 쪽)도 실제로 쏘았다.
+
+새로 보인 것이 하나 있다. 타워 여러 개가 같은 적을 노리면, **이미 다른 포탄에 죽을 적에게 쏜 포탄이 헛방이 된다.** 이것은 사용자가 정한 원칙(쏘는 순간 적이 살아 있으면 쏜다 — Q15)대로 동작한 결과라 고칠 대상으로 올리지 않고 관찰로만 적는다.
+
+또 사용자는 **「인간 방어타워는 앞쪽 120도 안의 적만 공격해야 어색하지 않다」**고 요청했다. 이번에는 문서에 기록만 한다(15-9, Plan 9절).
+
+<a id="15-2-implementation"></a>
+
+### 15-2. 구현 내용 (`b819dc51`) [확인 — 커밋 본문 · 코드 표본]
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | `ProjectileDeliveryContracts.cs` 257~258 · 276~277 `IsServerProjectileTower` | 「투사체 타워」 분류 `ProjectileTowerRaces = { Human }`과 이행 스위치 `EnabledTowerRaces = { Human }`을 나눴다(유닛 쪽 분류·스위치와 같은 구조). AutoTower + Human만 true. 유닛 스위치 `EnabledUnitTypes`는 242~245행 그대로 Tank·CannonCart·StreamSpirit |
+| 2 | 같은 파일 401~406 `ResolveTowerMuzzle` | 포구 = 타워 루트 + `HumanTowerMuzzleOffset`, Red는 x·z 부호를 뒤집는다. 값은 `ProjectileConfig.asset` `_humanTowerMuzzleOffset: {x: 0, y: 0.405, z: 0.17}`(이 커밋에서 추가) · `_humanTowerSpeed: 4` |
+| 3 | `TowerCombatUseCase.cs` 162~167 · 250~260 | 인간 타워는 즉발 피해 대신 `TryLaunchTowerProjectile`로 서버 발사 기록을 만든다(공격력은 발사 때 저장). **발사를 못 하면 쿨다운을 시작하지 않는다.** 옛 줄 `ExecuteTowerAttack(building, target);`는 주석으로 보존(RM-10) |
+| 4 | 커밋 본문 | 비행 중 타워가 파괴돼도 착탄 피해 · CannonCart Tracer/Impact 프리셋 연결 · 발사 이펙트도 포구 지점 · RuneSpire·VineTower 즉발 유지 · 스위치 토큰 `6,7,17;tower:human` · 진단 `side=server-tower` 줄 · `path tower-Human/Spirit` · 회귀 검증 stage-C fixture |
+
+<a id="15-3-log-archive-receipt"></a>
+
+### 15-3. 로그 보관 영수증 (LogRules §1.10)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 보관 위치 | private 저장소 `rmsepskek02/Hexiege-Logs`, Release `logs-2026-10` | [전달 — 메인 세션] · manifest `upload_target` [확인 — manifest 사본] |
+| 업로드 주체 | 사용자 | manifest `upload: upload performed by user` [확인 — manifest 사본] |
+| 만든 도구 | `Assets/Editor/Tools/LogArchiveZip.cs`, schema `hexiege-log-archive-v1`, `task_name` **`server-projectile-stageB3`**, `sequence` 1 | [확인 — manifest 사본]. 이름은 「stageB3」이지만 내용은 단계 C(`b819dc51`) 경기다 — 사용자가 도구 창에 넣은 이름 그대로이며, 분석 대상 경기는 15-5에서 스위치 토큰 `tower:human`으로 확인됐다 [전달] |
+| 다운로드 검증 | 메인 세션이 manifest와 대조 OK | [전달 — 메인 세션] |
+| document-manager 재계산 | 메인이 내려받은 scratchpad 사본에서 ZIP, ZIP 안 두 항목, 풀어 둔 두 로그 본문의 SHA256을 다시 계산 → 아래 값·manifest 값과 일치 | [확인] |
+
+| ZIP (remote 이름) | ZIP asset id / 크기(B) | ZIP SHA256 | manifest asset id | 시작 날짜 |
+|---|---|---|---|---|
+| `2026-10-21_03_20_server-projectile-stageB3_01.zip` | 660109339 / 619101 | `edee919b4d28491662bb00afd7121143a863d44acd216ff8938be0cdcd1f55d2` [전달 + 확인] | 660109426 | `start_date` 2026-10-21 |
+
+| 안의 로그 (manifest `sources[]`) | kind | 크기(B) | SHA256 [확인] |
+|---|---|---|---|
+| 기기 `_Logs/2026-10-21/03_20_logcat/RuntimeLog_device.txt` | `device_capture` | 7966501 | `ff008b561289e2afaa4c68b6e9e32e3f52609990d6187c0df81af020f3eb2877` |
+| 에디터 `_Logs/_editor/2026-10-21/RuntimeLog.txt` | `editor_daily`(스냅샷 — 이후 덧붙은 바이트는 없다는 manifest 주석) | 1522659 | `4654129105d622e2a6885852bf3fbac46cd8cda574da80aa7236b74d3708da52` |
+
+- manifest `file_count` 2, `skipped_already_archived` 2, `manifests_scanned` 4, `prior_archive_dedupe: not checked by tool` [확인 — manifest 사본]. 건너뛴 2개가 어느 파일인지는 manifest에 적히지 않는다 [미확인].
+- **소스 저장소 쪽 [확인]:** 이 checkout에는 `_Logs/2026-10-21/`이 없다. 로그 본문은 위 Release에만 있다.
+
+<a id="15-4-conclusion"></a>
+
+### 15-4. 결론
+
+| 축 | 판정 | 범위·근거 |
+|---|---|---|
+| **인간 타워 투사체(서버·전송·화면)** | ✅ **로그상 정상 — scoped** | 인간 타워가 쏜 두 경기(15-5 경기 2 · 4) 모두 `[PROJECTILE-END]` verdict PASS(Host·Client 각 view·transport). 화면 `missing` 0 · `missingDead` 0 · faults 0 · rejected 0 · timeouts 0, 발사 이펙트(`towerCue`) 59/59 · 77/77 [전달] |
+| Red 인간 타워(180° 반전) | **실기 관측됨** | 경기 4 — Red 인간 타워 77발, 화면 이상 0. 포구 위치는 간접 근거만(15-6) [전달] |
+| RuneSpire 즉발 유지 | **유지됨** | 경기 3 `tower-Spirit:s0/l3` — 즉발 3발, 투사체 0 [전달] |
+| 사용자 육안 | 「테스트 완료, 육안상 특별한 문제 없음」(2026-10-21) | 어느 화면(Host/Client)을 봤는지는 전달 없음 [미확인] |
+| **회귀 스위트(`Run Full Regression Suite`)** | ✅ **PASS — 사용자 Console 확인**(2026-10-21) [전달 — 메인 세션] | 🔴 **RuntimeLog에는 남지 않는 확인이다.** PASS 문구가 `Debug.Log`라 Console에만 나오고 RuntimeLog의 Unity 로그 훅은 Error·Exception만 받는다(14-4 회귀 스위트 행의 코드 근거). 이번 실행은 `b819dc51` 빌드의 스위트라 단계 B·B-2·C 검증을 함께 포함한다 [추정 — 스위트가 누적 실행된다는 전제]. 이 결과로 13-3 · 13-8 · 14-4 · 14-10의 「미보고」를 갱신했다(각 자리의 날짜 조각) |
+| 유닛 투사체(6·7·17) 회귀 | **로그로는 확인 불가** [미확인] | 이번 경기에서 Tank·CannonCart·StreamSpirit이 생산되지 않아 한 발도 쏘지 않았다(유닛 `path=none`). 근거는 회귀 스위트 PASS뿐 |
+| 오류 | 예외 0, ERROR는 이동 관측기 FAIL 2건뿐 | 15-8 |
+
+<a id="15-5-match-and-figures"></a>
+
+### 15-5. 경기와 수치 [전달]
+
+| # | 시각 (epoch) | Host | Client | 타워 | 비고 |
+|---|---|---|---|---|---|
+| 1 | 03:15:41~43 (`4b1103db…`) | 에디터 Blue | Red (기기 로그에 없음) | — | 2초 만에 포기, 발사 0 |
+| 2 | 03:16:05~03:17:52 (`4181b24d…`) | 에디터 Blue 인간 | 기기 Red 정령 | 인간 타워 8기(Blue), RuneSpire 2기(Red) | 인간 타워 59발. RuneSpire 2기는 한 번도 쏘지 않음 |
+| 3 | 03:17:55~03:18:20 재경기 (`4c0df7a5…`) | 같음 | 같음 | RuneSpire 3기 | RuneSpire 즉발 3발 |
+| 4 | 03:18:33~03:19:47 (`4d5f7cc4…`) | 기기 Blue 정령 | 에디터 Red 인간 | 인간 타워 10기(Red) | 인간 타워 77발 |
+
+- 네 경기 모두 스위치 토큰 `switch=6,7,17;tower:human`. 역할이 서로 바뀐 두 쌍(에디터 Host · 기기 Host)이 들어 있다. **싱글 경기는 없다**(기기의 `Role=Solo` 줄 6개는 경기 3 Shutdown 직후 줄 — 15-8).
+
+| 항목 | 경기 2 (Blue 타워) | 경기 4 (Red 타워) |
+|---|---|---|
+| launched / hit / targetLost | 59 / 58 / 0 | 77 / 57 / **19** |
+| closedInFlight (경기 종료) | 1 | 1 |
+| 수지 | 59 = 58 + 0 + 1 | 77 = 57 + 19 + 1 |
+| 발사 거절(`reserveRefused`) | 0 | 0 |
+| 비행 시간 최소 / 최대 / 평균(초) | 0.061 / 0.839 / 0.389 | 0.076 / 0.844 / 0.550 |
+| 거리 최소 / 최대 / 평균 | 0.379 / 3.492 / 1.691 | 0.439 / 3.512 / 2.336 |
+| 서버 착탄 지연 최대(`impactLagMax`) | 0.022 | 0.016 |
+| 피해량 / 사망타 | 150 / 26 | 150 / 28 |
+
+| 화면 대조 | 경기 2 Host(에디터) | 경기 2 Client(기기) | 경기 4 Host(기기) | 경기 4 Client(에디터) |
+|---|---|---|---|---|
+| launch recv / accepted | 59 / 59 | 59 / 59 | 77 / 77 | 77 / 77 |
+| result recv / accepted | 58 / 58 | 58 / 58 | 76 / 76 | 76 / 76 |
+| finish hit / lost | 58 / 0 | 58 / 0 | 57 / 19 | 57 / 19 |
+| impactVfx played / missing | 58 / 0 | 58 / 0 | 76 / 0 | 76 / 0 |
+| towerCue played / skippedMidFlight / noPreset | 59 / 0 / 0 | 59 / 0 / 0 | 77 / 0 / 0 | 77 / 0 / 0 |
+| text played / fallback / missing / missingDead | 58 / 0 / 0 / 0 | 31 / 27 / 0 / 0 | 57 / 0 / 0 / 0 | 24 / 33 / 0 / 0 |
+| displayLag 최소 ~ 최대(초) | 0 ~ 0.022 | 0.100 ~ 0.117 | 0 ~ 0.016 | 0.100 ~ **0.333** |
+| verdict | PASS | PASS | PASS | PASS |
+
+- **비행 시간 공식:** 상세 로그가 남은 97발 모두 `비행 시간 = (거리 − 0.135) ÷ 4`와 0.002초 이내로 맞는다. 속도 4는 `ProjectileConfig.asset` `_humanTowerSpeed` [확인].
+- **근접 비행:** 0.1초 미만 비행 13발(경기 2: 9, 경기 4: 4), 최소 0.061초 — 12-7 항목 4의 「가까운 대상」 경로가 이번에 실기로 나왔다.
+- **Client fallback 구성 [추정 — 개수만 맞춤]:** 경기 2 Client 27 = 사망타 26 + 사망 0.085초 전 비사망 명중 1. 경기 4 Client 33 ≈ 사망타 28 + 화면 표시 지연 안에 대상이 죽은 비사망 명중 약 5(사망 0.2초 이내 후보 7건). 비사망 명중은 죽은 대상 자리에 남은 HP 「150」이 뜬다(14-10 항목 3과 같은 현상).
+- 대상 소실(targetLost) 발도 착탄 VFX를 재생했다(화면 표본 각 24줄 모두 `impactVfx=1`, `waitedAtEndpoint=0`).
+
+<a id="15-6-muzzle-origin"></a>
+
+### 15-6. 포구 원점 — 직접 확인 불가, 간접 근거만 [전달 · 추정]
+
+- 서버 `[PROJECTILE]` 줄과 `[PROJECTILE-VIEW]` 줄 모두 **발사 위치(Source) 좌표를 찍지 않는다** → 직접 확인 불가 [미확인].
+- 간접 근거 [추정]: 타워 사거리는 루트 기준 4 × 0.866 + 0.05 = 3.514. 첫 발 거리 3.302(경기 2) · 3.306(경기 4) — 앞에서 다가온 적이 사거리에 막 들어온 순간이라면 포구가 적 쪽 0.17이면 약 3.3, 반대쪽이면 3.6 이상이어야 한다. 전체 최대 거리 3.512도 3.514를 넘지 않았다 → Blue·Red 모두 포구가 적 쪽에 있다는 해석과 맞는다.
+- 직접 확인하려면 진단 줄에 source 칸을 추가해야 한다(제안 — 승인 필요, 15-10).
+
+<a id="15-7-overlap-fire"></a>
+
+### 15-7. 타워 겹사격 헛방 — 사용자 결정 Q15와 일치하는 결과 (관찰만)
+
+- **사실 [전달]:** 경기 4의 targetLost 19발(77발 중 24.7%) 가운데 상세 로그가 있는 15발은 모두 같은 패턴이다 — 다른 타워가 이미 날린 사망타가 닿기 **전에** 이 발이 발사됐다(`cause=target-gone-in-flight`). 예: id 2·3이 같은 시각(25.678)에 대상 101(HP 150)을 향해 발사, id 4는 25.879에 발사. id 2가 26.474에 101을 죽였고 id 3·4는 lost.
+- **왜 전에는 없었나 [전달 — 코드 근거는 분석 원문]:** 즉발 시절에는 앞 타워가 같은 Tick 안에서 피해를 즉시 줬으므로 다음 타워는 죽은 대상을 건너뛰고(`!unit.IsAlive` — `TowerCombatUseCase.cs` 215행 [확인]) 다른 대상을 골랐다. 지금은 헛방 발도 쿨다운(5초)을 소모한다.
+- **사용자 결정과의 관계 [확인 — Plan 1-1 Q15 행]:** 사용자 결정 Q15는 「발사 시점에 타겟이 **살아 있으면 발사**. 죽을 것을 예상해 공격하지 않는 것은 잘못」이다. 이번 헛방은 그 원칙대로 동작한 결과다. 그래서 **결함·후속 항목으로 올리지 않는다.**
+- **관찰 [전달]:** 타워가 모여 있으면 인간 타워의 실효 화력이 즉발 시절보다 줄었다. 밸런스 판단은 하지 않았다. 분석 원문의 「예약 피해 계산 도입 여부」 제안은 Q15 결정(죽을 것을 예상해 안 쏘는 것은 잘못)과 반대 방향이라 이 문서에서는 제안으로 옮기지 않는다 — 다시 논의하려면 사용자가 Q15를 다시 열어야 한다.
+
+<a id="15-8-errors"></a>
+
+### 15-8. 오류 [전달]
+
+- **실제 예외 0.** 「Exception」 문자열은 스택트레이스 서명 문구뿐.
+- **ERROR 에디터 2건:** 모두 `[UAS-MOVE-AUTH] END verdict=FAIL`(경기 1, 경기 3 Host) — Host 표본 조건(`UnitMovementAuthorityObserver.cs` 1134~1135행)에 짧은 경기가 걸린 진단 범위 실패이며 투사체·게임플레이 오류가 아니다. `UAS-ATTACK-SHADOW`는 새 세션 FAIL 0 · dropped 0(EVIDENCE 4 · INCONCLUSIVE 2).
+- **[관찰 — 기존 경로, 단계 C 범위 밖]** 경기 3이 끝나고 기기(Client)가 Shutdown한 직후(03:18:22.196) 같은 기기에서 RuneSpire 3기가 로컬로 공격을 1회 실행했다(`Role=Solo`, `ClockDomain=SoloScaled`, HP 200→0). `GameBootstrapper.cs` 722~725행이 `!IsNetworkMode()`일 때 타워 Tick을 부르므로 씬이 내려가기 전 몇 프레임 동안 싱글처럼 동작한 것으로 읽힌다 [전달]. 인간 타워가 이 구간에서 어떻게 되는지는 나오지 않았다 [미확인].
+- **WARN:** `InitializeUnitView` 재시도(정상 재시도 경로) 기기 155 · 에디터 202, 연결 끊김, `RematchRequestPopup`, WAVE-DIAG, ROOT-POSE capacity. **투사체 관련 WARN · fault 0.**
+
+<a id="15-9-front-120-request"></a>
+
+### 15-9. 사용자 요청 — 인간 방어타워 전방 120° 공격 (기록만, 미착수)
+
+> **사용자 요청(2026-10-21) [전달 — 메인 세션]:** 「인간 방어타워는 전방 120도 영역만 공격 가능하도록 바꿔야 어색하지 않을 것 — 문서에 기록만」. 구현·규칙 개정은 하지 않는다. 후속 항목은 [Plan 9절](Plan.md#9-follow-up-items-not-started) · ROADMAP 「전투·유닛 후속」.
+
+현재 코드 사실(분석 원문 §8 — 표본 행은 이번 회차에 다시 읽음):
+
+1. **대상 선택은 360°다** [확인]. `TowerCombatUseCase.FindNearestEnemyUnit`(190~235행)은 사거리(199행 `BuildingStats.GetAttackRange × TileHeight + Epsilon`)와 최단 거리(224행 `Vector3.Distance`)만 본다. 기준 위치는 `GetBuildingWorldPosition`, 없으면 `HexToWorld`(203~207행). 방향·각도 검사는 없다.
+2. **세 종족이 같은 탐색을 쓴다** [확인]. `Tick`(142~174행)은 종족 구분 없이 모든 AutoTower를 같은 탐색으로 처리하고, 종족 분기는 탐색 뒤 `ExecuteTowerAttack`(254행 `IsServerProjectileTower`)에서만 일어난다.
+3. **대상이 없으면 쿨다운을 시작하지 않고 다음 Tick에 다시 찾는다** [확인 — 159~160행. 분석 원문은 156~160행]. 그래서 각도 조건을 넣으면 「범위 밖이면 기다림」이 자연스럽게 된다 [추정].
+4. **포신 방향은 배치 때 고정, 실시간 회전 없음** [확인]. `BuildingFactory.GetInitialRotation`(231~247행): Human + AutoTower만, 내 타워는 회전 없음, 상대 타워는 Y 180°. `ViewConverter.ToView`의 맵 중심 점대칭과 합쳐 도메인 좌표에서 **Blue 포신은 +Z, Red 포신은 −Z**(`ProjectileDeliveryContracts.cs` 391~397행 주석). 타워를 돌리는 LookAt 코드는 없다(검색에 걸린 것은 RuneSpire 볼트 VFX뿐 [전달]).
+5. **어색함의 코드상 원인** [전달]: 투사체는 포구에서 대상 중심으로 곧바로 날아가고(`TryLaunchTowerProjectile`), 발사 이펙트 방향도 포구 → 대상이다. 그래서 대상이 타워 뒤에 있으면 포신 끝에서 **뒤로** 날아가는 모양이 된다.
+6. **현재 120° 밖 발사가 몇 발인지는 측정할 수 없다** [미확인]. 로그에 대상 위치와 Source가 없다. 최소 거리 0.379는 타워 바로 옆 유닛에게도 쏜다는 것만 보여 준다.
+7. **참고 수치(사실):** 120°는 정면에서 좌우 ±60°이며, XZ 정규화 방향과 정면 벡터(Blue (0,0,1) · Red (0,0,−1))의 내적 ≥ 0.5와 같다. 각도 기준점을 타워 루트로 할지 포구로 할지는 **정해지지 않았다.**
+
+**바꿀 때 관련되는 규칙 위치** — `GameSystemRules_Buildings.md` 「방어 타워 시스템」 [확인 — 위치만, 본문 수정 안 함]:
+
+| 규칙 | 행 | 지금 문장의 요지 | 120°와의 관계 |
+|---|---|---|---|
+| 규칙 1 「타겟 대상」 | 108~110 | 적 유닛만 타겟 | 「적 유닛」에 각도 조건이 붙는 자리 |
+| 규칙 2 「타겟 선택 기준」 | 112~113 | 사거리 안 여러 명이면 월드 거리 최단 | 「사거리 안」 → 「사거리 안 + 전방 120° 안」으로 범위가 바뀐다 |
+| 규칙 3 「사거리 판정 기준」 | 119~122 | 월드 좌표 `Vector3.Distance` | 각도 판정 기준점(루트·포구)과 높이(Y 포함 여부)를 함께 정해야 한다 |
+| 규칙 11 「Human CannonTower 배치 시 초기 회전」 | 180~187 | 배치 때 한 번 고정, 실시간 회전 없음 | 「정면」의 정의가 이 규칙의 초기 회전에서 나온다. 회전을 넣을지(규칙 11 변경)와 사격 각도 제한(규칙 1·2·3 변경)은 다른 선택이다 |
+
+- 🔴 위 규칙은 세 종족 공통 문장이다(규칙 11만 Human 전용). 인간 타워에만 각도 제한을 두려면 종족 예외 문장이 필요하다 — **규칙 변경 전 사용자 보고·승인 대상**(공용 메모리 「Permanent user workflow preference」).
+
+<a id="15-10-remaining"></a>
+
+### 15-10. 남은 것 · 다음 유닛 전에 정할 것 (제안 — 미실행)
+
+> 2~5는 분석의 제안을 옮긴 것이다 [전달]. 코드·진단 추가는 별도 승인 대상이다.
+
+1. **유닛 투사체 6·7·17 실기 회귀** — 이번 로그로 확인 불가. 다음 실기에서 유닛 투사체와 인간 타워를 섞어 확인 [제안].
+2. **포구 Source 직접 확인** — 진단 줄에 source 칸 추가(승인 필요). 지금은 간접 근거(15-6)와 육안뿐.
+3. **실기에서 아직 안 나온 경로:** 비행 중 타워 파괴(Plan U-6 결정 「피해 들어간다」의 실기), 늦은 접속(스냅샷 expected 0 / received 0), 싱글, 타임아웃 · 순서 역전 방출(이번에도 모두 resultBeforeArrival), 경기 4 Client displayLag 0.333 1건 · 0.2~0.3 1건의 원인(표본 24줄 밖이라 [미확인]).
+4. **InfernoSpirit · FoxMagician(차지 유닛) 시작 전에 정할 것:** 차지 marker부터 발사까지 끊기는 구간과 그 취소 규칙(Plan 1-2 확정표와의 대조), 차지 중 숫자 표시 규칙(Units 규칙 19 — Plan 4-2-3 F-4로 Fox 예외 삭제)과의 관계.
+   - *document-manager 주:* 분석 원문은 여기에 「겹사격 정책을 유닛에도 적용할지」도 넣었다. 겹사격 헛방은 Q15 결정의 결과이므로(15-7) 정책 질문으로 옮기지 않았다. 유닛에서도 같은 헛방이 생기는 것은 Q15상 정상 동작이다 [추정 — Q15 문장이 유닛·타워를 나누지 않으므로].
+5. **인간 타워 전방 120°** — 15-9, Plan 9절(기록만, 미착수).
