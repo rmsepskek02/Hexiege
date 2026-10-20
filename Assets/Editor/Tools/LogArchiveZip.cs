@@ -4,10 +4,12 @@
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
 // │  1) Hexiege > Logs > Create Log Archive ZIP 실행 → 작은 창이 뜬다.         │
 // │  2) 작업명을 입력한다(영문·숫자·하이픈만. 예: vfx-followups).             │
-// │     「시작 날짜」는 보통 기본값(2026-10-20) 그대로 둔다.                   │
+// │     「시작 날짜」는 보통 기본값(창을 연 순간의 한국 시간 KST 오늘) 그대로 둔다.│
+// │     ⚠️ 자정을 넘겨 이어진 테스트면 전날 폴더가 기본 범위에서 빠지므로      │
+// │        시작 날짜를 전날로 직접 넣는다.                                    │
 // │     보관이 빈 기간을 한 번 묶을 때만 더 이른 날짜(예: 2026-10-13)를 넣는다.│
 // │  3) [ZIP 생성] 을 누른다.                                                 │
-// │     → Assets/_Project/Docs/_Logs/_zip/{오늘 날짜}/                         │
+// │     → Assets/_Project/Docs/_Logs/_zip/{KST 오늘 날짜}/                     │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.zip                               │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.manifest.json                     │
 // │  4) 결과 창을 닫으면 그 폴더와 이번 달 Release 페이지가 열린다.            │
@@ -21,8 +23,8 @@
 //   이 도구는 그 ZIP 과, ZIP 에 무엇이 들었는지 적은 영수증(manifest.json)을
 //   규칙대로 만들어 주는 일만 한다.
 //
-// 어떤 파일을 넣는가(창의 「시작 날짜」 당일부터의 날짜 폴더만. 기본 2026-10-20 —
-//                    이유는 상수 DefaultStartDateText 주석):
+// 어떤 파일을 넣는가(창의 「시작 날짜」 당일부터의 날짜 폴더만. 기본 = KST 오늘 —
+//                    이유는 상수 PriorArchiveBoundaryDateText · 메서드 TodayKstText 주석):
 //   · 실기기 캡처 로그  Assets/_Project/Docs/_Logs/{YYYY-MM-DD}/{폴더}/RuntimeLog_device*.txt
 //                       (RuntimeLog_device.txt, RuntimeLog_device_2.txt … 전부)
 //   · 진단 세션 로그    Assets/_Project/Docs/_Logs/{YYYY-MM-DD}/{HH_MM_작업명}/RuntimeLog.txt
@@ -98,23 +100,41 @@ namespace Hexiege.EditorTools
         private const string DateFolderFormat = "yyyy-MM-dd";
 
         /// <summary>
-        /// 창의 「시작 날짜」 기본값. 이 날짜(당일 포함) 이후의 날짜 폴더만 대상으로 삼는다.
-        /// 실기기·진단 세션 폴더(_Logs/날짜/)와 에디터 일일 로그(_Logs/_editor/날짜/)에 똑같이 적용한다.
-        /// 사용자 결정 2026-10-20.
+        /// 「이전 보관분 경계」 날짜. 시작 날짜가 이 날짜보다 이르면 창에 겹침 경고를 띄운다.
+        /// (예전에는 이 값이 「시작 날짜」의 고정 기본값이었다 — 사용자 결정 2026-10-20.
+        ///  2026-10-21 사용자 요청으로 기본값은 "KST 오늘"(TodayKstText)로 바뀌었고, 이 상수는 경고 기준으로만 남는다.)
         ///
-        /// 왜 시작 날짜가 필요한가:
+        /// 왜 이 경계가 필요한가:
         ///   그 이전 로그는 2026-10-12 에 "기존 로그 일회성 보관"(YYYY-MM-DD_기존로그.zip,
         ///   Tools/archive_runtime_logs.py) 등으로 이미 따로 보관했다. 그런데 그 manifest 는 이 도구가 읽는
-        ///   _zip 폴더 밖에 있어서, 시작 날짜가 없으면 첫 실행 때 옛 로그 전부를 "아직 보관 안 됨" 으로 보고
-        ///   다시 묶어 버린다(중복 보관). 그래서 기본은 이 날짜부터의 로그만 다룬다(첫 실행 포함).
+        ///   _zip 폴더 밖에 있어서, 이 날짜보다 이른 시작 날짜를 쓰면 옛 로그를 "아직 보관 안 됨" 으로 보고
+        ///   다시 묶을 수 있다(중복 보관). 기본값(KST 오늘)은 언제나 이 날짜 이후라 기본 그대로면 안전하다.
         ///
         /// 창에서 더 이른 날짜(예: 2026-10-13)를 한 번 지정해 보관이 비어 있는 기간을 묶을 수 있다.
         /// 그때 이전 보관분과 겹치는지는 이 도구가 확인하지 않는다(manifest 에 그렇게 적는다 —
         /// 업로드 후 기존 manifest 와 대조하는 것은 사람/메인 세션의 일).
-        /// 시작 날짜를 EditorPrefs 에 저장하지 않는 이유: 한 번 쓴 이른 날짜가 다음 실행에 남으면
-        /// 의도치 않게 넓은 범위를 다시 훑게 되므로, 창을 열 때마다 이 기본값으로 시작한다.
         /// </summary>
-        private const string DefaultStartDateText = "2026-10-20";
+        private const string PriorArchiveBoundaryDateText = "2026-10-20";
+
+        /// <summary>
+        /// 한국 표준시(KST)의 시간대 ID 후보. 앞에서부터 찾아 처음 찾은 것을 쓴다.
+        ///   · "Korea Standard Time" — Windows 의 시간대 ID
+        ///   · "Asia/Seoul"          — macOS·Linux(IANA) 의 시간대 ID
+        /// 운영체제마다 이름이 달라서 둘 다 시도한다. PC 자체의 시간대 설정과는 무관하게 "서울 시간" 을 고른다.
+        /// </summary>
+        private static readonly string[] KstTimeZoneIds = { "Korea Standard Time", "Asia/Seoul" };
+
+        /// <summary>
+        /// 위 시간대 ID 를 하나도 찾지 못했을 때 쓰는 고정 오프셋(UTC+9).
+        /// 한국은 1988년 이후 서머타임이 없어 고정 +9 시간이 KST 와 같다.
+        /// </summary>
+        private static readonly TimeSpan KstFixedOffset = TimeSpan.FromHours(9);
+
+        /// <summary>
+        /// 찾은 KST 시간대(못 찾으면 null). 처음 쓸 때 한 번만 조회하고 재사용한다
+        /// (Lazy: 시간대 조회는 OS 데이터를 읽는 작업이라 OnGUI 가 불릴 때마다 반복하지 않으려고).
+        /// </summary>
+        private static readonly Lazy<TimeZoneInfo> KstZone = new Lazy<TimeZoneInfo>(FindKstZone);
 
         /// <summary>manifest 에 적는 "이전 보관분과의 중복 확인" 범위 안내.</summary>
         private const string PriorArchiveDedupeNote = "prior-archive dedupe: not checked by tool";
@@ -164,8 +184,12 @@ namespace Hexiege.EditorTools
         /// <summary>사용자가 입력 중인 작업명(정규화 전 원문).</summary>
         private string _taskNameInput = string.Empty;
 
-        /// <summary>사용자가 입력 중인 시작 날짜(YYYY-MM-DD 문자열). 창을 열 때마다 기본값으로 시작한다.</summary>
-        private string _startDateInput = DefaultStartDateText;
+        /// <summary>
+        /// 사용자가 입력 중인 시작 날짜(YYYY-MM-DD 문자열). OnEnable 에서 "KST 오늘" 로 채운다.
+        /// 필드 초기값에서 바로 오늘을 계산하지 않는 이유: Unity 가 창 객체를 만드는 시점(필드 초기화)보다
+        /// 창이 실제로 켜지는 시점(OnEnable)에 계산하는 편이 "창을 연 순간의 오늘" 에 더 가깝다.
+        /// </summary>
+        private string _startDateInput = string.Empty;
 
         /// <summary>ZIP 생성이 진행 중인지. 버튼 연타로 같은 작업이 두 번 도는 것을 막는다.</summary>
         private bool _isRunning;
@@ -188,13 +212,19 @@ namespace Hexiege.EditorTools
         }
 
         /// <summary>
-        /// 창이 열릴 때(또는 스크립트 재컴파일 후) 마지막 작업명을 불러온다.
-        /// 시작 날짜는 저장하지 않고 필드 초기값(기본값)을 그대로 쓴다 — 이유는 DefaultStartDateText 주석.
+        /// 창이 열릴 때(또는 스크립트 재컴파일 후) 마지막 작업명을 불러오고, 시작 날짜를 KST 오늘로 채운다.
+        ///
+        /// 시작 날짜를 EditorPrefs 에 저장하지 않는(기억하지 않는) 이유:
+        ///   한 번 쓴 이른 날짜(예: 공백 기간 보관용 2026-10-13)가 다음 실행에 남으면
+        ///   의도치 않게 넓은 범위를 다시 훑게 되므로, 창을 열 때마다 "KST 오늘" 로 새로 시작한다.
+        ///   (_startDateInput 은 [SerializeField] 가 없어 Unity 가 저장하지 않는다 → 재컴파일 뒤에도 비어서 다시 오늘로 채워진다.)
+        ///
+        /// ⚠️ 창을 열어 둔 채 자정을 넘기면 입력 칸은 "창을 연 날" 그대로다. 새 날짜가 필요하면 [오늘(KST)] 버튼을 누른다.
         /// </summary>
         private void OnEnable()
         {
             _taskNameInput = EditorPrefs.GetString(LastTaskNamePrefsKey, string.Empty);
-            if (string.IsNullOrEmpty(_startDateInput)) _startDateInput = DefaultStartDateText;
+            if (string.IsNullOrEmpty(_startDateInput)) _startDateInput = TodayKstText();
         }
 
         /// <summary>창 내용을 그린다. Unity 가 화면 갱신 때마다 자동으로 부른다.</summary>
@@ -204,7 +234,7 @@ namespace Hexiege.EditorTools
             EditorGUILayout.HelpBox(
                 "시작 날짜 당일부터의 날짜 폴더에 있는 원본 로그(실기기 RuntimeLog_device*.txt · " +
                 "진단 세션/에디터 RuntimeLog.txt) 중 아직 보관하지 않은 것만 골라 " +
-                "ZIP 과 manifest 를 _Logs/_zip/오늘날짜/ 에 만듭니다.\n" +
+                "ZIP 과 manifest 를 _Logs/_zip/오늘날짜(KST)/ 에 만듭니다.\n" +
                 "업로드는 하지 않습니다. 완료 후 열리는 Release 페이지에 직접 올려 주세요.",
                 MessageType.Info);
 
@@ -229,7 +259,7 @@ namespace Hexiege.EditorTools
         }
 
         /// <summary>
-        /// 「시작 날짜」 입력 칸과 [기본값] 버튼을 그리고, 입력이 올바른 날짜인지 검사한다.
+        /// 「시작 날짜」 입력 칸과 [오늘(KST)] 버튼을 그리고, 입력이 올바른 날짜인지 검사한다.
         /// </summary>
         /// <param name="startDate">올바르면 해석한 날짜(시각 부분은 0시).</param>
         /// <returns>YYYY-MM-DD 형식의 실제 날짜이면 true.</returns>
@@ -238,9 +268,10 @@ namespace Hexiege.EditorTools
             using (new EditorGUILayout.HorizontalScope())
             {
                 _startDateInput = EditorGUILayout.TextField("시작 날짜", _startDateInput);
-                if (GUILayout.Button("기본값", GUILayout.Width(60f)))
+                // 누른 그 순간의 KST 오늘로 되돌린다(창을 연 채 자정을 넘긴 경우에도 새 날짜가 된다).
+                if (GUILayout.Button("오늘(KST)", GUILayout.Width(80f)))
                 {
-                    _startDateInput = DefaultStartDateText;
+                    _startDateInput = TodayKstText();
                     // 입력 칸에 커서가 있으면 Unity 가 이전 글자를 계속 보여 주므로 포커스를 풀어 새 값이 보이게 한다.
                     GUI.FocusControl(null);
                 }
@@ -252,18 +283,71 @@ namespace Hexiege.EditorTools
                 return false;
             }
 
-            DateTime defaultDate = ParseDateOrThrow(DefaultStartDateText);
+            DateTime boundaryDate = ParseDateOrThrow(PriorArchiveBoundaryDateText);
             string scope = $"{startDate.ToString(DateFolderFormat, CultureInfo.InvariantCulture)} 당일부터의 날짜 폴더(실기기·진단 세션·에디터 일일 로그 모두)만 찾습니다.";
-            if (startDate < defaultDate)
+            if (startDate < boundaryDate)
             {
-                EditorGUILayout.HelpBox(scope + "\n기본값보다 이른 날짜입니다. 이전 보관분(예: 2026-10-12 기존로그)과 겹치는지는 " +
+                EditorGUILayout.HelpBox(scope + $"\n{PriorArchiveBoundaryDateText} 보다 이른 날짜입니다. 이전 보관분(예: 2026-10-12 기존로그)과 겹치는지는 " +
                                         "이 도구가 확인하지 않습니다 — 업로드 후 기존 manifest 와 대조하세요.", MessageType.Warning);
             }
             else
             {
+                // 기본값이 "오늘" 이라, 자정을 넘긴 테스트의 전날 폴더가 빠질 수 있음을 함께 알려 준다.
                 EditorGUILayout.LabelField(scope, EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("자정을 넘긴 테스트면 시작 날짜를 전날로 넣으세요(기본값은 KST 오늘).", EditorStyles.miniLabel);
             }
             return true;
+        }
+
+        // ====================================================================
+        // 한국 시간(KST, UTC+9) 계산
+        //
+        // 왜 PC 시간대(DateTime.Now)를 쓰지 않는가:
+        //   사용자 요청(2026-10-21)은 "한국 시간 기준 오늘" 이다. DateTime.Now 는 PC 의 시간대 설정을 따르므로
+        //   PC 가 다른 시간대로 설정돼 있으면 날짜가 하루 어긋날 수 있다. 그래서 UTC 현재 시각을 KST 로 직접 바꾼다.
+        // ⚠️ 원본 로그의 날짜 폴더(FileSink·LogcatCapture 가 만드는 _Logs/YYYY-MM-DD/)는 지금도 PC 로컬 날짜(DateTime.Now)로
+        //    만들어진다. PC 가 한국 시간대면 둘이 같지만, 다른 시간대 PC 라면 원본 폴더 날짜와 이 도구의 KST 날짜가
+        //    하루 어긋날 수 있으니 그때는 시작 날짜를 직접 확인해 넣는다.
+        // ====================================================================
+
+        /// <summary>
+        /// 지금 이 순간의 한국 시각(오프셋 +09:00 인 DateTimeOffset).
+        /// 시간대 정보를 찾았으면 그것으로, 못 찾았으면 고정 UTC+9 로 바꾼다.
+        /// </summary>
+        private static DateTimeOffset NowKst()
+        {
+            DateTimeOffset utcNow = DateTimeOffset.UtcNow;
+            TimeZoneInfo zone = KstZone.Value;
+            return zone != null ? TimeZoneInfo.ConvertTime(utcNow, zone) : utcNow.ToOffset(KstFixedOffset);
+        }
+
+        /// <summary>
+        /// 한국 시간 기준 오늘 날짜 문자열(YYYY-MM-DD). 「시작 날짜」 기본값이며 [오늘(KST)] 버튼이 쓰는 값이다.
+        /// ⚠️ 자정을 넘겨 이어진 테스트는 전날 날짜 폴더가 기본 범위에서 빠지므로, 그때는 시작 날짜를 전날로 지정해야 한다.
+        /// </summary>
+        private static string TodayKstText()
+        {
+            // DateTimeOffset.Date 는 그 오프셋(+09:00) 기준의 날짜이므로 곧 "한국 날짜" 다.
+            return NowKst().Date.ToString(DateFolderFormat, CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// KstTimeZoneIds 를 차례로 조회해 처음 찾은 시간대를 돌려준다. 하나도 없으면 null(→ 고정 UTC+9 사용).
+        /// 시간대 데이터가 없는 환경(일부 Linux 컨테이너 등)에서도 예외로 창이 깨지지 않도록 실패를 삼킨다.
+        /// </summary>
+        private static TimeZoneInfo FindKstZone()
+        {
+            foreach (string id in KstTimeZoneIds)
+            {
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(id);
+                }
+                catch (TimeZoneNotFoundException) { /* 이 OS 에는 이 이름이 없다 → 다음 후보 */ }
+                catch (InvalidTimeZoneException) { /* 시간대 데이터가 손상됨 → 다음 후보 */ }
+                catch (System.Security.SecurityException) { /* 시간대 데이터를 읽을 권한 없음 → 다음 후보 */ }
+            }
+            return null;
         }
 
         /// <summary>문자열이 정확히 YYYY-MM-DD 형식의 실제 날짜인지(2026-02-30 같은 날짜는 거부).</summary>
@@ -301,7 +385,8 @@ namespace Hexiege.EditorTools
                     MessageType.None);
             }
 
-            DateTime now = DateTime.Now;
+            // 실제 이름(ArchiveNames.Create)과 같은 KST 기준으로 예시를 보여 준다.
+            DateTimeOffset now = NowKst();
             string example = $"{now.ToString(DateFolderFormat, CultureInfo.InvariantCulture)}_" +
                              $"{now.ToString("HH_mm", CultureInfo.InvariantCulture)}_{normalized}_NN{ZipExtension}";
             EditorGUILayout.LabelField("파일 이름 예시", example, EditorStyles.miniLabel);
@@ -403,7 +488,10 @@ namespace Hexiege.EditorTools
         public static void CreateArchive(string taskName, DateTime startDate)
         {
             var paths = ArchivePaths.Resolve();
-            DateTimeOffset now = DateTimeOffset.Now;
+            // 출력 폴더(_zip/YYYY-MM-DD)·파일 이름(YYYY-MM-DD_HH_MM)·Release 월(YYYY-MM)을 모두 KST 기준으로 정한다.
+            // 「시작 날짜」 기본값(KST 오늘)과 같은 기준이어야 "오늘 폴더" 가 서로 하루 어긋나지 않는다.
+            // manifest 의 created_at_local 은 FormatLocal 이 PC 로컬 시각으로 바꿔 적는다(필드 이름 그대로의 의미 유지).
+            DateTimeOffset now = NowKst();
             startDate = startDate.Date; // 시각 부분이 섞여 들어와도 "그날 0시" 기준으로 비교한다.
             string startDateText = startDate.ToString(DateFolderFormat, CultureInfo.InvariantCulture);
 
@@ -878,7 +966,9 @@ namespace Hexiege.EditorTools
                 total_source_bytes = totalBytes,
                 sources = sources,
                 start_date = result.StartDateText,
-                start_date_rule = "date folders on or after start_date (inclusive); applied to _Logs/YYYY-MM-DD/ and _Logs/_editor/YYYY-MM-DD/",
+                start_date_rule = "date folders on or after start_date (inclusive); applied to _Logs/YYYY-MM-DD/ and _Logs/_editor/YYYY-MM-DD/; " +
+                                  "default start_date = today in KST (UTC+9) when the window opens (not remembered); " +
+                                  "start_date earlier than " + PriorArchiveBoundaryDateText + " may overlap prior archives outside _zip",
                 dedupe_scope = "path+sha256 already listed in Assets/_Project/Docs/_Logs/_zip/**/*.manifest.json",
                 prior_archive_dedupe = PriorArchiveDedupeNote,
                 skipped_already_archived = result.SkippedArchived,
@@ -950,10 +1040,14 @@ namespace Hexiege.EditorTools
                 stream.Write(data, 0, data.Length);
         }
 
-        /// <summary>로컬 시각을 시간대 포함 ISO 8601 로(예: 2026-10-20T14:05:33.120+09:00).</summary>
+        /// <summary>
+        /// 시각을 PC 로컬 시간대로 바꿔 시간대 포함 ISO 8601 로(예: 2026-10-20T14:05:33.120+09:00).
+        /// ToLocalTime() 을 거치는 이유: 이름 계산용으로 KST 시각(NowKst)이 들어와도 *_local 필드는
+        /// 이름 그대로 "PC 로컬 시각" 을 적게 하려고. 같은 순간이므로 *_utc 값은 달라지지 않는다.
+        /// </summary>
         private static string FormatLocal(DateTimeOffset value)
         {
-            return value.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
+            return value.ToLocalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
         }
 
         /// <summary>UTC 시각을 ISO 8601 로(예: 2026-10-20T05:05:33.120Z).</summary>
@@ -1145,7 +1239,7 @@ namespace Hexiege.EditorTools
             public string ZipRepoRelative;
 
             /// <summary>
-            /// 이름을 정한다: YYYY-MM-DD_HH_MM_작업명_NN.
+            /// 이름을 정한다: YYYY-MM-DD_HH_MM_작업명_NN. 날짜·시각은 넘겨받은 now 의 오프셋 기준(호출자가 KST 를 넘긴다).
             /// NN 은 오늘 폴더에 이미 있는 "같은 날짜 + 같은 작업명" 파일의 가장 큰 번호 + 1 (없으면 01).
             /// 시각(HH_MM)은 회차 계산에 쓰지 않는다 — 같은 작업을 하루에 여러 번 묶으면 01, 02, 03 으로 이어진다.
             /// </summary>
