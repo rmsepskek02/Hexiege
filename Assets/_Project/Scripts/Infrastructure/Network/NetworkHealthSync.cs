@@ -166,7 +166,10 @@ namespace Hexiege.Infrastructure
                 e.PresentationResultKey.VictimId,
                 e.PresentationResultKey.EffectKind,
                 e.PresentationResultKey.ResultOrdinal,
-                e.WavePresentationKey.Epoch, e.WavePresentationKey.Id);
+                e.WavePresentationKey.Epoch, e.WavePresentationKey.Id,
+                // [2026-10-20 서버 권위 투사체] 투사체 착탄 피해면 그 번호표도 함께 보낸다 —
+                //   Client 피격 표현 큐가 공격자 FIFO 대신 "화면상 착탄 순간"에 숫자를 1회 방출하게 한다(Q7).
+                e.ProjectilePresentationKey.Epoch, e.ProjectilePresentationKey.Id);
         }
 
         /// <summary>
@@ -232,7 +235,7 @@ namespace Hexiege.Infrastructure
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
             ulong attackerInstanceId, ulong attackSequenceId, int hitIndex,
             int victimKind, int victimId, int effectKind, int resultOrdinal,
-            ulong waveEpoch, ulong waveId)
+            ulong waveEpoch, ulong waveId, ulong projectileEpoch, ulong projectileId)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -255,12 +258,14 @@ namespace Hexiege.Infrastructure
             if (isUnit)
             {
                 SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit,
-                    immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
+                    immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId),
+                    new ProjectileDeliveryKey(projectileEpoch, projectileId));
             }
             else
             {
                 SyncBuildingHealth(entityId, serverHp, attackerId, attackerIsUnit,
-                    presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
+                    presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId),
+                    new ProjectileDeliveryKey(projectileEpoch, projectileId));
             }
         }
 
@@ -332,7 +337,8 @@ namespace Hexiege.Infrastructure
         /// 현재 HP와 서버 HP의 차이를 데미지로 적용.
         /// </summary>
         private void SyncUnitHealth(int unitId, int serverHp, int attackerId, bool attackerIsUnit,
-            bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
+            bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default,
+            ProjectileDeliveryKey projectileKey = default)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -373,7 +379,8 @@ namespace Hexiege.Infrastructure
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: immediatePresentation,
-                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
             }
         }
 
@@ -477,7 +484,8 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncBuildingHealth(
             int buildingId, int serverHp, int attackerId, bool attackerIsUnit,
-            AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
+            AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default,
+            ProjectileDeliveryKey projectileKey = default)
         {
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
@@ -510,7 +518,8 @@ namespace Hexiege.Infrastructure
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: false,
-                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
             }
         }
     }

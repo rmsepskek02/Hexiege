@@ -313,6 +313,15 @@ namespace Hexiege.Bootstrap
                 _buildingPlacement,
                 _presentationPoseProvider);
 
+            // 10-4-1. [2026-10-20 서버 권위 투사체] 투사체 화면 단일 소비자.
+            //   서버 발사 기록으로 투사체를 그리고, 서버 착탄 결과로 착탄 이펙트·피해 숫자를 화면상 착탄 순간에 1회 낸다.
+            //   피격 표현 큐 초기화 뒤에 둔다(착탄 순간 숫자를 이 큐로 방출하므로). 씬 배치 없이 AddComponent한다(파도 소비자와 같은 방식).
+            var projectilePresenter = GetComponent<ProjectilePresentationPresenter>();
+            if (projectilePresenter == null) projectilePresenter = gameObject.AddComponent<ProjectilePresentationPresenter>();
+            projectilePresenter.Initialize(_unitCombat, _hitPresentationQueue, _unitFactory, _buildingFactory,
+                _presentationPoseProvider);
+            _hitPresentationQueue.SetProjectileOwnerReady(() => projectilePresenter != null && projectilePresenter.IsReady);
+
             // C3 read-only Presenter는 효과 writer를 주입받지 않는다. 기존 큐 초기화 뒤 조합해
             // 관측만 시작하며, Legacy HP/VFX/Animator/OnAttackHit 경로는 그대로 단일 emitter다.
             if (_unitAttackResultPresentationShadow == null)
@@ -373,6 +382,7 @@ namespace Hexiege.Bootstrap
         {
             _unitAttackResultPresentationShadow?.CloseClock();
             _unitCombat?.CloseTorrentLaunches("map-clear");
+            _unitCombat?.CloseProjectiles("map-clear");
             if (_unitFactory != null)
                 _unitFactory.DestroyAllUnits();
 

@@ -679,6 +679,59 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-10-20 서버 권위 투사체] 서버 발사 기록으로 그리는 투사체 · 착탄 이펙트
+        //   R5 임시 경로(PlayTracer의 playImpactOnArrive)를 대신하는 정식 경로다. 스위치가 켜진 유닛만 쓴다.
+        //   위치·시각은 화면 소비자(ProjectilePresentationPresenter)가 서버 기록으로 정하고, 여기서는
+        //   기존 트레이서/착탄 프리셋(UnitEffectConfig의 tracerPreset·impactPreset)을 재사용해 꺼내 주기만 한다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 투사체 1발의 화면 오브젝트(트레이서)를 외부 구동 모드로 꺼낸다.
+        /// 트레이서 프리셋이 없는 유닛이면 null(투사체 없이 착탄 이펙트·숫자만 착탄 순간에 나온다).
+        /// </summary>
+        /// <param name="attackerType">쏜 유닛 종류(트레이서 프리셋 선택).</param>
+        /// <param name="start">발사 지점(화면 좌표).</param>
+        /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
+        public TracerProjectile BeginServerProjectile(UnitType attackerType, Vector3 start)
+        {
+            EffectPreset preset = _unitConfig?.GetTracer(attackerType);
+            GameObject prefab = preset != null ? preset.VfxPrefab : null;
+            if (prefab == null) return null;
+            TracerProjectile tracer = GetOrCreateTracer(prefab);
+            tracer.BeginDriven(start);
+            return tracer;
+        }
+
+        /// <summary>외부 구동 트레이서를 거둔다(null·이미 파괴된 경우 무시).</summary>
+        /// <param name="tracer">BeginServerProjectile이 돌려준 트레이서.</param>
+        public void EndServerProjectile(TracerProjectile tracer)
+        {
+            if (tracer != null) tracer.EndDriven();
+        }
+
+        /// <summary>
+        /// 서버 착탄 지점에서 쏜 유닛의 착탄 이펙트(impactPreset)를 1회 재생한다(명중·대상 소실 공통 — Q4).
+        /// 착탄 이펙트가 설정되지 않은 유닛이면 아무것도 하지 않고 false.
+        /// </summary>
+        /// <param name="attackerType">쏜 유닛 종류(착탄 프리셋 선택).</param>
+        /// <param name="point">착탄 지점(화면 좌표 — 대상 표면점).</param>
+        /// <param name="flightDirection">날아온 방향(수평 회전 계산용).</param>
+        /// <returns>재생할 프리셋이 있었으면 true.</returns>
+        public bool PlayServerProjectileImpact(UnitType attackerType, Vector3 point, Vector3 flightDirection)
+        {
+            EffectPreset impact = _unitConfig?.GetImpact(attackerType);
+            if (impact == null || impact.VfxPrefab == null) return false;
+            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(R5 착탄 이펙트와 같은 회전 규칙).
+            flightDirection.y = 0f;
+            Quaternion rotation = flightDirection.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(flightDirection)
+                : Quaternion.identity;
+            Play(impact, point, rotation);
+            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect · R5와 동일).
+            return true;
+        }
+
+        // ====================================================================
         // 내부 — 실제 재생 로직
         // ====================================================================
 

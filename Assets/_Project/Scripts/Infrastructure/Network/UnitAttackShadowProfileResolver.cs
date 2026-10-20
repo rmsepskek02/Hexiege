@@ -16,7 +16,10 @@ namespace Hexiege.Infrastructure
     /// </summary>
     public static class UnitAttackShadowProfileResolver
     {
-        public const int PresentationContractSchemaRevision = 3;
+        // [2026-10-20 서버 권위 투사체] 3 → 4. 새 전송 계약(발사/착탄 ClientRpc, HP 동기화 RPC의 투사체 번호표,
+        //   MushroomBomber 행 TargetLocked)이 생겼으므로 구버전 빌드와의 경기를 handshake에서 거부한다(Plan 위험 5).
+        //   옛 값(기록용): public const int PresentationContractSchemaRevision = 3;
+        public const int PresentationContractSchemaRevision = 4;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>
@@ -162,11 +165,13 @@ namespace Hexiege.Infrastructure
             string reason,
             out UnitAttackShadowProfile profile)
         {
+            // [2026-10-20 U-16 — 스키마 4와 같은 변경] 사용자 결정(3차)으로 MushroomBomber도 다른 투사체처럼
+            //   대상을 따라가 맞힌다(Homing). 그래서 이 행의 LockedPoint는 실제 게임플레이와 어긋난 값이 됐다 →
+            //   모든 투사체 행을 TargetLocked로 통일한다. 25종 manifest 해시가 바뀌므로 스키마 상향과 함께 바꾼다.
+            //   옛 식(기록용): type == UnitType.MushroomBomber ? AttackTargetMode.LockedPoint : AttackTargetMode.TargetLocked,
             profile = Create(
                 type,
-                type == UnitType.MushroomBomber
-                    ? AttackTargetMode.LockedPoint
-                    : AttackTargetMode.TargetLocked,
+                AttackTargetMode.TargetLocked,
                 AttackDeliveryKind.ProjectileImpact,
                 secondary
                     ? LegacyAttackExecutionKind.TimerImpactWithSecondaryEffect
@@ -269,6 +274,10 @@ namespace Hexiege.Infrastructure
             var manifest = new StringBuilder(2048);
             manifest.Append("c3-schema=")
                 .Append(PresentationContractSchemaRevision.ToString(CultureInfo.InvariantCulture));
+            // [2026-10-20] 서버 권위 투사체 이행 스위치(켜진 유닛 목록)도 해시에 넣는다. Host와 Client의 스위치가
+            //   다르면(다른 빌드) 한쪽은 옛 트레이서·다른 쪽은 새 투사체를 그려 이중 재생이 생기므로 경기를 시작하지 않는다.
+            manifest.Append("|server-projectile=")
+                .Append(Hexiege.Application.ServerProjectileDeliveryPolicy.ManifestToken);
             for (int index = 0; index < ManifestTypes.Length; index++)
             {
                 UnitType type = ManifestTypes[index];

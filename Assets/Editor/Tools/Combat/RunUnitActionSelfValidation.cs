@@ -1016,6 +1016,7 @@ namespace Hexiege.Editor.Combat
             Hexiege.EditorTools.TorrentWaveProductionValidation.Run();
             ValidateStreamSpiritProductionTimeline();
             ValidateStreamSpiritProductionTimelineDiagnostics();
+            ValidateServerAuthoritativeProjectiles(); // [2026-10-20 서버 권위 투사체 — 단계 A]
             ValidateFoxMagicianProductionTimeline();
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();

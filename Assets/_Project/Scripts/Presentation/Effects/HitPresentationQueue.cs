@@ -115,6 +115,43 @@ namespace Hexiege.Presentation
         /// <summary>조합 루트에서 로컬 wave 소비자 준비 조건을 전달한다.</summary>
         public void SetWaveOwnerReady(Func<bool> ready) => _waveOwnerReady = ready;
 
+        // ────────────────────────────────────────────────────────────────
+        // [2026-10-20 서버 권위 투사체 — Q7 · RM-7] 투사체 착탄 피해의 표현 보관함.
+        //   투사체 번호표가 붙은 피해 이벤트는 공격자별 FIFO(로컬 타격 신호 대기)에 넣지 않는다.
+        //   FIFO에 넣으면 "빈 큐 신호 버림"(아래 OnLocalAttackHit 주석) 때문에 숫자가 다음 공격·타임아웃까지 밀린다(위험 1).
+        //   대신 투사체 화면 소비자가 "화면상 착탄 순간"에 ReleaseProjectileImpact를 불러 1회 방출한다.
+        //   소비자가 준비되지 않았으면(_projectileOwnerReady=false) 받는 즉시 방출해 표시가 사라지지 않게 한다.
+        //   FIFO 코드 자체는 다른 유닛이 계속 쓰므로 그대로 둔다.
+        // ────────────────────────────────────────────────────────────────
+        private Func<bool> _projectileOwnerReady;
+        private readonly ProjectileImpactPresentationHold<EntityDamagedEvent> _projectileHold =
+            new ProjectileImpactPresentationHold<EntityDamagedEvent>();
+        private readonly List<EntityDamagedEvent> _projectileReleased = new List<EntityDamagedEvent>();
+
+        /// <summary>조합 루트에서 투사체 화면 소비자 준비 조건을 전달한다.</summary>
+        /// <param name="ready">소비자가 준비됐으면 true를 돌려주는 함수.</param>
+        public void SetProjectileOwnerReady(Func<bool> ready) => _projectileOwnerReady = ready;
+
+        /// <summary>
+        /// 투사체 화면 소비자가 "화면상 착탄 순간"에 부른다. 그 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 한 번 방출한다.
+        /// 피해 이벤트가 아직 안 왔으면(순서 역전) 잠시 기억했다가 도착하는 즉시 방출한다.
+        /// </summary>
+        /// <param name="key">투사체 번호표.</param>
+        public void ReleaseProjectileImpact(ProjectileDeliveryKey key)
+        {
+            if (!key.IsValid) return;
+            _projectileReleased.Clear();
+            _projectileHold.Release(key, Time.realtimeSinceStartupAsDouble, _projectileReleased);
+            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedMarker);
+        }
+
+        private void EmitProjectileReleased(LegacyPresentationObservationKind kind)
+        {
+            for (int i = 0; i < _projectileReleased.Count; i++)
+                Emit(_projectileReleased[i], kind);
+            _projectileReleased.Clear();
+        }
+
         /// <summary> 유닛 GameObject 조회용(VFX 위치 + 스케일 펀치 대상). </summary>
         private UnitFactory _unitFactory;
 
@@ -336,6 +373,8 @@ namespace Hexiege.Presentation
 
             // 재초기화(맵 재로드) 대비 — 이전 보류 항목 정리.
             _pendingByAttacker.Clear();
+            _projectileHold.Clear();
+            _projectileReleased.Clear();
             _exactRendezvous.Clear();
             _releasedExact.Clear();
             _confirmedUnitViews.Clear();
@@ -402,6 +441,16 @@ namespace Hexiege.Presentation
             // 공격자 조회 없이 writer/RPC가 전달한 파도 표현 소유권만 따른다. HP 적용은 이미 끝났다.
             if (evt.WavePresentationKey.IsValid && _waveOwnerReady?.Invoke() == true) return;
             if (evt.Entity == null) return;
+
+            // [2026-10-20 서버 권위 투사체] 투사체 착탄 피해는 화면상 착탄 순간까지 보관했다가 1회 방출한다(Q7).
+            //   이미 화면 착탄 신호가 먼저 왔거나 보관함이 가득 찼으면 지금 방출한다.
+            if (evt.ProjectilePresentationKey.IsValid && _projectileOwnerReady?.Invoke() == true)
+            {
+                ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
+                if (_projectileHold.HoldOrRelease(evt.ProjectilePresentationKey, evt, Time.realtimeSinceStartupAsDouble))
+                    Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
+                return;
+            }
             ObserveFoxLegacyPresentation(evt, "received", "not-dispatched");
             if (evt.AttackerIsUnit && UnitAttackResultPresentationShadowBridge.OwnsAttacker(evt.AttackerId))
             {
@@ -604,6 +653,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+            // [2026-10-20] 화면 착탄 신호가 끝내 오지 않은 투사체 피해 표현은 상한 시간 뒤 강제 방출한다(표시 유실 방지).
+            _projectileReleased.Clear();
+            _projectileHold.CollectExpired(Time.realtimeSinceStartupAsDouble, _projectileReleased);
+            EmitProjectileReleased(LegacyPresentationObservationKind.EmittedTimeout);
             EmitAttackEffects();
             RetryAuthoritativePresentations(Time.realtimeSinceStartupAsDouble);
             _releasedExact.Clear();

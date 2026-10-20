@@ -1384,6 +1384,16 @@ _slot = _nextEviction;
         public UnitData Data => _unitData;
 
         /// <summary>
+        /// [2026-10-20 서버 권위 투사체] 이 유닛이 쏘는 투사체가 화면에서 출발하는 지점(화면 좌표, 읽기 전용).
+        /// 총구 기준점(VfxSpawnPoint)이 연결돼 있으면 그 위치, 없으면 화면 Root 위치다 —
+        /// 기존 로컬 트레이서(OnAttackHit 원거리 분기)가 쓰던 출발점과 같은 규칙이다.
+        /// 투사체 화면 소비자(ProjectilePresentationPresenter)만 읽으며 Simulation Root를 바꾸지 않는다.
+        /// </summary>
+        public Vector3 ProjectileLaunchPoint => _vfxSpawnPoint != null
+            ? _vfxSpawnPoint.position
+            : PresentationTransform.position;
+
+        /// <summary>
         /// 이동 완료 시 호출되는 콜백. 1회성 — 호출 후 자동 null 리셋.
         /// ProductionTicker에서 랠리→Castle 자동 이동 체인에 사용.
         /// </summary>
@@ -7665,6 +7675,25 @@ _slot = _nextEviction;
             //   두었으므로(Inferno 1.3333초, Fox 1.8333초) 바로 이 발사 순간에 스스로 끝난다. 여기서 또 켜면 발사 뒤에 charge가 새로 생긴다.
             //   비차지 유닛(23종)은 아래 호출을 종전 그대로 실행한다. 생략한 경우 vfxResult는 기본값이며,
             //   아래 진단 블록은 생략 사실을 「실패」로 세지 않도록 차지 유닛 타격 marker를 건너뛴다.
+            // ────────────────────────────────────────────────────────────────
+            // [2026-10-20 서버 권위 투사체 — Q6 · Q9 · RM-6] 이행 스위치가 켜진 투사체 유닛(단계 A: StreamSpirit)의 타격 marker.
+            //   · 이 marker는 이제 "총구 VFX·발사음"만 낸다. 투사체는 서버 발사 기록을 받았을 때 화면 소비자
+            //     (ProjectilePresentationPresenter)가 쏘고, 피해 숫자는 서버 착탄 결과로 착탄 순간에 1회 나온다.
+            //   · 발사 전에 공격이 끊긴 경우(서버가 발사를 취소함)에는 총구 VFX·발사음도 내지 않는다(Q6 — 투사체·소리·피해 없음):
+            //       - SourceOnly(멀티 Client: Stop/대상 사망이 marker보다 먼저 도착) → 아무것도 내지 않는다.
+            //       - 싱글·Host: 서버 권위 UseCase가 "가장 최근 예약이 발사 전에 취소됐다"고 알려 주면 내지 않는다.
+            //   차지 marker(chargeOnly)는 이 분기와 무관하게 기존 차지 VFX 규칙(규칙 17)을 그대로 따른다.
+            // ────────────────────────────────────────────────────────────────
+            bool serverProjectileMarker = !chargeOnly
+                && ServerProjectileDeliveryPolicy.IsServerProjectile(_unitData.Type);
+            if (serverProjectileMarker
+                && (sourceOnlyPresentation
+                    || (_combatUseCase != null && _combatUseCase.WasLatestProjectileLaunchCancelled(_unitData))))
+            {
+                PistoleerTimingDiagnostics.Event(_unitData, "MarkerSuppressed", _pistoleerTimingScope,
+                    UnitAttackResultPresentationShadowBridge.CurrentServerTime, "noVfx=1 reason=server-projectile-launch-cancelled");
+                return;
+            }
             UnitAttackVfxPlaybackResult vfxResult = default;
             if (!chargeUnitLaunchMarker)
             {
@@ -7780,6 +7809,18 @@ _slot = _nextEviction;
             // [P4] 옛 설명 「charge는 허가와 source VFX/SFX까지만 사용한다」 → 이제 charge는 허가 「확인」과 charge VFX만 쓴다(SFX 없음).
             //   recipient 관측·피격 신호·트레이서 진입보다 먼저 종료하므로 차지 표식이 피해 결과를 방출하지 않는다.
             if (chargeOnly || sourceOnlyPresentation) return;
+
+            // [2026-10-20 서버 권위 투사체 — RM-6 · RM-2] 스위치가 켜진 투사체 유닛은 여기서 끝낸다.
+            //   아래 원거리 분기(로컬 트레이서 발사 + R5 임시 착탄 이펙트 + 로컬 피격 신호)는 이 유닛에게 더 이상 쓰지 않는다 —
+            //   남겨 두면 서버 투사체와 로컬 트레이서가 함께 날아 착탄 이펙트·숫자가 두 번 나온다(Plan 위험 2).
+            //   아래 코드는 아직 옮기지 않은 다른 유닛이 그대로 쓰므로 지우거나 주석 처리하지 않는다(사용자 테스트 PASS 뒤 정리 — RM-2).
+            //   차지 유닛이 나중에 스위치를 켜면 발사음은 이 자리(발사 순간)에서 낸다(차지 유닛은 위 공통 SFX 줄을 건너뛴다).
+            if (serverProjectileMarker)
+            {
+                if (_hasAttackChargeMarker)
+                    AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);
+                return;
+            }
 
             // ────────────────────────────────────────────────────────────────
             // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)

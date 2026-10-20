@@ -344,6 +344,7 @@ namespace Hexiege.Bootstrap
             float mistHealTextInterval = _specialAttackConfig != null ? _specialAttackConfig.MistHealTextInterval : 3f;
 
             _unitCombat?.CloseTorrentLaunches("service-replaced");
+            _unitCombat?.CloseProjectiles("service-replaced");
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
@@ -353,6 +354,16 @@ namespace Hexiege.Bootstrap
                 infernoDotPerSecond, infernoDotDuration,
                 quakeRadius, quakeSplashRatio);
             _unitCombat.SetWaveDeliveryEnabled(true);
+            // [2026-10-20 서버 권위 투사체] 투사체 속도·대상 반경(Inspector 값)을 서버 판정용 순수 데이터로 주입한다.
+            //   슬롯이 비어 있으면 Resources에서 찾는다(AIConfig와 같은 폴백). 둘 다 없으면 UseCase의 코드 기본값을 유지한다.
+            ProjectileConfig projectileConfig = _projectileConfig != null
+                ? _projectileConfig
+                : Resources.Load<ProjectileConfig>("Config/ProjectileConfig");
+            if (projectileConfig != null) _unitCombat.SetProjectileSettings(projectileConfig.ToSettings());
+            else
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                    "ProjectileConfig.asset 을 찾지 못해 투사체 속도·반경 코드 기본값을 쓴다",
+                    "Asset=Config/ProjectileConfig");
             _unitCombat.SetWaveClock(() =>
             {
                 var network = Unity.Netcode.NetworkManager.Singleton;
