@@ -13,6 +13,8 @@
 
 | 날짜 | 마일스톤 |
 |---|---|
+| 2026-10-21 | 서버 권위 투사체 중간 단계: 단계 A~C(`d09cc4a9` StreamSpirit · `639ac1aa` Tank·CannonCart · `64b743c8` 사망타 숫자 · `b819dc51` 인간 대포 타워)가 서버 발사 → 착탄 때 피해로 전환. 사용자 육안 확인·회귀 스위트 PASS(Console)·실기 로그 scoped 범위이며 작업 전체 완료가 아님 — 단계 D(InfernoSpirit·FoxMagician) 진행 중, EagleArcher·MushroomBomber 남음. [근거](<_Tasks/2026-10-19/13_30_server-authoritative-projectile/Research.md#15-stage-c-human-cannon-tower-check-20261021>) |
+| 2026-10-21 | 로그 보관 ZIP 생성 에디터 도구(`Hexiege > Logs > Create Log Archive ZIP`, 업로드는 사용자) 사용자 실행 ZIP 3회·메인 세션 다운로드 대조 확인. 이후 KST 날짜 기준 변경(`fd4c04cb`)은 실행 확인 기록 없음. [근거](<_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md#8-실행-기록>) |
 | 2026-10-19 | 차지 유닛(InfernoSpirit·FoxMagician) 차지→발사 시점 분리(클립 `OnAttackCharge` = 차지 VFX·lease 확인만, `OnAttackHit` = 투사체+발사음, 취소 시 차지 정지)·Fox tracer/impact 연결·Inferno 불티 재질 교체를 싱글·멀티 사용자 시각 확인 범위에서 수용. 서버 피해 시점 무변경, 로그 검증 없음·회귀 스위트 미보고. [근거](<_Tasks/2026-10-19/11_09_charge-unit-launch-timing/Research.md#9-implementation-result>) |
 | 2026-10-19 | QuakeSpirit 공격 VFX 재제작(6갈래 바닥 균열·흙먼지 퍼프·파편, 기존 공격 슬롯) 사용자 승인. 보이는 범위 약 1.6 > 피해 반경 1.0은 사용자 선택이며 피해 규칙 무변경. [근거](<_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md#13-quakespirit-attack-vfx-rework>) |
 | 2026-10-19 | Fox marker fixture의 기본 Quaternion 비교 교정 후 전체 회귀 suite 사용자 PASS 수용. production·Bloom 무변경, 기기 플레이/공격 시각·HP 수용과 구분. [근거](<_Tasks/2026-10-19/15_21_regression-suite-contract-fixes/Research.md#6-사용자-전체-suite-pass-수용과-최종-정리>) |

@@ -269,6 +269,16 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - 「점점 모이는」 느낌은 Size over Lifetime·rate 곡선처럼 **정규화 곡선**으로 만든다. Duration을 줄이면 같은 곡선이 짧은 시간에 압축되며, 초당 방출량을 그대로 두면 **입자 총수는 Duration에 비례해 줄어든다**(Fox `Wisps`는 약 2.4배 감소 — 사용자 이의 없음).
 - 차지 이펙트 preset은 「Stop When Caster Dies」를 켠다 — 시전자 사망·제거, 그리고 발사 전 공격 취소 때 코드가 즉시 끈다.
 
+**8. 투사체(트레이서)·착탄 프리팹과 연결 칸 (2026-10-21 추가)**
+
+출처: StreamSpirit·Tank·CannonCart tracer/impact 연결(`_Tasks/2026-10-13/13_53_vfx-code-followups/` Research 14-4·15-2·15-3), 서버 권위 투사체 단계 A~C(`_Tasks/2026-10-19/13_30_server-authoritative-projectile/`). 규칙: [유닛 규칙 20](../GameSystemRules/GameSystemRules_Units.md) 「원거리 유닛 트레이서」.
+
+- **트레이서 프리팹 계약:** Looping ON · Stop Action None · 몸체 Local / 꼬리(trail) World · **+Z가 앞 방향** · 커스텀 스크립트 없음(Research 14-4).
+- **착탄 프리팹은 `impactPreset` 칸에 연결한다. `hitPreset`에 넣지 않는다** — `hitPreset`은 **맞은 유닛의 종류**로 고르는 칸이라, StreamSpirit 물 튀김을 거기 넣었더니 StreamSpirit이 때릴 때는 안 나오고 **맞을 때** 나왔다(Research 15-3). preset 이름(`EffectPreset_StreamSpirit_Hit`)과 칸 이름은 따로 확인한다 — 지금 그 preset은 impactPreset 칸에 있다.
+- **비행 속도는 프리팹이 아니라 서버 설정이 정한다.** 서버 권위 투사체로 옮긴 유닛·타워는 `Assets/_Project/Resources/Config/ProjectileConfig.asset`의 속도로 서버가 착탄 시각을 정하고, 화면 트레이서는 그 시각에 맞춰 대상을 따라간다. 이 경로에서는 tracer 프리팹의 `_speed`를 쓰지 않는다(`TracerProjectile.cs` 서버 경로 주석). 「너무 빠르다/느리다」는 프리팹이 아니라 `ProjectileConfig`에서 고친다. 값은 [StatsReference](../StatsReference.md) 「투사체 속도」 열.
+- **착탄은 대상 표면 지점에서 재생된다** — 서버 경로에서는 비행 거리를 「중심 거리 − 대상 반경」으로 계산해 착탄 이펙트도 그 표면 지점에서 낸다(규칙 20 「서버 착탄 시각·표면 지점」, 반경은 `ProjectileConfig`의 유닛·건물 반경 표). 첫 StreamSpirit 착탄은 「작고 짧다」는 지적이 있었고 키우는 값은 제안만 했다(Research 15-3 2번 — 적용 여부 사용자).
+- 서버 경로로 옮기기 전 유닛(InfernoSpirit·FoxMagician — 단계 D 진행 중)은 R5 임시 연결대로 트레이서 도착 지점에서 착탄이 나온다. 연결 상태는 [VFX 목록](VFXSFXList.md)이 관리한다.
+
 #### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
 
 화상·독·힐처럼 유닛에 붙는 이펙트의 크기를 유닛 몸집에 맞추려면 먼저 유닛별 몸 크기 표가 있어야 한다. 이 표를 채우는 에디터 도구다.
