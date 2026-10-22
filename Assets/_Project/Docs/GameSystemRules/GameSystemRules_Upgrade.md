@@ -165,7 +165,7 @@ Config 직렬화 값이 코드 fallback보다 우선한다. ×10은 저장된 �
 
 연구소 클릭 시 뜨는 연구 패널의 최종 구현 설계다(초기 계획의 "생산 패널 패턴"에서 **매트릭스 + 공통 건물 패널 프레임**으로 확정). 코드: `Presentation/UI/ResearchPanelUI.cs`(로직 코어·레이어 오케스트레이션) + `ResearchMatrixView.cs`·`ResearchCellView.cs`(매트릭스) + `ResearchProgressView.cs`(진행 게이지).
 
-- **공통 프레임 = `ResearchPanelUI : BuildingPanelBase`** — 헤더 제목 + 닫기[X] + **하단 철거 버튼(건설비 환불)** 을 비생산 건물 패널·생산 패널과 동일한 위치·스타일로 상속한다(기존 독립 MonoBehaviour → BuildingPanelBase 전환). 철거 시 진행 중 연구도 취소·환불(GameBootstrapper `OnBuildingDied`→연구소 파괴 구독이 담당, 규칙 8·9).
+- **공통 프레임 = `ResearchPanelUI : BuildingPanelBase`** — 헤더 제목 + 닫기[X]는 비생산 건물 패널·생산 패널의 공통 외곽에 맞추되, 연구소의 **철거 버튼(건설비 환불)은 패널 내부 하단 예약 영역에 배치**하고 다른 건물 패널은 기존 slot6을 유지한다(기존 독립 MonoBehaviour → BuildingPanelBase 전환). 철거 시 진행 중 연구도 취소·환불(GameBootstrapper `OnBuildingDied`→연구소 파괴 구독이 담당, 규칙 8·9).
 - **본문 2-레이어 (연구소 단위 전환):** 공통 프레임은 고정, 본문만 두 레이어로 전환한다.
   - **(a) 매트릭스 레이어** — 행 = 현재 종족의 강화 그룹, 열 = 공격력/방어력/이동속도. **인간·정령 = 3×3**(근접·원거리·탈것 / 불·물·땅), **초월 = 2×3(동물·식물) + 자연회복 전체폭 버튼 1개**. 각 셀 = 현재 레벨(Lv X/5 + 눈금) + 다음 레벨 비용. 연구 유휴 상태의 연구소에서 표시.
   - **(b) 진행 게이지 레이어** — 해당 연구소가 연구 중일 때 표시. 트랙 이름 + `Lv X→X+1` + 진행 게이지 + 남은 시간 + [취소](연구만 취소·투입 골드 환불, 건물 유지).

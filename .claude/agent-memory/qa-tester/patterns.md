@@ -1,10 +1,16 @@
 # QA 패턴 및 버그 히스토리
 
+## UI layout and scoped acceptance
+
+- Label implementation, source geometry, native UI, user device acceptance and Build And Run start/completion independently. A matching common cell size is insufficient if center-fixed expansion crosses the interior frame. Hash checks protect identity, not visual correctness.
+- For scrolling, measure content minus viewport and test actual top/bottom before concluding a short wheel/automated drag means an unreachable item. For preview paging, verify 10/10/5, cleared unused rows, both endpoints, and restoration without real cache/server mutation.
+- User confirmation of profile/layout, restart guest nickname, research cancel and device paging closes those focused checks. It does not automatically verify logout/new-guest names or a subsequent ranking-height revision. Preserve those limits without converting them into mandatory repeat gates for completed UI/input/match work. Exact evidence remains in the UI audit Task's latest completion section.
+
 ## Anonymous matchmaking acceptance boundaries
 
 - Compare Firebase and UGS identity separately without reproducing raw identifiers. A user reporting logout on both peers is not log proof that both acquired new UGS IDs; compare each peer before/after and the latest cross-peer pair independently.
 - Match assignment equality, Host/Client admission and game-start RPC establish scoped connection evidence. Zero matching/sign-out errors in a bounded run is not zero application errors; preserve unrelated combat diagnostic failures as a separate scope.
-- Device cached-guest automatic restoration is log-confirmed; nickname/stat preservation across restart, real-account progress and cancellation races remain separate unobserved boundaries. The later 2026-10-21 accepted normal admission, Host deadline recovery after peer disconnection, and successful rematch closes that focused correction; keep remaining auth/race/role-swap cases separate without mandatory repetition. Original HTTP 429 remains unproven.
+- Device cached-guest automatic restoration is log-confirmed; guest nickname persistence across restart is subsequently user-confirmed by the UI follow-up. Statistics/real-account progress, explicit-logout new-name behavior and cancellation races remain separate unobserved boundaries. Accepted normal admission, Host deadline recovery and rematch close the focused matching correction without repeat gates. Original HTTP 429 remains unproven.
 - These are received user/log acceptance boundaries, not a new QA execution. Current evidence: `Assets/_Project/Docs/_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md`, “랜덤 매칭 세 단계 사용자 수용 완료”.
 
 ## Rally endpoint recovery and acceptance scope (2026-10-18)

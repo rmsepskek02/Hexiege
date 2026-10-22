@@ -417,7 +417,11 @@ namespace Hexiege.Presentation
                 StyleText(input.textComponent, 28, TextAlignmentOptions.Center, new Color(0.18f, 0.13f, 0.08f, 1f));
 
             if (input.placeholder is TMP_Text placeholder)
-                StyleText(placeholder, 26, TextAlignmentOptions.Center, new Color(0.42f, 0.34f, 0.25f, 0.82f));
+            {
+                // 씬의 실제 Bold 에셋을 유지하고 가짜 굵기/기울임 없이 검정색 안내를 표시한다.
+                placeholder.fontStyle &= ~(FontStyles.Bold | FontStyles.Italic);
+                StyleText(placeholder, 26, TextAlignmentOptions.Center, Color.black);
+            }
         }
 
         private static void StyleButton(Button button, int fontSize)
@@ -427,7 +431,7 @@ namespace Hexiege.Presentation
 
             TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null)
-                StyleText(label, fontSize, TextAlignmentOptions.Center, Color.white);
+                StyleText(label, fontSize, TextAlignmentOptions.Center, Color.black);
         }
 
         private static void StyleText(TMP_Text text, int fontSize, TextAlignmentOptions alignment, Color color)

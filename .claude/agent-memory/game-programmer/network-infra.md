@@ -13,6 +13,8 @@ type: project
 - A generic SDK Unknown code can hide response-deserialization failure; a null-body stack is not proof of the original HTTP status. Same-identity polling and official per-player limits form a falsifiable hypothesis, not automatic 429 attribution.
 - Keep user matching acceptance separate from both-peer identity renewal and every cancellation race. The 2026-10-21 normal admission, disconnected-peer Host deadline recovery and subsequent rematch sequence is accepted; unobserved auth/race/role-swap cases do not reopen that focused closure. Detailed evidence: `Assets/_Project/Docs/_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md`, “랜덤 매칭 세 단계 사용자 수용 완료”; never copy raw IDs, tokens or hashes.
 
+- Later UI follow-up user acceptance confirms saved guest nickname persistence across restart, not explicit-logout new-name behavior or every profile statistic. Use strict profile reads for first-name creation; distinguish missing/explicitly empty from null response/item or parse failure, and require current successful bridge plus owner/lifetime checks. Keep default load behavior and nonblocking valid-owner failure progression. Detailed implementation/evidence remains in the existing UI audit Task and [UI topic](ui-system.md#shared-layout-and-profile-preview-contracts).
+
 ---
 
 ## 🔴 이 파일이 담는 것 — 색인에서 내려온 상세 목차 (2026-09-29 이동)
@@ -1341,4 +1343,4 @@ Rule source: `GameSystemRules_RandomMap.md` **규칙 18**(사유에 따라 문�
 
 - The 30-second watch begins when Found enables connection loading, and ends at Host NGO LoadScene Started or Client Game SceneEvent.Load. Host start/RPC request is not scene admission; later game-start time is not preparation duration.
 - Immediate failure UI and eventual cleanup completion are separate responsibilities. Await the prior shared Lobby/Relay SDK completion and cleanup before new session creation; capture the original NGO owner, preserve the existing scene verifier, and reject late expired Game loads. Custom host/join inherits only the safety barrier, not a new timeout policy.
-- Device cached-guest restoration across a new process and identity renewal after explicit logout are log-confirmed. Preserve the narrower unobserved boundary: nickname/stat values across restart and real-account progress, not automatic guest restoration as a whole.
+- Device cached-guest restoration across a new process and identity renewal after explicit logout are log-confirmed. Guest nickname persistence across restart is later user-confirmed by the UI follow-up. Preserve statistics/real-account progress and explicit-logout new-name acceptance as separate unobserved boundaries, without reopening accepted layout/match work.

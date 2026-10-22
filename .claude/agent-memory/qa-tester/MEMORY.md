@@ -1,5 +1,7 @@
 # QA Tester Memory — Hexiege
 
+- [UI layout and scoped acceptance](patterns.md#ui-layout-and-scoped-acceptance) — distinguish source inset/content geometry, native preview paging, user acceptance and deferred new-height/build evidence.
+
 - [Anonymous matchmaking acceptance boundaries](patterns.md#anonymous-matchmaking-acceptance-boundaries) — identity axes, accepted normal/deadline/recovery sequence, and separate unobserved auth/cancellation/role-swap boundaries without repeat gates.
 
 ## Assault retry/receipt-phase evidence boundary (2026-10-11)

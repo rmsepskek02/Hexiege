@@ -367,7 +367,8 @@ namespace Hexiege.Presentation
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            StyleNamedText(content, "Title", 40, TextAlignmentOptions.Center, Color.white);
+            // 기존 흰색 40pt 제목 대신 다른 Login 제목과 같은 크기와 검정색을 사용한다.
+            StyleNamedText(content, "Title", 68, TextAlignmentOptions.Center, Color.black);
             StyleInput(_nicknameInput);
             StyleButton(_confirmButton, 34);
             StyleButton(_skipButton, 32);
@@ -396,7 +397,10 @@ namespace Hexiege.Presentation
                 StyleText(input.textComponent, 32, TextAlignmentOptions.Center, new Color(0.18f, 0.13f, 0.08f, 1f));
 
             if (input.placeholder is TMP_Text placeholder)
-                StyleText(placeholder, 29, TextAlignmentOptions.Center, new Color(0.45f, 0.35f, 0.24f, 0.85f));
+            {
+                placeholder.fontStyle &= ~(FontStyles.Bold | FontStyles.Italic);
+                StyleText(placeholder, 29, TextAlignmentOptions.Center, Color.black);
+            }
         }
 
         private static void StyleButton(Button button, int fontSize)
@@ -406,7 +410,7 @@ namespace Hexiege.Presentation
 
             TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null)
-                StyleText(label, fontSize, TextAlignmentOptions.Center, Color.white);
+                StyleText(label, fontSize, TextAlignmentOptions.Center, Color.black);
         }
 
         private static void StyleNamedText(Transform root, string objectName, int fontSize, TextAlignmentOptions alignment, Color color)

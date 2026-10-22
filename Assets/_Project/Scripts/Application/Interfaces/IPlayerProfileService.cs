@@ -28,6 +28,9 @@ namespace Hexiege.Application
         /// </summary>
         Task<PlayerProfileData> LoadProfileAsync();
 
+        /// <summary>실패를 빈 프로필로 취급하면 안 되는 초기화 경로는 true로 조회한다.</summary>
+        Task<PlayerProfileData> LoadProfileAsync(bool throwOnFailure);
+
         /// <summary>
         /// 닉네임과 코드를 Cloud Save 에 저장한다.
         /// </summary>

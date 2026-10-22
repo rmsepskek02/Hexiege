@@ -1,5 +1,7 @@
 # game-programmer 메모리 — 인덱스
 
+- [Shared layout and profile preview contracts](ui-system.md#shared-layout-and-profile-preview-contracts) — common panel inset/layout, content-sized ranking previews, strict guest nickname ownership and scoped user acceptance.
+
 - [Anonymous credentials and matchmaking attempt ownership](network-infra.md#anonymous-credentials-and-matchmaking-attempt-ownership) — guest logout/session boundaries, attempt cleanup, pre-scene deadline and scoped user-accepted recovery; retain separate unobserved auth/race boundaries.
 
 ## Assault 30fps timing alignment (2026-10-08)

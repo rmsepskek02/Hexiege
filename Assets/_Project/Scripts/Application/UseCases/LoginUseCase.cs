@@ -67,6 +67,9 @@ namespace Hexiege.Application
         /// <summary>마지막으로 발생한 인증 예외. View 측에서 메시지 조회용.</summary>
         public AuthException LastError { get; private set; }
 
+        /// <summary>이번 Bridge가 정상 완료되었는지 여부. 게스트 표시 이름 준비의 쓰기 선행 조건이다.</summary>
+        public bool LastUgsBridgeSucceeded { get; private set; }
+
         // ====================================================================
         // 공개 상태 프로퍼티 (FirebaseAuthService 위임)
         // ====================================================================
@@ -464,6 +467,7 @@ namespace Hexiege.Application
         /// </returns>
         public async Task<bool> BridgeToUGSAsync(string firebaseUID)
         {
+            LastUgsBridgeSucceeded = false;
             if (string.IsNullOrWhiteSpace(firebaseUID))
             {
                 GameLog.Ops.Error(LogEvent.UgsBridgeMissingFirebaseUid, "Auth", nameof(LoginUseCase),
@@ -511,6 +515,7 @@ namespace Hexiege.Application
                                  $"PlayerId={GameLog.HashId(AuthenticationService.Instance.PlayerId)}");
 
                 // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
+                LastUgsBridgeSucceeded = true;
                 return true;
             }
             catch (Exception e)

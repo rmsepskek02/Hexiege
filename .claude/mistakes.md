@@ -102,6 +102,9 @@
 - 2026-10-14  허용 목록 밖 git for-each-ref를 읽기 전용이라는 이유로 실행함
 - 2026-10-15  원래 교정 복원에 General23·중첩 정책 결정을 필수 작업처럼 추가함
 - 2026-10-16  에디터 정리를 파일 이동으로 좁혀 불필요 도구 삭제·실사용 메뉴 분류를 빠뜨림
+- 2026-10-21  Popup sprites validated without tracing confirm/cancel role bindings
+- 2026-10-21  Research demolition layout treated as a rule exception without reading rule 13
+- 2026-10-22  Short wheel and automated drag treated as proof that a scroll endpoint was unreachable
 
 ---
 
@@ -2061,3 +2064,51 @@ Main은 마지막 사용자 수용 교정의 원래 구현 복원 작업에서 G
 정리 계획을 공유하기 전에 파일 위치·삭제할 기능·남길 기능·사용 메뉴의 변화와 최종 완료 조건을 각각 적는다. 삭제 후보는 현재 사용처·에셋 실체·직접 의존·대체 authoring/검증으로 판정하고 옛 실행 영수증 부재만으로 모두 보류하지 않는다. 원본 비활성화와 사용자 테스트 뒤 최종 삭제 절차를 계획하되, 폴더 이동이나 메뉴 숨김만으로 전체 정리가 끝났다고 보고하지 않는다.
 
 후속으로 미커밋 변경을 별도 폴더에 둔 채 브랜치만 안내해 사용자가 기존 Unity 프로젝트에서 결과를 확인할 수 없는 혼란을 만들었다. 코드 정리를 `a031008c`에 커밋하고 기존 Unity 프로젝트 `D:/Projects/Hexiege/Hexiege`를 `codex/editor-script-organization`으로 전환해 해소했다. 결과 안내에는 사용자가 실제 여는 프로젝트 경로·현재 브랜치·변경 반영 상태를 함께 확인한다. main 병합과 Unity 컴파일·메뉴 실행 확인은 별도다.
+
+---
+
+## 2026-10-21  Popup sprites validated without tracing confirm/cancel role bindings
+
+**What was wrong**
+The nickname popup confirm/cancel sprite check was reported as exact even though confirm received a panel sprite and cancel received the emerald sprite. Compilation success and file/hash agreement did not establish the intended Yes-green/No-red role mapping. Withdraw that sprite PASS; preserve the independent compilation result.
+
+**Why it happened**
+Images were extracted from ConfirmPopup without first resolving the controller's confirm/cancel button references. The destination Image IDs belonged to the intended buttons, but the source sprite roles were misidentified.
+
+**How it was discovered**
+Main observed the 9:16 runtime popup: confirm looked brown and cancel green. The implementation owner traced controller field → Button.m_TargetGraphic → Image → asset metadata and established emerald for confirm and ruby for cancel. The red input background follows existing nickname validation and was not caused by this sprite change.
+
+**Actionable lesson**
+Before copying a button sprite, independently follow its semantic controller role through Button and TargetGraphic to the Image, then verify the asset name/GUID/local file ID. Compare each destination role against that resolved source, not another unlabelled Image list. Finally inspect the actual runtime screen; a successful compile, matching hash or exact field copy cannot replace role mapping or visual verification.
+
+---
+
+## 2026-10-21  Research demolition layout treated as a rule exception without reading rule 13
+
+**What was wrong**
+The current research-panel demolition placement was described as an authorized lower-slot exception. Main asked the user to choose between that supposed rule and the common slot, and the document manager repeated it in the Task. Upgrade rule 13 actually requires the same demolition position/style as production and other non-production panels. The question had a false premise.
+
+**Why it happened**
+The implementation owner's source-layout observation was promoted into a rule exception without checking the normative text. Main did not independently read the cited sentence before asking; the documentation handoff also copied the unverified exception.
+
+**How it was discovered**
+Main read Upgrade rule 13 and found the explicit common-position/style requirement. Main corrected the premise to the user, withdrew the need for an answer and proceeded under the existing rule. Historical source placement remains an observation, not policy.
+
+**Actionable lesson**
+Before recording a source/spec exception or asking the user to resolve one, read the exact normative sentence and its surrounding section independently. Label current implementation separately from authority. If they differ, plan the smallest rule-aligned correction; do not invent a policy choice or block an independent correction. Preserve the mistaken claim as a dated correction and verify the new layout natively.
+
+---
+
+## 2026-10-22  Short wheel and automated drag treated as proof that a scroll endpoint was unreachable
+
+**What was wrong**
+Main initially reported the last in-game profile item unreachable after a short wheel gesture and an automation drag. Subsequent bounds and endpoint inspection disproved the claim; no product correction was needed.
+
+**Why it happened**
+Input magnitude/tool behavior was interpreted as a layout limit without measuring content/viewport height, current position or the actual clamped endpoint.
+
+**How it was discovered**
+Content height712 and viewport599.04 yielded the observed112.9601 maximum position. A temporary Inspector position200 clamped correctly and showed rank. Actual wheel -3000 reached the nickname top and +3000 reached the rank bottom. Existing sensitivity1 and the fitter/bounds were valid.
+
+**Actionable lesson**
+Before declaring a scroll item inaccessible, inspect content/viewport bounds and current/end position, then test both actual endpoints with sufficient input. Distinguish automation drag or short-wheel response from device touch behavior. Do not expand one failed gesture into a layout defect or add a product change without that check.

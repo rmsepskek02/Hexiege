@@ -49,6 +49,12 @@ namespace Hexiege.Presentation
         [Tooltip("계정 정보(이름/이메일 또는 '익명 사용자') 텍스트.")]
         [SerializeField] private TextMeshProUGUI _accountInfoText;
 
+        [Tooltip("런타임에 생성하는 계정 정보/안내 본문용 Maplestory Light SDF.")]
+        [SerializeField] private TMP_FontAsset _bodyFont;
+
+        [Tooltip("확장 프로필 배경. 기존 어두운 패널의 테두리를 Sliced로 유지한다.")]
+        [SerializeField] private Sprite _panelSprite;
+
         [Header("닉네임/코드")]
         [Tooltip("닉네임#코드 표시 텍스트(예: 전사#4729).")]
         [SerializeField] private TextMeshProUGUI _nicknameText;
@@ -309,13 +315,39 @@ namespace Hexiege.Presentation
             if (_profileUseCase == null)
                 return;
 
-            PlayerProfileData profile = await _profileUseCase.LoadProfileAsync();
+            bool guest = _authService != null && _authService.IsAnonymous;
+            PlayerProfileData profile;
+            if (guest)
+            {
+                string firebaseOwner = _authService.FirebaseUID;
+                if (Unity.Services.Core.UnityServices.State != Unity.Services.Core.ServicesInitializationState.Initialized ||
+                    !Unity.Services.Authentication.AuthenticationService.Instance.IsSignedIn)
+                {
+                    if (_nicknameText != null) _nicknameText.text = "닉네임 확인 불가";
+                    return;
+                }
+                string ugsOwner = Unity.Services.Authentication.AuthenticationService.Instance.PlayerId;
+                try
+                {
+                    profile = await _profileUseCase.LoadProfileAsync(true);
+                }
+                catch (System.Exception)
+                {
+                    // 원인은 Cloud Save 계층이 기록한다. 조회 실패를 실제 미설정과 구분해 표시한다.
+                    if (IsGuestProfileOwnerCurrent(firebaseOwner, ugsOwner) && _nicknameText != null)
+                        _nicknameText.text = "닉네임 확인 불가";
+                    return;
+                }
+                if (!IsGuestProfileOwnerCurrent(firebaseOwner, ugsOwner)) return;
+            }
+            else profile = await _profileUseCase.LoadProfileAsync();
             if (profile == null)
                 return;
 
-            // 닉네임#코드 (없으면 '게스트' 표기 — 익명/미설정 계정 대비).
+            // 저장된 닉네임#코드를 표시한다. 게스트의 읽지 못한 이름을 임시 이름으로 대체하지 않는다.
+            // 기존 실계정 미설정 fallback은 유지한다.
             if (_nicknameText != null)
-                _nicknameText.text = profile.HasNickname ? profile.DisplayName : "게스트";
+                _nicknameText.text = profile.HasNickname ? profile.DisplayName : (guest ? "닉네임 확인 불가" : "게스트");
 
             // 전적.
             if (_totalGamesText != null) _totalGamesText.text = profile.TotalGames.ToString();
@@ -332,6 +364,15 @@ namespace Hexiege.Presentation
 
             // 내 랭킹.
             await RefreshMyRankAsync(profile.TotalGames);
+        }
+
+        private bool IsGuestProfileOwnerCurrent(string firebaseOwner, string ugsOwner)
+        {
+            return this != null && _authService != null && _authService.IsLoggedIn && _authService.IsAnonymous &&
+                _authService.FirebaseUID == firebaseOwner &&
+                Unity.Services.Core.UnityServices.State == Unity.Services.Core.ServicesInitializationState.Initialized &&
+                Unity.Services.Authentication.AuthenticationService.Instance.IsSignedIn &&
+                Unity.Services.Authentication.AuthenticationService.Instance.PlayerId == ugsOwner;
         }
 
         /// <summary>
@@ -665,17 +706,21 @@ namespace Hexiege.Presentation
             _profileContentPanel.transform.SetAsLastSibling();
 
             RectTransform panelRt = _profileContentPanel.GetComponent<RectTransform>();
-            SetAnchors(panelRt, new Vector2(0.055f, 0.245f), new Vector2(0.945f, 0.875f));
+            // 이전 좁은 영역: (.055, .245)~(.945, .875). 외곽 탭 안에서 사용 가능한 영역을 넓힌다.
+            SetAnchors(panelRt, new Vector2(0.035f, 0.055f), new Vector2(0.965f, 0.95f));
 
             Image panelImage = EnsureImage(_profileContentPanel);
-            panelImage.color = new Color(0.08f, 0.07f, 0.06f, 0.62f);
+            // 이전 반투명 단색(0.08, 0.07, 0.06, 0.62) 대신 직렬화된 기존 패널 이미지를 사용한다.
+            panelImage.sprite = _panelSprite;
+            panelImage.type = Image.Type.Sliced;
+            panelImage.color = Color.white;
             panelImage.raycastTarget = true;
 
             CanvasGroup panelGroup = EnsureCanvasGroup(_profileContentPanel);
             SetGroupVisible(panelGroup, true);
 
             VerticalLayoutGroup layout = EnsureVerticalLayout(_profileContentPanel);
-            layout.padding = new RectOffset(34, 34, 36, 30);
+            layout.padding = new RectOffset(91, 91, 76, 76);
             layout.spacing = 12f;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -691,12 +736,11 @@ namespace Hexiege.Presentation
             if (_statusText == null)
                 _statusText = CreatePanelText("StatusText", string.Empty);
 
-            MoveToPanel(_accountInfoText != null ? _accountInfoText.transform : null, 70f, 0f);
+            MoveToPanel(_accountInfoText != null ? _accountInfoText.transform : null, 144f, 0f);
 
             if (statsContainer != null)
             {
-                statsContainer.SetParent(_profileContentPanel.transform, false);
-                SetLayout(statsContainer.gameObject, 0f, 1f);
+                ConfigureStatsScroll(statsContainer);
                 CanvasGroup statsGroup = EnsureCanvasGroup(statsContainer.gameObject);
                 SetGroupVisible(statsGroup, true);
 
@@ -707,25 +751,45 @@ namespace Hexiege.Presentation
                 statsLayout.childControlHeight = true;
                 statsLayout.childForceExpandWidth = true;
                 statsLayout.childForceExpandHeight = false;
+                foreach (Transform row in statsContainer)
+                {
+                    float height = row.name == "NicknameRow" ? 168f :
+                        (row.name == "LastSessionRow" || row.name == "MyRankRow" ? 104f :
+                        (row.name == "StatsHeaderRow" ? 56f : 72f));
+                    SetLayout(row.gameObject, height, 0f);
+                    foreach (TextMeshProUGUI text in row.GetComponentsInChildren<TextMeshProUGUI>(true))
+                    {
+                        text.fontStyle &= ~(FontStyles.Bold | FontStyles.Italic);
+                        StyleText(text, 36, text.alignment, Color.white);
+                    }
+                }
             }
 
             MoveToPanel(_anonymousSection != null ? _anonymousSection.transform : null, 92f, 0f);
-            MoveToPanel(_statusText != null ? _statusText.transform : null, 36f, 0f);
-            MoveToPanel(_logoutButton != null ? _logoutButton.transform : null, 76f, 0f);
+            MoveToPanel(_statusText != null ? _statusText.transform : null, 64f, 0f);
+            MoveToPanel(_logoutButton != null ? _logoutButton.transform : null, 88f, 0f);
 
-            StyleText(_accountInfoText, 27, TextAlignmentOptions.Center, Color.white);
-            StyleText(_nicknameText, 31, TextAlignmentOptions.Center, Color.white);
-            StyleText(_totalGamesText, 26, TextAlignmentOptions.Right, Color.white);
-            StyleText(_winsText, 26, TextAlignmentOptions.Right, Color.white);
-            StyleText(_lossesText, 26, TextAlignmentOptions.Right, Color.white);
-            StyleText(_winRateText, 26, TextAlignmentOptions.Right, Color.white);
-            StyleText(_lastSessionText, 25, TextAlignmentOptions.Right, Color.white);
-            StyleText(_myRankText, 26, TextAlignmentOptions.Right, Color.white);
-            StyleText(_statusText, 24, TextAlignmentOptions.Center, new Color(1f, 0.90f, 0.62f, 1f));
+            // 이전 정보값25~31/안내24를 확대하되 실제 Light/Bold 역할은 그대로 유지한다.
+            StyleText(_accountInfoText, 36, TextAlignmentOptions.Center, Color.white);
+            StyleText(_nicknameText, 42, TextAlignmentOptions.Center, Color.white);
+            StyleText(_totalGamesText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_winsText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_lossesText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_winRateText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_lastSessionText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_myRankText, 36, TextAlignmentOptions.Right, Color.white);
+            StyleText(_statusText, 32, TextAlignmentOptions.Center, new Color(1f, 0.90f, 0.62f, 1f));
 
-            StyleButton(_changeNicknameButton, 25);
-            StyleButton(_refreshButton, 22);
-            StyleButton(_logoutButton, 34);
+            StyleButton(_changeNicknameButton, 36);
+            StyleButton(_refreshButton, 36);
+            StyleButton(_logoutButton, 36);
+            foreach (Button button in new[] { _changeNicknameButton, _refreshButton })
+            {
+                if (button == null) continue;
+                if (!button.TryGetComponent(out LayoutElement size)) size = button.gameObject.AddComponent<LayoutElement>();
+                size.minWidth = size.preferredWidth = 216f;
+                size.flexibleWidth = 0f;
+            }
 
             HideDuplicateStatsContainers(transform, statsContainer);
             HideNamed(transform, "BackButton");
@@ -743,9 +807,42 @@ namespace Hexiege.Presentation
             if (text == null)
                 text = go.AddComponent<TextMeshProUGUI>();
 
+            // 기본 TMP 폰트에 한글을 먼저 넣으면 glyph 경고가 발생하므로 본문 에셋을 먼저 지정한다.
+            if (_bodyFont != null) text.font = _bodyFont;
+            text.fontStyle &= ~FontStyles.Bold;
             text.text = defaultText;
             text.raycastTarget = false;
             return text;
+        }
+
+        // 정보 본문만 스크롤하고 계정 안내와 로그아웃은 패널 안에 고정한다.
+        private void ConfigureStatsScroll(Transform stats)
+        {
+            GameObject scrollGo = FindOrCreateChild(_profileContentPanel.transform, "ProfileScroll");
+            SetLayout(scrollGo, 0f, 1f);
+            ScrollRect scroll = scrollGo.GetComponent<ScrollRect>();
+            if (scroll == null) scroll = scrollGo.AddComponent<ScrollRect>();
+            GameObject viewport = FindOrCreateChild(scrollGo.transform, "Viewport");
+            SetAnchors((RectTransform)viewport.transform, Vector2.zero, Vector2.one);
+            Image surface = EnsureImage(viewport);
+            surface.color = Color.clear;
+            surface.raycastTarget = true;
+            if (!viewport.TryGetComponent(out RectMask2D _)) viewport.AddComponent<RectMask2D>();
+            stats.SetParent(viewport.transform, false);
+            RectTransform content = (RectTransform)stats;
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            SetLayout(stats.gameObject, -1f, 0f);
+            if (!stats.TryGetComponent(out ContentSizeFitter fitter)) fitter = stats.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.viewport = (RectTransform)viewport.transform;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
         }
 
         private void MoveToPanel(Transform target, float preferredHeight, float flexibleHeight)
@@ -754,6 +851,7 @@ namespace Hexiege.Presentation
                 return;
 
             target.SetParent(_profileContentPanel.transform, false);
+            target.SetAsLastSibling(); // 같은 부모로 다시 배치해도 계정→본문→상태→로그아웃 순서를 확정한다.
             SetLayout(target.gameObject, preferredHeight, flexibleHeight);
             SetGroupVisible(EnsureCanvasGroup(target.gameObject), true);
         }
