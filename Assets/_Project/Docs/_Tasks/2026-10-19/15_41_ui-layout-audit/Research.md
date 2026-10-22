@@ -3,9 +3,9 @@
 로그인부터 로비・게임・공통 팝업까지 실제 에디터 화면을 하나씩 열어, 글자와 버튼이 읽히고 눌리며 화면 크기와 상태가 달라도 배치가 무너지지 않는지 점검한다. 앞서 공유된 이미지 네 장에만 한정하지 않고 전체 UI를 살핀다. 이 문서는 구조 조사와 실제 화면 관측을 구분하고, 수정 전에 합의할 문제와 기준을 기록한다.
 
 - 작업 시작: 2026-10-19 15:41 KST (메인 시각 확인 인계)
-- 브랜치: `codex/ui-improvements`; 2026-10-21 메인 확인 기준 로컬 main과 `b2da6d9d` 동일. 매칭 관련 20개 파일의 로컬 main 통합 완료・push 없음은 메인 인계이며 문서 담당자의 Git 조작 아님. 이전 동기화는 Research 16절 당시 기록
+- 브랜치: D프로젝트는 `codex/ui-improvements` 유지. 메인 실행 인계 기준 로컬 main과 `de2a424b` 동일로 fast-forward 통합 완료・push 없음. main은 별도 연결 worktree에 있으며 이번 추가 Task2 기록은 후속 커밋/FF 예정
 - 사용자 승인: Task 문서와 에디터 직접 점검에 이어 남은 점검 후 레이아웃 작업 진행 승인. 구체 구현 범위/규칙 근거 계획은 후속 인계 뒤 반영
-- 현재 상태: 2026-10-23 UI구현/기수용항목확인완료・최종랭킹10행높이소스/3조건정적완료 / 새높이사용자확인예정 / Android Development Build And Run→Importing시작관측・완료설치실행미확인 / 로컬main병합요청/예정・아직미수행
+- 현재 상태: 2026-10-23 UI구현/기수용확인완료・로컬main fast-forward통합 de2a424b 완료・원격push없음 / D프로젝트codex/ui-improvements와main동일commit / 새랭킹높이user확인·빌드완료설치실행미확인 / 이번추가기록2파일후속commit/FF예정
 - 문서 담당 범위: 이 폴더의 Research/Plan 두 파일만 생성・관측 후 갱신하며 제품 파일・상시 문서・메모리・기존 Task・Git을 직접 변경하지 않는다. 메인이 별도 사용자 승인으로 수행한 main 동기화는 16절에 분리 기록한다.
 - 연결 계획: [Plan.md](Plan.md). 새 폴더/Markdown의 meta는 수동 작성하지 않으며 Unity가 자동 생성할 수 있다.
 
@@ -1006,7 +1006,7 @@ PolishRuntimeLayout만교정해표top.88/pivotY1/가로.035~.965를보존하고 
 
 메인은 실제Unity UI에서Android・3scenechecked・Development・Samsung SMN971N을확인하고 Build And Run을클릭했다. 새 `Build/Hexiege-UI-Ranking10-20261023.apk` 대상파일지정/저장뒤 Importing진행창을확인했다. 이후빌드완료/산출물/설치/기기실행은모니터링하지않고사용자확인에맡긴다. 새높이native/기기visualPASS가아니며빌드시작/구현완료/사용자확인예정을분리한다.
 
-UI제품전체후보는 `.utmp/ui-ranking-height-20261023/ui-product-scope.txt`19개다. 이19는기존누적13에fontSDF2/ConfirmPopup/ResearchMatrix/NicknameChangePopup/NicknameSetupView6을합한분모다. AIConfig/AndroidResolver/logmeta/raw첨부는포함하지않는다. 메인은문서최종마감뒤관련기존docs와함께커밋/로컬main병합할예정이며 **아직병합하지않았다**. 문서담당자는Git을변경하지않는다.
+UI제품전체후보는 `.utmp/ui-ranking-height-20261023/ui-product-scope.txt`19개다. 이19는기존누적13에fontSDF2/ConfirmPopup/ResearchMatrix/NicknameChangePopup/NicknameSetupView6을합한분모다. AIConfig/AndroidResolver/logmeta/raw첨부는포함하지않는다. 이 문서 마감 당시 메인은 관련 기존docs와 함께 커밋/로컬main병합 예정으로 **그때는 아직 병합 전이었다**. 실제 후속 결과는 아래 통합 완료 절을 따른다. 문서담당자는Git을변경하지않는다.
 
 완료판정은①UI교정구현완료②사용자가확인한프로필/guest재실행닉/철거/연구취소/실기페이지확인완료③새랭킹높이사용자확인예정이다. 명시logout새guest새닉은별도미보고이며이종결의필수gate가아니다. 장문데이터/전체기기/SafeArea등미확인경계를보존하고이전수용을반복요구하지않는다.
 
@@ -1017,3 +1017,13 @@ UI제품전체후보는 `.utmp/ui-ranking-height-20261023/ui-product-scope.txt`1
 문서 검사/메모리 baseline 갱신은 `python3 Tools/check_docs.py --update-baseline`로 최종1회 시도했으나 ResourceUnavailable로 본문 실행 불가였다. 자동PASS/진단0건을주장하지않고다른runtime은탐색하지않았으며baseline도수동수정하지않았다. 이번관련메모리의줄수는증가/유지이며이동/삭제는없다. 로컬링크추출은공용메모리/기존UI topic의설명용괄호2개를경로처럼잡았지만새연결과Task/상태/이력의대상/앵커는직접확인했다. 기존설명문은수정하지않았다. 승인11문서의변경형식검사exit0과최신완료/예정/미확인판정을수동검수했다.
 
 이번문서담당최종변경목록은Task2, PROJECT_STATUS/ROADMAP/WORK_HISTORY3, 공용MEMORY1, game-programmer MEMORY/ui-system/network-infra3, qa-tester MEMORY/patterns2로11개다. 제품/원시로그/Git은문서담당자가변경하지않았다. 문서커밋/로컬main병합은메인예정이며실제수행인계전에는완료로기록하지않는다.
+
+### 실제 로컬 main fast-forward 통합 완료 — 메인 수행 인계
+
+앞선 병합 예정은 당시 기록이며 이후 메인이 실제 수행했다. UI19제품과 관련 문서/메모리/Task meta를 합한39파일을 `de2a424b` (`feat(ui): unify layouts and fit ranking to ten rows`)로 커밋했다. main은 기존 연결 worktree `C:/Users/rmsep/.codex/worktrees/random-match-main-merge/Hexiege`에 있고 해당 main 작업트리 clean을 확인했다. D프로젝트에서 main전환은 이미worktree사용중이라거절돼 강제전환/삭제하지 않고 기존main폴더에서 `git merge --ff-only codex/ui-improvements`를실행해 `b2da6d9d`→`de2a424b`로 충돌0 fast-forward했다.
+
+현재 D프로젝트는codex/ui-improvements를유지하고두branch는같은commit이다. 원격push는없다. rawlogs/meta삭제표시・AIConfig/AndroidResolver의별도dirty는이번커밋에포함하지않고보존했다. 문서담당자는Git작업을수행하지않았고메인의실행인계를기록한다.
+
+Build And Run 시작과완료/설치/기기실행미관찰, 새랭킹높이사용자확인예정의경계는그대로다. 이번실제병합후속을적는Task2추가변경은해당de2a424b이후의문서변경이며메인이후속커밋/mainfast-forward를한번더할예정이다. 이기록이이미그커밋에포함됐다고소급하지않고자기참조hash를요구하지않는다.
+
+이번 실제 통합 후속기록 뒤 python3 문서 검사1회는 ResourceUnavailable로 본문 실행 불가였다. 자동PASS/다른runtime탐색 없이 현재브랜치/통합완료와후속문서예정・빌드미관찰 경계 및 로컬 링크/앵커를 수동 검수했다.
