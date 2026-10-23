@@ -13,7 +13,7 @@
 
 | 날짜 | 마일스톤 |
 |---|---|
-| 2026-10-23 | UI후속/최종10행높이 구현·정적 검사 완료. 프로필/재실행닉/철거·취소/실기페이지 사용자 확인, 새높이 확인은 예정. Build And Run 시작만 관측했고 완료/설치/실행·로컬main병합은 미수행/미확인으로 분리. [구현과 수용 범위](_Tasks/2026-10-19/15_41_ui-layout-audit/Research.md#ui-layout-implementation-acceptance-20261023) |
+| 2026-10-23 | UI후속 구현/기수용 항목에 이어 최종 랭킹10행 높이·배치 사용자 정상 확인 완료. UI39파일 de2a424b와 통합기록69b5e5c4 로컬main FF 완료·push 없음. 빌드 완료/설치/실행의 에이전트 직접 관측과 구분. [구현과 수용 범위](_Tasks/2026-10-19/15_41_ui-layout-audit/Research.md#ui-layout-implementation-acceptance-20261023) |
 | 2026-10-21 | 랜덤 매칭 정상 진입・상대 인터넷 단절 시 Host 30초 실패 복구・복구 후 재매칭 교정 사용자 수용 완료. 인증/취소 경쟁 등 별도 미관측과 원 HTTP 429 미확정은 보존. [근거](_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md#13-랜덤-매칭-세-단계-사용자-수용-완료--2026-10-21) |
 | 2026-10-20 | 익명 명시 로그아웃 자격 정리・매칭 실패 회차 복구 교정 뒤 원래 새 빌드 기기↔Editor 조합의 매칭 성공을 사용자 수용. 다른 회귀 실기는 별도. [근거](_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md#11-원래-실패-조합의-사용자-매칭-수용) |
 | 2026-10-19 | QuakeSpirit 공격 VFX 재제작(6갈래 바닥 균열·흙먼지 퍼프·파편, 기존 공격 슬롯) 사용자 승인. 보이는 범위 약 1.6 > 피해 반경 1.0은 사용자 선택이며 피해 규칙 무변경. [근거](<_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md#13-quakespirit-attack-vfx-rework>) |
