@@ -204,7 +204,7 @@ namespace Hexiege.Bootstrap
             }
 
             // 2) UseCase 생성
-            _loginUseCase = new LoginUseCase(_authService);
+            _loginUseCase = new LoginUseCase(_authService, new UgsAuthenticationService());
             _accountLinkUseCase = new AccountLinkUseCase(_authService);
 
             // 프로필/닉네임 UseCase 생성.

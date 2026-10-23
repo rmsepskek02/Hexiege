@@ -42,10 +42,10 @@ namespace Hexiege.Domain
             /// <summary> 건설 비용(골드). Castle은 자동 배치이므로 0. </summary>
             public int GoldCost;
 
-            /// <summary> 공격력. 현재 미사용, 향후 타워 기능용. </summary>
+            /// <summary> 공격력. 방어 타워의 공격 피해 계산 시 조회하는 값. </summary>
             public int AttackPower;
 
-            /// <summary> 공격 쿨다운(초). 현재 미사용, 향후 타워 기능용. 비타워 건물은 0. </summary>
+            /// <summary> 공격 쿨다운(초). 방어 타워의 공격 후 대기 시간 설정 시 조회하는 값. 비타워 건물은 0. </summary>
             public float AttackCooldown;
 
             /// <summary>
@@ -156,7 +156,7 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 건물 타입 + 종족별 공격력 반환.
-        /// 현재는 미사용이며, 향후 공격 기능을 가진 건물(타워 등) 도입 시 활용.
+        /// 방어 타워가 공격 피해를 계산할 때 해당 건물과 종족의 값을 조회한다.
         /// </summary>
         public static int GetAttackPower(BuildingType type, RaceId race)
         {
@@ -167,7 +167,7 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 건물 타입 + 종족별 공격 쿨다운(초) 반환.
-        /// 현재는 미사용이며, 향후 타워 기능 도입 시 활용.
+        /// 방어 타워가 공격 후 다음 공격까지의 대기 시간을 설정할 때 조회한다.
         /// 비타워 건물이거나 Config에 값이 없으면 0을 반환.
         /// </summary>
         public static float GetAttackCooldown(BuildingType type, RaceId race)

@@ -18,9 +18,9 @@
 //   같은 배럭에 EnqueueUnit을 재호출하여 타이머 없이 생산이 끊기지 않게 유지한다.
 //
 // Application 레이어 — Domain UseCase에 의존.
-//   설정 데이터(DifficultyParams / AIScenarioConfig)는 Infrastructure ScriptableObject지만,
-//   GameBootstrapper(composition root)가 값으로 주입하므로 AI는 데이터 컨테이너로만 사용한다.
-//   (기존 LoginUseCase도 Application에서 Infrastructure를 참조하는 선례가 있다.)
+//   난이도는 Bootstrap이 선택된 설정에서 복사한 Application의 불변 값으로 주입받고,
+//   시나리오는 Domain의 BuildOrderStep 목록으로 주입받는다.
+//   종족은 GameBootstrapper가 제공한 조회 함수로 필요한 시점마다 읽는다.
 // ============================================================================
 
 using System;
@@ -28,7 +28,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
-using Hexiege.Infrastructure;
 
 namespace Hexiege.Application.Services
 {
@@ -46,13 +45,15 @@ namespace Hexiege.Application.Services
         private readonly ResourceUseCase _resource;
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly HexGrid _grid;
+        // 종족 값을 생성 시 고정하지 않고, 필요할 때 현재 Red 팀 종족을 조회한다.
+        private readonly Func<RaceId> _aiRaceProvider;
 
         // [Phase 5] 연구소 강화 UseCase(선택 주입). StartResearch 스텝 실행에 사용.
         // null이면 연구 스텝은 조용히 무시(하위호환 — 연구 미도입 빌드에서도 안전).
         private readonly UnitUpgradeUseCase _upgrade;
 
         // 난이도 파라미터(값 복사본)와 시나리오 데이터.
-        private readonly DifficultyParams _params;
+        private readonly AIDifficultyParameters _params;
         // 선택된 시나리오의 빌드오더 항목 목록.
         private readonly IReadOnlyList<BuildOrderStep> _scenarioSteps;
         // 선택된 시나리오 이름 (로깅용).
@@ -149,16 +150,18 @@ namespace Hexiege.Application.Services
         /// <param name="scenarioSteps">사용할 빌드오더 시나리오의 항목 목록.</param>
         /// <param name="scenarioName">선택된 시나리오 이름 (로깅용).</param>
         /// <param name="difficulty">현재 난이도 단계 (delaySeconds 선택에 사용).</param>
+        /// <param name="aiRaceProvider">필요한 시점의 현재 Red 팀 종족을 반환하는 함수. null은 허용하지 않는다.</param>
         public AIOpponentController(
             BuildingPlacementUseCase buildingPlacement,
             UnitProductionUseCase unitProduction,
             ResourceUseCase resource,
             UnitSpawnUseCase unitSpawn,
             HexGrid grid,
-            DifficultyParams aiParams,
+            AIDifficultyParameters aiParams,
             IReadOnlyList<BuildOrderStep> scenarioSteps,
             string scenarioName,
             DifficultyLevel difficulty,
+            Func<RaceId> aiRaceProvider,
             UnitUpgradeUseCase upgrade = null)
         {
             _buildingPlacement = buildingPlacement;
@@ -166,6 +169,7 @@ namespace Hexiege.Application.Services
             _resource = resource;
             _unitSpawn = unitSpawn;
             _grid = grid;
+            _aiRaceProvider = aiRaceProvider ?? throw new ArgumentNullException(nameof(aiRaceProvider));
             _upgrade = upgrade;
             _params = aiParams;
             _scenarioSteps = scenarioSteps;
@@ -921,15 +925,12 @@ namespace Hexiege.Application.Services
 
         /// <summary>
         /// AI(Red) 팀의 종족을 반환한다.
-        /// Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록
-        /// 종족은 생성자에서 받지 않고, 건물 배치 시점에 GameRaceContext.RedRace를 참조한다.
-        ///
-        /// 주: GameRaceContext는 Infrastructure지만 본 컨트롤러는 이미 Infrastructure config를
-        /// 참조하므로(데이터 컨테이너), 종족 조회도 같은 선상에서 허용된다.
+        /// 주입받은 함수를 매번 호출하여 건물 비용 조회·배치·업그레이드 시점의 종족을 읽는다.
+        /// 생성 시점의 값을 저장하지 않으므로 이후 종족 정보가 바뀌어도 현재 값을 사용한다.
         /// </summary>
         private RaceId GameRaceForAi()
         {
-            return GameRaceContext.RedRace;
+            return _aiRaceProvider();
         }
 
         // ====================================================================

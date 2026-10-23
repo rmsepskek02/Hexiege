@@ -1,6 +1,6 @@
 // ============================================================================
 // EffectPreset.cs
-// VFX(파티클 프리팹) + SFX(사운드 클립)를 하나로 묶는 ScriptableObject.
+// VFX 파티클 프리팹과 재생 시 위치·회전·크기 보정을 담는 ScriptableObject.
 //
 // ScriptableObject란?
 //   Unity의 데이터 컨테이너 에셋. 씬에 붙이지 않고 .asset 파일로 저장되며,
@@ -9,12 +9,12 @@
 //
 // 이 에셋의 역할:
 //   "공격 이펙트", "사망 이펙트" 같은 하나의 연출 단위를 표현한다.
-//   파티클(VFX)과 효과음(SFX)을 한 세트로 묶어두면,
+//   VFX 프리팹과 재생 설정을 묶어두고,
 //   UnitEffectConfig / BuildingEffectConfig / UiEffectConfig에서
-//   이 에셋 하나만 연결하면 VFX + SFX가 함께 재생된다.
+//   상황에 맞는 이 에셋을 조회하여 EffectManager가 VFX를 재생한다.
 //
-//   VFX 또는 SFX 중 하나만 필요하면 나머지 필드를 비워두면 된다.
-//   (EffectManager가 null인 필드는 건너뛴다.)
+//   SFX는 AudioManager가 별도로 설정·재생한다. 둘을 함께 재생할 때는
+//   호출부에서 EffectManager와 AudioManager를 연달아 호출한다(사운드 규칙 15).
 //
 // 생성 방법:
 //   Project 창에서 우클릭 → Create → Hexiege → Effects → EffectPreset

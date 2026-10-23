@@ -68,7 +68,7 @@ namespace Hexiege.Presentation
         //   _congestionMap          — 타일별 혼잡도 누적/감쇠를 관리.
         //   _congestionPathfinder   — 혼잡도를 반영한 A* 경로 탐색기.
         //   _decayTimer             — DecayInterval 주기로 _congestionMap.Decay()를 호출하기 위한 누적 타이머.
-        //   _buildingChangeSubs     — 건물 배치/파괴 이벤트 구독 해제용. siege 유닛 경로 재계산을 트리거.
+        //   _eventSubscriptions     — 맵 재초기화 때 전체 생산/건물/유닛 이벤트 구독을 교체한다.
         //
         // 혼잡도 튜닝 값(DecayInterval / CongestionWeight)은 별도 ScriptableObject가 아닌
         // GameConfig(_config.CongestionDecayInterval / _config.CongestionWeight)에서 직접 읽는다.
@@ -77,7 +77,8 @@ namespace Hexiege.Presentation
         private CongestionMap _congestionMap;
         private CongestionAwarePathfinder _congestionPathfinder;
         private float _decayTimer;
-        private CompositeDisposable _buildingChangeSubs;
+        private readonly CompositeDisposable _eventSubscriptions = new CompositeDisposable();
+        private bool _eventSubscriptionsBoundToLifetime;
 
         // ====================================================================
         // 랠리포인트 마커 관리
@@ -168,21 +169,29 @@ namespace Hexiege.Presentation
         /// </summary>
         private void SubscribeEvents()
         {
+            // 컴포넌트 파괴 수명에는 한 번만 연결하고, 맵 재초기화 때 이전 구독을 전부 비운다.
+            if (!_eventSubscriptionsBoundToLifetime)
+            {
+                _eventSubscriptions.AddTo(this);
+                _eventSubscriptionsBoundToLifetime = true;
+            }
+            _eventSubscriptions.Clear();
+
             // 생산 완료 → 랠리포인트 자동 이동
             GameEvents.OnUnitProduced
                 .Subscribe(OnUnitProduced)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             // 건물 배치 → 배럭이면 등록
             GameEvents.OnBuildingPlaced
                 .Subscribe(OnBuildingPlaced)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             // 건물 업그레이드 → 기존 ProductionState 제거 후 새 건물로 재등록
             // (2/3단계 건물도 랠리포인트·마커가 정상 동작하도록)
             GameEvents.OnBuildingUpgraded
                 .Subscribe(OnBuildingUpgraded)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             // 사망 이벤트는 분리된 두 채널을 각각 구독한다.
             //   OnBuildingDied  → 생산건물(배럭)이라면 ProductionState 해제 + 랠리 마커 제거
@@ -190,16 +199,16 @@ namespace Hexiege.Presentation
             // 강타입 DTO 분리(BuildingDiedEvent/UnitDiedEvent) 덕분에 핸들러도 두 개로 깔끔히 나뉜다.
             GameEvents.OnBuildingDied
                 .Subscribe(OnBuildingDied)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             GameEvents.OnUnitDied
                 .Subscribe(OnUnitDied)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             // 랠리포인트 변경 → 마커 생성/이동/제거
             GameEvents.OnRallyPointChanged
                 .Subscribe(OnRallyPointChanged)
-                .AddTo(this);
+                .AddTo(_eventSubscriptions);
 
             // ────────────────────────────────────────────────────────────────
             // 혼잡도 시스템 — 건물 배치/파괴로 walkable이 바뀌면
@@ -211,19 +220,16 @@ namespace Hexiege.Presentation
             // 본 핸들러는 siege 등록 상태 자체에 추가로 영향을 주진 않지만, 향후 혼잡도 부분 리셋 등의
             // 후처리를 둘 위치로 활용하기 위해 별도로 둔다.
             // ────────────────────────────────────────────────────────────────
-            _buildingChangeSubs?.Dispose();
-            _buildingChangeSubs = new CompositeDisposable();
-
             GameEvents.OnBuildingPlaced
                 .Subscribe(_ => OnWalkableChanged())
-                .AddTo(_buildingChangeSubs);
+                .AddTo(_eventSubscriptions);
 
             // 건물 사망만 walkable에 영향을 주므로 OnBuildingDied만 구독한다.
             // (유닛 사망은 walkable과 무관하여 OnUnitDied 구독 불필요.)
             // 건물 전용 강타입 이벤트라 BuildingData 캐스트 분기가 필요 없다.
             GameEvents.OnBuildingDied
                 .Subscribe(_ => OnWalkableChanged())
-                .AddTo(_buildingChangeSubs);
+                .AddTo(_eventSubscriptions);
         }
 
         /// <summary>
@@ -238,13 +244,12 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 컴포넌트 파괴 시 직접 관리하는 CompositeDisposable을 명시적으로 해제한다.
-        /// AddTo(this)로 묶인 구독은 자동 해제되지만, _buildingChangeSubs는 별도이므로 수동 처리.
+        /// 컴포넌트 파괴 시 전체 이벤트 구독을 명시적으로 해제한다.
+        /// 컴포넌트 수명에 연결한 자동 해제와 겹쳐도 Dispose는 안전하게 한 번만 정리한다.
         /// </summary>
         private void OnDestroy()
         {
-            _buildingChangeSubs?.Dispose();
-            _buildingChangeSubs = null;
+            _eventSubscriptions.Dispose();
         }
 
         // ====================================================================

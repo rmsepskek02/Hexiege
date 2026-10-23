@@ -69,24 +69,24 @@ namespace Hexiege.Infrastructure
         [Tooltip("초월 종족 건설 비용 (골드)")]
         public int transcendenceGoldCost;
 
-        [Header("Attack Power (향후 타워 기능 대비)")]
-        [Tooltip("인간 종족 공격력. 현재 미사용, 타워 기능 도입 시 사용.")]
+        [Header("Attack Power (방어 타워)")]
+        [Tooltip("인간 종족 공격력. 방어 타워의 피해 계산에 사용.")]
         public int humanAttackPower;
 
-        [Tooltip("정령 종족 공격력. 현재 미사용.")]
+        [Tooltip("정령 종족 공격력. 방어 타워의 피해 계산에 사용.")]
         public int spiritAttackPower;
 
-        [Tooltip("초월 종족 공격력. 현재 미사용.")]
+        [Tooltip("초월 종족 공격력. 방어 타워의 피해 계산에 사용.")]
         public int transcendenceAttackPower;
 
-        [Header("Attack Cooldown (향후 타워 기능 대비)")]
-        [Tooltip("인간 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        [Header("Attack Cooldown (방어 타워)")]
+        [Tooltip("인간 종족 공격 쿨다운(초). 방어 타워의 공격 후 대기 시간에 사용. 비타워 건물은 0.")]
         public float humanAttackCooldown;
 
-        [Tooltip("정령 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        [Tooltip("정령 종족 공격 쿨다운(초). 방어 타워의 공격 후 대기 시간에 사용. 비타워 건물은 0.")]
         public float spiritAttackCooldown;
 
-        [Tooltip("초월 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        [Tooltip("초월 종족 공격 쿨다운(초). 방어 타워의 공격 후 대기 시간에 사용. 비타워 건물은 0.")]
         public float transcendenceAttackCooldown;
 
         [Header("Attack Range (방어 타워 사거리, 타일 단위)")]

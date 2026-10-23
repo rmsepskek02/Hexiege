@@ -38,7 +38,7 @@ MistShrine은 독립 `MistShrineUseCase`의 인스턴스별 누적기·대상 �
 ### 핵심 기술
 | 항목 | 기술 | 버전 |
 |------|------|------|
-| **게임 엔진** | Unity | 6000.0.x (Unity 6 LTS) |
+| **게임 엔진** | Unity | 6000.3.5f2 |
 | **렌더 파이프라인** | URP | Universal Render Pipeline |
 | **네트워크** | Netcode for GameObjects | 2.9.2 |
 | **전송 레이어** | Unity Transport (UTP) | - |
@@ -76,7 +76,7 @@ MistShrine은 독립 `MistShrineUseCase`의 인스턴스별 누적기·대상 �
               ↓ ↑
 ┌─────────────────────────────────────┐
 │      Application Layer              │  ← Use Cases, Business Logic
-│  (순수 C# + UniRx)                  │
+│  (UseCase·계약)                     │
 └─────────────────────────────────────┘
               ↓ ↑
 ┌─────────────────────────────────────┐
@@ -96,12 +96,13 @@ Assets/
 └── _Project/
     ├── Scripts/
     │   ├── Bootstrap/           # Composition Root (GameBootstrapper partial × 4, LoginBootstrapper)
+    │   │   └── Debug/           # 에디터 전용 맵 준비·투영 강제 실패 플래그
     │   ├── Domain/              # 순수 C# 엔티티
     │   ├── Application/         # Use Cases, GameEvents, NetworkContext, Interfaces
     │   ├── Infrastructure/      # 외부 연동, Network Controllers, Factories
     │   ├── Presentation/        # Unity UI/View, UnitView, CameraController
     │   ├── Core/                # 공통 유틸리티 (HexMetrics, ViewConverter)
-    │   └── Diagnostics/         # 진단/디버그 전용 도구
+    │   └── Debug/               # UIManager 테스트 버튼 핸들러
     ├── Prefabs/
     ├── Materials/
     ├── Scenes/
@@ -1117,7 +1118,7 @@ Addressables.LoadAssetAsync<GameObject>("Units/Soldier");
 
 ### Unity 프로젝트 설정
 ```
-Unity Version: 6000.0.x (Unity 6 LTS)
+Unity Version: 6000.3.5f2
 Template: 3D (URP)
 Platform: Android / iOS
 Scripting Backend: IL2CPP

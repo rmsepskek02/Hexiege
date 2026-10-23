@@ -63,7 +63,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 주어진 키에 해당하는 토스트 설정을 찾는다.
         /// 같은 키가 여러 번 등록되어 있으면 가장 앞쪽 항목을 반환.
-        /// 못 찾으면 false 반환 + entry는 기본값(빈 메시지, duration=1).
+        /// 못 찾으면 false를 반환하고 entry에는 키 이름과 표시 시간 1.5초를 채운다.
         /// </summary>
         /// <param name="key">찾고자 하는 토스트 키.</param>
         /// <param name="entry">찾은 항목의 사본. 못 찾으면 안전한 기본값을 채움.</param>

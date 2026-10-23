@@ -548,6 +548,9 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void OnDestroy()
         {
+            // 씬을 바로 떠나는 경우에도 정적 건물 이벤트가 이전 Bootstrap을 붙잡지 않도록 정리한다.
+            _eagerRepathSubscriptions?.Dispose();
+            _eagerRepathSubscriptions = null;
             _unitCombat?.CloseTorrentLaunches("bootstrap-destroy");
             GameServicesLocator.Unregister();
         }

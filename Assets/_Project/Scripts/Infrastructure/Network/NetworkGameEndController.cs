@@ -1501,6 +1501,17 @@ namespace Hexiege.Infrastructure
                     continue;
                 }
 
+                // 도달 확인을 기다리는 동안 연결 수명이나 상대 신호가 바뀔 수 있다.
+                // 기다리기 전의 침묵을 근거로 복구된 연결을 끊지 않도록 현재 상태를 다시 읽는다.
+                if (!IsSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening
+                    || _resultScreenLeaveJudged || _opponentLeftJudged)
+                {
+                    _resultScreenWatchCoroutine = null;
+                    yield break;
+                }
+                silenceSeconds = Time.realtimeSinceStartup - _lastOpponentSignalRealtime;
+                if (silenceSeconds < ResultScreenSilenceTimeoutSeconds) continue;
+
                 // 내 인터넷은 되는데 상대만 조용하다 → 상대 이탈로 확정한다.
                 ConfirmOpponentLeftAfterSilence(silenceSeconds);
                 yield break;

@@ -5,14 +5,13 @@
 // Domain 레이어의 데이터 클래스로, Unity 컴포넌트가 아님.
 // UnitData와 동일한 패턴: 자동 Id 발급, 불변 코어 속성.
 //
-// 현재 범위 (건물 배치만):
-//   - Id, Type, Team, Position
-//
-// 향후 확장 (MVP):
-//   - HP, Level, 생산 큐, 업그레이드 상태 등
+// 관리하는 상태:
+//   - Id, Type, Team, Position 및 Type에서 파생한 Stage
+//   - 최대/현재 HP와 피해·회복 처리, 방어 타워의 남은 공격 쿨다운
+//   - 생산 큐는 별도 ProductionState에서 관리
 //
 // 사용 예시:
-//   var building = new BuildingData(BuildingType.TrainingCamp, TeamId.Blue, coord);
+//   var building = new BuildingData(BuildingType.TrainingCamp, TeamId.Blue, coord, maxHp);
 //
 // Domain 레이어 — 순수 C#, Unity 의존 없음.
 // ============================================================================
@@ -25,7 +24,7 @@ namespace Hexiege.Domain
         /// <summary> 건물 고유 식별자. 생성 시 자동 발급, 변경 불가. </summary>
         public int Id { get; }
 
-        /// <summary> 건물 종류 (Castle, Barracks, MiningPost). 변경 불가. </summary>
+        /// <summary> 건물 종류(Castle, TrainingCamp, MiningPost 등). 변경 불가. </summary>
         public BuildingType Type { get; }
 
         /// <summary> 소속 팀. 변경 불가. </summary>

@@ -27,10 +27,10 @@ namespace Hexiege.Presentation
         [Tooltip("이 항목이 적용되는 건물 타입")]
         public BuildingType buildingType;
 
-        [Tooltip("파괴 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
+        [Tooltip("파괴 시 재생할 이펙트 (VFX). 없으면 비워둠")]
         public EffectPreset destroyPreset;
 
-        [Tooltip("업그레이드 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
+        [Tooltip("업그레이드 시 재생할 이펙트 (VFX). 없으면 비워둠")]
         public EffectPreset upgradePreset;
 
         [Tooltip("공격(발사) 시 재생할 이펙트 (VFX). 없으면 비워둠 — 조용히 스킵됨. 방어 타워(AutoTower) 발사 연출용")]

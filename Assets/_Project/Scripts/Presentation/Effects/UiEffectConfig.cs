@@ -4,7 +4,7 @@
 //
 // UnitEffectConfig가 UnitType으로 조회한다면, 이 Config는 UiEffectKey(enum)로
 // 조회한다. 버튼 클릭/패널 열기/골드 획득 등 정해진 UI 상황마다 키를 부여하고
-// 그에 맞는 EffectPreset(주로 SFX)을 연결한다.
+// 그에 맞는 VFX용 EffectPreset을 연결한다. UI SFX 매핑은 AudioManager가 별도로 관리한다.
 //
 // 에셋 경로: Assets/_Project/Resources/Config/UiEffectConfig.asset
 //
@@ -42,7 +42,7 @@ namespace Hexiege.Presentation
         [Tooltip("이 항목이 적용되는 UI 이펙트 키")]
         public UiEffectKey key;
 
-        [Tooltip("재생할 이펙트 (UI는 주로 SFX). 없으면 비워둠")]
+        [Tooltip("재생할 UI VFX 프리셋. 없으면 비워둠. UI SFX는 AudioManager에서 별도 설정")]
         public EffectPreset preset;
     }
 

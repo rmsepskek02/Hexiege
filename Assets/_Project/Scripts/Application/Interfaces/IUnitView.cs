@@ -12,12 +12,11 @@
 //
 // 위치 결정 — Application에 두는 이유:
 //   IUnitView는 Application/Domain 컨텍스트(UnitData/UseCase)에 묶여 있어 Application이 자연스러운 위치.
-//   SetDependencies가 Infrastructure 타입(UnitFactory/BuildingFactory)을 받지만,
-//   Application/Infrastructure는 어셈블리가 분리되어 있지 않아(Assembly-CSharp 단일) 컴파일 의존만 형성된다.
-//   엄격한 클린 아키텍처를 적용하려면 Factory 측에도 인터페이스(IUnitFactory/IBuildingFactory)를 도입해야 하지만,
-//   본 리팩토링 범위에서는 UnitFactory가 UnitView 구체 타입을 직접 알지 않게 하는 1차 목표만 달성한다.
+//   팩토리도 Application 인터페이스로 받아 Infrastructure 구체 타입을 노출하지 않는다.
+//   유닛은 기존 IUnitFactory, 건물은 조회 전용 IBuildingObjectProvider를 사용하며,
+//   호출자는 기존 팩토리 객체를 그대로 전달한다.
 //
-// Application 레이어 — Domain/Infrastructure 컨텍스트 일부 사용 허용(주석 참조).
+// Application 레이어 — Domain/Application 타입에 의존.
 // ============================================================================
 
 using Hexiege.Domain;
@@ -43,14 +42,14 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="movementUseCase">유닛 이동 UseCase.</param>
         /// <param name="combatUseCase">유닛 전투 UseCase.</param>
-        /// <param name="unitFactory">유닛 팩토리(Infrastructure 구체 타입).</param>
-        /// <param name="buildingFactory">건물 팩토리(Infrastructure 구체 타입).</param>
+        /// <param name="unitFactory">타겟 유닛의 씬 오브젝트를 조회할 팩토리 인터페이스.</param>
+        /// <param name="buildingFactory">타겟 건물의 씬 오브젝트를 조회할 인터페이스.</param>
         /// <param name="positionProvider">유닛 위치 조회 서비스.</param>
         void SetDependencies(
             UnitMovementUseCase movementUseCase,
             UnitCombatUseCase combatUseCase,
-            Hexiege.Infrastructure.UnitFactory unitFactory = null,
-            Hexiege.Infrastructure.BuildingFactory buildingFactory = null,
+            IUnitFactory unitFactory = null,
+            IBuildingObjectProvider buildingFactory = null,
             IEntityPositionProvider positionProvider = null);
     }
 }

@@ -25,7 +25,7 @@ memory: project
 ## 프로젝트 컨텍스트
 
 **Hexiege**: Unity 6 기반 모바일 1v1 RTS (헥스 타일맵, 9:16 세로)
-- 엔진: Unity 6000.0.x (URP), C# 9.0, NGO 2.9.2
+- 엔진: Unity 6000.3.5f2 (URP), C# 9.0, NGO 2.9.2
 - 아키텍처: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
 - 절대 규칙 파일: `CLAUDE.md` (작업 시작 전 반드시 확인)
 

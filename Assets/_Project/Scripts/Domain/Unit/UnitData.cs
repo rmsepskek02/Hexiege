@@ -5,9 +5,10 @@
 // Domain 레이어의 데이터 클래스로, Unity 컴포넌트가 아님.
 // Presentation 레이어의 UnitView가 이 데이터를 참조하여 화면에 표시.
 //
-// 프로토타입 범위:
-//   - 위치, 타입, 팀, 방향만 관리
-//   - HP, 공격력 등 전투 관련 스탯은 MVP에서 추가
+// 관리하는 상태:
+//   - 식별자, 위치, 타입, 팀, 논리 방향
+//   - HP·공격/감지 사거리·이동 속도·공격 쿨다운·타격 시점
+//   - 생성 시 정해지는 힐러 여부와 기본 방어력
 //
 // Id는 정적 카운터(_nextId)로 자동 발급.
 // 각 유닛이 고유한 Id를 가지므로 Dictionary 키, 이벤트 식별 등에 사용 가능.
@@ -38,9 +39,8 @@ namespace Hexiege.Domain
         public HexCoord Position { get; set; }
 
         /// <summary>
-        /// 현재 바라보는 방향 (HexDirection).
-        /// 이동 시 이전→현재 타일 방향으로 업데이트.
-        /// FacingDirection.FromHexDirection()으로 아트 방향+flipX 변환.
+        /// 현재 바라보는 논리 헥스 방향(HexDirection).
+        /// 이동·전투 경로에서 갱신하며, 화면의 회전 표현과는 구분한다.
         /// </summary>
         public HexDirection Facing { get; set; }
 

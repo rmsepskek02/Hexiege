@@ -12,7 +12,7 @@
 //   - 연동 성공 시 ProfileView 가 즉시 UI 를 갱신해야 한다(IsAnonymous = false).
 //
 // 의존성:
-//   - FirebaseAuthService (Infrastructure) — Firebase SDK 호출 단일 진입점.
+//   - IAuthenticationService (Application) — 익명 상태와 계정 연동 작업의 계약.
 //
 // Application 레이어 — 순수 C# + Task.
 // ============================================================================
@@ -20,7 +20,6 @@
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
-using Hexiege.Infrastructure;
 
 namespace Hexiege.Application
 {
@@ -47,7 +46,7 @@ namespace Hexiege.Application
         // 의존성
         // ====================================================================
 
-        private readonly FirebaseAuthService _authService;
+        private readonly IAuthenticationService _authService;
 
         /// <summary>마지막으로 발생한 인증 예외. View 측에서 메시지 조회용.</summary>
         public AuthException LastError { get; private set; }
@@ -56,7 +55,7 @@ namespace Hexiege.Application
         // 생성자
         // ====================================================================
 
-        public AccountLinkUseCase(FirebaseAuthService authService)
+        public AccountLinkUseCase(IAuthenticationService authService)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         }

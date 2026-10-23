@@ -25,11 +25,10 @@
 //
 // 부착 위치: Game씬의 EffectManager GameObject (GameBootstrapper에서 Initialize 호출).
 //
-// Presentation 레이어 — Unity 의존 (MonoBehaviour, Coroutine, AudioSource).
+// Presentation 레이어 — Unity 의존 (MonoBehaviour, VFX Pool).
 // ============================================================================
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
@@ -69,7 +68,7 @@ namespace Hexiege.Presentation
     }
 
     /// <summary>
-    /// 게임 전체 VFX/SFX를 통합 관리하는 매니저.
+    /// 게임 전체 VFX를 관리하는 매니저. 오디오는 AudioManager가 별도로 담당한다.
     /// Game씬 전용 static Instance (DontDestroyOnLoad 없음).
     /// </summary>
     public class EffectManager : MonoBehaviour
@@ -174,7 +173,7 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 매니저 초기화. Config 연결 + 각 Config의 Dictionary 빌드 + SFX Pool 사전 생성.
+        /// 매니저 초기화. Config를 연결하고 각 Config의 조회 Dictionary를 빌드한다.
         /// GameBootstrapper의 게임 시작 흐름에서 호출.
         /// </summary>
         /// <param name="unitConfig">유닛 이펙트 Config (null 허용).</param>
@@ -564,12 +563,12 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// UI 이펙트 재생 (주로 SFX). 위치 개념이 없으므로 Vector3.zero에서 재생.
+        /// UI VFX 재생. 위치 개념이 없으므로 Vector3.zero에서 재생한다.
         /// </summary>
         /// <param name="key">재생할 UI 이펙트 키.</param>
         public void PlayUi(UiEffectKey key)
         {
-            // UI 이펙트는 화면 좌표 개념이 없으므로 원점에서 회전 없이(identity) 재생 (SFX는 위치/회전 무관).
+            // UI VFX는 원점에서 회전 없이(identity) 재생한다. UI SFX는 AudioManager가 별도로 담당한다.
             Play(_uiConfig?.Get(key), Vector3.zero, Quaternion.identity);
         }
 
@@ -613,7 +612,7 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 프리셋을 받아 VFX와 SFX를 동시에 재생하는 핵심 메서드.
+        /// 프리셋을 받아 VFX를 재생하는 핵심 메서드.
         /// preset이 null이면 아무것도 하지 않는다 (이펙트 미설정 유닛/건물 대비).
         /// </summary>
         /// <param name="preset">재생할 이펙트 프리셋. null이면 조기 반환.</param>

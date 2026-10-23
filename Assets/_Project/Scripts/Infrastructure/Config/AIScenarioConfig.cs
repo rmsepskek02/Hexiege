@@ -19,9 +19,9 @@
 //     - AIScenarioConfig_Transcendence.asset (scenarios[0/1/2] = Rush/Flora/Beast)
 //   GameBootstrapper가 Random.Range(0,3)으로 하나를 선택해 AI에 주입한다.
 //
-// 레거시 에셋 (AIScenarioConfig_Human_A/B/C.asset):
-//   기존 단일 시나리오 에셋. scenarioName + _steps 필드 사용.
-//   신규 Human.asset 테스트 통과 후 삭제 예정.
+// 이전 단일 시나리오 에셋:
+//   기존 Human_A/B/C.asset은 종족별 단일 번들 에셋으로 교체되었다.
+//   런타임은 scenarios의 ScenarioBundle.steps를 사용한다.
 //
 // 타입 이동 안내:
 //   AIActionType(enum), BuildOrderStep(struct)은 Domain 레이어

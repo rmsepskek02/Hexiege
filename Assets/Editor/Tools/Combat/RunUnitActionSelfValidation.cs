@@ -23,6 +23,23 @@ namespace Hexiege.Editor.Combat
     /// </summary>
     public static partial class RunUnitActionSelfValidation
     {
+        /// <summary>
+        /// UnitView의 원본 파일과 같은 폴더의 partial 파일을 함께 읽어 기존 소스 검사의 범위를 유지한다.
+        /// 파일 순서를 고정해 실행 환경에 따라 검사 입력 순서가 달라지지 않게 한다.
+        /// </summary>
+        private static string ReadUnitViewSourceForValidation(string unitViewPath)
+        {
+            var source = new StringBuilder(File.ReadAllText(unitViewPath));
+            string[] partialPaths = Directory.GetFiles(Path.GetDirectoryName(unitViewPath), "UnitView.*.cs");
+            Array.Sort(partialPaths, StringComparer.Ordinal);
+            foreach (string partialPath in partialPaths)
+            {
+                source.AppendLine();
+                source.Append(File.ReadAllText(partialPath));
+            }
+            return source.ToString();
+        }
+
         // Service wiring only: production controller still owns revision/E/receipt and
         // production View/NetworkUnit own actual animation/application. No fabricated success.
         private sealed class NativeHostServices : IGameServices, IUnitFactory
@@ -776,7 +793,10 @@ namespace Hexiege.Editor.Combat
                 "Presentation/Unit/UnitView.cs|Command|RenderedStart|RawMarker|MarkerSuppressed|VfxAttempt|VfxResult|SourceStop|TracerDecision",
                 "Infrastructure/Network/NetworkUnit.cs|Receive", "Infrastructure/Network/UnitAttackShadowObserver.cs|Decision" })
             {
-                string[] fields = item.Split('|'); source = File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
+                string[] fields = item.Split('|');
+                source = fields[0] == "Presentation/Unit/UnitView.cs"
+                    ? ReadUnitViewSourceForValidation("Assets/_Project/Scripts/" + fields[0])
+                    : File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
                 for (int i = 1; i < fields.Length; i++)
                     if (!source.Contains("\"" + fields[i] + "\"")) throw new InvalidOperationException("Missing production hook " + fields[i]);
             }
@@ -2983,7 +3003,7 @@ namespace Hexiege.Editor.Combat
             Require(File.Exists(unitViewPath) && File.Exists(observerPath),
                 "InfernoSpirit forbidden Animator member source gate requires both production source files.");
 
-            string productionSource = File.ReadAllText(unitViewPath)
+            string productionSource = ReadUnitViewSourceForValidation(unitViewPath)
                 + "\n" + File.ReadAllText(observerPath);
             string forbiddenPositionMember = string.Concat(".", "bodyPosition");
             string forbiddenRotationMember = string.Concat(".", "bodyRotation");
@@ -7575,7 +7595,7 @@ namespace Hexiege.Editor.Combat
                 "_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             Require(File.Exists(unitViewPath) && File.Exists(controllerPath),
                 "StreamSpirit timeline diagnostic source gate requires both production call-site files.");
-            string unitViewSource = File.ReadAllText(unitViewPath);
+            string unitViewSource = ReadUnitViewSourceForValidation(unitViewPath);
             string controllerSource = File.ReadAllText(controllerPath);
             Require(unitViewSource.Contains("RecordStreamSpiritTimelineStart(")
                     && unitViewSource.Contains("RecordStreamSpiritTimelineMarker(")
@@ -7705,7 +7725,7 @@ namespace Hexiege.Editor.Combat
                 "_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             Require(File.Exists(unitViewPath) && File.Exists(controllerPath),
                 "FoxMagician timeline diagnostic source gate requires both production call-site files.");
-            string unitViewSource = File.ReadAllText(unitViewPath);
+            string unitViewSource = ReadUnitViewSourceForValidation(unitViewPath);
             string controllerSource = File.ReadAllText(controllerPath);
             Require(unitViewSource.Contains("RecordFoxMagicianTimelineStart(")
                     && unitViewSource.Contains("RecordFoxMagicianTimelineMarker(")

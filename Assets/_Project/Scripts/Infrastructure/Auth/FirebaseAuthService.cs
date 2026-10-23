@@ -44,7 +44,7 @@ namespace Hexiege.Infrastructure
     /// 상위 레이어(Application/Presentation)가 Firebase SDK 에 직접 의존하지 않도록 차단한다.
     /// 모든 로그인 흐름의 단일 진입점.
     /// </summary>
-    public class FirebaseAuthService
+    public class FirebaseAuthService : IAuthenticationService
     {
         // ====================================================================
         // 내부 상태
@@ -608,42 +608,4 @@ namespace Hexiege.Infrastructure
         };
     }
 
-    // ========================================================================
-    // 도메인 예외 — Firebase SDK 의존을 차단하기 위한 1차 변환 결과
-    // ========================================================================
-
-    /// <summary>
-    /// 인증 오류 사유 코드. View 측에서 사유별 분기 처리에 사용한다.
-    /// </summary>
-    public enum AuthErrorReason
-    {
-        Unknown,
-        NotInitialized,
-        NotLoggedIn,
-        NotAnonymous,
-        InvalidEmail,
-        InvalidEmailOrPassword,
-        EmailAlreadyInUse,
-        WeakPassword,
-        CredentialAlreadyInUse,
-        NetworkError,
-        TooManyRequests,
-        RequiresRecentLogin,
-        GoogleSignInCancelled
-    }
-
-    /// <summary>
-    /// Firebase SDK 예외를 추상화한 도메인 예외.
-    /// Application/Presentation 레이어에서는 이 예외만 catch 하면 충분하다.
-    /// </summary>
-    public class AuthException : Exception
-    {
-        public AuthErrorReason Reason { get; }
-
-        public AuthException(AuthErrorReason reason, string message, Exception inner = null)
-            : base(message, inner)
-        {
-            Reason = reason;
-        }
-    }
 }
