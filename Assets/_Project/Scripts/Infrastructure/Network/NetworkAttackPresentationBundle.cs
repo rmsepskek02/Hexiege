@@ -51,7 +51,6 @@ namespace Hexiege.Infrastructure
 
             var assembled = new List<AttackResultPresentationInput>(facts.Length + 1);
             bool foundPrimaryAppliedFact = false;
-            AppliedAttackPresentationFact primaryAppliedFact = default;
             for (int i = 0; i < facts.Length; i++)
             {
                 AppliedAttackPresentationFact fact = facts[i];
@@ -72,7 +71,6 @@ namespace Hexiege.Infrastructure
                         || !fact.ImpactPosition.Equals(primaryObservation.ImpactPosition))
                         return false;
                     foundPrimaryAppliedFact = true;
-                    primaryAppliedFact = fact;
                     continue;
                 }
 
@@ -212,7 +210,6 @@ namespace Hexiege.Infrastructure
         public const int MaximumRememberedBundles = 32768;
         private readonly Dictionary<AttackPresentationScope, NetworkAttackImpactShadowResult[]>
             _accepted = new Dictionary<AttackPresentationScope, NetworkAttackImpactShadowResult[]>();
-        private readonly Queue<AttackPresentationScope> _order = new Queue<AttackPresentationScope>();
 
         public NetworkAttackPresentationBundleStatus Classify(
             int attackerUnitId,
@@ -244,14 +241,12 @@ namespace Hexiege.Infrastructure
             if (_accepted.Count >= MaximumRememberedBundles)
                 return NetworkAttackPresentationBundleStatus.CapacityExceeded;
             _accepted.Add(scope, (NetworkAttackImpactShadowResult[])payload.Clone());
-            _order.Enqueue(scope);
             return NetworkAttackPresentationBundleStatus.Accepted;
         }
 
         public void Clear()
         {
             _accepted.Clear();
-            _order.Clear();
         }
     }
 }

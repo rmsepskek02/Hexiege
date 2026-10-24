@@ -546,6 +546,41 @@ private bool helper는 `IGameServices.GetBuildingPlacement()?.GetBuilding(buildi
 
 수정 전 전체 원문/SHA와 정확6span old/new 치환을 보존하고, 허용 치환만 역복원하여 full raw 동일을 확인한다. SetInvariant 본문2개의 raw 동일·ReadValue/ReadLong 실제 키2개의 불변·외부 source/reflection 소비 참조 재검색·기존 meta 동일 및 정확1파일 diff를 정적으로 대조한다. 기존2.33/2.34 Editor2소스와 Task 기록에 간섭하지 않는다. 컴파일/fixture/Unity/native/로그 분석 실행/게임/빌드·TCQA는 NOT RUN이며 정적 비교를 실행 PASS로 보고하지 않는다. 새 Task/상시문서/메모리/Status/Roadmap/옛 Task·History 편집이나 Git 변경은 하지 않는다.
 
+### 2.36 표현 bundle의 읽기 없는 지역 저장2행 제거
+
+사용자 「푸시하고 다음작업진행」과 기존 전면 자율 진행·Task 기록 승인 아래 `Assets/_Project/Scripts/Infrastructure/Network/NetworkAttackPresentationBundle.cs`의 TryCreate만 다음 범위로 선정한다. GameSystemRules 인덱스를 확인했으며 GameSystemRules_UnitCombatSynchronization의 NET-AUTH-001/NET-AUTH-002 권위·표현 경계를 그대로 유지하는 내부 정리다. 이 규칙이 지역 변수 삭제를 요구하는 것은 아니다. 전문 제안과 현재 TryCreate 본문·AppliedAttackPresentationFact readonly struct 선언을 문서 담당도 직접 읽었다. 메인의 전체 계획 검토/GO 뒤 코드 전문 담당이 구현한다.
+
+수정 전54행 `AppliedAttackPresentationFact primaryAppliedFact = default;`와75행 `primaryAppliedFact = fact;` 두 행만 제거한다. 파일 전체의 해당 식별자는 선언/대입2곳뿐이라는 전문 검색 결과와 직접 읽은 본문을 근거로 한다. RHS는 이미 읽어 둔 fact local의 struct 복사이며 추가 호출·operator·부작용을 제거하지 않는다. `foundPrimaryAppliedFact` boolean과 중복 primary 거부·결과/HP/위치/팀/타입 비교·fact.IsValid·primary 누락 검증·결과 정렬·네트워크 변환 루프를 모두 보존한다. 실제 기능의 비활성화/폐기가 아닌 소비 없는 지역 저장 정리이며 Coordinator private3값 삭제나 queue compaction의 재개 승인이 아니다.
+
+쓰기 전 전체 원문/SHA·정확2행을 보존하고 허용 제거만 역복원해 full raw 동일을 확인한다. 기존 boolean/검증/반환/API·직렬화/meta/수치/자산/예외/로그를 보존하며 실제 컴파일·Unity/native/fixture/게임/빌드·TCQA는 수행하지 않는다.
+
+### 2.37 Observer 설명을 실제 Observer 선언 앞으로 원문 이동
+
+`Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs`의 수정 전112~117행 Tracer C summary6줄만329행 실제 `public static class UnitAttackShadowObserver` 직전으로 원문 이동한다. 현재 이 설명은 ExpiryClockHistory 자체 summary118~121행 앞에 잘못 붙어 있다. 문서 담당도 두 summary와 두 class 경계를 직접 확인했다. 근거는 GameSystemRules_UnitCombatSynchronization의 권위·표현 경계 설명을 현재 구현 주체에 맞추고 WORKFLOW [5-2]의 진단 진입점을 유지하는 사실 정리다. 메인 전체 계획 검토/GO 뒤 코드 전문 담당이 구현한다.
+
+ExpiryClockHistory 자체 summary와 모든 코드·namespace·전처리 경계·attribute·상수/문자열·진단 예산/순서/출력을 보존한다. 같은 namespace/외곽 전처리 범위 안의 주석 이동이며 sourcegate가 검사하는 Decision 문자열과 금지 Animator member 유무를 바꾸지 않는다. 전문 담당은 기존 RunUnitActionSelfValidation의 해당 sourcegate를 직접 읽어 확인했고 문서 담당은 그 내용을 전달 근거로 구분한다. 수정 전 전체 원문/SHA를 보존하고 정확6줄 원문 이동의 역복원 raw 동일·주석 제외 토큰/리터럴 동일·전처리문과 기존 meta 동일을 정적으로 대조한다. 새 sourcegate/진단 정책이나 컴파일·native 실행은 추가하지 않는다.
+
+### 2.38 Editor 로그 정리 확인창의 현행 private 보관 안내2문장 정정
+
+`Assets/Editor/Tools/LogcatCapture.cs`의 ConfirmDeletion에서 수정 전731~732행 AppendLine 문자열2개만 아래로 치환한다. 직접 근거는 LogRules §1.10의 「원시 테스트 로그 공유·보관」이 정한 private Release ZIP 보관·전체 다운로드 검증과 보관 선택 파일의 대상별 사용자 삭제 승인이다. 문서 담당도 현행 조항과 현재 확인창/버튼을 직접 읽었다. 기존 「공유하려고 커밋해 둔 로그」 안내를 현행 정책에 맞추며 정책 자체는 바꾸지 않는다. 메인 전체 계획 검토/GO 뒤 코드 전문 담당이 구현한다.
+
+```text
+⚠️ 보관 대상으로 선택한 로그는 private Release ZIP 보관과 전체 다운로드 검증 후에도
+   대상별 사용자 삭제 승인이 필요합니다. 조건 충족 여부와 삭제 목록을 확인한 뒤 진행하세요.
+```
+
+이는 사용자에게 표시되는 안내 변경이다. 자동 보관 검증·대상별 승인 확인 기능이나 새 삭제 허가 기능을 구현하는 것이 아니다. 실제 삭제 제어조건·30일/90일 선택·대상 폴더/총수 표시·경로 가드·삭제/취소 버튼·기존 정책 및 원시 로그를 보존한다. 쓰기 전 전체 원문/SHA와 정확2문자열을 보존하고 두 문자열만 역복원한 full raw 동일·다른 리터럴/실행 토큰 및 기존 meta 동일을 확인한다. 실제 캡처/저장/삭제/업로드·정리 메뉴 실행·컴파일/Unity/native/게임/빌드·TCQA는 하지 않는다. 이번 정확3파일 외 새 후보/대형 감사·상시문서/메모리/Status/Roadmap/옛 Task·History/Git 변경을 확대하지 않으며 AUD-017 후속 AI 생산배율·legacy VFX6 삭제·queue/Coordinator private3값 보류를 유지한다.
+
+### 2.39 전송 bundle classifier의 소비 없는 private 순서 저장3행 제거
+
+기존 전면 자율 진행 승인 아래 메인이 별도 검토를 요청한 `Assets/_Project/Scripts/Infrastructure/Network/NetworkAttackPresentationBundle.cs`의 NetworkAttackPresentationBundleClassifier만 후속 범위로 선정한다.2.36~38 완료 기록은 그대로 보존하며 이 계획은 별도 코드 전 단계다. GameSystemRules_UnitCombatSynchronization의 NET-ACTION-IDEMPOTENT가 정한 멱등 표현 계약과 NET-AUTH-001/NET-AUTH-002의 권위 경계를 보존하는 내부 저장 정리다. 이 규칙이 queue 삭제를 요구하는 것은 아니다. 문서 담당도 classifier 전체 본문과 기존 ValidateTransportLongMatchRetention을 직접 읽었다. 메인의 전체 계획 검토/GO 뒤 코드 전문 담당이 구현한다.
+
+2.36 반영 후213행의 private readonly `_order` Queue 선언,245행 `_order.Enqueue(scope);`,252행 `_order.Clear();` 정확3행만 제거한다. 이 class는 nonpartial plain sealed이며 전문 담당의 현재 source/Editor/Tools 검색에서 순서 조회·Dequeue/Peek/Count/enumeration·field escape와 quoted `_order`/nameof 반사 조회를 찾지 못했다. 외부 소비는 NetworkCombatController와 기존 검사의 public 생성/Classify/Clear 경로라는 전문 전달 근거다. 멱등/충돌/상한 정책은 `_accepted`의 TryGetValue→길이/각 payload.Equals 비교, Count→MaximumRememberedBundles 비교, Add(scope,payload.Clone()), Clear에 있으며 해당 본문 전체를 보존한다. 상한32768·scope/hash/키/정렬/RPC/API/직렬화/meta/자산은 변경하지 않는다.
+
+명시적으로 queue 객체/내부 저장 할당과 Enqueue/Clear 관리만 없어지며 OOM 등 자원 실패의 동등성이나 모든 관측의 완전 동일을 주장하지 않는다. 기존 검사는1964묶음 Accepted→옛 payload Duplicate→Clear 후 Accepted를 public 경로로 확인하며 private queue를 참조하지 않는다. 해당 검사는 이번에 실행하지 않는다. 보류된 UnitAttackShadowCoordinator의 예약 FIFO/동일 instance·token 재사용 반례 및 private3값과 별도 타입/상태이며 그 보류를 재개하거나 우회하지 않는다.
+
+쓰기 전 현재 전체 원문/SHA와 정확3행을 별도 보존하고 허용 제거만 역복원한 full raw 동일, `_accepted` 정책 본문/공개 API·상수/문자열·기존 meta 동일 및 정확1source 추가 diff를 정적으로 대조한다. 앞선2.36의 지역 저장2행 제거와2.37/2.38 결과를 보존한다. 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 작업/삭제 메뉴/Git 변경은 수행하지 않으며 새 파일/대형 감사·상시문서/메모리/옛 Task·History 전파 없이 기록한다. AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -839,3 +874,23 @@ Research16.12에4scratch의최신읽기범위합집합재계수·구조스캔/�
 Research16.28의 동일 instance/token 재사용 반례를 검토해 queue compaction과 Coordinator private3값 삭제는 보류하고 원코드를 유지했다. 이어 별도 선정한2.35를 코드 전 기록·메인 전체 검토/GO 뒤 전문 담당이 구현했다. Research16.29~30과 `/tmp/hexiege_plan235_20261024/static-review.json`·`/tmp/hexiege-plan235-main-independent.json`이 정확1파일6span 치환/역복원 full raw 동일·두 SetInvariant 본문 raw 동일·실제 파싱 키2문장/기존 meta 유지·queue 무변경 근거다. 문서 담당도 전체 diff/두 JSON을 직접 읽었으며 전문 검증의 generic 키식 횟수 가정 정정은 추가 소스 수정 없이 이뤄졌음을 구분했다.
 
 현재 추가분은 Editor C#3+기존 Task2의 정확5경로이며 미커밋·미푸시다. 공개 API/직렬화 계약·판정/파싱/예외/로그·기존2.33/2.34 변경은 보존했다. 새로운 컴파일/fixture/Unity/native/로그 분석/게임/빌드·TCQA는 NOT RUN이며 기존1a69402c 사용자 보고를 재사용하지 않는다. queue bounded 완료/전체 안전이나 전체 기능 PASS로 확대하지 않고 AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다. 추가 후보 탐색/상시문서·메모리 전파/Git 변경 없이 문서 검사와 인계를 마감한다.
+
+### 7.39 기존5경로 푸시와 다음3파일 코드 전 계획(2026-10-25 KST)
+
+사용자 「푸시하고 다음작업진행」 아래 기존5경로의 커밋/푸시 `469fda010bb4c5947c1254ef8e7281f7fe588af7`를 Research16.31에 기록했다. 문서 담당의 commit stat 직접 확인과 메인의 원격 동일 SHA·푸시 직후 clean 전달값을 구분하며16.30/7.38의 당시 미커밋 기록을 보존한다. 기존1a69402c 사용자 컴파일 보고를 e1588fab/469fda01 및 이후 세대로 확대하지 않는다. 새 사용자 컴파일 보고와 에이전트 컴파일/Unity/native/실기/빌드·TCQA 실행은 없다.
+
+전문 구체안과 실제 소스/LogRules §1.10을 대조해2.36~38을 코드 전에 기록했다. 정확3파일의 지역 저장2행 제거·summary6줄 원문 이동·확인창2문자열 정정이며 메인 전체 계획 검토/GO 뒤 전문 담당이 구현한다. 실제 primary 검증·Observer 코드/전처리·삭제 제어/기간/목록/버튼·원시 로그/정책은 보존한다. 문구 정정을 자동 보관 검증/새 승인 기능이나 실행 PASS로 확대하지 않는다. AUD-017 후속 AI 생산배율·legacy VFX6 삭제·queue/Coordinator private3값 보류를 유지하며 그 외 범위를 확대하지 않는다. 이번 문서 검사 결과는 Research16.31의 후속 문단에 기록한다.
+
+### 7.40 다음3소스 정리 결과와 미커밋 추가분 인계(2026-10-25 KST)
+
+2.36~38의 코드 전 계획·메인 전체 검토/GO 뒤 정확3소스 구현과 동결을 마쳤다. Research16.32와 `/tmp/hexiege_plan236_238_20261024/static-review.json`·`/tmp/hexiege-plan236-238-main-independent.json`에3source 전체 diff·전후 SHA·허용 치환 역복원 full raw 동일/기존 meta 동일 및 메인 HEAD469fda01 기반 독립 대조를 구분해 기록했다. 문서 담당도 diff/두 artifact를 직접 읽었다. Bundle의 비소비 저장2행·Observer 원문6줄 이동·Logcat 표시2문자열만 바꿨으며 실제 검증/동작/삭제조건·기간/목록/버튼·원시 로그/정책은 유지했다. 안내 정정은 자동 보관 검증이나 새 승인 기능의 구현이 아니다.
+
+현재 추가분은 Source3+기존 Task2의 정확5경로이며 미커밋·미푸시다.469fda01의 기존 푸시와 별개이며 새 사용자 컴파일 보고/에이전트 컴파일·fixture/Unity/native/실기/빌드·TCQA는 없다. 기존1a69402c 보고를 이 세대 검증으로 확대하지 않는다. 로그 작업·삭제 메뉴·새 범위/대형 감사·상시문서/메모리 전파/Git 변경 없이 마감하며 AUD-017 후속 AI 생산배율·legacy VFX6 삭제·queue/Coordinator private3값 보류를 유지한다. 문서 검사 마감은 Research16.32에 기록한다.
+
+### 7.41 classifier 비소비 순서 저장 정리와 최종 추가분 인계(2026-10-25 KST)
+
+2.36~38 완료 기록을 유지한 채 별도2.39 코드 전 계획/메인 전체 검토·GO 뒤 같은 Bundle classifier의 `_order` 선언/Enqueue/Clear3행만 제거했다. Research16.34와 `/tmp/hexiege_plan239_20261024/static-review.json`·`/tmp/hexiege-plan239-main-independent.json`이 직전 소스 기준 정확3행 역복원 full raw 동일·accepted 정책/기존 meta/다른2source 보존 및 HEAD469fda01 기준 누적5행 제거 외 전체원문 동일의 근거다. 문서 담당도 diff/두 artifact를 직접 읽었다. 코드 전 문서의 보류 FIFO 타입명 오기는 UnitAttackShadowCoordinator로 정정했으며 실제 보류 대상 변화는 없다.
+
+상한32768·멱등/충돌/초기화 정책은 유지했고 queue 자원 할당/저장 관리 제거와 OOM 등 자원 실패 동등성 미주장을 명시한다. Source3+기존 Task2 정확5경로 추가분은 미커밋·미푸시이며469fda01 기존 푸시와 구분한다. 새 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 작업/삭제 메뉴는 NOT RUN이다. 보호 Coordinator FIFO/ABA·private3값·AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다. 소스 동결·추가 후보/새 범위 없이 문서 검사를 마감하며 최종 결과는 Research16.34에 기록한다.
+
+위 5경로 목록과 미커밋·미푸시 설명은 커밋 전 정적 검증 시점의 기록이다. 메인은 이번 사용자의 푸시 지시 범위에서 후속 완료분도 이어서 커밋·푸시한다. 실제 성공 여부와 원격 SHA는 메인 실행 결과로 확인하며, 이 시점 설명은 새 컴파일이나 실기 검증을 뜻하지 않는다.

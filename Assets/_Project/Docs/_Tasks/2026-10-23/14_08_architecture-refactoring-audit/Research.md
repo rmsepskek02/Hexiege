@@ -2079,3 +2079,49 @@ Plan2.35의 코드 전 기록과 메인 전체 검토/GO 뒤 전문 담당이 Ro
 queue compaction은16.28의 동일 instance/token 재사용 반례 때문에 보류하며 bounded 완료로 판정하지 않는다. Coordinator private3값·AUD-017 후속 AI 생산배율·legacy VFX6 최종 삭제 보류도 유지한다. 추가 후보 탐색·상시문서/메모리/Status/Roadmap/옛 Task·History 편집·Git 변경은 하지 않는다. 기존1a69402c 사용자 컴파일 보고는 과거 묶음 범위이며 e1588fab 및 이번 추가분의 새 컴파일/fixture/Unity/native/로그 분석/게임/빌드·TCQA는 NOT RUN이다. 메인 check_docs 문제0/diffcheck0은 정적 문서/형식 근거이며 전체 의미나 실행 PASS가 아니다.
 
 결과 기록 뒤 문서 담당도 `python3 Tools/check_docs.py` exit0·문제0 및 `git diff --check` exit0을 확인했다. 검사 제외 Task2의 별도 상대 Markdown 링크1092개는 파일 누락0/앵커 포함0이다(`/tmp/hexiege-queue-root-docs-task-links.json`). 외부 URL 조회나 전체 의미/게임 기능 검증은 하지 않았다.
+
+### 16.31 기존5경로 푸시 영수증과 다음3파일 코드 전 조사(2026-10-25 KST)
+
+사용자 「푸시하고 다음작업진행」 아래 메인이 기존5경로를 `469fda010bb4c5947c1254ef8e7281f7fe588af7`(`refactor: simplify editor diagnostics and protect saved logs`)로 커밋하여 origin/work에 푸시했고 원격 ls-remote 동일 SHA·푸시 직후 clean을 확인했다고 전달했다. 문서 담당은 해당 commit의 stat를 직접 읽어 Editor C#3+기존 Task2의 정확5경로임을 확인했다. 원격/clean은 메인의 전달 근거이며 이 문서 담당이 재실행한 사실로 쓰지 않는다.16.30/Plan7.38의 미커밋·미푸시 기록은 당시 상태로 보존한다. 기존 사용자 컴파일 보고는1a69402c 범위이며 e1588fab/469fda01과 이후 추가분의 새 사용자 컴파일 보고나 에이전트 컴파일·Unity/native/게임/빌드·TCQA 실행은 없다.
+
+전문 담당의 구체3파일 제안과 현재 소스를 읽고 Plan2.36~38을 코드 전에 기록했다. NetworkAttackPresentationBundle.TryCreate는 실제 primary 검증 boolean/비교/결과를 보존하고 읽기 없는 struct 지역 저장2행만 제거한다. UnitAttackShadowObserver는 잘못 붙은 Tracer C summary6줄을 실제 Observer 선언 앞으로 원문 이동하며 ExpiryClockHistory 자체 설명과 전처리/sourcegate를 유지한다. Logcat ConfirmDeletion은 기존 공유 커밋 안내2문장만 LogRules §1.10의 보관 선택 로그 private 보관/전체 다운로드 검증/대상별 사용자 삭제 승인 안내로 정정한다. 마지막 변경은 실제 표시문구 변경이며 자동 검증이나 새 승인 기능 구현이 아니다. 정확 코드 전 span·보존/정적 대조 범위는 Plan2.36~38이 원본이다.
+
+메인이 전체 계획을 검토하고 GO한 뒤 코드 전문 담당이 구현한다. 이 기록은 구현 완료/실행 PASS가 아니다. 코드 담당은 원문/SHA·허용 치환 역복원·기존 meta 보존 근거를 남기고 메인은 별도 독립 검토한다. 원시 로그 작업·삭제 메뉴 실행·새 후보/대형 감사·상시문서/메모리/Status/Roadmap/옛 Task·History 편집은 하지 않는다. AUD-017 후속 AI 생산배율·legacy VFX6 삭제·queue의 동일 instance/token 재사용 반례·Coordinator private3값 보류를 유지한다.
+
+문서 담당은 코드 전 기록 뒤 `python3 Tools/check_docs.py` exit0·문제0 및 `git diff --check` exit0을 확인했다. 검사 제외 Task2의 별도 상대 Markdown 링크1092개는 파일 누락0/앵커 포함0이다(`/tmp/hexiege-plan236-238-docs-task-links.json`). 문서/형식·링크 존재 검사이며 전체 의미·컴파일·게임 실행 PASS가 아니다. 새 문서/메모리/기준선 파일을 생성하거나 수정하지 않았다.
+
+### 16.32 다음3파일 구현·독립 정적 대조와 추가분 인계(2026-10-25 KST)
+
+Plan2.36~38을 메인이 전체 직접 검토하고 GO한 뒤 코드 전문 담당이 정확3소스를 구현·동결했다. 문서 담당도 전체3source diff와 `/tmp/hexiege_plan236_238_20261024/static-review.json`, 메인 독립 `/tmp/hexiege-plan236-238-main-independent.json`을 직접 읽었다. Bundle의 읽기 없는 primaryAppliedFact 선언/대입2행만 제거했고 실제 foundPrimaryAppliedFact boolean·모든 primary/fact 검증·결과/정렬·변환 루프는 보존했다. Observer는 기존 Tracer C summary6줄을 실제 class 앞으로 그대로 이동했으며 ExpiryClockHistory 자체 summary/코드·전처리·sourcegate를 보존했다. Logcat은 선택 보관 로그의 private Release ZIP 보관/전체 다운로드 검증 후 대상별 사용자 삭제 승인 안내2문자열만 정정했다. 표시문구 변경이며 자동 검증·새 승인 기능이나 삭제 제어조건 변경이 아니다.
+
+전문 artifact는3파일의 전후 SHA·허용 치환 역복원 full raw 동일·기존 meta 동일을 확인한다. 메인은 HEAD469fda01 원문을 별도로 읽어 Bundle 정확2행 제거 외 원문 동일·해당 local 식별자2개→0, Observer 동일6줄 이동 및 주석 제외 전체 본문 raw 동일, Logcat 정확2literal 외 원문 동일·각 meta HEAD byte 동일을 확인했다고 전달했다. 독립 JSON도3파일 exact_expected_changes_only/meta_equal_HEAD 및 아래 정확5경로를 기록한다. 전문 대조·메인 독립 정적 대조를 컴파일/실행 근거로 확대하지 않는다.
+
+| 현재 추가 변경 경로 | 구분 |
+|---|---|
+|`Assets/_Project/Scripts/Infrastructure/Network/NetworkAttackPresentationBundle.cs`|2.36 비소비 지역 저장2행 제거|
+|`Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs`|2.37 summary6줄 원문 이동|
+|`Assets/Editor/Tools/LogcatCapture.cs`|2.38 현행 보관/삭제 승인 안내2문자열|
+|`Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Plan.md`|기존 Task 계획/결과|
+|`Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Research.md`|기존 Task 조사/근거|
+
+이 추가분은 미커밋·미푸시이며 기존469fda01 푸시 영수증과 구분한다. 새 사용자 컴파일 보고는 없고 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 캡처/저장/삭제/업로드·정리 메뉴 실행은 NOT RUN이다. 기존1a69402c 사용자 보고를 재사용하지 않는다. 게임 정책/밸런스·API/직렬화/기존 meta/자산·원시 로그는 보존하며 AUD-017 후속 AI 생산배율·legacy VFX6 삭제·queue/Coordinator private3값 보류를 유지한다. 새 범위·대형 감사·상시문서/메모리/Status/Roadmap/옛 Task·History 전파 없이 인계한다.
+
+최종 결과 기록 뒤 문서 담당은 check_docs exit0·문제0/diffcheck exit0을 확인했다. 검사 제외 Task2의 별도 상대 Markdown 링크1092개는 파일 누락0/앵커 포함0이다(`/tmp/hexiege-plan236-238-docs-task-links.json`). 이는 정적 문서/링크 존재 근거이며 전체 의미나 게임 기능 PASS가 아니다.
+
+### 16.33 전송 classifier private 순서 저장의 별도 코드 전 검토(2026-10-25 KST)
+
+메인은 전면 작업을 계속하며2.36~38 완료 결과와 별도로 같은 Bundle 소스의 classifier `_order` 후보만 검토하도록 요청했다. 전문 담당이 정확 class 전체/외부 public 소비/반사 문맥을 확인해 선언·Enqueue·Clear 외 소비가 없다고 전달했고 문서 담당도 classifier 전체 본문과 기존 long-match gate를 직접 읽었다. 실제 멱등/충돌/32768 상한 및 경기 종료 초기화는 `_accepted` 딕셔너리가 담당한다. Plan2.39는 소비 없는 private Queue3행만 제거하고 이 정책 본문/기존 검사/API/meta를 보존하는 코드 전 계획이다. queue 할당/저장 관리가 없어지는 변화와 자원 실패 동등성을 주장하지 않는 한계를 명시했다.
+
+이 classifier는 보류된 UnitAttackShadowCoordinator의 예약 FIFO 및 private3값과 별도 타입이며16.28의 동일 instance/token 재사용 반례를 해소한 것이 아니다.2.36~38/16.32/7.40 완료 기록은 유지한다. 메인이 전체2.39 계획을 검토하고 GO한 뒤 전문 담당이 구현하며 지금은 구현 완료/실행 PASS가 아니다. 기존 사용자 컴파일 보고 범위·새 실행 없음·AI/VFX6/Coordinator 보류와 원시 로그/정책 보존을 유지한다. 새 범위/대형 감사나 상시문서·메모리 전파는 추가하지 않는다.
+
+### 16.34 classifier 순서 저장 정리 결과·최종 추가분 인계(2026-10-25 KST)
+
+Plan2.39 전체를 메인이 직접 읽고 classifier 본문과 대조한 뒤 구현 GO를 전달했고 전문 담당이 정확3행만 제거·동결했다. 코드 전 문서의 보류 FIFO 타입을 AuthoritativeAttackPresentationCoordinator로 잘못 쓴 두 곳은 메인 대조에 따라 정확한 UnitAttackShadowCoordinator로 정정했다. 실제 보류 대상/원코드/계획 범위는 바뀌지 않았으며16.28 원본도 다시 읽었다.2.36~38 완료 기록과 구분한 후속1파일 정리다.
+
+문서 담당은 Bundle 전체 누적 diff·`/tmp/hexiege_plan239_20261024/static-review.json`·메인 독립 `/tmp/hexiege-plan239-main-independent.json`을 직접 읽었다. 전문 대조는 직전2.36 반영 SHA `dd3d4ab9c78205a1c4952a8bf31642ee0da6a1467536d0ce6ed80bc5d17932de`에서 최종 `5acbfffef134077423ba667e73f63fa42e55195a204d2e0eed57411d9aedfc38`로 정확 `_order` 선언/Enqueue/Clear3행만 제거했고 full raw 역복원 동일·accepted 정책 bytes 및2.36 보존·기존 meta/다른2source SHA 동일을 확인한다. 메인 독립은 HEAD469fda01 기준 전체 Bundle이2.36의2행+2.39의3행 정확제거 외 전부 동일하며 accepted TryGetValue/Count32768/Add clone/Clear 정책이 보존됨을 확인한다. queue 객체/내부 저장 할당·Enqueue/Clear 관리가 없어지는 변경이며 OOM 등 자원 실패의 동등성은 주장하지 않는다.
+
+현재 추가분은16.32 표의 Source3+기존 Task2 정확5경로 그대로이며 미커밋·미푸시다. 기존469fda01 푸시 영수증과 별개다. 새 사용자 컴파일 보고가 없고 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 작업/삭제 메뉴 실행은 NOT RUN이다. 멱등/충돌/상한/초기화의 정상 정책 보존을 실제 실행 PASS로 확대하지 않는다. UnitAttackShadowCoordinator 예약 FIFO/ABA와 private3값·AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다. 소스를 동결하며 추가 후보 탐색·새 범위/대형 감사·상시문서/메모리/Status/Roadmap/옛 Task·History 전파/Git 변경 없이 문서 검사와 인계를 마감한다.
+
+최종 문서 기록 뒤 문서 담당 check_docs exit0·문제0/diffcheck exit0이다. 검사 제외 Task2는 별도 상대 Markdown 링크1092개·파일 누락0·앵커 포함0을 확인했다(`/tmp/hexiege-plan239-docs-task-links.json`). 정적 문서/형식·링크 존재 근거이며 전체 의미/실행 검증이 아니다.
+
+위 5경로 목록과 미커밋·미푸시 설명은 커밋 전 정적 검증 시점의 기록이다. 메인은 이번 사용자의 푸시 지시 범위에서 후속 완료분도 이어서 커밋·푸시한다. 실제 성공 여부와 원격 SHA는 메인 실행 결과로 확인하며, 이 시점 설명은 새 컴파일이나 실기 검증을 뜻하지 않는다.

@@ -728,8 +728,8 @@ namespace Hexiege.EditorTools
             if (skippedCount > 0)
                 msg.AppendLine($"(이름이 날짜 형식이 아닌 폴더 {skippedCount}개는 건드리지 않습니다)");
             msg.AppendLine();
-            msg.AppendLine("⚠️ 공유하려고 커밋해 둔 로그 파일이 이 안에 있다면 함께 사라집니다.");
-            msg.AppendLine("   남겨야 할 로그가 있는지 목록을 확인한 뒤 진행하세요.");
+            msg.AppendLine("⚠️ 보관 대상으로 선택한 로그는 private Release ZIP 보관과 전체 다운로드 검증 후에도");
+            msg.AppendLine("   대상별 사용자 삭제 승인이 필요합니다. 조건 충족 여부와 삭제 목록을 확인한 뒤 진행하세요.");
 
             return EditorUtility.DisplayDialog(DialogTitle, msg.ToString(), "삭제", "취소");
         }

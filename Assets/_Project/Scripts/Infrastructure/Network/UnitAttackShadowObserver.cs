@@ -110,12 +110,6 @@ namespace Hexiege.Infrastructure
     }
 
     /// <summary>
-    /// Tracer C의 읽기 전용 bounded observer다. Legacy/Shadow 차이를 기록할 뿐 Root, HP,
-    /// cooldown, Animator, NetworkTransform, RPC 또는 VFX를 쓰지 않는다.
-    /// 모든 일반 로그는 상한 뒤 드롭하고 종료용 줄은 별도 예약하여 Android Logcat에서도
-    /// BEGIN/manifest/END 증거가 상세 로그에 밀리지 않게 한다.
-    /// </summary>
-    /// <summary>
     /// 숫자만 저장하는 개발 전용 유한 이력이다. 실제 시각 공급/구독은 Observer가 맡고,
     /// 이 타입은 clock/HP/Coordinator를 조회하거나 변경하지 않아 CLR 대조에도 사용한다.
     /// </summary>
@@ -326,6 +320,12 @@ namespace Hexiege.Infrastructure
         }
     }
 
+    /// <summary>
+    /// Tracer C의 읽기 전용 bounded observer다. Legacy/Shadow 차이를 기록할 뿐 Root, HP,
+    /// cooldown, Animator, NetworkTransform, RPC 또는 VFX를 쓰지 않는다.
+    /// 모든 일반 로그는 상한 뒤 드롭하고 종료용 줄은 별도 예약하여 Android Logcat에서도
+    /// BEGIN/manifest/END 증거가 상세 로그에 밀리지 않게 한다.
+    /// </summary>
     public static class UnitAttackShadowObserver
     {
         public const string ProductionSchema = "c3-authoritative-result-presentation-shadow-v12";
