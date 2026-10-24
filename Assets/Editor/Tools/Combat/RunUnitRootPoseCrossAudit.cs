@@ -1558,13 +1558,12 @@ namespace Hexiege.Editor.Combat
                 }
 
                 string sharedKey = ReadValue(line, "sharedSessionKey");
-                SetInvariant(run, ref run.SharedSessionKey, sharedKey, "sharedSessionKey");
+                SetInvariant(run, ref run.SharedSessionKey, sharedKey);
                 long? sessionStartBucket = ReadLong(line, "sessionStartBucket");
                 SetInvariant(
                     run,
                     ref run.SessionStartBucket,
-                    sessionStartBucket,
-                    "sessionStartBucket");
+                    sessionStartBucket);
 
                 if (line.IndexOf("[UAS-ROOT-POSE] BEGIN", StringComparison.Ordinal) >= 0)
                 {
@@ -1589,7 +1588,6 @@ namespace Hexiege.Editor.Combat
                     if (!run.EndSignatures.Add(signature))
                         continue;
                     run.EndCount++;
-                    run.EndLine = lineIndex;
                     run.EndRole = ReadValue(line, "role");
                     run.EndIsFlipped = ReadBool(line, "isFlipped");
                     run.LocalVerdict = ReadValue(line, "verdict");
@@ -1696,8 +1694,7 @@ namespace Hexiege.Editor.Combat
         private static void SetInvariant(
             RunEvidence run,
             ref string current,
-            string candidate,
-            string field)
+            string candidate)
         {
             if (string.IsNullOrEmpty(candidate))
             {
@@ -1713,8 +1710,7 @@ namespace Hexiege.Editor.Combat
         private static void SetInvariant(
             RunEvidence run,
             ref long? current,
-            long? candidate,
-            string field)
+            long? candidate)
         {
             if (!candidate.HasValue)
             {
@@ -2278,7 +2274,6 @@ namespace Hexiege.Editor.Combat
             public bool? EndIsFlipped;
             public int BeginCount;
             public int EndCount;
-            public int EndLine;
             public int ParseErrorCount;
             public string LocalVerdict;
             public bool? CoveragePassed;

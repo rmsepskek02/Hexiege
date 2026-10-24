@@ -5971,20 +5971,9 @@ namespace Hexiege.Editor.Combat
                     new string('x', 580));
             }
 
-            bool oversizedRejected = false;
-            try
-            {
-                buildPayloads.Invoke(
-                    null,
-                    new object[] { oversizedEntries });
-            }
-            catch (TargetInvocationException exception)
-                when (exception.InnerException is InvalidOperationException)
-            {
-                oversizedRejected = true;
-            }
-
-            Require(oversizedRejected,
+            RequireB2ManifestRejected(
+                buildPayloads,
+                oversizedEntries,
                 "A manifest requiring more than the reserved chunks must fail closed.");
             RequireB2ManifestRejected(
                 buildPayloads,

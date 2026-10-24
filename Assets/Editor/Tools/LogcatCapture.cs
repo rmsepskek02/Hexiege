@@ -287,10 +287,10 @@ namespace Hexiege.EditorTools
             {
                 EditorUtility.DisplayDialog(
                     DialogTitle,
-                    "로그를 저장할 폴더를 만들지 못했습니다.\n\n" +
+                    "로그를 저장할 경로를 준비하지 못했습니다.\n\n" +
                     $"경로: {folderAbsolute}\n" +
                     $"원인: {e.Message}\n\n" +
-                    "폴더 쓰기 권한이 있는지, 경로가 다른 프로그램에 잠겨 있지 않은지 확인하세요.",
+                    "폴더 쓰기 권한과 경로 잠금 여부를 확인하세요. 같은 분의 파일 이름이 모두 사용 중이면 다음 분에 다시 저장하세요.",
                     "확인");
                 return;
             }
@@ -1355,6 +1355,13 @@ namespace Hexiege.EditorTools
             {
                 candidate = Path.Combine(folder, $"{baseName}_{index}{extension}");
                 index++;
+            }
+
+            // 번호 상한까지 모두 사용 중이면 기존 파일 경로를 반환하지 않고 저장을 중단한다.
+            if (File.Exists(candidate))
+            {
+                throw new IOException(
+                    "로그 파일 이름이 기본 이름부터 _999까지 모두 사용 중입니다. 기존 파일을 덮어쓰지 않도록 저장을 중단합니다.");
             }
 
             return candidate;

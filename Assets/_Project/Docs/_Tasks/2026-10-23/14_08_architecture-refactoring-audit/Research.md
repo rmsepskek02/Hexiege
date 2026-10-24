@@ -2011,3 +2011,71 @@ before/after전체원문/SHA·allowed_replacements·before_manifest·receipt는7
 확인된 축은 직접읽기·경로 대조·허용 변경 역복원/토큰/AST/보호 SHA와 문서 정합성이다. 사용자 컴파일 보고는 직전1a69402c 묶음 범위이며 이번 후속30경로의 새 컴파일/Unity/native/게임/빌드·TCQA는 NOT RUN이다. 컴파일·실기 결과를 확인하지 않은 채 전체 기능 보존 PASS나 전체 사용자 수용으로 승격하지 않는다. 새 Task/Testcase·상태/로드맵/메모리/이력 전파·커밋/푸시는 수행하지 않았다.
 
 최종 `python3 Tools/check_docs.py`는 문제0, `git diff --check`는0이다. 검사기가 제외하는 이 Task2파일의 상대 Markdown 링크1092개는 별도 파일 존재 확인에서 누락0이며 앵커 포함 링크0이다(`/tmp/hexiege-docs-close-task-links.json`). 링크 존재와 검사0은 모든 내용의 의미/구현 일치를 보증하지 않는다.
+
+### 16.26 기존30파일 푸시 영수증과 다음2파일 코드 전 조사(2026-10-25 KST)
+
+사용자 「푸시하고 다음 작업 이어서」에 따라 메인이 기존30파일을 `e1588fabd3f4b583b3729d3021533957570cb345` (`refactor: tighten request ownership and lifecycle cleanup`)으로 커밋하고 origin/work에 푸시했다. 문서 담당은 local HEAD/commit stat의 정확30파일을 직접 확인했다. 메인은 원격 refs/heads/work가 동일 SHA이고 푸시 직후 status clean임을 확인해 전달했다. 원격 근거는 메인 전달값이며 문서 담당이 원격 조회를 재실행하지 않았다. 브랜치: [work](https://github.com/rmsepskek02/Hexiege/tree/work). 16.25/Plan7.35의 미커밋·미푸시는 당시 기록으로 보존하며 이번 영수증으로 후속 상태를 구분한다.
+
+이번 e1588fab에 대한 새 사용자 컴파일 성공 보고는 없다. 기존 「컴파일 에러없으니 다음진행하자」는 직전1a69402c 묶음의 사용자 보고다. 컴파일/Unity/native/게임/빌드·TCQA는 새로 수행하지 않았으며 푸시 성공이 전체 의미 감사·모든 기능 보존·실기 PASS를 뜻하지 않는다. 기존332프로젝트 경로 감사 완료는16.23의 리비전별 직접읽기와 이후 변경 diff 근거의 범위로 유지한다. AUD-017 후속 AI 생산배율과 legacy VFX6 최종 삭제 보류도 유지한다.
+
+다음은 기존16.20/16.25에 남긴 후보 중 정확2파일만 선정한다. 전문 담당의 제안과 현재 소스를 직접 대조했다. LogcatCapture1348의 MakeNonOverwritingPath는 기본 이름과 `_2`…`_999`가 모두 있으면 기존 `_999`를 반환하며, SaveDevice의284행 호출은 경로 준비 try 안에 있고286~296행 catch가312행 쓰기 전에 return한다. Plan2.33은 기존 상한과 정상 이름을 보존하고 점유 시 IOException으로 기존 catch를 거치도록 하며 해당 안내문을 정정한다. 원자적 생성/쓰기 race 보장이나 상한 확장은 포함하지 않는다.
+
+RunUnitActionSelfValidation5975~5990의 oversizedRejected 블록과6324행 기존 RequireB2ManifestRejected는 동일 null reflection target/같은 entries 객체를 한 인자 배열로 전달하고 동일 TargetInvocationException/InnerException InvalidOperationException 필터만 처리한다. 정상반환 시 Require 실패와 다른 예외 전파도 동일하다. Plan2.34는 동일 실패 문구를 넘기는 기존 helper 한 호출로만 치환한다. `maximumChunks + 1`,580자 payload와 주변 순서는 유지한다. 이 행번호는 e1588fab 소스 기준이며 실행 증거가 아니다.
+
+Plan2.33/2.34를 소스 변경 전에 기록했으며 메인이 두 계획 전체를 직접 읽고 전문 담당에게 GO를 전달했다. 메인 검토로2.33의 기본 이름 미점유 조건을 명확히 하고2.34는 실패 stack trace의 helper frame 추가/소스 줄 위치 변화 가능성을 명시했다. assert 조건·실패 문구·예외 전파 보존과 진단 위치의 동일성은 구분한다. 새 후보·대형 감사 확장, 원시 로그 생성/삭제/업로드, TC 작성/QA·컴파일/Unity 실행, 새 Task·상시상태/메모리 전파는 하지 않는다. 이 문서 기록 뒤 다음 묶음의 추가 커밋/푸시는 메인 별도 지시 전 수행하지 않는다.
+
+코드 전 문서검사: `python3 Tools/check_docs.py` exit0·문제0, `git diff --check` exit0을 확인했다. `_Tasks/`는 검사기 제외이므로 별도 상대 Markdown 링크1092개를 다시 수집해 파일 누락0/앵커 포함0을 확인했다(`/tmp/hexiege-next-docs-task-links.json`). 외부 URL은 조회하지 않았다. 이 검사와 위 소스 분기 대조는 링크 존재·문서 정합성·정적 흐름 확인이며 실제 예외/fixture 실행이나 기능 PASS가 아니다. 구현 후 변경·독립 검토 근거는 별도 후속 절에 기록한다.
+
+### 16.27 다음2파일 구현과 메인 독립 정적 대조(2026-10-25 KST)
+
+Plan2.33/2.34 코드 전 기록과 메인 전체 검토/GO 뒤 전문 담당이 정확2파일을 구현하고 소스를 동결했다. 문서 담당은 두 파일의 전체 diff와 `/tmp/hexiege_plan233_234_20261024/manifest.json`·`static-review.json`, 메인의 `/tmp/hexiege-next-main-independent.json`을 직접 읽었다. LogcatCapture는 기존 loop 뒤의 점유 guard/IOException과 경로 준비 실패 안내2span만 변경했다. 기존 상한/정상 이름 선택/경로 표시/원인 표시/쓰기 전 catch return은 유지했다. Combat은 oversized manifest 중복 블록을 동일 인자/실패 문구의 기존 RequireB2ManifestRejected 호출 하나로 치환했다. 기존 helper 본문·fixture 크기/580자 payload/주변 순서는 유지했다.
+
+전문 근거는 before/after 전체원문·SHA와 허용 치환 역복원 full raw 동일, 각 소스 meta 동일을 포함한다. 메인은 e1588fab의 원문을 독립적으로 읽고 Logcat guard+안내2문자열 역복원 raw 동일/기존 catch가 쓰기 전에 return하는 순서, Combat의 정확1블록 치환과 기존 helper를 원래 인자로 확장한 리터럴 보존 토큰 동일을 확인했다. 소스 분기 대조에서 기본 이름 미점유/기본 점유 뒤 `_2` 미점유/`_999` 미점유/전부 점유를 구분했으며 실제 파일 생성이나 예외 실행은 하지 않았다. File.Exists와 쓰기는 원자적이지 않으므로 검사 뒤 동시 생성 경쟁은 남는다. helper 호출은 실패 stack trace frame/소스 줄 위치에 영향을 줄 수 있으며 모든 관측 출력 동일로 확대하지 않는다.
+
+현재 추가 변경은 C#2와 기존 Task2의 정확4경로이며 신규 파일은 없다. HEAD는 e1588fab이고 이 추가분은 미커밋·미푸시다. 원시 로그 생성/삭제/업로드·캡처/정리 메뉴·새 후보/대형 감사 확장·상시문서/메모리 전파는 하지 않았다. 컴파일/fixture/Unity/native/게임/빌드·TCQA는 NOT RUN이다. 직전1a69402c 사용자 컴파일 보고를 이번 소스의 실행 검증으로 재사용하지 않는다. AUD-017 후속 AI 생산배율과 legacy VFX6 최종 삭제 보류를 유지한다.
+
+구현 결과 문서 마감 검사에서도 `python3 Tools/check_docs.py` exit0·문제0과 `git diff --check` exit0을 확인했다. 검사 제외인 이 Task2파일의 상대 Markdown 링크1092개는 별도 확인에서 파일 누락0/앵커 포함0이다(`/tmp/hexiege-next-docs-task-links.json`). 이 결과는 문서 정합성·파일 존재와 정적 소스 대조의 범위이며 전체 의미/게임기능 PASS가 아니다.
+
+### 16.28 예약 순서 queue 후속 후보 조사 진행(2026-10-25 KST)
+
+사용자의 계속 진행 승인 아래 메인은 최신 상태 질문에 직전 인계 후 배경 실행하지 않았음을 설명하고, 기존 후보 중 UnitAttackShadowCoordinator의 예약 순서 queue와 private 저장값을 후속 조사 대상으로 좁혔다. 새 전체 감사나 구현 완료로 기록하지 않는다. 기존2.33/2.34의 C#2+Task2 추가4경로는 보존하며 현재 문서 담당의 쓰기 범위는 이 Task의 Research/Plan뿐이다.
+
+문서 담당이 현재 소스의 ReservationKey·삽입·Clear·TrimReservations·퇴역·공격자 제거 경로를 직접 읽었다. `_reservationOrder`에는 예약 삽입마다 키가 추가되지만 TrimReservations의 dequeue는 live dictionary 수가512를 넘을 때만 실행된다. RetireReservationIfComplete와 RemoveReservations는 dictionary 항목만 제거하므로 정상 완료/공격자 제거가 반복되고 live 수가 상한 이하이면 queue에 stale 키가 남을 수 있다. 이는 소스상 누적 가능성의 근거이며 실제 런타임 메모리 증가를 측정한 결과가 아니다.
+
+ReservationKey는 AttackerInstanceId와 token 값으로 구성된다. 따라서 단순 ContainsKey 기반 압축은 동일 키가 재삽입되는 경우 과거 queue 항목과 새 live 예약의 세대를 구별하지 못한다. 동일 AttackerInstanceId 재등록·token 재사용 가능성과 기존 FIFO 퇴역 순서의 의미를 전문 담당이 검토 중이다. live 상한512·취소 마스크/tombstone·정규 identity/권위 정책을 보존하는 구체안과 메인 선정이 확정되기 전에는 Plan2.35를 구현안으로 확정하지 않는다. private 저장값도 참조 검색만으로 삭제하지 않고 WORKFLOW [4]의 비활성화·사용자 테스트·최종 삭제 경계를 유지한다.
+
+이번 절은 조사 중간 기록이며 코드 변경·테스트·TCQA·컴파일/Unity/native/게임/빌드 실행은 없다. 기존1a69402c 사용자 컴파일 보고를 e1588fab 및 그 뒤 추가분의 검증으로 확대하지 않는다. AUD-017 후속 AI 생산배율과 legacy VFX6 삭제 보류, 상시문서/메모리/Status/Roadmap/옛 Task·History 미편집을 유지한다. 구체안 수신 뒤 코드 전 계획→메인 전체 검토/GO→전문 구현 순서로 이어간다.
+
+후속 전문 검토와 메인 판정으로 **이번 queue compaction 구현은 보류**한다. 원본 경로는 `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs`다. 문서 담당도 ObserveIntent182~188/Prepare378~386의 새 Entry 생성, ScheduleLegacyAttack473~499의 유한 시각 검증·token 증가·예약 대입/Enqueue, Retire1058~1062의 예약/Entry 제거를 직접 읽었다. 새 Entry의 LastLegacyToken은0부터 시작하므로 Retire 후 동일 AttackerInstanceId를 재등록하면 `(instance, token1)`을 재사용할 수 있다. 현재 키 존재만 확인하는 압축은 재사용 키의 과거/현재 세대를 구별하지 못하며 중복 키를 모두 남기면 제안된1024개 상한도 보장되지 않는다.
+
+전문 담당이 제시하고 메인이 검토한 반례는 다음과 같다. queue 앞에 퇴역한 `(A,1)`이 있고 뒤에 다른 공격자들의 live 예약512개가 있을 때, 먼저 stale `(A,1)`을 압축으로 지운 뒤 A를 같은 instance로 재등록하여 token1을 예약하면 live 수가513이 된다. 기존 TrimReservations는 앞의 옛 `(A,1)`을 dequeue하여 새 A 예약을 제거하지만, 압축 후에는 다른 공격자의 첫 live 예약을 제거한다. 따라서 현재 stale인 키만 지우는 방식도 미래 키 재사용 때 기존 퇴역 동작을 바꿀 수 있다. HashSet 중복 제거나 generation을 새로 부여하는 방안도 기존 alias 동작/수명 계약을 수정하므로 이번 기능 보존 범위에서 채택하지 않는다. 이는 기존 ABA 동작의 보존을 위한 보류 판단이며, 기존 queue가 bounded이거나 모든 동작이 안전하다는 판정이 아니다.
+
+실제 caller와 공개 API의 경계도 구분한다. `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs`235행의 static counter와2378~2388행의 증가 발급,2786~2799행의 사망 mapping 제거는 문서 담당이 직접 읽었다. 이 caller의 현재 경로는 증가하는 instance를 발급하지만 Coordinator의 동일 instance 재등록을 금지하는 공개 계약과 같지는 않다. 전문 담당이 수행한 Assets/Editor·Tools·Scripts 및 추적 형식 검색에서는 queue/private 필드의 외부 직접 참조를 찾지 못했고, 기존 fixture는 로컬 Coordinator/public API를 사용하며 Retire 후 재등록 사례가 없다고 전달했다. 이 검색/fixture 범위는 전문 담당 전달 근거이며 문서 담당이 전부 재검색하거나 실행한 결과가 아니다.
+
+LegacyReservation의 Token·LegacyScheduledAt·ShadowCommitAt은 전문 검색상 선언/초기화 외 읽기 없는 저장값 후보이며 문서 담당도 해당 선언/초기화를 직접 확인했다. 그러나 세 값의 최종 삭제는 WORKFLOW [4] gate 전 보류한다. LegacyScheduledAt의 원래 입력에 대한 IsFinite 검증, Entry.LastLegacyToken 및 ReservationKey.Token은 삭제 대상이 아니다. 원코드는 유지하며 새 수명 계약 채택/ABA 수정 승인 질문을 추가하지 않는다. 다음 별도 읽기 후보는 RootPoseCrossAudit의 EndLine 저장과 SetInvariant 인자지만 아직 구현 대상으로 선정하지 않았고 Plan2.35도 미작성이다.
+
+### 16.29 RootPose 내부 비소비 데이터 코드 전 계획(2026-10-25 KST)
+
+16.28 이후 메인이 별도 RootPose 후보를 선정하여 Plan2.35를 코드 전에 작성했다. 대상은 `Assets/Editor/Tools/Combat/RunUnitRootPoseCrossAudit.cs`의 EndLine 선언/대입과 두 SetInvariant overload의 미사용 field 매개변수/호출 literal인자, 정확6span이다. 문서 담당이1561~1567 호출·1592대입·1696~1728메서드·2268/2281 private 증거 타입/필드를 직접 읽었다. 두 본문은 field를 읽지 않으며 EndLine은 전문 검색상 선언/대입 외 소비가 없다. 인자 제거 대상은 부작용 없는 문자열 literal이고 실제 ReadValue/ReadLong 파싱 키는 보존한다.
+
+소유 타입은 private sealed·비Serializable 내부 증거 객체이며 전문 담당의 source/config/Unity serializer 형식 검색상 외부 반사·직렬화 소비 참조도 찾지 못했다. 전체 검색은 전문 전달 근거이고 문서 담당 직접 읽기와 구분한다. 기능 분기/판정/파싱/예외/로그 제거가 아니라 소비 없는 저장/전달만 정리하는 한정안이며 queue compaction·Coordinator private3값 보류는 유지한다. 정확 원문/SHA·6span 역복원 full raw 동일·메서드 본문2개 raw 동일·실제 파싱 키2개/기존 meta 불변을 확인할 계획이다. 메인 전체 계획 검토/GO 전에는 구현하지 않으며 현재 코드/컴파일/fixture/Unity/native/게임/빌드·TCQA 실행은 없다.
+
+### 16.30 RootPose 비소비 데이터 정리 결과·이번 추가분 인계(2026-10-25 KST)
+
+Plan2.35의 코드 전 기록과 메인 전체 검토/GO 뒤 전문 담당이 RootPose 감사기 정확1파일6span만 구현하고 소스를 동결했다. 문서 담당도 전체 diff와 `/tmp/hexiege_plan235_20261024/static-review.json`, 메인 독립 `/tmp/hexiege-plan235-main-independent.json`을 직접 읽었다. EndLine 선언/대입과 두 SetInvariant overload의 사용하지 않는 field 매개변수/호출 literal인자만 제거했으며 메서드 본문2개·실제 ReadValue/ReadLong 파싱 키2문장·BEGIN/END 집계·ParseErrorCount·판정/예외/로그·공용 메뉴/API는 유지했다. 소비 없는 private 내부 저장/전달 정리이며 행동 있는 기존 기능의 폐기나 Coordinator private3값 삭제 승인으로 확대하지 않는다.
+
+전문 artifact에는 수정 전 원문·SHA와 역복원 원문을 보존했다. source SHA는 `f8ea2089020d713a46c9f31a560916e8234b8fc7109f39a6969ce70626973d37`에서 `7ac1aa9cca040f8a4220e8004ddfc955267144b04ec325bc24a18daf947e47c4`로 바뀌었으며 정확6span 치환/역복원 full raw 동일·메서드 본문2개 raw 동일·실제 파싱 키 보존·기존 Root meta 및 지정 보호 파일 SHA 동일을 확인했다. 첫 정적 비교는 generic sharedSessionKey ReadValue 식이 파일 전체1회라는 잘못된 검증 가정 때문에 중단됐으나 실제로 다른 parser를 포함해2회였다. 정확 Parse local 선언으로 식별해 재비교했으며 이 과정의 추가 소스 수정이나 실행 테스트는 없었다. 검증 가정 정정과 소스 결함을 구분한다.
+
+메인 독립 결과는 e1588fab 원문에 대한 정확6치환 외 full raw 동일·두 본문 완전 동일·두 실제 파싱 키문장 원문 유지·queue 무변경을 별도로 확인한다. 현재 변경은 아래 정확5경로이며 기존 파일의 추가분은 미커밋·미푸시다. 앞선2.33/2.34의 수정도 보존했다.
+
+| 현재 변경 경로 | 구분 |
+|---|---|
+|`Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs`|2.34 helper 재사용|
+|`Assets/Editor/Tools/Combat/RunUnitRootPoseCrossAudit.cs`|2.35 비소비 저장/인자 정리|
+|`Assets/Editor/Tools/LogcatCapture.cs`|2.33 이름 소진 guard/안내|
+|`Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Plan.md`|기존 Task 계획/결과|
+|`Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Research.md`|기존 Task 조사/근거|
+
+queue compaction은16.28의 동일 instance/token 재사용 반례 때문에 보류하며 bounded 완료로 판정하지 않는다. Coordinator private3값·AUD-017 후속 AI 생산배율·legacy VFX6 최종 삭제 보류도 유지한다. 추가 후보 탐색·상시문서/메모리/Status/Roadmap/옛 Task·History 편집·Git 변경은 하지 않는다. 기존1a69402c 사용자 컴파일 보고는 과거 묶음 범위이며 e1588fab 및 이번 추가분의 새 컴파일/fixture/Unity/native/로그 분석/게임/빌드·TCQA는 NOT RUN이다. 메인 check_docs 문제0/diffcheck0은 정적 문서/형식 근거이며 전체 의미나 실행 PASS가 아니다.
+
+결과 기록 뒤 문서 담당도 `python3 Tools/check_docs.py` exit0·문제0 및 `git diff --check` exit0을 확인했다. 검사 제외 Task2의 별도 상대 Markdown 링크1092개는 파일 누락0/앵커 포함0이다(`/tmp/hexiege-queue-root-docs-task-links.json`). 외부 URL 조회나 전체 의미/게임 기능 검증은 하지 않았다.

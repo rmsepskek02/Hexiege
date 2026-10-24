@@ -513,6 +513,39 @@ private bool helper는 `IGameServices.GetBuildingPlacement()?.GetBuilding(buildi
 
 근거규칙은기존UnitCombatSynchronization NET-ACTION-IDEMPOTENT/NET-PRESENT-003/NET-AUTH-002의writer·표현분리,Skills규칙13,LogRules현행보관안내다. 새writer승격·migration완료·정책변경을뜻하지않는다. 쓰기전전체원문/SHA를보존하고14정확치환역복원fullraw동일,주석파일의리터럴보존실행토큰/해시동일과Python AST동일,Tooltip소스는허용문자열1개역치환후본문동일을검증한다. 기존API/직렬화/meta/자산/동작·로그·상수·balance를보존한다. 넓은구조분리/unusedqueue·private값삭제/추가보안확장·새기획/수치/이력수정·컴파일/Unity/native/게임/빌드·TCQA는없다. AUD-017후속AI보류·6VFX삭제보류를유지하고이묶음뒤장부/문서검사/인계로마감한다.
 
+### 2.33 Logcat 이름 상한 소진 시 기존 파일 반환 차단
+
+사용자 「푸시하고 다음 작업 이어서」와 기존 자율 진행 승인 아래, 기존 후보 중 `Assets/Editor/Tools/LogcatCapture.cs` 한 파일만 다음 범위로 선정한다. GameSystemRules 인덱스를 확인했으며 게임 동작을 바꾸는 항목은 없다. 직접 근거는 LogRules §1.12의 덮어쓰기 금지 및 §1.10의 원본 보존 계약이다. 게임 규칙·보관 정책을 변경하지 않는다. 전문 제안과 현재 MakeNonOverwritingPath→경로 준비 catch→File.WriteAllText 순서를 문서 담당이 직접 대조했다. 메인 전체 계획 검토/GO 뒤 전문 담당이 구현한다.
+
+현재 기본 이름과 `_2`부터 `_999`까지 모두 있으면 `index < 1000` 루프가 종료되어 존재하는 `_999` 경로가 반환된다. 기존 루프·상한·정상 이름 순서는 유지하고, 루프 직후 `File.Exists(candidate)`가 참일 때 `IOException("로그 파일 이름이 기본 이름부터 _999까지 모두 사용 중입니다. 기존 파일을 덮어쓰지 않도록 저장을 중단합니다.")`을 던진다. 기존 경로 준비 catch가 쓰기 전에 안내하고 return하도록 한다. catch 첫 문장을 `로그를 저장할 경로를 준비하지 못했습니다.\n\n`로, 마지막 안내를 `폴더 쓰기 권한과 경로 잠금 여부를 확인하세요. 같은 분의 파일 이름이 모두 사용 중이면 다음 분에 다시 저장하세요.`로 정정하며 경로/원인 표시와 return은 보존한다. 이는 이름 소진 실패 동작과 사용자 안내의 변경이다. 확인과 실제 쓰기 사이의 경쟁을 원자적으로 막는 보장은 추가하지 않는다.
+
+쓰기 전 전체 원문/SHA와 정확 old/new span을 보존하고, 허용 guard·안내문 치환만 역복원했을 때 원문 전체 동일을 확인한다. 기본 이름 미점유, 기본 이름 점유, `_999`만 빈 경우 및 상한 모두 점유의 분기와 기존 catch가 쓰기보다 앞서는 순서를 정적으로 대조한다. API/직렬화/meta/자산·로그 헤더/내용/정상 저장 경로는 보존한다. 원시 로그 생성·삭제·업로드, 캡처/정리 메뉴 실행, 상한 확장, 운영 정책 변경, 컴파일/Unity/native/게임/빌드·TCQA는 수행하지 않는다.
+
+### 2.34 oversized manifest 거부 검사의 기존 helper 재사용
+
+2.33과 함께 `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs` 한 파일의 oversized manifest 중복 블록만 정리한다. 근거는 GameSystemRules_UnitCombatSynchronization의 NET-AUTH-001/NET-AUTH-002가 정한 권위·표현 경계를 그대로 보존하는 진단 내부 정리 및 WORKFLOW [5-2]의 전투 검사 내부 의존 유지 원칙이다. 이 규칙들이 helper 추출이나 chunk 상한을 새로 요구한다는 뜻은 아니다. 메인 전체 계획 검토/GO 뒤 전문 담당이 구현한다.
+
+현재 `oversizedRejected` 선언→reflection Invoke→한정 catch→Require 블록을 기존 `RequireB2ManifestRejected(buildPayloads, oversizedEntries, "A manifest requiring more than the reserved chunks must fail closed.")` 한 호출로 치환한다. 두 경로 모두 null target으로 동일 List<string> 객체를 object 배열 한 인자로 전달하며, `TargetInvocationException`의 InnerException이 `InvalidOperationException`인 경우만 거부 성공으로 처리한다. 정상 반환 시 동일 실패 문구의 Require 실패, 다른 예외의 전파, 직전/직후 검사 순서를 유지한다. 문서 담당이 현 블록과 기존 helper를 직접 대조했으며 구현 담당도 인자·필터·실패 문구의 동일성을 확인한 뒤에만 치환한다. `maximumChunks + 1` fixture 크기, 580자 payload, 상수·기존 helper 본문·다른 assertion/진입점은 변경하지 않는다. helper 호출로 실패 stack trace에 helper frame이 추가되거나 소스 줄 위치가 달라질 수 있으며, 이를 모든 진단 출력의 완전 동일로 확대하지 않는다.
+
+쓰기 전 전체 원문/SHA·정확 치환 span을 보존하고 해당 호출을 기존 블록으로 역복원한 full raw 동일을 확인한다. 이번 범위는 기존 진단 중복 제거이며 전투 코드/HP/타이밍/수치/API/직렬화/meta/자산을 바꾸지 않는다. 컴파일·fixture 실행·Unity/native/게임/빌드·TCQA는 NOT RUN으로 남긴다. 두 계획 외 새 후보/대형 감사 확장·상태/로드맵/메모리 전파·추가 커밋/푸시는 수행하지 않으며 AUD-017 후속 AI 생산배율 및 legacy VFX6 삭제 보류를 유지한다.
+
+### 2.35 RootPose 감사기의 소비 없는 저장값·인자 정리
+
+메인은 후속 후보 중 `Assets/Editor/Tools/Combat/RunUnitRootPoseCrossAudit.cs` 정확1파일의6span만 다음 코드 범위로 선정했다. 전문 제안과 실제 호출/선언/메서드 본문을 문서 담당도 직접 읽었다. 근거는 GameSystemRules_UnitCombatSynchronization의 NET-ROOT-001/NET-ROOT-002 및 NET-ACTION-IDEMPOTENT가 정한 pose/identity 판정 계약 보존, WORKFLOW [5-2]의 현재 RootPose 검사 진입점 유지다. 이 규칙이 저장값 삭제를 요구한다는 뜻은 아니다. 메인이 이 계획 전체를 읽고 GO한 뒤 전문 담당이 구현한다.
+
+| 수정 span(수정 전 소스 행) | 정확 변경 | 안전 근거·보존 사항 |
+|---|---|---|
+|1592|`run.EndLine = lineIndex;` 대입1행만 제거|EndLine은 선언/대입 외 읽기가 없고 RHS는 int local의 단순 읽기다. lineIndex loop·BEGIN/END 수·정렬·출력은 유지한다.|
+|2281|`public int EndLine;` 선언1행만 제거|소유자 RunEvidence는2268의 private sealed class이며 Serializable/SerializeField가 없는 내부 증거 객체다. public 필드 표기만으로 외부 공개 API가 되지 않으며 반사/직렬화 소비 경로가 없음을 확인한 범위다.|
+|1561|첫 SetInvariant 호출의 마지막 `, "sharedSessionKey"` 인자만 제거|제거 표현은 부작용 없는 문자열 literal이다. 직전 ReadValue의 실제 `"sharedSessionKey"` 파싱 키는 유지한다.|
+|1563~1567|둘째 SetInvariant 호출의 마지막 `"sessionStartBucket"` 인자와 앞 comma만 제거|같은 literal 전달 제거다. 직전 ReadLong의 실제 `"sessionStartBucket"` 파싱 키는 유지한다.|
+|1696~1700|ref string overload의 마지막 `string field` 매개변수와 앞 comma만 제거|field는 본문에서 읽지 않는다. candidate/current 검사와 ParseErrorCount 증가는 본문 원문 그대로 유지한다.|
+|1713~1717|ref long? overload의 마지막 `string field` 매개변수와 앞 comma만 제거|같은 미사용 매개변수이며 본문 전체를 보존한다. ref string/ref long? 차이로 overload 구분을 유지한다.|
+
+두 private static overload의 직접 호출은 각1곳이며 전문 담당의 Assets/Editor·Tools·Scripts 및 추적 source/config/Unity serializer 형식 검색에서 해당 내부 멤버를 외부에서 반사/직렬화해 소비하는 참조를 찾지 못했다. 문서 담당은 위 지정 소스를 직접 읽었으며 전체 검색 범위는 전문 전달 근거로 구분한다. 실제 파싱 키·ParseErrorCount·BEGIN/END 집계·role/identity 연결·endpoint/rotation 정렬·임계값·fixture·실패 문구·예외 경로·공용 메뉴/Analyze API는 바꾸지 않는다. 기능 분기·판정·로그 또는 파싱을 제거하는 작업이 아니라 소비 없는 private 저장과 literal 전달만 정리한다. WORKFLOW [4]의 행동 있는 기존 로직 제거/최종 삭제 gate를 우회하는 일반 승인으로 확대하지 않으며, Research16.28의 queue compaction 및 Coordinator private3값 보류를 재개하지 않는다.
+
+수정 전 전체 원문/SHA와 정확6span old/new 치환을 보존하고, 허용 치환만 역복원하여 full raw 동일을 확인한다. SetInvariant 본문2개의 raw 동일·ReadValue/ReadLong 실제 키2개의 불변·외부 source/reflection 소비 참조 재검색·기존 meta 동일 및 정확1파일 diff를 정적으로 대조한다. 기존2.33/2.34 Editor2소스와 Task 기록에 간섭하지 않는다. 컴파일/fixture/Unity/native/로그 분석 실행/게임/빌드·TCQA는 NOT RUN이며 정적 비교를 실행 PASS로 보고하지 않는다. 새 Task/상시문서/메모리/Status/Roadmap/옛 Task·History 편집이나 Git 변경은 하지 않는다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -788,3 +821,21 @@ Research16.12에4scratch의최신읽기범위합집합재계수·구조스캔/�
 정확후속30경로는C#18/Python1/문서·메모리·역할10/기준선JSON1이며모두기존추적파일unstaged수정이다. 새커밋/푸시는하지않았다. 기존사용자컴파일보고는직전1a69402c묶음이고이번후속새컴파일/Unity/native/게임/빌드·TCQA는NOT RUN이다. 전체리팩토링/모든역사·주장/게임기능완료로승격하지않는다. queue/private값·Logcat희귀충돌등잔여후보는기록만보존하고AUD-017후속AI/6VFX삭제보류를유지한다. 추가소스수정/후보탐색없이인계한다.
 
 최종문서검사문제0/diffcheck0이며검사기제외Task2파일은별도상대Markdown링크1092개파일존재확인누락0/앵커포함0을확인했다. 정적검사나링크존재가모든의미/실행검증은아니다.
+
+### 7.36 기존 묶음 푸시와 다음 코드 전 계획(2026-10-25 KST)
+
+사용자 「푸시하고 다음 작업 이어서」 아래 기존30파일은 `e1588fabd3f4b583b3729d3021533957570cb345`로 커밋되어 origin/work에 푸시됐다. Research16.26이 직접 확인한 local HEAD/30파일 stat와 메인이 전달한 원격 동일 SHA·푸시 직후 clean의 근거 원본이다. 과거16.25/7.35의 미커밋·미푸시 기록은 당시 상태로 보존한다. 기존 사용자 컴파일 보고는1a69402c 범위이며 이번 푸시에 대한 새 컴파일/실기 보고는 없다. 컴파일/Unity/native/게임/빌드·TCQA는 새로 수행하지 않았다.
+
+메인이 기존 후보 중 정확2파일만 다음 범위로 선정했고 전문 제안과 실제 호출/예외 경로를 대조해2.33/2.34를 코드 전에 기록했다. 2.33은 기존999 이름 상한에서 점유된 경로 반환을 막고 기존 catch로 쓰기 전 중단하며 안내를 정정한다. 2.34는 동일 인자/예외 필터/실패 문구를 보존해 oversized manifest 검사를 기존 helper로 합친다. 메인 전체 계획 검토/GO 뒤 전문 담당이 구현하며 이 절은 구현 완료나 실제 실행 PASS가 아니다. 기록 외 신규 후보 확대/정책·게임수치 변경/원시 로그 작업/추가 커밋·푸시는 하지 않는다. AUD-017 후속 AI 생산배율 및 VFX6 legacy 삭제 보류를 유지한다. 이번 문서검사 결과는 Research16.26의 후속 문단에 기록한다.
+
+### 7.37 다음2파일 구현·정적 대조와 추가분 인계(2026-10-25 KST)
+
+2.33/2.34의 메인 검토/GO 뒤 정확2소스 구현과 동결을 마쳤다. Research16.27에 실제 변경과 전문 원문/SHA/역복원 근거 및 메인 독립 대조를 기록했다. 문서 담당도 전체 source diff/manifest/static-review와 `/tmp/hexiege-next-main-independent.json`을 직접 읽었다. Logcat은 상한 점유 guard·안내2span만 변경하며 기존 catch가 쓰기 전에 return한다. Combat은 정확1블록을 기존 helper로 치환하고 원래 인자로 확장했을 때 옛 블록의 리터럴 보존 토큰과 동일하다. File.Exists/쓰기 경쟁의 비원자성과 실패 stack trace helper frame/줄 위치 변화 가능성을 유지한다. 실제 저장/예외/fixture 실행 근거로 확대하지 않는다.
+
+현재 변경은 C#2+기존 Task2의 정확4경로이며 추가분은 미커밋·미푸시다. 컴파일/fixture/Unity/native/게임/빌드·TCQA는 NOT RUN이며 이전1a69402c 사용자 컴파일 보고와 구분한다. 검사 마감은 check_docs 문제0/diffcheck0/별도 Task 상대링크1092개 파일누락0·앵커0이며 전체 의미나 기능 PASS가 아니다. 추가 후보/대형 감사 확대·로그 작업·상시문서/메모리 전파 없이 인계하며 AUD-017 후속 AI 생산배율과 legacy VFX6 삭제 보류를 유지한다.
+
+### 7.38 queue 보류와 RootPose 비소비 데이터 정리 결과(2026-10-25 KST)
+
+Research16.28의 동일 instance/token 재사용 반례를 검토해 queue compaction과 Coordinator private3값 삭제는 보류하고 원코드를 유지했다. 이어 별도 선정한2.35를 코드 전 기록·메인 전체 검토/GO 뒤 전문 담당이 구현했다. Research16.29~30과 `/tmp/hexiege_plan235_20261024/static-review.json`·`/tmp/hexiege-plan235-main-independent.json`이 정확1파일6span 치환/역복원 full raw 동일·두 SetInvariant 본문 raw 동일·실제 파싱 키2문장/기존 meta 유지·queue 무변경 근거다. 문서 담당도 전체 diff/두 JSON을 직접 읽었으며 전문 검증의 generic 키식 횟수 가정 정정은 추가 소스 수정 없이 이뤄졌음을 구분했다.
+
+현재 추가분은 Editor C#3+기존 Task2의 정확5경로이며 미커밋·미푸시다. 공개 API/직렬화 계약·판정/파싱/예외/로그·기존2.33/2.34 변경은 보존했다. 새로운 컴파일/fixture/Unity/native/로그 분석/게임/빌드·TCQA는 NOT RUN이며 기존1a69402c 사용자 보고를 재사용하지 않는다. queue bounded 완료/전체 안전이나 전체 기능 PASS로 확대하지 않고 AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다. 추가 후보 탐색/상시문서·메모리 전파/Git 변경 없이 문서 검사와 인계를 마감한다.
