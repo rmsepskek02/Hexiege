@@ -818,7 +818,7 @@ namespace Hexiege.Application.Combat.Sequencing
 
     public static class UnitAttackResultPresentationShadowBridge
     {
-        // Comparison-only migration stage. This object has no gameplay or visual emitter callback.
+        // 확정 공격 표현 조정자와 소유권 조회를 공유한다.
         public static readonly AuthoritativeAttackPresentationCoordinator Coordinator = new();
         public static bool WasAuthoritativeEmitter { get; private set; }
         public static bool UsesAuthoritativeEmitter => IsActive && WasAuthoritativeEmitter;
@@ -988,8 +988,10 @@ namespace Hexiege.Application.Combat.Sequencing
         }
 
         /// <summary>
-        /// UnitView 초기화 시 manifest/runtime 계약의 채점 자격만 등록한다. 이 표는
-        /// Legacy 피해/VFX emitter를 제어하지 않고 read-only bridge 진입만 분류한다.
+        /// UnitView 초기화 시 manifest/runtime 계약의 채점 자격을 등록한다. 이 표는
+        /// read-only bridge 진입 분류와, 확정 표현 emitter 활성 시 OwnsAttacker의 소유권 판정에 쓰인다.
+        /// HitPresentationQueue는 이 판정으로 Legacy 중복 방출을 건너뛰며,
+        /// 이 등록은 HP 적용을 수행하지 않는다.
         /// </summary>
         public static void RegisterAuditEligibility(
             int attackerUnitId,

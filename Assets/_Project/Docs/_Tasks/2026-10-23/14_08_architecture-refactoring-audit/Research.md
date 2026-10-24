@@ -4,7 +4,7 @@
 
 - 시작: 2026-10-23 14:08 KST.
 - 사용자 승인: task 문서 작성·조사 착수에 이어, Plan2.3 공유 후 사용자의 「바로진행하자」로 IUnitView 팩토리 의존 추상화 첫 묶음 구현 승인(2026-10-23).
-- 진행 상태: **전체 목록 확보 / 일부 계약·차이 조사 / Plan2.3 첫 코드 묶음 구현·정적 대조 완료 / 컴파일·실기 미실행**. 전체 감사·실기 수용 완료 아님.
+- 진행 상태: **전체 목록 확보 / 일부 계약·차이 조사 / 확정 묶음 소스 정리·정적 대조 완료 / 직전 푸시 `1a69402c` 후 사용자 컴파일 오류 없음 보고 / 전체 의미 감사·게임 실기 미완**. 최신 검증 축은16.13절이며 이전 회차의 컴파일 NOT RUN은 당시 에이전트 실행 기록으로 보존한다.
 - 후속 승인: 사용자 「다음 진행해」로 다음 조사와 기존 Task 후속 기록 진행(2026-10-23). 단계2 조사 결과와 Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했고, 기존2파일 정리·메인 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 남은 리팩토링을 계속 실행하라는 지시다. 메인이 기공유한 AI live 종족 조회 주입2파일 안을 다음 묶음으로 선정했고 프로그래머 제안을 Plan2.5로 코드 전에 구체화·검토한 뒤 구현 신호를 전달했다. 해당2파일의 소스 정리·메인 독립 정적 대조를 마쳤으며 컴파일·게임 실행은 미실행이다(2026-10-23).
 - 다음 착수: 사용자 「계속 진행해」의 잔여 리팩토링 계속 실행 지시 아래 메인이 기공유 인증 계약안을 다음 묶음으로 선정했다. 프로그래머 제안을 Plan2.6으로 코드 전에 기록했으며 메인 직접 검토·구현 신호 이후 소스 정리·독립 정적 대조를 마쳤다. 컴파일·Unity/실기는 미실행이다(2026-10-23).
@@ -1861,3 +1861,153 @@ Plan2.19~21을 코드 전에 기록하고 메인 GO 뒤 전문 lifecycle 담당�
 | ?? | `Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs.meta` | 이전누적/현재변경 목록; 이번마지막추가아님 |
 | ?? | `Assets/_Project/Scripts/Presentation/Unit/UnitView.MovementAuthority.cs` | 이전누적/현재변경 목록; 이번마지막추가아님 |
 | ?? | `Assets/_Project/Scripts/Presentation/Unit/UnitView.MovementAuthority.cs.meta` | 이전누적/현재변경 목록; 이번마지막추가아님 |
+
+### 16.13 직전 푸시 후 사용자 컴파일 확인과 잔여 감사 계속(2026-10-24 KST)
+
+사용자 「컴파일 에러없으니 다음진행하자」는 직전71경로 커밋·푸시 `1a69402ce039c4fd1c34373babe048ed37e36e4f` 이후의 컴파일 오류 없음 보고다. 플랫폼·컴파일 로그·전체 게임 실기 결과는 제공되지 않았으므로 이 보고를 게임 동작·모든 기기/멀티·빌드 성공·전체 작업 수용으로 확대하지 않는다. 앞선 각 절의 compile/Unity/native/게임/빌드 NOT RUN은 당시 에이전트가 실행하지 않았다는 증거로 보존하며 이번 사용자 보고와 구분한다.
+
+| 확인 축 | 최신 근거와 한계 |
+|---|---|
+| 사용자 컴파일 확인 | 직전 푸시 묶음 후 오류 없음 보고; 플랫폼·로그 미제공 |
+| 에이전트 컴파일·Unity/native 실행 | 새 실행 없음; 과거 NOT RUN 기록 보존 |
+| 전체 게임 실기·사용자 수용 | 이번 보고로 확인되지 않음 |
+| 저장소 상태 | 후속 착수 시 직접 확인: `work`, HEAD `1a69402ce039c4fd1c34373babe048ed37e36e4f`, clean. 이 확인 기록으로 Research/Plan만 수정하며 이후 추가 커밋·푸시는 아직 하지 않음 |
+| 잔여 감사 | 소스 inventory 최신337개, 전체 의미 감사 미완.16.12의 coverage·71경로 표는 직전 회차 시점 기록이며 현재 작업트리 목록으로 재사용하지 않음 |
+
+기존 전면 진행·Task 기록 승인을 유지해 잔여 본문 감사를 계속한다. 새 구체 후보는 전문 담당 근거를 메인이 검토한 뒤 Plan2.22 이하에 코드 전에 기록하고 메인 구현 신호 순서로 진행한다. 미확정 후보의 일괄 완료 승격이나 새 기획·밸런스 판단은 하지 않는다. AUD-017 생산시간 배율은 후속 AI 작업 보류,6VFX legacy 삭제 보류를 유지한다. 이번 컴파일 확인은 새 Task/TCQA·Status/Roadmap/메모리 전파·옛 Task/History 수정의 근거로 사용하지 않는다.
+
+### 16.14 검사기 과거 한계 토픽의 현재 상태 안내(2026-10-24 KST)
+
+잔여 문서 직접읽기에서 `.claude/agent-memory/game-programmer/check-docs-tool.md`의8월25일33규칙 미검출/UNRESOLVED 원문을 확인했다. 메인은 이를 새 결함으로 재개하지 않고 원문을 보존한 현재 상태 note1곳만 승인했으며 Plan2.23에 먼저 기록한 뒤 해당 heading 직후 English note를 추가했다. 현행 parser935~970은 모든 규칙 문서를 등록하고823~829의ID/정의 parser는 숫자·소번호·문자ID를 지원한다. 메인/문서 담당이 각각 독립 함수호출로 Map5/RandomMap19/Upgrade13 정의를 확인했다. 현행 범위 원본은 WORKFLOW [11]과 매 실행 출력이며 이 note는 게임 동작·의미 감사 완료를 뜻하지 않는다.
+
+원문 `/tmp/hexiege-plan223-topic-before.md` SHA `0daa1272b941cd66b03f3e626c41500114a536072df74d0b9efbfc716f856f3f`를 보존했다. 정확 note삽입1곳을 제거한 전체raw가 원문과 동일함과 기존 heading/anchor·과거본문 보존을 `/tmp/hexiege-plan223-comparison.json`으로 확인했다.126→128행이며 다른 토픽은 수정하지 않았다. 기준선은 실행 직전 도구에서 감소0/game-programmer만+2행·파일21개동일을 확인하고 `--update-baseline` exit0으로 증가만 반영했다. `/tmp/hexiege-plan223-baseline-comparison.json`도 동일delta를 확인했다. 직접 baseline JSON편집·감소/사유반영은 없다. 사용자 컴파일 보고와 무관한 문서 사실 안내이며 새컴파일/Unity/native/게임/빌드·TCQA 실행은 없다.
+
+### 16.15 경로·서비스·운영 로그·프로필4소스 주석 정정 결과(2026-10-24 KST)
+
+메인이 Plan2.22 전체를 읽고 구현 신호를 전달한 뒤 전문 담당이 지정4C# 주석만 정정했다. 실제 파일은 Domain/Hex/HexPathfinder.cs, Application/Interfaces/IGameServices.cs, Application/Interfaces/ILogSink.cs, Presentation/UI/InGameSettingsUI.cs다. 문서 담당은 전체 diff와 `/tmp/hexiege-plan222-comparison.json`을 직접 읽어 계획의 낡은 설명 교체와 조건부 프로필 설명을 확인했다. 정확 oldspan은 Hex20/47~48, IGame17~18, ILog68~71/524~525/549/575/594/615/638, UI456~460이다. 코드 전 전달 근사행번호를 실제원문범위로 정정했으며 동작 범위 변경이 아니다. ILog678→676/UI580→578행, 나머지2파일 행수동일이다.
+
+전문 artifact의4파일 각각 tokens_equal/literals_equal/all_changed_lines_comments/reverse_full_raw_identical=true와 source/meta690개 중 허용4개만변경·나머지686동일을 확인했다. scanner 사본검증도 주석/기존공백추가=동일, 숫자변경=토큰상이, 문자열변경=토큰/리터럴상이로 전달됐다. 정확 전후SHA·span은 comparison JSON, 원문 diff는 `/tmp/hexiege-plan222-source.diff`, 재검증기는 `/tmp/hexiege-plan222-verify.py`다. 이는 전문 담당의 정적 대조 근거이며 메인의 독립 검토 결과와 구분한다. runtime/API·Inspector/metadata문자열·수치·수명·서버writer/seed/canonical/PRNG는 변경하지 않았다. 새컴파일/Unity/native/게임/빌드·TCQA는 미실행이며 직전1a69402c 사용자컴파일보고로 이번소스를검증했다고기록하지않는다.
+
+메인의 독립 `/tmp/hexiege-plan222-main-independent.json`도 문서 담당이 직접 읽었다. 변경 diff행이 모두 `//`주석이고 전체행주석을 제외한 나머지 원바이트가4파일모두 동일함을 별도 방식으로 확인했다. 메인337C# snapshot 중 정확4파일변경/333동일·신규없음이다. 이는 전문 토큰 scanner와 독립적인 원문 비교 근거이며 실행증거는 아니다. 메인의 check_docs 문제0/diffcheck0도 이번 정적 확인으로 구분한다.
+
+### 16.16 TDD 초기 자원 실제 소비 설명2곳 정정(2026-10-24 KST)
+
+메인이 Plan2.24 전체를 읽고 구현 신호를 전달한 뒤 TechnicalDesignDocument.md927/1066행만 정확 계획 문구로 정정했다. ResourceUseCase 표는 초기화/차감/추가/조회 책임으로, 경제 문단은 GameConfig.StartingGold의 현재 소비와 맵 InitialGold 실제 연결 후속을 구분했다. 문서 담당도 Setup457·ResourceUseCase43~48·GameConfig125·ROADMAP 경제 후속·Status 무작위 맵 한계와 실제2행 diff를 직접 읽었다. 경제 수치·규칙·기획/밸런스·코드·에셋·메모리·옛Task/History는 수정하지 않았다.
+
+`/tmp/hexiege-plan224-docs-before.json`과 `-tdd-before.raw`에 수정전1202행 전체원문/SHA `763544b0201d2ea3fc5694004d98b0c7cfd772e221053b56d3cb1c967ce8ee0f`를 보존했다. `/tmp/hexiege-plan224-comparison.json`은 정확2치환/변경물리행927·1066/역복원fullraw동일/기존3링크동일/전후1202행을 확인하며 정확diff는 `-docs.diff`다. check_docs 문제0(`/tmp/hexiege-plan224-check.log`)·git diff --check0을 확인했다. 메인 독립 최종 검토는 별도 수신 후 기록하며 새컴파일/Unity/native/게임/빌드·TCQA 실행은 없다. 직전1a69402c 사용자컴파일보고와 이번 문서 정적 검증을 구분한다.
+
+메인 독립 `/tmp/hexiege-plan224-main-independent.json`을 수신해 직접 읽었다. 정확2치환 외 원문동일·모든Markdown링크보존·변경행927/1066·1202행을 별도 확인한 정적 근거이며 새실행증거가 아니다.
+
+### 16.17 폴백 재생성 안내5문서 정정 단계(2026-10-24 KST)
+
+Plan2.26 전체를 메인이 검토하고 문서 동기화GO를 전달한 뒤 `_Reference/MapTemplateSource/MapTemplateSource_{Canyon,FullyOpen,ObstacleOpen,Outer,ThreeLane}.md`5개의 「다시 만드는 법」2행만 정확 계획 문단1행으로 교체했다. 삭제된 메뉴가 현재 없고 재생성 시 Factory를 직접 호출할 도구를 별도 준비한다는 사실 안내다. 문서 담당은5문서 전문·생성문구794~796·self-validation1038~1085를 직접 읽었다. 자체검사 소스는 hash/seed/date/동일 입력의 문서결정성과 확장자를 검사하며 옛 메뉴 문자열을 gate로 검사하지 않는다. 소스를 읽었을 뿐 자체검사는 실행하지 않았다.
+
+`/tmp/hexiege-plan226-docs-before.json`은5전체원문/SHA를 보존하며 `-docs-comparison.json`은5개 각정확문단치환·역복원fullraw동일·나머지raw동일·53→52행을 확인한다. 정확diff는 `-docs.diff`, check_docs문제0는 `/tmp/hexiege-plan226-check.log`이며 diffcheck0이다. 코드1파일은 별도 전문 담당GO/구현·메인최종검토 대기이며 문서 담당은 코드에 쓰지 않았다. 수치/seed/바이트/해시/생성일/링크/기존meta·생성로직은 문서 정정 범위에서 바뀌지 않았다. 메뉴복원·신규도구·재생성·compile/Unity/native/게임/빌드·TCQA는 실행하지 않았다.
+
+코드 전문 구현과 메인 독립 검토도 완료됐다. 문서 담당은 Factory794~796의 최종3Append와 `/tmp/hexiege-plan226-code-comparison.json`·`/tmp/hexiege-plan226-main-independent.json`을 직접 읽었다. 전문 증거는 허용3literal역복원fullraw동일·Append103개보존·기존meta3268/맵binary5보호이며, 메인 독립은 정확3literal외원문동일·Append3내용추출과5문서실제문단일치·맵생성로직무변경이다. 문단을2행에서1행으로 합쳐 출력 newline escape는55→54로 줄었으며 다른 출력은 보존했다. 실제Factory실행·바이너리재생성·컴파일/게임실기 증거가 아니다.
+
+### 16.18 광산 표현·배치 UI 구독 수명2소스 정리 결과(2026-10-24 KST)
+
+메인 Plan2.25 전체 검토/GO 뒤 전문 담당이 HexGridRenderer81의private bool·SubscribeGoldMineEvents523의중복guard·544의두구독뒤true설정과 BuildingPlacementUI151의OnDestroy Dispose/null만 추가했다. 문서 담당은 실제추가범위와 `/tmp/hexiege-plan225-comparison.json`·메인독립 `/tmp/hexiege-plan225-main-independent.json`을 직접 읽었다. renderer기존2callback/AddTo(this)/ClearGrid·배치UI Show/Close/overlay/색상은그대로이며OnDestroy에서Close/UIManager를호출하지않는다.
+
+코드전 `/tmp/hexiege-plan225-before/`·`/tmp/hexiege-plan225-baseline.json`이전체원문/SHA근거다. 전문검증은2raw역복원동일·public/직렬화/meta불변·보호meta/serialized/shader3805개변경0이며C#337중내2파일+별도승인Factory1파일변경/추가삭제0이다. 메인독립은별도방식으로2파일기존원문전부보존/삽입만·flag두구독뒤·guard1·OnDestroyDispose/null만확인했다. 두수명문제는소스경로근거이며실기재현/새compile/Unity/native/빌드/게임·TCQA는미실행이다.
+
+### 16.19 에셋 역할의 현재 맵 규격 원본 안내(2026-10-24 KST)
+
+메인 Plan2.27 전체 검토/GO 뒤 `.claude/agents/asset-prompt-crafter.md`49행의현재10×29사본만RandomMap원본안내로정정했다. 실제역할행은표준backtickcode span이며Plan의정확문구도동일하다. `/tmp/hexiege-plan227-before.json`은수정전120행원문/SHA, `-comparison.json`은정확1행교체/전체raw역복원동일/120행보존을확인한다. agents는기준선memory-root밖이라baseline무영향이며기준선갱신/JSON쓰기는없다. check_docs문제0(`/tmp/hexiege-plan227-check.log`)·diffcheck0이다. 메인독립 `/tmp/hexiege-plan227-main-independent.json`을직접읽어exact_one_line_replacement/all_other_raw_unchanged=true를확인했다. 새맵수치/코드/다른메모리/정책변경·컴파일/게임실기·TCQA는없다.
+
+### 16.20 잔여 직접읽기의 후속 후보와 보류 경계(2026-10-24 KST)
+
+아래는 전문 담당의 직접읽기 보고에서 나온 후속 후보이며 별도 코드 전 계획·메인 구현 신호가 없는 항목이다. 이번 기록은 구현 완료나 실기 재현 판정이 아니다. 원보고 `/tmp/hexiege-network-observer-resume-read.json`, `/tmp/hexiege-editor-resume-read.json`, `/tmp/hexiege-validator-a-read.json`, `/tmp/hexiege-validator-b-read.json`의 최초 SHA/행범위는 그대로 보존한다. 문서 담당의 일부 위치 재열람을 전체 파일 정독으로 계수하지 않는다.
+
+| 후보 | 직접읽기 근거·추가 확인 범위 | 현재 처리 |
+|---|---|---|
+| Coordinator 예약 순서 queue와 private 저장값 | 전문 보고: `_reservationOrder`는 예약마다 Enqueue하나 live dictionary가512이하이면 TrimReservations에서 dequeue하지 않고 완료 삭제가 queue를 정리하지 않음. 문서 담당도486~501/1145~1168을 재열람. Token/LegacyScheduledAt/ShadowCommitAt 저장만 있다는 보고는 repository 검색 근거와 함께 원artifact에 있음 | 게임 중 메모리/성능 문제 재현은 없음. queue 수명 정리와 private 값 삭제는 추가 설계·구현하지 않음 |
+| Coordinator/Observer 주석 위치·현행 역할 | Coordinator15의반환값 writer 사용금지와 실제 writer authorization 경계의불일치, Observer113의summary가다음ExpiryClockHistory에붙은상태를전문보고와문서담당부분재열람으로확인 | Coordinator현행역할주석은2.32에서정정(16.24). Observer주석이동/partial분리는보류이며source gate의단일파일읽기의존성을함께계획해야함 |
+| Logcat 파일명 충돌 상한 | LogcatCapture1348~1362의MakeNonOverwritingPath는base/2~999모두존재하면기존999경로를반환하고284/312에서WriteAllText함. 문서담당이해당본문/호출을재확인 | 정적희귀경계후보이며실제덮어쓰기재현없음. 새충돌/실패정책이나코드수정없음 |
+| Logcat 운영 안내·검사기 제외 설명 | LogcatCapture106의과거54KB근거로현재비용단정은LogRules현행「당시크기로현재부담/삭제필요성단정금지」와불일치.731의커밋로그삭제안내도현행정책대조후보. check_docs213의어느깊이설명과259의첫폴더판정은문서담당도재열람 | 54KB일반화/검사기첫폴더설명은2.32에서정정(16.24).731안내는보류. 수동정리/보관/제외범위정책은변경없음 |
+| Editor 내부정리·fixture 후속 | RootPose의EndLine/SetInvariant미사용보고는repository검색추가필요. undefined numeric movementPhase허용은별도행동검토후보. UnitAction의XML위치2곳·기존manifest rejection helper중복·C3실패경로cleanup후보는각validator artifact의정확범위참조 | UnitAction XML2곳은2.32에서실제인접본문설명으로정정(16.24). 나머지는보류/미실행. 기존Bloom R-3 legacy assertion과실제호출이있는BloomHealRetimingValidation은삭제후보가아님 |
+
+이후 승인된2.28~32의결과는별도결과절에서기록하며이보류표로해당완료범위를재개하지않는다. AUD-017생산시간배율후속AI보류와6VFX legacy삭제보류를유지한다. 신규도구/정책/밸런스/이력수정·컴파일/Unity/native/게임/빌드·TCQA·Git변경은없다.
+
+### 16.21 이동·표현·힐 주석, Bloom fixture와 연구RPC5소스 결과(2026-10-24 KST)
+
+Plan2.28~30은코드전에기록됐고메인전체검토/GO뒤전문담당이정확5소스를구현했다. 문서담당은 `/tmp/hexiege_code_finish_20261024/source.diff` 전체와receipt/preservation/lexical_preservation JSON을직접읽었다.2.28은UnitMovementContracts의중심소비뒤방향적용설명1곳·UnitAttackResultPresentationShadow의현행표현소유설명2곳·FloatingHpTextSpawner의별도Bloom힐VFX설명1곳이다.3소스실행토큰은리터럴보존비교에서모두동일하며scanner control은주석/공백동일·숫자/리터럴변경상이로확인했다.
+
+2.29는RunUnitActionSelfValidation의BloomClient상태를Set(false,true)로,finally복원을Set(netServer,netActive)로정확2인수치환했다.2.30은NetworkUpgradeController에실제live/Research/expectedTeam을검사하는private static IsOwnedLiveResearchBuilding helper와연구시작/수동취소2guard를삽입했다. 시작실패는기존「연구 불가」통지를재사용하고취소실패는return한다. 기존sender팀검증이후/차감·취소환불이전에가드가위치한다. 파괴시환불별도경로는보존했고실제RPC재현이나fixture실행은없다.
+
+전문담당before/after전체원문·before_manifest·allowed_replacements·receipt는5파일모두허용치환역복원fullraw동일을확인한다. preservation은Assets/Packages/ProjectSettings의5491파일모집단에서정확5대상만변경/나머지동일을확인하며문서/메모리전체모집단또는프로젝트의미검증이아니다. 메인의 `/tmp/hexiege-plan228-230-main-independent.json`도직접읽었다:5diff독립검토/각reverse_raw_equal=true이며메인은주석3본문원바이트동일·fixture정확2인수치환·연구helper/guard삽입만과mutation전위치를별도로확인했다고전달했다. public API/직렬화/meta/자산불변은해당정적비교근거다. 새compile/Unity/native/게임/빌드·TCQA는NOT RUN이며직전1a69402c사용자컴파일보고를이번5파일에적용하지않는다.
+
+### 16.22 생산RPC4곳의 실제 소유권·음수 슬롯 검증 결과(2026-10-24 KST)
+
+Plan2.31을코드전에기록한뒤메인이전문검토/GO했고전문담당이NetworkProductionController.cs1파일만구현했다. 문서담당은 `/tmp/hexiege_plan231_20261024/source.diff` 전체와receipt를직접읽었다. Enqueue는기존state null검사뒤/비용계산전에실제state.Team검증과기존「팀 불일치」통지,Cancel은mutation전에state null/team/slotIndex<0검증,Rally/Toggle은mutation전에state null/team검증을추가했다. Toggle의성공후GetState재조회는유지하고기존var선언만대입으로바꿨다. 정상소유자흐름·로그/문자열·public/API/직렬화·기존다른변경은보존한다.
+
+before.cs/after.cs·allowed_replacements·before_manifest·receipt는허용5치환역복원fullraw동일과Assets/Packages/ProjectSettings5491파일중해당1개만변경을확인한다. 전SHA `edeabfcfa8fc3382d22e21bedc7f70f742724d4a7d7b490b6f2ac2d19c60da65`, 후SHA `3e02c8269d9a812fa6bb7a16560e9641106adaa3eb6e491297cb7fdf26162ac3`다. meta/자산불변은이보호모집단의정적대조이며실제RPC/예외재현·compile/Unity/native/게임/빌드·TCQA는NOT RUN이다. 메인독립`/tmp/hexiege-plan231-main-independent.json`을직접읽어정확4삽입/1선언변경역복원raw동일·4guard가mutation앞·음수인덱스가UseCase뺄셈전에거부됨을확인했다. slotIndex상한/enum/종족/유닛종류/팀배정/환불정책은추가하지않았고AUD-017후속AI보류·6VFX삭제보류를유지한다.
+
+### 16.23 마감 범위 장부: 현행 소스 읽기·문서 사실 대조·실행의 구분(2026-10-24 KST)
+
+16.12는직전회차의당시coverage기록이다. 이번재개에서메인과각전문담당이잔여본문을읽고후속변경diff를분리해취합했다. 아래수치는각scratch의실제필드/범위를직접읽어기록했으며원snapshot SHA/행수/ranges는덮어쓰지않았다. 모든소스의한시점원본을동시에정독했다거나모든정책·참조·실행을검증했다는뜻은아니다.
+
+| 범위 | 직접읽기 근거와 한계 |
+|---|---|
+| Domain/Application141파일 | `/tmp/hexiege-full-domain-app-audit.json`의누적readRanges/coverageSummary는141전문·44199장부행을기록. 원SHA와후속변경diff근거를분리하며미사용검색만으로삭제하지않음 |
+| Presentation98파일 | `/tmp/hexiege-full-presentation-audit.json`의continuation_summary는잔여31파일8961행을추가해98파일전문근거를취합. 원summary67/부분1과원SHA는보존. InGameSettingsUI는원본과다른읽기리비전으로분리됨 |
+| Infra/Core/Bootstrap/Editor/Tools89파일 | `/tmp/hexiege-full-infra-audit.json`은특정리비전별전문근거89파일58342행. 원리비전88파일47758행과원Action의미독10564행은그대로보존하며Action은별도c81d7e5c리비전10631행전문을읽음. 후속현재변경13파일의diff검토는그때의별도증거이며이후2.32도개별artifact로보충 |
+| 현재경로집합 | `/tmp/hexiege-audit-close-path-delta.json`: 기존장부141+98+89=328경로와별도UnitView본체/3partial4경로를합쳐332. 프로젝트327C#+Tools재귀4Python+루트1Python이며Assets337C#중vendor10은프로젝트소스범위밖. 추가Interface/DTO/Auth경로누락0은경로대조판정. UnitView4는16.8/Plan7.21의원문·partial매핑·메인독립대조를참조하며새전문읽기량을이중계수하지않음 |
+| 현행문서원본/미러/참조45와역할5 | `/tmp/hexiege-docs-kind-coverage-ledger.json`은각원snapshot범위전문45파일13774행/역할5파일652행을기록. `/tmp/hexiege-docs-close-current-revision-delta.json`은이50파일중원SHA와현SHA가다른18경로를구분하며해당승인변경/diff근거는본Task각결과절을따름 |
+| 혼합메모리/이력39파일 | 같은종류장부에서혼합메모리31중전문범위17/직접합집합1930행,이력·마일스톤3부분167행,폐지역할3/사건기록2는장부상직접읽기0. 이는원장부당시범위이며이번운영규칙/관련부분재열람을전체재독으로합치지않음. 광범위이력/메모리미독은보존하며현행45+역할5의직접읽기미완으로혼동하지않음 |
+
+읽기는확정구체후보를선별한근거이며전체의미PASS·모든기능보존·게임실기수용과다르다. 구현완료는각Plan2.22이하의허용변경과독립정적대조범위에서만판정한다. 최근사용자의컴파일오류없음보고는1a69402c직전푸시묶음이며그뒤수정의컴파일/Unity/native/게임/빌드·TCQA는NOT RUN이다. 새Task/TC·상태/로드맵/메모리/이력전파·커밋/푸시는수행하지않는다. AUD-017후속AI보류·6VFX삭제보류와16.20의미승인구조/동작후보를유지하며끝없는추가후보탐색없이마지막2.32뒤문서검사/인계로정리한다.
+
+### 16.24 마지막7파일 사실 설명 정정 결과(2026-10-24 KST)
+
+Plan2.32전체/정확proposal을메인이읽고GO한뒤전문담당이7파일14치환을구현하고소스를동결했다. 문서담당도 `/tmp/hexiege_plan232_20261024/source.diff` 전체와receipt를직접읽었다. Coordinator/NCC의현행권위·identity/scope·시계·provisional/실제공격분리설명,SkillData C필드소비설명,Logcat과거54KB일반화제거,check_docs첫폴더제외설명,Validator인접실제HoT/Sniper검사설명을정정했다. SkillDefinition은기존Tooltip1문자열을현재C실행기사용설명으로바꿨다. Inspector안내표시가실제로바뀌므로모든관측동작동일이라고주장하지않는다.
+
+before/after전체원문/SHA·allowed_replacements·before_manifest·receipt는7개모두역복원fullraw동일,5C#주석파일리터럴보존토큰동일,Python주석1개AST동일,Tooltip1문자열외토큰동일을확인한다. scanner control4개도예상결과다. 보호모집단은Assets/Packages/ProjectSettings/Tools에서prose .md와__pycache__를제외한4823파일이며정확7대상만변경/나머지동일이다. 앞선5491/3579/3805/3617모집단과선택범위가달라같은모집단수로혼용하지않는다. NCC는앞선3392행전문읽기와최종3393행SHA `d87b3353e8a2f5239bb94c2b17f4343fec6f4c646d12aeecd1b465f3f5de570f`의변경XML재독을별도 `NetworkCombatController.final-read.json`으로연결한다. 새컴파일/Unity/native/게임/빌드·TCQA는없고Python AST파싱/소스비교만수행했다. 메인독립`/tmp/hexiege-refactoring-final-main.json`도직접읽어정확14치환외원문동일/5C#주석본문raw동일/PythonAST동일/Tooltip1표시문자열만변경을확인했다. 새구조/로직/보안확장·queue/미사용값삭제·정책/밸런스/이력수정은없다.
+
+### 16.25 이번 자동 선정 묶음 마감·현재 변경 경로 인계(2026-10-24 KST)
+
+이번 마감은 검토 대상 경로 누락 해소와 선정된 Plan2.22~32 구현·문서 정정의 인계다. 모든 역사·모든 주장·모든 게임 기능 검증 또는 전체 리팩토링 종료라고 판정하지 않는다. 변경 유형은 사실 설명/안내 정정, UI/구독 수명 정리, 기존 Bloom fixture 상태 정정, 연구/생산 RPC의 실제 대상 소유권 검증과 음수 취소 인덱스 거부다. 각 구현 전 계획과 메인 GO·실제 diff·독립 정적 근거는16.14~24에 연결했다.
+
+메인 최종 `/tmp/hexiege-refactoring-final-main.json`을 문서 담당도 직접 읽었다. 체크포인트 대비 Assets C#337개 집합 추가/삭제0·변경18개다. `/tmp/hexiege-autonomous-base.json`의 기존 파일 중 meta/asset/prefab/unity/anim/controller/overrideController/bytes를 선택한3617개는 SHA가 모두 동일하다. 이는 해당 suffix 보호 모집단 비교이며 다른 회차의3579/3805/4823/5491개 모집단과 합치지 않는다. 최종 소스 동결 뒤 새 후보 탐색이나 마이크로 정리를 계속하지 않았다.
+
+현재 `work`의 HEAD `1a69402ce039c4fd1c34373babe048ed37e36e4f` 대비 변경은 아래 정확30경로다. 메인 최종 status artifact와 문서 담당의 `/tmp/hexiege-docs-close-status.txt`를 대조했다. 전부 기존 추적 파일의 unstaged 수정(` M`)이고 staged/추가/삭제 경로는 없다. 유형별 C#18/Python1/문서·메모리·역할10/기준선JSON1이다. 이번 후속 변경은 미커밋·미푸시 상태이며 이 작업에서 Git 변경 명령을 실행하지 않았다.
+
+| 현재 변경 경로 | 변경 유형 |
+|---|---|
+| `.claude/agent-memory/_baseline.json` | 기준선 증가 반영 |
+| `.claude/agent-memory/game-programmer/check-docs-tool.md` | 과거 기록 보존·현재 안내 |
+| `.claude/agents/asset-prompt-crafter.md` | 현재 맵 원본 안내 |
+| `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs` | fixture 인수·사실 주석 |
+| `Assets/Editor/Tools/LogcatCapture.cs` | 사실 주석 |
+| `Assets/_Project/Docs/TechnicalDesignDocument.md` | 초기 자원 소비 설명 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/MapTemplateSource_Canyon.md` | 재생성 안내 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/MapTemplateSource_FullyOpen.md` | 재생성 안내 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/MapTemplateSource_ObstacleOpen.md` | 재생성 안내 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/MapTemplateSource_Outer.md` | 재생성 안내 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/MapTemplateSource_ThreeLane.md` | 재생성 안내 |
+| `Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Plan.md` | 기존 Task 계획·결과 |
+| `Assets/_Project/Docs/_Tasks/2026-10-23/14_08_architecture-refactoring-audit/Research.md` | 기존 Task 근거·범위 |
+| `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitAttackResultPresentationShadow.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitMovementContracts.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Application/Interfaces/IGameServices.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Application/Skill/SkillData.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Domain/Hex/HexPathfinder.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Domain/Map/MapFallbackTemplateFactory.cs` | 생성 문서 안내 문자열 |
+| `Assets/_Project/Scripts/Infrastructure/Config/SkillDefinition.cs` | Inspector Tooltip |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs` | RPC 실제 소유권·음수 슬롯 검증 |
+| `Assets/_Project/Scripts/Infrastructure/Network/NetworkUpgradeController.cs` | RPC 실제 연구소 검증 |
+| `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Presentation/Grid/HexGridRenderer.cs` | 중복 구독 방지 |
+| `Assets/_Project/Scripts/Presentation/UI/BuildingPlacementUI.cs` | 구독 수명 정리 |
+| `Assets/_Project/Scripts/Presentation/UI/FloatingHpTextSpawner.cs` | 사실 주석 |
+| `Assets/_Project/Scripts/Presentation/UI/InGameSettingsUI.cs` | 사실 주석 |
+| `Tools/check_docs.py` | 사실 주석 |
+
+남은 경계는16.20의 예약 queue/private 저장값·Observer 주석/분리·RootPose/fixture 내부 정리·Logcat999 충돌 및 미결 운영 안내 후보다. 별도 계획/구현 없이 기록만 유지한다. AUD-017 AI 생산시간 배율은 사용자 결정대로 후속 AI 작업 보류,6VFX legacy 최종 삭제도 보류다. 새 정책/밸런스·미승인 구조/보안 확장을 하지 않았다.
+
+확인된 축은 직접읽기·경로 대조·허용 변경 역복원/토큰/AST/보호 SHA와 문서 정합성이다. 사용자 컴파일 보고는 직전1a69402c 묶음 범위이며 이번 후속30경로의 새 컴파일/Unity/native/게임/빌드·TCQA는 NOT RUN이다. 컴파일·실기 결과를 확인하지 않은 채 전체 기능 보존 PASS나 전체 사용자 수용으로 승격하지 않는다. 새 Task/Testcase·상태/로드맵/메모리/이력 전파·커밋/푸시는 수행하지 않았다.
+
+최종 `python3 Tools/check_docs.py`는 문제0, `git diff --check`는0이다. 검사기가 제외하는 이 Task2파일의 상대 Markdown 링크1092개는 별도 파일 존재 확인에서 누락0이며 앵커 포함 링크0이다(`/tmp/hexiege-docs-close-task-links.json`). 링크 존재와 검사0은 모든 내용의 의미/구현 일치를 보증하지 않는다.

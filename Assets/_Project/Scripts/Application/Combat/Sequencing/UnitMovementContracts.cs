@@ -747,7 +747,7 @@ namespace Hexiege.Application.Combat.Sequencing
     /// 서버 A*·추격·재경로·전투 복귀가 함께 사용하는 순수 trajectory planner다.
     ///
     /// 중요한 원칙:
-    /// 1) 현재 waypoint 가까이에서는 다음 선분을 미리 보아 60도 방향 점프를 완만하게 만든다.
+    /// 1) 현재 waypoint 중심까지 현재 선분을 따라 진행하고, 다음 선분 방향은 그 중심을 소비한 뒤 적용한다.
     /// 2) 한 틱의 방향 변화는 maximumTurnDegrees를 넘지 않는다.
     /// 3) 위치는 계산된 TrajectoryDirection으로만 진행한다. 이 때문에 이동 벡터와
     ///    SimulationFacing은 부동소수점 정규화 오차 외에는 동일하다.

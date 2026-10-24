@@ -924,7 +924,7 @@ foreach (var neighbor in neighbors)
 
 | UseCase | 역할 |
 |---------|------|
-| `ResourceUseCase` | 팀별 골드 관리 (맵 InitialGold 적용, 차감/추가/조회) |
+| `ResourceUseCase` | 팀별 골드 관리 (초기화, 차감/추가/조회) |
 | `PopulationUseCase` | 인구수 계산 (최대=보유 타일, 사용=건물+유닛) |
 | `UnitProductionUseCase` | 생산 큐/타이머/자동-수동 모드/랠리포인트 |
 
@@ -1063,7 +1063,7 @@ int BarracksCost = 100;           // 배럭 건설 비용
 int MiningPostCost = 50;          // 채굴소 건설 비용
 ```
 
-현재 경기 초기 골드는 맵의 `InitialGold`가 권위이며 별도의 맵 테스트 모드 분기를 두지 않는다. 경제 설정의 기본값·fallback과 경기 맵 적용을 구분한다. [현재 수치](StatsReference.md#자원-시스템)·[맵 전달 계약](TechnicalDesignDocument_Network.md), [필드 제거 당시 설계 선행 기록](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-tdd-economy-history).
+현재 초기 자원은 GameConfig.StartingGold를 ResourceUseCase에 전달한다. 맵 InitialGold의 생성·전송과 실제 시작 자원 연결은 별개이며 후자는 ROADMAP의 경제 후속 범위다. 별도의 맵 테스트 모드 분기를 두지 않는 계약을 유지하고 경제 설정의 기본값·fallback과 경기 맵 적용을 구분한다. [현재 수치](StatsReference.md#자원-시스템)·[맵 전달 계약](TechnicalDesignDocument_Network.md), [필드 제거 당시 설계 선행 기록](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-tdd-economy-history).
 
 ---
 

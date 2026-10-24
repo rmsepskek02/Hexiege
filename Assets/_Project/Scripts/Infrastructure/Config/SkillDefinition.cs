@@ -61,7 +61,7 @@ namespace Hexiege.Infrastructure
         [SerializeField] private float _damagePerSecond = 20f;
 
         [Header("상태변경 (타입 C — Phase 2 사용)")]
-        [Tooltip("(C) 상태 종류(정수 코드). Phase 2에서 StatusEffectKind와 매핑. Phase 1 미사용.")]
+        [Tooltip("(C) 상태 종류(정수 코드). GlobalStatusChangeExecutor가 StatusEffectKind로 변환해 사용한다.")]
         [SerializeField] private int _statusKind = 0;
 
         [Tooltip("(C) 강도(이속 배율·힐량 등, ×10 스케일).")]

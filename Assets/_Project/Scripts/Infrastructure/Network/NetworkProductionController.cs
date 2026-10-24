@@ -524,6 +524,13 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            // 발신자 팀과 서버 생산 상태의 실제 소유 팀을 함께 검증한다.
+            if (state.Team != expectedTeam)
+            {
+                SendEnqueueFailed(senderClientId, "팀 불일치");
+                return;
+            }
+
             // ----------------------------------------------------------------
             // 5. 골드 확인 (EnqueueUnit 내부에서도 검증하지만 로그를 위해 미리 확인)
             // ----------------------------------------------------------------
@@ -948,6 +955,10 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            // 다른 팀의 생산 큐와 음수 슬롯 인덱스는 상태 변경 전에 거부한다.
+            var state = production.GetState(barracksId);
+            if (state == null || state.Team != expectedTeam || slotIndex < 0) return;
+
             // 서버에서 CancelQueueAt 실행
             // 내부에서 골드 환불 + OnProductionQueueChanged 이벤트 발행
             // → OnProductionQueueChanged 구독 → SyncQueueStateClientRpc 자동 전파
@@ -1026,6 +1037,10 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            // 요청 인수의 팀이 맞아도 대상 생산건물이 다른 팀이면 변경하지 않는다.
+            var state = production.GetState(barracksId);
+            if (state == null || state.Team != expectedTeam) return;
+
             // ----------------------------------------------------------------
             // 3. 서버 상태에 랠리포인트 반영
             //    HexCoord는 Hexiege.Core 네임스페이스의 값 객체.
@@ -1098,6 +1113,10 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            // 자동 생산도 서버 생산 상태의 실제 소유 팀을 확인한 뒤 변경한다.
+            var state = production.GetState(barracksId);
+            if (state == null || state.Team != expectedTeam) return;
+
             // unitTypeInt를 UnitType으로 변환하여 토글
             UnitType unitType = (UnitType)unitTypeInt;
             bool success = production.ToggleAutoProduction(barracksId, unitType);
@@ -1110,7 +1129,7 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            var state = production.GetState(barracksId);
+            state = production.GetState(barracksId);
             bool isAuto = state?.IsAutoMode ?? false;
 
             GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 자동 생산 토글 완료",

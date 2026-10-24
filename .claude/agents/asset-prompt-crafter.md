@@ -46,7 +46,7 @@ Unity 6 기반 헥스 RTS 게임. **2D → 3D 전환 완료 (2026-02-27)**
 - **타일**: HexTile_FlatTop — ProBuilder Cylinder + SG_HexTile Shader Graph 제작 완료
 
 ### 헥스 그리드 스펙
-- **기본 맵**: FlatTop 10×29
+- **기본 맵**: 대전 맵 규격은 `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md`를 참조한다.
 - **타일 크기**: TileWidth=1.0, TileHeight=0.36 (XZ 평면 기준)
 
 ### 에셋 폴더 구조 및 네이밍

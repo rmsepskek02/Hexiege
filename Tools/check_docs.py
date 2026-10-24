@@ -210,7 +210,7 @@ DEFAULT_CLAUDE_ROOT = ".claude"
 #   skills/ · plugins/ → 외부에서 받아온 문서라 이 프로젝트가 내용을 관리하지 않는다.
 #   worktrees/         → 다른 작업 복제본과 Library/PackageCache까지 포함하므로 현재 작업 문서가 아니다.
 #                          우리가 고칠 수 없는 문서를 문제로 집계하면 "0건 확인" 절차가 영구히 막힌다.
-# 폴더 이름만 비교하므로 `.claude/skills/...` 처럼 어느 깊이에 있어도 걸러진다.
+# `.claude/` 기준 상대경로의 첫 폴더 이름만 비교해 루트 직속의 해당 하위 트리를 제외한다.
 CLAUDE_EXCLUDE_DIRS = ("skills", "plugins", "worktrees")
 
 # 검사 [7] 의 기준값 파일 이름. 메모리 폴더 바로 아래에 둔다.

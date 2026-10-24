@@ -284,9 +284,8 @@ namespace Hexiege.Presentation
         /// 표시 문자열은 즉발/파도/HoT 완료 모두 "회복 후 현재 HP"로 통일한다
         /// (유닛 규칙 문서 「특수 공격 시스템 규칙」 절의 규칙 37 이 HoT 완료 텍스트의 값을 그렇게 정한다).
         ///
-        /// 힐 VFX: 현재 전용 힐 VFX(파티클) 프리셋이 없어 텍스트만 표시한다.
-        ///   추후 힐 VFX 에셋이 확보되면 EffectManager에 PlayUnitHeal 경로를 추가해 여기서 함께 재생한다
-        ///   (사운드 규칙 15 — VFX 를 재생하는 자리에는 SFX 호출도 같은 자리에 둔다).
+        /// 이 메서드는 회복 HP 텍스트만 표시한다. BloomFairy의 지속 힐 VFX는
+        /// BloomHealEffectPresenter가 별도 채널 상태를 받아 EffectManager를 통해 재생한다.
         /// </summary>
         /// <param name="evt">회복 이벤트 데이터. Entity(회복 대상), CurrentHp 포함.</param>
         public void ShowHeal(EntityHealedEvent evt)

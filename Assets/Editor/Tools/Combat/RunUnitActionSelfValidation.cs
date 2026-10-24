@@ -1391,10 +1391,9 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// BloomFairy의 생산 클립과 30fps 1:00 힐 연출 표식을 확인한다.
-        /// 실제 회복은 서버 타이머가 담당하며 준비 1초 뒤 쿨다운 3초인 힐러 예외를 보존한다.
+        /// BloomFairy HoT의 실제 VFX 설정과 채널·presenter·pool 경계를 기존 메뉴에서 확인한다.
+        /// 저장이나 자산 수정 없이 회복 효과의 소유권·재생·종료 계약을 검사한다.
         /// </summary>
-        /// <summary>기존 메뉴의 production channel/presenter/pool 회귀. 저장/asset 수정은 하지 않는다.</summary>
         public static void ValidateBloomHoTEffectBoundary()
         {
             Require(!UnityEngine.Application.isPlaying, "Bloom HoT fixture must run outside a live match.");
@@ -1683,7 +1682,7 @@ namespace Hexiege.Editor.Combat
                 Require(services.CombatReads == reads && services.UnitReads == 0, "Applied readiness has zero repeated services/factory lookup.");
                 var client = new BloomHealEffectChannel();
                 typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsServer").SetValue(network, false);
-                NetworkContext.Set(true, false);
+                NetworkContext.Set(false, true);
                 typeof(NetworkUnit).GetField("_bloomCursor", f).SetValue(network, new BloomHealEffectCursor());
                 typeof(NetworkUnit).GetField("_bloomTarget", f).SetValue(network, null);
                 typeof(NetworkUnit).GetField("_bloomChannel", f).SetValue(network, client);
@@ -1716,7 +1715,7 @@ namespace Hexiege.Editor.Combat
                     typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(network, false);
                     UnityEngine.Object.DestroyImmediate(root);
                 }
-                GameServicesLocator.Register(previousServices); NetworkContext.Set(netActive, netServer);
+                GameServicesLocator.Register(previousServices); NetworkContext.Set(netServer, netActive);
                 combat.BloomHealEffects.CloseVisuals("FixtureEnd");
             }
         }
@@ -2095,8 +2094,8 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// Assault의 사용자 기준 30fps 0:05를 실제 생산 자산과 두 생성 경로의 공통 helper에서
-        /// 검사한다. 설정 주기 0.2초와 clip-derived 0:10을 구분하고 주기를 임의 변경하지 않는다.
+        /// Sniper의 실제 생산 클립·프리팹·설정과 공통 타임라인 helper를 검사한다.
+        /// 30fps 1:22 타격 표식과 3초 주기를 확인하며, 자산이나 수치는 변경하지 않는다.
         /// </summary>
         private static void ValidateSniperProductionTimeline()
         {

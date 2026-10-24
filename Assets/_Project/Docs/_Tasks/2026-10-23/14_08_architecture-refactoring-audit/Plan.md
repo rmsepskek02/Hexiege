@@ -6,6 +6,7 @@
 
 - 기준: 2026-10-23 14:08 KST.
 - 조사 장부와 근거: [Research.md](Research.md).
+- 최신 확인(2026-10-24 KST): 직전71경로 커밋·푸시 `1a69402c` 후 사용자 「컴파일 에러없으니 다음진행하자」 보고를 컴파일 확인 축으로 기록한다. 플랫폼·로그·전체 게임 실기 증거는 제공되지 않았다. 현재 `work` 브랜치이며 이번 후속 착수 전 작업트리는 clean이다. 이후 추가 커밋·푸시는 아직 하지 않았다. Research16.13/이 문서7.25가 최신 근거이며 아래 과거 미실행 표기는 당시 에이전트 실행 기록이다.
 - 현재 승인: Research/Plan 작성·조사 착수에 이어, Plan2.3 공유 후 사용자 「바로진행하자」로 첫 코드 묶음 구현 승인(2026-10-23).
 - 후속 상태: Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했다. 기존2파일 주석4곳·불필요 using1행 정리와 메인 독립 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 잔여 리팩토링의 계속 실행 지시다. 메인이 기공유 AI live provider2파일 안을 다음 묶음으로 선정하고 프로그래머 제안을2.5절로 구체화했다. 같은 Task를 사용하며 재승인 질문을 반복하지 않는다. 메인 검토 후 구현 신호를 전달했고 해당2파일 소스 정리·독립 정적 대조를 마쳤다. 컴파일·게임 실행은 미실행이다.
@@ -384,6 +385,134 @@ tick1/HB3/retry10/timeout30·확인 전 인터넷 도달 순서·로그 정책·
 
 Assets/Editor/Debug/ForceRematchMapFailureMenu.cs465~471의 FirstRoundExpectation1상수만 대상으로 전문 코드 담당이 메인 GO 뒤 정정한다. MatchFlowUI M-2/Network 최상위 원칙에 맞춰 양쪽 loading 종료·연결/방 즉시 정리·로비 메인 복귀와 동일 알림 모달(제목 알림/본문 경기를 시작할 수 없습니다./확인1개, 확인은 모달만 닫음·배경탭 닫힘 불가), 재시도 없음/새 방 필요를 안내한다. 낡은 Host 재시도/Client 화면 유지 설명만 고치고 실제 실패 트리거·메뉴·예약·시간/설정은 변경하지 않는다. 이 안내 정정을 실패 주입 실행·새 TC/QA 완료로 판정하지 않는다.
 
+### 2.22 자율 후속: 경로·서비스·운영 로그·프로필의 낡은 주석4소스 정정
+
+사용자 계속 진행 승인 아래 메인이 선정한 기존4C#의 주석만 정정한다. 근거는 TDD의 계층/현재 구현 설명, LogRules1.5의 enum 이름·운영/개발 구분·구조화 필드, SettingsUI 「인게임 설정 메뉴」 규칙6의 표시 전용 프로필·뒤로가기 계약이다. 문서 담당이 관련 원문을 직접 읽었으며 코드 전에 아래 범위를 기록한다. 메인 계획 검토·별도 구현 신호 뒤 domain_next 전문 담당이 수정한다.
+
+| 파일(Assets/_Project/Scripts/ 기준) | 정확한 변경 범위와 보존 근거 |
+|---|---|
+| Domain/Hex/HexPathfinder.cs |20행의187개/11×17 성능 단정을 호출자가 전달한 HexGrid에서 외부 라이브러리 없이 탐색한다는 설명으로 교체.47~48행의 목표 blocked 예외 설명은 실제97행처럼 목표를 포함해 추가 차단 좌표를 제외하고41행 start==goal은 먼저 즉시 반환한다는 설명으로 교체. 경로 알고리즘·분기·순서는 유지 |
+| Application/Interfaces/IGameServices.cs |17~18행 Getter10종 고정수를 그리드·UseCase·유닛 팩토리 조회 및 네트워크 게임 시작/시작 여부 책임으로 설명. 본문 getter14개를 확인했으나 새 고정숫자를 넣지 않는다.19행 제외 계약·전체 API 유지 |
+| Application/Interfaces/ILogSink.cs |68~71행 최소 예외/209건 미래 이관 설명을 현행 전역 예외·인증·네트워크 세션·클라우드·맵 운영 이벤트와 호출부 구조화 필드 설명으로 교체.524~525행 선언만/향후 F~H 호출 설명은 현행 재전송·전송 결말·수신 검증 사용과 스폰/디스폰 개발 로그 구분으로 교체.549/575/594/615/638행 발생 지점의 미래 호출 괄호만 현행 LogOutcomeOnce·HandleHostTimeout·FailHostRound/FailClientRound·VerifyAndAnswer/MapReadyServerRpc 경로로 정정. 역사 단계·정책 이유·4결말+1재전송 계약은 보존 |
+| Presentation/UI/InGameSettingsUI.cs |ShowProfilePanel XML456~460행의 빈 패널/뒤로가기 미배선/복귀 불가5줄만 현재 조회 전용 요약 RefreshAsync 요청과 Initialize에서 BackButton 참조가 있을 때 복귀 핸들러를 연결한다는 조건부 사실로 정정. 실제 Initialize172/211~214와 Show465행을 직접 확인했다. 씬 배선·새 실기 수용을 단정하지 않는다 |
+
+전문 담당 전달 NetworkMapTransfer의909/946~958·1292/1323~1329·1344/1583·1448~1465·1532/1550·1724~1773 경로 중 문서 담당은900~960/1710~1775를 직접 읽어 재전송 Warn과 결말1회 Ops dispatch/키 변환을 확인했다. 나머지 구체 호출 위치는 전문 전달 근거로 구분한다. 초기3파일 before SHA는 HexPathfinder `394d747e461a80fded3c341bed964df4ed8b18f1107c482397acfeefc73f6427`, IGameServices `19ece22e728db9867c4318d3bf987c6050bba048b07859a0b8e31ee5dca1cbaf`, ILogSink `28fab48c75f36b07ee022a7614cdcb9c6fa2a685bd88e8a1222c95b0880b1b15`이며 후속4파일 원문 증거는 구현 담당이 보존한다.
+
+runtime/API·metadata/Inspector 문자열·실행 토큰·리터럴·수치·순서·수명·seed/canonical/PRNG·서버 writer를 모두 보존한다. 주석 정정을 새 컴파일/Unity/native/게임/빌드·TCQA 실행으로 보고하지 않으며16.13의 사용자 컴파일 보고는 직전 푸시 리비전의 별도 근거다. 상시문서·메모리·옛 Task/History·AI보류·6VFX삭제보류는 이4소스 묶음에서 변경하지 않는다.
+
+### 2.23 자율 후속: 문서 검사기 토픽의 과거 한계와 현재 상태 구분
+
+메인이 승인한 정확1토픽 `.claude/agent-memory/game-programmer/check-docs-tool.md`만 대상으로, `Known limitation — 33 rules are invisible to the checker (UNRESOLVED)` heading 직후에 짧은 English current-status note1개를 추가한다.8월25일의 원본문·heading·anchor는 그대로 보존하며 과거 한계를 현재 결함으로 재개하지 않는다. WORKFLOW [11]의 현재 검사 범위와 현행 parse_rule_docs/ID parser가 권위 근거다. 메인과 문서 담당이935~970/823~829를 직접 읽고 독립 함수호출에서 Map5/RandomMap19/Upgrade13 정의와 정의 없는 문서도 등록됨을 확인했다.
+
+추가할 정확 문구는 다음과 같다: **Current status (2026-10-24):** The 2026-08-25 limitation below is historical. The current `parse_rule_docs()` registers every rule document, and `RULE_ID`/`RE_DEFINITION` support numeric, subnumber and letter IDs. The current check includes Map, RandomMap and Upgrade definitions; its latest scope output and `Assets/_Project/Docs/WORKFLOW.md` [11] govern coverage. This supersedes the historical unresolved status only; it does not certify gameplay or implementation correctness.
+
+쓰기 전 원문 snapshot/SHA를 보존하고 정확 note삽입을 역복원한 전체 raw동일·기존 heading/anchor보존을 확인한다. 메모리 보호기준선은 도구 재측정에서 감소0/증가만 확인한 뒤 `python3 Tools/check_docs.py --update-baseline`으로 반영한다. 직접 baseline JSON편집·감소 반영·다른 메모리/Status/Roadmap/옛TaskHistory 수정은 없다. Research/Plan의 이번 계획·결과 기록만 함께 갱신한다. 이 사실 안내를 새 컴파일·게임검증으로 해석하지 않고 직전 푸시의 사용자 컴파일 보고는16.13 별도 축으로 유지한다.
+
+### 2.24 자율 후속: TDD 초기 골드 현재 소비 설명2곳 정정
+
+잔여 TDD 직접읽기에서927행 ResourceUseCase 역할의 `맵 InitialGold 적용`과1066행 `현재 경기 초기 골드는 맵의 InitialGold가 권위`가 현재 소비와 어긋남을 확인했다. 메인도 해당2곳과 Setup457/GameConfig125/ROADMAP56/Status22를 직접 대조해 사실 정정 후보를 선정했다. 정확1문서 `Assets/_Project/Docs/TechnicalDesignDocument.md`의2물리행만 대상으로 아래 문구를 기록하며 메인 전체계획검토·별도 신호 뒤 문서 담당이 수정한다. 근거는 TDD 현재 구조 설명 책임과 ROADMAP의 InitialGold 실제 연결 후속·Status의 생성/전송/실제 소비 구분이다. 규칙·경제 계약을 바꾸는 계획이 아니다.
+
+-927행 표: `팀별 골드 관리 (맵 InitialGold 적용, 차감/추가/조회)`를 `팀별 골드 관리 (초기화, 차감/추가/조회)`로 교체한다.
+-1066행 문단: `현재 초기 자원은 GameConfig.StartingGold를 ResourceUseCase에 전달한다. 맵 InitialGold의 생성·전송과 실제 시작 자원 연결은 별개이며 후자는 ROADMAP의 경제 후속 범위다. 별도의 맵 테스트 모드 분기를 두지 않는 계약을 유지하고 경제 설정의 기본값·fallback과 경기 맵 적용을 구분한다.`로 기존 설명2문장만 교체한다. 기존 StatsReference/네트워크 TDD/필드제거 당시 History 링크3개는 그대로 둔다.
+
+실제 ResourceUseCase43~48은 주입받은 startingGold로 Blue/Red를 초기화하고 Setup457은 `_config.StartingGold`를 전달한다. GameConfig125의 getter를 확인했으며 맵 InitialGold로 이 값을 덮어쓰는 경로를 Bootstrap 검색에서 확인하지 못했다. 생성/전송값이 존재함과 실제 자원 소비가 연결됨을 구분한다. 수치·코드·기획/밸런스·규칙·옛Task/History·다른 메모리는 수정하지 않는다. 변경 전 전체 원문/SHA를 보존하고 정확2치환 외 fullraw동일·기존링크보존을 검증한다. 새컴파일/게임실기·전체 의미감사 완료를 주장하지 않는다.
+
+### 2.25 자율 후속: 광산 표현 구독과 건물 배치 UI 파괴 수명2소스 정리
+
+메인이 선정한 `Presentation/Grid/HexGridRenderer.cs`와 `Presentation/UI/BuildingPlacementUI.cs`의 구독 수명만 정리한다. 근거는 GameSystemRules_MatchFlow.md 규칙14의 재경기 맵 교체/기존 흐름 유지, GameSystemRules_UI.md 「공통 UI 규칙」 규칙5의 overlay 단일 소유/점유와 반납 짝, GameSystemRules_BuildingPanelsUI.md 「건물 배치 패널 UI」 규칙2·3의 열린 동안 골드 색상 재평가다. 문서 담당이 해당 원문·현재 renderer 구독/재렌더/딕셔너리 조회와 배치UI Show/Close를 직접 읽었다. 아래는 코드 전 계획이며 메인 전체 검토/별도 GO 뒤 전문 구현한다.
+
+| 파일(Assets/_Project/Scripts/ 기준) | 허용 변경과 보존 |
+|---|---|
+| Presentation/Grid/HexGridRenderer.cs | private bool `_goldMineEventsSubscribed`1개 추가. SubscribeGoldMineEvents 진입 시 이미 true면 return, 최초 정상 구독 시 true 설정. 기존 OnBuildingPlaced/OnBuildingDied의2 Subscribe/AddTo(this) 본문은 그대로 유지한다. callback은 grid를 캡처하지 않고 현재 `_goldMineObjects`를 조회하므로 renderer수명1회 바인딩으로 이후 재렌더의 새 광산을 처리한다. ClearGrid에서 bool을 초기화하지 않는다 |
+| Presentation/UI/BuildingPlacementUI.cs | private OnDestroy1개에서 `_resourceSubscription?.Dispose(); _resourceSubscription = null;`만 수행한다. Close를 호출하지 않는다. 현재 Close는 열림 여부와 관계없이 공유 overlay 점유를 반납하므로 파괴 시 호출하면 타 화면 점유를 깎을 수 있다. Show/Close·색상·overlay·입력/팝업 동작은 그대로 둔다 |
+
+전문 소스추적 전달: 싱글 GameEndUI1263 LoadMap→Bootstrap Map175 ClearAll372~428은 renderer를 파괴하지 않고, RenderGrid189→ClearGrid248은 자식만 파괴/딕셔너리clear, Map343→RenderGoldMines459→497→Subscribe519~538에서 static2구독이 누적된다. Bootstrap79 동일 renderer필드와 GameEvents1044/1055 staticSubject가 수명 근거다. 문서 담당은 renderer248~257/459~538/548~568을 직접 읽고 callback의 현재 딕셔너리 조회를 확인했으며 상위 전체경로는 전문 전달 근거로 구분한다. 배치UI308~311의 static ResourceRx 구독은 Close442~443에서만 해제돼 열린 채 씬 파괴 시 남는 수명 문제다. 실기 재현은 없으며 소스상의 수명 문제와 실행 관측을 구분한다.
+
+쓰기 전2소스 전체원문/SHA snapshot을 보존하고 허용 bool/guard/flag·OnDestroy disposal만 역복원한 fullraw동일, 기존 구독 callback/AddTo(this)·API/직렬화·meta·표현수치/리터럴·overlay/권위 불변을 검증한다. 규칙/수치/자산/메모리/옛TaskHistory 변경이나 새컴파일/Unity/native/게임/빌드·TCQA 실행은 없다. AUD-017후속AI보류와6VFX삭제보류는 유지한다.
+
+### 2.26 자율 후속: 폴백 재생성 참조5문서와 생성문구 정합화
+
+현재 `_Reference/MapTemplateSource/MapTemplateSource_{Canyon,FullyOpen,ObstacleOpen,Outer,ThreeLane}.md`5문서45~46행은 삭제된 Editor 재생성 메뉴를 안내하고 Domain/Map/MapFallbackTemplateFactory.cs794~796의 Append가 같은 문단을 생성한다. 문서 담당이5문서 전문·Factory770~810을 직접 읽었고 Assets/Editor 메뉴/파일 검색에서 해당 Builder와 메뉴를 찾지 못했다. 메인도 해당 위치·메뉴 검색 결과를 독립 확인했다. WORKFLOW [5-2]의 최소 유지 기준과 필요할 때 도구를 다시 작성하는 방침이 근거다. 기존 도구 삭제를 취소하거나 새 도구를 만드는 계획이 아니다.
+
+메인 전체계획검토/별도 GO 뒤 코드1파일은 game-programmer가, 문서5개는 document-manager가 동기화한다.5문서의 「다시 만드는 법」 본문 문단만 다음 정확 문구로 교체하고 Factory의 해당 문단 출력3개 문자열도 같은 본문을 내도록 수정한다:
+
+> 현재 저장소에는 폴백 템플릿 재생성용 Editor 메뉴가 포함되어 있지 않다. 재생성이 필요하면 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 직접 호출하는 도구를 별도로 준비한다. Unity 없이도 이 클래스를 호출할 수 있다.
+
+Factory 해당 Append문 구성은 출력문단 문자열만 변경하고 newline 문맥을 보존한다. 메서드/API·맵 생성/검증·seed/PRNG/canonical·선택/폴백/InitialGold 로직과 기존 .bytes·크기/해시/날짜/기타수치를 보존한다. 문서별 나머지본문·수치·링크·기존meta를 보존하며 기존 메뉴 복원/실행·도구 신규 구현·실제 재생성은 하지 않는다.
+
+쓰기 전6파일 전체원문/SHA snapshot을 보존하고5문서 정확문단치환 역복원fullraw동일, 코드 허용문자열3개 외 fullraw/실행토큰/기존리터럴동일·기존meta/바이너리보존을 확인한다. 새 로그/컴파일/Unity/native/빌드/게임·TCQA 실행 없이 안내 정정의 정적 증거만 기록한다. Research/Plan 외 규칙/수치/자산/메모리/옛TaskHistory·AUD-017후속AI보류/6VFX삭제보류는 변경하지 않는다.
+
+### 2.27 자율 후속: 에셋 프롬프트 역할의 현행 맵 규격 사본1행 정정
+
+`.claude/agents/asset-prompt-crafter.md`49행의 현재 역할 컨텍스트 `- **기본 맵**: FlatTop 10×29`를 정확 ``- **기본 맵**: 대전 맵 규격은 `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md`를 참조한다.``로 교체한다. 문서 담당이 역할 전문·RandomMap 「무작위 맵 생성 규칙」 규칙1의11×21·GameConfig.cs FlatTop 기본11×21을 직접 읽었다. 이 행은 과거 검증 기록이 아닌 현재 제작 컨텍스트이고 기획수치를 바꾸지 않고 원본으로 안내한다. 메인이 후보 타당성을 확인했으며 전체 계획검토/별도 GO 뒤 문서 담당이 정확1행만 수정한다.
+
+쓰기 전 전체원문/SHA snapshot과 정확1치환 역복원fullraw동일을 보존한다. 나머지 역할/에셋조건·메모리·규칙·수치·코드·옛TaskHistory는 변경하지 않는다. agents는 check_docs의 기본 memory-root `.claude/agent-memory` 밖이므로 토픽 메모리 보호기준선의 행수에 영향이 없다. baseline도구실행/JSON수정은 하지 않고 check_docs0/diffcheck0을 확인한다. 새컴파일/Unity/게임/TCQA실행 없이 현행 사실 안내만 정정한다.
+
+### 2.28 자율 후속: 이동 중심·확정 표현 소유·힐 VFX 설명3소스 정정
+
+전문 담당이 선정하고 메인이 계획 기록을 요청한3소스 주석만 정정한다. 문서 담당이 실제 oldspan·본문을 직접 읽었다. 근거는 GameSystemRules_Units.md 「이동 규칙」 규칙2의 중심 도달/소비 뒤 outgoing 선분 회전, GameSystemRules_UnitCombatSynchronization.md NET-FACING-001의 서버 checkpoint/trajectory 권위·NET-PRESENT-003의 정규 결과 키/표현 조정자, 같은 Units 「특수 공격 시스템 규칙」 규칙37의 HoT 종료 시 현재HP텍스트 계약이다. 아래 정확 문구를 코드 전에 기록하고 메인 전체계획검토/별도 GO 뒤 전문 담당이 수정한다.
+
+| 소스(Assets/_Project/Scripts/ 기준) | 정확 허용 주석 교체 |
+|---|---|
+| Application/Combat/Sequencing/UnitMovementContracts.cs |750행 XML원칙1 `현재 waypoint 가까이에서는 다음 선분을 미리 보아 60도 방향 점프를 완만하게 만든다.`→`현재 waypoint 중심까지 현재 선분을 따라 진행하고, 다음 선분 방향은 그 중심을 소비한 뒤 적용한다.`. 원칙2~4와816~823의실제toWaypoint/desiredTangent본문불변 |
+| Application/Combat/Sequencing/UnitAttackResultPresentationShadow.cs |821행 `// Comparison-only migration stage. This object has no gameplay or visual emitter callback.`→`// 확정 공격 표현 조정자와 소유권 조회를 공유한다.`. RegisterAuditEligibility992~993 XML2행은 `UnitView 초기화 시 manifest/runtime 계약의 채점 자격을 등록한다. 이 표는` / `read-only bridge 진입 분류와, 확정 표현 emitter 활성 시 OwnsAttacker의 소유권 판정에 쓰인다.` / `HitPresentationQueue는 이 판정으로 Legacy 중복 방출을 건너뛰며,` / `이 등록은 HP 적용을 수행하지 않는다.`의4행으로 교체 |
+| Presentation/UI/FloatingHpTextSpawner.cs |ShowHeal XML287~289의힐VFX없음/미래PlayUnitHeal안내3행만 `이 메서드는 회복 HP 텍스트만 표시한다. BloomFairy의 지속 힐 VFX는` / `BloomHealEffectPresenter가 별도 채널 상태를 받아 EffectManager를 통해 재생한다.`의2행으로교체.284~285의현재HP표시문자열/규칙37계약은그대로보존 |
+
+문서 담당은 Shadow825~828의UsesAuthoritativeEmitter+eligibility소유권과 HitPresentationQueue406~414/497의중복Legacy방출return, Bootstrap.Map274~281의Bloompresenter배선·Presenter108의StartBloomEffect·EffectManager383의GetHeal(BloomFairy)을 직접 대조했다. 최초 전달의Floating284~286근사범위는 실제oldspan287~289로 바로잡으며 허용범위를 넓히지 않는다.
+
+쓰기전3전체원문/SHA snapshot을보존하고정확주석치환역복원fullraw동일·리터럴보존본문토큰/해시동일·기존public/API/직렬화/meta/자산/HPauthority/PRNG불변을확인한다. 새수치/규칙/로그·compile/Unity/native/게임/빌드·TCQA실행은없다.
+
+추가정확근거를문서담당도직접대조했다: Units U-MOV-ALIGN 항1·3은현재중심진행/중심소비뒤outgoing선분입력을직접규정한다. 동기화 NET-ACTION-IDEMPOTENT·NET-PRESENT-003의단일writer전환/최대한번표현·NET-AUTH-002의HP즉시수렴과표현예약분리, Units 「특수 공격 시스템 규칙 — 힐러 확장」 규칙34의actual provenance/current-state/단일presenterloop소유도각주석의정확근거다. 새writer승격이나전체migration완료를추가하지않는다.
+
+### 2.29 자율 후속: Bloom Editor fixture의 네트워크 상태 인수2행 정정
+
+`Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs`의기존BloomNetworkReadyFixture만수정한다. NetworkContext.Set의실제서명은 `(bool isServer, bool isActive)`이며문서담당도NetworkContext163~166과fixture1655~1726을직접읽었다. 메인이선정한정확2행은Client분기1686의 `NetworkContext.Set(true, false);`→`NetworkContext.Set(false, true);`, finally1719의 `NetworkContext.Set(netActive, netServer);`→`NetworkContext.Set(netServer, netActive);`이다. Host1667의true/true와나머지fixture본문/assertion은그대로둔다.
+
+기존Client를active=false/server=true로잘못설정한표현과종료시원래값복원인수순서를실제서명에맞춘다. 근거는 GameSystemRules_UnitCombatSynchronization.md NET-AUTH-001의서버권위/클라이언트표현분리와동일역할상태를꾸미는기존fixture계약이다. runtime/생산/HP수정이나새fixture/검사진입점추가는아니다. 메인전체계획검토/별도 GO뒤game-programmer가구현한다.
+
+쓰기전전체원문/SHA snapshot을보존하고정확2인수치환역복원fullraw동일·기존assertion/try-finally/서비스복원/meta보존을확인한다. 메뉴/fixture/compile/Unity/native/게임·TCQA는실행하지않고소스정정/정적대조만기록한다.
+
+### 2.30 자율 후속: 연구 시작·취소RPC의 실제 연구소 권위 검증
+
+`Assets/_Project/Scripts/Infrastructure/Network/NetworkUpgradeController.cs`1파일에서sender팀인수검증에실제건물검증을추가한다. GameSystemRules_Upgrade.md규칙8의연구소파괴100%환불/서버권위·규칙9의연구소건물대상RPC·규칙13의건물유지수동취소/buildingId귀속과TechnicalDesignDocument_Network.md 「치팅 방어」의모든행동서버검증이근거다. 문서담당이해당원문과양RPC180~230/260~287을직접읽었다. 메인전체계획검토/별도GO뒤전문담당이구현한다.
+
+private bool helper는 `IGameServices.GetBuildingPlacement()?.GetBuilding(buildingId)`로조회해 `building != null && building.IsAlive && building.Type == BuildingType.Research && building.Team == expectedTeam`만판정한다. RequestResearchServerRpc의기존team==sender검증직후/TryStartResearch골드차감전에helper가false면기존 `SendResearchFailed(senderClientId, "연구 불가")`후return한다. RequestCancelResearchServerRpc의기존team검증직후/CancelResearchByBuilding취소환불전에helper가false면return한다. 기존유효착수/환불/타이머/완료RPC/이벤트순서·수치/enum/API/직렬화는보존한다.
+
+전문담당소스추적전달: NormalInput342~348자기팀/live→Research패널356~363, ResearchPanel175~178 Research확인/191team→268/292currentID+team이다. 파괴는Combat1967/1988·Placement330/333의OnDied→Remove,Setup469~476의권위/Research가드→UseCase355~357 OnLabDestroyed→379~403의원소유팀100%환불별도경로다. 따라서죽은labRPC거부가파괴환불을대신하거나막는설계가아니다. BuildingPlacement286~290 IDlookup/null·BuildingType.Research4공통종족·BuildingData45 Hp>0의IsAlive도전문근거이며실기재현은없다.
+
+쓰기전전체원문/SHA snapshot을보존하고허용helper+2guard역복원fullraw동일·다른C#/meta/자산보존을확인한다. 새로그/실패UI/밸런스정책·규칙/수치/자산/메모리/옛TaskHistory수정·신규도구·compile/Unity/native/게임/빌드·TCQA실행은없다. AUD-017후속AI보류/6VFX삭제보류는유지한다.
+
+### 2.31 자율 후속: 생산 RPC4곳의 실제 생산건물 소유권과 음수 취소 인덱스 검증
+
+`Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs`1파일만수정한다. 전문담당의구체안과현RPC4곳·UnitProductionUseCase의등록/GetState/Enqueue/CancelQueueAt/CancelPendingSlot·ProductionState.Team의get-only정의를문서담당도직접읽었다. 기존teamIndex==expectedTeam검증은요청인수와발신자만대조하므로다른팀barracksId를막는실제상태검증을추가한다. 근거는TechnicalDesignDocument_Network.md「치팅 방어」의모든행동서버검증, GameSystemRules_BuildingPanelsUI.md「생산 패널 UI」규칙6/8/23의기존슬롯과취소환불계약이다. 새팀배정/슬롯/환불정책은추가하지않는다. 메인전체계획검토/별도GO뒤전문담당이구현한다.
+
+| RPC | 정확 허용 변경 |
+|---|---|
+| RequestEnqueueServerRpc | 기존`var state = production.GetState(barracksId);`와null가드완료뒤/비용계산전에`if (state.Team != expectedTeam) { SendEnqueueFailed(senderClientId, "팀 불일치"); return; }`삽입. 기존실패문구재사용 |
+| CancelSlotServerRpc | production null가드뒤/CancelQueueAt전에`var state = production.GetState(barracksId);`와`if (state == null || state.Team != expectedTeam || slotIndex < 0) return;`삽입 |
+| SetRallyPointServerRpc | production null가드뒤/HexCoord target생성전에`var state = production.GetState(barracksId);`와`if (state == null || state.Team != expectedTeam) return;`삽입 |
+| ToggleAutoServerRpc | production null가드뒤/unitType변환전에같은state조회/null·team가드삽입. 기존성공후`var state = production.GetState(barracksId);`만`state = production.GetState(barracksId);`로교체해동일scope중복선언을막고성공후재조회/알림순서를보존 |
+
+등록된ProductionState는건물.Team을보존하며Enqueue는그state를기준으로차감한다. CancelQueueAt는0이아니면slotIndex-1을pendingIndex로넘기고CancelPendingSlot는상한만검사해음수접근가능성이있다. RPC입구의slotIndex<0은일반음수와int.MinValue의뺄셈전거부를포함하며실제예외재현결과는아니다. slotIndex상한·enum·종족/유닛종류검증은이번범위에추가하지않는다.
+
+쓰기전전체원문/SHA snapshot을보존하고허용4가드/state선언·기존재조회1치환을역복원한fullraw동일과다른소스/meta/자산불변을검증한다. 기존sender/team검증·로그/실패문구·수치/API/직렬화·정상소유생산/취소/랠리/자동생산흐름을보존한다. 새로그/정책/밸런스·규칙/수치/메모리/이력수정·컴파일/Unity/native/게임/빌드·TCQA는없다. AUD-017후속AI보류·6VFX삭제보류를유지한다.
+
+### 2.32 마지막 사실 정정: 기존 주석6파일·Inspector Tooltip1파일
+
+마지막묶음은전문담당이제시한 `/tmp/hexiege_plan232_proposal.json`의정확7파일·14치환만수행한다. artifact는코드전각전체SHA와oldspan/newspan을포함하며그문구외추가후보탐색/수정은하지않는다. 메인전체계획검토/별도GO뒤전문담당이구현한다. 문서담당은proposal전문과Coordinator/NCC의실제승인·취소→writer입력/재진입본문,SkillExecutorRegistry의C등록과GlobalStatusChangeExecutor의4필드소비,check_docs의첫폴더판정·LogRules현행부담일반화금지를직접대조했다.
+
+| 파일 | 허용 정정·근거 |
+|---|---|
+| Infrastructure/Network/UnitAttackShadowCoordinator.cs | 클래스XML2치환. 서버공격회차와Legacy타격예약의권위판정연결,Impact승인·취소가Legacy단일피해writer실행조건이며snapshot/result는진단·복제·표현에도전달하고직접HP적용은하지않는실제범위로설명. ResolveLegacyWriterAuthorization/취소소비와NCC writer입력근거 |
+| Infrastructure/Network/NetworkCombatController.cs | XML3치환. 생성개체identity가공격회차·결과키/네트워크scope에쓰임,fixture우선/NGO/비활성시Unity시계가실제예약·Impact판정에쓰임,재진입provisional표현과TickCombat정지·정렬/timeline뒤실제ExecuteAttack을분리하는현본문으로정정 |
+| Infrastructure/Config/SkillDefinition.cs | `_statusKind` Tooltip문자열정확1개를`(C) 상태 종류(정수 코드). GlobalStatusChangeExecutor가 StatusEffectKind로 변환해 사용한다.`로교체. Skills규칙13의기존타입C구현사실안내 |
+| Application/Skill/SkillData.cs | 타입C제목/StatusKind/Magnitude/TargetsAllies의Phase1미사용·Phase2예정설명4곳만실행기의현재소비설명으로교체. 필드/API/값·Duration·규칙13참조는보존 |
+| Assets/Editor/Tools/LogcatCapture.cs | 과거54KB근거의2행1span을과거측정예시/실제크기는기록량·파일수에따름/현재크기나장기보관비용으로일반화하지않음으로정정. 과거수치54KB와보존기간·기존수동정리안내/삭제/파일충돌로직은보존. LogRules현행계약근거 |
+| Tools/check_docs.py | 제외설명1행만`.claude/`상대경로첫폴더이름으로루트직속하위트리를제외한다고정정. 함수본문/CLI/검사범위는보존 |
+| Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs | 잘못붙은Bloom/Assault XML2span만각실제HoT채널/presenter/pool검사와Sniper생산클립·30fps1:22/3초검사설명으로교체. fixture본문/assertion/자산/수치/진입점은보존 |
+
+근거규칙은기존UnitCombatSynchronization NET-ACTION-IDEMPOTENT/NET-PRESENT-003/NET-AUTH-002의writer·표현분리,Skills규칙13,LogRules현행보관안내다. 새writer승격·migration완료·정책변경을뜻하지않는다. 쓰기전전체원문/SHA를보존하고14정확치환역복원fullraw동일,주석파일의리터럴보존실행토큰/해시동일과Python AST동일,Tooltip소스는허용문자열1개역치환후본문동일을검증한다. 기존API/직렬화/meta/자산/동작·로그·상수·balance를보존한다. 넓은구조분리/unusedqueue·private값삭제/추가보안확장·새기획/수치/이력수정·컴파일/Unity/native/게임/빌드·TCQA는없다. AUD-017후속AI보류·6VFX삭제보류를유지하고이묶음뒤장부/문서검사/인계로마감한다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -603,3 +732,59 @@ UnitView.cs46행의 낡은 주석을 현재 interface 계약 설명으로 정정
 ### 7.24 마지막 범위 동기화와 미완 인계(2026-10-24 KST)
 
 Research16.12에4scratch의최신읽기범위합집합재계수·구조스캔/직접읽기/실행검증구분·현재gitstatus전체경로/종류별수를기록했다. 원snapshotSHA를덮어쓰지않고 마지막추가5소스·3문서·기존Task2기록을이전누적변경과구분했다. 전체의미감사/미독범위·AI경제차감/종족보너스/람다Conditional미확정후보·AUD-017후속AI보류·6VFX삭제보류·실기NOT RUN을유지한다. 추가상시문서/메모리/Status/Roadmap/옛TaskHistory수정·신규기획/TCQA/Gitmutation은수행하지않는다.
+
+### 7.25 직전 푸시 후 컴파일 확인·잔여 감사 계속(2026-10-24 KST)
+
+사용자 「컴파일 에러없으니 다음진행하자」로 직전71경로 커밋·푸시 `1a69402ce039c4fd1c34373babe048ed37e36e4f` 이후 컴파일 오류 없음 보고를 받았다. Research16.13의 검증표를 최신 근거로 삼으며 플랫폼·로그·전체 게임 실기 증거 미제공과 에이전트 새 실행 없음을 구분한다. 과거 각 회차의 NOT RUN은 당시 실행 기록으로 보존한다.
+
+직접 확인한 후속 착수 상태는 `work`/위 HEAD/clean이며 이번 Research/Plan 기록 이후 추가 커밋·푸시는 아직 하지 않았다.7.24/Research16.12의71경로 목록은 직전 회차의 과거 상태다. 최신 소스337개 전체 의미 감사는 미완이며 기존 전면 진행·Task 기록 승인으로 남은 본문을 계속 읽는다. 구체 후보 수신→메인 검토→2.22 이하 코드 전 계획 기록→메인 구현 신호 순서를 지킨다. AUD-017 후속 AI 보류·6VFX 삭제 보류·게임 정책/밸런스를 유지하고 새 Task/TCQA·Status/Roadmap/메모리·옛 Task/History는 이번 컴파일 확인으로 수정하지 않는다.
+
+### 7.26 검사기 토픽 현재 상태 안내1곳 결과(2026-10-24 KST)
+
+메인 승인2.23을 먼저 기록한 뒤 check-docs-tool.md의과거한계heading직후 English note1곳만 추가했다. 과거원문/SHA·정확삽입역복원fullraw동일·기존heading/anchor보존은 Research16.14와 `/tmp/hexiege-plan223-comparison.json`으로 연결한다.126→128행이며 baseline은 도구 직전 감소0/game-programmer+2행·파일수동일 확인 뒤 `--update-baseline` exit0으로 증가만 반영했다. 다른 토픽·직접JSON편집·Status/Roadmap/옛TaskHistory 변경은 없다. 현재parser의실제정의확인과검사범위안내일뿐 새컴파일/게임실기증거가아니며16.13사용자보고를별도유지한다.
+
+### 7.27 4소스 주석 정정 결과(2026-10-24 KST)
+
+2.22의4C#를 메인 전체계획검토/구현신호 뒤 전문 담당이 수정했다. Research16.15의정확파일/oldspan·전후행수와comparison/diff/verify artifact를근거로기록한다. 코드전전달근사행번호는실제span으로정정했다. 문서담당은전체diff/JSON을직접읽었고4파일토큰/리터럴동일·변경행전부주석·전체raw역복원·source/meta690중허용4만변경/나머지686동일을전문검증근거로구분했다. 메인독립검토와새컴파일/게임실기는별도축이며새실행은없다. runtime/API/metadata문자열·수치·정책·자산·AI후속보류/6VFX삭제보류는유지한다.
+
+메인 독립 결과도 수신해 Research16.15에 연결했다. `/tmp/hexiege-plan222-main-independent.json`은4파일변경diff행모두주석·전체행주석제외원바이트동일·337C#중정확4변경333동일/신규없음을 확인한다. 전문 scanner와 별도 방식의 정적 대조이며 새컴파일/게임실기 증거가 아니다.
+
+### 7.28 TDD 초기 자원 설명2곳 정정 결과(2026-10-24 KST)
+
+2.24를 메인 전체계획검토/구현신호 뒤 반영했다. TDD927/1066의 정확2치환만 수행하고 기존3링크·1202행·다른본문을 보존했다. Research16.16과 `/tmp/hexiege-plan224-docs-before.json`/`-tdd-before.raw`/`-comparison.json`/`-docs.diff`가 전체원문/SHA·역복원raw동일 근거다. 현재StartingGold소비와 InitialGold실제연결후속을 구분했으며 check_docs문제0/diffcheck0이다. 메인독립최종검토는별도수신대기이며 코드/수치/규칙/자산/다른메모리/옛TaskHistory 변경·새컴파일/게임실기는없다. AUD-017후속AI보류·6VFX삭제보류를유지한다.
+
+메인 독립 `/tmp/hexiege-plan224-main-independent.json`을 수신해 직접 읽었다. 정확2치환 외 원문동일·모든Markdown링크보존·변경행927/1066·1202행을 별도 확인한 정적 근거이며 새실행증거가 아니다.
+
+### 7.29 폴백 재생성 안내5문서 정정 단계(2026-10-24 KST)
+
+2.26 전체계획 메인검토·문서GO 뒤5참조문서의현행재생성안내문단만교체했다. Research16.17·`/tmp/hexiege-plan226-docs-before.json`/`-docs-comparison.json`/`-docs.diff`에원문/SHA·정확치환·5raw역복원동일·각53→52행과다른본문불변을기록했다. check_docs0/diffcheck0이며Factory1소스는별도전문구현/메인검토대기다. 문서담당코드쓰기·바이너리재생성·메뉴복원·새도구/컴파일/Unity/게임/TCQA실행은없다.
+
+코드 전문 구현과 메인 독립 검토도 완료됐다. 문서 담당은 Factory794~796의 최종3Append와 `/tmp/hexiege-plan226-code-comparison.json`·`/tmp/hexiege-plan226-main-independent.json`을 직접 읽었다. 전문 증거는 허용3literal역복원fullraw동일·Append103개보존·기존meta3268/맵binary5보호이며, 메인 독립은 정확3literal외원문동일·Append3내용추출과5문서실제문단일치·맵생성로직무변경이다. 문단을2행에서1행으로 합쳐 출력 newline escape는55→54로 줄었으며 다른 출력은 보존했다. 실제Factory실행·바이너리재생성·컴파일/게임실기 증거가 아니다.
+
+### 7.30 광산 표현·배치 UI 구독 수명2소스 정리 결과(2026-10-24 KST)
+
+2.25 메인계획검토/GO뒤전문구현과메인독립대조를완료했다. Research16.18·`/tmp/hexiege-plan225-comparison.json`·`-main-independent.json`이2소스삽입만/기존원문보존·역복원fullraw동일·기존callback/AddTo/Close/overlay불변근거다. privatebool/guard/구독뒤flag와OnDestroyDispose/null만추가했고public/직렬화/meta/표현수치/정책은보존했다. compile/Unity/게임·TCQA실행은없다.
+
+### 7.31 에셋 역할의 현행 맵 규격 안내1행 결과(2026-10-24 KST)
+
+2.27 전체계획검토/GO뒤asset-prompt-crafter역할49행만원본규칙안내로정정했다. Research16.19와`/tmp/hexiege-plan227-before.json`/`-comparison.json`에120행원문/SHA·정확1행치환·역복원raw동일을기록했다. baseline영향/갱신없음·check_docs0/diffcheck0이며메인독립`/tmp/hexiege-plan227-main-independent.json`도정확1행치환외나머지원문동일을확인했다. 새수치/코드/정책/다른메모리·컴파일/실기/TCQA변경은없다.
+
+### 7.32 주석3소스·Bloom fixture·연구RPC 구현 결과(2026-10-24 KST)
+
+2.28~30의메인전체검토/GO뒤전문담당이정확5소스를구현했다. Research16.21에실제변경·근거경계를기록했다. `/tmp/hexiege_code_finish_20261024/`의5원문/SHA·허용치환역복원동일·주석3토큰동일/control·보호5491파일중정확5변경과메인의`/tmp/hexiege-plan228-230-main-independent.json`각독립검토/역복원동일을직접읽었다. fixture2인수만정정했고연구RPC는실제live/Research/소유팀검증helper와mutation전2guard만삽입했다. 기존public/API/직렬화/meta/자산·파괴환불경로를보존한다. 실제컴파일/fixture/Unity/native/게임/빌드·TCQA는NOT RUN이며직전사용자컴파일보고의검증범위를확대하지않는다.
+
+### 7.33 생산RPC4곳 소유권·음수슬롯 검증 결과(2026-10-24 KST)
+
+2.31코드전계획/메인전체검토/GO뒤NetworkProductionController.cs1파일의4guard/state조회와Toggle성공후var제거만구현했다. Research16.22와`/tmp/hexiege_plan231_20261024/`에전후전체원문/SHA·정확diff·허용5치환역복원fullraw동일·5491모집단중해당1파일만변경을기록했다. 문서담당도diff/receipt와메인독립`/tmp/hexiege-plan231-main-independent.json`을직접읽었다. 독립결과는정확역복원raw동일/4guard가mutation앞/음수인덱스뺄셈전거부를확인한다. 기존sender팀검증·정상소유흐름·성공후재조회/알림·로그/문자열·API/직렬화/meta/자산보존을유지한다. 새컴파일/Unity/native/게임/빌드·TCQA는NOT RUN이고실제예외/공격재현증거로확대하지않는다.
+
+### 7.34 마지막7파일 사실 설명 정정 결과(2026-10-24 KST)
+
+2.32전체계획/정확proposal메인검토·GO뒤7파일14치환을구현하고소스를동결했다. Research16.24와`/tmp/hexiege_plan232_20261024/`에전후원문/SHA·역복원fullraw동일·5C#주석토큰동일/Python AST동일/Tooltip정확1문자열외토큰동일·4823보호모집단중정확7변경을기록했다. 문서담당도전체diff/receipt와메인독립`/tmp/hexiege-refactoring-final-main.json`을직접읽어정확14치환/주석본문raw/PythonAST/Tooltip표시1문자열만변경을확인했다. InspectorTooltip표시변경을명시하고모든관측동작동일로확대하지않는다. 추가후보탐색/소스수정은끝내고장부·문서검사·인계만마감한다. 컴파일/Unity/native/게임/빌드·TCQA는NOT RUN이다.
+
+### 7.35 선정 묶음 마감과 미검증·보류 인계(2026-10-24 KST)
+
+검토대상경로누락해소와선정된2.22~32의구현/문서정정을마감했다. Research16.23~25가리비전별읽기범위·정확현재30경로/유형·known open·실행한계·미커밋/미푸시상태의상세원본이다. 메인최종독립은Assets C#337집합추가삭제0/체크포인트이후18C#변경,선택보호meta/자산3617개SHA동일을확인한다. 이모집단을다른회차보호수와혼용하지않는다. 현행문서/역할전문읽기와광범위이력/메모리미독,직접읽기와전체의미/모든기능검증을구분한다.
+
+정확후속30경로는C#18/Python1/문서·메모리·역할10/기준선JSON1이며모두기존추적파일unstaged수정이다. 새커밋/푸시는하지않았다. 기존사용자컴파일보고는직전1a69402c묶음이고이번후속새컴파일/Unity/native/게임/빌드·TCQA는NOT RUN이다. 전체리팩토링/모든역사·주장/게임기능완료로승격하지않는다. queue/private값·Logcat희귀충돌등잔여후보는기록만보존하고AUD-017후속AI/6VFX삭제보류를유지한다. 추가소스수정/후보탐색없이인계한다.
+
+최종문서검사문제0/diffcheck0이며검사기제외Task2파일은별도상대Markdown링크1092개파일존재확인누락0/앵커포함0을확인했다. 정적검사나링크존재가모든의미/실행검증은아니다.

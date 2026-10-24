@@ -791,9 +791,9 @@ namespace Hexiege.Domain
             text.Append("\n\n");
 
             text.Append("## 다시 만드는 법\n\n");
-            text.Append("Unity 상단 메뉴에서 **Hexiege > 무작위 맵 > 1. 폴백 템플릿 5개 다시 만들기** 를 실행한다.\n");
-            text.Append("그 도구는 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 부를 뿐이므로, ");
-            text.Append("Unity 없이 그 클래스를 직접 돌려도 같은 결과가 나온다.\n\n");
+            text.Append("현재 저장소에는 폴백 템플릿 재생성용 Editor 메뉴가 포함되어 있지 않다. ");
+            text.Append("재생성이 필요하면 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 직접 호출하는 도구를 별도로 준비한다. ");
+            text.Append("Unity 없이도 이 클래스를 호출할 수 있다.\n\n");
 
             // 🔴 2026-09-14: 종전에는 여기에 「주의 — 테스트 모드와 해시」 절을 찍었다.
             //    맵 테스트 모드가 켜지면 조정자가 초기 골드를 5000 으로 덮어쓰므로 위 SHA-256 이

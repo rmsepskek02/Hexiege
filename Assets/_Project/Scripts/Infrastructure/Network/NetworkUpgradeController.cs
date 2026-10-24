@@ -220,6 +220,13 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            // 요청 인수만 믿지 않고 서버의 실제 연구소 생존·종류·소유 팀을 확인한다.
+            if (!IsOwnedLiveResearchBuilding(services, buildingId, expectedTeam))
+            {
+                SendResearchFailed(senderClientId, "연구 불가");
+                return;
+            }
+
             // 서버 권위: 검증 + 골드 차감 + 타이머 시작(내부에서 최대레벨/진행중/골드 검증).
             bool started = upgrade.TryStartResearch(team, group, stat, buildingId, resource);
             if (!started)
@@ -278,12 +285,26 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (team != expectedTeam) return;
 
+            // 다른 팀의 연구소나 파괴된 건물 ID로 연구를 취소할 수 없게 한다.
+            if (!IsOwnedLiveResearchBuilding(services, buildingId, expectedTeam)) return;
+
             // 서버 권위: 취소 + 골드 100% 환불(NetworkResourceSync가 클라에 골드 반영).
             bool canceled = upgrade.CancelResearchByBuilding(buildingId, resource);
             if (!canceled) return;
 
             // 요청 클라의 로컬 진행 표시를 정리하도록 통지(소유 클라만 진행 표시를 갖는다).
             SendResearchCanceled(senderClientId, teamIndex);
+        }
+
+        /// <summary>
+        /// 서버에 남아 있는 살아 있는 연구소가 요청자의 팀 소유인지 확인한다.
+        /// 연구 착수와 수동 취소가 동일한 건물 권위 조건을 사용하도록 한곳에서 판정한다.
+        /// </summary>
+        private static bool IsOwnedLiveResearchBuilding(IGameServices services, int buildingId, TeamId expectedTeam)
+        {
+            BuildingData building = services.GetBuildingPlacement()?.GetBuilding(buildingId);
+            return building != null && building.IsAlive
+                && building.Type == BuildingType.Research && building.Team == expectedTeam;
         }
 
         // ====================================================================

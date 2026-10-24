@@ -42,8 +42,7 @@
 
 ## 다시 만드는 법
 
-Unity 상단 메뉴에서 **Hexiege > 무작위 맵 > 1. 폴백 템플릿 5개 다시 만들기** 를 실행한다.
-그 도구는 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 부를 뿐이므로, Unity 없이 그 클래스를 직접 돌려도 같은 결과가 나온다.
+현재 저장소에는 폴백 템플릿 재생성용 Editor 메뉴가 포함되어 있지 않다. 재생성이 필요하면 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 직접 호출하는 도구를 별도로 준비한다. Unity 없이도 이 클래스를 호출할 수 있다.
 
 ## 폴백에서 유지되는 값과 교체되는 값
 

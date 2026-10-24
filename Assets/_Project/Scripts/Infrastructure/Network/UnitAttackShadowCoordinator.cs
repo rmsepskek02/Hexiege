@@ -8,11 +8,12 @@ using Hexiege.Domain;
 namespace Hexiege.Infrastructure
 {
     /// <summary>
-    /// Legacy 공격 옆에서만 동작하는 Tracer C 서버 coordinator다.
+    /// 서버 공격 회차와 Legacy 타격 예약의 권위 판정을 연결하는 coordinator다.
     /// 실제 Legacy 공격 시작마다 독립 UnitActionSequencer 회차를 만들고 예약이 그 회차를
     /// Impact 종료까지 소유한다. AttackSequenceId는 production 경계의 5도 Commit에서만 발급된다.
     /// 근거: U-TARGET-COMMIT, U-ATK-ALIGN, U-ATK-TIMELINE, U-IMPACT-TARGETLOCKED.
-    /// 이 클래스의 반환값은 진단/복제 전용이며 gameplay 분기나 피해 writer에 사용하면 안 된다.
+    /// Impact 승인·취소 결과는 Legacy 단일 피해 writer의 실행 조건으로 쓰이며,
+    /// 회차 snapshot과 결과는 진단·복제·표현에도 전달한다. 이 클래스가 HP를 직접 적용하지는 않는다.
     /// </summary>
     public sealed class UnitAttackShadowCoordinator
     {

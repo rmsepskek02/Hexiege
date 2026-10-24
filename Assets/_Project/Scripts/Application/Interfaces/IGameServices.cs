@@ -14,8 +14,8 @@
 //     - Infrastructure ↛ Bootstrap (역방향 의존 제거).
 //
 // 포함 멤버:
-//   Infrastructure/Network 파일들이 실제로 호출하는 UseCase Getter 10종 +
-//   네트워크 게임 생명주기 2종(StartNetworkGame, IsNetworkGameStarted).
+//   그리드·UseCase·유닛 팩토리 조회와 네트워크 게임 시작 및 시작 여부를 제공한다.
+//   Infrastructure/Network는 이 계약을 통해 현재 게임 서비스와 생명주기에 접근한다.
 //   GetConfig / GetGameEndUI / GetFlowFieldService는 Infrastructure 미사용 → 제외.
 //
 // Application 레이어 — Domain/Application 타입 참조 허용. Unity.Netcode 참조 금지.

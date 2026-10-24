@@ -2371,9 +2371,9 @@ namespace Hexiege.Infrastructure
             => !double.IsNaN(value) && !double.IsInfinity(value);
 
         /// <summary>
-        /// SpearMan UnitData 참조에 대응하는 Tracer A 생성 개체 식별자를 반환한다.
-        /// 처음 관측한 참조에만 새 번호를 발급하며, 이 값은 서버 프로세스 내부 진단용이므로
-        /// 게임플레이 상태나 네트워크 메시지에는 기록하지 않는다.
+        /// UnitData 참조에 대응하는 서버 공격 생성 개체 식별자를 반환한다.
+        /// 처음 관측한 참조에만 새 번호를 발급하고, 공격 회차·결과 키와 네트워크 표현 scope에 사용한다.
+        /// 같은 일반 유닛 Id가 재사용돼도 이전 생성 개체의 공격과 구분한다.
         /// </summary>
         private AttackerInstanceId GetOrCreateShadowAttackerInstance(UnitData unit)
         {
@@ -2389,8 +2389,9 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 서버에서 기록하는 Tracer A schedule/dispatch 시각의 기준인 NGO 서버 시간을 반환한다.
-        /// 네트워크가 아직 시작되지 않은 경우에만 Unity 실행 시간을 사용하며, 게임 판정에는 사용하지 않는다.
+        /// 서버 공격 예약·Impact 판정·표현 및 진단의 기준 시각을 반환한다.
+        /// Editor fixture 시계가 있으면 우선하고, 그 외에는 실행 중인 NGO 서버 시각을 사용한다.
+        /// 네트워크가 아직 시작되지 않은 경우에는 Unity 실행 시간을 사용한다.
         /// </summary>
         private double GetAuthoritativeServerTime()
         {
@@ -2479,10 +2480,10 @@ namespace Hexiege.Infrastructure
         ///   서버 전투 로직(타겟 추적)은 그대로 두고, 오직 애니메이션 재전송 가드만 해제한다.
         ///   서버 데미지 흐름에는 어떤 영향도 주지 않는다.
         ///
-        /// [재진입 시 Attack 루프 T=0 재시작은 의도된 동작]
-        ///   재진입 시 StartCombatClientRpc가 Attack CrossFade를 다시 걸어 클라이언트 Attack 루프가
-        ///   T=0부터 재시작되는데, 이는 OnUnitEnteredCombatHandler가 ExecuteAttack도 함께 실행하여
-        ///   서버 공격 사이클과 T=0에서 동기화되므로 어긋나지 않는다.
+        /// [재진입 표현과 실제 공격 시작의 분리]
+        ///   OnUnitEnteredCombatHandler는 provisional Attack 표현과 타겟 전달을 준비한다.
+        ///   실제 ExecuteAttack은 TickCombat의 정지·정렬 gate와 표현 timeline 확인 뒤 실행한다.
+        ///   이미 진행 중인 Attack은 커밋 RPC에서 재시작하지 않는다.
         /// </summary>
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
         private void OnUnitWalkStartedHandler(int unitId)
