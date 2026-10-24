@@ -2125,3 +2125,26 @@ Plan2.39 전체를 메인이 직접 읽고 classifier 본문과 대조한 뒤 �
 최종 문서 기록 뒤 문서 담당 check_docs exit0·문제0/diffcheck exit0이다. 검사 제외 Task2는 별도 상대 Markdown 링크1092개·파일 누락0·앵커 포함0을 확인했다(`/tmp/hexiege-plan239-docs-task-links.json`). 정적 문서/형식·링크 존재 근거이며 전체 의미/실행 검증이 아니다.
 
 위 5경로 목록과 미커밋·미푸시 설명은 커밋 전 정적 검증 시점의 기록이다. 메인은 이번 사용자의 푸시 지시 범위에서 후속 완료분도 이어서 커밋·푸시한다. 실제 성공 여부와 원격 SHA는 메인 실행 결과로 확인하며, 이 시점 설명은 새 컴파일이나 실기 검증을 뜻하지 않는다.
+
+### 16.35 후속5경로 푸시와 다음 parser 검토 경계(2026-10-25 KST)
+
+사용자 「푸시하고 다음작업진행」의 연속 범위에서2.36~39 후속5경로는 `4c4019b9858eb66a222384921cc65d5cd3d4fd65` (`refactor: remove unused presentation state and align tooling guidance`)로 커밋·푸시됐다. 문서 담당은 해당 commit stat의 기존5경로·109삽입/13삭제 및 푸시 후 로컬 작업 트리의 변경 없음(`git status --short` 빈 출력)을 직접 확인했다. origin/work의 정확 동일 SHA와 푸시 성공은 메인의 실행 결과 전달값이다.16.32/16.34 및7.40/7.41의 미커밋·미푸시 설명은 커밋 전 정적 검증 시점 기록으로 보존한다.
+
+기존1a69402c 사용자 컴파일 보고를 이번4c4019b9 세대로 확대하지 않는다. 새 사용자 컴파일 성공 보고와 에이전트 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 메뉴 실행은 없다. 다음 후보는 메인이 선정한 RootPose cross-audit의 movementPhase 파싱1파일 guard 검토뿐이며, 구체안과 코드 전 계획의 메인 전체 검토/GO 전에는 구현하지 않는다. AUD-017 후속 AI 생산배율·legacy VFX6 삭제·UnitAttackShadowCoordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
+
+### 16.36 RootPose 이동 단계 parser1행 코드 전 검토(2026-10-25 KST)
+
+전문 제안 `/tmp/hexiege_plan240_20261024/proposal-static.json` 및 실제 parser/caller/pair gate·완전성 조건과 UnitMovementContracts enum을 직접 읽고 Plan2.40을 코드 전에 기록했다. 현재 parser는 TryParse 성공과 Invalid3 여부만 확인하므로 정의되지 않은 숫자99가 enum 변환에 성공하면 그 두 조건만으로는 거부되지 않는다. 제안은 `|| !phaseParsed` 바로 뒤 IsDefined1행을 넣어 unknown만 기존 FormatException 경로로 거부하는 데이터 수용 동작 변경이다. 정의된 값/기존 TryParse 문법·대소문자·Invalid 거부·예외 문구/증거 오류 집계와 gate 우선순위·runtime/fixture를 보존한다. 실제 입력 재현이나 실행 PASS가 아니다.
+
+전문 원문 source SHA는 `7ac1aa9cca040f8a4220e8004ddfc955267144b04ec325bc24a18daf947e47c4`, meta SHA는 `f52ac0c887c3e7c9c32e4f6b7b3311b70fc11162ab8d1f617bce227da4a05db8`다. JSON의 메모리상 삽입/역제거 full raw 동일은 코드 전 사전 대조로 구분한다. 메인이 Plan2.40 전체를 검토하고 GO한 뒤에만 전문 담당이 구현하며 현재 소스는 미수정이다. 새 컴파일/테스트/fixture/Unity/native/게임/빌드·TCQA·로그 분석/메뉴 실행은 없고16.35의 기존 컴파일 보고 한계와 AI/VFX6/Coordinator 보류를 유지한다.
+
+### 16.37 RootPose 이동 단계 guard 구현과 커밋 전 인계(2026-10-25 KST)
+
+메인 독립 `/tmp/hexiege-plan240-main-independent.json`도 수신해 직접 읽었다. HEAD4c4019b9 원문 기준 정확1guard 삽입 외 전체 source bytes 동일·삽입 위치가 기존 parse 실패와 Invalid 거부 사이·meta bytes 동일 및 변경 경로가 Source1+기존 Task2 정확3개임을 별도 확인한다. 아래 전문 정적 대조와 구분하며 새 컴파일/실행 증거는 아니다.
+
+메인이 Plan2.40 전체와 실제 parser/caller/enum을 직접 대조한 뒤 구현 GO를 전달했고 전문 담당이 정확1guard를 추가·소스 동결했다. 문서 담당은 전체 source diff와 `/tmp/hexiege_plan240_20261024/static-review.json`을 직접 읽었다. source SHA는16.36의 원문에서 `fd69c80a15e8cdc818a597c8d98ba1dafa2a9012bac26c85ad7ee545a097c527`로 바뀌었으며 전문 정적 대조는1행 역제거 full raw 동일·기존 meta/Invalid guard/예외 문자열/API/상수·caller 오류집계/pair gate/완전성/fixture builder 및 runtime producer/enum 원문 보존을 확인한다. 정의되지 않은 parsed phase의 수용을 좁히는 동작 변경이며 실제 malformed 입력 재현이나 runtime/검사 실행 PASS를 주장하지 않는다.
+
+이번 추가분은 `Assets/Editor/Tools/Combat/RunUnitRootPoseCrossAudit.cs`와 이 기존 Research/Plan의 정확3경로다. 이 목록은 커밋 전 정적 검증 시점의 미커밋·미푸시 스냅샷이며, 메인은 이번 사용자의 푸시 지시 범위에서 후속 완료분도 최신 작업 브랜치에 이어서 커밋·푸시한다. 실제 성공과 원격 SHA는 메인의 실행 결과로 확인하고 자기 커밋 SHA를 문서에 순환 기록하지 않는다. 기존4c4019b9 푸시 영수증과 구분하며 새 사용자 컴파일 보고는 없다. 기존1a69402c 보고를 재사용하지 않고 컴파일/테스트/fixture/Unity/native/게임/빌드·TCQA·로그 분석/메뉴 실행은 NOT RUN이다. 추가 후보/소스수정·대형 감사·상시문서/메모리 전파 없이 마감하고 AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
+
+
+최종 문서 검사 check_docs exit0·문제0 및 diffcheck exit0을 확인했다. 검사 제외 Task2는 별도 상대 Markdown 링크1092개가 HEAD 목록과 동일하며 파일 누락0·앵커 포함0임을 확인했다. 정적 형식·링크 존재 근거이며 전체 의미/실행 검증은 아니다. 이 결과 기록 후 기존 Task2를 동결하고 커밋·푸시 뒤 사후 Task 쓰기는 하지 않는다.

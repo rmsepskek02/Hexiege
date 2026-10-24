@@ -1972,6 +1972,7 @@ namespace Hexiege.Editor.Combat
                 || (observation != "server-checkpoint"
                     && observation != "client-final-root")
                 || !phaseParsed
+                || !Enum.IsDefined(typeof(UnitMovementPhase), phase)
                 || phase == UnitMovementPhase.Invalid
                 || !commandRevision.HasValue
                 || !segmentRevision.HasValue

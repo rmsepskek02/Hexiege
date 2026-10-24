@@ -581,6 +581,16 @@ ExpiryClockHistory 자체 summary와 모든 코드·namespace·전처리 경계�
 
 쓰기 전 현재 전체 원문/SHA와 정확3행을 별도 보존하고 허용 제거만 역복원한 full raw 동일, `_accepted` 정책 본문/공개 API·상수/문자열·기존 meta 동일 및 정확1source 추가 diff를 정적으로 대조한다. 앞선2.36의 지역 저장2행 제거와2.37/2.38 결과를 보존한다. 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 작업/삭제 메뉴/Git 변경은 수행하지 않으며 새 파일/대형 감사·상시문서/메모리/옛 Task·History 전파 없이 기록한다. AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다.
 
+### 2.40 RootPose cross-audit의 정의되지 않은 이동 단계 거부
+
+기존 전면 자율 진행 승인 아래 메인이 선정한 `Assets/Editor/Tools/Combat/RunUnitRootPoseCrossAudit.cs`의 `ParseRotationReplicationEvidence`1곳만 수정한다. 현재 고정 `root-rotation-replication-v1` 증거의 이동 단계를 실제 enum 정의에 맞춰 확인하는 계획이다. GameSystemRules_Units 「유닛 이동 시스템」의 U-MOV-PHASE가 구분한 이동 단계 의미와 GameSystemRules_UnitCombatSynchronization 「1. 권위 경계」의 NET-AUTH-001이 정한 서버 권위는 보존한다. 이 규칙들이 enum guard 자체를 지시하는 것은 아니다. 현재 메인 전체 계획 검토/GO 전의 코드 전 계획이며 구현 완료가 아니다.
+
+`Enum.TryParse`와 기존 `Invalid` 거부 사이, 정확 `|| !phaseParsed` 다음에 `|| !Enum.IsDefined(typeof(UnitMovementPhase), phase)`1행만 추가한다. 현재 enum은 NoIntent=0/AlignToMove=1/Move=2/Invalid=3이다. TryParse가 성공해도99처럼 정의되지 않은 값이면 기존 FormatException 경로로 거부하도록 데이터 수용 동작을 좁힌다. 무동작 정리로 설명하지 않는다. 정의된 이름과 숫자0/1/2, 기존 TryParse 문법·대소문자 의미 및 Invalid/3·기존 잘못된 입력 거부를 보존한다. 미래 enum 멤버가 실제 추가되면 같은 enum을 참조하는 IsDefined가 그 정의를 따른다.
+
+호출부의 FormatException catch는 기존대로 ParseErrorCount를 증가시키고 해당 증거를 목록에 넣지 않으며, 기존 BEGIN/END 우선순위 뒤 `Inconclusive, malformed-endpoint-evidence`로 연결한다. schema 문자열/Ordinal 검사·완전성/count/drop/preflight 조건·예외 문구·fixture 전체·runtime producer와 이동/HP/RPC·enum 숫자는 바꾸지 않는다. 정상 runtime 수정이나 실제99입력 재현·검사 실행의 성공을 뜻하지 않는다.
+
+전문 제안 `/tmp/hexiege_plan240_20261024/proposal-static.json`과 source/meta 원문 사본이 코드 전 근거다. 문서 담당은 제안 JSON·parser/caller/gate·enum 정의를 직접 읽었다. 메모리상1행 삽입/역제거 full raw 동일은 패치 범위 사전 대조이며 실제 구현 검증이 아니다. 메인 전체 검토/GO 뒤 전문 담당이 정확1행 diff·역복원 bytes/hash 동일·기존 API/상수/예외/fixture/meta 보존을 정적으로 대조한다. 컴파일/테스트/fixture/Unity/native/게임/빌드·TCQA·로그 분석/메뉴 실행은 하지 않는다. 새 후보/대형 감사·상시문서/메모리/옛 Task·History 전파나 문서 담당의 코드/Git 쓰기는 없으며 AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -894,3 +904,17 @@ Research16.28의 동일 instance/token 재사용 반례를 검토해 queue compa
 상한32768·멱등/충돌/초기화 정책은 유지했고 queue 자원 할당/저장 관리 제거와 OOM 등 자원 실패 동등성 미주장을 명시한다. Source3+기존 Task2 정확5경로 추가분은 미커밋·미푸시이며469fda01 기존 푸시와 구분한다. 새 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 작업/삭제 메뉴는 NOT RUN이다. 보호 Coordinator FIFO/ABA·private3값·AUD-017 후속 AI 생산배율·legacy VFX6 삭제 보류를 유지한다. 소스 동결·추가 후보/새 범위 없이 문서 검사를 마감하며 최종 결과는 Research16.34에 기록한다.
 
 위 5경로 목록과 미커밋·미푸시 설명은 커밋 전 정적 검증 시점의 기록이다. 메인은 이번 사용자의 푸시 지시 범위에서 후속 완료분도 이어서 커밋·푸시한다. 실제 성공 여부와 원격 SHA는 메인 실행 결과로 확인하며, 이 시점 설명은 새 컴파일이나 실기 검증을 뜻하지 않는다.
+
+### 7.42 후속5경로 푸시와 다음 parser 검토 경계(2026-10-25 KST)
+
+2.36~39 후속5경로의 커밋·푸시 `4c4019b9858eb66a222384921cc65d5cd3d4fd65`를 Research16.35에 기록했다. 문서 담당의 commit stat·로컬 변경 없음 직접 확인과 메인의 origin/work 정확 동일 SHA·푸시 성공 전달값을 구분한다.7.40/7.41의 커밋 전 기록은 보존하며, 기존1a69402c 사용자 컴파일 보고를 이번 세대로 확대하지 않는다. 새 컴파일/fixture/Unity/native/게임/빌드·TCQA·로그 메뉴 실행은 없다.
+
+다음 범위는 메인이 선정한 RootPose cross-audit movementPhase 파싱1파일 guard 검토뿐이다. 구체안에 근거한 코드 전 계획을 메인이 전체 검토하고 GO한 뒤에만 전문 담당이 구현한다. 새 후보/대형 감사·상시문서/메모리 전파는 하지 않으며 AUD-017 후속 AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
+
+### 7.43 RootPose 이동 단계 guard 결과와 커밋 전 인계(2026-10-25 KST)
+
+메인 독립 `/tmp/hexiege-plan240-main-independent.json`을 직접 읽었으며 HEAD4c4019b9 기준 정확1guard 삽입 외 source 전체 bytes 동일·기존 두 guard 사이 위치·meta 동일·변경3경로를 별도 확인한다. 최종 문서/링크 검사 결과는 Research16.37 끝에 기록한다.
+
+Plan2.40 전체의 메인 직접 검토/GO 뒤 전문 담당이 RunUnitRootPoseCrossAudit의 `!phaseParsed` 다음 IsDefined1행만 추가하고 소스를 동결했다. Research16.37과 `/tmp/hexiege_plan240_20261024/static-review.json`이 정확1행 역제거 full raw 동일·기존 meta/API/상수/예외/Invalid 거부·caller/gate/완전성/fixture/producer/enum 보존의 근거다. 문서 담당도 전체 diff/JSON을 직접 읽었다. undefined parsed phase를 기존 FormatException 경로로 거부하도록 수용 동작을 좁힌 변경이며 runtime 이동/HP/RPC나 enum 숫자는 바꾸지 않았다. 실제 잘못된 입력 재현·실행 PASS는 아니다.
+
+Source1+기존 Task2의 정확3경로는 커밋 전 정적 검증 시점의 미커밋·미푸시 기록이다. 메인은 이번 사용자의 푸시 지시 범위에서 이 후속 완료분도 최신 작업 브랜치에 이어서 커밋·푸시하며, 실제 성공/원격 SHA는 메인 실행 결과로 확인한다. 이 기록에 자기 커밋 SHA를 순환 추가하지 않는다. 기존4c4019b9 푸시 및1a69402c 사용자 컴파일 보고와 구분하고 새 컴파일/테스트/fixture/Unity/native/게임/빌드·TCQA·로그 분석/메뉴 실행은 NOT RUN이다. 추가 후보/소스수정·새 범위 없이 문서 검사 후 동결하며 AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
