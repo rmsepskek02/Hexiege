@@ -4,13 +4,13 @@
 
 - 시작: 2026-10-23 14:08 KST.
 - 사용자 승인: task 문서 작성·조사 착수에 이어, Plan2.3 공유 후 사용자의 「바로진행하자」로 IUnitView 팩토리 의존 추상화 첫 묶음 구현 승인(2026-10-23).
-- 진행 상태: **확정 묶음 구현·정적 대조 완료 / 최신 HEAD `d1d175173ccb5564f053650021101be004ea1a8f` 원격 `work` 일치·착수 전 clean 확인(메인 전달), 현재6경로 작업트리 변경 / ExpiryClockHistory 단일 클래스 분리·source gate 범위 보존 구현/전문·메인 독립 정적 대조 완료 / 전체 의미 감사·게임 실기 미완**. 최신 진행 근거는16.40절/Plan7.44이며, 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의16.13절로 한정한다. 최신 HEAD의 새 컴파일·실기 증거는 없다. 아래 과거 승인·미실행 기록은 해당 당시 근거로 보존한다.
+- 진행 상태: **예약 FIFO Plan2.42 구현·전문/메인 독립 정적 대조 완료 / 최신 확정 푸시 `4e80eeb3004e0595afebf6cc974791827b387358` 이후 source1+Task2의3경로 추가분은 커밋 전 검증 snapshot / 전체 의미 감사·게임 실기 미완**. 최신 결과는16.44/Plan7.46, 보류 출처 정정은16.41이다. 예약 FIFO의 메인 보류는16.28 당시 판단이며 현재는 bounded 수명 결함 수정 완료 상태다. AI 생산배율만 명시 후속 보류, VFX는 과거 테스트 조건/현재 증거 부족을 검토 중이다. 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의16.13절로 한정하며 현재 세대의 새 실행 증거는 없다. 메인은 현재 푸시 지시 범위에서 이 완료분을 이어 커밋·푸시하고 실제 성공/원격 SHA는 메인 실행 결과로 확인한다.
 - 후속 승인: 사용자 「다음 진행해」로 다음 조사와 기존 Task 후속 기록 진행(2026-10-23). 단계2 조사 결과와 Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했고, 기존2파일 정리·메인 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 남은 리팩토링을 계속 실행하라는 지시다. 메인이 기공유한 AI live 종족 조회 주입2파일 안을 다음 묶음으로 선정했고 프로그래머 제안을 Plan2.5로 코드 전에 구체화·검토한 뒤 구현 신호를 전달했다. 해당2파일의 소스 정리·메인 독립 정적 대조를 마쳤으며 컴파일·게임 실행은 미실행이다(2026-10-23).
 - 다음 착수: 사용자 「계속 진행해」의 잔여 리팩토링 계속 실행 지시 아래 메인이 기공유 인증 계약안을 다음 묶음으로 선정했다. 프로그래머 제안을 Plan2.6으로 코드 전에 기록했으며 메인 직접 검토·구현 신호 이후 소스 정리·독립 정적 대조를 마쳤다. 컴파일·Unity/실기는 미실행이다(2026-10-23).
 - 후속 착수: 사용자 「작업 이어서진행하자」의 계속 실행 지시 아래 메인이 남은 AI 난이도 값 분리→UGS adapter를 순서로 선정했다. 전문 프로그래머 제안 중 AI 구체안을 Plan2.7에 코드 전에 기록했다. UGS2.8도 소스 정리·메인 독립 정적 대조를 마쳤으며 현재 브랜치는 `work`이며 이 문서의 「메인」은 브랜치 main이 아닌 조율 담당 에이전트를 뜻한다.
 - 순차 진행: AI2.7 소스 정리·메인 독립 검토 후 AI 규칙4/33을 실제 snapshot 경계에 맞춰 동기화했다. UGS2.8은 메인 전체 계획 검토·AI 검증 후 별도 구현 신호를 전달해 소스 정리·독립 정적 대조와 Auth 구조3행 동기화를 마쳤다. 두 묶음의 컴파일/실기 완료를 뜻하지 않는다.
-- 자율 진행 승인: 사용자 「다 진행해 매번 내가 진행하라고 하는것도 불편한데」로 기존 목표의 잔여 조사·기능 보존 리팩토링·확정 문서 사실 정정을 계속 진행한다. task 작성/매 묶음 재승인 질문을 반복하지 않는다. 전면 정적 조사 범위·담당·완료 기준은 Plan2.11/Research16절이며 기존 AI 생산배율/6VFX 삭제 보류와 동작 정책 경계를 유지한다.
+- 자율 진행 승인: 사용자 「다 진행해 매번 내가 진행하라고 하는것도 불편한데」로 기존 목표의 잔여 조사·기능 보존 리팩토링·확정 문서 사실 정정을 계속 진행한다. task 작성/매 묶음 재승인 질문을 반복하지 않는다. 전면 정적 조사 범위·담당·완료 기준은 Plan2.11/Research16절이다. 현재 보류 출처 구분은16.41절을 따른다. AI 생산배율은 명시 후속 보류, 예약 FIFO는 당시 메인의 안전 판단, VFX 옛 지정6블록은 최종 삭제 검증 조건 미확인으로 구분하며 동작 정책 경계를 유지한다.
 - 계획: [Plan.md](Plan.md). 이 문서의 경로 목록은 파일 존재를 확인한 것이며 전체 내용을 읽었다는 뜻이 아니다.
 
 ## 1. 조사 범위와 집계 기준
@@ -2193,3 +2193,43 @@ Editor `RunUnitActionSelfValidation.cs`의 기존 UnitView helper 뒤에 main+�
 메인 독립 `/tmp/hexiege-plan241-main-independent.json`도 직접 읽었다. 기준 HEAD `d1d175173ccb5564f053650021101be004ea1a8f`에서 원112~321행210행을 대조해 같은 payload SHA·신규5using/guard/namespace wrapper와 payload/suffix 전체 정확·기존 Observer의 이동 범위 이외 raw 동일·Editor helper/2읽기 역복원 전체 raw 동일을 확인했다. 기존meta2개 HEAD bytes 동일/신규GUID Assets전체 유일, gate 결합 source에 이동 payload전체 포함과338/320 실측·정확6경로도 독립 확인했다. source gate의 실제 실행이나 컴파일 PASS가 아니다. 원 source inventory와 중간332개 등 과거 snapshot 수는 당시 기록으로 그대로 두고 이번 코드 전337개+신규1개=338개 증분과 구분한다.
 
 최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. Task2파일의 로컬 Markdown 경로1095개를 별도 확인해 누락0이며 기존 Observer·신규 source/meta 경로 모두 존재한다. 현재 변경은 위6경로에 한정하며 이 묶음은 commit/push 등 Git 변경 명령을 실행하지 않은 작업트리 상태다. 추가 소스 수정·후속 계획 확정은 하지 않았다.
+
+### 16.41 보류 출처 정정과 현재 작업 분류(2026-10-25 KST)
+
+사용자 「생산배율말고나머지2개내가보류?작업된거푸시하고다음」을 받아, 앞서 한데 묶어 쓴 보류의 출처를 구분한다. AUD-017 후속 AI 생산배율만 명시적인 후속 AI 보류로 유지한다. 예약 FIFO와 VFX 지정6블록에 대해 현재 확인한 근거만으로 사용자가 직접 보류를 지시했다고 단정하지 않는다. 과거 회차 원문과 기존 조사 snapshot은 보존하고 이 절을 현재 분류의 포인터로 삼는다.
+
+| 항목 | 직접 확인한 출처와 현재 분류 | 후속 경계 |
+|---|---|---|
+| UnitAttackShadowCoordinator 예약 FIFO |16.28의 queue compaction 보류는 동일 instance/token 재사용 반례를 근거로 전문 검토 후 메인이 선택한 안전 판단이다. 사용자 직접 보류 지시가 아니다 | stale old key가 새 예약을 잘못 퇴역시키는 동작 자체를 보존해야 한다는 당시 판단과, bounded FIFO를 바로잡는 후속 수정안을 구분한다. 구체안→코드 전 Plan2.42→메인 전체 검토/GO→전문 구현 순서다 |
+| VFX 옛 지정6블록 최종 삭제 | [옛 Plan](../../2026-10-13/13_53_vfx-code-followups/Plan.md)13절/13-4에는 「사용자 결정」이라고 적혔지만, [옛 Research](../../2026-10-13/13_53_vfx-code-followups/Research.md)10-0의 확인한 직접 인용은 「우선 여기까지 작업한 것을 기록하자」다. 그 인용만으로 현재 직접 보류 지시를 입증하지 못한다 | 옛 문서의 RuneSpire 사망 시 끝점 결함 사용자 테스트 조건과 WORKFLOW [4]의 최종 삭제 gate는 기술·절차 조건으로 남는다. 현재 통과 근거는 확인하지 못했으며 사용자 직접 보류와 구분한다 |
+| AUD-017 후속 AI 생산배율 | 기존 명시 후속 AI 보류를 유지한다 | 이번 FIFO/VFX 검토에 자동 편입하지 않는다 |
+
+VFX 전문 담당의 현재 read-only 검토를 받고 문서 담당도 실제 resolver/manager/bolt/payload를 읽었다. `HitPresentationQueue.cs`267~282는 살아 있지 않은 data를 TargetDead/default로 반환하며, `EffectManager.cs`549/559~562는 이때 null data에서0.6m 대체 가슴 높이를 사용한다. `VfxPoolItem.TowerBolt.cs`160~172의 재생 시작 시 추적 불가 경로는 snapshotImpact+가슴 높이,186~195의 추적 중 사망은 마지막 끝점 고정이다. `AttackEffectPresentation.cs`12~18에 대상 UnitType은 없다. 이는 현재 코드 사실이며 증상 재현이나 원인 확정이 아니다. 전문 담당은 옛 지정목록6블록이 현재 존재하고 별도 VfxConnections의 옛 fixture 블록도 있다고 전달했으므로 「모든 옛 블록 총6개」로 확대하지 않는다. 삭제 또는 수정의 별도 구체안은 메인 선정 후에만 기록한다.
+
+소스·과거 VFX Task·상시문서·Status/Roadmap/메모리·History는 변경하지 않았다. 새 compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 없다. 과거1a69402c 사용자 컴파일 보고를 현재 세대로 확대하지 않는다.16.40/Plan7.44의 원문 이동·정적 대조와 Assets338/Scripts320 및 원 inventory/snapshot 범위는 보존한다.
+
+### 16.42 예약 FIFO bounded 수정 코드 전 조사(2026-10-25 KST)
+
+전문 담당의 `/tmp/hexiege-reservation-fifo-242/plan.txt`와 현재 Coordinator의 LegacyReservation/ReservationKey·ScheduleLegacyAttack·TrimReservations·RetireReservationIfComplete·RemoveReservations·Clear를 직접 읽고 Plan2.42에 구체안을 기록했다. Queue를 LinkedList로 바꾸고 각 예약이 자기 OrderNode를 소유하며 삭제3경로에서 단일 helper로 list/dictionary를 함께 제거한다. 정상 public operation 안정 경계에서 양쪽1:1/상한512를 유지하고 stale old key의 새 예약 phantom eviction을 바로잡는 한정 동작 변경이다.16.28 당시의 보류 판단은 역사로 보존하되 그 faulty overflow 결과를 앞으로도 보존해야 한다는 현재 요구로 읽지 않는다.
+
+공개 token/회차·권위/마스크·tombstone 추가 순서와 Retire 정책은 유지하며 late-token 및 tombstone key alias 전체를 해결하는 안이 아니다. 기존 private3필드는 유지한다. 정확 source1+Task2의3경로만 계획했고 메인 전체검토/GO 전 소스 미수정이다. 원문/SHA·허용 block 역복원·기존 meta 보존 검증계획과 현재 미실행 경계는 Plan2.42에 기록했다. compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 없으며 기존 inventory/snapshot 및 Assets338/Scripts320의 원범위를 보존한다.
+
+### 16.43 직전 완료분 푸시 영수증과 VFX 후속 경계(2026-10-25 KST)
+
+메인은 ExpiryClockHistory/source gate6경로의 커밋·푸시 성공과 HEAD/원격 refs/heads/work `4e80eeb3004e0595afebf6cc974791827b387358` 일치, 푸시 직후 clean을 전달했다. 문서 담당도 현재 HEAD SHA를 직접 확인했으며 원격 일치/푸시 직후 clean은 메인 실행 영수증으로 구분한다.16.40/Plan7.44의 미커밋·미푸시 기록은 그 정적 검증 당시 snapshot이며 현재 미완 주장으로 읽지 않는다. 이후 추가한 이 Task2파일 출처 정정/후속 계획은 별도 미커밋 변경이다.
+
+VFX 현재 코드 사실과 원인 미확정, 표현 전용 후속 후보/필요 확인은 Plan2.43에 기록한다. 동작 변경·최종 삭제를 확정하지 않았으며 예약 FIFO2.42가 현재 구현 검토 순서다. 사용자 직접 보류 지시와 기술·절차 조건을 구분한16.41을 유지하고 과거 Task는 수정하지 않는다. 새 컴파일/fixture/Unity/native/게임/빌드·QA·로그/메뉴 실행은 없다.
+
+### 16.44 예약 FIFO 구현과 독립 정적 대조 결과(2026-10-25 KST)
+
+메인이 Plan2.42 전체를 직접 검토하고 GO한 뒤 전문 담당이 Coordinator1파일을 구현·동결했다. 문서 담당은 `/tmp/hexiege-reservation-fifo-242/static-review.json`·`coordinator.diff`·`source-proof.txt` 및 메인 독립 `/tmp/hexiege-plan242-main-independent.json`을 직접 읽고 실제 helper/삭제3경로와 source/meta 크기·SHA를 확인했다. Queue→LinkedList, 예약별 OrderNode, AddLast와 단일 RemoveReservation helper로 삽입/삭제의 소유권을 맞췄다.16.28의 메인 안전 보류는 당시 판단으로 보존하며 현재 구현 상태와 구분한다.
+
+전문 정적 대조는8개 허용 block 역치환 후 전체 raw bytes 동일·공개 선언/상수 동일·기존 정책 메서드7본문 동일·dictionary Remove1/삭제 helper 호출3곳을 확인했다. 메인 독립 대조는 기준 HEAD4e80eeb3에서 정확7치환+helper1 외 source 전체 raw 동일·기존 meta 동일을 별도로 확인했다. Entry 내 token 단조/MaxValue 가드·새 Entry 생성2곳·Retire의 예약 제거 뒤 Entry 제거·Clear 원문과 삽입/삭제 경로를 메인이 직접 대조하여 정상 public operation 안정 경계에서 live dictionary와 순서 list가1:1, 현재 live의 FIFO/상한512가 유지됨을 정적으로 검토했다. Trim 전 내부 일시513은 기존과 같으며 정상 완료/Retire의 stale 노드 누적과 old key의 재사용 예약 phantom eviction을 바로잡는다. 이는 소스 불변식 검토이며 실행 fixture나 런타임 메모리 측정 PASS가 아니다. Queue 배열에 과거 키를 누적하던 방식에서 예약별 LinkedList 노드를 생성/해제하는 방식으로 바뀌며, 이는 메모리 상한의 소스 불변식 대조이지 실제 할당량/GC/속도 실측이나 성능 향상 PASS가 아니다.
+
+source는 코드 전54762bytes/SHA `4bf69607afb3e7c3f4e98e32c692821570f5f1ad7f99127cf2b9142a05ce4b2c`에서55604bytes/SHA `bdbfa29c07e707da68e0566569be206f7d1cb3a3e4c34224044914554f12dc50`로 바뀌었다. 기존 meta59bytes/SHA `c414a0a65dcc01266418391ffa3a71a615441d4916b1c41565d242eaf6e2c7db`는 불변이며 문서 담당도 현재 값을 직접 측정했다. Assets338/Scripts320도 직접 재측정했으며 원 inventory/snapshot·ExpiryClockHistory 이동 증분은 보존한다. 기존 필드/private3값·공개 token·마스크/취소·tombstone 순서·Retire 정책을 유지하고 public late-token alias 및 cancellation tombstone key alias는 별도 미변경 한계다. 전체 ABA 해결이나 기존 동작 전부 무변경으로 확대하지 않는다.
+
+VFX는 사용자 명시 보류가 아니라 과거 조건과 현재 실기 증거 부족을 구분해 검토 중이다. 메인은 현재 번개 사망 끝점 현상 재현 여부를 사용자에게 비동기로 물었으나 아직 답을 받지 못했다. 답 없음은 승인/보류 동의/증상 해소가 아니다. 옛 지정6블록과 별도 VfxConnections XZ 검증 비활성 블록을 구분하고, 현행 AttackEffectPresentation에 UnitType이 없다는 제약과 Plan2.43의 후보/미확정 경계를 유지한다. VFX 소스·옛 Task·상시문서/메모리는 수정하지 않는다.
+
+변경은 `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs`와 이 Task `Research.md`/`Plan.md`의 정확3경로다. 이 목록은 커밋 전 정적 검증 시점의 미커밋 snapshot이며 메인은 현재 사용자 푸시 지시 범위에서 완료분을 이어 커밋·푸시한다. 실제 성공/원격 SHA는 메인 실행 결과로 확인하며 미래 성공이나 자기 커밋 SHA를 문서에 순환 기록하지 않는다. 새 사용자 컴파일 보고는 없고 기존1a69402c 보고를 재사용하지 않는다. compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 NOT RUN이다. 문서 담당은 Git 쓰기 없이 최종 문서 검사 후 동결하고 추가 사후 쓰기·새 후보·상시문서/메모리/과거 Task·History 전파를 하지 않는다.
+
+최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. 이 Task2파일 로컬 Markdown 파일링크1097대상 누락0을 별도 확인했다. 정확 source1+Task2의3경로를 커밋 전 snapshot으로 인계하며 문서를 동결한다.

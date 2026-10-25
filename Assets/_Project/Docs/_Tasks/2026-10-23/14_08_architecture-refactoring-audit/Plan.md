@@ -2,11 +2,12 @@
 
 기존 게임의 동작과 사용자가 이미 확인한 기능을 유지하면서, 코드를 이해하고 고치기 쉬운 구조로 정리한다. 먼저 문서·코드·에셋의 관계와 남은 조사 범위를 기록하고, 근거가 확보된 작은 작업부터 진행한다. 이번 문서는 전체 작업의 순서와 첫 조사 범위를 정하며, 아직 확인하지 않은 코드의 삭제나 재설계를 확정하지 않는다.
 
-> **기존 로직 제거와 삭제 보류:** 실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. ROADMAP의 VFX 옛 로직6곳은 기존 결함의 사용자 테스트 통과 조건을 유지한다. `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
+> **기존 로직 제거와 삭제 보류:** 실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. VFX 옛 지정6블록은 과거 문서의 기존 결함 사용자 테스트 조건과 현행 최종 삭제 gate 확인이 필요하며, 이를 사용자 직접 보류 지시로 단정하지 않는다(Research16.41). `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
 
 - 기준: 2026-10-23 14:08 KST.
 - 조사 장부와 근거: [Research.md](Research.md).
-- 현재 진행·최신 근거(2026-10-25 KST): 메인 전달 기준 최신 HEAD `d1d175173ccb5564f053650021101be004ea1a8f`/원격 `work` 일치·착수 전 clean. 직전 parser guard 구현·정적 대조는 Research16.37/7.43, 단일 클래스 분리·source gate 검사 범위 보존 구현/전문·메인 독립 정적 대조 완료 근거는 Research16.40/7.44다. 코드 전 확정 범위는2.41에 보존한다. 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의Research16.13/7.25로 한정하며 최신 HEAD의 새 실행 증거는 없다. 아래 과거 승인·착수·미실행 기록은 당시 근거로 보존한다.
+- 현재 진행·최신 근거(2026-10-25 KST): 예약 FIFO2.42는 메인 전체검토/GO 후 구현·전문/메인 독립 정적 대조 완료(Research16.44/7.46). 최신 확정 푸시는 ExpiryClockHistory/source gate6경로의 `4e80eeb3004e0595afebf6cc974791827b387358`이며 이후 source1+Task2의3경로는 커밋 전 검증 snapshot이다. 메인은 현재 푸시 지시 범위에서 완료분을 이어 커밋·푸시하고 실제 성공/원격 SHA를 확인한다. 사용자 컴파일 보고는 과거1a69402c 범위이며 현재 세대의 새 실행 증거는 없다.
+- 현재 보류 출처: Research16.41/7.45의 출처 정정은 유지한다. AI 생산배율만 명시 후속 보류다. 예약 FIFO는16.28 당시 메인의 안전 판단 뒤 현재2.42 구현·정적 대조를 마쳤다. VFX는 사용자 명시 보류가 아니라 과거 테스트 조건/현재 증거 부족 검토이며2.43은 후보만 기록한다. 사용자 재현 질문의 답 없음은 승인/보류 동의가 아니다.
 - 현재 승인: Research/Plan 작성·조사 착수에 이어, Plan2.3 공유 후 사용자 「바로진행하자」로 첫 코드 묶음 구현 승인(2026-10-23).
 - 후속 상태: Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했다. 기존2파일 주석4곳·불필요 using1행 정리와 메인 독립 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 잔여 리팩토링의 계속 실행 지시다. 메인이 기공유 AI live provider2파일 안을 다음 묶음으로 선정하고 프로그래머 제안을2.5절로 구체화했다. 같은 Task를 사용하며 재승인 질문을 반복하지 않는다. 메인 검토 후 구현 신호를 전달했고 해당2파일 소스 정리·독립 정적 대조를 마쳤다. 컴파일·게임 실행은 미실행이다.
@@ -603,6 +604,35 @@ Research16.38의 원파일/meta/이동210행 SHA를 코드 전 기준으로 유�
 
 컴파일/스위트/CLR·fixture 실행/Unity/native/게임/빌드·TCQA·로그 분석·메뉴 실행·Git 변경은 수행하지 않는다. 현재 사용자 지시는 다음 작업 계속이며 추가 push 승인이 아니다. 단일 클래스 이외 새 후보/DTO/enum 추출·전면 재감사·새 Task·상시문서/Status/Roadmap/메모리·옛 Task/History 수정은 없다. AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다.
 
+### 2.42 예약 FIFO를 현재 살아 있는 예약과 함께 정리
+
+예약이 정상 완료되거나 공격자가 퇴역한 뒤에도 순서 기록이 남아 계속 쌓이고, 같은 공격자/token을 다시 쓰면 오래된 기록이 새 예약을 잘못 퇴역시킬 수 있다. 예약마다 자기 순서 노드를 소유하게 하여 살아 있는 예약과 순서 목록을 함께 제거한다.16.28의 보류는 사용자 지시가 아닌 당시 메인 안전 판단이었으며, 이번 안은 그때 보존하려던 stale-key phantom eviction 자체를 결함으로 바로잡는 한정 동작 변경이다. 「기존 동작 전부 무변경」으로 보고하지 않는다. 전문 구체안 `/tmp/hexiege-reservation-fifo-242/plan.txt`와 실제 삽입/삭제3경로·Clear를 문서 담당이 직접 읽어 코드 전에 기록했다. 코드 전에 기록한 계획이며 이후 메인의 전체 계획 검토/GO 뒤 전문 담당이 구현·동결했다. 실제 결과/한계는 Research16.44/7.46을 따른다.
+
+근거는 UnitCombatSynchronization H2 「권위 경계」 NET-AUTH-001/002의 권위와 표현 분리, H2 「AttackSequence 계약」 NET-ACTION-SEQ/NET-ACTION-IDEMPOTENT의 회차/타격 식별 및 멱등 경계다. 이 규칙이 내부512/FIFO 자료구조를 직접 규정한다고 주장하지 않는다. 기존 상한·공개 token·취소·권위 정책을 보존하면서 내부 수명 결함만 수정한다.
+
+| 기존 source의 위치/대상 | 구체 변경 | 보존 경계 |
+|---|---|---|
+| `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs` LegacyReservation 및 `_reservationOrder` | 기존 private 중첩 class에 `LinkedListNode<ReservationKey> OrderNode`1필드를 추가하고, 같은 이름의 private Queue를 LinkedList로 교체 | 기존 Token/LegacyScheduledAt/ShadowCommitAt을 포함한 모든 필드 유지; private3값 삭제 별개 |
+| ScheduleLegacyAttack | 기존 dictionary 대입을 유지하고 Enqueue 대신 `reservation.OrderNode = _reservationOrder.AddLast(key)` | 입력/유한값·phase·token overflow guard, token 증가/반환·snapshot·reservation 초기화 순서 유지 |
+| 신규 private `RemoveReservation(ReservationKey key)` | dictionary TryGetValue 실패면 반환, 찾은 예약의 OrderNode를 list에서 제거한 뒤 dictionary key를 제거 | tombstone 동작을 helper에 넣지 않음. 정상 불변식의 노드를 직접 unlink하며 임의의 검색/압축·새 token generation 도입 없음 |
+| TrimReservations | 기존 while의 dictionary Count>512/list Count>0 조건 유지. Dequeue를 First.Value로, dictionary Remove를 helper로 교체 | 기존 TryGetValue/CancelledMask/tombstone 추가→제거 순서 유지. 현재 살아 있는 가장 오래된 예약을 퇴역시킴 |
+| RetireReservationIfComplete 및 RemoveReservations | 기존 dictionary Remove 각각을 helper로 교체 |64-hit all-mask 특수식·완료조건·제거→tombstone 순서, 공격자별 key 사본/순회 유지. public Retire에 새 tombstone 추가 안 함 |
+| Clear | 기존 두 collection의 Clear 및 전체 순서 그대로 | entries와 cancellation tombstone/order Clear 포함해 기존 초기화 정책 보존 |
+
+정상 public operation의 안정된 경계에서 list와 dictionary가1:1이며 Count<=512가 되도록 한다. Schedule 내부에서 Trim 전 일시513은 기존과 같다. Entry 안에서는 LastLegacyToken 증가와 MaxValue 거부로 키가 반복되지 않으며, Retire는 해당 예약 제거 후 Entry를 제거하고 Clear는 모두 지운다. 따라서 정상 public 경로의 동일-key 재삽입은 옛 live 노드가 사라진 뒤 일어나며 별도 replacement guard는 추가하지 않는다. 전문 담당의 callback 검색상 제거 중 외부 callback을 호출하는 경로는 없다는 전달 근거가 있으나 새 thread safety/OOM transaction 보장으로 확대하지 않는다. 공개 token의 재등록 후 재사용 자체·외부 지연 token의 alias·cancellation tombstone의 key alias는 그대로인 별도 한계이며 전체 ABA 해결이라고 쓰지 않는다. 피해/타겟/HP/RPC·기존 마스크/승인/관측 반환·상수/로그 문자열·fixture·자산·meta는 수정하지 않는다.
+
+코드 전 source54762bytes SHA256 `4bf69607afb3e7c3f4e98e32c692821570f5f1ad7f99127cf2b9142a05ce4b2c`, meta59bytes SHA256 `c414a0a65dcc01266418391ffa3a71a615441d4916b1c41565d242eaf6e2c7db`와 원문 사본은 위 scratch에 보존했다(전문 측정 전달). 구현 후 허용된 block만 역치환하여 전체 raw bytes/hash를 원문과 대조하고 public API/상수·마스크/tombstone 본문·기존 meta 불변, dictionary 삽입1/helper Remove1/Clear1, 삭제3호출부·`_reservationOrder`의 Enqueue/Dequeue 잔존0·변경 경로를 정적으로 확인한다. 메인은 전체 diff와 계획을 별도로 대조한다. 전문 검색상 private 자료구조의 외부 reflection/source gate 참조는 찾지 못했으며 이는 검색 범위 근거이지 실제 compile/fixture PASS가 아니다.
+
+쓰기 범위는 기존 source1+기존 Research/Plan2=3경로다. 파일 추가·meta/GUID 변경·원 inventory/snapshot 재작성은 없으며 Assets338/Scripts320은 기존 분리 후 범위로 보존한다. AI 생산배율 명시 후속 보류·VFX 최종 삭제 조건/출처 구분은16.41/7.45를 따른다. compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행·Git 쓰기·상시문서/메모리/과거 Task·History 전파는 없다.
+
+### 2.43 VFX 사망 시 끝점 후속 — 현재는 소스 사실과 후보만 기록
+
+옛 지정6블록 삭제와 현재 타워 번개 끝점 결함을 사용자 직접 보류로 단정한 분류는 Research16.41/7.45에서 정정했다. 과거 Task에 적힌 사용자 테스트 조건과 WORKFLOW [4] 최종 삭제 gate의 현재 충족 근거는 확인하지 못했다. 이는 메인이 적용하는 기술·절차 경계이며, 새 사용자 보류 결정으로 기록하지 않는다. 현재는 동작 변경/삭제 구현 계획을 확정하지 않았다.
+
+Research16.41의 현재 resolver→manager→bolt 체인에는 dead-at-start의 TargetDead/default→null Data→0.6m fallback→snapshotImpact+가슴 높이 경로가 남아 있다. 추적 중 사망의 마지막 끝점 고정과 구분하며, 이것이 현재 증상의 원인이라는 재현 근거는 없다. AttackEffectPresentation에는 대상 UnitType이 없어 「snapshot type을 바로 사용」하는 안은 현행 payload만으로 구현할 수 없다.
+
+전문 담당은 View.Data가 남아 있는 사망 대상에서 ID/수명 경계를 지키며 Type를 표현용으로 별도 추출해 manager에 전달하는 국소 후보를 제시했다. 이는 아직 선택·승인된 구체 설계가 아니며, View/Data 누락은 계속 fallback이 필요하다. 대상 재사용/동일 객체 확인·죽은 데이터 수명·추적 권한과 높이 정보의 분리·규칙의 「추적 불가로 시작할 때」 경계·수정 파일/호출자/정적 확인 범위를 먼저 확인해야 한다. 서버 HP/RPC/피해 snapshot을 바꾸지 않는 후보로만 남긴다. 옛 지정목록6블록 외 VfxConnections의 유사 비활성 블록도 있어 저장소 전체 합계를6으로 단정하지 않는다. 이 절로 소스 수정/삭제·새 테스트/로그/메뉴/빌드 실행을 시작하지 않으며 메인이 FIFO2.42 진행 후 별도 선정한다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -937,3 +967,21 @@ Source1+기존 Task2의 정확3경로는 커밋 전 정적 검증 시점의 미�
 수정 Plan2.41의 메인 전체 직접검토/GO 뒤 정확6경로 범위 구현·전문 정적 대조를 마쳤다. Research16.40과7.6 inventory 증분, `/tmp/hexiege_plan241_20261025/static-review.json`이 근거다. 원112~321의210행과 신규10~219의 payload bytes/hash 동일, Observer/Editor 각각 전체 raw 역복원 동일, 기존meta3268불변·새GUID유일을 확인했다. 문서 담당도 source wrapper/meta/Editor전체diff와 JSON의 결과를 읽고 Assets C#338/Scripts320을 직접 실측했다. 두 기존source 변경+신규source/meta+Task2의6경로다. 메인 독립 `/tmp/hexiege-plan241-main-independent.json`도 직접 읽었으며 기준HEAD 원payload SHA·신규wrapper/payload전체·Observer의이동범위외raw·Editor역복원raw동일·기존meta/GUID보호·gate검사범위·338/320/정확6경로를 별도 확인했다. 원namespace/guard/API/필드·backing명/멤버순서/본문/로그·예산과 기존 gate조건/문구/fixture를 보존하고 helper로 이동class도 검사입력에 포함했다. 이는 source 정적 대조이며 실제 compile/CLR·suite/fixture/Unity/native/게임/빌드·TCQA PASS가 아니다. 추가 Git 쓰기·상시문서/메모리/옛 TaskHistory 변경은 없으며 과거 사용자 compile보고와 AI/VFX6/Coordinator 보류를 유지한다.
 
 최종 `check_docs.py` 문제0/diffcheck0이며 Task 링크1095대상 누락0과 기존/신규 source/meta 존재를 별도 확인했다. 현재 묶음은 commit/push 등 Git 변경 명령 없이6경로 작업트리 변경으로 남아 있다.
+
+### 7.45 보류 출처 정정과 후속 계획 경계(2026-10-25 KST)
+
+Research16.41에서 사용자 최신 질문에 맞춰 보류 출처를 구분했다.16.28 예약 FIFO 보류는 메인 안전 판단이며 사용자 직접 지시가 아니다. VFX 옛 Plan13/13-4의 「사용자 결정」 표기와 옛 Research10-0의 직접 인용 「우선 여기까지 작업한 것을 기록하자」를 별도로 확인했다. 직접 인용만으로 현재 사용자 보류를 단정하지 않고, 기존 결함 테스트 조건/WORKFLOW [4] 최종 삭제 gate 미확인은 기술·절차 경계로 남긴다. 과거 Task 원문·현재 소스는 보존한다. AUD-017 후속 AI 생산배율만 명시 후속 보류로 유지한다.
+
+예약 FIFO bounded 수정은 전문 구체안 수신 후 Plan2.42를 코드 전에 작성하고 메인이 전체 계획을 검토/GO한 뒤 전문 담당이 구현한다. VFX는 현재 코드 사실/가설/실행 증거를 구분한 read-only 검토 단계이며 별도 수정안은 메인이 선정한 경우에만 기록한다. 새 compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 없고 기존1a69402c 컴파일 보고 및16.40/7.44 원문 이동 정적 근거·inventory/snapshot을 그대로 보존한다.
+
+### 7.46 예약 FIFO 구현 결과와 커밋 전 최종 인계(2026-10-25 KST)
+
+메인의 Plan2.42 전체 직접검토/GO 뒤 전문 담당이 정확 Coordinator1파일을 수정·동결했다. Research16.44 및 전문 static-review/source-proof·메인 독립 JSON이 근거이며 문서 담당도 전체 diff와 결과를 직접 읽었다. LinkedList/예약별 OrderNode/단일 helper를 삭제3경로에 적용했다. 전문8block 역치환 전체 raw 동일·공개 선언/상수·정책7본문/기존 meta 동일, 메인 독립7치환+helper1 외 raw 동일을 각각 확인했다. 정상 public operation의 live list/dictionary1:1·FIFO/상한512는 token/Entry/Retire/Clear의 기존 흐름과 소유 노드 삽입/삭제를 대조한 소스 검토다. fixture/실행 PASS가 아니다. Queue 배열 대신 예약별 LinkedList 노드를 생성/해제하며 실제 할당량/GC/속도를 실측하거나 성능 향상 PASS를 확인한 것은 아니다.
+
+source SHA는 `bdbfa29c07e707da68e0566569be206f7d1cb3a3e4c34224044914554f12dc50`, 기존 meta SHA는 `c414a0a65dcc01266418391ffa3a71a615441d4916b1c41565d242eaf6e2c7db`이며 문서 담당도 직접 측정했다. source1+기존 Task2의 정확3경로만 변경했고 파일 추가/meta 변경 없이 Assets338/Scripts320과 원 inventory/snapshot을 보존한다. stale old key phantom eviction을 의도적으로 정정했으며 공개 token·취소/마스크/tombstone·Retire 정책과 late-token/tombstone key alias의 별도 한계는 유지한다. 예약 FIFO의 과거 메인 보류를 현재 미구현 상태나 사용자 보류로 읽지 않는다.
+
+VFX는 옛 지정6블록/추가 XZ 검증 블록·UnitType 없는 payload 제약을 구분한2.43의 미확정 후보 상태다. 사용자에게 현재 현상 재현 여부를 물었으나 아직 답이 없으며 이를 승인/보류 동의로 간주하지 않는다. AI 생산배율만 명시 후속 보류로 남긴다. 새 사용자 컴파일 보고·compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 없다.
+
+이3경로 목록은 커밋 전 정적 검증 snapshot이며 메인은 현재 푸시 지시 범위에서 완료분을 이어 커밋·푸시한다. 실제 성공/원격 SHA는 메인 실행 결과로 확인하고 이 문서에 미래 성공을 기재하지 않는다. 문서 담당은 최종 검사 후 동결하며 추가 사후 쓰기·새 후보·상시문서/메모리/과거 Task·History 변경·Git 쓰기를 하지 않는다.
+
+최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. 이 Task2파일 로컬 Markdown 파일링크1097대상 누락0을 별도 확인했다. 정확 source1+Task2의3경로를 커밋 전 snapshot으로 인계하며 문서를 동결한다.

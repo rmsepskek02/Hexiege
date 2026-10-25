@@ -49,6 +49,7 @@ namespace Hexiege.Infrastructure
             public ulong CancellationConsumedMask;
             public ImpactAuthorization[] Authorizations;
             public UnitActionSequencer Sequencer;
+            public LinkedListNode<ReservationKey> OrderNode;
         }
 
         private readonly struct ReservationKey : IEquatable<ReservationKey>
@@ -142,7 +143,7 @@ namespace Hexiege.Infrastructure
             = new Dictionary<AttackerInstanceId, Entry>();
         private readonly Dictionary<ReservationKey, LegacyReservation> _reservations
             = new Dictionary<ReservationKey, LegacyReservation>();
-        private readonly Queue<ReservationKey> _reservationOrder = new Queue<ReservationKey>();
+        private readonly LinkedList<ReservationKey> _reservationOrder = new LinkedList<ReservationKey>();
         private readonly Dictionary<ReservationKey, ulong> _retiredCancellationMasks
             = new Dictionary<ReservationKey, ulong>();
         private readonly Queue<ReservationKey> _retiredCancellationOrder
@@ -495,7 +496,7 @@ namespace Hexiege.Infrastructure
             };
             var key = new ReservationKey(token);
             _reservations[key] = reservation;
-            _reservationOrder.Enqueue(key);
+            reservation.OrderNode = _reservationOrder.AddLast(key);
             TrimReservations();
             return token;
         }
@@ -1147,11 +1148,11 @@ namespace Hexiege.Infrastructure
         {
             while (_reservations.Count > MaximumPendingLegacyAttacks && _reservationOrder.Count > 0)
             {
-                ReservationKey oldest = _reservationOrder.Dequeue();
+                ReservationKey oldest = _reservationOrder.First.Value;
                 if (_reservations.TryGetValue(oldest, out LegacyReservation reservation)
                     && reservation.CancelledMask != 0UL)
                     AddCancellationTombstone(oldest, reservation.CancelledMask);
-                _reservations.Remove(oldest);
+                RemoveReservation(oldest);
             }
         }
 
@@ -1162,7 +1163,7 @@ namespace Hexiege.Infrastructure
                 : (1UL << reservation.ImpactCount) - 1UL;
             if (((reservation.CompletedMask | reservation.CancellationConsumedMask) & all) == all)
             {
-                _reservations.Remove(key);
+                RemoveReservation(key);
                 if (reservation.CancelledMask != 0UL)
                     AddCancellationTombstone(key, reservation.CancelledMask);
             }
@@ -1188,7 +1189,20 @@ namespace Hexiege.Infrastructure
                     remove.Add(pair.Key);
             }
             for (int index = 0; index < remove.Count; index++)
-                _reservations.Remove(remove[index]);
+                RemoveReservation(remove[index]);
+        }
+
+        /// <summary>
+        /// 예약을 지울 때 그 예약이 소유한 순서 노드도 함께 제거한다.
+        /// 완료·공격자 퇴역으로 남은 과거 키가 같은 token의 새 예약을 가리키지 않게 하며,
+        /// 상한을 넘으면 현재 살아 있는 예약 가운데 가장 오래된 것부터 제거할 수 있게 한다.
+        /// 취소 기록은 호출한 경로의 기존 정책에 따라 별도로 남긴다.
+        /// </summary>
+        private void RemoveReservation(ReservationKey key)
+        {
+            if (!_reservations.TryGetValue(key, out LegacyReservation reservation)) return;
+            _reservationOrder.Remove(reservation.OrderNode);
+            _reservations.Remove(key);
         }
 
         private static bool IsFinite(double value)
