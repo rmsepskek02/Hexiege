@@ -2,11 +2,11 @@
 
 기존 게임의 동작과 사용자가 이미 확인한 기능을 유지하면서, 코드를 이해하고 고치기 쉬운 구조로 정리한다. 먼저 문서·코드·에셋의 관계와 남은 조사 범위를 기록하고, 근거가 확보된 작은 작업부터 진행한다. 이번 문서는 전체 작업의 순서와 첫 조사 범위를 정하며, 아직 확인하지 않은 코드의 삭제나 재설계를 확정하지 않는다.
 
-> **기존 로직 제거와 삭제 보류:** 실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.45는 private LegacyReservation 미소비 저장3필드/3대입의6줄만 정리한다. 읽기·직렬화·반사 참조 없음과 RHS 무부작용 근거를2.45에 기록해 과거 메인의 private3값 보류를 한정 변경한다. 실행 경로를 지우거나 기능 삭제 gate를 일반 해제하지 않는다.** **Plan2.44는 생산 큐18메서드의 같은 class partial 원문 이동이며 목적지 payload 확인 후 원위치 중복을 옮긴다. shim·주석 dead block을 새로 남기지 않고 필드·초기화·동작을 보존한다.** **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. VFX 옛 지정6블록은 과거 문서의 기존 결함 사용자 테스트 조건과 현행 최종 삭제 gate 확인이 필요하며, 이를 사용자 직접 보류 지시로 단정하지 않는다(Research16.41). `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
+> **기존 로직 제거와 삭제 보류:** 이번2.53은 PopulationUseCase의 미소비 readonly참조2개와 단순 ctor저장2줄만 정리한다. 생성자3인자/API와 인구 계산·이벤트 캐시/Dispose를 유지하는 저장상태 정리이며2.53에 안전 근거와 객체 보유 수명/반사 한계를 기록한다. 실행 경로나 이벤트를 폐기하는 최종 삭제 gate의 일반 해제가 아니다.  실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.45는 private LegacyReservation 미소비 저장3필드/3대입의6줄만 정리한다. 읽기·직렬화·반사 참조 없음과 RHS 무부작용 근거를2.45에 기록해 과거 메인의 private3값 보류를 한정 변경한다. 실행 경로를 지우거나 기능 삭제 gate를 일반 해제하지 않는다.** **Plan2.44는 생산 큐18메서드의 같은 class partial 원문 이동이며 목적지 payload 확인 후 원위치 중복을 옮긴다. shim·주석 dead block을 새로 남기지 않고 필드·초기화·동작을 보존한다.** **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. VFX 옛 지정6블록은 과거 문서의 기존 결함 사용자 테스트 조건과 현행 최종 삭제 gate 확인이 필요하며, 이를 사용자 직접 보류 지시로 단정하지 않는다(Research16.41). `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
 
 - 기준: 2026-10-23 14:08 KST.
 - 조사 장부와 근거: [Research.md](Research.md).
-- 현재 진행·최신 근거(2026-10-25 KST): 최신2.50~52는 인증/TDD 각2행 정정·인접영토/수입지급 공통화 구현 후 전문/문서/메인 독립 정적 대조 완료(Research16.56/7.50), 현재누적19경로 미커밋·미푸시다. 아래 앞선 묶음 집계는 당시 기록이다.  최신2.48/49는 코드 전 계획/메인 GO 뒤 구현·전문/문서/메인 독립 정적 대조를 마쳤다(Research16.53/7.49). 누적15경로는 미커밋·미푸시다.  최신2.46/47은 코드 전 구체계획/메인 전체검토/GO 뒤 구현·전문/문서/메인 독립 정적 대조 완료(Research16.51/7.48). 생산 Queue partial2.44·미소비 예약3값2.45는 메인 전체검토/GO 후 구현·전문/문서/메인 독립 정적 대조 완료(Research16.49/7.47). 예약 FIFO2.42는 앞선 메인 독립 정적 대조까지 완료(Research16.44/7.46). 앞선2.42 완료분 푸시·clean은 메인 인계이며 이번2.44~2.47의고유11경로는 미커밋·미푸시 상태다. 현재 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95`는 문서 담당도 직접 확인했다. 최신 지시는 순수 리팩토링을 계속하고 그 영향 테스트는 모아 한 번에 진행하는 것이다(Research16.45/16.48, Plan5.1). 지금 통합 테스트를 시작하지 않는다. 사용자 컴파일 보고는 과거1a69402c 범위이며 현재 세대의 새 실행 증거는 없다.
+- 현재 진행·최신 근거(2026-10-25 KST): 직전19경로는04ba9dfdf62b0229eaa397906577407ac19ccf92로 work 원격푸시 완료(메인 직접확인). 마지막 선정2.53의 미소비 저장4줄 정리와 전문/문서/메인 독립 정적 대조도 완료했다(Research16.58/7.51). 최종 정적 대조 시점의 커밋 전 snapshot은 source1+Task2의3경로이며 이후 커밋/원격 동기화 상태는 Git로그와 메인 실행결과를 따른다. 이번 선정범위의 비보류 확정미구현은0묶음이다. 전체 무결/역사문서 전수 의미감사·실기완료를 뜻하지 않으며 actual 검증은5.1에 모았다.
 - 현재 보류 출처: Research16.41/7.45의 과거 출처 정정은 유지한다. AI 생산배율은 명시 후속 AI 보류다. 예약 FIFO는16.28 당시 메인의 안전 판단 뒤 현재2.42 구현·정적 대조를 마쳤다. VFX는 이번 새 사용자 지시에 따라 외부 브랜치 작업 완료·후속 pull 대기다(Research16.45/2.43 후속 지시). 과거 사용자 직접 보류로 소급하지 않고 현재 pull/fetch·VFX 코드/옛 Task 변경을 하지 않는다.
 - 현재 승인: Research/Plan 작성·조사 착수에 이어, Plan2.3 공유 후 사용자 「바로진행하자」로 첫 코드 묶음 구현 승인(2026-10-23).
 - 후속 상태: Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했다. 기존2파일 주석4곳·불필요 using1행 정리와 메인 독립 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
@@ -760,6 +760,21 @@ GameSystemRules_AI.md H3 「골드 수입 배율 적용」 규칙34의 ResourceU
 
 2.51/52는 메인 전체계획 검토/GO 뒤 전문이 구현한다. helper/XML 제거·두 caller 역치환 후 원문전체bytes 동일, 공개API/필드/기존meta·기존미커밋 source/meta 보존을 확인한다. 새private목록/metadata순서/stackframe/debug행 불변은 보장하지 않는다. 전문 raw gate검색은 Tools/AssetsEditor의 nonCombat/nonVFX/nonObserver cs/py/sh로 한정하며 범위밖 rawreader는 미확인이다. 실제 이벤트 재진입/영토/수입 실행은5.1로 모은다. source2+2.50 Auth문서1+2.51 TDD문서1+Task2=이번6경로,기존15에고유4경로추가→누적19예상;신규source/meta없어341/323유지예상이다. 중간 테스트/compile/QA/native/fixture/빌드/로그·Git쓰기/pull/fetch·VFX/메모리/다른상시문서 변경은 없다.
 
+### 2.53 인구 계산의 미소비 참조 저장4줄 정리 — 코드 전 계획(2026-10-25 KST)
+
+PopulationUseCase.cs 전체122행에서 `_unitSpawn`/`_buildingPlacement` readonly필드는 선언27~28행과 생성자 대입41~42행 외 소비가 없다. 아래4줄만 정리하고 public 생성자의 HexGrid/UnitSpawnUseCase/BuildingPlacementUseCase 세 인자와 null 허용은 유지한다. Bootstrap.Setup458의 호출도 바꾸지 않는다. 생성자 인자를 제거하는 API 재설계는 하지 않는다.
+
+- `private readonly UnitSpawnUseCase _unitSpawn;`
+- `private readonly BuildingPlacementUseCase _buildingPlacement;`
+- `_unitSpawn = unitSpawn;`
+- `_buildingPlacement = buildingPlacement;`
+
+미소비 참조 저장만 정리하는 근거는 현재 인구가 `_grid.CountTilesOwnedBy`와 4이벤트 기반 `_usedPopulationByTeam`으로 계산된다는 전체본문 확인이다. GDD H3 「인구수 시스템」의 타일보유량/건물·유닛 각1인구 공식과 GameSystemRules_Map.md 규칙3의 초기소유·건설공간 공정성을 보존한다. 원문4이벤트 OnUnitSpawned/OnUnitDied/OnBuildingPlaced/OnBuildingDied 구독·Dispose의 해제/캐시초기화·음수clamp·조회/계산·필드초기화 순서·기존meta는 그대로다. RHS는 전달받은 참조 단순복사여서 별도 getter/이벤트 호출이 없으며 새로운 null검사를 넣지 않는다.
+
+이는2.45와 같은 미소비 저장 데이터의 한정 정리다. private 필드 reflection목록/객체 크기·GC 참조 보유 수명은 달라질 수 있으며 모든 관측결과 동일을 주장하지 않는다. 이 class는 MonoBehaviour/직렬화 타입이 아니고 SerializeField가 없다. 전문의 Tools/AssetsEditor nonCombat/nonVFX/nonObserver 범위에서 대상field의 고정 reflection/source gate 참조는0이며 범위밖동적소비의 부재를 보장하지 않는다. 정확안/원문은 `/tmp/hexiege-population-close-253/design.json`에 보존했다. 정확4줄 역삽입 전체bytes·기존meta 보존과 메인 독립 대조로 source허용차이를 확인한다. **메인 전체 계획 검토/GO 전 소스는 수정하지 않는다.** source1+기존Task2=이번3경로이며 source/meta신규는 없다. actual compile/4이벤트인구 갱신·Dispose/reset 확인은5.1에 누적하고 지금 실행하지 않는다. VFX 외부브랜치·AI배율보류/현재pullfetch·Git쓰기·다른문서/메모리/TC 변경금지를 유지한다.
+
+이번 새선정1묶음 뒤 비보류 항목 중 구체안이 확정됐으나 구현하지 않은 리팩토링은0묶음이다. 마지막에는 선정범위의 정적 마감 대조를 수행하고 끝없는 후보 추가를 하지 않는다. 과거Task 전체대조/모든 의미감사·전역무결을 완료했다는 뜻이 아니며 미판정조사항목을 구현완료로 바꾸지 않는다.
+
 ## 3. 기능별 조사 분할과 보존할 동작
 
 | 기능 묶음 | 관련 원본 | 보존해야 할 경계 |
@@ -809,6 +824,7 @@ GameSystemRules_AI.md H3 「골드 수입 배율 적용」 규칙34의 ResourceU
 | 공격 강화 공통 반올림(2.49) | Lv0~5·baseValue<=0·Mathf 반올림 경계·유닛 공격과 파생 피해/힐 결과 보존 | 기존 연구/전투 경로 및 UnityMathf 환경에서 필요한 수치 확인 | 구현·정확helper/2RHS 정적 대조 완료; 실제 수치 실행 미실행 |
 | AI live provider/DTO(2.5/2.7) | live 종족 조회·기존 난이도9값 복사·이미 연결된 기존 행동 보존 | 기존 AI 검사·싱글 실행의 필요 범위 | 정적 대조와 구조 문서 동기화 기록 있음; 통합 실행 미실행. 생산시간 배율 신규 적용은 후속 AI 보류 |
 | UnitView partial/ExpiryClockHistory/생산 Queue·Requests partial(2.17/2.41/2.44/2.46) | partial 결합·모든 원메서드/필드·분리된 클래스를 읽는 기존 source gate 입력 연결 | 최신 Unity compiler/NGO ILPP와 기존 연결 gate. 과거 gate PASS 재사용 금지 | 원문 이동/역복원 근거를 각 결과절에 기록;2.44 구현·전문/문서 정적 대조 완료;2.46 구현·전문/문서/메인 raw 대조 완료이며 실제 ILPP/RPC ID hash 미확인. 최신 compile/native 미실행 |
+| 인구 미소비 참조 저장(2.53) | 4생성/사망 이벤트에 따른 인구 증감·타일 최대인구·Dispose/reset 및 기존 생성자 연결 | 기존 인구/생산 경로 | 정확4줄 정리·전문/문서/메인 정적 대조 완료; actual compile/이벤트 실행 미실행 |
 | 건물 인접 영토 공통화(2.51) | 일반/ID지정 배치의 인접Owner조건·순회/이벤트순서 및 중앙타일/등록 보존 | 기존 건물 배치·초기소유·클라이언트 반영 경로 | 구현·원문/정확helper 정적 대조 완료; 실제 배치/이벤트 실행 미실행 |
 | 수입 정수 지급 공통화(2.52) | 기본/채굴 누적분리·분수이월·양수만지급·차감후이벤트·AI배율/호출순서 | 기존 ResourceUseCase/싱글 경제 경로 | 구현·원문/정확helper 정적 대조 완료; 수치/이벤트 재진입 실제 실행 미실행 |
 | UI 재초기화·파괴/Rx/press(2.19/2.25) | 중복 listener/Rx 방지·서비스 갱신·never-active/disable/close 시 구독·눌림 수명 정리 | 기존 UI/생산 경로에서 재초기화·닫기/비활성화/파괴 확인 | 허용 diff 정적 대조 기록 있음; 실제 lifecycle/입력 실행 미실행 |
@@ -1167,3 +1183,10 @@ fields/init/ctor/Unity lifecycle/UI wrapper/ClientRpc/spawn/retry/stateSync와4R
 메인 정확안/전체계획 검토·GO 뒤 AuthSystemRules와TDD 각2행을 정정하고 BuildingPlacementUseCase/ResourceUseCase의 좁은 helper 추출을 구현·동결했다. 전문/메인 receipt와 문서 담당 독립 raw 대조에서 source2는 정확helper+각2호출 치환 외 동일, 상시문서2는 지정2행 치환 외 동일을 확인했다(Research16.56). 기존미커밋 source/meta13과 기존targetmeta2는 보존했다. 이번6경로·누적19경로 미커밋·미푸시, Assets341/Scripts323이며 source 신규는 없다.
 
 실제 compile/Unity/native/QA/suite/fixture/기기·영토/수입/이벤트 재진입/게임·빌드/로그 실행은 없고5.1에 모았다. 문서정합성 문제0/diffcheck0/Task로컬경로1102 누락0으로 마무리했다. 기존원문/과거이력 보존·VFX 외부브랜치 대기·AI배율 후속 보류와 Git 쓰기/pull/fetch·기타상시문서/메모리/옛Task/새TC 제외를 유지한다.
+
+
+### 7.51 마지막 인구 미소비 저장2.53 마감(2026-10-25 KST)
+
+메인 전체계획 검토/GO 뒤 PopulationUseCase의4줄만 정리해122→118행으로 동결했다. 전문/문서/메인 독립 raw 대조에서 정확4줄 외 전체bytes와 기존meta 동일을 확인했다(Research16.58). ctor3인자·4이벤트 캐시·Dispose/그리드조회/계산은 원문 그대로다. 최종 정적 대조의 커밋 전 snapshot은 source1+Task2의3경로이며 이후 커밋/원격 상태는 Git로그/메인 실행결과로 구분한다. 직전19경로는04ba9dfd로 work 원격 동기화가 확인됐다.
+
+이번 선정범위의 비보류·확정미구현은0묶음으로 마감하며 추가 후보 탐색은 끝낸다. 미판정 조사항목을 완료로 승격하지 않고 VFX 외부브랜치/AI배율 후속보류 및5.1 통합검증을 별도로 유지한다. 실제 compile/Unity/native/QA/suite/fixture/게임·빌드/로그 실행은 없었다. 문서정합성 문제0/diffcheck0/Task로컬경로1102 누락0이며 새Task/TC·다른문서/메모리 변경은 없다.

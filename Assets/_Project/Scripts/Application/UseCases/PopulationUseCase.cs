@@ -24,8 +24,6 @@ namespace Hexiege.Application
     public class PopulationUseCase : IDisposable
     {
         private readonly HexGrid _grid;
-        private readonly UnitSpawnUseCase _unitSpawn;
-        private readonly BuildingPlacementUseCase _buildingPlacement;
 
         // 팀별 사용 인구수 캐시.
         // 유닛 생성/사망 + 건물 배치/사망 이벤트로 증감 갱신.
@@ -38,8 +36,6 @@ namespace Hexiege.Application
             BuildingPlacementUseCase buildingPlacement)
         {
             _grid = grid;
-            _unitSpawn = unitSpawn;
-            _buildingPlacement = buildingPlacement;
 
             // 이벤트 구독으로 캐시를 자동 갱신한다.
             //   OnUnitSpawned / OnBuildingPlaced: 해당 팀 +1
