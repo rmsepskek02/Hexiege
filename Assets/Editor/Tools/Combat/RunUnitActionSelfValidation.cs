@@ -40,6 +40,15 @@ namespace Hexiege.Editor.Combat
             return source.ToString();
         }
 
+        /// <summary>
+        /// Observer 원본 파일과 같은 폴더로 옮긴 clock 이력을 함께 읽어 기존 소스 검사의 범위를 유지한다.
+        /// </summary>
+        private static string ReadUnitAttackShadowObserverSourceForValidation(string mainPath)
+        {
+            return File.ReadAllText(mainPath) + "\n"
+                + File.ReadAllText(Path.Combine(Path.GetDirectoryName(mainPath), "ExpiryClockHistory.cs"));
+        }
+
         // Service wiring only: production controller still owns revision/E/receipt and
         // production View/NetworkUnit own actual animation/application. No fabricated success.
         private sealed class NativeHostServices : IGameServices, IUnitFactory
@@ -796,7 +805,9 @@ namespace Hexiege.Editor.Combat
                 string[] fields = item.Split('|');
                 source = fields[0] == "Presentation/Unit/UnitView.cs"
                     ? ReadUnitViewSourceForValidation("Assets/_Project/Scripts/" + fields[0])
-                    : File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
+                    : fields[0] == "Infrastructure/Network/UnitAttackShadowObserver.cs"
+                        ? ReadUnitAttackShadowObserverSourceForValidation("Assets/_Project/Scripts/" + fields[0])
+                        : File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
                 for (int i = 1; i < fields.Length; i++)
                     if (!source.Contains("\"" + fields[i] + "\"")) throw new InvalidOperationException("Missing production hook " + fields[i]);
             }
@@ -3003,7 +3014,7 @@ namespace Hexiege.Editor.Combat
                 "InfernoSpirit forbidden Animator member source gate requires both production source files.");
 
             string productionSource = ReadUnitViewSourceForValidation(unitViewPath)
-                + "\n" + File.ReadAllText(observerPath);
+                + "\n" + ReadUnitAttackShadowObserverSourceForValidation(observerPath);
             string forbiddenPositionMember = string.Concat(".", "bodyPosition");
             string forbiddenRotationMember = string.Concat(".", "bodyRotation");
             Require(productionSource.IndexOf(forbiddenPositionMember, StringComparison.Ordinal) < 0

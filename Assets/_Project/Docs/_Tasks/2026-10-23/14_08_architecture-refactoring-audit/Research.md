@@ -4,7 +4,7 @@
 
 - 시작: 2026-10-23 14:08 KST.
 - 사용자 승인: task 문서 작성·조사 착수에 이어, Plan2.3 공유 후 사용자의 「바로진행하자」로 IUnitView 팩토리 의존 추상화 첫 묶음 구현 승인(2026-10-23).
-- 진행 상태: **전체 목록 확보 / 일부 계약·차이 조사 / 확정 묶음 소스 정리·정적 대조 완료 / 직전 푸시 `1a69402c` 후 사용자 컴파일 오류 없음 보고 / 전체 의미 감사·게임 실기 미완**. 최신 검증 축은16.13절이며 이전 회차의 컴파일 NOT RUN은 당시 에이전트 실행 기록으로 보존한다.
+- 진행 상태: **확정 묶음 구현·정적 대조 완료 / 최신 HEAD `d1d175173ccb5564f053650021101be004ea1a8f` 원격 `work` 일치·착수 전 clean 확인(메인 전달), 현재6경로 작업트리 변경 / ExpiryClockHistory 단일 클래스 분리·source gate 범위 보존 구현/전문·메인 독립 정적 대조 완료 / 전체 의미 감사·게임 실기 미완**. 최신 진행 근거는16.40절/Plan7.44이며, 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의16.13절로 한정한다. 최신 HEAD의 새 컴파일·실기 증거는 없다. 아래 과거 승인·미실행 기록은 해당 당시 근거로 보존한다.
 - 후속 승인: 사용자 「다음 진행해」로 다음 조사와 기존 Task 후속 기록 진행(2026-10-23). 단계2 조사 결과와 Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했고, 기존2파일 정리·메인 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 남은 리팩토링을 계속 실행하라는 지시다. 메인이 기공유한 AI live 종족 조회 주입2파일 안을 다음 묶음으로 선정했고 프로그래머 제안을 Plan2.5로 코드 전에 구체화·검토한 뒤 구현 신호를 전달했다. 해당2파일의 소스 정리·메인 독립 정적 대조를 마쳤으며 컴파일·게임 실행은 미실행이다(2026-10-23).
 - 다음 착수: 사용자 「계속 진행해」의 잔여 리팩토링 계속 실행 지시 아래 메인이 기공유 인증 계약안을 다음 묶음으로 선정했다. 프로그래머 제안을 Plan2.6으로 코드 전에 기록했으며 메인 직접 검토·구현 신호 이후 소스 정리·독립 정적 대조를 마쳤다. 컴파일·Unity/실기는 미실행이다(2026-10-23).
@@ -1353,6 +1353,15 @@ Plan2.17/AUD-003으로3C#/3meta를 추가한다. 시작목록과 기존증분은
 | [Assets/_Project/Scripts/Presentation/Unit/UnitView.Healing.cs](<../../../../Scripts/Presentation/Unit/UnitView.Healing.cs>) | Plan2.17 · AUD-003 · 원문이동/독립정적대조 완료·compile/실기 NOT RUN |
 | [Assets/_Project/Scripts/Presentation/Unit/UnitView.Healing.cs.meta](<../../../../Scripts/Presentation/Unit/UnitView.Healing.cs.meta>) | Plan2.17 · AUD-003 · 원문이동/독립정적대조 완료·compile/실기 NOT RUN · GUID 11ce2d3c8feb4789bc36d4a2b89234a9 |
 
+### 7.6 ExpiryClockHistory 원클래스 이동 목적지 증분(2026-10-25 KST)
+
+시작 inventory와 앞선 증분의 원source/SHA/ranges는 그대로 보존한다. Plan2.41의 신규 파일은 별도 기능 추가가 아니라 기존 [UnitAttackShadowObserver.cs](<../../../../Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs>) 원112~321행210행(자체 XML summary 포함)의 원문 이동 목적지다. 원범위 SHA256 `3e0e8e8905431306d24ad72f997c086502feb6c722464577f207043bda01289d`와 신규10~219행의 bytes/hash가 동일하다.16.38의 원파일/meta SHA,16.40의 결과 및 `/tmp/hexiege_plan241_20261025/static-review.json`으로 연결한다. 문서 담당도 Assets C#338개/프로젝트 Scripts320개를 직접 재측정해 코드 전337/319와 구분했다.
+
+| 신규 파일 | 근거·상태 |
+|---|---|
+| [Assets/_Project/Scripts/Infrastructure/Network/ExpiryClockHistory.cs](<../../../../Scripts/Infrastructure/Network/ExpiryClockHistory.cs>) | Plan2.41 · 기존 Observer 원112~321→신규10~219 원문 이동 ·221행 · 전문·메인 독립 정적 대조 완료 · compile/실기 NOT RUN |
+| [Assets/_Project/Scripts/Infrastructure/Network/ExpiryClockHistory.cs.meta](<../../../../Scripts/Infrastructure/Network/ExpiryClockHistory.cs.meta>) | Plan2.41 · 신규GUID e526a948505d4c128b25109576742345 · Assets meta 검색 자신1건 · 기존 meta 불변 |
+
 ## 8. 현재 결론과 다음 조사
 
 시작 기준 전체 경로 목록은 확보했으나 310개 프로젝트 스크립트 및 문서의 기능 단위 의미 검토는 완료되지 않았다. Domain/Application 초기 의존성 조사를 메인/프로그래머가 수행했고, 첫 작업 묶음 IUnitView 팩토리 추상화를 Plan2.3에 구체화했다. 이후 사용자의 「바로진행하자」로 해당 첫 묶음이 승인돼 구현과 한정 정적 대조를 마쳤다. 컴파일·기기·게임 실행과 사용자 수용은 미확인이다. 전체 의미 감사는 계속 필요하며 대형 파일 분할이나 삭제를 먼저 확정하지 않는다. 구현으로 생성한 파일은 시작 목록을 보존한 채 아래 증분 장부로 추가했다. 구현 후 근거는6절의 별도 범위에 기록한다.
@@ -2148,3 +2157,39 @@ Plan2.39 전체를 메인이 직접 읽고 classifier 본문과 대조한 뒤 �
 
 
 최종 문서 검사 check_docs exit0·문제0 및 diffcheck exit0을 확인했다. 검사 제외 Task2는 별도 상대 Markdown 링크1092개가 HEAD 목록과 동일하며 파일 누락0·앵커 포함0임을 확인했다. 정적 형식·링크 존재 근거이며 전체 의미/실행 검증은 아니다. 이 결과 기록 후 기존 Task2를 동결하고 커밋·푸시 뒤 사후 Task 쓰기는 하지 않는다.
+
+
+### 16.38 최신 푸시 기준과 ExpiryClockHistory 단일 클래스 분리 코드 전 조사(2026-10-25 KST)
+
+메인은 최신 `d1d175173ccb5564f053650021101be004ea1a8f`의 원격 `work` 일치와 착수 전 clean 확인을 전달했다.16.37/Plan7.43은 직전 parser guard의 구현·정적 대조 근거이며, 사용자 컴파일 오류 없음 보고는16.13의 `1a69402c` 이후 보고로 한정한다. 최신 HEAD의 새 컴파일/Unity/native/게임/빌드 증거는 없다. 사용자 「다음작업 이어서진행」과 기존 전면 자율 진행·Task 기록 승인을 이어 받아 단일 클래스 분리를 Plan2.41에 코드 전에 기록한다. 추가 push 지시로 해석하지 않는다.
+
+선정 범위는 `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs`의112~321행뿐이다. 자체 XML summary112~115와 class116~321을 합친210행을 같은 폴더 `ExpiryClockHistory.cs`로 그대로 옮긴다. 기존322행 빈행과 Tracer C summary323~328/Observer 선언329 이후, 기존 using·전처리·다른 타입은 보존한다. 문서 담당 직접 실측: 원파일4123행/SHA256 `298f12d3b3ca8fb7ad0fb2fd548fb30078a686cd2fab4919835051c098d9e80b`, 이동210행 SHA256 `3e0e8e8905431306d24ad72f997c086502feb6c722464577f207043bda01289d`, 기존 meta SHA256 `1badae546bb9bd102325fa4cc56af1b640e259761574a620163705cd806b6104`/GUID `126c056a498271449bc9ef5488a76866`다. 시작 inventory·원 snapshot SHA/범위를 덮어쓰지 않으며 신규 경로는 이 원클래스 범위의 이동 목적지로만 증분 연결한다. Assets 전체 C#는 직접337개, 프로젝트 Scripts는319개이며 구현 후338/320개를 다시 실측한다. 현재 신규 source/meta는 아직 없다.
+
+문서 담당은 실제 source gate와 기존 fixture 소비를 직접 읽었다. `RunUnitActionSelfValidation.cs`794의 단일 Observer 파일 읽기는 `"Decision"` literal 존재를 확인하며 해당 literal은 Observer 본체에 남는다.3001의 금지 Animator member 검사는 UnitView와 Observer만 읽지만 이동 클래스에는 `.bodyPosition`/`.bodyRotation`이 없으므로 이 추출로 기존 검사가 확인하던 금지 참조가 빠지지 않는다. `RunAuthoritativeAttackPresentationValidation.cs`321/360의 직접 생성·예산 소비와395/400/405의 `_next`/`_operation`/`<DiagnosticFaults>k__BackingField` reflection 이름을 보존한다. 본문 추출 방식의 CLR 도구는 현재 저장소 Python/C# 및 확인 가능한 `/tmp` Python/shell 검색에서 찾지 못했다(전문 담당도 추가 csproj 범위 무히트 전달). 이는 현재 존재 파일 범위의 검색 한계이며 과거 CLR 실행기나 추출 코드가 영구히 없다는 주장은 아니다. 미제공 외부 CLR 도구가 기존 단일 파일에서 본문을 추출한다면 수동 위치 갱신이 필요할 수 있으며 그 호환성은 확인하지 않았다. 타입/멤버 계약을 보존하되 CLR metadata token 번호나 컴파일 입력의 파일 순서 불변까지 주장하지 않는다. 신규 wrapper/전체 원문 이동의 정적 역복원은 컴파일/CLR 실행을 대신하지 않는다.
+
+예상 변경은 기존 source1+신규 source/meta2+기존 Task2=5경로다. 메인 전체 Plan 검토/GO 전 소스를 쓰지 않는다. 단일 클래스 이외 DTO/enum 추출·전면 재감사·새 Task·상시문서/메모리/과거 Task·History 전파를 하지 않는다. source-stack 파일/행 위치 변화는 허용하며 API/가드/namespace/reflection/필드 순서·본문/로그/예산/GUID 보호와 AI 생산배율·legacy VFX6 삭제·Coordinator 예약 FIFO/ABA 및 private3값 보류를 유지한다. 컴파일/스위트/fixture/Unity/native/게임/빌드·TCQA·로그 실행은 없다.
+
+코드 전 문서 점검: `python3 Tools/check_docs.py` 문제0(이 도구의 Task 제외 범위 유지), `git diff --check`0. Task2파일의 로컬 Markdown 경로1092개를 별도 확인해 누락0이며 기존 Observer source 존재/신규 source·meta 미생성을 확인했다. 현재 diff는 Research/Plan2개뿐이다. 구현 뒤 신규 경로 존재·링크·실측·정적 결과는 별도 기록한다.
+
+
+### 16.39 코드 전 계획 보완: 분리된 이력도 기존 source gate 검사 범위에 포함(2026-10-25 KST)
+
+16.38의 최초5경로안은 아직 구현하지 않았다. 메인 전체검토에서 현재 literal/금지 member 부재뿐 아니라 기존 gate가 보던 원클래스 전체의 검사 범위도 보존하도록 보완했다. 전문 담당의 helper/호출2곳 제안을 받고 문서 담당은 기존 UnitView partial helper30~41,794 루프와3005 결합을 다시 직접 읽어 Plan2.41을 수정했다. 코드 전 쓰기 범위는 기존 Observer/Editor2source+신규 source/meta2+기존 Task2=6경로다. 단일 ExpiryClockHistory 추출이라는 선정 범위와210행 원문 이동은 같다.
+
+Editor `RunUnitActionSelfValidation.cs`의 기존 UnitView helper 뒤에 main+같은 폴더 ExpiryClockHistory.cs를 newline1개로 잇는 private helper를 추가하고794의 Observer 읽기와3005의 observerPath 읽기만 새 helper로 바꾼다. UnitView/나머지 파일 읽기와 기존 gate조건·문구·숫자·fixture 생성은 유지한다. Editor 원문 SHA256 `315f886ddd5c5130d94f440cf5602dfa76df2a34a7b1f430760db58008d22108`/meta SHA256 `b12c466392767f195bb3e1866152e760a8d43c40efa90dc4c011ca50f4a952fa`를 직접 실측했다. 원 Observer/meta/이동범위 SHA와337/319 실측은16.38에 보존하며, 두 source 각각의 전체 raw 역복원과 기존 meta 보존을 구현 후 정적으로 대조한다. 원문 inventory/ranges를 덮어쓰지 않고 신규 이동 목적지를 구현 후 증분 편입한다.
+
+현재 메인 수정계획 전체검토/GO 전이며 코드 미수정이다. 외부 임시 CLR 추출 위치 미제공/호환성 미확인과 source-stack·metadata token 한계, 최신 `d1d17517`의 실행 미검증과 과거 `1a69402c` 사용자 컴파일 보고의 분리를 유지한다. 새 컴파일/CLR·스위트/fixture/Unity/native/게임/빌드·TCQA·로그 실행은 없고 AI 생산배율·VFX6 삭제·Coordinator FIFO/ABA 및 private3값은 계속 보류한다.
+
+
+### 16.40 단일 클래스 원문 이동·source gate 범위 보존 구현 결과(2026-10-25 KST)
+
+메인이 수정 Plan2.41 전체를 직접 검토하고 GO한 뒤 전문 담당이 기존 Observer/Editor2source와 신규 source/meta를 구현·동결했다. 문서 담당은 `/tmp/hexiege_plan241_20261025/static-review.json`의 검증 결과, Editor 전체 diff와 실제 신규 wrapper/meta를 읽었다. 전문 정적 대조는 Observer 전체 raw 역복원 동일, Editor helper1개/읽기2곳 역복원 전체 bytes/hash 동일, 이동210행 원문 동일을 확인한다. 기존 Decision literal과 금지 Animator member 검사조건/문구/숫자·UnitView 분기/fixture는 보존하며 main+history helper로 원클래스 전체 source coverage를 유지한다. 합친 source의 금지 member 부재는 정적 대조이며 실제 gate/fixture 실행이 아니다.
+
+원 Observer4123→3913행, 새 ExpiryClockHistory221행(원문 payload10~219)이며 문서 담당도 Assets C#337→338/Scripts319→320을 직접 실측했다. 시작 inventory·원파일 SHA/원범위는16.38에 보존하고7.6을 새 이동 목적지 증분으로 연결했다. 변경 후 Observer SHA256 `7da08cbfe5cbd16374fb96df0f4233b10001f338c6d7af5fa86ca6052fc75fa4`, 신규 source SHA256 `8a450015705f5400aa9ec67f5c3a9f9cafac6be892ccbe65183e6eff65f5feaa`, 신규 meta SHA256 `e187d74b1006090262391ef49da9baf2a7c4643daaa781f186e50b3155c689fb`를 직접 확인했다. 신규 GUID `e526a948505d4c128b25109576742345`는 전문 검사에서 Assets meta 자기1건이며 기존 meta3268개 전부 불변이다. namespace/guard/API·중첩 Record/필드·backing 이름/순서·메서드/로그·예산 보존은210행 원문 동일과 기존 두 source 역복원에 근거한다. 메인 독립 결과도 수신·직접 확인했으며 아래에 별도로 연결한다.
+
+정확6경로는 기존 `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowObserver.cs`, 기존 `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.cs`, 신규 `Assets/_Project/Scripts/Infrastructure/Network/ExpiryClockHistory.cs`/`.cs.meta`, 이 Task `Research.md`/`Plan.md`다. 추가 commit/push는 하지 않았다. 새 컴파일/CLR·스위트/fixture/Unity/native/게임/빌드·TCQA·로그 실행은 없다. 사용자 컴파일 보고는16.13의 과거 `1a69402c`에 한정한다. 외부 임시 CLR 본문추출 위치/호환 미검증과 metadata/source-stack 한계, AI 생산배율·VFX6 삭제·Coordinator FIFO/ABA 및 private3값 보류를 유지한다.
+
+
+메인 독립 `/tmp/hexiege-plan241-main-independent.json`도 직접 읽었다. 기준 HEAD `d1d175173ccb5564f053650021101be004ea1a8f`에서 원112~321행210행을 대조해 같은 payload SHA·신규5using/guard/namespace wrapper와 payload/suffix 전체 정확·기존 Observer의 이동 범위 이외 raw 동일·Editor helper/2읽기 역복원 전체 raw 동일을 확인했다. 기존meta2개 HEAD bytes 동일/신규GUID Assets전체 유일, gate 결합 source에 이동 payload전체 포함과338/320 실측·정확6경로도 독립 확인했다. source gate의 실제 실행이나 컴파일 PASS가 아니다. 원 source inventory와 중간332개 등 과거 snapshot 수는 당시 기록으로 그대로 두고 이번 코드 전337개+신규1개=338개 증분과 구분한다.
+
+최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. Task2파일의 로컬 Markdown 경로1095개를 별도 확인해 누락0이며 기존 Observer·신규 source/meta 경로 모두 존재한다. 현재 변경은 위6경로에 한정하며 이 묶음은 commit/push 등 Git 변경 명령을 실행하지 않은 작업트리 상태다. 추가 소스 수정·후속 계획 확정은 하지 않았다.
