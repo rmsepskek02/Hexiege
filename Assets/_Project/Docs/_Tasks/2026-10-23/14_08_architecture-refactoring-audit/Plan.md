@@ -2,12 +2,12 @@
 
 기존 게임의 동작과 사용자가 이미 확인한 기능을 유지하면서, 코드를 이해하고 고치기 쉬운 구조로 정리한다. 먼저 문서·코드·에셋의 관계와 남은 조사 범위를 기록하고, 근거가 확보된 작은 작업부터 진행한다. 이번 문서는 전체 작업의 순서와 첫 조사 범위를 정하며, 아직 확인하지 않은 코드의 삭제나 재설계를 확정하지 않는다.
 
-> **기존 로직 제거와 삭제 보류:** 실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. VFX 옛 지정6블록은 과거 문서의 기존 결함 사용자 테스트 조건과 현행 최종 삭제 gate 확인이 필요하며, 이를 사용자 직접 보류 지시로 단정하지 않는다(Research16.41). `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
+> **기존 로직 제거와 삭제 보류:** 실행 로직을 폐기하는 삭제는 현재 범위에 없다. **Plan2.45는 private LegacyReservation 미소비 저장3필드/3대입의6줄만 정리한다. 읽기·직렬화·반사 참조 없음과 RHS 무부작용 근거를2.45에 기록해 과거 메인의 private3값 보류를 한정 변경한다. 실행 경로를 지우거나 기능 삭제 gate를 일반 해제하지 않는다.** **Plan2.44는 생산 큐18메서드의 같은 class partial 원문 이동이며 목적지 payload 확인 후 원위치 중복을 옮긴다. shim·주석 dead block을 새로 남기지 않고 필드·초기화·동작을 보존한다.** **Plan2.41도 ExpiryClockHistory와 자체 XML summary의 동일 namespace/guard 안 원문 이동이다. 새 파일의210행을 원문과 먼저 대조하고 기존 위치에서 옮기며 실행 로직 폐기·shim·주석 dead block을 남기지 않는다.** **Plan2.6의 AuthErrorReason/AuthException은 동작 폐기가 아닌 정의 이관이다. 목적지 Application/AuthException.cs에 기존 enum13순서와 예외 body를 먼저 보존·비교한 뒤 원위치의 중복 정의를 옮긴다. old class/shim/주석 dead block은 새로 남기지 않으며, 실기 대기 Legacy 최종 삭제와 구분한다.** WORKFLOW [4]에 따라 제거 후보의 안전 근거를 먼저 적고, 검증 전에는 비활성화(주석 처리)를 기본으로 한다. 최종 삭제는 사용자 테스트 통과 후·문서/메모리 업데이트 전에 해당 승인 범위로 수행한다. VFX 옛 지정6블록은 과거 문서의 기존 결함 사용자 테스트 조건과 현행 최종 삭제 gate 확인이 필요하며, 이를 사용자 직접 보류 지시로 단정하지 않는다(Research16.41). `Legacy`, `Shadow`, `temp`, `Setup`이라는 이름이나 검색 참조0만으로 삭제하지 않는다.
 
 - 기준: 2026-10-23 14:08 KST.
 - 조사 장부와 근거: [Research.md](Research.md).
-- 현재 진행·최신 근거(2026-10-25 KST): 예약 FIFO2.42는 메인 전체검토/GO 후 구현·전문/메인 독립 정적 대조 완료(Research16.44/7.46). 최신 확정 푸시는 ExpiryClockHistory/source gate6경로의 `4e80eeb3004e0595afebf6cc974791827b387358`이며 이후 source1+Task2의3경로는 커밋 전 검증 snapshot이다. 메인은 현재 푸시 지시 범위에서 완료분을 이어 커밋·푸시하고 실제 성공/원격 SHA를 확인한다. 사용자 컴파일 보고는 과거1a69402c 범위이며 현재 세대의 새 실행 증거는 없다.
-- 현재 보류 출처: Research16.41/7.45의 출처 정정은 유지한다. AI 생산배율만 명시 후속 보류다. 예약 FIFO는16.28 당시 메인의 안전 판단 뒤 현재2.42 구현·정적 대조를 마쳤다. VFX는 사용자 명시 보류가 아니라 과거 테스트 조건/현재 증거 부족 검토이며2.43은 후보만 기록한다. 사용자 재현 질문의 답 없음은 승인/보류 동의가 아니다.
+- 현재 진행·최신 근거(2026-10-25 KST): 최신2.50~52는 인증/TDD 각2행 정정·인접영토/수입지급 공통화 구현 후 전문/문서/메인 독립 정적 대조 완료(Research16.56/7.50), 현재누적19경로 미커밋·미푸시다. 아래 앞선 묶음 집계는 당시 기록이다.  최신2.48/49는 코드 전 계획/메인 GO 뒤 구현·전문/문서/메인 독립 정적 대조를 마쳤다(Research16.53/7.49). 누적15경로는 미커밋·미푸시다.  최신2.46/47은 코드 전 구체계획/메인 전체검토/GO 뒤 구현·전문/문서/메인 독립 정적 대조 완료(Research16.51/7.48). 생산 Queue partial2.44·미소비 예약3값2.45는 메인 전체검토/GO 후 구현·전문/문서/메인 독립 정적 대조 완료(Research16.49/7.47). 예약 FIFO2.42는 앞선 메인 독립 정적 대조까지 완료(Research16.44/7.46). 앞선2.42 완료분 푸시·clean은 메인 인계이며 이번2.44~2.47의고유11경로는 미커밋·미푸시 상태다. 현재 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95`는 문서 담당도 직접 확인했다. 최신 지시는 순수 리팩토링을 계속하고 그 영향 테스트는 모아 한 번에 진행하는 것이다(Research16.45/16.48, Plan5.1). 지금 통합 테스트를 시작하지 않는다. 사용자 컴파일 보고는 과거1a69402c 범위이며 현재 세대의 새 실행 증거는 없다.
+- 현재 보류 출처: Research16.41/7.45의 과거 출처 정정은 유지한다. AI 생산배율은 명시 후속 AI 보류다. 예약 FIFO는16.28 당시 메인의 안전 판단 뒤 현재2.42 구현·정적 대조를 마쳤다. VFX는 이번 새 사용자 지시에 따라 외부 브랜치 작업 완료·후속 pull 대기다(Research16.45/2.43 후속 지시). 과거 사용자 직접 보류로 소급하지 않고 현재 pull/fetch·VFX 코드/옛 Task 변경을 하지 않는다.
 - 현재 승인: Research/Plan 작성·조사 착수에 이어, Plan2.3 공유 후 사용자 「바로진행하자」로 첫 코드 묶음 구현 승인(2026-10-23).
 - 후속 상태: Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했다. 기존2파일 주석4곳·불필요 using1행 정리와 메인 독립 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 잔여 리팩토링의 계속 실행 지시다. 메인이 기공유 AI live provider2파일 안을 다음 묶음으로 선정하고 프로그래머 제안을2.5절로 구체화했다. 같은 Task를 사용하며 재승인 질문을 반복하지 않는다. 메인 검토 후 구현 신호를 전달했고 해당2파일 소스 정리·독립 정적 대조를 마쳤다. 컴파일·게임 실행은 미실행이다.
@@ -627,11 +627,138 @@ Research16.38의 원파일/meta/이동210행 SHA를 코드 전 기준으로 유�
 
 ### 2.43 VFX 사망 시 끝점 후속 — 현재는 소스 사실과 후보만 기록
 
+**후속 사용자 지시(2026-10-25 KST) — 현재 분류:** 다음 작업은 테스트가 아닌 리팩토링이다. VFX는 다른 브랜치에서 작업 중이므로 완료 후 후속 pull을 거쳐 진행한다(Research16.45). 아래 후보·출처 정정은 당시 기록으로 보존하며 이번 회차 VFX 구현 대상으로 선정하지 않는다. 지금 pull/fetch·VFX 소스·옛 VFX Task 수정은 하지 않는다. 이는16.41의 과거 보류 출처 정정을 뒤집는 소급 판단이 아니라 새 지시에 따른 현재 작업 순서다.
+
 옛 지정6블록 삭제와 현재 타워 번개 끝점 결함을 사용자 직접 보류로 단정한 분류는 Research16.41/7.45에서 정정했다. 과거 Task에 적힌 사용자 테스트 조건과 WORKFLOW [4] 최종 삭제 gate의 현재 충족 근거는 확인하지 못했다. 이는 메인이 적용하는 기술·절차 경계이며, 새 사용자 보류 결정으로 기록하지 않는다. 현재는 동작 변경/삭제 구현 계획을 확정하지 않았다.
 
 Research16.41의 현재 resolver→manager→bolt 체인에는 dead-at-start의 TargetDead/default→null Data→0.6m fallback→snapshotImpact+가슴 높이 경로가 남아 있다. 추적 중 사망의 마지막 끝점 고정과 구분하며, 이것이 현재 증상의 원인이라는 재현 근거는 없다. AttackEffectPresentation에는 대상 UnitType이 없어 「snapshot type을 바로 사용」하는 안은 현행 payload만으로 구현할 수 없다.
 
 전문 담당은 View.Data가 남아 있는 사망 대상에서 ID/수명 경계를 지키며 Type를 표현용으로 별도 추출해 manager에 전달하는 국소 후보를 제시했다. 이는 아직 선택·승인된 구체 설계가 아니며, View/Data 누락은 계속 fallback이 필요하다. 대상 재사용/동일 객체 확인·죽은 데이터 수명·추적 권한과 높이 정보의 분리·규칙의 「추적 불가로 시작할 때」 경계·수정 파일/호출자/정적 확인 범위를 먼저 확인해야 한다. 서버 HP/RPC/피해 snapshot을 바꾸지 않는 후보로만 남긴다. 옛 지정목록6블록 외 VfxConnections의 유사 비활성 블록도 있어 저장소 전체 합계를6으로 단정하지 않는다. 이 절로 소스 수정/삭제·새 테스트/로그/메뉴/빌드 실행을 시작하지 않으며 메인이 FIFO2.42 진행 후 별도 선정한다.
+
+### 2.44 생산 큐 메서드의 같은 class partial 원문 분리 — 코드 전 계획(2026-10-25 KST)
+
+큰 생산 UseCase에서 큐 등록·취소·자동 전환 메서드를 같은 타입의 별도 파일로 옮겨 책임을 찾기 쉽게 한다. 타입이나 동작을 재설계하지 않는다. 전문 구체안을 수신했고 문서 담당이 코드 전 원문·범위/SHA·기존 meta·338/320을 직접 확인했다. 메인 전체 검토/GO 전 소스 수정은 하지 않는다.
+
+근거는 GameSystemRules_BuildingPanelsUI.md H2 「생산 패널 UI」 규칙6~11/18~22의 슬롯·차감·검증 순서·자동 전환/순환 계약과 GameSystemRules_Buildings.md H2 「건물 철거 시스템」 규칙5~6, H2 「랠리포인트 시스템」 규칙1~5다. 이 계약과 현재 구현 본문을 보존하는 구조 분리이며 규칙·밸런스·생산시간·AI 배율을 변경하지 않는다.
+
+| 파일 | 정확 변경 | 보존/확인 |
+|---|---|---|
+| Assets/_Project/Scripts/Application/UseCases/UnitProductionUseCase.cs | `public class`를 `public partial class`로 하고 아래3개 원문 구간을 같은 타입의 Queue partial로 이동 |6필드·초기화순서·ctor·Register/Unregister·GetState·랠리3메서드·Tick/TickProgressOnly/TryStartNext/TickProduction/CompleteProduction/FindSpawnTile 유지. 기존 using2/namespace/파일meta 유지 |
+| Assets/_Project/Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs | 신규 같은 namespace Hexiege.Application/같은 public partial class. using Hexiege.Domain, 새 전처리 가드 없음. 아래3구간 원문 그대로 순서대로 배치 |18메서드의 접근수준/시그니처/XML/본문/이벤트·반환·골드/환불·자동대기·큐상한3·생산시간 완전 보존. wrapper 설명만 신규 |
+| Assets/_Project/Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs.meta | 기존2행 형식의 fileFormatVersion2+신규32hex GUID `ba83783003204123af1aa94bbffdfd08` | Assets meta 전체에서 충돌0 확인. 기존 MonoScript GUID `fcf0fe77d697c0f4c839fcbee681bd2c` 보존 |
+
+코드 전 main은 **993행**,49085bytes, SHA256 `c41257d8a07b6ae6d7f9504d597616fdc81e0a800f830cfbe4f5ed0e47bc1379`다. 이전 약997행 추정 대신 직접 측정한993행을 사용한다. 원본 cs/meta는 `/tmp/hexiege-production-pure-244-245`에 보존했다.
+
+| 원파일 범위(코드 전) | 이동 대상 | 원문 SHA256 |
+|---|---|---|
+|84~380,297행/14172bytes | 생산 큐 section/XML 및 EnqueueUnit, ToggleAutoProduction, UnregisterAutoType, RegisterAutoType, TryConvertCurrentToAuto, TryConvertLastPendingToAuto, AddNewAutoSlot, CancelQueueAt, CancelCurrentProducing, CancelPendingSlot | `586d3bab9b4589b2e8571331be5e1b6a9d3e52727f177daa7bd6c098b2ae1f46` |
+|388~456,69행/4204bytes | CancelAllQueue와 XML | `747d0f9f60d2c824902c781ed3c528571bcd728a359f6ab66a230c223e2c5b45` |
+|804~991,188행/8578bytes | ChargeVisibleSlots, CancelAutoTypeIfNeeded, DisableAutoMode, MigrateOrRemoveAutoSlots, HasQueueCapacity, TryChargeResources, NormalizeAutoCycleIndex 및 기존 section | `ad2fcd199bcfa48190c4ee956fe1acf24fe61cc6d2f59203efc132b6e5c6994b` |
+
+3구간554행/26954bytes의 원문 이동이며 기존 위치에 shim·주석 dead block을 남기지 않는다. 전체31메서드(ctor1+나머지30, 이동18/main 잔류13)의 원문 manifest와 새 파일의 이동payload를 정적으로 대조하고 main에3구간을 역삽입·partial 토큰을 원복했을 때 전체 bytes가 원문과 동일함을 확인한다. 기존 필드 순서·초기화·공개API/로그/이벤트/리터럴·기존meta·자산 보호도 확인한다. 전문 검색은 Assets/Tools/.claude의 cs/py/sh/json/asmdef/rsp/csproj에서 파일명 참조가 main 자체 헤더1곳 외 없다는 한정 근거이며 외부 generator/빌드와 CLR metadata 메서드 순서/debug line 불변을 보장하지 않는다.
+
+쓰기 범위는 기존source1+신규source/meta2+기존Task2의 **5경로**다. Plan2.45가 별도로 확정·GO되면 해당 기존source1을 더한 합6경로로 구분한다. Assets338/Scripts320은 코드 전 실측이며 신규source 구현 뒤339/321을 다시 측정해 Research 증분 장부에 연결한다. 원 inventory/SHA/ranges를 덮어쓰지 않는다. 컴파일/CLR·suite/fixture/Unity/native/TCQA/게임/빌드·로그/메뉴 실행·Git 쓰기·상시문서/메모리/옛 Task·VFX 소스 변경은 없다. 검증 상태는 소스 정적 대조와 문서 검사로만 기록한다.
+
+### 2.45 LegacyReservation 미소비 저장3값의6줄 정리 — 코드 전 계획(2026-10-25 KST)
+
+예약을 실제로 처리하는 경로는 유지하고 어디에서도 읽지 않는 저장값만 정리한다. **이는Research16.28의 private3값 최종 삭제 보류를 재검토한 한정 판단 변경**이다. 당시 메인이 안전 조건을 이유로 보류했던 기록은 보존한다. 이번에는 타입/직렬화/반사 참조와 RHS 부작용을 따로 확인해 미소비 데이터로 확정하며 행동 로직 폐기나 Legacy 경로 비활성화로 분류하지 않는다. WORKFLOW [4]의 기능 삭제 gate를 일반 해제하는 결정이 아니다. 메인 전체 계획 검토/GO 전 소스는 수정하지 않는다.
+
+| 정확 파일/범위(코드 전) | 변경 | 안전 근거/보존 |
+|---|---|---|
+| Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs 40/43/44행 | private sealed LegacyReservation 내부 Token/LegacyScheduledAt/ShadowCommitAt 선언3줄 정리 | private 중첩 class이며 annotation/Serializable/StructLayout/interface 없음. public 필드 접근수준이 외부 공개 타입/API를 뜻하지 않음. 저장 후 읽기0 |
+| 같은 파일488/491/492행 | 같은3필드 object initializer 대입3줄 정리 | token은 readonly struct local복사, legacyScheduledAt은 double local복사, snapshot.CommitServerTime은 sealed UnitActionSnapshot의 get-only double auto getter. 앞선 SequenceId/TargetBinding/Phase 역참조를 이미 통과해 새 null 예외 회피가 생기지 않음 |
+
+전문이 Assets runtime/Editor·Tools 및 코드/config의 식별자·수식/문자열·반사/source gate 참조를 검색했고 선언/대입 외 소비를 찾지 못했다. GetFields는0, GetNestedType은 RunUnitActionSelfValidation.cs4045의 별도 viewType 증거 타입1곳이며 해당 예약 타입과 무관하다. typeof(UnitAttackShadowCoordinator)/reservation.Token 및3필드 quoted 참조도0이라는 전달 근거다. 문서 담당은 실제 class와 initializer/선행 snapshot 역참조·LegacyAttackToken readonly struct·UnitActionSnapshot auto getter를 직접 확인했다. 검색 범위 밖 CLR private reflection/layout 소비자·메모리 footprint/allocation timing 불변을 보장하지 않으며 성능 향상을 수치로 주장하지 않는다.
+
+**그대로 둘 것:** token local 생성/반환·LastLegacyToken·ReservationKey.Token, legacyScheduledAt 인자와 IsFinite 검증, 실제 snapshot CommitServerTime, OrderNode/LinkedList FIFO512, reservation key/Trim/Remove/Retire·마스크·취소·tombstone·권위/타겟/피해·모든 public/internal API·상수/로그·기존meta/GUID/preset. 별도 ABA/late-token alias의 기존 한계를 넓혀 고치지 않는다.
+
+근거는 GameSystemRules_UnitCombatSynchronization.md H2 「4. AttackSequence 계약」 NET-ACTION-SEQ/NET-ACTION-IDEMPOTENT, H2 「5. 서버 시간 재생」 NET-TIME-001, H2 「9. 취소·사망·중단」 NET-CANCEL-005다. 이들 권위/시간/결과/취소 동작은 기존 경로 그대로 보존하며 값 저장3개를 규칙 동작으로 해석하지 않는다. 코드 전 source SHA256 `bdbfa29c07e707da68e0566569be206f7d1cb3a3e4c34224044914554f12dc50`와 기존 meta는 `/tmp/hexiege-production-pure-244-245`에 보존했다. 허용6줄만 역삽입해 전체 원문 bytes/hash 동일·공개API/나머지 본문/기존meta 보존을 정적으로 확인한다.
+
+2.45만의 쓰기 범위는 기존 Coordinator1+Task2의3경로이며 2.44와 합쳐 **기존source2+신규source/meta2+기존Research/Plan2=6경로**다. 전문 확정안 뒤 기록한 이 합계가 이번 묶음 쓰기 범위다. 신규 C# 증분은2.44의1개뿐이다. 테스트/QA/compile/CLR/suite/fixture/Unity/native/게임/빌드·로그/메뉴/Git 쓰기·VFX·상시문서/메모리/옛 Task 변경은 없다. AI 생산배율 후속 보류와 VFX 외부 브랜치 완료/후속 pull 대기를 유지한다.
+
+### 2.46 생산 요청 ServerRpc4개의 같은 class partial 원문 분리 — 코드 전 계획(2026-10-25 KST)
+
+생산 네트워크 컨트롤러에서 서버 요청을 받는 네 메서드를 같은 타입의 Requests 파일로 옮겨 찾기 쉽게 한다. 전문 구체안을 수신했고 문서 담당도 원문 범위/SHA·HexCoord 실제 namespace·기존meta·339/321을 확인했다. 메인 전체검토/GO 전 소스 쓰기는 없다. 근거는 GameSystemRules_BuildingPanelsUI.md H2 「생산 패널 UI」 규칙6~11/18~22, GameSystemRules_Buildings.md H2 「랠리포인트 시스템」 규칙1~5와 GameSystemRules_Network.md H2 「🔴 최상위 원칙 — 플레이어는 자신이 Host 인지 Client 인지 알 수 없다 (2026-09-21 사용자 확정)」다. 기존 권위·차감/환불·생산/취소·좌표검증·토글 동작을 보존한다.
+
+| 파일 | 정확 변경 | 보존/확인 |
+|---|---|---|
+| Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs | class 선언에 partial1토큰 추가, 아래4구간 이동 | 기존 using/namespace/public type/base NetworkBehaviour·모든 fields/초기화/생성자·Unity lifecycle·event binding·UI wrapper·모든 ClientRpc·spawn/retry/stateSync·기존meta 유지 |
+| Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs | 같은 Hexiege.Infrastructure/public partial class, using Unity.Netcode/Hexiege.Domain/Hexiege.Application만, 새 field/ctor/guard 없음 | 아래 section/XML/attribute/메서드 원문을 기존 순서로 배치. Toggle section의 ServerRpc+ClientRpc 문구도 보존하고 ClientRpc 자체는 main 유지 |
+| Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs.meta | fileFormatVersion2와 신규32hex GUID | 기존 GUID `7980c6956dd84654b94deab3e02d80f6` 보존, 신규 GUID는 구현 때 Assets 전체 meta 중 유일성 확인 후 결과에 기록 |
+
+코드 전 main은1214행/69192bytes, SHA256 `3e02c8269d9a812fa6bb7a16560e9641106adaa3eb6e491297cb7fdf26162ac3`다. 원문은 `/tmp/hexiege-network-production-before.cs`, 기존6경로 snapshot은 `/tmp/hexiege-network-requests-before.json`에 보존했다.
+
+| 원파일 범위(코드 전) | 이동 메서드 | 원문 SHA256 |
+|---|---|---|
+|441~586,146행/9219bytes | RequestEnqueueServerRpc | `6c11efe8f5560fdb68d7088da95b818cc282666b577db1e2e7570d28645316ac` |
+|911~979,69행/4394bytes | CancelSlotServerRpc | `23c605beed394b1e2578a1f318183291a71cf878efc9bde83e251399c25b0989` |
+|980~1072,93행/6267bytes | SetRallyPointServerRpc | `e2198849834163ef35ddb2e2a8acb4fdaa6ec3838ec091b8bc8658aadb7819c6` |
+|1073~1139,67행/3926bytes | ToggleAutoServerRpc | `7cab46c733e99fc3e239856e258552c97a09a19c1162dc9bfbf17f9a68304982` |
+
+총375행/23806bytes 이동이며 main839행은 구현 전 예상이다. 마지막 구간은 닫는 중괄호1138행과 빈줄1139행까지다. 원위치에 shim/주석 dead block을 남기지 않는다. **원문 이동의 유일한 주석 예외:** 원1046행 `//    HexCoord는 Hexiege.Core 네임스페이스의 값 객체.`의 Core를 Domain으로 바꾼다(실제 들여쓰기 유지). Domain/Hex/HexCoord.cs의 namespace가 근거이며 실행 본문/문자열 변경은 없다. 나머지 모든 주석도 보존한다. 역복원 시 이1행을 원문으로 되돌리고4구간 역삽입/partial 원복으로 main 전체 bytes 동일을 확인한다.
+
+전문은 Tools 및 Assets/Editor의 cs/py/sh에서 파일명·네 요청명·reflection/source gate를 검색했다. RunUnitActionSelfValidation의 CanResumeUnitViewRetry/UnitViewRetryOwner/RunUnitViewInitializationRetry 직접API만 관련되며 모두 main 잔류다. controllerPath의 File.ReadAllText 대상은 NetworkCombatController이며 이 파일이 아니다. 일반 UI/bootstrap은 typed reference/wrapper를 쓴다는 범위 근거다. 외부 generator·CLR metadata 메서드 순서/debug line 불변을 보장하지 않는다. merged type의 assembly/namespace/class·메서드명/반환형/순서 있는 parameter·ServerRpcParams default·RequireOwnership=false 속성 등 RPC 식별 입력은 보존한다. Library/PackageCache가 없어 NGO2.9.2 ILPP 구현/실제 메시지 ID/hash 결과를 검증하지 않았으므로 RPC ID 동일을 실행 PASS로 주장하지 않는다. 실제 ILPP/Host·Client4요청은5.1로 누적한다.
+
+이 묶음은 기존main1+신규source/meta2+Task2=5경로다.2.47을 함께 적용하면 신규 증분source/meta5경로이며 기존2.44/45의6경로와 Task2가 겹쳐 누적11경로 예상이다. Assets339/Scripts321은 코드 전 실측,340/322는 구현 후 직접 재측정한다. 원 inventory/SHA/열람범위는 보존하고 신규 경로만 증분 연결한다. 중간 compile/Unity/native/suite/fixture/QA/게임/빌드/로그/메뉴 실행은 없으며 VFX·AI 배율 보류·Git 쓰기 경계를 유지한다.
+
+### 2.47 인증 UseCase의 미사용 UnityEngine import2행 정리 — 코드 전 계획(2026-10-25 KST)
+
+인증 두 UseCase에서 쓰지 않는 import를 각각 한 줄씩 정리한다. 인증 계약을 바꾸지 않는 의존성 표기 정리이며 근거는 GameSystemRules_SettingsUI.md H2 「인게임 설정 메뉴」 규칙6의 계정 조작 UI 경계와 AuthSystemRules.md H2 「계정 연동」 규칙2~5 및 H2 「로그아웃」 규칙2~3의 기존 정책 보존이다. 전문은 전체본문/조건부/alias/static using·참조 타입/호출을 확인했다. Task/Exception/ArgumentNullException은 System, 서비스계약/AuthException/AuthErrorReason/GameLog/LogEvent는 같은 Application namespace이며 호출은 선언멤버·서비스 interface·GameLog·System.string으로 UnityEngine extension 후보가 없다. SceneManager는 XML 설명에만 있다. 문서 담당도 원문 시작부/namespace/import와 조건부 없음·SHA를 직접 확인했다.
+
+| 정확 파일/범위(코드 전) | 변경 | 원문 기준 |
+|---|---|---|
+| Assets/_Project/Scripts/Application/UseCases/LoginUseCase.cs26행 | using UnityEngine;1줄만 제거 |521행, SHA256 `016d662a766b11f9ec4237880d36271a18942a7c1764595b02af1cb971e288e1` |
+| Assets/_Project/Scripts/Application/UseCases/AccountLinkUseCase.cs22행 | using UnityEngine;1줄만 제거 |172행, SHA256 `1b1fac3334836954fa2e84e80b41de1a2d91b34d4243591e540080e8f22a28f8` |
+
+원문은 `/tmp/hexiege-LoginUseCase-before.cs`와 `/tmp/hexiege-AccountLinkUseCase-before.cs`다. 제거1줄을 역삽입해 전체 bytes 동일을 확인하고 기존meta/GUID·본문·문자열/로그·async/예외·UGS/이메일·enum/API/생성자·주입·로그인/연동/명시logout 정책은 유지한다. 단독 기존source2+Task2=4경로,2.46과 합계 기존source3+신규source/meta2+Task2=7경로이며 기존 미커밋6과 고유 누적11경로다. 소스 구현은 메인 전체검토/GO 뒤 전문이 수행한다. 실제 compile/인증 실행은5.1 후속이며 지금은 실행하지 않는다. 상시문서/메모리/옛Task/새Testcase 변경은 없다.
+
+### 2.48 Firebase Google 인증 메서드의 같은 class partial 원문 분리 — 코드 전 계획(2026-10-25 KST)
+
+Google 인증·연동 경로를 같은 Infrastructure 타입의 별도 파일로 모아 찾기 쉽게 한다. 새 provider 추상화나 동작 변경은 없다. AuthSystemRules.md H2 「Google 로그인」 규칙1~2, H2 「계정 연동」 규칙2~5의 로그인/연동 계약을 보존하고, GameSystemRules_SettingsUI.md H2 「인게임 설정 메뉴」 규칙6의 계정 조작 경계를 유지한다. 인증 SDK는 Infrastructure에 남고 Application 계약을 바꾸지 않는다. 전문 설계와 아래 원문을 문서 담당이 읽었다. **메인 전체 계획 검토/GO 전 소스는 수정하지 않는다.**
+
+| 파일 | 정확 변경 | 보존 |
+|---|---|---|
+| Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.cs | public class를 public partial class로 하고 원163~258·395~423 구간 이동 | 기존 using/namespace/interface·필드/초기화/속성·InitializeAsync·익명/이메일/로그아웃/토큰/공용 예외 변환 전부 원문 유지 |
+| Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.Google.cs | 신규 같은 Hexiege.Infrastructure/public partial class에 Google 로그인 section과 SignInWithGoogleAsync, RequestGoogleServerAuthCodeAsync, LinkWithGoogleAsync의 XML/본문125행 원문 이동 | using System.Threading.Tasks/Firebase/Firebase.Auth/Hexiege.Application 및 UNITY_ANDROID 조건 GooglePlayGames. 파일/class 전체 Android gate는 두지 않음 |
+| Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.Google.cs.meta | fileFormatVersion2 + 신규 GUID 3547d2de794845edbc07cd47c6a62687 | 기존 meta 보존, 전체 Assets meta 충돌 재확인 |
+
+코드 전 main611행 SHA256 `df0e5a60c233d84eaf44b14e0d0d60b0f50629a108c42f70e741da424b334e18`. 이동163~258은96행/4770bytes SHA `31eb48f8c5b00f2a2f6e08d8f6df1ac900b6edcb1e8947e0931528cf37cdf569`,395~423은29행/1395bytes SHA `f0960814b1a42d3f9da630eddffa9fff485c4b7dbc66281583976c713a46ea22`다. 원문·기존meta·기존미커밋11경로 snapshot은 `/tmp/hexiege-auth-math-248-249/`에 보관했다.125행 이동 뒤 main486행은 예상이며 구현 뒤 재측정한다. shim/주석 dead block은 남기지 않는다. Activate는 원파일 주석에만 있고 InitializeAsync에 실제 호출이 없으므로 추가/이동했다고 쓰지 않는다.
+
+Google helper의 !UNITY_ANDROID/#else/#endif, ManuallyAuthenticate/RequestServerSideAccess 콜백·TaskCompletionSource, await/context·Credential·에러문구·로그/해시·호출 순서와 public/private 시그니처는 원문 보존한다. 실제 SDK/provider 흐름은 server auth code → PlayGamesAuthProvider.GetCredential이다. AuthSystemRules.md41/185의 Google idToken 표현은 현코드와 용어가 달라 Research16.52에 후속 문서 정정 항목으로 기록한다. 이번 범위는 Task2뿐이므로 현행 규칙 문서는 수정하지 않는다.
+
+정적 확인은125행 payload SHA, main 역삽입/partial 원복 전체bytes, 조건부 범위/API·기존meta/보호source와 새 GUID 유일성이다. 전문의 Tools/Assets Editor cs/py/sh 검색에서 대상 파일명/Google멤버 raw source gate는0이다. 외부 generator·CLR metadata 순서·debug 행 불변을 보장하지 않는다. actual compile/Android 및 비Android 결합·기기 인증/연동 확인은5.1에 모으고 지금 실행하지 않는다.
+
+### 2.49 공격 강화의 레벨당 반올림 계산 중복 정리 — 코드 전 계획(2026-10-25 KST)
+
+UnitUpgradeUseCase.cs의 GetAttackBonus와 ScaleByGroupAttack에 반복되는 한 단계의 계산만 공통 private static helper로 모은다. GameSystemRules_Upgrade.md H2 「유닛 강화 시스템 규칙」 규칙4의 레벨당8%·실시간 사용 지점 적용과 규칙6의 파생 피해/힐 트랙 경계를 유지한다. 이 규칙은 구체 반올림 순서를 정하지 않으므로 기존 구현 Mathf 수식 자체를 보존한다.
+
+코드 전419행 SHA256 `25ccfb763368d22546a94b61105fd58769cbb3a6c3f18d8b761e31e86ef3a69d`. 두 int perLevel의 RHS만 각각 GetAttackIncreasePerLevel(baseAttack), GetAttackIncreasePerLevel(baseValue)로 바꾸고 ScaleByGroupAttack 뒤에 `private static int GetAttackIncreasePerLevel(int baseValue)`를 넣는다. helper 본문은 `return Mathf.RoundToInt(baseValue * AttackPerLevelRate);`이며 한국어 XML은 「기본값에 공격 연구 비율을 적용하고, 한 레벨당 증가량을 정수로 반올림한다.」다. AttackPerLevelRate=0.08f·float 곱·Mathf.RoundToInt·호출자 int 곱/덧셈을 그대로 유지한다. Math.Round 대체나 수치/에셋 조정은 없다.
+
+GetAttackBonus의 level<=0→0 후 UnitStats 조회와 ScaleByGroupAttack의 baseValue<=0→원값 후 GetLevel·level<=0→원값은 서로 다른 계약이므로 합치지 않는다. 기존 평가 순서·필드/상태/API/생성자·나머지본문/기존meta도 보존한다. 정확 helper/XML 제거·두 RHS 역치환 후 전체bytes 동일을 확인한다. 새 private 메서드/호출에 따른 private reflection 목록/metadata 순서·최적화·stack frame/debug 행 불변은 보장하지 않는다. 전문 검색의 Editor typed-null 참조1건은 직접 raw source gate가 아니다. 실제 UnityMathf의 경계값·Lv0~5·파생 힐/공격 실행은5.1 후속 통합 대상이다.
+
+2.48/49 합계는 기존source2+신규source/meta2+기존Task2의6경로다. 기존11경로와 Task2가 겹쳐 누적15경로 예상이며 Assets340/Scripts322는 baseline 직접 측정값,341/323은 구현 후 재측정한다. 원inventory/SHA/열람범위와 이전이력은 보존하고 신규 목적지만 증분 연결한다. 중간 compile/Unity/native/QA/suite/fixture/게임·빌드/로그/메뉴/TC 생성·Git 쓰기·VFX/옛Task/상시문서/메모리 변경은 없다. VFX 외부브랜치 완료/후속 pull 대기와 AI 생산배율 후속 보류를 유지한다.
+
+### 2.50 Google 인증의 Server Auth Code 설명2행 정정 — 코드 전 계획(2026-10-25 KST)
+
+Research16.52에서 확인한 인증 설명과 구현의 용어 차이를 바로잡는다. AuthSystemRules.md H2 「기술 구성」의 사용SDK 표41행은 「Google 사용자 인증 및 Firebase 인증에 사용할 Server Auth Code 발급」으로, H2 「Google 로그인」 규칙1의185행은 「Google Play Games Plugin → Server Auth Code 발급 → PlayGamesAuthProvider로 Firebase Credential 생성 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.」로 정정한다.
+
+현재 FirebaseAuthService.Google.cs는 ManuallyAuthenticate 후 RequestServerSideAccess에서 받은 serverAuthCode를 PlayGamesAuthProvider.GetCredential에 전달하고 Firebase SignInWithCredentialAsync를 호출한다. 이는 Google idToken을 직접 받는 흐름과 다르다. 문서 전체 토큰 표현 검색에서 Firebase ID Token을 UGS OIDC에 전달하는 다른7행(56/63/65/83/329/389/398)은 별도 후속 토큰으로 올바르므로 그대로 둔다. GameSystemRules_SettingsUI.md H2 「인게임 설정 메뉴」 규칙6의 계정 조작 경계와 AuthSystemRules의 로그인·연동·로그아웃 정책은 바꾸지 않는다. 새 인증 계약/기능 구현이 아니라 현행 구현의 용어 정정이다.
+
+쓰기 범위는 AuthSystemRules.md 기존2행과 기존Task2이며 메인 정확안 검토/GO 뒤 적용한다. 기존미커밋15경로 source/meta는 보존하며 source수/자산/메모리/이전이력·규칙번호 변경은 없다. 문서 diff 정확2행·문서정합성/Task경로 확인만 수행하고 실제 인증/컴파일/테스트는 이 정정만을 위해 추가 실행하지 않는다. VFX 다른브랜치 완료 대기/AI배율 후속 보류와 Git 쓰기/pull/fetch 금지를 유지한다.
+
+### 2.51 건물 배치의 인접 영토 처리 중복 정리 — 코드 전 계획(2026-10-25 KST)
+
+BuildingPlacementUseCase.cs 두 배치 경로의 같은 인접 처리만 private helper로 모은다. 원474행165~174·205~214 각각10행을 `ClaimAdjacentTiles(position, team);`로 바꾸고 PlaceBuildingInternal 뒤/CanPlaceBuilding XML 앞에 `private void ClaimAdjacentTiles(HexCoord position, TeamId team)`를 넣는다. helper 본문은 원10행 그대로이며 XML은 「배치한 건물의 인접 타일을 같은 팀 소유로 바꾸고, 바뀐 타일마다 소유권 변경을 알린다.」다. 두 caller의 기존 인접 주석은 남긴다. 전문 정확안 `/tmp/hexiege-pure-next-250/design.json`·`building-helper.bin`과 원문을 문서 담당이 읽었다.
+
+GameSystemRules_Map.md 규칙3의 초기 소유/경제/건설 공간 공정성을 유지하며, 실제 영토 처리 근거는 TDD H4 「영토 확장 (건물 건설 시)」의 GetNeighbors/Owner!=team/SetOwner→소유권 이벤트 예시다. 현재 두 경로는 type필터 없이 그리드가 반환한 존재 이웃만 처리하며 이를 그대로 둔다. 직접 연관 예시인 TechnicalDesignDocument.md898행을 「건물의 공통 배치 처리에서 인접 타일을 건물 팀 소유로 변경한다. 이미 같은 팀인 타일은 건너뛴다.」로,900행 예시주석을 `// BuildingPlacementUseCase.ClaimAdjacentTiles() 내부`로 정정한다. 기존 foreach 예시는 그대로 둔다. 배럭 전용이나 정확6이웃 보장을 새로 넣지 않는 설명2행 정정이며 메인 정확안 검토/GO 뒤 적용한다. ID생성자 차이·검증·두 dictionary 등록·중앙타일 상태/소유권·인접 순회순서/Owner조건/변경 뒤 이벤트·건물 이벤트/중앙타일 이벤트·return 모두 caller 원문 유지다. 전체 post-create를 합치지 않는다.
+
+### 2.52 기본·채굴 수입의 정수 지급 중복 정리 — 코드 전 계획(2026-10-25 KST)
+
+ResourceUseCase.cs 원183행 중143~148·175~180 각각6행 지급 블록만 `FlushWholeGold(_baseIncomeAccumulator, team);`와 `FlushWholeGold(_incomeAccumulator, team);`로 바꾼다. TickBaseIncome 뒤/TickTeamIncome 앞에 `private void FlushWholeGold(Dictionary<TeamId, float> accumulator, TeamId team)`를 넣고 int cast→wholeGold>0→누적액 차감→AddGold의 원문 순서를 유지한다. 정확 XML/helper는 `/tmp/hexiege-pure-next-250/resource-helper.bin`으로 확인했다. 원문의 기본/채굴 누적 dictionary 두 인스턴스를 각각 넘기며 합치지 않는다.
+
+GameSystemRules_AI.md H3 「골드 수입 배율 적용」 규칙34의 ResourceUseCase 배율 저장/적용 소유권을 보존한다. 기본수입 guard·채굴소 살아있음/팀/count조건·수입 배율·float 곱의 좌결합 순서·Blue/Red 및 기본/채굴 호출순서·분수/음수/정수 cast 처리·차감 뒤 이벤트 발행을 그대로 둔다. Floor/반올림/clamp/새 guard나 경제정책은 추가하지 않는다. 기본수입 지원을 기본수입 설정값 변경으로 확대하지 않는다.
+
+2.51/52는 메인 전체계획 검토/GO 뒤 전문이 구현한다. helper/XML 제거·두 caller 역치환 후 원문전체bytes 동일, 공개API/필드/기존meta·기존미커밋 source/meta 보존을 확인한다. 새private목록/metadata순서/stackframe/debug행 불변은 보장하지 않는다. 전문 raw gate검색은 Tools/AssetsEditor의 nonCombat/nonVFX/nonObserver cs/py/sh로 한정하며 범위밖 rawreader는 미확인이다. 실제 이벤트 재진입/영토/수입 실행은5.1로 모은다. source2+2.50 Auth문서1+2.51 TDD문서1+Task2=이번6경로,기존15에고유4경로추가→누적19예상;신규source/meta없어341/323유지예상이다. 중간 테스트/compile/QA/native/fixture/빌드/로그·Git쓰기/pull/fetch·VFX/메모리/다른상시문서 변경은 없다.
 
 ## 3. 기능별 조사 분할과 보존할 동작
 
@@ -669,7 +796,29 @@ Research16.41의 현재 resolver→manager→bolt 체인에는 dead-at-start의 
 | Unity/기기/멀티 | 실제 수행 범위·역할·결과 | 과거 PASS/부분 수용=새 전체 PASS 아님 |
 | 문서 검사 | check_docs 실행 범위·진단 | 문제0=구현 의미 일치 아님; 신규 Task는 제외 |
 
-TC/QA는 현재 요청 범위에 포함하지 않는다. 사용자가 명시적으로 요청할 때 WORKFLOW의 해당 절차를 따른다. 일반 문서 정합성·경로·장부 확인은 이번 문서 작성의 마무리 작업으로 수행한다.
+최신 사용자 지시 「리팩토링으로 인해 테스트 필요한 부분 모아서 한번에 진행」에 따라 리팩토링 영향 검증을 아래5.1에 누적한다. 지금 각 묶음의 원문/허용변경 정적 대조를 계속하고 Unity compile/native·실기·suite는 리팩토링 뒤 통합해서 진행한다. 중간 테스트 gate를 새로 두어 순수 리팩토링을 멈추지 않는다. 별도 Testcase.md 생성 여부를 다시 묻지 않으며 현재는 기존 Research/Plan만 갱신한다. 일반 문서 정합성·경로·장부 확인은 문서 작성의 마무리 작업이다.
+
+### 5.1 리팩토링 후 한 번에 진행할 통합 검증 대상 — 누적 계획(2026-10-25 KST)
+
+아래는 실행 완료표가 아닌 후속 통합 검증 장부다. 기존 검사/fixture와 실제 경로를 우선 활용하고 변경된 계약에 필요한 범위만 확인한다. 단순 주석·안내 정정만을 위해 반복 게임 테스트를 만들지 않는다. 공통 컴파일/타입 연결 확인 후 실제 필요한 native·Unity·기기/멀티 범위를 모아 수행하며 동일 검사를 묶음마다 반복하지 않는다. 현재 새 실행은 시작하지 않는다.
+
+| 누적 변경 영역/Plan 연결 | 통합에서 확인할 핵심 | 사용할 근거/환경 | 현재 확인 결과·미실행 |
+|---|---|---|---|
+| 팩토리 계약/인증·UGS/Firebase 주입·미사용 import(2.3/2.6/2.8/2.47) | 같은 concrete 주입·초기화/예외·로그인·명시 logout과 재시작 정책 보존 | 현행 기존 인증/주입 확인 경로와 Unity 초기화·필요 기기 인증 | 지정 소스 정적 대조 기록 있음;2.47 구현·전문/문서/메인 raw 대조 완료. 현재 통합 compile/인증 실행 미실행 |
+| Firebase Google partial(2.48) | Android/비Android partial 결합·Google 성공/취소/실패와 익명→Google 연동, 기존 콜백/예외 보존 | 최신 Unity compiler와 기존 기기 인증 경로 | 구현·원문/guard 정적 대조 완료; actual compile/기기 실행 미실행 |
+| 공격 강화 공통 반올림(2.49) | Lv0~5·baseValue<=0·Mathf 반올림 경계·유닛 공격과 파생 피해/힐 결과 보존 | 기존 연구/전투 경로 및 UnityMathf 환경에서 필요한 수치 확인 | 구현·정확helper/2RHS 정적 대조 완료; 실제 수치 실행 미실행 |
+| AI live provider/DTO(2.5/2.7) | live 종족 조회·기존 난이도9값 복사·이미 연결된 기존 행동 보존 | 기존 AI 검사·싱글 실행의 필요 범위 | 정적 대조와 구조 문서 동기화 기록 있음; 통합 실행 미실행. 생산시간 배율 신규 적용은 후속 AI 보류 |
+| UnitView partial/ExpiryClockHistory/생산 Queue·Requests partial(2.17/2.41/2.44/2.46) | partial 결합·모든 원메서드/필드·분리된 클래스를 읽는 기존 source gate 입력 연결 | 최신 Unity compiler/NGO ILPP와 기존 연결 gate. 과거 gate PASS 재사용 금지 | 원문 이동/역복원 근거를 각 결과절에 기록;2.44 구현·전문/문서 정적 대조 완료;2.46 구현·전문/문서/메인 raw 대조 완료이며 실제 ILPP/RPC ID hash 미확인. 최신 compile/native 미실행 |
+| 건물 인접 영토 공통화(2.51) | 일반/ID지정 배치의 인접Owner조건·순회/이벤트순서 및 중앙타일/등록 보존 | 기존 건물 배치·초기소유·클라이언트 반영 경로 | 구현·원문/정확helper 정적 대조 완료; 실제 배치/이벤트 실행 미실행 |
+| 수입 정수 지급 공통화(2.52) | 기본/채굴 누적분리·분수이월·양수만지급·차감후이벤트·AI배율/호출순서 | 기존 ResourceUseCase/싱글 경제 경로 | 구현·원문/정확helper 정적 대조 완료; 수치/이벤트 재진입 실제 실행 미실행 |
+| UI 재초기화·파괴/Rx/press(2.19/2.25) | 중복 listener/Rx 방지·서비스 갱신·never-active/disable/close 시 구독·눌림 수명 정리 | 기존 UI/생산 경로에서 재초기화·닫기/비활성화/파괴 확인 | 허용 diff 정적 대조 기록 있음; 실제 lifecycle/입력 실행 미실행 |
+| 결과 화면 HB 최신 재판정(2.20) | 도달 확인 대기 중 새 신호·상태 변경 시 최신 침묵/leave flags 재평가 | 기존 네트워크 확인 경로·필요 양쪽 역할 실행 | 정적 보호/시간상수 보존 대조 기록 있음; 실제 race 실행 미실행 |
+| 연구/생산 RPC 권위·음수 인덱스·Requests 분리(2.30/2.31/2.46) | 실제 소유권/건물종류 검증이 mutation보다 앞섬·음수 slot 거부·정상 요청 보존. Host/Client4요청 전송/수신·비용/환불·랠리검증·토글 동기화 | 기존 authority 검사와 서버/클라이언트 요청 경로 | 정적 guard/순서 대조 기록 있음;2.46 구현·전문/문서/메인 raw 대조 완료. 실제 RPC/부정 요청/메시지 ID 실행 검증 미실행 |
+| 예약 FIFO/미소비3값(2.42/2.45) | 완료·Retire·상한512·같은ID 재등록·Cancel/tombstone 순서와 key 수명, 정리3값의 공개 동작 보존 | 기존 예약/취소 검사와 실제 관련 경로를 묶음 확인 |2.42 전문/메인 정적 대조 완료;2.45 구현·전문/문서 정적 대조 완료. 통합 실행 미실행. 기존 late-token/tombstone alias 전체 해결 주장은 제외 |
+| Editor 로그 충돌상한/Root parser/fixture 상태/manifest helper(2.29/2.33~2.35/2.39~2.41) | 상한 소진 실패·未知 phase 거부·fixture 실제 네트워크 상태·helper가 분리 source까지 포함 | 해당 기존 Editor 검사/fixture를 최신 세대에서 필요한 항목만 실행 | 정적 변화/역복원 기록 있음; 최신 suite/fixture/native 미실행 |
+| VFX 외부 브랜치 변경(2.43/Research16.45) | 외부 작업 완료·후속 pull 이후 최종 통합 차이를 먼저 판정 | 외부 변경 통합 뒤 별도 범위 확정 후 합침 | 현재 batch 실행 대상 밖인 조건부 후속. 완료/pull 미확인·이번 pull/fetch/메뉴 실행 없음 |
+
+후속 결과는 각 행에 **확인 리비전·환경(compiler/native/Unity/기기·Host/Client)·실제 수행 범위·결과·미실행 이유**를 구분해 갱신한다. 소스 대조를 actual 검증으로 바꾸거나 과거 사용자 컴파일 보고를 최신 partial 세대의 PASS로 쓰지 않는다. 새 코드 변경이 있으면 해당 영향 행을 먼저 확장하고 실제 실행 시점에 누적 범위를 최종 확정한다.
 
 ## 6. 위험과 대응
 
@@ -985,3 +1134,36 @@ VFX는 옛 지정6블록/추가 XZ 검증 블록·UnitType 없는 payload 제약
 이3경로 목록은 커밋 전 정적 검증 snapshot이며 메인은 현재 푸시 지시 범위에서 완료분을 이어 커밋·푸시한다. 실제 성공/원격 SHA는 메인 실행 결과로 확인하고 이 문서에 미래 성공을 기재하지 않는다. 문서 담당은 최종 검사 후 동결하며 추가 사후 쓰기·새 후보·상시문서/메모리/과거 Task·History 변경·Git 쓰기를 하지 않는다.
 
 최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. 이 Task2파일 로컬 Markdown 파일링크1097대상 누락0을 별도 확인했다. 정확 source1+Task2의3경로를 커밋 전 snapshot으로 인계하며 문서를 동결한다.
+
+### 7.47 생산 Queue partial2.44·미소비 예약3값2.45 구현 결과(2026-10-25 KST)
+
+코드 전 구체안 기록→메인 전체 검토/GO→전문 구현·동결 순서를 지켰다. Research16.49와7.7 증분 및 `/tmp/hexiege-production-pure-244-245/static-review.json`이 현재 근거다.31메서드 원문 보존(이동18/main13),3payload 일치와 main 전체 역복원, Coordinator 지정6줄 외 raw 동일/역복원·outer public 동일, 기존meta2개 불변을 전문이 확인했고 문서 담당도 실제 source/receipt/scratch 원문을 읽어 허용 변환 bytes 일치와GUID 자기1건·Assets339/Scripts321을 직접 확인했다. main439행/Queue566행이며 SHA256 결과는 Research16.49의 표를 따른다.
+
+기존source2+신규source/meta2+기존Task2의6경로만 쓴다. 원inventory/원범위/SHA와 과거 보류 기록은 보존하고 신규Queue 목적지는7.7 증분으로 연결한다. 메서드/생산시간·골드/환불·자동대기·상한/이벤트·필드초기화·랠리·스폰·FIFO512·마스크/tombstone·API·기존meta/GUID/preset 보호 범위는 정적 대조다. 미소비3값 정리는2.45의 한정 재분류이며 기능 삭제 gate 일반 해제가 아니다. 메인 독립 검토 결과는 아래 후속 기록으로 확인했다.
+
+**검증 상태:** 새 사용자 compile 보고/실제 compile·CLR/Unity/native/suite/fixture/TCQA/게임/빌드·로그/메뉴 실행은 없다. 필요한 actual 확인은 사용자 추가 지시에 따라5.1 통합batch로 누적한다. AI 배율 후속 보류·VFX 외부브랜치 완료/후속 pull 대기를 유지하며 이번 pull/fetch·Git 쓰기·VFX 소스/옛Task·상시문서/메모리를 수정하지 않는다.
+
+**메인 독립 최종 기록:** 문서 담당도 `/tmp/hexiege-plan244-245-main-independent.json`을 직접 읽었다. 기준 HEAD af3d63b 원문에서 main3구간554행 제거+partial1토큰 외 raw 동일·Queue wrapper/3payload 전체 정확, Coordinator6줄 외 raw 동일, 기존meta2개 HEAD bytes 동일/신규GUID유일·Assets339/Scripts321·정확6경로를 메인이 독립 확인했다. 메인 check_docs/diffcheck0, 문서 담당 check_docs exit0/문제0 및 Task2 로컬 링크1099개 누락0을 확인했다. 실제 compile/native/suite PASS로 해석하지 않는다.
+
+**동결·Git 상태:** 이번2.44/2.45는 기존source2+신규source/meta2+기존Task2의6경로이며 현재 미커밋·미푸시다. 이전2.42까지 완료분 푸시 인계와 구분한다. 추가 범위 탐색/사후 코드 수정 없이 동결하고 통합 검증은5.1 계획에 모아 둔다.
+
+
+### 7.48 생산 Requests partial2.46·인증 import2.47 구현 결과(2026-10-25 KST)
+
+계획 전체검토/메인 GO 뒤 source/meta5경로 구현·동결, 전문 receipt와 문서 담당 독립 raw 대조를 마쳤다(Research16.51). main4구간375행 제거+partial1토큰 외 동일, Requests payload는 주석예외1행 역치환 후 정확 동일, Auth각1행 제거 외 동일이다. main839행/Requests390행, Assets340/Scripts322와 전체meta3271 중 새GUID8afb1f71c33048ad8bfa9c44b4f1de76 자기1건을 직접 확인했다. 신규 경로는 Research7.8 증분에 연결했고 SHA/bytes·정확11경로 집계는16.51이 원본이다. 이전2.44/45의 보호4source/meta는 전문 snapshot hash 불변이며 Task2만 문서 담당이 갱신했다. 기존 원문/과거 이력을 보존한다.
+
+fields/init/ctor/Unity lifecycle/UI wrapper/ClientRpc/spawn/retry/stateSync와4RPC의 속성/API/parameter/메시지 호출·순서·소유권/음수/좌표검증·비용/환불·자동토글, 인증본문/문자열/로그/async/예외/UGS/로그아웃 정책은 소스 보존 범위다. 실제 compile/NGO ILPP/hashID/HostClient 실행은 미확인으로5.1에 남긴다. 중간 테스트/QA/native/suite/fixture/메뉴/빌드/로그 실행 없이 기존 Task2만 갱신했고 현재 고유11경로는 미커밋·미푸시다. 메인 독립 확인 receipt를 문서 담당도 읽었고 기준HEAD 원문/보호4경로/기존meta3·신규GUID/340·322/11경로 확인 결과를16.51에 연결했다. VFX·AI 배율 보류와 pull/fetch/Git 쓰기·상시문서/메모리/옛Task/새Testcase 제외를 유지한다.
+
+
+### 7.49 Google 인증 partial2.48·공격 강화 계산2.49 구현 결과(2026-10-25 KST)
+
+메인 코드 전 계획 전체검토/GO 뒤 전문 구현·동결, 문서 담당 소스/receipt 대조와 메인 독립 대조를 마쳤다(Research16.53). Google125행/6165bytes payload는 원문 그대로며 main은 partial 토큰과 이동 외 동일이다. main486행/Google145행, UnitUpgrade427행은 직접 측정했다. 공격 강화는 정확 helper/XML 추가와 두 RHS 변경뿐으로 guard·8% float/Mathf·호출자 int 산술을 보존한다. 기존pending source/meta9경로·targetmeta2도 보존했다. 신규1source와meta는 Research7.9 증분에 연결한다.
+
+이번6경로, 누적15경로는 미커밋·미푸시며 HEAD는 af3d63b9다. 실제 compile/Android인증·Mathf 경계/Unity/native/QA/suite/fixture/게임·빌드/로그/메뉴는 미실행이며5.1에 모았다. check_docs 문제0/diffcheck0, Task2 로컬경로1102/누락0을 확인했다. VFX·AI 배율 후속 보류와 현재 pull/fetch/Git 쓰기·상시문서/메모리/옛Task·새TC 제외를 유지한다.
+
+
+### 7.50 인증/TDD 설명 정정·영토/수입 중복 공통화2.50~52 결과(2026-10-25 KST)
+
+메인 정확안/전체계획 검토·GO 뒤 AuthSystemRules와TDD 각2행을 정정하고 BuildingPlacementUseCase/ResourceUseCase의 좁은 helper 추출을 구현·동결했다. 전문/메인 receipt와 문서 담당 독립 raw 대조에서 source2는 정확helper+각2호출 치환 외 동일, 상시문서2는 지정2행 치환 외 동일을 확인했다(Research16.56). 기존미커밋 source/meta13과 기존targetmeta2는 보존했다. 이번6경로·누적19경로 미커밋·미푸시, Assets341/Scripts323이며 source 신규는 없다.
+
+실제 compile/Unity/native/QA/suite/fixture/기기·영토/수입/이벤트 재진입/게임·빌드/로그 실행은 없고5.1에 모았다. 문서정합성 문제0/diffcheck0/Task로컬경로1102 누락0으로 마무리했다. 기존원문/과거이력 보존·VFX 외부브랜치 대기·AI배율 후속 보류와 Git 쓰기/pull/fetch·기타상시문서/메모리/옛Task/새TC 제외를 유지한다.

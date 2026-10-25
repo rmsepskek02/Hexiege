@@ -162,16 +162,7 @@ namespace Hexiege.Application
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정
-            var neighbors = _grid.GetNeighbors(position);
-            foreach (var neighbor in neighbors)
-            {
-                if (neighbor.Owner != team)
-                {
-                    _grid.SetOwner(neighbor.Coord, team);
-                    GameEvents.OnTileOwnerChanged.OnNext(
-                        new TileOwnerChangedEvent(neighbor.Coord, team));
-                }
-            }
+            ClaimAdjacentTiles(position, team);
 
             // 이벤트 발행 → BuildingFactory가 프리팹 생성
             GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
@@ -202,6 +193,20 @@ namespace Hexiege.Application
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정 (건물 건설 시 주변 영토 확장)
+            ClaimAdjacentTiles(position, team);
+
+            // 이벤트 발행 → BuildingFactory가 프리팹 생성, HexTileView가 색상 변경
+            GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
+            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
+
+            return building;
+        }
+
+        /// <summary>
+        /// 배치한 건물의 인접 타일을 같은 팀 소유로 바꾸고, 바뀐 타일마다 소유권 변경을 알린다.
+        /// </summary>
+        private void ClaimAdjacentTiles(HexCoord position, TeamId team)
+        {
             var neighbors = _grid.GetNeighbors(position);
             foreach (var neighbor in neighbors)
             {
@@ -212,12 +217,6 @@ namespace Hexiege.Application
                         new TileOwnerChangedEvent(neighbor.Coord, team));
                 }
             }
-
-            // 이벤트 발행 → BuildingFactory가 프리팹 생성, HexTileView가 색상 변경
-            GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
-            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
-
-            return building;
         }
 
         /// <summary>

@@ -895,9 +895,9 @@ GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
 #### 영토 확장 (건물 건설 시)
 
-건물 배치 시 배럭 인접 6타일을 건물 팀으로 자동 점령:
+건물의 공통 배치 처리에서 인접 타일을 건물 팀 소유로 변경한다. 이미 같은 팀인 타일은 건너뛴다.
 ```csharp
-// BuildingPlacementUseCase.PlaceBuilding() 내부
+// BuildingPlacementUseCase.ClaimAdjacentTiles() 내부
 var neighbors = _grid.GetNeighbors(position);
 foreach (var neighbor in neighbors)
 {

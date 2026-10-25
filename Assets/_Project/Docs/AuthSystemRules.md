@@ -38,7 +38,7 @@
 | SDK | 역할 |
 |-----|------|
 | Firebase Authentication SDK | 로그인 시스템 전체 (계정 생성, 인증, 세션 관리) |
-| Google Play Games Plugin for Unity | Google 로그인 시 Google idToken 발급 |
+| Google Play Games Plugin for Unity | Google 사용자 인증 및 Firebase 인증에 사용할 Server Auth Code 발급 |
 
 현재 프로젝트의 SDK 로컬 Import/제외 방침은 유지하며 기준 SDK는 Firebase Unity13.11.0·GooglePlayGames2.1.0이다. SDK 존재는 Import 자체로 판단하고 별도 Firebase 컴파일 심볼 게이트를 두지 않는다. Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`을 참조한다. SDK/EDM 버전 관리의 후속 결정과 초기화 실패의 현재 상태는 [ROADMAP](ROADMAP.md)·[PROJECT_STATUS](PROJECT_STATUS.md), 과거 stub 제거·커밋·관측 경위는 [이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-sdk-receipt)을 따른다.
 
@@ -182,7 +182,7 @@ Login 씬 내부에서 아래 화면들을 패널 전환 방식으로 구성한�
 
 **규칙 1. 로그인 흐름**
 
-Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.
+Google Play Games Plugin → Server Auth Code 발급 → PlayGamesAuthProvider로 Firebase Credential 생성 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.
 
 **규칙 2. Google Play Games 미설치 처리**
 

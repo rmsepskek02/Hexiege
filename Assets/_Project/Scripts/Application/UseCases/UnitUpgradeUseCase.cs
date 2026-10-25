@@ -123,7 +123,7 @@ namespace Hexiege.Application
             int level = GetLevelForUnit(team, type, UnitUpgradeStat.Attack);
             if (level <= 0) return 0;
             int baseAttack = UnitStats.GetAttackPower(type);
-            int perLevel = Mathf.RoundToInt(baseAttack * AttackPerLevelRate);
+            int perLevel = GetAttackIncreasePerLevel(baseAttack);
             return perLevel * level;
         }
 
@@ -141,8 +141,16 @@ namespace Hexiege.Application
             if (baseValue <= 0) return baseValue;
             int level = GetLevel(team, group, UnitUpgradeStat.Attack);
             if (level <= 0) return baseValue;
-            int perLevel = Mathf.RoundToInt(baseValue * AttackPerLevelRate);
+            int perLevel = GetAttackIncreasePerLevel(baseValue);
             return baseValue + perLevel * level;
+        }
+
+        /// <summary>
+        /// 기본값에 공격 연구 비율을 적용하고, 한 레벨당 증가량을 정수로 반올림한다.
+        /// </summary>
+        private static int GetAttackIncreasePerLevel(int baseValue)
+        {
+            return Mathf.RoundToInt(baseValue * AttackPerLevelRate);
         }
 
         /// <summary> 유닛의 이동속도 배율(1.000 ~ 1.320). 기본 이동속도에 곱해 실제 속도를 낸다. </summary>

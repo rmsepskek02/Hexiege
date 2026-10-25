@@ -4,13 +4,13 @@
 
 - 시작: 2026-10-23 14:08 KST.
 - 사용자 승인: task 문서 작성·조사 착수에 이어, Plan2.3 공유 후 사용자의 「바로진행하자」로 IUnitView 팩토리 의존 추상화 첫 묶음 구현 승인(2026-10-23).
-- 진행 상태: **예약 FIFO Plan2.42 구현·전문/메인 독립 정적 대조 완료 / 최신 확정 푸시 `4e80eeb3004e0595afebf6cc974791827b387358` 이후 source1+Task2의3경로 추가분은 커밋 전 검증 snapshot / 전체 의미 감사·게임 실기 미완**. 최신 결과는16.44/Plan7.46, 보류 출처 정정은16.41이다. 예약 FIFO의 메인 보류는16.28 당시 판단이며 현재는 bounded 수명 결함 수정 완료 상태다. AI 생산배율만 명시 후속 보류, VFX는 과거 테스트 조건/현재 증거 부족을 검토 중이다. 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의16.13절로 한정하며 현재 세대의 새 실행 증거는 없다. 메인은 현재 푸시 지시 범위에서 이 완료분을 이어 커밋·푸시하고 실제 성공/원격 SHA는 메인 실행 결과로 확인한다.
+- 진행 상태: 최신2.50~52 구현·설명 정정 및 전문/문서/메인 독립 정적 대조 완료(16.56/Plan7.50), 현재누적19경로 미커밋·미푸시다. 아래 앞선 묶음의 집계는 당시 기록이다.  최신2.48/49 구현·전문/문서/메인 독립 정적 대조 완료(16.53/Plan7.49), 누적15경로 미커밋·미푸시다.  **예약 FIFO2.42 완료분 푸시 인계 / 생산 Queue partial2.44·미소비 예약3값2.45 구현·전문/문서/메인 독립 정적 대조 완료 / 현재 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95` 직접 확인 / 전체 의미 감사·게임 실기 미완**. 최신2.46/47은 메인 전체검토/GO 뒤 구현·전문/문서/메인 독립 정적 대조 완료(16.51/Plan7.48)다. 앞선 구현 결과는16.49/Plan7.47, FIFO 결과는16.44/Plan7.46, 과거 보류 출처 정정은16.41, 최신 사용자 지시와 현재 분류는16.45/16.48/Plan2.43 후속 지시를 따른다. 다음 작업은 순수 리팩토링이며 필요한 테스트는 모아 리팩토링 뒤 한 번에 진행한다(16.48/Plan5.1). VFX는 다른 브랜치 작업 완료·후속 pull 대기다. 현재 pull/fetch·VFX 소스/옛 Task 변경은 하지 않는다. 사용자 컴파일 오류 없음 보고는 과거 `1a69402c`의16.13절로 한정하며 현재 세대의 새 실행 증거는 없다.
 - 후속 승인: 사용자 「다음 진행해」로 다음 조사와 기존 Task 후속 기록 진행(2026-10-23). 단계2 조사 결과와 Plan2.4 공유 후 사용자가 「이 범위로 구현 진행」으로 명시 승인했고, 기존2파일 정리·메인 정적 대조를 마쳤다. 컴파일·실기는 미실행이다.
 - 다음 착수: 사용자 「바로 작업 진행해」는 남은 리팩토링을 계속 실행하라는 지시다. 메인이 기공유한 AI live 종족 조회 주입2파일 안을 다음 묶음으로 선정했고 프로그래머 제안을 Plan2.5로 코드 전에 구체화·검토한 뒤 구현 신호를 전달했다. 해당2파일의 소스 정리·메인 독립 정적 대조를 마쳤으며 컴파일·게임 실행은 미실행이다(2026-10-23).
 - 다음 착수: 사용자 「계속 진행해」의 잔여 리팩토링 계속 실행 지시 아래 메인이 기공유 인증 계약안을 다음 묶음으로 선정했다. 프로그래머 제안을 Plan2.6으로 코드 전에 기록했으며 메인 직접 검토·구현 신호 이후 소스 정리·독립 정적 대조를 마쳤다. 컴파일·Unity/실기는 미실행이다(2026-10-23).
 - 후속 착수: 사용자 「작업 이어서진행하자」의 계속 실행 지시 아래 메인이 남은 AI 난이도 값 분리→UGS adapter를 순서로 선정했다. 전문 프로그래머 제안 중 AI 구체안을 Plan2.7에 코드 전에 기록했다. UGS2.8도 소스 정리·메인 독립 정적 대조를 마쳤으며 현재 브랜치는 `work`이며 이 문서의 「메인」은 브랜치 main이 아닌 조율 담당 에이전트를 뜻한다.
 - 순차 진행: AI2.7 소스 정리·메인 독립 검토 후 AI 규칙4/33을 실제 snapshot 경계에 맞춰 동기화했다. UGS2.8은 메인 전체 계획 검토·AI 검증 후 별도 구현 신호를 전달해 소스 정리·독립 정적 대조와 Auth 구조3행 동기화를 마쳤다. 두 묶음의 컴파일/실기 완료를 뜻하지 않는다.
-- 자율 진행 승인: 사용자 「다 진행해 매번 내가 진행하라고 하는것도 불편한데」로 기존 목표의 잔여 조사·기능 보존 리팩토링·확정 문서 사실 정정을 계속 진행한다. task 작성/매 묶음 재승인 질문을 반복하지 않는다. 전면 정적 조사 범위·담당·완료 기준은 Plan2.11/Research16절이다. 현재 보류 출처 구분은16.41절을 따른다. AI 생산배율은 명시 후속 보류, 예약 FIFO는 당시 메인의 안전 판단, VFX 옛 지정6블록은 최종 삭제 검증 조건 미확인으로 구분하며 동작 정책 경계를 유지한다.
+- 자율 진행 승인: 사용자 「다 진행해 매번 내가 진행하라고 하는것도 불편한데」로 기존 목표의 잔여 조사·기능 보존 리팩토링·확정 문서 사실 정정을 계속 진행한다. task 작성/매 묶음 재승인 질문을 반복하지 않는다. 전면 정적 조사 범위·담당·완료 기준은 Plan2.11/Research16절이다. 보류 출처의 과거 정정은16.41, 최신 지시 이후 현재 분류는16.45를 따른다. AI 생산배율의 명시 후속 보류는 유지하고 VFX는 외부 브랜치 완료·후속 pull을 기다린다.
 - 계획: [Plan.md](Plan.md). 이 문서의 경로 목록은 파일 존재를 확인한 것이며 전체 내용을 읽었다는 뜻이 아니다.
 
 ## 1. 조사 범위와 집계 기준
@@ -1362,6 +1362,32 @@ Plan2.17/AUD-003으로3C#/3meta를 추가한다. 시작목록과 기존증분은
 | [Assets/_Project/Scripts/Infrastructure/Network/ExpiryClockHistory.cs](<../../../../Scripts/Infrastructure/Network/ExpiryClockHistory.cs>) | Plan2.41 · 기존 Observer 원112~321→신규10~219 원문 이동 ·221행 · 전문·메인 독립 정적 대조 완료 · compile/실기 NOT RUN |
 | [Assets/_Project/Scripts/Infrastructure/Network/ExpiryClockHistory.cs.meta](<../../../../Scripts/Infrastructure/Network/ExpiryClockHistory.cs.meta>) | Plan2.41 · 신규GUID e526a948505d4c128b25109576742345 · Assets meta 검색 자신1건 · 기존 meta 불변 |
 
+### 7.7 생산 Queue partial 원문 이동 목적지 증분(2026-10-25 KST)
+
+시작 inventory·원파일 SHA/ranges와 기존7.1~7.6 증분을 보존한다. Plan2.44의 신규 파일은 기존 UnitProductionUseCase.cs 원84~380·388~456·804~991의18메서드/554행 이동 목적지다.3구간별 SHA는 Plan2.44에 보존했다. 문서 담당이 구현 후 Assets C#339/프로젝트 Scripts321을 직접 측정해 코드 전338/320과 구분했다. 새 파일 경로가 추가됐다는 사실을 전체 의미 감사나 실행 검증 완료로 확대하지 않는다.
+
+| 신규 파일 | 근거·상태 |
+|---|---|
+| [Assets/_Project/Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs](<../../../../Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs>) | Plan2.44 · 원3구간18메서드 원문 이동 ·566행 · 전문/문서/메인 독립 정적 대조 완료 · compile/native/실기 후속 통합batch 미실행 |
+| [Assets/_Project/Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs.meta](<../../../../Scripts/Application/UseCases/UnitProductionUseCase.Queue.cs.meta>) | 신규GUID ba83783003204123af1aa94bbffdfd08 · 문서 담당 Assets meta 직접 재검색 자기1건 · 기존2meta 원문 불변 |
+
+### 7.8 생산 Requests partial 원문 이동 목적지 증분(2026-10-25 KST)
+
+시작 inventory·원파일 SHA/ranges와7.1~7.7을 보존한다. Plan2.46의4구간375행/ServerRpc4개가 아래 목적지로 이동했고 원범위별 SHA는 계획에 남겼다. 문서 담당 직접 재측정은 Assets C#340/프로젝트 Scripts322로 직전339/321과 구분한다. 전체 의미 감사/컴파일/실기 완료를 뜻하지 않는다.
+
+| 신규 파일 | 근거·상태 |
+|---|---|
+| [Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs](<../../../../Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs>) | Plan2.46 ·390행 ·4payload 원문 이동, HexCoord namespace 주석1행 예외 · 전문/문서 정적 대조 완료 · 실제 ILPP/RPC ID/실기 미실행 |
+| [Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs.meta](<../../../../Scripts/Infrastructure/Network/NetworkProductionController.Requests.cs.meta>) | 신규GUID 8afb1f71c33048ad8bfa9c44b4f1de76 · 문서 담당 Assets 전체meta3271개에서 자기1건 직접 확인 · 기존meta 보존 |
+
+### 7.9 Firebase Google partial 신규 경로 증분(2026-10-25 KST)
+
+원inventory/SHA/범위와7.1~7.8을 보존한다. Plan2.48의125행 원문 이동 목적지로 아래 파일1개가 추가됐다. 문서 담당 실측 Assets C#341/Scripts323이며 전체 의미 감사·실행 검증 완료를 뜻하지 않는다.
+
+| 신규 source | 현재 범위 |
+|---|---|
+| [Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.Google.cs](<../../../../Scripts/Infrastructure/Auth/FirebaseAuthService.Google.cs>) |145행 ·125행/3메서드 원문 이동 · 전문/문서/메인 정적 대조 완료 · Android/비Android compile·기기 인증 미실행 |
+
 ## 8. 현재 결론과 다음 조사
 
 시작 기준 전체 경로 목록은 확보했으나 310개 프로젝트 스크립트 및 문서의 기능 단위 의미 검토는 완료되지 않았다. Domain/Application 초기 의존성 조사를 메인/프로그래머가 수행했고, 첫 작업 묶음 IUnitView 팩토리 추상화를 Plan2.3에 구체화했다. 이후 사용자의 「바로진행하자」로 해당 첫 묶음이 승인돼 구현과 한정 정적 대조를 마쳤다. 컴파일·기기·게임 실행과 사용자 수용은 미확인이다. 전체 의미 감사는 계속 필요하며 대형 파일 분할이나 삭제를 먼저 확정하지 않는다. 구현으로 생성한 파일은 시작 목록을 보존한 채 아래 증분 장부로 추가했다. 구현 후 근거는6절의 별도 범위에 기록한다.
@@ -2233,3 +2259,119 @@ VFX는 사용자 명시 보류가 아니라 과거 조건과 현재 실기 증�
 변경은 `Assets/_Project/Scripts/Infrastructure/Network/UnitAttackShadowCoordinator.cs`와 이 Task `Research.md`/`Plan.md`의 정확3경로다. 이 목록은 커밋 전 정적 검증 시점의 미커밋 snapshot이며 메인은 현재 사용자 푸시 지시 범위에서 완료분을 이어 커밋·푸시한다. 실제 성공/원격 SHA는 메인 실행 결과로 확인하며 미래 성공이나 자기 커밋 SHA를 문서에 순환 기록하지 않는다. 새 사용자 컴파일 보고는 없고 기존1a69402c 보고를 재사용하지 않는다. compile/CLR·suite/fixture/Unity/native/QA/게임/빌드·로그/메뉴 실행은 NOT RUN이다. 문서 담당은 Git 쓰기 없이 최종 문서 검사 후 동결하고 추가 사후 쓰기·새 후보·상시문서/메모리/과거 Task·History 전파를 하지 않는다.
 
 최종 문서 점검: `python3 Tools/check_docs.py` 문제0, `git diff --check`0. 이 Task2파일 로컬 Markdown 파일링크1097대상 누락0을 별도 확인했다. 정확 source1+Task2의3경로를 커밋 전 snapshot으로 인계하며 문서를 동결한다.
+
+### 16.45 최신 사용자 지시 — 순수 리팩토링 계속, VFX 외부 브랜치 완료 후 통합 대기(2026-10-25 KST)
+
+메인에서 전달한 최신 사용자 지시는 「다음 작업은 테스트가 아닌 리팩토링, VFX는 다른 브랜치에서 작업중이므로 나중 완료되면 pull 후 진행」이다.16.41의 과거 출처 정정과16.43/16.44의 당시 조사 기록은 유지하고 현재 작업 분류를 이 절로 갱신한다. VFX의 현재 대기 근거는 이번 새 지시이며, 과거에 사용자가 직접 보류했다고 소급 단정하지 않는다. VFX 작업 완료나 통합이 확인된 것은 아니며 이번 회차에 pull/fetch를 실행하지 않는다.
+
+| 항목 | 현재 분류 | 이번 회차 경계 |
+|---|---|---|
+| 다음 묶음 | 테스트가 아닌 기능 보존 리팩토링 | 전문 구체안→코드 전 Plan→메인 전체 검토/GO→구현 순서 유지 |
+| VFX | 외부 브랜치 작업 완료·후속 pull 대기 | VFX 소스·옛 VFX Task를 수정하지 않고 통합 후 새 상태를 확인 |
+| AUD-017 AI 생산시간 배율 | 명시 후속 AI 보류 유지 | 생산시간 적용·삭제·설계 변경 없음 |
+| 예약 FIFO2.42 | 구현·전문/메인 독립 정적 대조 완료 |512 상한·마스크/tombstone/API 등 보호 계약 유지; 새 실행 검증으로 확대하지 않음 |
+
+문서 담당이 현재 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95`와 변경 없는 작업 트리를 읽기 전용으로 확인했다. 푸시 완료는 메인 인계이며 원격을 새로 fetch하거나 다시 검증한 주장이 아니다. 다음 후보는 UnitProductionUseCase 큐 메서드의 같은 class partial 원문 분리(Plan2.44)와 Coordinator private 미소비 저장3값 정리 재검토(Plan2.45)다. 아직 전문 구체안/삭제 안전 근거를 확정하지 않았으며 후보 이름만으로 코드 수정을 시작하지 않는다. 기존 inventory·SHA·원범위를 보존하고 새 경로가 실제 생성되면 증분 연결한다.
+
+**검증 상태:** 새 사용자 Unity 컴파일 보고는 없다. compile/CLR·suite/fixture/Unity/native/QA·게임·빌드·로그/메뉴 실행은 하지 않는다. 문서 검사와 링크 확인은 별도 문서 정합성 근거이며 게임 검증이 아니다. 이번 문서 쓰기는 기존 Research.md/Plan.md 두 파일뿐이며 상시문서·메모리·과거 다른 Task·History를 변경하지 않는다.
+
+### 16.46 생산 큐 partial 분리 전문안 확인 — Plan2.44 코드 전(2026-10-25 KST)
+
+전문 구체안을 수신하고 실제 UnitProductionUseCase.cs가993행/49085bytes, SHA256 `c41257d8a07b6ae6d7f9504d597616fdc81e0a800f830cfbe4f5ed0e47bc1379`임을 직접 확인했다. 원84~380·388~456·804~991의3구간554행/26954bytes를 같은 namespace/type의 UnitProductionUseCase.Queue.cs로 원문 이동한다.18개 큐 메서드만 옮기고6필드·초기화순서·생성자·타이머·생산시작/완료·스폰·등록/해제·조회·랠리는 main에 유지한다. 원범위별 SHA와 보존/역복원 계획은 Plan2.44에 코드 전에 기록했다. 기존 meta GUID `fcf0fe77d697c0f4c839fcbee681bd2c`를 유지하며 신규source/meta는 메인 전체 검토/GO 이후 생성한다.
+
+문서 담당 실측 Assets C#338/프로젝트 Scripts320은 코드 전 값이다. 신규 경로는 생성 후 기존 원목록/원범위와 별개 증분으로 연결하고339/321은 생성 뒤 직접 확인하기 전 완료값으로 쓰지 않는다. 파일명 참조 검색 범위와 외부/metadata/debug line 한계는 전문 전달 근거다. 공개API·생산시간·골드/환불·자동대기·상한3·이벤트/로그·필드초기화·기존GUID/preset 불변을 보호한다. AI 생산배율은 명시 후속 AI 보류, VFX는16.45의 외부 브랜치 완료/후속 pull 대기를 유지한다. 이 시점 소스 수정·compile/Unity/게임/테스트/QA 실행은 없다.
+
+### 16.47 미소비 LegacyReservation 저장3값 재검토 — Plan2.45 코드 전(2026-10-25 KST)
+
+전문이 private 중첩 LegacyReservation의 Token/LegacyScheduledAt/ShadowCommitAt 선언3줄과 ScheduleLegacyAttack 대입3줄만 정리하는 구체안을 전달했다. 기존 source SHA256 `bdbfa29c07e707da68e0566569be206f7d1cb3a3e4c34224044914554f12dc50`를 기준으로 저장 후 읽기·직렬화·문자열/반사/source gate 참조를 찾지 못했고 RHS는 readonly struct/double local복사와 sealed snapshot의 get-only auto getter다. 문서 담당도 실제 선언/initializer·선행 snapshot 역참조·해당 타입 정의를 읽었다. 검색의 한계와 정리6줄·역복원/보존 근거는 Plan2.45에 기록했다.
+
+이는 과거 private3값 보류를 미소비 데이터 정리로 한정 재분류한 메인 기술 판단 변경이며 기능/Legacy 실행 경로 삭제 gate의 일반 해제가 아니다. 과거 기록은 보존한다. token 생성/반환·입력 유효성·실제 CommitServerTime·512 FIFO·마스크/tombstone·권위/타겟/피해·API/meta/GUID/preset은 그대로다. Plan2.44 manifest의 실제 수는31개(ctor1+나머지30), 이동18/잔류13이며 초기 전문 전달의30개 오타 대신 직접 읽은 manifest 값을 사용한다.2.44+2.45 합계6경로를 코드 전에 확정했고 아직 메인 전체 검토/GO 전이다. 새 compile/Unity/게임/테스트/QA 근거는 없다.
+
+### 16.48 추가 사용자 지시 — 리팩토링 영향 테스트 누적 후 통합 진행(2026-10-25 KST)
+
+메인이 전달한 사용자 추가 지시는 「리팩토링으로 인해 테스트 필요한 부분 모아서 한번에 진행」이다. 순수 리팩토링 목표를 유지하고 각 묶음의 소스 정적 대조는 계속한다. Unity 컴파일/native·실기·suite는 리팩토링 뒤 모아 진행하며 지금 테스트를 시작하거나 중간 gate로 리팩토링을 멈추지 않는다. Testcase 파일 생성 여부를 다시 질문하지 않고 기존 Research/Plan만 사용한다.
+
+Plan5.1에 팩토리/인증 주입·로그인/logout, AI 기존 행동,3개 분리 영역의 compile/연결 gate, UI 재초기화/파괴/Rx/press, HB 최신 재판정, 연구/생산RPC 권위·음수, 예약FIFO512·완료/Retire·ID재등록·취소/tombstone, Editor 로그 충돌상한·未知phase parser·fixture 상태·manifest helper를 누적했다. 단순 주석 정정만의 반복 테스트는 만들지 않고 기존 검사를 활용한다. 각 행의 현재 정적 근거와 미실행을 구분하며 후속 actual 결과는 리비전·환경·실행범위·결과/미실행 이유를 함께 기록한다.
+
+AI 생산시간 배율은 신규 적용하지 않는 명시 후속 보류다. VFX는 외부 브랜치 완료·후속 pull이 먼저이며 현재 통합batch 밖의 조건부 후속으로 둔다. 지금 pull/fetch·VFX 코드/옛 Task·메뉴 실행은 없다. 새 Unity 컴파일·테스트·QA·게임/빌드 증거는 생기지 않았다.
+
+### 16.49 생산 Queue partial·미소비 예약3값 구현/정적 대조 인계(2026-10-25 KST)
+
+Plan2.44/2.45를 코드 전에 기록하고 메인 전체 검토/GO 뒤 전문 담당이 정확 source4경로를 구현·동결했다. `/tmp/hexiege-production-pure-244-245/static-review.json`은 전체31메서드 원문/호출순서 동일, 이동18/잔류13, 실제 신규 Queue의3payload가 원문 동일, main+payload 역삽입/partial 원복의 전체 원문 일치, Coordinator6줄 외 원문 동일·역복원 동일·outer public 선언 동일·기존meta2개 동일을 보고한다. 이는 source 정적 비교이며 suite/fixture 실행이 아니다.
+
+문서 담당도 실제 main/신규 Queue wrapper·meta/Coordinator diff와 receipt를 읽고 scratch before 원문에 허용 변환을 적용해 현재 main bytes가 정확히 일치함을 독립 확인했다. 신규 Queue에는 원3구간이 각각1번 같은 순서로 있고 Coordinator는 정확6줄만 정리한 bytes가 현재와 동일하다. 기존 production/Coordinator meta bytes 불변·신규GUID 자기1건·Assets339/Scripts321도 직접 재측정했다. main은993→439행/22139bytes, Queue는566행/27323bytes, Coordinator는1205행/55327bytes다.
+
+| 구현 결과 | SHA256 |
+|---|---|
+| UnitProductionUseCase.cs | `b0487b1cfc8c672fae1bf05c89854841c8c20fe0b477667132ddbf9c800fe8f8` |
+| UnitProductionUseCase.Queue.cs | `9b976979672453cb0c94a417175c2f51a9968aaac9635c3b69a5ab60f8346820` |
+| 신규 Queue meta | `784b35dc5eab586ccb0a5934b6940182efa98d03e7be892dc15d81511d617114` |
+| UnitAttackShadowCoordinator.cs | `08fb2f473de943e8fcfe2a3f512b6fec58c2f24972b73e6a44f04f6d3ade4cfd` |
+
+정확 기존source2+신규source/meta2+Task2의6경로다. 기존6필드·초기화·ctor/API/모든 생산 메서드본문·골드/환불·자동대기·시간·랠리/스폰, 예약FIFO512/마스크/tombstone/token·실제snapshot·기존meta/GUID/preset은 정적 보호 범위로 유지한다. 미소비 저장3값 정리는16.47의 한정 판단 변경이며 과거 보류 이력을 삭제하지 않는다. 새 컴파일/Unity/native/suite/fixture/TCQA/게임·빌드/로그 실행은 없다. 사용자 추가 지시대로 actual 확인은 Plan5.1 통합batch에 누적했고 지금 리팩토링을 계속한다. VFX는 외부브랜치 완료/후속 pull 대기, AI 배율은 후속 AI 보류이며 이번 pull/fetch·VFX/옛Task·상시문서/메모리·Git 쓰기는 없다. 메인 독립 결과는 아래 후속 기록으로 확인했다.
+
+**메인 독립 대조 수신·문서 확인:** `/tmp/hexiege-plan244-245-main-independent.json`을 직접 읽었다. scratch만이 아닌 기준 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95` 원문과 비교해 생산 main3구간554행 제거+partial 토큰 외 전체 raw 동일, 신규Queue wrapper/3payload concat 전체 정확, Coordinator6줄 외 raw 동일, 기존meta2개 HEAD bytes 동일·새GUID Assets유일·339/321·정확6경로를 별도 확인했다. 메인 check_docs/diffcheck0은 문서/정적 근거이며 실행 테스트가 아니다. 문서 담당 check_docs도 exit0/문제0, Task2 로컬 Markdown 링크1099개 존재 확인/누락0이다. 검사기가 Task를 제외하므로 이 링크 확인을 별도로 수행했다.
+
+**현재 저장 상태:** 이전2.42까지의 푸시 인계와 이번2.44/2.45의 새6경로 작업분을 구분한다. 이번 새 묶음은 아직 커밋·푸시하지 않았으며 문서/소스 동결 시점의 작업 트리 변경이다. 추가 범위 탐색·사후 코드 수정 없이 이 문서 기록으로 마무리한다. 실제 통합 테스트는 Plan5.1의 후속 계획이다.
+
+
+### 16.50 생산 Requests partial·인증 import2행 전문안 — 코드 전(2026-10-25 KST)
+
+사용자 「다음 작업도 진행」의 계속 지시 아래 전문이 read-only 구체안을 전달했고 Plan2.46/47에 코드 전에 기록했다. 생산 ServerRpc4메서드의 section/XML/attribute/본문375행을 같은 class partial로 옮긴다. 마지막 Toggle 구간은1073~1139행이며 닫는 중괄호 뒤 빈줄까지 포함한다. 원본1214행/69192bytes/SHA와4개 범위 SHA를 문서 담당도 직접 재측정했다. fields/초기화·ctor·Unity lifecycle·UI wrapper·모든 ClientRpc·spawn/retry/stateSync는 main에 남고 실행 본문/속성/메시지 호출·순서는 유지한다. 원1046행 HexCoord Core→Domain 주석1행만 원문 이동 예외이며 실제 Domain 타입을 직접 확인했다. 역복원에는 해당1행 역치환을 포함한다.
+
+전문은 Editor/Tools source gate·reflection·typed reference를 확인했으며 직접 API는 main 잔류다. assembly/namespace/type·메서드 signature/속성 등 식별 입력 보존 근거와 실제 NGO ILPP/HostClient RPC ID/hash 미검증을 구분한다. Library/PackageCache 부재로 실제 생성 결과를 확인한 것은 아니다. Auth2파일은 전문 전체본문/조건부/타입/extension 검토 후 using UnityEngine;각1줄만 정리한다. 문서 담당도 실제 UseCases 경로·import/namespace·조건부 없음·521/172행과 SHA를 확인했다. 정책·async·예외·문자열/로그·주입/enum/API/기존meta는 유지한다.
+
+코드 전 직접 실측은 Assets339/Scripts321이다.340/322는 신규source 구현 뒤 확인할 예상이며 원 inventory/SHA/열람범위는 보존한다. 신규GUID는 Assets 모든 meta에서 유일성을 확인할 것이며 cs.meta 개수와 혼용하지 않는다. 신규 증분source/meta는 Network main/Requests/Requests.meta와 Login/AccountLink의5경로, Task2까지 이번7경로이고 기존 미커밋6경로와 Task2가 겹쳐 고유 누적11경로 예상이다. 기존2.44/45 생산/Coordinator/Queue/meta4경로는 보호한다. 아직 메인 전체검토/GO 전이므로 source 쓰기는 없다. Plan5.1에 compile/ILPP/partial 결합·인증·HostClient4요청을 누적했으며 중간 compile/native/suite/fixture/QA/Unity/게임/빌드·로그/메뉴 실행은 없다. VFX는 외부브랜치 완료/후속 pull 대기, AI 배율은 후속 AI 보류다. 이번 pull/fetch/Git 쓰기·상시문서/메모리/옛Task·새Testcase 변경은 없다.
+
+
+### 16.51 생산 Requests partial·인증 import 정리 구현/정적 대조(2026-10-25 KST)
+
+메인의 Plan2.46/47 전체검토/별도 GO 후 전문이 source/meta5경로를 적용·동결했다. `/tmp/hexiege-network-requests-static-review.json`을 직접 읽고 문서 담당도 before 원문에 허용 변환을 적용했다. main은4구간375행 제거와 partial1토큰 외 raw 동일이며 신규 Requests 안에4payload 연결 원문이 정확1번 있다(허용한 Core→Domain 주석1행만 역치환). Auth 각파일은 using UnityEngine;1행 제거 외 전체 bytes 동일이다. 실제5파일 SHA도 receipt와 직접 대조했고 Assets340/Scripts322·전체meta3271개 중 신규GUID 자기1건을 재측정했다. 전문은 기존meta3개 HEAD bytes 동일·앞선 생산main/Queue/meta/Coordinator 보호4경로 hash 동일을 보고했다. 이는 소스 정적 대조이며 compiler/NGO ILPP/메시지ID hash/게임 PASS가 아니다.
+
+| 이번 구현 결과 | 행/bytes | SHA256 |
+|---|---|---|
+| NetworkProductionController.cs |839/45394 | `1de7fa0d3726b2d926d29fd7701b412cb518267f6e1a6e62085002e4e1114a8b` |
+| NetworkProductionController.Requests.cs |390/24285 | `d6e991c26f1b99d5668e9ebec968c7f6abeea1808a3b13771dd444601009ad54` |
+| 신규 Requests meta |2/60 | `fe9c2295c7b201571c554a9d248c863a9ee446ebfa17c5b64af64f07000404dc` |
+| LoginUseCase.cs |520/24503 | `e394ca6fef09a2fd499ee7326561d75769fd2482065f5af89856f71e6f8d2269` |
+| AccountLinkUseCase.cs |171/8512 | `0e44f396fd71d327fb859ef8b3637b1902158f2c9b99b0fb15da2502a3e7ddf3` |
+
+이번 증분은 기존Network main/Auth2+신규Requests/source meta2의5경로, Task2를 더한7경로다. 기존2.44/45의6경로와 Task2가 겹쳐 현재 미커밋 고유11경로를 status로 직접 확인했다: 기존source5(UnitProductionUseCase, Coordinator, NetworkProductionController, LoginUseCase, AccountLinkUseCase)+신규source/meta4(Queue/Requests 각각2)+Task2다. 이전 저장 상태/원 inventory/SHA/열람범위는 덮어쓰지 않는다. 후속 통합 검증은 Plan5.1에 유지하며 중간 compile/Unity/ILPP/native/suite/fixture/QA/HostClient/게임·빌드/로그/메뉴 실행은 없다. 현재 HEAD는 af3d63b9 세대이며 이번 커밋/푸시는 없다. VFX 외부브랜치 완료/후속 pull 대기·AI 배율 후속 보류·상시문서/메모리/옛Task/새Testcase·Git 쓰기 금지를 유지한다. 메인 독립 대조 수신 결과는 아래에 별도로 연결한다.
+
+
+**메인 독립 대조 수신·최종 문서 확인:** `/tmp/hexiege-plan246-247-main-independent.json`을 직접 읽었다. 기준 HEAD `af3d63b994db99791dfc7bc1ec35af0c8aba5c95` main 원문과 비교해4구간375행 이동+partial 토큰 외 전체bytes 동일, 신규Requests wrapper/payload 정확(주석예외1행),ServerRpc attribute4개·Auth각 using1행 외 동일·기존target meta3개 HEAD동일·이전미커밋 보호4경로 hash불변을 메인이 독립 확인했다. 전체Assets meta 신규GUID유일·340/322·정확11경로도 일치한다. 식별 입력 보존의 소스 근거이며 실제 NGO ILPP/hash생성/RPC roundtrip/인증/compile/native/실기 실행은 없다. 메인 check_docs0/diffcheck0, 문서 담당 최종 check_docs exit0/문제0·diffcheck0와 Task2 로컬Markdown 경로1101/누락0도 확인했다. 현재11경로는 미커밋·미푸시다.5.1 누적장부와7.8 신규증분만 현행 연결하며 추가source수정/후보확대·상시문서/메모리/옛Task/새Testcase 변경·Git 쓰기 없이 동결한다.
+
+
+### 16.52 Firebase Google partial·공격 강화 계산 공통화 코드 전 조사(2026-10-25 KST)
+
+사용자 「다음 묶음 진행해」에 따라 기존 기능을 유지하는 다음 두 구조 정리를 선정했다. 전문 설계 `/tmp/hexiege-auth-math-248-249/design.json`과 baseline을 수신했고 문서 담당이 Google3메서드·조건부·UnitUpgrade 계산 및 관련 규칙을 직접 읽었다. Firebase611행에서 section/XML 포함163~258/395~423의125행을 같은 Infrastructure/public partial 타입으로 옮기는 안과 UnitUpgrade419행의 중복 Mathf 수식 두 곳을 private static helper로 묶는 안이다. 범위/SHA/보존/한계는 Plan2.48/49가 원본이다. 실제 Activate 호출은 없고 기존 주석만 있으므로 새 초기화 동작은 추가하지 않는다.
+
+문서 비교에서 AuthSystemRules.md41/185는 GPGS가 Google idToken을 발급한다고 적지만 FirebaseAuthService.cs215~257의 RequestServerSideAccess는 server auth code를 받고 GetCredential에 전달한다. Firebase가 이후 발급하는 ID Token과도 구분해야 한다. 이는 코드 구현 누락이 아니라 현행 설명 용어의 불일치이며 다음 문서 정정 대상으로 남긴다. 이 불일치의 후속 기록은 Task2만 수정하며 인증 처리 동작과 상시 규칙문서는 바꾸지 않는다. Upgrade 규칙4의8% 가산은 구체 반올림을 규정하지 않으므로 원코드 `Mathf.RoundToInt(baseValue * AttackPerLevelRate)`를 그대로 보존한다.
+
+전문 baseline 전달값은 Assets340/Scripts322, 전체Assetsmeta3271 중 예정GUID 충돌0, 기존미커밋11경로다. 신규 partial1개 뒤341/323·누적15경로는 예상이며 구현 후 직접 재측정한다. 소스 쓰기는 메인 전체계획 검토/GO 뒤다. 최신 사용자 지시에 따라 actual compile/UnityMathf/Android인증·게임/native/suite/QA 등은 중간 실행 없이 Plan5.1로 누적한다. VFX 외부브랜치 완료/후속 pull 대기·AI 생산배율 후속 보류·원inventory/이력 보존·현재 Git 쓰기/pull/fetch 금지를 유지한다.
+
+
+### 16.53 Google 인증 partial·공격 강화 공통 계산 구현·정적 대조(2026-10-25 KST)
+
+Plan2.48/49 전체검토·메인 GO 뒤 전문 구현을 마치고 소스를 동결했다. 전문 `/tmp/hexiege-auth-math-248-249/static-review.json`, 메인 독립 `/tmp/hexiege-plan248-249-main-independent.json`을 문서 담당도 직접 읽었다. 문서 담당 별도 raw 대조 `/tmp/hexiege-auth-math-248-249/doc-static-review.json`에서 Google125행 payload/정확 wrapper·main 이동 외 동일·기존pending source/meta9경로 보존·최종4파일 SHA를 확인했다. math 정확 helper/XML+2RHS와 기존meta2 보존은 전문/메인이 각각 원문 역복원으로 확인했고 문서 담당은 현행 guard/수식/helper와 최종 SHA를 직접 대조했다. 필드/초기화/API·로그/문자열·비동기/조건부 동작과 기존 반올림 정책의 소스 보존 근거이며 실제 실행 증거가 아니다.
+
+문서 담당 직접 실측은 main486행/24938bytes,Google145행/6790bytes,UnitUpgrade427행/21949bytes,신규meta2행/60bytes다. source/meta4 SHA는 위 전문 receipt와 동일했다. Assets C#341/Scripts323, 전체Assets meta3272 중 새GUID3547d2de794845edbc07cd47c6a62687은 자기1건, status고유15경로다. 이번 기존source2+신규source/meta2+Task2=6경로이며 이전미커밋11과Task2가 겹친 합계다. 원inventory/원문이력은 보존하고7.9에만 신규 경로를 추가했다.
+
+check_docs exit0/문제0·diffcheck0 및 Task2 로컬경로1102/누락0 확인. 실제 compile/Mathf수치/기기인증/Unity/native/QA/suite/fixture/HostClient/게임·빌드/로그·메뉴 실행은 없고 Plan5.1에 누적했다. source수정 추가·후보 확대·Git 쓰기/pull/fetch 없이 동결하며 현재15경로는 미커밋·미푸시다. VFX 외부브랜치 완료/후속 pull 대기, AI 생산배율 후속 보류와 상시문서/메모리/옛Task/새Testcase 제외를 유지한다. AuthSystemRules의 idToken 용어 차이는16.52의 후속 문서 정정 항목으로 남는다.
+
+
+### 16.54 Google 인증 설명2행 후속 정정 조사(2026-10-25 KST)
+
+16.52의 용어 차이를 다음 문서 정정 대상으로 선정했다. AuthSystemRules.md 전체에서 idToken/ID Token/Server Auth Code/PlayGames 관련 표현을 검색하고 Google partial의 인증·연동 본문과 직접 대조했다. GoogleSDK 역할41행과 Google로그인 흐름185행 두 곳만 server auth code/PlayGamesAuthProvider Credential 표현으로 고친다(Plan2.50). Firebase가 발급한 ID Token을 UGS OIDC로 넘기는 별도 연결과 토큰 만료 설명7행은 그대로 유지한다. 수정안은 메인 검토/GO 전이며 인증 처리·상태·로그인 단계 순서에 새 정책을 넣지 않는다. 기존15미커밋경로와 VFX/AI/통합테스트 경계를 유지한다.
+
+
+### 16.55 건물 인접 처리·수입 지급의 좁은 중복 조사(2026-10-25 KST)
+
+전문이 제안하고 메인이 선정한 범위는 BuildingPlacementUseCase의 두 인접 순회10행과 ResourceUseCase의 두 정수 지급6행뿐이다(Plan2.51/52). 문서 담당이 현재 두 배치본문·수입guard/누적/지급본문과 정확helper파일을 읽었다. 건물 ID생성·등록·중앙상태·이벤트 전체를 합치지 않고 인접원문만 이동하며, 수입두누적기·배율/연산/차감과 이벤트 순서를 보존한다. TDD 영토 예시와 Map 초기소유 공정성·AI34의 수입배율 소유권을 근거로 기록했다. 새 기능·타입필터·경제정책을 넣지 않는다. 소스 쓰기는 메인 전체안 검토/GO 뒤다.2.50 용어정정은 메인 정확2행 GO 뒤 적용했고 원문은 `/tmp/hexiege-auth-rules-250-before.md`에 보존했다.메인은 직접 연관된 TDD 영토 설명/예시위치2행 정정을2.51에 추가했다(Plan2.51). 배럭/6이웃 보장이라는 설명 대신 현재 공통배치/존재이웃/같은팀 건너뛰기를 기록하며 foreach예시는 유지한다.2.50~52는이번6경로/누적19예상이며 신규source없음,actual 검증은Plan5.1 후속이다.
+
+
+### 16.56 인증/TDD 설명과 영토/수입 helper 구현·독립 정적 대조(2026-10-25 KST)
+
+2.50~52는 코드 전 계획·메인 정확안/전체검토·GO 뒤 적용했다. 전문 `/tmp/hexiege-pure-next-250/static-review.json`과 메인 `/tmp/hexiege-plan250-252-main-independent.json`을 직접 읽었고 문서 담당도 원문에 정확helper/호출치환을 적용한 전체bytes 및 Auth/TDD 각각의 정확2행 치환 외 전체bytes 동일을 확인했다. 기존pending source/meta13·targetmeta2 보존과19경로/Assets341/Scripts323은 전문/메인 독립 실측결과가 일치한다. source후행수는 Building473/Resource187이며 공개API/기존연산·이벤트 순서의 소스 보존 근거다. 신규private목록/metadata순서/debug행/stackframe 불변이나 실제 이벤트 재진입/성능/게임 동작 PASS를 뜻하지 않는다.
+
+AuthSystemRules41/185의 Server Auth Code/Credential 설명과 TDD898/900의 공통영토 설명/helper위치로16.52의 용어불일치 및 직접연관예시설명을 정정했다. Firebase ID Token의 기존UGS bridge/만료설명7행과 TDD foreach예시는 그대로다. 이번6경로(Auth/TDD2+source2+Task2), 누적19경로는 미커밋·미푸시며 기존HEAD af3d63b9다. 문서정합성 문제0/diffcheck0/Task로컬경로1102 누락0을 확인했다. 실제 compile/인증/Mathf/영토/수입/Unity/native/QA/suite/fixture/HostClient/게임·빌드/로그 실행은 없고Plan5.1 누적을 유지한다. VFX/AI보류·Git쓰기/pull/fetch·다른상시문서/메모리/옛Task/새TC 제외와 기존이력보존을 유지한다.

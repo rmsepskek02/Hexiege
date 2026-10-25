@@ -37,11 +37,8 @@ namespace Hexiege.Infrastructure
 
         private sealed class LegacyReservation
         {
-            public LegacyAttackToken Token;
             public AttackTargetBinding Target;
             public AttackSequenceId ShadowSequenceAtSchedule;
-            public double LegacyScheduledAt;
-            public double ShadowCommitAt;
             public int ImpactCount;
             public ulong DispatchedMask;
             public ulong CompletedMask;
@@ -485,11 +482,8 @@ namespace Hexiege.Infrastructure
             var token = new LegacyAttackToken(attackerInstanceId, next);
             var reservation = new LegacyReservation
             {
-                Token = token,
                 Target = target,
                 ShadowSequenceAtSchedule = snapshot.SequenceId,
-                LegacyScheduledAt = legacyScheduledAt,
-                ShadowCommitAt = snapshot.CommitServerTime,
                 ImpactCount = impactCount,
                 Authorizations = new ImpactAuthorization[impactCount],
                 Sequencer = entry.Sequencer
