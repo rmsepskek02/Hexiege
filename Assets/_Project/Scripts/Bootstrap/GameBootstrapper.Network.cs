@@ -115,10 +115,10 @@ namespace Hexiege.Bootstrap
                 .Subscribe(_ => RepathAllAliveUnits())
                 .AddTo(_eagerRepathSubscriptions);
 
-            // 건물 사망만 walkable에 영향 → 그때만 재계산.
-            // 유닛 사망(OnUnitDied)은 walkable과 무관하므로 구독 대상이 아니다.
-            // OnBuildingDied는 건물 전용 강타입 이벤트라 별도 캐스트 분기가 필요 없다.
-            GameEvents.OnBuildingDied
+            // 사망 콜백은 아직 등록된 건물을 조회할 수 있어야 한다. 타일과 건물
+            // 인덱스의 실제 제거가 끝난 뒤에만 최신 walkability로 재경로를 요청한다.
+            // FlowFieldService의 캐시 무효화 구독은 맵 초기화 시 이 구독보다 먼저 설치된다.
+            GameEvents.OnBuildingRemoved
                 .Subscribe(_ => RepathAllAliveUnits())
                 .AddTo(_eagerRepathSubscriptions);
         }

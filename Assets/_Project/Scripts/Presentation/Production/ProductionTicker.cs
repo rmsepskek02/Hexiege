@@ -323,6 +323,13 @@ namespace Hexiege.Presentation
             if (unitObj == null) return;
 
             var unitView = unitObj.GetComponent<UnitView>();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // 이동 시작 전에 정확한 막힘 해제 유닛 하나에만 개발용 원시 관측을 연결한다.
+            if (!NetworkContext.IsNetworkActive && unitView != null
+                && ReferenceEquals(unitView.Data, e.Unit) && _productionUseCase != null
+                && _productionUseCase.TryClaimBlockedSpawnFacingTrace(e.Unit, out int traceBarracks, out int traceAttempts))
+                unitView.BeginBlockedSpawnFacingTrace(traceBarracks, traceAttempts);
+#endif
             if (unitView == null || unitView.IsMoving) return;
 
             if (e.RallyPoint.HasValue)

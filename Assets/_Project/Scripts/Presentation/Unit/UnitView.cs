@@ -1380,12 +1380,113 @@ _slot = _nextEviction;
             ObservePistoleerRenderedStart();
             ConsumePendingInfernoAttackStartFacing();
             ObserveInfernoMotionJumpFrame();
+            ObserveBlockedSpawnFacingFrame();
         }
 
 #endif
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // 원인을 고치거나 FAIL을 판정하지 않는 원시 관측이다. 이 객체는 선택된 한 유닛에만 만든다.
+        private sealed class BlockedSpawnFacingTrace
+        {
+            public int UnitId, BarracksId, Attempts, Samples, Rows;
+            public TeamId Team;
+            public double StartedAt, NextSampleAt;
+            public Vector3 PreviousPosition;
+            public Transform Mesh, Hips;
+        }
+
+        private BlockedSpawnFacingTrace _blockedSpawnFacingTrace;
+        private const int SpawnFacingMaximumSamples = 16;
+        private const int SpawnFacingMaximumRows = 18;
+        private const double SpawnFacingDuration = 4d;
+        private const double SpawnFacingSampleInterval = 0.25d;
+
+        /// <summary>
+        /// 막힘 해제 생산과 연결된 싱글 Pistoleer의 방향을 최대 4초 동안 읽기만 한다.
+        /// Visual/뼈 축은 실제 몸체 정면이나 같은 프레임 최종 렌더를 보증하는 값이 아니다.
+        /// </summary>
+        public void BeginBlockedSpawnFacingTrace(int barracksId, int attempts)
+        {
+            if (NetworkContext.IsNetworkActive || _unitData == null || !_unitData.IsAlive
+                || _unitData.Type != UnitType.Pistoleer || _blockedSpawnFacingTrace != null) return;
+            double now = Time.unscaledTimeAsDouble;
+            var trace = new BlockedSpawnFacingTrace
+            {
+                UnitId = _unitData.Id, Team = _unitData.Team, BarracksId = barracksId,
+                Attempts = attempts, StartedAt = now, NextSampleAt = now + SpawnFacingSampleInterval,
+                PreviousPosition = transform.position,
+                Mesh = _animator != null ? _animator.transform : null,
+                Hips = _animator != null && _animator.isHuman && _animator.avatar != null
+                    && _animator.avatar.isValid ? _animator.GetBoneTransform(HumanBodyBones.Hips) : null
+            };
+            _blockedSpawnFacingTrace = trace;
+            WriteBlockedSpawnFacingRow(trace, "begin",
+                System.FormattableString.Invariant($"BlockedAttempts={attempts}, X={transform.position.x:G9}, Z={transform.position.z:G9}, RootYaw={transform.eulerAngles.y:G9}, Mode={_lockedMovementPipelineMode}, AlreadyMoving={IsMoving}, VisualStage=LateUpdateOrderUnspecified, BoneAxis=Uncalibrated"));
+        }
+
+        private void ObserveBlockedSpawnFacingFrame()
+        {
+            var trace = _blockedSpawnFacingTrace;
+            if (trace == null) return;
+            Vector3 rootPosition = transform.position;
+            Vector3 step = rootPosition - trace.PreviousPosition;
+            step.y = 0f;
+            // 4Hz 기록 사이에도 매 프레임 갱신하여 긴 구간의 평균 이동 방향과 혼동하지 않는다.
+            trace.PreviousPosition = rootPosition;
+            double now = Time.unscaledTimeAsDouble;
+            if (NetworkContext.IsNetworkActive || _unitData == null || !_unitData.IsAlive
+                || _unitData.Id != trace.UnitId)
+            { EndBlockedSpawnFacingTrace("unit-unavailable"); return; }
+            if (now < trace.StartedAt || now - trace.StartedAt >= SpawnFacingDuration)
+            { EndBlockedSpawnFacingTrace("time-limit"); return; }
+            if (now < trace.NextSampleAt) return;
+            if (trace.Samples >= SpawnFacingMaximumSamples)
+            { EndBlockedSpawnFacingTrace("sample-limit"); return; }
+            trace.NextSampleAt = now + SpawnFacingSampleInterval;
+            trace.Samples++;
+
+            bool moving = step.sqrMagnitude > 0.0000000001f;
+            float motionYaw = moving ? Mathf.Atan2(step.x, step.z) * Mathf.Rad2Deg : 0f;
+            Vector3 desired = _unitActionShadowDesiredTarget - rootPosition;
+            desired.y = 0f;
+            bool hasTarget = _hasUnitActionShadowDesiredTarget && desired.sqrMagnitude > 0.0000000001f;
+            float targetYaw = hasTarget ? Mathf.Atan2(desired.x, desired.z) * Mathf.Rad2Deg : 0f;
+            Transform visual = _visualRootProjector != null ? _visualRootProjector.ObservedVisualRoot : null;
+            Vector3 hipsForward = trace.Hips != null ? trace.Hips.forward : Vector3.zero;
+            hipsForward.y = 0f;
+            bool hipsAvailable = hipsForward.sqrMagnitude > 0.0000000001f;
+            float hipsYaw = hipsAvailable ? Mathf.Atan2(hipsForward.x, hipsForward.z) * Mathf.Rad2Deg : 0f;
+            // unavailable 플래그가 false면 해당 0 값에는 방향 의미가 없다. projector getter로 보정하지 않는다.
+            WriteBlockedSpawnFacingRow(trace, "sample",
+                System.FormattableString.Invariant($"Sample={trace.Samples}, X={rootPosition.x:G9}, Z={rootPosition.z:G9}, Moving={moving}, Step={step.magnitude:G9}, MotionYaw={motionYaw:G9}, Target={hasTarget}, TargetYaw={targetYaw:G9}, RootYaw={transform.eulerAngles.y:G9}, Visual={visual != null}, VisualYaw={(visual != null ? visual.eulerAngles.y : 0f):G9}, Mesh={trace.Mesh != null}, MeshYaw={(trace.Mesh != null ? trace.Mesh.eulerAngles.y : 0f):G9}, Hips={hipsAvailable}, HipsAxisYaw={hipsYaw:G9}, Owner={_rootRotationOwnership.Owner}, Intent={_movementIntentReason}, Facing={_unitData.Facing}, Anim={_currentAnimStateHash}"));
+        }
+
+        private void EndBlockedSpawnFacingTrace(string reason)
+        {
+            var trace = _blockedSpawnFacingTrace;
+            if (trace == null) return;
+            WriteBlockedSpawnFacingRow(trace, "end", $"Reason={reason}, Samples={trace.Samples}");
+            _blockedSpawnFacingTrace = null;
+        }
+
+        private static void WriteBlockedSpawnFacingRow(BlockedSpawnFacingTrace trace, string stage, string detail)
+        {
+            if (trace.Rows >= SpawnFacingMaximumRows) return;
+            string data = System.FormattableString.Invariant($"Stage={stage}, Unit={trace.UnitId}, Team={trace.Team}, Barracks={trace.BarracksId}, Frame={Time.frameCount}, Age={Time.unscaledTimeAsDouble - trace.StartedAt:G17}, {detail}");
+            // GameLog 형식의 envelope 120 byte를 포함해 900 byte 미만을 유지한다.
+            if (System.Text.Encoding.UTF8.GetByteCount(data) + 120 >= 900)
+                data = $"Stage=format-rejected, Unit={trace.UnitId}, Frame={Time.frameCount}, Reason=utf8-budget";
+            trace.Rows++;
+            GameLog.Dev.Info("Combat", nameof(UnitView), "[UAS-SPAWN-FACING] pose", data);
+        }
+#endif
+
         private void OnDisable()
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            EndBlockedSpawnFacingTrace("view-disabled");
+#endif
             _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: true);
             EndSoloPursuitEvidence();
             EndSoloRecoveryEvidence();
@@ -1419,6 +1520,9 @@ _slot = _nextEviction;
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            EndBlockedSpawnFacingTrace("view-reinitialized");
+#endif
             _attackPhaseNetworkUnit = GetComponent<NetworkUnit>();
             if (!ReferenceEquals(_unitData, unitData))
             {

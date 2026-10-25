@@ -42,6 +42,15 @@ namespace Hexiege.Application
         // 배럭 Id → ProductionState
         private readonly Dictionary<int, ProductionState> _states = new Dictionary<int, ProductionState>();
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // 한 경기의 첫 막힘 해제 Pistoleer만 관측한다. 생산 판단에는 사용하지 않는다.
+        private ProductionState _spawnFacingWait;
+        private int _spawnFacingBlockedAttempts;
+        private UnitData _spawnFacingPendingUnit;
+        private int _spawnFacingBarracksId;
+        private bool _spawnFacingTargetSelected;
+#endif
+
         public UnitProductionUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -55,6 +64,50 @@ namespace Hexiege.Application
             _population = population;
             _buildingPlacement = buildingPlacement;
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void ResetSpawnFacingWait(ProductionState state)
+        {
+            if (!ReferenceEquals(_spawnFacingWait, state)) return;
+            _spawnFacingWait = null;
+            _spawnFacingBlockedAttempts = 0;
+        }
+
+        private void ObserveBlockedSpawnForFacing(ProductionState state, UnitType type)
+        {
+            if (NetworkContext.IsNetworkActive || type != UnitType.Pistoleer
+                || _spawnFacingTargetSelected) return;
+            if (_spawnFacingWait == null) _spawnFacingWait = state;
+            if (ReferenceEquals(_spawnFacingWait, state)
+                && _spawnFacingBlockedAttempts < int.MaxValue)
+                _spawnFacingBlockedAttempts++;
+        }
+
+        private void ObserveReleasedSpawnForFacing(ProductionState state, UnitData unit)
+        {
+            if (NetworkContext.IsNetworkActive || unit.Type != UnitType.Pistoleer
+                || _spawnFacingTargetSelected || !ReferenceEquals(_spawnFacingWait, state)) return;
+            _spawnFacingTargetSelected = true;
+            _spawnFacingPendingUnit = unit;
+            _spawnFacingBarracksId = state.BarracksId;
+            _spawnFacingWait = null;
+        }
+
+        /// <summary>
+        /// 실제로 막혔다가 생성된 같은 유닛 참조만 한 번 전달한다. ID 재사용과 구분한다.
+        /// </summary>
+        public bool TryClaimBlockedSpawnFacingTrace(UnitData unit, out int barracksId, out int attempts)
+        {
+            barracksId = 0;
+            attempts = 0;
+            if (NetworkContext.IsNetworkActive || unit == null
+                || !ReferenceEquals(_spawnFacingPendingUnit, unit)) return false;
+            barracksId = _spawnFacingBarracksId;
+            attempts = _spawnFacingBlockedAttempts;
+            _spawnFacingPendingUnit = null;
+            return true;
+        }
+#endif
 
         // ====================================================================
         // 배럭 등록/해제
@@ -78,6 +131,11 @@ namespace Hexiege.Application
         /// </summary>
         public void UnregisterBarracks(int barracksId)
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_states.TryGetValue(barracksId, out var removedState))
+                ResetSpawnFacingWait(removedState);
+            if (_spawnFacingBarracksId == barracksId) _spawnFacingPendingUnit = null;
+#endif
             _states.Remove(barracksId);
         }
 
@@ -257,6 +315,9 @@ namespace Hexiege.Application
                 }
 
                 // 생산 시작
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                ResetSpawnFacingWait(state);
+#endif
                 state.CurrentProducing = slot.Type;
                 state.CurrentIsAuto = slot.IsAuto;
                 state.ElapsedTime = 0f;
@@ -320,6 +381,9 @@ namespace Hexiege.Application
                 _resource.SpendGold(state.Team, cost);
                 state.AutoCycleIndex = (idx + 1) % count;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                ResetSpawnFacingWait(state);
+#endif
                 state.CurrentProducing = type;
                 state.CurrentIsAuto = true;
                 state.ElapsedTime = 0f;
@@ -368,6 +432,9 @@ namespace Hexiege.Application
             if (!spawnTile.HasValue)
             {
                 // 스폰 불가 시 대기 (다음 프레임에 재시도)
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                ObserveBlockedSpawnForFacing(state, type);
+#endif
                 return;
             }
 
@@ -379,6 +446,9 @@ namespace Hexiege.Application
                 return;
             }
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            ObserveReleasedSpawnForFacing(state, unit);
+#endif
             // 생산 상태 초기화
             state.CurrentProducing = null;
             state.CurrentIsAuto = false;

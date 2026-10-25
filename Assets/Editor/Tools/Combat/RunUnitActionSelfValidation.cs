@@ -1001,6 +1001,7 @@ namespace Hexiege.Editor.Combat
             ValidateB3ClientAttackEntryPresentationOrder();
             ValidateB3PathStartArrivalCommit();
             ValidateB3BlockedAuthoritativeStartEgressPathfinding();
+            ValidateB3BuildingRemovalRepathLifecycle();
             ValidateB3CombatApproachAndRejoinPathfinding();
             ValidateB3SpatialTransitionPolicy();
             ValidateB3SpatialTransitionApplicationPreflight();
@@ -3510,6 +3511,140 @@ namespace Hexiege.Editor.Combat
             finally
             {
                 flowFields.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 사망 콜백에서 만들어진 차단 캐시가 실제 건물 제거 뒤에는 재사용되지 않는지 확인한다.
+        /// 전역 이벤트를 사용하는 실제 제거 흐름이므로 Play 모드와 남아 있는 경기 서비스에서는 거부한다.
+        /// </summary>
+        private static void ValidateB3BuildingRemovalRepathLifecycle()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode
+                || NetworkContext.IsNetworkActive
+                || GameServicesLocator.Current != null)
+            {
+                throw new InvalidOperationException(
+                    "Building removal lifecycle validation requires stopped Play mode, "
+                    + "no active network session, and no registered game services; "
+                    + "its global building events must not reach a running match.");
+            }
+
+            var grid = new HexGrid(11, 21, HexOrientation.FlatTop);
+            var placement = new BuildingPlacementUseCase(grid);
+            var flow = new FlowFieldService();
+            var subscriptions = new CompositeDisposable();
+            flow.Initialize(grid);
+            try
+            {
+                var start = new HexCoord(5, 16);
+                var goal = new HexCoord(6, 16);
+                var mapper = new HexMetricsCoordinateMapper();
+                var movement = new UnitMovementUseCase(grid, null, flow, mapper);
+                var unit = new UnitData(-301, UnitType.LittleKnight, TeamId.Red,
+                    start, maxHp: 1, attackPower: 1, attackRange: 1f, detectRange: 1f);
+                var research = placement.PlaceBuildingWithId(-301, BuildingType.Research,
+                    TeamId.Blue, start);
+                placement.PlaceBuildingWithId(-302, BuildingType.TrainingCamp,
+                    TeamId.Blue, goal);
+                Require(research != null && HexCoord.Distance(start, goal) == 1,
+                    "The removal regression must use the adjacent recorded start and goal.");
+
+                int diedCount = 0;
+                int removedCount = 0;
+                int resumedCount = 0;
+                HexFlowField warmedBeforeRemoval = null;
+                ulong warmedRevision = 0UL;
+                GameEvents.OnBuildingDied.Subscribe(e =>
+                {
+                    if (!ReferenceEquals(e.Building, research)) return;
+                    diedCount++;
+                    Require(ReferenceEquals(placement.GetBuilding(research.Id), research)
+                            && ReferenceEquals(placement.GetBuildingAt(start), research)
+                            && grid.GetTile(start).HasBuilding,
+                        "Died consumers must still find the registered building and blocked tile.");
+                    // 구버전 eager callback과 같은 시점에 실제 경로장을 미리 계산한다.
+                    warmedBeforeRemoval = flow.GetOrCompute(goal);
+                    warmedRevision = flow.WalkabilityRevision;
+                    Require(warmedBeforeRemoval.GetPath(start) == null,
+                        "The death callback must warm a field without the still-blocked start.");
+                }).AddTo(subscriptions);
+                GameEvents.OnBuildingRemoved.Subscribe(e =>
+                {
+                    removedCount++;
+                    Require(placement.GetBuilding(e.Building.Id) == null
+                            && !ReferenceEquals(placement.GetBuildingAt(e.Building.Position), e.Building)
+                            && !grid.GetTile(e.Building.Position).HasBuilding,
+                        "Removed must publish only after both indexes and tile occupancy commit.");
+                    if (!ReferenceEquals(e.Building, research)) return;
+                    Require(diedCount == 1 && grid.GetTile(start).IsWalkable
+                            && flow.WalkabilityRevision > warmedRevision
+                            && !ReferenceEquals(flow.GetOrCompute(goal), warmedBeforeRemoval),
+                        "Removal must invalidate the death-callback cache before eager repath.");
+                    UnitPathRequestResult resumed = movement.RequestAuthoritativeRepath(
+                        unit, mapper.HexToWorld(start), goal, flow.WalkabilityRevision);
+                    Require(resumed.IsSuccess && resumed.Path.Count == 2
+                            && resumed.Path[0] == start && resumed.Path[1] == goal,
+                        "The adjacent post-combat objective must resume from the committed root without a snap.");
+                    resumedCount++;
+                }).AddTo(subscriptions);
+
+                Require(placement.DemolishBuilding(research.Id)
+                        && diedCount == 1 && removedCount == 1 && resumedCount == 1,
+                    "Died then actual removal must each publish once and permit fresh eager repath.");
+                Require(!placement.RemoveBuilding(research.Id)
+                        && !placement.RemoveBuilding(-399) && removedCount == 1,
+                    "Repeated or missing-ID removal must not publish another completion event.");
+
+                // 직접 제거(네트워크 수신 경로)와 walkable 목적지도 같은 완료 통지를 쓴다.
+                Require(placement.RemoveBuilding(-302) && grid.GetTile(goal).IsWalkable,
+                    "Direct removal must restore an ordinary destination tile.");
+                UnitPathRequestResult walkableGoal = movement.RequestAuthoritativeRepath(
+                    unit, mapper.HexToWorld(start), goal, flow.WalkabilityRevision);
+                Require(walkableGoal.IsSuccess && walkableGoal.Path.Count == 2,
+                    "The same adjacent geometry must also work for a walkable goal.");
+
+                HexCoord mine = new HexCoord(1, 1);
+                grid.GetTile(mine).MineKind = MineKind.Neutral;
+                placement.PlaceBuildingWithId(-303, BuildingType.MiningPost, TeamId.Blue, mine);
+                Require(placement.RemoveBuilding(-303) && !grid.GetTile(mine).IsWalkable,
+                    "Removing a mine building must not make the underlying mine walkable.");
+                HexCoord terrain = new HexCoord(2, 1);
+                grid.GetTile(terrain).TileKind = TileKind.Blocked;
+                placement.PlaceBuildingWithId(-304, BuildingType.Research, TeamId.Blue, terrain);
+                Require(placement.RemoveBuilding(-304) && !grid.GetTile(terrain).IsWalkable,
+                    "Removal must preserve the underlying blocked terrain contract.");
+
+                int removalsBeforeReplacement = removedCount;
+                HexCoord upgradeTile = new HexCoord(3, 1);
+                placement.PlaceBuildingWithId(-305, BuildingType.TrainingCamp,
+                    TeamId.Blue, upgradeTile);
+                BuildingData upgraded = placement.UpgradeBuildingWithId(
+                    -305, -306, BuildingType.WarAcademy);
+                Require(upgraded != null && grid.GetTile(upgradeTile).HasBuilding
+                        && ReferenceEquals(placement.GetBuildingAt(upgradeTile), upgraded)
+                        && removedCount == removalsBeforeReplacement,
+                    "An upgrade must keep continuous occupancy without a removal completion.");
+                placement.Clear();
+                Require(placement.Buildings.Count == 0
+                        && placement.GetBuildingAt(upgradeTile) == null
+                        && removedCount == removalsBeforeReplacement,
+                    "Session-wide Clear must retain its separate no-removal-notification policy.");
+
+                foreach (HexTile tile in grid.Tiles.Values) tile.HasBuilding = true;
+                grid.GetTile(start).HasBuilding = false;
+                HexCoord isolatedGoal = new HexCoord(0, 0);
+                grid.GetTile(isolatedGoal).HasBuilding = false;
+                flow.InvalidateAll();
+                UnitPathRequestResult unreachable = movement.RequestAuthoritativeRepath(
+                    unit, mapper.HexToWorld(start), isolatedGoal, flow.WalkabilityRevision);
+                Require(unreachable.Status == UnitPathRequestStatus.Unreachable,
+                    "A genuinely disconnected objective must remain Unreachable after the lifecycle fix.");
+            }
+            finally
+            {
+                subscriptions.Dispose();
+                flow.Dispose();
             }
         }
 
