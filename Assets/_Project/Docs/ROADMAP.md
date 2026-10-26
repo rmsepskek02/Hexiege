@@ -46,6 +46,7 @@
 | 중간 | 멀티 건설/생산 실패 RPC의 UI 피드백 |
 | 관찰 중 | 매치메이킹404 수정 뒤 간헐 재현·Host/Client 연결과 RelayJoinCode 대기 경계. 레거시 비활성 코드 삭제는 기존 확인 조건 충족 뒤 판정 |
 | 환경 확인 | UGS OIDC 제공자/실계정 브릿지의 환경 설정·연결 범위 |
+| 별도 미관측 | 게스트 재실행 닉네임 유지는 UI후속 사용자 확인으로 닫힘. 재실행 전후 전적 상세 보존・실계정 진행도/익명 이전 진행도 미승계・명시logout새guest새닉・취소 경쟁/역할교환은 별도이며 UI완료를 막는 gate가 아님. 기존 랜덤 매칭3단계 수용도 반복 필수검사로 남기지 않음. [UI 확인 범위](_Tasks/2026-10-19/15_41_ui-layout-audit/Research.md#ui-layout-implementation-acceptance-20261023)·[매칭 근거](_Tasks/2026-10-20/12_19_matchmaking-environment-diagnosis/Research.md#13-랜덤-매칭-세-단계-사용자-수용-완료--2026-10-21) |
 
 제품 조건은 [네트워크 규칙](GameSystemRules/GameSystemRules_Network.md)·[경기 운영](GameSystemRules/GameSystemRules_MatchFlow.md), 구현 구조는 [네트워크 TDD](TechnicalDesignDocument_Network.md), 화면 조건은 [경기 흐름 UI](GameSystemRules/GameSystemRules_MatchFlowUI.md)에서 확인한다. 판정 시계·맵 응답·UI countdown·재접속 대기는 서로 다른 책임이다.
 
@@ -57,7 +58,7 @@
 | 중간·밸런싱과 함께 | 맵 광산 수가 정한 InitialGold를 실제 시작 자원에 연결. 생성·전송값과 실제 소비를 구분하고 현재 개발값을 버그/출시 확정값으로 해석하지 않음 |
 | 실측/미완 | NGO 실효 페이로드·Relay MTU와 경로 완전 차단 대응. 최초/재경기 UI 완료를 다시 열지 않음 |
 | 기존 세부 검증 | AI 반응R1~R3·3종족 무작위 선택의 기존 미확인 범위. 핵심 흐름의 과거 확인과 시나리오 재설계는 별개 |
-| 높음 | 게임 화면 HUD/설정/결과의 기존 레이아웃 잔여(HUD-007, SET-004, SET-007/END-001, MULTI-END-002). 로비 비주얼 폴리싱은 제작된 에셋 배선/조정 범위 |
+| 별도 경계 | 최종10행 랭킹 높이·배치 사용자 확인까지 완료돼 UI후속의 해당 확인은 닫힘. 제품/통합기록의 로컬main FF는69b5e5c4까지 완료·push 없음. 빌드 완료/설치/실행의 에이전트 직접 관측과 장문·전체기기글자/터치/SafeArea는 별도이며 새 필수 반복관문으로 추가하지 않음. 과거 HUD-007/SET-004/SET-007/END-001/MULTI-END-002 전체수용으로 확대하지 않음. [최신 범위](_Tasks/2026-10-19/15_41_ui-layout-audit/Research.md#ui-layout-implementation-acceptance-20261023) |
 | 중간 | MistShrine 멀티: 건물 힐 동기화·Client 표시·팀 검증·쿨다운 미러·이중 틱의 기존 미관측 경계. 물안개 지속VFX/사용 아이콘 제작은 별도 |
 | 중간·기획 미확정 | 스킬 건물 실제 스킬 목록·값/슬롯·쿨다운·회복 지점 지정 등 데이터 결정. 현재 플레이스홀더를 완성 스킬 기획으로 승격하지 않음 |
 | 결정 필요 | CanvasGroup 숨김 원칙의 제목/취소 버튼 예외를 규칙에 명시할지. 현재 알림 레이아웃의 SetActive 의도와 구현 수용을 뒤집는 작업은 아님 |

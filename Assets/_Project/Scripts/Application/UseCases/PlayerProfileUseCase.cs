@@ -84,6 +84,12 @@ namespace Hexiege.Application
             return _profileService.LoadProfileAsync();
         }
 
+        /// <summary>기존 닉네임 보존을 위해 조회 실패와 실제 미설정을 구분한다.</summary>
+        public Task<PlayerProfileData> LoadProfileAsync(bool throwOnFailure)
+        {
+            return _profileService.LoadProfileAsync(throwOnFailure);
+        }
+
         /// <summary>
         /// 최초 로그인 여부를 판정한다.
         /// Cloud Save 에 nickname 값이 없거나 비어 있으면 true(최초 로그인).

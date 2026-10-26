@@ -7,7 +7,7 @@
 - **원본·참조:** 시각/구현 가이드이며 제품 동작의 규칙 원본을 대체하지 않는다.
 - **갱신:** 승인된 시각 기준·공통 구현 관례가 바뀌면 관련 예시와 본문을 함께 갱신한다. 적용 일지는 이력에 둔다.
 
-**최종 수정일:** 2026-10-13
+**최종 수정일:** 2026-10-21
 **적용 범위:** 모든 UI 씬 (Game.unity, Lobby.unity)
 
 이 문서는 시각 분류·레이아웃·애니메이션 표준값과 연결 예시를 다룬다. 필수 동작은 [공통 UI 규칙](GameSystemRules/GameSystemRules_UI.md), 패널 조작은 [건물 패널 규칙](GameSystemRules/GameSystemRules_BuildingPanelsUI.md), 경기 화면은 [경기 흐름 UI](GameSystemRules/GameSystemRules_MatchFlowUI.md), 설정은 [설정 UI](GameSystemRules/GameSystemRules_SettingsUI.md)를 따른다.
@@ -125,12 +125,14 @@
 ## 5. 스타일 가이드
 
 ### 폰트
-| 항목 | 값 |
-|------|-----|
-| 기본 폰트 | `Assets/_Project/Fonts/Maplestory Light SDF.asset` |
-| 모든 TMP 텍스트 | 위 폰트 적용 (예외 없음) |
 
-> 폰트 크기, 색상 팔레트, 버튼 스타일 등은 추후 UI 에셋 작업 진행 시 추가 기록.
+폰트 에셋과 역할별 Light/Bold 선택은 [GameSystemRules_UI.md 「공통 UI 규칙」 규칙 6. 기본 폰트](GameSystemRules/GameSystemRules_UI.md#폰트)를 따른다. 제목·조작·항목 이름·상시 HUD·placeholder는 Bold, 실제 정보값·입력값·설명은 Light로 구분하며 세부 역할표와 가독성 보조 조건은 해당 원본만 관리한다.
+
+이 기준은 전체 UI 적용 완료나 실기 가독성 검증 완료를 뜻하지 않는다. 최소 글자 크기는 아직 별도 논의 대상이며, 구체적인 폰트 크기·색상 팔레트·버튼 스타일은 승인된 시각 작업에 따라 기록한다.
+
+### 입력창
+
+입력창 배경은 기존 공통 `Assets/_Project/Sprites/UI/ui_input_light.png` 에셋을 동일하게 사용한다. placeholder는 실제 Bold, 입력값은 Light로 두며 위 폰트 원본의 씬/런타임 일치 계약을 따른다. 배경 에셋 정합화 때문에 기존 입력·검증·키보드 동작을 바꾸지 않는다.
 
 ---
 

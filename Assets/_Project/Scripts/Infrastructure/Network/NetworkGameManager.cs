@@ -61,6 +61,9 @@ namespace Hexiege.Infrastructure
         /// <summary>Client 접속 완료.</summary>
         public event Action OnClientConnected;
 
+        /// <summary>랜덤 최초 경기의 접속·맵 준비가 끝나지 못했음을 로비에 한 번 알린다.</summary>
+        public event Action<string> OnRandomMatchPreparationFailed;
+
         /// <summary>초기화 또는 세션 중 오류 발생. 에러 메시지 전달.</summary>
         public event Action<string> OnError;
 
@@ -137,8 +140,40 @@ namespace Hexiege.Infrastructure
         private Coroutine _heartbeatCoroutine;
 
         // 매칭 상태 관리
-        private string _currentTicketId;
-        private CancellationTokenSource _matchmakingCts;
+        // 이전에는 ticket/CTS를 공유 필드에 따로 저장해 늦은 응답이 다음 회차와 섞일 수 있었다.
+        // private string _currentTicketId;
+        // private CancellationTokenSource _matchmakingCts;
+        private MatchmakingAttempt _matchmakingAttempt;
+        private const double RandomPreparationTimeoutSeconds = 30d;
+        private RandomMatchPreparation _randomPreparation;
+        // 매니저가 씬 이탈로 교체돼도 이전 SDK 응답/정리를 먼저 기다린다.
+        private static Task _preparationCleanup = Task.CompletedTask;
+
+        // ticket의 수명과 달리 Found부터 실제 Game 씬 전환 시작까지 살아 있는 회차다.
+        private sealed class RandomMatchPreparation
+        {
+            public NetworkManager NetworkOwner;
+            public double Deadline;
+            public bool Settled;
+            public bool SceneStarted;
+            public readonly TaskCompletionSource<bool> SetupFinished = new TaskCompletionSource<bool>();
+            public readonly TaskCompletionSource<bool> ShutdownAllowed = new TaskCompletionSource<bool>();
+            public readonly TaskCompletionSource<bool> CleanupFinished = new TaskCompletionSource<bool>();
+            public bool CleanupStarted;
+            public NetworkSceneManager SceneManager;
+            public NetworkSceneManager.VerifySceneBeforeLoadingDelegateHandler PreviousVerifier;
+            public NetworkSceneManager.VerifySceneBeforeLoadingDelegateHandler Verifier;
+        }
+
+        // 생성 중 취소되더라도 생성 응답을 받은 회차가 자신의 ticket만 정리한다.
+        private sealed class MatchmakingAttempt
+        {
+            public readonly CancellationTokenSource Cancellation = new CancellationTokenSource();
+            public readonly TaskCompletionSource<bool> Completed =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            public string TicketId;
+            public bool HandedOff;
+        }
 
         // 랜덤 매칭 여부 (커스텀게임 재경기 분기용)
         private bool _isRandomMatchmaking;
@@ -234,6 +269,16 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkManager.Singleton == null) return;
 
+            var preparation = _randomPreparation;
+            if (preparation != null && !preparation.Settled)
+            {
+                if (!NetworkManager.Singleton.IsServer || clientId != NetworkManager.Singleton.LocalClientId)
+                {
+                    FailRandomMatchPreparation(preparation, "PeerDisconnected");
+                    return;
+                }
+            }
+
             // 서버(Host)는 OnServerDisconnected 발행 대상이 아님 (상대 클라 끊김은 ReconnectionHandler 담당)
             if (NetworkManager.Singleton.IsServer) return;
 
@@ -299,7 +344,15 @@ namespace Hexiege.Infrastructure
             }
 
             StopHeartbeat();
-            _matchmakingCts?.Dispose();
+            // 이전 즉시 Dispose는 진행 중 요청이 복귀하여 토큰을 읽는 것과 충돌할 수 있었다.
+            // _matchmakingCts?.Dispose();
+            _matchmakingAttempt?.Cancellation.Cancel();
+            if (_randomPreparation != null && !_randomPreparation.SceneStarted)
+            {
+                _randomPreparation.Settled = true;
+                _randomPreparation.ShutdownAllowed.TrySetResult(true);
+                QueuePreparationCleanup(_randomPreparation);
+            }
 
             // 무작위 맵 3단계 I: 맵 전송 객체 구독 해제(누수 방지).
             CleanupMapTransferSubscription();
@@ -352,6 +405,7 @@ namespace Hexiege.Infrastructure
         /// <param name="lobbyName">만들 방 이름.</param>
         public async Task HostGameAsync(string lobbyName = "Hexiege Room", string matchId = null)
         {
+            await WaitForPreparationCleanupAsync();
             try
             {
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager), "HostGame 시작",
@@ -444,6 +498,7 @@ namespace Hexiege.Infrastructure
         /// <param name="lobbyCode">Host 가 공유한 Lobby 참가 코드.</param>
         public async Task JoinGameAsync(string lobbyCode)
         {
+            await WaitForPreparationCleanupAsync();
             if (string.IsNullOrWhiteSpace(lobbyCode))
             {
                 OnError?.Invoke("Lobby Code 가 비어 있습니다.");
@@ -544,17 +599,37 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public async Task DisconnectAsync()
         {
+            var preparation = _randomPreparation;
+            if (preparation != null && !preparation.SceneStarted)
+            {
+                preparation.Settled = true;
+                QueuePreparationCleanup(preparation);
+                // 외부에서 명시적으로 닫는 경로도 다음 프레임 이후에 연결을 정리한다.
+                StartCoroutine(AllowPreparationShutdownNextFrame(preparation));
+                await preparation.CleanupFinished.Task;
+                return;
+            }
+            await DisconnectSessionAsync();
+        }
+
+        private async Task DisconnectSessionAsync(NetworkManager ownedNetwork = null, bool useOwnedNetwork = false)
+        {
+            var network = useOwnedNetwork ? ownedNetwork : NetworkManager.Singleton;
             GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Disconnect 시작");
 
             // Heartbeat 중단
-            StopHeartbeat();
+            if (this != null) StopHeartbeat();
 
             // Client 접속 콜백 구독 해제 (Host 였을 경우 대비)
-            if (NetworkManager.Singleton != null)
-                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+            if (network != null)
+            {
+                network.OnClientConnectedCallback -= HandleClientConnected;
+                network.OnClientDisconnectCallback -= HandleClientDisconnected;
+            }
 
             // NetworkManager 종료
-            ShutdownNetworkManager();
+            // ShutdownNetworkManager(); // 공유 Singleton 대신 종료할 회차의 NGO만 정리한다.
+            if (network != null && network.IsListening) network.Shutdown();
 
             // 랜덤 매칭 상태 초기화
             _isRandomMatchmaking = false;
@@ -590,40 +665,275 @@ namespace Hexiege.Infrastructure
         /// <param name="onMatchFound">매칭 성사 직후 콜백. 로딩 스크린 표시 등에 활용.</param>
         public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null, Action onMatchFound = null)
         {
-            _isRandomMatchmaking = true;
-            _matchmakingCts = new CancellationTokenSource();
+            bool failedPreparationPending = _randomPreparation != null &&
+                _randomPreparation.Settled && !_randomPreparation.SceneStarted;
+            if (_matchmakingAttempt != null && !_matchmakingAttempt.Cancellation.IsCancellationRequested &&
+                !(failedPreparationPending && _matchmakingAttempt.HandedOff))
+                throw new InvalidOperationException("이미 매칭을 진행 중입니다.");
+
+            var attempt = new MatchmakingAttempt();
+            _matchmakingAttempt = attempt;
+            CancellationToken token = attempt.Cancellation.Token;
+            RandomMatchPreparation preparation = null;
 
             try
             {
-                _currentTicketId = await _matchmakerManager.CreateTicketAsync();
+                await WaitForPreparationCleanupAsync(token);
+                _isRandomMatchmaking = true;
+                attempt.TicketId = await _matchmakerManager.CreateTicketAsync();
+                token.ThrowIfCancellationRequested();
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 티켓 생성",
-                                 $"TicketId={_currentTicketId}");
+                                 $"TicketId={attempt.TicketId}");
 
                 var matchId = await _matchmakerManager.PollUntilMatchedAsync(
-                    _currentTicketId, _matchmakingCts.Token, onWaitSecond);
+                    attempt.TicketId, token, seconds =>
+                    {
+                        if (ReferenceEquals(_matchmakingAttempt, attempt) && !token.IsCancellationRequested)
+                            onWaitSecond?.Invoke(seconds);
+                    });
+                token.ThrowIfCancellationRequested();
 
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 완료",
                                  $"MatchId={matchId}");
 
-                // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
+                // 여기부터는 기존 연결/맵 준비 흐름의 소유다. 대기 취소와 섞지 않는다.
+                attempt.HandedOff = true;
+                preparation = BeginRandomMatchPreparation();
                 onMatchFound?.Invoke();
 
                 // [A방식 — 2026-07-17] 호스트를 "계산"하지 않고 Lobby CreateOrJoin 으로 "선점"한다.
                 // 기존 DetermineIsHostAsync(매치 결과 조회) 호출은 P2P 환경에서 404 를 유발하여 제거.
                 // 모든 플레이어가 동일 matchId 로 CreateOrJoin → 먼저 만든 쪽이 호스트가 된다.
-                await StartMatchmadeGameAsync(matchId);
+                await StartMatchmadeGameAsync(matchId, preparation);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
+                // 기존에는 정상 취소도 삼켰다. 상위에서 현재 회차의 대기 화면을 정리하게 전달한다.
                 // 매칭 취소 — 정상 흐름이므로 별도 처리 없음
+                throw;
+            }
+            catch (Exception) when (token.IsCancellationRequested)
+            {
+                // 취소 뒤 도착한 SDK 실패도 이미 끝낸 요청의 오류 팝업으로 되살리지 않는다.
+                throw new OperationCanceledException(token);
             }
             catch (Exception e)
             {
-                // catch 본문이 로그 한 줄뿐이고 OnError 도 없다 — 매칭이 조용히 죽는다.
-                // 삼킨 예외는 반드시 운영으로 남긴다(LogRules.md 1.3 분류 원칙 4).
+                if (preparation != null)
+                {
+                    if (!preparation.Settled)
+                        GameLog.Ops.Error(LogEvent.MatchmakingUnhandledException, "Network", nameof(NetworkGameManager),
+                                          "랜덤 경기 준비 중 예외", e, "Flow=RandomPreparation");
+                    FailRandomMatchPreparation(preparation, "SetupException");
+                    return;
+                }
+                // 기존 로그 한 줄만 남기고 종료하던 처리는 상위 실패 복구를 막았다.
+                // 원인 기록은 여기 한 번 유지하고 같은 예외를 UI 요청 경계로 전달한다.
                 GameLog.Ops.Error(LogEvent.MatchmakingUnhandledException, "Network", nameof(NetworkGameManager),
-                                  "랜덤 매칭 처리 중 예외 — 매칭이 통지 없이 종료된다", e);
+                                  "랜덤 매칭 처리 중 예외 — 요청 화면으로 실패를 전달한다", e);
+                throw;
             }
+            finally
+            {
+                preparation?.SetupFinished.TrySetResult(true);
+                if (ReferenceEquals(_matchmakingAttempt, attempt))
+                {
+                    _matchmakingAttempt = null;
+                    if (!attempt.HandedOff) _isRandomMatchmaking = false;
+                }
+                // 실패 안내는 서버 삭제 응답을 기다리지 않는다. 정리는 이 회차가 계속 소유한다.
+                _ = CompleteMatchmakingAttemptAsync(attempt);
+            }
+        }
+
+        private async Task CompleteMatchmakingAttemptAsync(MatchmakingAttempt attempt)
+        {
+            try
+            {
+                if (!attempt.HandedOff) await CleanupMatchmakingTicketAsync(attempt);
+            }
+            finally
+            {
+                try { attempt.Cancellation.Dispose(); }
+                finally { attempt.Completed.TrySetResult(true); }
+            }
+        }
+
+        private async Task CleanupMatchmakingTicketAsync(MatchmakingAttempt attempt)
+        {
+            if (string.IsNullOrEmpty(attempt.TicketId)) return;
+            try
+            {
+                await _matchmakerManager.CancelTicketAsync(attempt.TicketId);
+            }
+            catch (Exception e)
+            {
+                // 정리 실패가 원래 매칭 오류/취소를 바꾸지 않게 기존 경고 책임만 유지한다.
+                GameLog.Ops.Warn(LogEvent.MatchmakingTicketDeleteFailed, "Network", nameof(NetworkGameManager),
+                                 "매칭 티켓 삭제 실패 (무시하고 계속) — 서버에 티켓이 남을 수 있다", e,
+                                 $"TicketId={attempt.TicketId}");
+            }
+        }
+
+        private RandomMatchPreparation BeginRandomMatchPreparation()
+        {
+            var preparation = new RandomMatchPreparation
+            {
+                NetworkOwner = NetworkManager.Singleton,
+                Deadline = Time.realtimeSinceStartupAsDouble + RandomPreparationTimeoutSeconds
+            };
+            _randomPreparation = preparation;
+            return preparation;
+        }
+
+        private void Update()
+        {
+            var preparation = _randomPreparation;
+            if (preparation == null || preparation.Settled) return;
+            if (!IsPreparationActive(preparation)) return;
+            AttachPreparationSceneEvents(preparation);
+        }
+
+        private bool IsPreparationActive(RandomMatchPreparation preparation)
+        {
+            if (!ReferenceEquals(_randomPreparation, preparation) || preparation.Settled) return false;
+            if (!ReferenceEquals(preparation.NetworkOwner, NetworkManager.Singleton))
+            {
+                FailRandomMatchPreparation(preparation, "NetworkOwnerChanged");
+                return false;
+            }
+            if (Time.realtimeSinceStartupAsDouble < preparation.Deadline) return true;
+            FailRandomMatchPreparation(preparation, "PreparationDeadline");
+            return false;
+        }
+
+        private void RequirePreparationActive(RandomMatchPreparation preparation)
+        {
+            if (!IsPreparationActive(preparation)) throw new OperationCanceledException();
+        }
+
+        private void AttachPreparationSceneEvents(RandomMatchPreparation preparation)
+        {
+            if (preparation.SceneManager != null || NetworkManager.Singleton == null) return;
+            var sceneManager = NetworkManager.Singleton.SceneManager;
+            if (sceneManager == null) return;
+            preparation.SceneManager = sceneManager;
+            preparation.PreviousVerifier = sceneManager.VerifySceneBeforeLoading;
+            preparation.Verifier = (index, scene, mode) =>
+            {
+                if (preparation.PreviousVerifier != null && !preparation.PreviousVerifier(index, scene, mode))
+                    return false;
+                // 만료 뒤 늦게 온 NGO Game 로드도 연결 정리 전까지 거부한다.
+                return scene != "Game" || preparation.SceneStarted || IsPreparationActive(preparation);
+            };
+            sceneManager.VerifySceneBeforeLoading = preparation.Verifier;
+            sceneManager.OnSceneEvent += OnInitialGameSceneEvent;
+        }
+
+        private void OnInitialGameSceneEvent(SceneEvent sceneEvent)
+        {
+            var preparation = _randomPreparation;
+            if (preparation == null || preparation.Settled || NetworkManager.Singleton == null) return;
+            if (NetworkManager.Singleton.IsServer || sceneEvent.ClientId != NetworkManager.Singleton.LocalClientId)
+                return;
+            if (sceneEvent.SceneEventType != SceneEventType.Load || sceneEvent.SceneName != "Game") return;
+            if (IsPreparationActive(preparation)) CompletePreparationForSceneStart(preparation);
+        }
+
+        private void CompletePreparationForSceneStart(RandomMatchPreparation preparation)
+        {
+            preparation.SceneStarted = true;
+            preparation.Settled = true;
+            DetachPreparationSceneEvents(preparation);
+            if (ReferenceEquals(_randomPreparation, preparation)) _randomPreparation = null;
+        }
+
+        private void DetachPreparationSceneEvents(RandomMatchPreparation preparation)
+        {
+            if (preparation.SceneManager == null) return;
+            preparation.SceneManager.OnSceneEvent -= OnInitialGameSceneEvent;
+            if (preparation.SceneManager.VerifySceneBeforeLoading == preparation.Verifier)
+                preparation.SceneManager.VerifySceneBeforeLoading = preparation.PreviousVerifier;
+            preparation.SceneManager = null;
+        }
+
+        private void FailRandomMatchPreparation(RandomMatchPreparation preparation, string reason,
+                                                NetworkMapTransfer failedTransfer = null)
+        {
+            if (!ReferenceEquals(_randomPreparation, preparation) || preparation.Settled) return;
+            preparation.Settled = true;
+            _mapTransferGateSettled = true;
+            _mapTransferInProgress = false;
+            ClearMapTransferRoundActions();
+            QueuePreparationCleanup(preparation);
+            // 기존 실패 RPC가 있는 경우만 통보한다. 아직 연결되지 않은 상대에게 전달을 약속하지 않는다.
+            var transfer = failedTransfer != null ? failedTransfer : _activeMapTransfer;
+            if (preparation.NetworkOwner != null && preparation.NetworkOwner.IsServer && transfer != null)
+                NotifyClientsOfFirstRoundFailure(transfer);
+            StartCoroutine(AllowPreparationShutdownNextFrame(preparation));
+            GameLog.Dev.Warn("Network", nameof(NetworkGameManager), "랜덤 최초 경기 준비 실패",
+                             $"Reason={reason}");
+            OnRandomMatchPreparationFailed?.Invoke(reason);
+        }
+
+        private IEnumerator AllowPreparationShutdownNextFrame(RandomMatchPreparation preparation)
+        {
+            yield return null;
+            preparation.ShutdownAllowed.TrySetResult(true);
+        }
+
+        private void QueuePreparationCleanup(RandomMatchPreparation preparation)
+        {
+            if (preparation.CleanupStarted) return;
+            preparation.CleanupStarted = true;
+            _preparationCleanup = Task.WhenAll(_preparationCleanup, preparation.CleanupFinished.Task);
+            _ = CleanupPreparationSessionAsync(preparation);
+        }
+
+        private async Task CleanupPreparationSessionAsync(RandomMatchPreparation preparation)
+        {
+            Exception failure = null;
+            try
+            {
+                // SDK wrapper가 늦게 쓰는 공유 Lobby/Relay 상태까지 받은 뒤 자신의 세션을 정리한다.
+                await preparation.SetupFinished.Task;
+                await preparation.ShutdownAllowed.Task;
+                await DisconnectSessionAsync(preparation.NetworkOwner, useOwnedNetwork: true);
+            }
+            catch (Exception e)
+            {
+                failure = e;
+                GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "랜덤 경기 준비 실패 후 연결 정리 실패", e, "Flow=PreparationCleanup");
+            }
+            finally
+            {
+                // 완료 신호의 동기 continuation이 새 회차를 시작하기 전에 소유 상태를 모두 비운다.
+                DetachPreparationSceneEvents(preparation);
+                if (ReferenceEquals(_randomPreparation, preparation)) _randomPreparation = null;
+                if (failure == null) preparation.CleanupFinished.TrySetResult(true);
+                else
+                {
+                    preparation.CleanupFinished.TrySetException(failure);
+                    // UI는 이미 복구됐다. 정리 실패는 관측하고 다음 SDK 진입도 이 오류로 차단한다.
+                    _ = preparation.CleanupFinished.Task.Exception;
+                }
+            }
+        }
+        private async Task WaitForPreparationCleanupAsync(CancellationToken token = default)
+        {
+            var cleanup = _preparationCleanup;
+            if (token.CanBeCanceled && !cleanup.IsCompleted)
+            {
+                var canceled = new TaskCompletionSource<bool>();
+                using (token.Register(() => canceled.TrySetCanceled()))
+                {
+                    if (await Task.WhenAny(cleanup, canceled.Task) != cleanup)
+                        throw new OperationCanceledException(token);
+                }
+            }
+            await cleanup;
+            token.ThrowIfCancellationRequested();
         }
 
         // ====================================================================
@@ -640,15 +950,17 @@ namespace Hexiege.Infrastructure
         ///   2) 호스트/클라이언트 각자 후속 처리로 분기.
         /// </summary>
         /// <param name="matchId">매칭된 Match ID (Lobby 고유 ID 로도 사용).</param>
-        private async Task StartMatchmadeGameAsync(string matchId)
+        private async Task StartMatchmadeGameAsync(string matchId, RandomMatchPreparation preparation)
         {
             // Lobby CreateOrJoin — 서버가 원자적으로 처리하여 정확히 한 명만 호스트가 된다.
             var lobby = await _lobbyManager.CreateOrJoinLobbyByMatchIdAsync(
                 matchId, $"match_{matchId}", maxPlayers: 2);
+            RequirePreparationActive(preparation);
 
             if (lobby == null)
             {
-                OnError?.Invoke("매칭 방 생성/참가에 실패했습니다. 다시 시도해주세요.");
+                // OnError?.Invoke("매칭 방 생성/참가에 실패했습니다. 다시 시도해주세요.");
+                FailRandomMatchPreparation(preparation, "LobbySetupFailed");
                 return;
             }
 
@@ -657,9 +969,9 @@ namespace Hexiege.Infrastructure
                              $"Role={(isHost ? "Host" : "Client")}, MatchId={matchId}");
 
             if (isHost)
-                await HostMatchmadeGameAsync(lobby.LobbyCode);
+                await HostMatchmadeGameAsync(lobby.LobbyCode, preparation);
             else
-                await JoinMatchmadeGameAsync();
+                await JoinMatchmadeGameAsync(preparation);
         }
 
         /// <summary>
@@ -669,20 +981,23 @@ namespace Hexiege.Infrastructure
         /// (기존 HostGameAsync 의 Relay·Host 로직을 매칭 경로에 맞게 재구성 — Lobby 생성 단계는 제외)
         /// </summary>
         /// <param name="lobbyCode">CreateOrJoin 으로 만든 Lobby 의 참가 코드 (OnHostStarted 전달용).</param>
-        private async Task HostMatchmadeGameAsync(string lobbyCode)
+        private async Task HostMatchmadeGameAsync(string lobbyCode, RandomMatchPreparation preparation)
         {
             try
             {
                 // 1. Relay 서버 할당 + Join Code 발급
                 string relayJoinCode = await _relayManager.CreateRelayAsync();
+                RequirePreparationActive(preparation);
                 if (string.IsNullOrEmpty(relayJoinCode))
                 {
-                    OnError?.Invoke("Relay 할당 실패. 네트워크 상태를 확인하세요.");
+                    // OnError?.Invoke("Relay 할당 실패. 네트워크 상태를 확인하세요.");
+                    FailRandomMatchPreparation(preparation, "RelayAllocationFailed");
                     return;
                 }
 
                 // 2. 발급받은 Relay Join Code 를 Lobby Data 에 기록 → 클라이언트가 읽어감
                 await _lobbyManager.UpdateRelayJoinCodeAsync(relayJoinCode);
+                RequirePreparationActive(preparation);
 
                 // 3. Client 접속/끊김 감지 콜백 — StartHost() 이전에 등록 (레이스 컨디션 방지)
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
@@ -693,9 +1008,13 @@ namespace Hexiege.Infrastructure
                 {
                     NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
                     NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
-                    OnError?.Invoke("NetworkManager.StartHost() 실패.");
+                    // OnError?.Invoke("NetworkManager.StartHost() 실패.");
+                    FailRandomMatchPreparation(preparation, "StartHostFailed");
                     return;
                 }
+
+                RequirePreparationActive(preparation);
+                AttachPreparationSceneEvents(preparation);
 
                 // 5. Host Heartbeat 시작 (Lobby 활성 유지)
                 StartHeartbeat();
@@ -706,10 +1025,12 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
+                if (preparation.Settled) return;
                 // 최종 catch · 고유 예외. Flow 로 어느 경로였는지 분해한다.
                 GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
                                   "매칭 Host 시작 처리 중 예외", e, "Flow=MatchHost");
-                OnError?.Invoke($"Host 시작 오류: {e.Message}");
+                // OnError?.Invoke($"Host 시작 오류: {e.Message}");
+                FailRandomMatchPreparation(preparation, "HostSetupException");
             }
         }
 
@@ -720,7 +1041,7 @@ namespace Hexiege.Infrastructure
         /// Lobby 를 폴링하며 대기한 뒤 Relay 참가 → StartClient 를 진행한다.
         /// 이것이 클라이언트가 매칭으로 게임에 들어오는 <b>유일한 경로</b>다.
         /// </summary>
-        private async Task JoinMatchmadeGameAsync()
+        private async Task JoinMatchmadeGameAsync(RandomMatchPreparation preparation)
         {
             try
             {
@@ -733,6 +1054,7 @@ namespace Hexiege.Infrastructure
                 {
                     // 최신 Lobby Data 를 서버에서 다시 받아온 뒤 JoinCode 확인
                     await _lobbyManager.RefreshCurrentLobbyAsync();
+                    RequirePreparationActive(preparation);
                     relayJoinCode = _lobbyManager.GetRelayJoinCode();
 
                     if (!string.IsNullOrEmpty(relayJoinCode))
@@ -743,17 +1065,21 @@ namespace Hexiege.Infrastructure
                     GameLog.Dev.Info("Network", nameof(NetworkGameManager), "RelayJoinCode 대기 중",
                                      $"Attempt={i + 1}, MaxRetries={maxRetries}");
                     await Task.Delay(retryDelayMs);
+                    RequirePreparationActive(preparation);
                 }
 
                 if (string.IsNullOrEmpty(relayJoinCode))
                 {
-                    OnError?.Invoke("호스트의 Relay 준비를 기다리지 못했습니다. 다시 시도해주세요.");
+                    // OnError?.Invoke("호스트의 Relay 준비를 기다리지 못했습니다. 다시 시도해주세요.");
+                    FailRandomMatchPreparation(preparation, "RelayCodeUnavailable");
                     return;
                 }
 
                 // 2. Relay 서버 참가 + UnityTransport 설정
                 bool relayJoined = await _relayManager.JoinRelayAsync(relayJoinCode);
-                if (!relayJoined) { OnError?.Invoke("Relay 참가 실패."); return; }
+                RequirePreparationActive(preparation);
+                // if (!relayJoined) { OnError?.Invoke("Relay 참가 실패."); return; }
+                if (!relayJoined) { FailRandomMatchPreparation(preparation, "RelayJoinFailed"); return; }
 
                 // 3. NetworkManager Client 시작 — 끊김 콜백을 StartClient 이전에 등록
                 NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
@@ -761,9 +1087,13 @@ namespace Hexiege.Infrastructure
                 if (!StartNetworkClient())
                 {
                     NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
-                    OnError?.Invoke("StartClient() 실패.");
+                    // OnError?.Invoke("StartClient() 실패.");
+                    FailRandomMatchPreparation(preparation, "StartClientFailed");
                     return;
                 }
+
+                RequirePreparationActive(preparation);
+                AttachPreparationSceneEvents(preparation);
 
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager),
                                  "Client 게임 참가 완료 (매칭 — CreateOrJoin)");
@@ -771,10 +1101,12 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
+                if (preparation.Settled) return;
                 // 최종 catch · 고유 예외.
                 GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
                                   "매칭 Client 참가 처리 중 예외", e, "Flow=MatchJoin");
-                OnError?.Invoke($"참가 오류: {e.Message}");
+                // OnError?.Invoke($"참가 오류: {e.Message}");
+                FailRandomMatchPreparation(preparation, "ClientSetupException");
             }
         }
 
@@ -784,23 +1116,15 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public async Task CancelMatchmakingAsync()
         {
-            _matchmakingCts?.Cancel();
-
-            try
-            {
-                await _matchmakerManager.CancelTicketAsync(_currentTicketId);
-            }
-            catch (Exception e)
-            {
-                // catch 본문이 로그 한 줄뿐인 삼킨 예외 → 반드시 운영(LogRules.md 1.3 분류 원칙 4).
-                // 흐름은 계속되므로 Warn 이지만, 서버에 티켓이 남아 이후 매칭을 방해할 수 있다.
-                GameLog.Ops.Warn(LogEvent.MatchmakingTicketDeleteFailed, "Network", nameof(NetworkGameManager),
-                                 "매칭 티켓 삭제 실패 (무시하고 계속) — 서버에 티켓이 남을 수 있다", e,
-                                 $"TicketId={_currentTicketId}");
-            }
-
-            _currentTicketId = null;
-            _isRandomMatchmaking = false;
+            // 기존 공유 필드 삭제는 생성 중인 ticket을 놓치므로 소유 회차의 finally에 맡긴다.
+            // _matchmakingCts?.Cancel();
+            // await _matchmakerManager.CancelTicketAsync(_currentTicketId);
+            // _currentTicketId = null;
+            // _isRandomMatchmaking = false;
+            var attempt = _matchmakingAttempt;
+            if (attempt == null || attempt.HandedOff) return;
+            attempt.Cancellation.Cancel();
+            await attempt.Completed.Task;
             GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 취소 완료");
         }
 
@@ -861,6 +1185,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void BeginMapTransferAndLoadGameScene()
         {
+            if (_randomPreparation != null && !IsPreparationActive(_randomPreparation)) return;
             // 🔴 이름과 시그니처를 그대로 둔다 — 호출부(BattleViewModel)가 한 줄도 바뀌지 않아야
             //    최초 경기 경로의 회귀 면적이 0이 된다(계획서 §1 분할-1).
             //    달라진 것은 "본문이 공용 메서드로 옮겨졌다"는 사실뿐이고, 넘기는 값
@@ -1149,6 +1474,12 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
+            if (_randomPreparation != null && !_randomPreparation.SceneStarted)
+            {
+                FailRandomMatchPreparation(_randomPreparation, "MapPreparationFailed", failedTransfer);
+                return;
+            }
+
             // ⚠️ 최초 경기 회차의 로비 UI 이벤트는 사유 문자열 하나만 나른다.
             //    규칙 18 의 문구 분기는 **결과 화면(재경기)** 규정이라 로비 쪽에 적용되지 않으므로,
             //    이 이벤트의 시그니처는 일부러 건드리지 않았다.
@@ -1237,6 +1568,11 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void NotifyMapFailureFromHost()
         {
+            if (_randomPreparation != null && !_randomPreparation.SceneStarted)
+            {
+                FailRandomMatchPreparation(_randomPreparation, "PeerPreparationFailed");
+                return;
+            }
             OnMapFailureNoticeReceived?.Invoke();
         }
 
@@ -1287,6 +1623,8 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void LoadGameScene()
         {
+            var preparation = _randomPreparation;
+            if (preparation != null && !IsPreparationActive(preparation)) return;
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             {
                 // 요청만 무시하고 게임은 계속되므로 Warn.
@@ -1298,8 +1636,12 @@ namespace Hexiege.Infrastructure
             }
 
             GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Game 씬 로드 시작");
-            NetworkManager.Singleton.SceneManager
-                .LoadScene("Game", LoadSceneMode.Single);
+            // 요청만 성공으로 간주하던 기존 코드는 실패 반환에서도 준비 시계를 끝낼 수 있었다.
+            // NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
+            var status = NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
+            if (preparation == null) return;
+            if (status == SceneEventProgressStatus.Started) CompletePreparationForSceneStart(preparation);
+            else FailRandomMatchPreparation(preparation, "SceneLoadRejected");
         }
 
         // ====================================================================
@@ -1317,6 +1659,7 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkManager.Singleton == null) return;
             if (clientId == NetworkManager.Singleton.LocalClientId) return;
+            if (_randomPreparation != null && !IsPreparationActive(_randomPreparation)) return;
 
             GameLog.Dev.Info("Network", nameof(NetworkGameManager),
                              "Client 접속 감지 — OnClientConnected 발행", $"ClientId={clientId}");

@@ -62,7 +62,10 @@ namespace Hexiege.Infrastructure
         /// 현재 로그인된 플레이어의 프로필을 Cloud Save 에서 로드한다.
         /// 실패하거나 데이터가 없으면 필드가 비어 있는 PlayerProfileData 를 반환한다.
         /// </summary>
-        public async Task<PlayerProfileData> LoadProfileAsync()
+        public Task<PlayerProfileData> LoadProfileAsync() => LoadProfileAsync(false);
+
+        /// <summary>초기 닉네임 생성 전에는 true를 사용하여 조회 오류로 기존 닉네임을 덮지 않는다.</summary>
+        public async Task<PlayerProfileData> LoadProfileAsync(bool throwOnFailure)
         {
             var profile = new PlayerProfileData();
 
@@ -80,7 +83,16 @@ namespace Hexiege.Infrastructure
                 Dictionary<string, Unity.Services.CloudSave.Models.Item> data =
                     await CloudSaveService.Instance.Data.Player.LoadAsync(keys);
 
-                profile.Nickname = GetString(data, KeyNickname, string.Empty);
+                if (throwOnFailure)
+                {
+                    // 기존 GetString은 변환 실패도 빈 값으로 돌려준다. 생성 전 조회에서는
+                    // 키가 없는 경우만 미설정이며, 응답/값이 손상되면 저장하지 않고 실패를 전달한다.
+                    if (data == null) throw new InvalidOperationException("프로필 조회 응답 없음");
+                    profile.Nickname = data.TryGetValue(KeyNickname, out var nicknameItem)
+                        ? nicknameItem?.Value?.GetAsString() ?? throw new InvalidOperationException("닉네임 값 확인 불가")
+                        : string.Empty;
+                }
+                else profile.Nickname = GetString(data, KeyNickname, string.Empty);
                 profile.NicknameCode = GetString(data, KeyNicknameCode, string.Empty);
                 profile.TotalGames = GetInt(data, KeyTotalGames, 0);
                 profile.Wins = GetInt(data, KeyWins, 0);
@@ -90,7 +102,7 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
-                // 최초 로그인(데이터 없음) 또는 네트워크 오류. 빈 프로필로 처리하고 로깅만 한다.
+                // 기본 조회는 기존 빈 프로필 fallback을 유지하고, 엄격 조회만 같은 오류를 재전달한다.
                 //
                 // [운영] 축 A: 빈 프로필로 폴백해 화면은 계속 뜬다 → 복구됨 → Warn.
                 //   축 B: ① UGS 회선·계정 상태에 좌우돼 개발 기기에서 재현되지 않는다.
@@ -99,8 +111,9 @@ namespace Hexiege.Infrastructure
                 //   예외 객체를 그대로 넘기는 이유: 예외 "타입"이 텔레메트리의 핵심 축이라
                 //   "데이터 없음(최초 로그인)"과 "네트워크 오류"를 집계에서 구분할 수 있다(1.9).
                 GameLog.Ops.Warn(LogEvent.CloudSaveOperationFailed, "Cloud", nameof(PlayerProfileService),
-                                 "프로필 로드 실패 — 빈 프로필을 반환한다", e,
+                                 throwOnFailure ? "프로필 로드 실패 — 호출자에게 전달한다" : "프로필 로드 실패 — 빈 프로필을 반환한다", e,
                                  "Operation=LoadProfile");
+                if (throwOnFailure) throw;
             }
 
             return profile;

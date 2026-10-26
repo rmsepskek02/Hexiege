@@ -118,15 +118,12 @@ namespace Hexiege.Presentation
         [Tooltip("메인 버튼 그룹의 프로필 버튼. 클릭 시 프로필 서브 패널로 전환한다.")]
         [SerializeField] private Button _profileButton;
 
-        [Tooltip("프로필 서브 패널의 CanvasGroup. 사운드 버튼과 동일한 열기/닫기 패턴으로 토글한다. " +
-                 "내부 콘텐츠는 이번 범위 밖(빈 상태 토글만).")]
+        [Tooltip("프로필 서브 패널. 기존 열기/닫기와 입력 차단을 유지하며 조회 전용 정보를 표시한다.")]
         [SerializeField] private CanvasGroup _profileSubViewGroup;
 
-        // 🔴 씬 실측(2026-10-05): 이 참조는 전투 씬에서 **비어 있다**(연결된 오브젝트가 없다).
-        //   프로필 서브 패널 오브젝트에는 자식이 하나도 없어서 연결할 뒤로가기 버튼 자체가 없다.
-        //   그 결과 아래 Initialize()의 null 가드에 걸려 **리스너가 등록되지 않고**,
-        //   복귀 핸들러는 런타임에 한 번도 실행되지 않는다.
-        //   ⚠️ 코드 쪽은 정상이고 모자란 것은 씬 배선이다. 씬 수정은 별도 승인 사항이라 손대지 않았다.
+        [SerializeField] private InGameProfileSummaryView _profileSummaryView;
+
+        // 기존 빈 서브뷰에서는 미배선이었다. 조회 전용 뷰가 만든 버튼을 Initialize에서 연결한다.
         [Tooltip("프로필 서브 패널 → 메인 버튼 그룹으로 복귀하는 뒤로가기 버튼.")]
         [SerializeField] private Button _profileBackButton;
 
@@ -172,6 +169,7 @@ namespace Hexiege.Presentation
         /// <param name="forfeitService">포기 요청을 위임할 서비스. 싱글=GameEndUseCase, 멀티=NetworkGameEndController.</param>
         public void Initialize(GameEndUseCase gameEndUseCase, IForfeitService forfeitService = null)
         {
+            if (_profileSummaryView != null) _profileBackButton = _profileSummaryView.BackButton;
             _gameEndUseCase = gameEndUseCase;
             _forfeitService = forfeitService;
 
@@ -319,6 +317,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
+            _profileSummaryView?.Invalidate();
             // UIManager 공유 BlockingOverlay 숨김(참조 카운터 -1).
             UIManager.Instance?.HideBlockingOverlay();
             // [구로직 — 테스트 통과 후 삭제]
@@ -351,6 +350,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ResetToMainView()
         {
+            _profileSummaryView?.Invalidate();
             // 볼륨 패널 숨김 (alpha=0 + 입력 차단).
             if (_volumePanelGroup != null)
             {
@@ -462,6 +462,7 @@ namespace Hexiege.Presentation
         private void ShowProfilePanel()
         {
             if (_profileSubViewGroup == null) return;
+            if (_profileSummaryView != null) _ = _profileSummaryView.RefreshAsync();
 
             _profileSubViewGroup.alpha = 1f;
             _profileSubViewGroup.interactable = true;
@@ -483,6 +484,7 @@ namespace Hexiege.Presentation
         private void HideProfilePanel()
         {
             if (_profileSubViewGroup == null) return;
+            _profileSummaryView?.Invalidate();
 
             _profileSubViewGroup.alpha = 0f;
             _profileSubViewGroup.interactable = false;

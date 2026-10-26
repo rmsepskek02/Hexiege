@@ -48,6 +48,9 @@ namespace Hexiege.Presentation
         [Tooltip("생성된 행이 배치될 컨테이너(보통 VerticalLayoutGroup).")]
         [SerializeField] private Transform _rowContainer;
 
+        [Tooltip("행과 같은 폭 비중을 적용할 고정 열 제목. 첫 자식은 행 제목의 빈 모서리 칸이다.")]
+        [SerializeField] private Transform _columnHeader;
+
         [Header("Layout")]
         [Tooltip("각 그룹 행의 높이(px). 모바일 터치 대상 크기. 스크린샷 후 튜닝 대상.")]
         [SerializeField] private float _rowHeight = 92f;
@@ -141,6 +144,7 @@ namespace Hexiege.Presentation
         private void BuildMatrix()
         {
             Clear();
+            AlignColumnHeader();
 
             if (_cellTemplate == null || _rowContainer == null)
             {
@@ -211,7 +215,7 @@ namespace Hexiege.Presentation
             // 라벨 가로 비중 지정(템플릿에 LayoutElement 없으면 부착).
             var le = label.GetComponent<LayoutElement>();
             if (le == null) le = label.gameObject.AddComponent<LayoutElement>();
-            le.flexibleWidth = _labelWeight;
+            SetColumnWidth(le, _labelWeight);
         }
 
         // 셀 템플릿을 복제해 트랙에 바인딩하고 가로 비중을 지정한다.
@@ -222,10 +226,32 @@ namespace Hexiege.Presentation
 
             var le = cell.GetComponent<LayoutElement>();
             if (le == null) le = cell.gameObject.AddComponent<LayoutElement>();
-            le.flexibleWidth = weight;
+            SetColumnWidth(le, weight);
 
             cell.Bind(_panel, group, stat);
             _cells.Add(cell);
+        }
+
+        // 글자마다 다른 선호폭을 더하지 않고 제목/본문 모두 같은 비중으로 열을 나눈다.
+        private static void SetColumnWidth(LayoutElement layout, float weight)
+        {
+            layout.minWidth = 0f;
+            layout.preferredWidth = 0f;
+            layout.flexibleWidth = weight;
+        }
+
+        private void AlignColumnHeader()
+        {
+            if (_columnHeader == null) return;
+            if (_columnHeader.TryGetComponent(out HorizontalLayoutGroup layout))
+                layout.spacing = _rowSpacing;
+            for (int i = 0; i < _columnHeader.childCount; i++)
+            {
+                GameObject column = _columnHeader.GetChild(i).gameObject;
+                if (!column.TryGetComponent(out LayoutElement element))
+                    element = column.AddComponent<LayoutElement>();
+                SetColumnWidth(element, i == 0 ? _labelWeight : _cellWeight);
+            }
         }
 
         // 기존 행/셀을 모두 파괴하고 목록을 비운다.

@@ -67,6 +67,9 @@ namespace Hexiege.Application
         /// <summary>마지막으로 발생한 인증 예외. View 측에서 메시지 조회용.</summary>
         public AuthException LastError { get; private set; }
 
+        /// <summary>이번 Bridge가 정상 완료되었는지 여부. 게스트 표시 이름 준비의 쓰기 선행 조건이다.</summary>
+        public bool LastUgsBridgeSucceeded { get; private set; }
+
         // ====================================================================
         // 공개 상태 프로퍼티 (FirebaseAuthService 위임)
         // ====================================================================
@@ -385,17 +388,29 @@ namespace Hexiege.Application
         /// </summary>
         public async Task SignOutAsync()
         {
+            // 앱 재실행/자동 로그인과 구분되는 명시적 로그아웃이다.
+            // 익명 계정은 여기서만 자격을 지워 다음 익명 로그인이 새 게스트가 되게 한다.
+            bool leavingAnonymous = _authService.IsAnonymous;
             try
             {
-                // UGS 측 세션도 정리해 둔다 — 다음 로그인 시 새 UID 로 재바인딩되도록.
-                if (AuthenticationService.Instance != null &&
-                    AuthenticationService.Instance.IsSignedIn)
+                // 기존 처리는 SignedIn일 때만 기본 SignOut()을 호출해 cached 자격이 남았다.
+                // if (AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn)
+                //     AuthenticationService.Instance.SignOut();
+                var authentication = AuthenticationService.Instance;
+                if (leavingAnonymous && authentication == null)
+                    throw new InvalidOperationException("익명 계정 로그아웃을 완료하지 못했습니다.");
+                if (authentication != null && (leavingAnonymous || authentication.IsSignedIn))
                 {
-                    AuthenticationService.Instance.SignOut();
+                    // SDK는 SignedOut 상태에서도 이 호출을 허용하므로 남아 있는 익명 자격도 정리한다.
+                    // 실계정은 기본 자격 보존과 이후 OIDC 복원을 그대로 유지한다.
+                    authentication.SignOut(clearCredentials: leavingAnonymous);
                 }
             }
             catch (Exception e)
             {
+                // 새 게스트를 보장할 수 없으면 Firebase만 먼저 로그아웃하지 않는다.
+                // 이 예외는 기존 ProfileView의 최종 catch가 기록하고 사용자에게 안내한다.
+                if (leavingAnonymous) throw;
                 GameLog.Ops.Warn(LogEvent.UgsSignOutFailed, "Auth", nameof(LoginUseCase),
                                  "UGS SignOut 실패 — 이전 계정 세션이 남을 수 있다", e);
             }
@@ -452,6 +467,7 @@ namespace Hexiege.Application
         /// </returns>
         public async Task<bool> BridgeToUGSAsync(string firebaseUID)
         {
+            LastUgsBridgeSucceeded = false;
             if (string.IsNullOrWhiteSpace(firebaseUID))
             {
                 GameLog.Ops.Error(LogEvent.UgsBridgeMissingFirebaseUid, "Auth", nameof(LoginUseCase),
@@ -499,6 +515,7 @@ namespace Hexiege.Application
                                  $"PlayerId={GameLog.HashId(AuthenticationService.Instance.PlayerId)}");
 
                 // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
+                LastUgsBridgeSucceeded = true;
                 return true;
             }
             catch (Exception e)

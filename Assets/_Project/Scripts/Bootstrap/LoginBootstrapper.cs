@@ -96,6 +96,10 @@ namespace Hexiege.Bootstrap
         //   구현체(PlayerProfileService, UGS Cloud Save)는 Infrastructure 이지만,
         //   Bootstrap 은 모든 레이어에 접근 가능한 조합 루트이므로 여기서 생성해 주입한다.
         private PlayerProfileUseCase _playerProfileUseCase;
+        private bool _guestEntryPending;
+        private int _guestEntryVersion;
+
+        private void OnDestroy() => _guestEntryVersion++;
 
         // ====================================================================
         // Unity 생명주기
@@ -390,7 +394,7 @@ namespace Hexiege.Bootstrap
         /// 로그인 성공 후 다음 씬(Lobby)으로 이동한다.
         /// View 들이 로그인 완료 시 호출.
         /// </summary>
-        public void GoToNextScene()
+        public async void GoToNextScene()
         {
             if (string.IsNullOrWhiteSpace(_nextSceneName))
             {
@@ -403,8 +407,71 @@ namespace Hexiege.Bootstrap
                                  "Inspector 의 '씬 전환 설정' 항목을 확인할 것");
                 return;
             }
+            if (_authService != null && _authService.IsLoggedIn && _authService.IsAnonymous)
+            {
+                if (_guestEntryPending) return;
+                _guestEntryPending = true;
+                int version = ++_guestEntryVersion;
+                string firebaseOwner = _authService.FirebaseUID;
+                string ugsOwner = Unity.Services.Core.UnityServices.State == Unity.Services.Core.ServicesInitializationState.Initialized &&
+                    Unity.Services.Authentication.AuthenticationService.Instance.IsSignedIn
+                    ? Unity.Services.Authentication.AuthenticationService.Instance.PlayerId : null;
+                bool moving = false;
+                try
+                {
+                    // Bridge 미연결은 기존 기능 제한 계약을 유지한다. 다른 UGS 소유자에 쓰지 않는다.
+                    if (_loginUseCase != null && _loginUseCase.LastUgsBridgeSucceeded &&
+                        ugsOwner != null && _playerProfileUseCase != null &&
+                        IsGuestEntryCurrent(version, firebaseOwner, ugsOwner))
+                    {
+                        PlayerProfileData profile = await _playerProfileUseCase.LoadProfileAsync(true);
+                        if (!IsGuestEntryCurrent(version, firebaseOwner, ugsOwner)) return;
+                        if (profile != null && !profile.HasNickname)
+                        {
+                            // 엄격 조회가 성공하고 실제 값이 없을 때만 기존 자동 저장 API를 사용한다.
+                            // SDK 제한/재시도를 그대로 사용하며 별도 타이머나 로딩 소유권을 만들지 않는다.
+                            if (!IsGuestEntryCurrent(version, firebaseOwner, ugsOwner)) return;
+                            await _playerProfileUseCase.SaveAutoNicknameAsync("게스트");
+                            if (!IsGuestEntryCurrent(version, firebaseOwner, ugsOwner)) return;
+                        }
+                    }
+                    if (!IsGuestEntryCurrent(version, firebaseOwner, ugsOwner)) return;
+                    moving = true;
+                }
+                catch (System.Exception e)
+                {
+                    // Cloud Save 계층이 운영 실패를 기록한다. 닉네임 준비 실패로 로그인을 막지 않는다.
+                    // 사용자 이름/식별자를 추가 기록하지 않고 현재 소유자만 기존 Lobby 진입을 계속한다.
+                    if (IsGuestEntryCurrent(version, firebaseOwner, ugsOwner))
+                    {
+                        GameLog.Dev.Warn("Bootstrap", nameof(LoginBootstrapper),
+                            "게스트 닉네임 준비 미완료 — 기존 Lobby 진입 유지",
+                            $"Operation=PrepareGuestNickname, ExceptionType={e.GetType().Name}");
+                        moving = true;
+                    }
+                }
+                finally
+                {
+                    if (!moving && version == _guestEntryVersion) _guestEntryPending = false;
+                }
+                if (moving && IsGuestEntryCurrent(version, firebaseOwner, ugsOwner))
+                    SceneLoader.Load(_nextSceneName);
+                return;
+            }
+            // [기존 직행 경로] 실계정은 닉네임 선행 조건/인증 처리를 그대로 유지한다.
             // SceneLoader.Load 가 내부에서 로딩 인디케이터를 자동 표시한다.
             SceneLoader.Load(_nextSceneName);
+        }
+
+        private bool IsGuestEntryCurrent(int version, string firebaseOwner, string ugsOwner)
+        {
+            if (this == null || version != _guestEntryVersion || _authService == null ||
+                !_authService.IsLoggedIn || !_authService.IsAnonymous ||
+                _authService.FirebaseUID != firebaseOwner) return false;
+            if (Unity.Services.Core.UnityServices.State != Unity.Services.Core.ServicesInitializationState.Initialized)
+                return ugsOwner == null;
+            var auth = Unity.Services.Authentication.AuthenticationService.Instance;
+            return ugsOwner == null ? !auth.IsSignedIn : auth.IsSignedIn && auth.PlayerId == ugsOwner;
         }
 
         /// <summary>

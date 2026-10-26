@@ -4,6 +4,14 @@
 
 ---
 
+## Shared layout and profile preview contracts
+
+- Derive shared panel buttons from the same layout-group padding, spacing and cell allocation. Matching width/height while preserving an old center can still cross the panel's interior; compare all four common inset boundaries and content gaps before native review. Research Matrix/Progress are distinct layers; a cancel layout belongs under Progress CanvasGroup so visibility and input ownership remain intact.
+- Resolve button assets from controller role through Button/TargetGraphic to named sprite metadata. Exact-copy/hash checks cannot prove the semantic source role; inspect actual rendering separately.
+- Development ranking preview uses a separate read-only entry selector for page count/render and the existing page handlers. Keep real entries/cache/server untouched, restore the original real page with clamping, and compile preview out of Release. Ten-slot preferred viewport height must be content/layout driven; shorter final pages keep the same area and oversized real text retains scrolling.
+- Display-only in-game profile uses existing profile/rank reads and Back, without duplicating account actions. Strict guest nickname absence permits the existing generator/save; null/malformed/read failure does not. Guard successful current bridge, Firebase/UGS owner, anonymous state, generation and object lifetime before/after awaits, save and scene movement. A valid-owner cloud failure preserves existing login progression; stale ownership cancels that progression. Ordinary restart preserves the saved nickname.
+- User reports accepted profile/layout, research demolition/cancel, device paging and restart nickname persistence. New ranking-height acceptance, explicit-logout new-guest name, every device/long-data/SafeArea and build completion are separate evidence axes. Detailed receipts belong in the existing UI audit Research section “UI 구현・사용자 확인・최종 높이 검수의 완료 구분”; do not add repeat gates to accepted input/match work.
+
 ## Result modal ownership and gameplay input lifetime
 
 - `UIManager.AcquireBlockingOverlayModal()` owns protected leases independently of legacy anonymous Show/Hide counts. Visibility is the OR of both ownership sets; an unrelated legacy Hide cannot consume a result lease. Keep legacy callbacks as the latest single callback, not a new universal callback stack.

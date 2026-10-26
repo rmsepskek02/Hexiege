@@ -129,6 +129,18 @@ namespace Hexiege.Presentation
         private bool _sortAscending = false;                 // 기본: 내림차순
         private int _currentPage = 0;
 
+        /// <summary>표시용 목록만 선택한다. 개발 미리보기는 실제 조회 목록에 섞이지 않는다.</summary>
+        private IReadOnlyList<LeaderboardEntry> ActiveEntries
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (_editorLayoutPreview) return _previewEntries;
+#endif
+                return _entries;
+            }
+        }
+
         private bool _initialized = false;
 
         // ====================================================================
@@ -226,16 +238,38 @@ namespace Hexiege.Presentation
 
         private void PolishRuntimeLayout()
         {
+            // 패널 자체의 제목은 위쪽에 두고 표와 같은 중앙 영역에 겹쳐 그리지 않는다.
+            if (TryGetComponent(out TextMeshProUGUI title))
+            {
+                title.verticalAlignment = VerticalAlignmentOptions.Top;
+                title.fontSize = 68f;
+                title.color = Color.black;
+                Vector4 margin = title.margin;
+                margin.y = 64f;
+                title.margin = margin;
+            }
+
             Transform table = _headerRow != null ? _headerRow.parent : null;
             if (table != null)
             {
                 RectTransform tableRt = table.GetComponent<RectTransform>();
-                SetAnchors(tableRt, new Vector2(0.035f, 0.075f), new Vector2(0.965f, 0.985f));
+                // 기존 표가 제목 높이까지 차지하던 배치는 아래처럼 제목 공간을 분리한다.
+                // SetAnchors(tableRt, new Vector2(0.035f, 0.075f), new Vector2(0.965f, 0.985f));
+                // SetAnchors(tableRt, new Vector2(0.035f, 0.075f), new Vector2(0.965f, 0.88f));
+                // 열 개 행의 선호 높이에 맞춰 표를 접되, 제목 아래의 기존 위쪽 경계는 유지한다.
+                if (tableRt != null)
+                    tableRt.pivot = new Vector2(tableRt.pivot.x, 1f);
+                SetAnchors(tableRt, new Vector2(0.035f, 0.88f), new Vector2(0.965f, 0.88f));
+                if (!table.TryGetComponent(out ContentSizeFitter tableFitter))
+                    tableFitter = table.gameObject.AddComponent<ContentSizeFitter>();
+                tableFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                tableFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
                 if (table.TryGetComponent(out VerticalLayoutGroup tableLayout))
                 {
                     tableLayout.spacing = 6f;
-                    tableLayout.padding = new RectOffset(10, 10, 10, 10);
+                    // ui_panel_dark 스프라이트의 좌우85/상하70 경계에 기존 간격6만큼 여유를 둔다.
+                    tableLayout.padding = new RectOffset(91, 91, 76, 76);
                     tableLayout.childControlWidth = true;
                     tableLayout.childControlHeight = true;
                     tableLayout.childForceExpandWidth = true;
@@ -244,7 +278,12 @@ namespace Hexiege.Presentation
             }
 
             SetLayout(_headerRow != null ? _headerRow.gameObject : null, 58f, 0f);
-            SetLayout(_scrollRect != null ? _scrollRect.gameObject : null, 0f, 1f);
+            // SetLayout(_scrollRect != null ? _scrollRect.gameObject : null, 0f, 1f);
+            // 빈 목록과 마지막 페이지도 열 개 슬롯 높이를 예약한다. 더 긴 행은 기존 스크롤로 탐색한다.
+            float contentSpacing = _content != null && _content.TryGetComponent(out VerticalLayoutGroup contentLayout)
+                ? contentLayout.spacing : 0f;
+            float pageHeight = RowsPerPage * 96f + Mathf.Max(0, RowsPerPage - 1) * contentSpacing;
+            SetLayout(_scrollRect != null ? _scrollRect.gameObject : null, pageHeight, 0f);
             SetLayout(_prevPageButton != null && _prevPageButton.transform.parent != null
                 ? _prevPageButton.transform.parent.gameObject
                 : null, 64f, 0f);
@@ -254,13 +293,150 @@ namespace Hexiege.Presentation
                 foreach (Button header in _headerButtons)
                     StyleButton(header, 24);
             }
+            NormalizeColumnWidths(_headerRow);
+            foreach (RankRowView row in _rows)
+            {
+                if (row == null) continue;
+                NormalizeColumnWidths(row.transform);
+                if (row.TryGetComponent(out LayoutElement rowLayout))
+                {
+                    // 프리팹의 고정 60 높이 대신 세 줄을 담고, 더 긴 내용은 기존 LayoutGroup이 높이를 계산한다.
+                    rowLayout.minHeight = 96f;
+                    rowLayout.preferredHeight = -1f;
+                    rowLayout.flexibleHeight = 0f;
+                }
+            }
 
             StyleButton(_prevPageButton, 24);
             StyleButton(_nextPageButton, 24);
+            // 기존 은색 페이지 버튼 위의 문구 대비를 맞춘다.
+            if (_prevPageButton != null)
+                StyleText(_prevPageButton.GetComponentInChildren<TextMeshProUGUI>(true), 24, TextAlignmentOptions.Center, Color.black);
+            if (_nextPageButton != null)
+                StyleText(_nextPageButton.GetComponentInChildren<TextMeshProUGUI>(true), 24, TextAlignmentOptions.Center, Color.black);
             StyleButton(_refreshButton, 23);
             StyleText(_pageText, 25, TextAlignmentOptions.Center, Color.white);
+            // 페이지 이동은 기존 화살표 Graphic으로 표시한다. 자식 문구만 숨겨 버튼 입력을 유지한다.
+            ApplyGroupVisibility(EnsureGroup(_prevPageButton != null
+                ? _prevPageButton.GetComponentInChildren<TextMeshProUGUI>(true) : null), false);
+            ApplyGroupVisibility(EnsureGroup(_nextPageButton != null
+                ? _nextPageButton.GetComponentInChildren<TextMeshProUGUI>(true) : null), false);
+            if (_prevPageButton != null && _prevPageButton.transform.parent != null &&
+                _prevPageButton.transform.parent.TryGetComponent(out HorizontalLayoutGroup pagination))
+            {
+                pagination.spacing = 12f;
+                pagination.childControlWidth = true;
+                pagination.childForceExpandWidth = false;
+                // 글자의 선호폭 대신 부모의 남은 폭을 이전/페이지/다음/새로고침 비율로 나눈다.
+                Component[] items = { _prevPageButton, _pageText, _nextPageButton, _refreshButton };
+                float[] weights = { 1f, 3f, 1f, 2f };
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (items[i] == null) continue;
+                    if (!items[i].TryGetComponent(out LayoutElement column))
+                        column = items[i].gameObject.AddComponent<LayoutElement>();
+                    column.minWidth = column.preferredWidth = 0f;
+                    column.flexibleWidth = weights[i];
+                }
+            }
             StyleText(_emptyStateText, 26, TextAlignmentOptions.Center, Color.white);
+            // 빈 안내는 LayoutGroup 밖의 오버레이이므로 헤더/페이지 버튼을 제외한 본문에만 둔다.
+            if (_emptyStateText != null)
+                SetAnchors(_emptyStateText.rectTransform, new Vector2(0.035f, 0.15f), new Vector2(0.965f, 0.84f));
         }
+
+        private static void NormalizeColumnWidths(Transform row)
+        {
+            if (row == null) return;
+            // 씬/행 프리팹의 열 비중은 유지하고, 긴 실제 값의 선호폭이 열 경계를 밀지 않게 한다.
+            for (int i = 0; i < row.childCount; i++)
+            {
+                if (!row.GetChild(i).TryGetComponent(out LayoutElement column)) continue;
+                column.minWidth = 0f;
+                column.preferredWidth = 0f;
+            }
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        [Header("개발 빌드 표시 전용")]
+        [Tooltip("임시 랭킹 25개를 3페이지로 표시한다. 실제 랭킹 조회/캐시에 넣지 않으며 Release에서는 실행되지 않는다.")]
+        [SerializeField] private bool _developmentLayoutPreview = true;
+        // 실제 랭킹 캐시와 분리된 표시 전용 미리보기. 저장/서비스/정렬 입력에 사용하지 않는다.
+        private readonly Dictionary<Button, bool> _previewButtonStates = new Dictionary<Button, bool>();
+        private bool _editorLayoutPreview;
+        private readonly List<LeaderboardEntry> _previewEntries = new List<LeaderboardEntry>();
+        private int _previewOriginalPage;
+        private string _previewOriginalTitle;
+
+#if UNITY_EDITOR
+        [ContextMenu("UI 레이아웃/임시 랭킹 25개 페이지 미리보기")]
+        private void PreviewEditorRankingLayout()
+        {
+            // 조회 완료 후 Play를 일시정지한 상태에서만 명시적으로 사용한다.
+            if (!UnityEngine.Application.isPlaying || !UnityEditor.EditorApplication.isPaused || !_initialized)
+                return;
+            ApplyLayoutPreview();
+        }
+#endif
+
+        private void ApplyLayoutPreview()
+        {
+            if (!_editorLayoutPreview)
+            {
+                if (TryGetComponent(out TextMeshProUGUI originalTitle))
+                    _previewOriginalTitle = originalTitle.text;
+                _previewButtonStates.Clear();
+                _previewOriginalPage = _currentPage;
+                RememberPreviewButton(_refreshButton);
+                if (_headerButtons != null)
+                    foreach (Button button in _headerButtons) RememberPreviewButton(button);
+            }
+            _editorLayoutPreview = true;
+            if (TryGetComponent(out TextMeshProUGUI title)) title.text = "랭킹 (임시 미리보기)";
+            _previewEntries.Clear();
+            for (int i = 0; i < 25; i++)
+            {
+                _previewEntries.Add(new LeaderboardEntry
+                {
+                    Rank = i + 1,
+                    Nickname = i % 2 == 0 ? "가나다라마바사아자차카타" : "ABCDEFGHIJKLMNOPQRSTUVWX",
+                    NicknameCode = "9999",
+                    WinRate = i == 0 ? 100f : (i == 1 ? 0f : 99.9f),
+                    TotalGames = 123456, Wins = 123455, Losses = 1
+                });
+            }
+            SetEmptyStateVisible(false);
+            foreach (var state in _previewButtonStates)
+                if (state.Key != null) state.Key.interactable = false;
+            _currentPage = 0;
+            RenderCurrentPage();
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private void RememberPreviewButton(Button button)
+        {
+            if (button != null) _previewButtonStates[button] = button.interactable;
+        }
+
+#if UNITY_EDITOR
+        [ContextMenu("UI 레이아웃/실제 랭킹 표시 복원")]
+        private void RestoreEditorRankingLayout()
+        {
+            if (!UnityEngine.Application.isPlaying || !_editorLayoutPreview) return;
+            _editorLayoutPreview = false;
+            _developmentLayoutPreview = false;
+            _previewEntries.Clear();
+            if (TryGetComponent(out TextMeshProUGUI title)) title.text = _previewOriginalTitle;
+            SetEmptyStateVisible(_entries.Count == 0);
+            foreach (var state in _previewButtonStates)
+                if (state.Key != null) state.Key.interactable = state.Value;
+            _previewButtonStates.Clear();
+            _currentPage = Mathf.Clamp(_previewOriginalPage, 0, PageCount - 1);
+            RenderCurrentPage();
+            Canvas.ForceUpdateCanvases();
+        }
+#endif
+#endif
 
         private static void SetLayout(GameObject go, float preferredHeight, float flexibleHeight)
         {
@@ -365,6 +541,14 @@ namespace Hexiege.Presentation
         {
             InitializeIfNeeded();
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // 임시 목록은 같은 페이지 표시 경로만 사용하고 실제 entries/서비스 캐시는 건드리지 않는다.
+            if (_developmentLayoutPreview || _editorLayoutPreview)
+            {
+                ApplyLayoutPreview();
+                return;
+            }
+#endif
             if (_rankingUseCase == null)
                 return;
 
@@ -373,6 +557,11 @@ namespace Hexiege.Presentation
             try
             {
                 List<LeaderboardEntry> loaded = await _rankingUseCase.GetRankingsAsync();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                // 조회 중 개발 표시로 전환한 경우 늦은 실제 응답이 임시 화면을 덮지 않는다.
+                if (_developmentLayoutPreview || _editorLayoutPreview) return;
+#endif
 
                 _entries.Clear();
                 if (loaded != null)
@@ -436,6 +625,10 @@ namespace Hexiege.Presentation
         /// <param name="columnIndex">클릭된 열 인덱스(0=순위 고정).</param>
         private void OnHeaderClicked(int columnIndex)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // 미리보기에서 실제 목록 정렬이 변경되지 않도록 버튼 외 직접 호출도 차단한다.
+            if (_editorLayoutPreview) return;
+#endif
             // 열 인덱스 → 정렬 기준 매핑. 0(순위)은 고정.
             SortColumn? target = columnIndex switch
             {
@@ -559,7 +752,7 @@ namespace Hexiege.Presentation
         {
             get
             {
-                int pages = (_entries.Count + RowsPerPage - 1) / RowsPerPage;
+                int pages = (ActiveEntries.Count + RowsPerPage - 1) / RowsPerPage;
                 return Mathf.Max(1, pages);
             }
         }
@@ -569,13 +762,15 @@ namespace Hexiege.Presentation
         /// </summary>
         private void RenderCurrentPage()
         {
+            IReadOnlyList<LeaderboardEntry> entries = ActiveEntries;
+            _currentPage = Mathf.Clamp(_currentPage, 0, PageCount - 1);
             int startIndex = _currentPage * RowsPerPage;
 
             for (int i = 0; i < _rows.Count; i++)
             {
                 int dataIndex = startIndex + i;
-                if (dataIndex < _entries.Count)
-                    _rows[i].Bind(_entries[dataIndex], i); // i = 페이지 내 행 슬롯 인덱스(짝수행 얼룩용)
+                if (dataIndex < entries.Count)
+                    _rows[i].Bind(entries[dataIndex], i); // i = 페이지 내 행 슬롯 인덱스(짝수행 얼룩용)
                 else
                     _rows[i].Clear();
             }

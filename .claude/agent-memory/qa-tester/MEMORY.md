@@ -1,5 +1,9 @@
 # QA Tester Memory — Hexiege
 
+- [UI layout and scoped acceptance](patterns.md#ui-layout-and-scoped-acceptance) — distinguish source inset/content geometry, native preview paging, user acceptance and deferred new-height/build evidence.
+
+- [Anonymous matchmaking acceptance boundaries](patterns.md#anonymous-matchmaking-acceptance-boundaries) — identity axes, accepted normal/deadline/recovery sequence, and separate unobserved auth/cancellation/role-swap boundaries without repeat gates.
+
 ## Assault retry/receipt-phase evidence boundary (2026-10-11)
 
 - **2026-10-11 19_07 superseding saved-match boundary (Main/programmer handoff):** New Editor Host/Android Client matches show Coordinator/C2 zero failures and normal retry initialization, but both overall ENDs FAIL through invalid LegacyObservation attacker=-1/default-key admission into the Shadow diagnostic aggregate. Separate ResultPresentation EVIDENCE does not override overall FAIL or prove gameplay HP/text/VFX malfunction; exact per-tick originating unit/lookup failure remains unknown, not proven Inferno. Diagnostic scope/aggregation review is proposal-only OPEN. Prior00_46 had opposite roles, so new expiry/D0 cannot reproduce or prove resolution of the original Editor Client63 expiries; second Client suppressedNormal63 is not Expired63. No actual dead-abort/timeout retry case reproduced; local ROOT is not formal CrossAudit, counts are not exact payload/HP equality. Detailed evidence: `Assets/_Project/Docs/_Tasks/2026-10-08/10_55_assault-attack-timing-correction/Research.md`, “2026-10-11 19_07”. Preserve earlier history; no new implementation/build/Task/TC.
