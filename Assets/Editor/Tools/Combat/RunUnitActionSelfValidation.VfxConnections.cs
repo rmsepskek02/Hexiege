@@ -865,33 +865,68 @@ namespace Hexiege.Editor.Combat
             return true;
         }
 
+        // [2026-10-26 화상 VFX v2 연결] 화상 프리팹 경로.
+        //   v2 = 지금 실제 화상 프리셋이 쓰는 새 프리팹(몸 둘레 방출을 프리팹 스스로 한다 → 폭 맞춤·당김 꺼짐).
+        //   옛 프리팹 = 롤백용으로 남겨 둔 예전 화상 프리팹(가운데 한 점에서 Flame_Haze 1장 방출).
+        //     폭 맞춤 기능은 지금 어떤 실제 프리셋에서도 켜져 있지 않으므로, "기능 자체가 여전히 맞게 동작하는지"는
+        //     이 옛 프리팹 + 메모리에만 만든 시험용 프리셋(폭 맞춤 ON)으로 확인한다. 옛 프리팹을 지우면 이 검사가 실패하며,
+        //     그때는 폭 맞춤 fixture가 쓸 다른 "한 점 방출" 프리팹을 정해 이 경로를 바꿔야 한다.
+        private const string BurnV2PrefabPath = "Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_burn_v2.prefab";
+        private const string LegacyBurnPrefabPath = "Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_burn.prefab";
+
+        /// <summary>
+        /// 실제 화상 프리셋을 복제해 메모리에만 존재하는 시험용 프리셋을 만든다(에셋으로 저장하지 않음).
+        /// 복제(Instantiate)는 위치·회전·배율 보정 같은 직렬화 값을 그대로 가져오므로, 시험에 필요한 값만 리플렉션으로 바꾼다.
+        /// 호출한 쪽이 finally에서 DestroyImmediate로 반드시 지운다.
+        /// </summary>
+        private static EffectPreset CloneFixturePreset(EffectPreset source, GameObject prefab, bool widthFit, float viewPullRatio)
+        {
+            var clone = UnityEngine.Object.Instantiate(source);
+            clone.hideFlags = HideFlags.HideAndDontSave; // 씬·에셋에 남지 않게 숨김 + 저장 안 함
+            typeof(EffectPreset).GetField("_vfxPrefab", VfxFields).SetValue(clone, prefab);
+            typeof(EffectPreset).GetField("_widthFitEnabled", VfxFields).SetValue(clone, widthFit);
+            typeof(EffectPreset).GetField("_widthFitMaxCount", VfxFields).SetValue(clone, EffectPreset.DefaultWidthFitMaxCount);
+            typeof(EffectPreset).GetField("_viewPullRadiusRatio", VfxFields).SetValue(clone, viewPullRatio);
+            return clone;
+        }
+
         /// <summary>
         /// [2026-10-26 상태 이펙트 폭 맞춤] 화상 불꽃을 몸통 폭에 맞추는 기능을 확인한다.
-        ///   (1) 실제 프리셋 설정: 화상만 켜짐(상한 3), 독·힐은 꺼짐 — 사용자 결정 D1·D2. 결정이 바뀌면 이 줄도 함께 바꾼다.
+        ///   (1) 실제 프리셋 설정: 화상·독·힐 모두 꺼짐. 화상은 2026-10-26 v2 프리팹 연결 때 꺼졌다
+        ///       (v2는 프리팹이 몸 둘레 Circle 방출을 직접 하므로, 폭 맞춤이 그 Shape를 덮어쓰면 안 된다 — 사용자 승인).
+        ///       화상 프리셋이 실제 v2 프리팹을 가리키는지도 함께 본다. 결정이 바뀌면 이 줄도 함께 바꾼다.
         ///   (2) 순수 공식: 반올림(D3, 2.5 → 3) · 윤곽 안 반경(D4) · 상한(D2) · 잘못된 입력은 폭 맞춤 없음.
-        ///   (3) 실제 화상 프리팹: 넓은 대상 → 방출 켜진 시스템만 범위·개수가 공식대로, Burst·방출 꺼진 루트는 그대로,
-        ///       같은 대상 갱신은 재계산 없음, 자연 반환 뒤 원본 복원, 넓은 → 좁은/Identity 재사용 시 원본 그대로.
-        ///   (4) 실제 크기 표로 유닛별 결과를 로그에 남긴다(곰·탱크·대포수레·스트림·래빗) — 사용자 육안 확인과 대조용.
+        ///   (3) 시험용 프리셋(옛 화상 프리팹 + 폭 맞춤 ON·상한 3, 메모리에만 존재): 넓은 대상 → 방출 켜진 시스템만 범위·개수가 공식대로,
+        ///       Burst·방출 꺼진 루트는 그대로, 같은 대상 갱신은 재계산 없음, 자연 반환 뒤 원본 복원, 넓은 → 좁은/Identity 재사용 시 원본 그대로.
+        ///       (v2 연결 전에는 실제 화상 프리셋으로 하던 검사다. 기능 코드는 그대로 남아 있으므로 같은 조건으로 계속 확인한다.)
+        ///   (4) 실제 크기 표로 시험용 프리셋의 유닛별 결과를 로그에 남긴다 — 다시 켤 때의 참고값(실제 화면 값이 아님).
         ///   (5) 재생 실패 거부 · 강제 정리 경로 원복, 원복이 빠진 채 다음 재생이 시작돼도 먼저 원본으로 돌아감(이중 안전장치).
         ///   (6) 옵션이 꺼진 실제 독 프리셋: 넓은 대상이어도 모든 값이 원본 그대로.
+        ///   (7) 옵션이 꺼진 실제 화상 프리셋(v2): 넓은 대상이어도 v2가 직접 정한 Shape·개수가 원본 그대로.
         ///   힐(옵션 꺼짐)의 "넓은 대상이어도 그대로"는 기존 Bloom fixture(RunUnitActionSelfValidation.cs)에 덧붙였다.
         /// EditMode에서는 OnDisable이 자동으로 불리지 않으므로 기존 fixture처럼 리플렉션으로 직접 호출한다.
         /// </summary>
         private static void ValidateTimedDamageWidthFit(UnitEffectConfig units)
         {
-            var burn = units.GetTimedDamage(UnitType.InfernoSpirit);
+            // actualBurn = 게임이 실제로 쓰는 화상 프리셋(v2, 폭 맞춤 꺼짐).
+            // burn = 아래 (3)~(5)에서 폭 맞춤 기능을 시험하기 위한 메모리 전용 복제본(옛 프리팹 + 폭 맞춤 ON). try 직전에 만든다.
+            var actualBurn = units.GetTimedDamage(UnitType.InfernoSpirit);
             var poison = units.GetTimedDamage(UnitType.MushroomBomber);
             var heal = units.GetHeal(UnitType.BloomFairy);
-            Require(burn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
+            Require(actualBurn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
                 "Burn, poison and heal recipient presets exist for the width-fit fixture.");
 
-            // (1) 사용자 결정 D1(화상만 켬, 독·힐 현행 유지) · D2(상한 3)
-            Require(burn.WidthFitEnabled && burn.WidthFitMaxCount == EffectPreset.DefaultWidthFitMaxCount,
-                "Burn preset enables recipient width fit with max count 3 (user decision D1/D2, 2026-10-26).");
+            // (1) 실제 프리셋 설정 — 화상은 v2 연결로 꺼짐(2026-10-26), 독·힐은 D1대로 꺼짐.
+            //     경로 비교는 GUID로 연결된 프리팹이 실제로 v2 파일인지 확인한다(옛 프리팹으로 되돌아가 있으면 실패).
+            Require(AssetDatabase.GetAssetPath(actualBurn.VfxPrefab) == BurnV2PrefabPath,
+                "Burn preset uses the v2 burn prefab (2026-10-26). path=" + AssetDatabase.GetAssetPath(actualBurn.VfxPrefab));
+            Require(!actualBurn.WidthFitEnabled,
+                "Burn preset keeps width fit off — the v2 prefab spreads its own emission around the body (2026-10-26).");
             Require(!poison.WidthFitEnabled && !heal.WidthFitEnabled,
                 "Poison and heal presets keep width fit off (user decision D1 — current behavior preserved).");
 
             // (2) 순수 공식. 기대값은 Plan 1절 표의 계산과 같은 방식(불꽃 폭 = 0.55 × 키)으로 직접 적었다.
+            //     0.55는 옛 화상 프리팹 Flame_Haze의 시작 크기다. 프리팹을 읽지 않는 순수 계산 검사라 v2 연결과 무관하게 그대로 둔다.
             void Formula(float radius, float width, int cap, int expectCount, float expectRadius, string message)
             {
                 bool ok = VfxPoolItem.TryComputeWidthFit(radius, width, cap, out int n, out float r);
@@ -916,16 +951,27 @@ namespace Hexiege.Editor.Combat
                 && Mathf.Approximately(new RecipientFit(1f, Vector3.zero, .3f).SafeRadius, .3f),
                 "RecipientFit radius defaults to 0 (no width fit) and rejects invalid values.");
 
+            // 시험용 프리셋: 옛 화상 프리팹(롤백용으로 남김, 가운데 한 점 방출) + 폭 맞춤 ON·상한 3 + 당김 0.
+            //   예전 실제 화상 프리셋과 같은 조건이라 (3)~(5)의 기대값·의미가 v2 연결 전과 똑같다.
+            //   당김을 0으로 두는 이유: 이 검사는 파티클 모듈 값만 보며, 위치 당김은 ValidateRecipientViewPull이 따로 본다.
+            var legacyBurnPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LegacyBurnPrefabPath);
+            Require(legacyBurnPrefab != null,
+                "Legacy burn prefab (kept for rollback) exists for the width-fit feature fixture: " + LegacyBurnPrefabPath);
+            var burn = CloneFixturePreset(actualBurn, legacyBurnPrefab, true, 0f);
             var root = new GameObject("WidthFitFixture") { hideFlags = HideFlags.HideAndDontSave };
             var channel = new TimedDamageEffectChannel();
             try
             {
+                // 복제본 확인은 try 안에서 한다 — 실패해도 finally가 복제본을 지우게.
+                Require(burn.WidthFitEnabled && burn.WidthFitMaxCount == EffectPreset.DefaultWidthFitMaxCount
+                    && burn.VfxPrefab == legacyBurnPrefab && burn.ViewPullRadiusRatio == 0f,
+                    "Width-fit fixture preset enables width fit (max 3) on the legacy burn prefab with no camera pull.");
                 var pose = new GameObject("WidthFitPose") { hideFlags = HideFlags.HideAndDontSave };
                 pose.transform.SetParent(root.transform, false);
                 pose.transform.SetPositionAndRotation(new Vector3(2f, 0f, -1f), Quaternion.Euler(0f, 40f, 0f));
                 int nextUnit = 98100;
 
-                // ── (3) 실제 화상 프리팹 ──
+                // ── (3) 시험용 프리셋(옛 화상 프리팹 + 폭 맞춤 ON) ──
                 var instance = UnityEngine.Object.Instantiate(burn.VfxPrefab, root.transform);
                 instance.SetActive(false);
                 var item = instance.AddComponent<VfxPoolItem>();
@@ -987,7 +1033,7 @@ namespace Hexiege.Editor.Combat
                         "Flame outer edge stays inside the body outline (D4): " + ps.name);
                 }
                 Require(fitted > 0, "A Tank-sized recipient needs at least 2 burn flames on an emitting system "
-                    + "(if the burn prefab flame was resized, re-check the expected width-fit result).");
+                    + "(if the legacy burn prefab flame was resized, re-check the expected width-fit result).");
                 var widened = SnapshotWidthFitModules(systems);
                 wideState.Revision++; item.RefreshTimedDamage(item.DamageLease, wideState);
                 Require(SameWidthFitModules(SnapshotWidthFitModules(systems), widened),
@@ -1007,6 +1053,8 @@ namespace Hexiege.Editor.Combat
                 Require(returned == 3, "Narrow and identity burn plays return naturally.");
 
                 // ── (4) 실제 크기 표로 유닛별 결과 기록(통과 조건은 상한·원복만 — 표는 사용자가 다시 잴 수 있다) ──
+                //   [2026-10-26 v2 연결] 시험용 프리셋(옛 프리팹 + 폭 맞춤 ON) 기준 값이다. 실제 화상(v2)은 폭 맞춤이 꺼져 있어
+                //   게임 화면과는 다르다 — 로그 문구에 그 점을 적어 사용자가 실기 화면과 대조하다 헷갈리지 않게 한다.
                 string report = null;
                 foreach (var type in new[] { UnitType.Tank, UnitType.CannonCart, UnitType.BearGuard, UnitType.StreamSpirit, UnitType.RabbitTrickster })
                 {
@@ -1026,7 +1074,8 @@ namespace Hexiege.Editor.Combat
                     Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored), "Actual table play restores authored modules: " + type);
                 }
                 GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
-                    "화상 폭 맞춤 — 실제 크기 표 기준 유닛별 불꽃 개수@방출 반경(m). 1 = 예전과 같은 한 점 방출", "WidthFit=" + report);
+                    "폭 맞춤 기능 검사(시험용: 옛 화상 프리팹 + 폭 맞춤 ON. 실제 화상 v2는 꺼짐) — 실제 크기 표 기준 유닛별 불꽃 개수@방출 반경(m). "
+                    + "1 = 한 점 방출", "WidthFitFixture=" + report);
 
                 // ── (5) 재생 실패 거부 · 강제 정리 · 이중 안전장치 ──
                 PlayBurn(new RecipientFit(.521f, Vector3.zero, wideRadius));
@@ -1068,37 +1117,71 @@ namespace Hexiege.Editor.Combat
                 poisonItem.Return();
                 Require(poisonReturned == 1 && SameWidthFitModules(SnapshotWidthFitModules(poisonSystems), poisonAuthored),
                     "Width-fit-off poison natural return keeps authored modules.");
+
+                // ── (7) [2026-10-26 v2 연결] 옵션이 꺼진 실제 화상 프리셋(v2): 넓은 대상이어도 원본 그대로 ──
+                //   v2는 각 레이어(Flame_Tongues·Embers·Base_Glow·Smoke_Wisp)가 몸 둘레 Circle 방출 반경·개수를 프리팹에서 직접 정한다.
+                //   폭 맞춤이 켜져 있으면 방출이 켜진 레이어 전부의 Shape 반경·회전·개수를 덮어써 그 모양이 깨지므로,
+                //   "탱크 크기 대상에서도 한 값도 바뀌지 않는다"를 실제 프리셋·실제 프리팹으로 확인한다.
+                var v2Instance = UnityEngine.Object.Instantiate(actualBurn.VfxPrefab, root.transform);
+                v2Instance.SetActive(false);
+                var v2Item = v2Instance.AddComponent<VfxPoolItem>();
+                int v2Returned = 0; v2Item.Setup(actualBurn.VfxPrefab, _ => v2Returned++);
+                var v2Systems = v2Instance.GetComponentsInChildren<ParticleSystem>(true);
+                var v2Authored = SnapshotWidthFitModules(v2Systems);
+                v2Item.PlayTimedDamage(channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Burn, 3f), pose.transform, actualBurn, channel,
+                    new RecipientFit(.521f, Vector3.zero, wideRadius));
+                Require(SameWidthFitModules(SnapshotWidthFitModules(v2Systems), v2Authored),
+                    "Width-fit-off actual burn (v2) keeps every authored module even on a wide recipient.");
+                v2Item.StopTimedDamage(v2Item.DamageLease, "Expired");
+                foreach (var ps in v2Systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                v2Item.Return();
+                Require(v2Returned == 1 && SameWidthFitModules(SnapshotWidthFitModules(v2Systems), v2Authored),
+                    "Width-fit-off actual burn (v2) natural return keeps authored modules.");
             }
-            finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(burn); // 메모리 전용 시험용 프리셋 정리(에셋 아님)
+                UnityEngine.Object.DestroyImmediate(root);
+                channel.CloseVisuals("FixtureEnd");
+            }
         }
 
         /// <summary>
         /// [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기] (Plan _Tasks/2026-10-26/18_34_status-effect-width-fit 8-4 6번, 사용자 결정 D7-4)
         /// 상태 이펙트를 카메라 쪽으로 (몸통 반경 × 프리셋 비율)만큼 당기는 기능을 확인한다.
-        ///   (1) 실제 프리셋 설정: 화상만 비율 1.75, 독·힐은 0(꺼짐) — 사용자 결정 D7-2·D7-3. 결정이 바뀌면 이 줄도 함께 바꾼다.
+        ///   (1) 실제 프리셋 설정: 화상·독·힐 모두 0(꺼짐). 화상은 2026-10-26 v2 프리팹 연결 때 1.75 → 0으로 꺼졌다
+        ///       (뒤쪽 불꽃이 몸에 가려지는 차이가 "몸을 감싸는 느낌"을 만든다 — 당기면 사라진다. 사용자 승인). 독·힐은 D7-3대로 꺼짐.
+        ///       결정이 바뀌면 이 줄도 함께 바꾼다.
+        ///   [2026-10-26 v2 연결] 아래 (3)~(6)의 "화상"은 실제 화상 프리셋을 메모리에서 복제하고 비율만 1.75로 바꾼 시험용 프리셋이다
+        ///       (프리팹은 실제 화상 프리팹 v2 그대로). 당김 기능 코드는 남아 있으므로 v2 연결 전과 같은 조건으로 계속 확인한다.
+        ///       실제 화상 프리셋(꺼짐)이 위치를 바꾸지 않는지는 (7)에서 독과 함께 본다.
         ///   (2) 순수 공식: 당김 = 카메라 반대 방향 × 비율 × 반경. 비율·반경 0·NaN·무한대, 카메라 방향 0·NaN이면 당김 없음.
         ///   (3) 로그 값: 옵션 꺼짐 = null(독·힐 로그 불변) · 반경 없음 "NoRadius" · 카메라 없음 "NoCamera" · 정상 = 거리.
-        ///   (4) 실제 화상 프리팹 + 시험용 직교 카메라(55°): 위치 = 기존 공식 + 당김, 카메라 화면 기준 좌표(오른쪽·위쪽 성분)는
+        ///   (4) 시험용 화상 프리셋(실제 v2 프리팹 + 비율 1.75) + 시험용 직교 카메라(55°): 위치 = 기존 공식 + 당김, 카메라 화면 기준 좌표(오른쪽·위쪽 성분)는
         ///       당기기 전과 같다. 같은 대상 갱신·따라붙기·대상 회전 변경 뒤에도 당김 벡터·방향이 그대로다.
         ///   (5) 반경 0 fit(기존 2인자 fixture와 같은 값) → 기존 공식 그대로. 넓은 → 반경 0 / Identity 재사용 → 당김 0.
         ///   (6) 자연 반환 · 재생 실패 거부 · 강제 정리(OnDisable)에서 당김이 0으로 돌아온다. 카메라가 없으면 당김 0, 예외 없음.
-        ///   (7) 옵션이 꺼진 실제 독 프리셋: 반경·카메라가 있어도 위치가 기존 공식 그대로.
+        ///   (7) 옵션이 꺼진 실제 독 프리셋 · 실제 화상 프리셋(v2): 반경·카메라가 있어도 위치가 기존 공식 그대로.
         ///   (8) 힐 경로: 실제 힐 프리셋(꺼짐)은 당김 0. 시험용 복제 프리셋(비율 1.75, 메모리에만 존재)으로 힐 경로의 당김·원복을 확인.
         ///   (9) 실제 크기 표로 유닛별 당김 거리를 로그에 남긴다 — 사용자 육안 확인과 대조용(통과 조건 아님).
+        ///       [2026-10-26 v2 연결] 실제 화상 프리셋 기준이라 지금은 모든 유닛이 "Off"로 찍히는 것이 정상이다.
         /// 시험용 카메라는 Camera 컴포넌트를 꺼 둔 숨김 오브젝트라 에디터 화면에 아무것도 그리지 않는다.
         /// VfxPoolItem.ViewPullCameraOverride는 finally에서 반드시 null로 되돌린다(다른 검사가 실제 Camera.main을 쓰게).
         /// </summary>
         private static void ValidateRecipientViewPull(UnitEffectConfig units)
         {
-            var burn = units.GetTimedDamage(UnitType.InfernoSpirit);
+            // actualBurn = 게임이 실제로 쓰는 화상 프리셋(v2, 당김 꺼짐).
+            // burn = (3)~(6)에서 당김 기능을 시험하기 위한 메모리 전용 복제본(같은 v2 프리팹 + 비율 1.75). try 직전에 만든다.
+            var actualBurn = units.GetTimedDamage(UnitType.InfernoSpirit);
             var poison = units.GetTimedDamage(UnitType.MushroomBomber);
             var heal = units.GetHeal(UnitType.BloomFairy);
-            Require(burn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
+            Require(actualBurn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
                 "Burn, poison and heal recipient presets exist for the view-pull fixture.");
 
-            // (1) 사용자 결정 D7-2(화상 비율 1.75) · D7-3(독·힐은 구조만, 꺼짐)
-            Require(Mathf.Approximately(burn.ViewPullRadiusRatio, EffectPreset.RecommendedViewPullRadiusRatio),
-                "Burn preset pulls toward the camera by radius × 1.75 (user decision D7-2, 2026-10-26). ratio=" + burn.ViewPullRadiusRatio);
+            // (1) 실제 프리셋 설정 — 화상은 v2 연결로 꺼짐(2026-10-26), 독·힐은 D7-3대로 꺼짐.
+            Require(actualBurn.ViewPullRadiusRatio == 0f,
+                "Burn preset keeps the camera pull off — rear flames hidden by the body give the v2 wrap-around look (2026-10-26). ratio="
+                + actualBurn.ViewPullRadiusRatio);
             Require(poison.ViewPullRadiusRatio == 0f && heal.ViewPullRadiusRatio == 0f,
                 "Poison and heal presets keep the camera pull off (user decision D7-3 — current behavior preserved).");
 
@@ -1134,11 +1217,18 @@ namespace Hexiege.Editor.Combat
             Vector3 DamagePull(VfxPoolItem i) => (Vector3)damagePullField.GetValue(i);
             Vector3 BloomPull(VfxPoolItem i) => (Vector3)bloomPullField.GetValue(i);
 
+            // 시험용 화상 프리셋: 실제 화상 프리셋 복제 + 비율 1.75(옛 실제 값 = 권장값). 프리팹은 실제 v2 그대로 두고 폭 맞춤은 끈다
+            //   (당김은 transform 위치만 옮기므로 프리팹 모양과 무관하다. 폭 맞춤까지 켜면 이 검사가 볼 필요 없는 모듈 값이 바뀐다).
+            var burn = CloneFixturePreset(actualBurn, actualBurn.VfxPrefab, false, EffectPreset.RecommendedViewPullRadiusRatio);
             var root = new GameObject("ViewPullFixture") { hideFlags = HideFlags.HideAndDontSave };
             var channel = new TimedDamageEffectChannel();
             EffectPreset pulledHeal = null;
             try
             {
+                // 복제본 확인은 try 안에서 한다 — 실패해도 finally가 복제본을 지우게.
+                Require(Mathf.Approximately(burn.ViewPullRadiusRatio, EffectPreset.RecommendedViewPullRadiusRatio)
+                    && !burn.WidthFitEnabled && burn.VfxPrefab == actualBurn.VfxPrefab,
+                    "View-pull fixture preset pulls by radius × 1.75 on the actual burn prefab with width fit off.");
                 // 시험용 직교 카메라 — 실제 게임 카메라(Game.unity: 직교, X축 55°)와 같은 방향. 꺼 둔 컴포넌트라 아무것도 그리지 않는다.
                 var camGo = new GameObject("ViewPullFixtureCamera") { hideFlags = HideFlags.HideAndDontSave };
                 camGo.transform.SetParent(root.transform, false);
@@ -1153,6 +1243,8 @@ namespace Hexiege.Editor.Combat
                 var bearFit = new RecipientFit(.53f, new Vector3(0f, .01f, .02f), .22f);
                 Require(Resolve(poison, bearFit, out Vector3 offPull) == null && offPull == Vector3.zero,
                     "Pull-off preset (poison) adds no log text and no pull.");
+                Require(Resolve(actualBurn, bearFit, out Vector3 actualBurnPull) == null && actualBurnPull == Vector3.zero,
+                    "Pull-off actual burn preset (v2) adds no log text and no pull (no ViewPull= in the burn play log).");
                 Require(Resolve(burn, new RecipientFit(.53f, Vector3.zero), out Vector3 noRadiusPull) == "NoRadius" && noRadiusPull == Vector3.zero,
                     "Unknown body radius logs ViewPull=NoRadius and does not pull.");
                 string expectedBear = (burn.ViewPullRadiusRatio * .22f).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
@@ -1174,7 +1266,7 @@ namespace Hexiege.Editor.Combat
                 Vector3 BasePosition(EffectPreset preset, RecipientFit fit) => pose.transform.position
                     + pose.transform.rotation * (preset.LocalPositionOffset + fit.SafeFootOffset);
 
-                // ── (4) 실제 화상 프리팹 ──
+                // ── (4) 시험용 화상 프리셋(실제 v2 프리팹 + 비율 1.75) ──
                 var instance = UnityEngine.Object.Instantiate(burn.VfxPrefab, root.transform);
                 instance.SetActive(false);
                 var item = instance.AddComponent<VfxPoolItem>();
@@ -1260,6 +1352,13 @@ namespace Hexiege.Editor.Combat
                 foreach (var ps in poisonSystems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
                 poisonItem.Return();
                 Require(poisonReturned == 1, "Pull-off poison returns naturally.");
+                // [2026-10-26 v2 연결] 실제 화상 프리셋(당김 꺼짐): (4)와 같은 v2 인스턴스를 실제 프리셋으로 재생해 위치가 기존 공식 그대로인지 본다.
+                //   같은 프리팹이므로 풀 재사용과 같은 상황이며, 직전 시험용 재생의 당김이 남지 않는 것도 함께 확인된다.
+                fixtureCamera = cam;
+                item.PlayTimedDamage(channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Burn, 3f), pose.transform, actualBurn, channel, bearFit);
+                Require(DamagePull(item) == Vector3.zero && VfxApprox(instance.transform.position, BasePosition(actualBurn, bearFit)),
+                    "Pull-off actual burn (v2) keeps the old position even with a radius and a camera.");
+                DrainBurn();
 
                 // ── (8) 힐 경로 ──
                 var healChannel = new BloomHealEffectChannel();
@@ -1315,15 +1414,18 @@ namespace Hexiege.Editor.Combat
                 foreach (var type in new[] { UnitType.BearGuard, UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit,
                     UnitType.LittleKnight, UnitType.RabbitTrickster })
                 {
-                    string entry = type + ":" + (Resolve(burn, units.GetRecipientFit(type), out _) ?? "Off");
+                    // 실제 화상 프리셋 기준(지금은 당김 꺼짐 → 모든 유닛 "Off"가 정상).
+                    string entry = type + ":" + (Resolve(actualBurn, units.GetRecipientFit(type), out _) ?? "Off");
                     report = report == null ? entry : report + "|" + entry;
                 }
                 GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
-                    "화상 카메라 쪽 당김 — 실제 크기 표 기준 유닛별 당김 거리(m) = 몸통 반경 × 프리셋 비율", "ViewPull=" + report);
+                    "화상 카메라 쪽 당김 — 실제 화상 프리셋·크기 표 기준 유닛별 당김 거리(m) = 몸통 반경 × 프리셋 비율. Off = 꺼짐(v2 연결 후 정상)",
+                    "ViewPull=" + report);
             }
             finally
             {
                 VfxPoolItem.ViewPullCameraOverride = null;
+                UnityEngine.Object.DestroyImmediate(burn); // 메모리 전용 시험용 화상 프리셋 정리(에셋 아님)
                 if (pulledHeal != null) UnityEngine.Object.DestroyImmediate(pulledHeal);
                 UnityEngine.Object.DestroyImmediate(root);
                 channel.CloseVisuals("FixtureEnd");

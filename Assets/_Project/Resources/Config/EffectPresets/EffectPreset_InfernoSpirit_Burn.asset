@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42d2b12a396127a48a807b6549418404, type: 3}
   m_Name: EffectPreset_InfernoSpirit_Burn
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
-  _vfxPrefab: {fileID: 7340812410752487392, guid: 32b8d45a8ebc4984485a467f6b7cbda3, type: 3}
+  _vfxPrefab: {fileID: 5117097879088260611, guid: fcdce88228c7b2d41b8cc869e75a5344, type: 3}
   _localPositionOffset: {x: 0, y: 0, z: 0}
   _eulerRotationOffset: {x: 0, y: 0, z: 0}
   _scaleMultiplier: {x: 1, y: 1, z: 1}
   _forwardTravelDistance: 0
   _forwardTravelDuration: 0
-  _widthFitEnabled: 1
+  _widthFitEnabled: 0
   _widthFitMaxCount: 3
-  _viewPullRadiusRatio: 1.75
+  _viewPullRadiusRatio: 0
