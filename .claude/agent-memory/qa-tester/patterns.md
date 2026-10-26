@@ -154,6 +154,25 @@ Programmer-side details: `.claude/agent-memory/game-programmer/vfx-presentation.
   for that caster only. Data values committed to the branch may lag the user's local re-measure/tuning: say which
   revision the numbers came from.
 
+## Server-authoritative projectile checks (2026-10-20~26)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-19/13_30_server-authoritative-projectile/Research.md` §12~17.
+Programmer-side model: `.claude/agent-memory/game-programmer/vfx-presentation.md` §9.
+
+- **Host can never show a presentation lead.** Host/single draw with 0 delay, a pure Client with −0.10 s on a clock that already
+  lags the result. "Looks fine on the Editor Host" is not evidence; test the Client device and every channel separately:
+  number, hit VFX, death presentation (fall · death VFX/SFX · removal), DoT VFX start.
+- **A "damage before the hit" report may not be the number.** Stage D numbers were already held (immediate 0); the visible early
+  event was the lethal target's death. For kill shots check death-hold `deferred = atImpact`, `deathMinusImpact` 0, and
+  cap / forced / discarded 0; measure leads on one device clock.
+- **One-shot kills hide DoT.** A target killed by the direct hit never gets the burn, so DoT visibility needs a survivor
+  (stage D-2 only BearGuard showed burn). Paths not seen in a run (non-projectile immediate death, rematch discard, single,
+  device = Host, the other projectile units) stay unconfirmed — list them, do not infer them.
+- **Regression suite results are a Console check that RuntimeLog does not record.** Without the user's report it is "not
+  reported", never PASS; log-normal + visual-normal alone does not make the stage a user-test PASS.
+- **Check what the archive actually contains.** A ZIP can re-include an earlier log (same size/SHA256 as the prior receipt) or
+  an old device log when logcat was not saved before zipping; identify the analysed file by hash and session time.
+
 ## Quaternion fixture equality and suite acceptance
 
 - Default zero Quaternion can be unchanged while Unity `==` returns false. For metadata immutability, use exact `Equals` and check zero/identity plus copied/modified components; preserve lease assertions independently.

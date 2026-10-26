@@ -128,7 +128,9 @@
   3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」,
   and (§8, 2026-10-19) charge units: clip-event detection, charge marker = lease check-only (consuming it kills the
   multiplayer projectile), launch SFX at the tracer, cancel-stop placement excluding the normal revision commit.
-  🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX.**
+  (§9, 2026-10-26) server-authoritative projectiles: impact time fixed at launch, single HP writer, per-unit switch token +
+  schema bump, Client −0.10 s / Host 0 display clock, impact hold + fallback point, death ghost / burn hold capped 0.3 s.
+  🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX / projectile presentation.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

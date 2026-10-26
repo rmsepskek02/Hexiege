@@ -245,7 +245,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 | `Tools/Combat/RunUnitActionSelfValidation.cs` | 전투 전체 검사·Bloom 순수 검증. `Hexiege/Combat/Run Full Regression Suite` |
 | `Tools/Combat/RunUnitRootPoseCrossAudit.cs` | `Hexiege/Combat/Logs/Analyze Latest Root Pose` 및 `Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit` |
 
-Action의 VfxConnections partial·Authoritative·TorrentProduction은 검사 내부 의존으로만 남긴다. 과거 배치·최종 삭제·검증 경계는 [도구 정리 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-workflow-tools-01)과 [기존 Task](_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다. 도구 존재·정적 검사를 실제 컴파일/메뉴/실기 PASS로 보고하지 않는다.
+Action의 VfxConnections·ServerProjectiles·ProjectileDeathHold partial·Authoritative·TorrentProduction은 검사 내부 의존으로만 남긴다. *(2026-10-26 갱신: 서버 권위 투사체 회귀 검증 partial 2개 — ServerProjectiles(`d09cc4a9`)·ProjectileDeathHold(`fb77548c`) — 를 목록에 반영)* 과거 배치·최종 삭제·검증 경계는 [도구 정리 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-workflow-tools-01)과 [기존 Task](_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다. 도구 존재·정적 검사를 실제 컴파일/메뉴/실기 PASS로 보고하지 않는다.
 
 ### [5-3] QA 요청
 - qa-tester 에이전트에게 Testcase.md와 함께 테스트 요청

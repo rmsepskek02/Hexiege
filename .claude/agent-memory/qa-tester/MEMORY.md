@@ -2,6 +2,8 @@
 
 - [UI layout and scoped acceptance](patterns.md#ui-layout-and-scoped-acceptance) — distinguish source inset/content geometry, native preview paging, user acceptance and deferred new-height/build evidence.
 
+- [Server-authoritative projectile checks](patterns.md#server-authoritative-projectile-checks-2026-10-2026) — Host 0-delay masks Client leads, split number/hit/death/DoT channels, death-hold metrics, unreported suite ≠ PASS, verify archived log identity by hash.
+
 - [Anonymous matchmaking acceptance boundaries](patterns.md#anonymous-matchmaking-acceptance-boundaries) — identity axes, accepted normal/deadline/recovery sequence, and separate unobserved auth/cancellation/role-swap boundaries without repeat gates.
 
 ## Assault retry/receipt-phase evidence boundary (2026-10-11)
