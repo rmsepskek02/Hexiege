@@ -103,8 +103,8 @@ namespace Hexiege.EditorTools
         /// 기본값을 30일로 넉넉히 잡은 이유:
         ///   지워진 로그는 복구되지 않는다. 기본값이 공격적이면
         ///   "확인 버튼을 습관적으로 누르다가 어제 로그를 날리는" 사고가 난다.
-        ///   로그는 텍스트라 용량이 작으므로(LogRules.md 1.10 실측 약 54KB/파일)
-        ///   오래 남겨 두는 쪽의 비용이 거의 없다.
+        ///   과거 측정 예시는 약 54KB/파일이며, 실제 용량은 기록량과 보관 파일 수에 따라 달라진다.
+        ///   이 예시를 현재 로그의 크기나 장기 보관 비용으로 일반화하지 않는다.
         /// </summary>
         private const int DefaultRetentionDays = 30;
 
@@ -287,10 +287,10 @@ namespace Hexiege.EditorTools
             {
                 EditorUtility.DisplayDialog(
                     DialogTitle,
-                    "로그를 저장할 폴더를 만들지 못했습니다.\n\n" +
+                    "로그를 저장할 경로를 준비하지 못했습니다.\n\n" +
                     $"경로: {folderAbsolute}\n" +
                     $"원인: {e.Message}\n\n" +
-                    "폴더 쓰기 권한이 있는지, 경로가 다른 프로그램에 잠겨 있지 않은지 확인하세요.",
+                    "폴더 쓰기 권한과 경로 잠금 여부를 확인하세요. 같은 분의 파일 이름이 모두 사용 중이면 다음 분에 다시 저장하세요.",
                     "확인");
                 return;
             }
@@ -728,8 +728,8 @@ namespace Hexiege.EditorTools
             if (skippedCount > 0)
                 msg.AppendLine($"(이름이 날짜 형식이 아닌 폴더 {skippedCount}개는 건드리지 않습니다)");
             msg.AppendLine();
-            msg.AppendLine("⚠️ 공유하려고 커밋해 둔 로그 파일이 이 안에 있다면 함께 사라집니다.");
-            msg.AppendLine("   남겨야 할 로그가 있는지 목록을 확인한 뒤 진행하세요.");
+            msg.AppendLine("⚠️ 보관 대상으로 선택한 로그는 private Release ZIP 보관과 전체 다운로드 검증 후에도");
+            msg.AppendLine("   대상별 사용자 삭제 승인이 필요합니다. 조건 충족 여부와 삭제 목록을 확인한 뒤 진행하세요.");
 
             return EditorUtility.DisplayDialog(DialogTitle, msg.ToString(), "삭제", "취소");
         }
@@ -1355,6 +1355,13 @@ namespace Hexiege.EditorTools
             {
                 candidate = Path.Combine(folder, $"{baseName}_{index}{extension}");
                 index++;
+            }
+
+            // 번호 상한까지 모두 사용 중이면 기존 파일 경로를 반환하지 않고 저장을 중단한다.
+            if (File.Exists(candidate))
+            {
+                throw new IOException(
+                    "로그 파일 이름이 기본 이름부터 _999까지 모두 사용 중입니다. 기존 파일을 덮어쓰지 않도록 저장을 중단합니다.");
             }
 
             return candidate;

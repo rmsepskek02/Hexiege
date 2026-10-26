@@ -15,6 +15,9 @@
 // ============================================================================
 
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
@@ -25,6 +28,11 @@ namespace Hexiege.Bootstrap
 {
     public partial class GameBootstrapper
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _eagerRepathProfilerMarker = new ProfilerMarker("Hexiege.Bootstrap.RepathAllAliveUnits");
+#endif
         // ====================================================================
         // 네트워크 게임 진입점
         // ====================================================================
@@ -96,6 +104,10 @@ namespace Hexiege.Bootstrap
         // eager 경로 재계산 트리거 설정
         // ====================================================================
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringRepathCalls, _refactoringRepathBinds, _refactoringRepathReceipts;
+#endif
+
         /// <summary>
         /// 건물 배치 / 건물 사망 이벤트를 구독하여
         /// 살아있는 모든 유닛에게 OnPathInvalidated() 호출 → 동일 destination으로
@@ -115,12 +127,33 @@ namespace Hexiege.Bootstrap
                 .Subscribe(_ => RepathAllAliveUnits())
                 .AddTo(_eagerRepathSubscriptions);
 
-            // 건물 사망만 walkable에 영향 → 그때만 재계산.
-            // 유닛 사망(OnUnitDied)은 walkable과 무관하므로 구독 대상이 아니다.
-            // OnBuildingDied는 건물 전용 강타입 이벤트라 별도 캐스트 분기가 필요 없다.
-            GameEvents.OnBuildingDied
-                .Subscribe(_ => RepathAllAliveUnits())
+            // 사망 콜백은 아직 등록된 건물을 조회할 수 있어야 한다. 타일과 건물
+            // 인덱스의 실제 제거가 끝난 뒤에만 최신 walkability로 재경로를 요청한다.
+            // FlowFieldService의 캐시 무효화 구독은 맵 초기화 시 이 구독보다 먼저 설치된다.
+            GameEvents.OnBuildingRemoved
+                .Subscribe(e =>
+                {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    if (_refactoringRepathReceipts < 16)
+                    {
+                        _refactoringRepathReceipts++;
+                        bool registered = e.Building != null && _buildingPlacement != null
+                            && _buildingPlacement.GetBuilding(e.Building.Id) != null;
+                        var tile = e.Building != null ? _grid?.GetTile(e.Building.Position) : null;
+                        bool occupied = tile?.HasBuilding == true;
+                        GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[REFACTOR-VERIFY]",
+                            $"Generation=refactor-verify-v1, Case=PATH, Status=EVIDENCE, Event=removed-before-repath, Building={e.Building?.Id}, RegistryReady={_buildingPlacement != null}, TileExists={tile != null}, Registered={registered}, Occupied={occupied}, Revision={_flowFieldService?.WalkabilityRevision}, Instance={GetInstanceID()}");
+                    }
+#endif
+                    RepathAllAliveUnits();
+                })
                 .AddTo(_eagerRepathSubscriptions);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringRepathBinds < int.MaxValue) _refactoringRepathBinds++;
+            if (_refactoringRepathBinds <= 8)
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=BOOTSTRAP, Status=EVIDENCE, Event=bind, Bind={_refactoringRepathBinds}, Subscriptions={_eagerRepathSubscriptions.Count}, Instance={GetInstanceID()}");
+#endif
         }
 
         /// <summary>
@@ -129,6 +162,12 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void RepathAllAliveUnits()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var eagerRepathSample = _eagerRepathProfilerMarker.Auto();
+#endif
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringRepathCalls < int.MaxValue) _refactoringRepathCalls++;
+#endif
             // 서버 가드 — 싱글(IsNetworkActive==false) 또는 Host(IsNetworkServer==true) 통과.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
             if (_unitSpawn == null || _unitFactory == null) return;

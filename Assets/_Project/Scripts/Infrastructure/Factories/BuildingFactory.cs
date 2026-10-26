@@ -15,7 +15,7 @@
 //
 // Inspector 설정:
 //   - 종족별 프리팹 세트 6개: Human/Spirit/Transcendence × Blue/Red
-//   - 각 세트에 Castle, Barracks, MiningPost 3개 프리팹
+//   - 각 종족 리스트에 건물 타입별 Blue/Red 프리팹을 연결
 //   - MiningPost: 종족별 프리팹 (Human은 Blue/Red 동일, Spirit/Transcendence는 팀별 구분)
 //   - BuildingParent: [World]/Buildings Transform
 //
@@ -31,7 +31,7 @@ using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
-    public class BuildingFactory : MonoBehaviour
+    public class BuildingFactory : MonoBehaviour, IBuildingObjectProvider
     {
         // ====================================================================
         // Inspector에서 설정할 필드
@@ -159,7 +159,7 @@ namespace Hexiege.Infrastructure
             Vector3 worldPos = HexMetrics.HexToWorld(data.Position);
 
             // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
-            // Y 오프셋은 반전 이후에 적용해야 Blue/Red 양쪽에서 방향이 동일함
+            // ViewConverter는 Y 높이를 유지하며, 변환 결과에 건물 높이 오프셋을 더한다.
             Vector3 viewPos = ViewConverter.ToView(worldPos);
             viewPos.y += _buildingYOffset;
 

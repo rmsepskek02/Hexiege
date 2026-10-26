@@ -85,6 +85,8 @@ no git needed (CLAUDE.md rule 5 forbids git anyway).
 
 ## 🔴 Known limitation — 33 rules are invisible to the checker (UNRESOLVED)
 
+> **Current status (2026-10-24):** The 2026-08-25 limitation below is historical. The current `parse_rule_docs()` registers every rule document, and `RULE_ID`/`RE_DEFINITION` support numeric, subnumber and letter IDs. The current check includes Map, RandomMap and Upgrade definitions; its latest scope output and `Assets/_Project/Docs/WORKFLOW.md` [11] govern coverage. This supersedes the historical unresolved status only; it does not certify gameplay or implementation correctness.
+
 Confirmed by reading the code on 2026-08-25. **No code was changed.**
 
 `parse_rule_docs()` recognizes a rule definition **only in bold form** `**규칙 N. 제목**`:

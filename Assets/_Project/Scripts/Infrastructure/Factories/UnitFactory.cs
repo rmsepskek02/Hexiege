@@ -197,12 +197,12 @@ namespace Hexiege.Infrastructure
             // 유닛의 헥스 좌표 → 도메인 월드 좌표 변환 (Y 오프셋 미포함)
             Vector3 worldPos = HexMetrics.HexToWorld(unitData.Position);
 
-            // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 Y 반전)
+            // 도메인 좌표 → 뷰 좌표 변환 (네트워크 유닛은 도메인 좌표, 싱글플레이는 ViewConverter 적용)
             Vector3 viewPos = NetworkContext.IsNetworkActive
                 ? worldPos
                 : ViewConverter.ToView(worldPos);
 
-            // ToView 이후에 Y 오프셋 적용 — ToView 이전에 적용하면 Red팀에서 오프셋 방향이 반전됨
+            // 뷰 좌표에 유닛 높이 오프셋 적용 — ViewConverter는 XZ만 반전하고 Y 높이는 유지함
             viewPos.y += HexMetrics.UnitYOffset;
 
             // 프리팹 인스턴스 생성.

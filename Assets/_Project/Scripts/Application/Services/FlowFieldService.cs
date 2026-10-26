@@ -27,7 +27,7 @@
 // 이벤트 구독:
 //   - GameEvents.OnBuildingPlaced  → InvalidateAll
 //       건물 배치로 walkable이 false로 바뀔 수 있어 기존 경로가 부정확해짐.
-//   - GameEvents.OnBuildingDied → InvalidateAll
+//   - GameEvents.OnBuildingRemoved → InvalidateAll
 //       건물 파괴로 walkable이 true로 바뀌면 더 짧은 경로가 생길 수 있음.
 //   유닛 사망/이동은 walkable에 영향 없으므로 OnUnitDied는 구독하지 않는다.
 //
@@ -81,10 +81,10 @@ namespace Hexiege.Application
                 .Subscribe(_ => InvalidateAll())
                 .AddTo(_subscriptions);
 
-            // 건물 사망만 walkable에 영향을 주므로 OnBuildingDied만 구독한다.
-            // 유닛 사망(OnUnitDied)은 walkable과 무관 → 구독하지 않음.
-            // 건물 전용 강타입 이벤트라 BuildingData 캐스트 분기가 필요 없다.
-            GameEvents.OnBuildingDied
+            // 사망 이벤트 도중에는 건물이 아직 타일을 막고 있다. 실제 제거가 끝난
+            // 통지를 받아야 이후 eager repath가 최신 지형의 캐시를 계산할 수 있다.
+            // 유닛 사망은 walkable을 바꾸지 않으므로 구독하지 않는다.
+            GameEvents.OnBuildingRemoved
                 .Subscribe(_ => InvalidateAll())
                 .AddTo(_subscriptions);
         }

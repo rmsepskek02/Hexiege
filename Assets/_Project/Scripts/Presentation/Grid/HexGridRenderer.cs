@@ -78,6 +78,9 @@ namespace Hexiege.Presentation
         // List에서 Dictionary로 변경함.
         private readonly Dictionary<HexCoord, GameObject> _goldMineObjects = new Dictionary<HexCoord, GameObject>();
 
+        // 재경기로 자식만 다시 만들어도 렌더러는 유지되므로, 금광 이벤트는 수명 동안 한 번만 구독한다.
+        private bool _goldMineEventsSubscribed;
+
         /// <summary>
         /// 생성된 타일 View 딕셔너리 (읽기 전용).
         /// ⚠️ TileKind.Blocked 좌표는 타일 오브젝트를 만들지 않으므로 여기에 들어오지 않는다.
@@ -518,6 +521,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void SubscribeGoldMineEvents()
         {
+            if (_goldMineEventsSubscribed) return;
+
             // (a) 건물 배치 시 → 해당 좌표의 금광 오브젝트 숨김
             GameEvents.OnBuildingPlaced
                 .Subscribe(e => HideGoldMine(e.Building.Position))
@@ -535,6 +540,8 @@ namespace Hexiege.Presentation
                     }
                 })
                 .AddTo(this);
+
+            _goldMineEventsSubscribed = true;
         }
 
         /// <summary>

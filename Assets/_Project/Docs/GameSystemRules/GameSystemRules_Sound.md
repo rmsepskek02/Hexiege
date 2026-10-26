@@ -57,10 +57,8 @@ BGM은 아래 시점에 전환된다.
 | GameEvents.OnGameStarted | Battle BGM | 크로스페이드 |
 | GameEvents.OnGameEnd (싱글/멀티 공통) | 게임종료 BGM | 크로스페이드 |
 
-> ⚠️ **미결 — Splash BGM**: Splash 화면을 Login 씬 내부에서 처리할지 별도 씬으로 분리할지 확정되지 않음.
-> - Login 씬 내부 처리 시: Login BGM이 그대로 재생되므로 추가 규칙 불필요.
-> - 별도 Splash 씬 사용 시: 이 표에 `SceneManager.activeSceneChanged → "Splash"` 행을 추가하고 Splash BGM 클립을 SoundConfig에 추가해야 함.
-> 확정 후 이 노트를 삭제하고 규칙을 업데이트한다.
+> 현재 Splash는 Login 씬 내부의 `SplashOverlay`로 처리하며 Login BGM을 사용한다.
+> 향후 별도 Splash 씬을 도입할 경우 씬 전환 트리거와 전용 BGM 여부는 별도로 설계한다.
 
 **규칙 7. BGM 초기 재생 방식**
 `SceneManager.activeSceneChanged`는 씬이 변경될 때만 발생하므로, AudioManager가 처음 초기화되는 씬의 BGM은 이벤트로 트리거할 수 없다.
@@ -131,7 +129,7 @@ UI SFX 엔트리(UiSoundEntry)도 동일하게 `volume` 필드를 포함한다.
 **규칙 17. AudioMixerGroup 연결**
 BGM AudioSource(A/B 채널 모두)는 BGM AudioMixerGroup에, SFX 풀에서 생성하는 모든 AudioSource는 SFX AudioMixerGroup에 연결해야 한다.
 MixerGroup이 연결되지 않으면 해당 채널의 볼륨 제어가 적용되지 않는다.
-`Initialize()` 내에서 `_bgmGroup` 또는 `_sfxGroup`이 null이면 각각 `Debug.LogWarning`으로 경고한다.
+`Initialize()` 내에서 `_bgmGroup` 또는 `_sfxGroup`이 null이면 각각 `GameLog.Dev.Warn`으로 개발 경고를 기록한다.
 
 ---
 

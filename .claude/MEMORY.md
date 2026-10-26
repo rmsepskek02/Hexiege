@@ -285,7 +285,7 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
 
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)
-- 엔진: Unity 6000.0.x (URP), C# 9.0, NGO 2.9.2
+- 엔진: Unity 6000.3.5f2 (URP), C# 9.0, NGO 2.9.2
 - 씬: Login.unity (Build Index 0), Lobby.unity (Build Index 1), Game.unity (Build Index 2)
 - 레이어: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
 

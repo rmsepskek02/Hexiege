@@ -1,0 +1,150 @@
+{
+  "schema": "hexiege-optimization-handoff-v1",
+  "prepared_date_kst": "2026-10-26",
+  "base_commit": "7c00f768d5c9f0ebb9583e93e4f6a4a45397f306",
+  "base_branch_at_preparation": "work",
+  "base_commit_publication": "pushed; verify remote in receiving environment",
+  "unity_version": "6000.3.5f2",
+  "target_fps": 30,
+  "minimum_android_device": "not specified",
+  "optimized_code_publication_at_preparation": {
+    "committed": false,
+    "pushed": false,
+    "note": "The five optimized source files exist in the current working tree; a fresh checkout of the base commit does not contain them."
+  },
+  "file_encoding": "UTF-8, LF; hashes compare exact bytes",
+  "apply_root": "repository root of a separate clean checkout of base_commit",
+  "patches": [
+    {
+      "order": 1,
+      "file": "marker-only.patch",
+      "bytes": 11082,
+      "sha256": "dc105f4b8822a9b1c3cd10545d22a478fbed241d9c037e0f3b8da27644348d0f",
+      "input": "base_commit",
+      "output": "instrumented-before"
+    },
+    {
+      "order": 2,
+      "file": "buffer-only.patch",
+      "bytes": 54821,
+      "sha256": "8841457706481a83cafeae089769419f707fd918dff9a15c3c5bd4a326c9f1c1",
+      "input": "instrumented-before",
+      "output": "optimized-after"
+    }
+  ],
+  "files": [
+    {
+      "path": "Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs",
+      "base_sha256": "83378dbd5431c7de2f5bd56f9b3d69f4c4e46036875e8c8d160a1ac959d8e6b9",
+      "marker_only_sha256": "9d8f21a02b2c7449a6644dfe6e8d51f1f1d42f1777e506ec39b90d975a9ba959",
+      "optimized_sha256": "9d8f21a02b2c7449a6644dfe6e8d51f1f1d42f1777e506ec39b90d975a9ba959"
+    },
+    {
+      "path": "Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs",
+      "base_sha256": "e0f64055d7e1bb1437f329736d9247ba58971207787840024827c45c214f81d8",
+      "marker_only_sha256": "f85158428f5450c72c0a8b8ed67872dce8d93992b909bd25a3542ba9dc27e49f",
+      "optimized_sha256": "b9434eecda2f33fcd572b5dbf4292160a3ced02c31cd986e955154d87c1e3fae"
+    },
+    {
+      "path": "Assets/_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs",
+      "base_sha256": "a237f279fe2ca7b44d5fcdfd8b49c3d9e2184ddcd7e35900a9f77a6ef5fd4a6d",
+      "marker_only_sha256": "70d8629d49bdcb43b9c90dcfdaa30fc949737e5a4212151d61166657f71f857d",
+      "optimized_sha256": "70d8629d49bdcb43b9c90dcfdaa30fc949737e5a4212151d61166657f71f857d"
+    },
+    {
+      "path": "Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs",
+      "base_sha256": "0b7cb53170f6ca43a3dc1de5bfa8e9f8ecdc644a60306b605db268e576b5e093",
+      "marker_only_sha256": "ad3f5cadf3ffb3246a54920b3169eb24d83cf15167ff26486be34f3278f507d1",
+      "optimized_sha256": "ad3f5cadf3ffb3246a54920b3169eb24d83cf15167ff26486be34f3278f507d1"
+    },
+    {
+      "path": "Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs",
+      "base_sha256": "e41341b2f71be3dee4280a3924ae251ac843ad1e3198694b47e736aeedd1756a",
+      "marker_only_sha256": "1befab6c3a6276a9ebbaba1c3ffb68429c83f9346c2d6116d05466fa279acd68",
+      "optimized_sha256": "1befab6c3a6276a9ebbaba1c3ffb68429c83f9346c2d6116d05466fa279acd68"
+    }
+  ],
+  "markers": [
+    "Hexiege.NetworkCombat.TickCombat",
+    "Hexiege.NetworkCombat.TargetQueries",
+    "Hexiege.NetworkCombat.TickProjectiles",
+    "Hexiege.Economy.TickIncome",
+    "Hexiege.UnitView.ShouldEngage",
+    "Hexiege.UnitView.ShouldEngageAt",
+    "Hexiege.ProjectileView.Update",
+    "Hexiege.Bootstrap.RepathAllAliveUnits"
+  ],
+  "performance_comparison_roles": {
+    "android": "Host",
+    "editor": "Client"
+  },
+  "functional_controlled_menu_roles": {
+    "android": "Client",
+    "editor": "Host"
+  },
+  "evidence_status": {
+    "source_static_review": "completed; no claim of native execution",
+    "unity_compile": "NOT_RUN for this optimization bundle",
+    "android_build_and_ilpp": "NOT_RUN for this optimization bundle",
+    "profiler_before_capture": "NOT_COLLECTED",
+    "profiler_after_capture": "NOT_COLLECTED",
+    "functional_regression_after_optimization": "NOT_RUN",
+    "measured_fps_improvement": null,
+    "zero_allocation_per_frame_claim": false,
+    "total_ram_reduction_claim": false
+  },
+  "prior_user_acceptance": {
+    "previous_compile_and_general_play": "retain acceptance only for the user-observed revision and scope",
+    "pistoleer_latest_single_attempt": "no visible direction error; original cause is unresolved"
+  },
+  "reconstruction_rules": [
+    "Never reset, clean, overwrite or reverse patches in an active working tree.",
+    "Apply in a separate clean checkout matching base_commit; use patch order 1 then 2.",
+    "Instrumented before is base_commit plus patch 1; base_commit itself contains no markers.",
+    "Do not apply either patch again to files already matching the optimized hashes.",
+    "All other source, asset and build settings must match between before and after captures."
+  ],
+  "instrumented_baseline_commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+  "instrumented_baseline_publication_at_update": "published; included in verified main/work history",
+  "preferred_reconstruction": {
+    "before": {
+      "commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+      "patches": []
+    },
+    "after": {
+      "commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+      "patches": []
+    },
+    "fallback_before": {
+      "commit": "7c00f768d5c9f0ebb9583e93e4f6a4a45397f306",
+      "patches": [
+        "marker-only.patch"
+      ]
+    },
+    "fallback_after": {
+      "commit": "7c00f768d5c9f0ebb9583e93e4f6a4a45397f306",
+      "patches": [
+        "marker-only.patch",
+        "buffer-only.patch"
+      ]
+    },
+    "after_from_instrumented_baseline": {
+      "commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+      "patches": [
+        "buffer-only.patch"
+      ]
+    }
+  },
+  "optimized_code_commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+  "publication_confirmation": {
+    "date_kst": "2026-10-26",
+    "committed": true,
+    "pushed": true,
+    "optimized_code_commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "instrumented_baseline_commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+    "main_head_at_confirmation": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "work_head_at_confirmation": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "verification": "Main agent verified both remote refs with git ls-remote; document agent verified all five source hashes at both code commits.",
+    "note": "Later documentation-only commits can advance HEAD; these are code reference commits, not a promised final documentation HEAD."
+  }
+}

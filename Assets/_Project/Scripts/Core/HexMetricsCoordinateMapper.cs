@@ -46,8 +46,8 @@ namespace Hexiege.Core
 
         /// <summary>
         /// 뷰 좌표 → 도메인 좌표 정규화. ViewConverter.FromView 위임.
-        /// Red 팀이면 내부적으로 X축 반전이 적용된다 — 호출자(Application)는
-        /// 반전 여부를 알 필요 없이 "도메인 기준 좌표"로만 다루면 된다.
+        /// Red 팀이면 맵 중심 기준으로 XZ 평면을 180도 반전하며 Y 높이는 유지한다.
+        /// 호출자(Application)는 반전 여부를 알 필요 없이 "도메인 기준 좌표"로만 다루면 된다.
         /// </summary>
         public Vector3 NormalizeToDomainPosition(Vector3 viewPos)
             => ViewConverter.FromView(viewPos);

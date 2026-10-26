@@ -38,7 +38,7 @@
 | SDK | 역할 |
 |-----|------|
 | Firebase Authentication SDK | 로그인 시스템 전체 (계정 생성, 인증, 세션 관리) |
-| Google Play Games Plugin for Unity | Google 로그인 시 Google idToken 발급 |
+| Google Play Games Plugin for Unity | Google 사용자 인증 및 Firebase 인증에 사용할 Server Auth Code 발급 |
 
 현재 프로젝트의 SDK 로컬 Import/제외 방침은 유지하며 기준 SDK는 Firebase Unity13.11.0·GooglePlayGames2.1.0이다. SDK 존재는 Import 자체로 판단하고 별도 Firebase 컴파일 심볼 게이트를 두지 않는다. Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`을 참조한다. SDK/EDM 버전 관리의 후속 결정과 초기화 실패의 현재 상태는 [ROADMAP](ROADMAP.md)·[PROJECT_STATUS](PROJECT_STATUS.md), 과거 stub 제거·커밋·관측 경위는 [이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-sdk-receipt)을 따른다.
 
@@ -46,8 +46,8 @@
 
 | 레이어 | 구성 요소 |
 |--------|-----------|
-| Infrastructure | FirebaseAuthService (신규), UnityServicesInitializer (수정) |
-| Application | LoginUseCase, AccountLinkUseCase (신규) |
+| Infrastructure | FirebaseAuthService, UgsAuthenticationService, UnityServicesInitializer |
+| Application | LoginUseCase, AccountLinkUseCase, IAuthenticationService, IUgsAuthenticationService, AuthErrorReason, AuthException |
 | Presentation | 로그인 선택 View, 이메일 로그인 View, 회원가입 View, 비밀번호 재설정 View, 계정 연동 View |
 | Bootstrap | LoginBootstrapper (신규, Login 씬 전용) |
 
@@ -80,7 +80,7 @@ UGS SignInAnonymouslyAsync() → UGS PlayerId 발급 (기기 종속)
 ```
 
 > OIDC Provider 이름은 UGS 규약상 `oidc-` 접두사로 시작해야 하며, UGS Dashboard에 `oidc-firebase` Provider를 등록해 두어야 한다.
-> 구현 위치: `LoginUseCase.BridgeToUGSAsync()`. Firebase ID Token은 Infrastructure의 `FirebaseAuthService.GetIdTokenAsync(false)`를 통해서만 발급한다(Application 레이어가 Firebase SDK에 직접 의존하지 않도록 캡슐화).
+> 구현 위치: `LoginUseCase.BridgeToUGSAsync()`가 흐름을 조율하고, `IUgsAuthenticationService`를 통해 Infrastructure의 `UgsAuthenticationService`가 UGS SDK 작업을 실행한다. Firebase ID Token은 `IAuthenticationService`를 통해 Infrastructure의 `FirebaseAuthService.GetIdTokenAsync(false)`에서 발급한다.
 
 ---
 
@@ -182,7 +182,7 @@ Login 씬 내부에서 아래 화면들을 패널 전환 방식으로 구성한�
 
 **규칙 1. 로그인 흐름**
 
-Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.
+Google Play Games Plugin → Server Auth Code 발급 → PlayGamesAuthProvider로 Firebase Credential 생성 → Firebase 인증 → Firebase UID 발급 → 닉네임 선행 조건 확인 → UGS PlayerId 발급 → Lobby 씬 이동. 닉네임이 없으면 [닉네임 설정](#인증-대기-취소와-재진입)을 먼저 진행한다.
 
 **규칙 2. Google Play Games 미설치 처리**
 
@@ -325,8 +325,8 @@ Google Play Games Plugin → Google idToken 발급 → Firebase 인증 → Fireb
 
 **규칙 1. 세션 유효 기간**
 
-Firebase Refresh Token은 약 30일 비활성 시 만료된다.
-Access Token(약 1시간 만료)은 SDK가 자동 갱신하므로 사용자가 인지하지 못한다.
+Firebase Refresh Token은 장기 세션을 유지하며, 사용자 삭제·비활성화·비밀번호/이메일 등 중요 계정 변경 또는 서버의 토큰 폐기로 무효화될 수 있다.
+Firebase ID Token은 약 1시간 후 만료되며 SDK가 Refresh Token으로 갱신한다([Firebase 공식 세션 관리 문서](https://firebase.google.com/docs/auth/admin/manage-sessions)).
 
 **규칙 2. 다기기 동시 로그인**
 

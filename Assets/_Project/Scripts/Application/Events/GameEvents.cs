@@ -442,8 +442,6 @@ namespace Hexiege.Application
     /// 발행: UnitCombatUseCase(전투 파괴), BuildingPlacementUseCase.DemolishBuilding(철거),
     ///       NetworkCombatController(클라이언트 동기화)
     /// 구독: BuildingFactory(GameObject 파괴), GameEndUseCase(Castle 파괴 → 게임 종료),
-    ///       FlowFieldService(walkable 변경 → 경로 캐시 무효화),
-    ///       GameBootstrapper(살아있는 유닛 즉시 재경로),
     ///       ProductionTicker(생산건물 해제 + walkable 변경 후처리),
     ///       HexGridRenderer(MiningPost 파괴 시 금광 재표시)
     ///
@@ -456,6 +454,22 @@ namespace Hexiege.Application
         public readonly BuildingData Building;
 
         public BuildingDiedEvent(BuildingData building)
+        {
+            Building = building;
+        }
+    }
+
+    /// <summary>
+    /// 건물 제거가 끝나 타일과 건물 조회가 모두 최신 상태가 되었음을 알린다.
+    /// 사망 직전의 등록 정보를 사용하는 BuildingDiedEvent와 구분하여,
+    /// 경로 캐시와 이동 경로는 실제 제거가 완료된 뒤 갱신한다.
+    /// </summary>
+    public readonly struct BuildingRemovedEvent
+    {
+        /// <summary> 도메인 목록과 위치 역인덱스에서 제거된 건물 데이터. </summary>
+        public readonly BuildingData Building;
+
+        public BuildingRemovedEvent(BuildingData building)
         {
             Building = building;
         }
@@ -1044,13 +1058,19 @@ namespace Hexiege.Application
         /// 발행: UnitCombatUseCase(전투 파괴), BuildingPlacementUseCase.DemolishBuilding(철거),
         ///       NetworkCombatController(클라이언트 동기화).
         /// 구독: BuildingFactory(GameObject 파괴), GameEndUseCase(Castle → 게임 종료),
-        ///       FlowFieldService(경로 캐시 무효화), GameBootstrapper(살아있는 유닛 재경로),
         ///       ProductionTicker(생산건물 해제 + walkable 변경 후처리),
         ///       HexGridRenderer(MiningPost 파괴 시 금광 재표시).
         ///
         /// OnUnitDied와 짝을 이루는 건물 전용 사망 채널. 구독자는 BuildingData에 바로 접근 가능.
         /// </summary>
         public static readonly Subject<BuildingDiedEvent> OnBuildingDied = new Subject<BuildingDiedEvent>();
+
+        /// <summary>
+        /// BuildingPlacementUseCase가 타일 상태와 두 건물 인덱스의 제거를 마친 뒤 발행한다.
+        /// FlowFieldService는 경로 캐시를 무효화하고 GameBootstrapper는 살아있는 유닛에
+        /// 새 경로를 요청한다. 제거 실패, 업그레이드 교체, 전체 목록 정리는 발행하지 않는다.
+        /// </summary>
+        public static readonly Subject<BuildingRemovedEvent> OnBuildingRemoved = new Subject<BuildingRemovedEvent>();
 
         // ====================================================================
         // 건물 관련 이벤트

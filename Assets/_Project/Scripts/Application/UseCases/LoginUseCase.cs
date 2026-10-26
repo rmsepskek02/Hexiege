@@ -9,24 +9,20 @@
 //   - 이메일 인증 상태 확인 / 인증 메일 발송 / 비밀번호 재설정 메일 발송
 //
 // 의존성:
-//   - FirebaseAuthService (Infrastructure) — 실제 Firebase SDK 호출 담당
+//   - IAuthenticationService (Application) — 사용자 상태와 인증 작업의 계약
+//   - IUgsAuthenticationService (Application) — UGS 초기화·세션·인증 작업의 계약
 //
 // 주의:
 //   - 본 클래스는 Firebase SDK 네임스페이스를 직접 import 하지 않는다.
-//     모든 Firebase 호출은 FirebaseAuthService 를 통해서만 이루어진다.
-//   - UGS(Unity Gaming Services) 와의 연결은 UGS SDK 를 직접 사용하지만,
-//     UGS 는 멀티플레이의 인프라 계층 의존성이므로 Application 에서 직접 사용해도
-//     아키텍처상 허용된다(LobbyManager, RelayManager 와 동일한 방향).
+//     인증 서비스 구현체가 Firebase SDK 호출을 담당하고, 본 클래스는 인터페이스를 사용한다.
+//   - UGS(Unity Gaming Services) SDK 호출도 주입받은 계약을 통해 수행한다.
+//     로그인 분기·실패 처리·로그는 본 클래스가 담당하고, 구현체는 SDK 작업만 전달한다.
 //
-// Application 레이어 — 순수 C# + Task.
+// Application 레이어 — Task 기반 인증 흐름. 외부 SDK 작업은 주입받은 계약으로 호출.
 // ============================================================================
 
 using System;
 using System.Threading.Tasks;
-using Unity.Services.Authentication;
-using Unity.Services.Core;
-using UnityEngine;
-using Hexiege.Infrastructure;
 
 namespace Hexiege.Application
 {
@@ -54,7 +50,7 @@ namespace Hexiege.Application
 
     /// <summary>
     /// 로그인 흐름 조율 UseCase.
-    /// View → UseCase → FirebaseAuthService → Firebase SDK 흐름의 중간 레이어.
+    /// View → UseCase → IAuthenticationService 흐름의 중간 레이어.
     /// </summary>
     public class LoginUseCase
     {
@@ -62,7 +58,8 @@ namespace Hexiege.Application
         // 의존성
         // ====================================================================
 
-        private readonly FirebaseAuthService _authService;
+        private readonly IAuthenticationService _authService;
+        private readonly IUgsAuthenticationService _ugsAuthenticationService;
 
         /// <summary>마지막으로 발생한 인증 예외. View 측에서 메시지 조회용.</summary>
         public AuthException LastError { get; private set; }
@@ -71,7 +68,7 @@ namespace Hexiege.Application
         public bool LastUgsBridgeSucceeded { get; private set; }
 
         // ====================================================================
-        // 공개 상태 프로퍼티 (FirebaseAuthService 위임)
+        // 공개 상태 프로퍼티 (인증 서비스에 위임)
         // ====================================================================
 
         /// <summary>현재 Firebase 로그인 상태.</summary>
@@ -99,9 +96,12 @@ namespace Hexiege.Application
         /// <summary>
         /// 의존성을 외부에서 주입받는다 — LoginBootstrapper 에서 생성/주입.
         /// </summary>
-        public LoginUseCase(FirebaseAuthService authService)
+        /// <param name="authService">현재 사용자 상태와 Firebase 인증 작업의 계약.</param>
+        /// <param name="ugsAuthenticationService">UGS 초기화·세션·인증 작업의 계약.</param>
+        public LoginUseCase(IAuthenticationService authService, IUgsAuthenticationService ugsAuthenticationService)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+            _ugsAuthenticationService = ugsAuthenticationService ?? throw new ArgumentNullException(nameof(ugsAuthenticationService));
         }
 
         // ====================================================================
@@ -393,18 +393,7 @@ namespace Hexiege.Application
             bool leavingAnonymous = _authService.IsAnonymous;
             try
             {
-                // 기존 처리는 SignedIn일 때만 기본 SignOut()을 호출해 cached 자격이 남았다.
-                // if (AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn)
-                //     AuthenticationService.Instance.SignOut();
-                var authentication = AuthenticationService.Instance;
-                if (leavingAnonymous && authentication == null)
-                    throw new InvalidOperationException("익명 계정 로그아웃을 완료하지 못했습니다.");
-                if (authentication != null && (leavingAnonymous || authentication.IsSignedIn))
-                {
-                    // SDK는 SignedOut 상태에서도 이 호출을 허용하므로 남아 있는 익명 자격도 정리한다.
-                    // 실계정은 기본 자격 보존과 이후 OIDC 복원을 그대로 유지한다.
-                    authentication.SignOut(clearCredentials: leavingAnonymous);
-                }
+                _ugsAuthenticationService.SignOutCurrentSession(leavingAnonymous);
             }
             catch (Exception e)
             {
@@ -478,24 +467,24 @@ namespace Hexiege.Application
             try
             {
                 // UGS 초기화 (멱등성 — 이미 초기화되어 있으면 즉시 반환)
-                if (UnityServices.State != ServicesInitializationState.Initialized)
+                if (!_ugsAuthenticationService.IsInitialized)
                 {
                     GameLog.Dev.Info("Auth", nameof(LoginUseCase), "UGS 초기화 시작");
-                    await UnityServices.InitializeAsync();
+                    await _ugsAuthenticationService.InitializeAsync();
                 }
 
                 // 이전 세션이 남아 있다면 정리 — 다른 Firebase 계정으로 재바인딩되는 경우 대비.
                 // (예: 익명 → 로그아웃 → 다른 Google 계정으로 로그인하는 흐름)
-                if (AuthenticationService.Instance.IsSignedIn)
+                if (_ugsAuthenticationService.IsSignedIn)
                 {
-                    AuthenticationService.Instance.SignOut();
+                    _ugsAuthenticationService.SignOut();
                 }
 
                 if (_authService.IsAnonymous)
                 {
                     // [익명 계정] OIDC 식별 주체가 없으므로 기존 익명 로그인 유지.
                     GameLog.Dev.Info("Auth", nameof(LoginUseCase), "익명 계정 — UGS 익명 로그인 수행");
-                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                    await _ugsAuthenticationService.SignInAnonymouslyAsync();
                 }
                 else
                 {
@@ -505,14 +494,14 @@ namespace Hexiege.Application
                     //   토큰은 캐시 우선(false)으로 발급 — 만료 임박 시 Firebase SDK 가 자동 갱신한다.
                     GameLog.Dev.Info("Auth", nameof(LoginUseCase), "실계정 — Firebase ID Token 으로 UGS OIDC 브릿지 수행");
                     string firebaseToken = await _authService.GetIdTokenAsync(false);
-                    await AuthenticationService.Instance.SignInWithOpenIdConnectAsync(
+                    await _ugsAuthenticationService.SignInWithOpenIdConnectAsync(
                         "oidc-firebase",
                         firebaseToken);
                 }
 
                 // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
                 GameLog.Dev.Info("Auth", nameof(LoginUseCase), "UGS 브릿지 완료",
-                                 $"PlayerId={GameLog.HashId(AuthenticationService.Instance.PlayerId)}");
+                                 $"PlayerId={GameLog.HashId(_ugsAuthenticationService.PlayerId)}");
 
                 // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
                 LastUgsBridgeSucceeded = true;

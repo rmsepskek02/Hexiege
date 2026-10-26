@@ -39,7 +39,7 @@ namespace Hexiege.Presentation
         [Tooltip("이 항목이 적용되는 유닛 타입")]
         public UnitType unitType;
 
-        [Tooltip("공격 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
+        [Tooltip("공격 시 재생할 이펙트 (VFX). 없으면 비워둠")]
         public EffectPreset attackPreset;
 
         [Tooltip("실제 Bloom HoT 대상의 지속 힐 표현. 공격 marker와 독립인 슬롯")]
@@ -47,7 +47,7 @@ namespace Hexiege.Presentation
         public EffectPreset timedDamagePreset;
         public EffectPreset impactPreset;
 
-        [Tooltip("사망 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
+        [Tooltip("사망 시 재생할 이펙트 (VFX). 없으면 비워둠")]
         public EffectPreset deathPreset;
 
         [Tooltip("피격(맞았을 때) 시 재생할 이펙트 (VFX). 없으면 비워둠 — 조용히 스킵됨")]
@@ -253,15 +253,17 @@ namespace Hexiege.Presentation
 
         private static bool IsPositiveFinite(float v) => v > 0f && !float.IsNaN(v) && !float.IsInfinity(v);
 
+        /// <summary>지속 피해를 일으킨 유닛 타입의 VFX 프리셋을 조회한다. 없으면 null.</summary>
+        public EffectPreset GetTimedDamage(UnitType sourceType)
+        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.timedDamagePreset : null; }
+        /// <summary>유닛 타입의 착탄 VFX 프리셋을 조회한다. 없으면 null.</summary>
+        public EffectPreset GetImpact(UnitType sourceType)
+        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.impactPreset : null; }
         /// <summary>
         /// List를 Dictionary로 변환하여 O(1) 조회를 준비한다.
         /// EffectManager.Initialize()에서 호출.
         /// 여러 번 호출되어도 안전하도록 매번 새로 빌드한다.
         /// </summary>
-        public EffectPreset GetTimedDamage(UnitType sourceType)
-        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.timedDamagePreset : null; }
-        public EffectPreset GetImpact(UnitType sourceType)
-        { return _cache != null && _cache.TryGetValue(sourceType, out var entry) ? entry.impactPreset : null; }
         public void Initialize()
         {
             _cache = new Dictionary<UnitType, UnitEffectEntry>(_entries.Count);

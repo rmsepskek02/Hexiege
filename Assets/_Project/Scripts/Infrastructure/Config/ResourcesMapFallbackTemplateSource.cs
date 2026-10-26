@@ -28,8 +28,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚠️ .bytes 확장자는 선택이 아니다
 // ─────────────────────────────────────────────────────────────────────────────
-//   Unity 는 확장자가 .bytes 인 파일만 TextAsset 으로 임포트한다. 다른 확장자면
-//   Resources.Load<TextAsset> 이 null 을 돌려준다. 그래서 템플릿 파일은 반드시
+//   이 프로젝트의 폴백 템플릿은 canonical 바이너리를 보존하는 .bytes 파일로 관리한다.
+//   Resources.Load<TextAsset>으로 읽을 수 있도록 템플릿 파일은 반드시
 //   Assets/_Project/Resources/MapTemplates/MapTemplate_<유형>.bytes 여야 한다.
 //
 // Infrastructure 레이어 — Unity 의존 O, Application 인터페이스 구현.

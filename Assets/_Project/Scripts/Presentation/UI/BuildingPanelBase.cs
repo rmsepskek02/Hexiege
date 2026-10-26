@@ -164,11 +164,18 @@ namespace Hexiege.Presentation
 
             // 닫기 버튼 → Close() 연결
             if (_cancelButton != null)
+            {
+                // 재초기화해도 이 패널의 콜백만 교체하고 다른 담당의 연결은 보존한다.
+                _cancelButton.onClick.RemoveListener(Close);
                 _cancelButton.onClick.AddListener(Close);
+            }
 
             // 철거 버튼 → OnDemolishButtonClick() 연결
             if (_demolishButton != null)
+            {
+                _demolishButton.onClick.RemoveListener(OnDemolishButtonClick);
                 _demolishButton.onClick.AddListener(OnDemolishButtonClick);
+            }
 
             // 건물 사망 이벤트 구독 (중복 구독 방지 가드)
             //

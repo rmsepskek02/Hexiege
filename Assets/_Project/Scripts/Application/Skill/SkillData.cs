@@ -51,15 +51,15 @@ namespace Hexiege.Application
         /// <summary> (B) 초당 피해(×10 스케일). 규칙 12. </summary>
         public float DamagePerSecond { get; }
 
-        // ── 타입 C(전역 상태변경) 필드 — Phase 1에서는 스키마에만 존재(사용은 Phase 2) ──
+        // ── 타입 C(전역 상태변경) 실행기가 읽는 상태 종류·강도·대상 필드 ──
 
-        /// <summary> (C) 상태 종류(이속 배율/공격 불가/힐 등). Phase 2 사용. 규칙 13. </summary>
+        /// <summary> (C) 상태 종류(이속 배율/공격 불가/힐 등). 실행기가 StatusEffectKind로 변환한다. 규칙 13. </summary>
         public int StatusKind { get; }
 
-        /// <summary> (C) 강도(이속 배율·힐량 등). Phase 2 사용. 규칙 13. </summary>
+        /// <summary> (C) 강도(이속 배율·힐량 등). 전역 상태 적용에 전달한다. 규칙 13. </summary>
         public float Magnitude { get; }
 
-        /// <summary> (C) 아군(true, 긍정)/적(false, 부정) 대상. Phase 2 사용. 규칙 13. </summary>
+        /// <summary> (C) 아군(true, 긍정)/적(false, 부정) 대상. 실행기가 대상 팀을 선택한다. 규칙 13. </summary>
         public bool TargetsAllies { get; }
 
         /// <summary>

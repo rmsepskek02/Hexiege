@@ -140,10 +140,19 @@ namespace Hexiege.Application
 
             _baseIncomeAccumulator[team] += baseGoldPerSecond * deltaTime;
 
-            int wholeGold = (int)_baseIncomeAccumulator[team];
+            FlushWholeGold(_baseIncomeAccumulator, team);
+        }
+
+        /// <summary>
+        /// 누적 수입의 정수 부분만 골드로 지급하고, 남은 소수 부분은 같은 누적기에 보관한다.
+        /// 골드를 지급하기 전에 누적액을 차감하여 수입 이벤트가 처리될 때도 남은 값이 반영되게 한다.
+        /// </summary>
+        private void FlushWholeGold(Dictionary<TeamId, float> accumulator, TeamId team)
+        {
+            int wholeGold = (int)accumulator[team];
             if (wholeGold > 0)
             {
-                _baseIncomeAccumulator[team] -= wholeGold;
+                accumulator[team] -= wholeGold;
                 AddGold(team, wholeGold);
             }
         }
@@ -172,12 +181,7 @@ namespace Hexiege.Application
             // 소수점 누적 후 정수 골드 반영
             _incomeAccumulator[team] += miningCount * goldPerSecond * deltaTime * multiplier;
 
-            int wholeGold = (int)_incomeAccumulator[team];
-            if (wholeGold > 0)
-            {
-                _incomeAccumulator[team] -= wholeGold;
-                AddGold(team, wholeGold);
-            }
+            FlushWholeGold(_incomeAccumulator, team);
         }
     }
 }

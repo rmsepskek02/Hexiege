@@ -845,16 +845,27 @@ namespace Hexiege.Bootstrap
             _resource.SetIncomeMultiplier(TeamId.Red, aiParams.goldIncomeMultiplier);
 
             // 5. AIOpponentController 생성 + 주입.
+            var difficultyParameters = new AIDifficultyParameters(
+                goldIncomeMultiplier: aiParams.goldIncomeMultiplier,
+                productionTimeMultiplier: aiParams.productionTimeMultiplier,
+                decisionInterval: aiParams.decisionInterval,
+                unitCountThreshold: aiParams.unitCountThreshold,
+                goldExcessThreshold: aiParams.goldExcessThreshold,
+                buildOrderAccelCooldown: aiParams.buildOrderAccelCooldown,
+                productionActivationCooldown: aiParams.productionActivationCooldown,
+                retryInterval: aiParams.retryInterval,
+                mineCheckInterval: aiParams.mineCheckInterval);
             _aiController = new AIOpponentController(
                 _buildingPlacement,
                 _unitProduction,
                 _resource,
                 _unitSpawn,
                 _grid,
-                aiParams,
+                difficultyParameters,
                 scenarioSteps,
                 scenarioName,
                 difficulty,
+                () => GameRaceContext.RedRace,
                 _unitUpgrade); // [Phase 5] 연구 스텝(StartResearch) 실행용. null이면 연구 스텝은 스킵.
 
             // [개발] 초기화 완료 통보 → Info + 개발.

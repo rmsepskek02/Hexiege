@@ -148,6 +148,13 @@ namespace Hexiege.Presentation
         /// </summary>
         private List<CanvasGroup> _buttonCanvasGroups;
 
+        private void OnDestroy()
+        {
+            // 열린 채 파괴돼도 정적 이벤트 구독은 해제한다. 공용 막의 점유는 여기서 건드리지 않는다.
+            _resourceSubscription?.Dispose();
+            _resourceSubscription = null;
+        }
+
         // ====================================================================
         // 초기화
         // ====================================================================

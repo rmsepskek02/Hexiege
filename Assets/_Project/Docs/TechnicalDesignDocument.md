@@ -38,7 +38,7 @@ MistShrine은 독립 `MistShrineUseCase`의 인스턴스별 누적기·대상 �
 ### 핵심 기술
 | 항목 | 기술 | 버전 |
 |------|------|------|
-| **게임 엔진** | Unity | 6000.0.x (Unity 6 LTS) |
+| **게임 엔진** | Unity | 6000.3.5f2 |
 | **렌더 파이프라인** | URP | Universal Render Pipeline |
 | **네트워크** | Netcode for GameObjects | 2.9.2 |
 | **전송 레이어** | Unity Transport (UTP) | - |
@@ -76,7 +76,7 @@ MistShrine은 독립 `MistShrineUseCase`의 인스턴스별 누적기·대상 �
               ↓ ↑
 ┌─────────────────────────────────────┐
 │      Application Layer              │  ← Use Cases, Business Logic
-│  (순수 C# + UniRx)                  │
+│  (UseCase·계약)                     │
 └─────────────────────────────────────┘
               ↓ ↑
 ┌─────────────────────────────────────┐
@@ -96,12 +96,13 @@ Assets/
 └── _Project/
     ├── Scripts/
     │   ├── Bootstrap/           # Composition Root (GameBootstrapper partial × 4, LoginBootstrapper)
+    │   │   └── Debug/           # 에디터 전용 맵 준비·투영 강제 실패 플래그
     │   ├── Domain/              # 순수 C# 엔티티
     │   ├── Application/         # Use Cases, GameEvents, NetworkContext, Interfaces
     │   ├── Infrastructure/      # 외부 연동, Network Controllers, Factories
     │   ├── Presentation/        # Unity UI/View, UnitView, CameraController
     │   ├── Core/                # 공통 유틸리티 (HexMetrics, ViewConverter)
-    │   └── Diagnostics/         # 진단/디버그 전용 도구
+    │   └── Debug/               # UIManager 테스트 버튼 핸들러
     ├── Prefabs/
     ├── Materials/
     ├── Scenes/
@@ -894,9 +895,9 @@ GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
 #### 영토 확장 (건물 건설 시)
 
-건물 배치 시 배럭 인접 6타일을 건물 팀으로 자동 점령:
+건물의 공통 배치 처리에서 인접 타일을 건물 팀 소유로 변경한다. 이미 같은 팀인 타일은 건너뛴다.
 ```csharp
-// BuildingPlacementUseCase.PlaceBuilding() 내부
+// BuildingPlacementUseCase.ClaimAdjacentTiles() 내부
 var neighbors = _grid.GetNeighbors(position);
 foreach (var neighbor in neighbors)
 {
@@ -923,7 +924,7 @@ foreach (var neighbor in neighbors)
 
 | UseCase | 역할 |
 |---------|------|
-| `ResourceUseCase` | 팀별 골드 관리 (맵 InitialGold 적용, 차감/추가/조회) |
+| `ResourceUseCase` | 팀별 골드 관리 (초기화, 차감/추가/조회) |
 | `PopulationUseCase` | 인구수 계산 (최대=보유 타일, 사용=건물+유닛) |
 | `UnitProductionUseCase` | 생산 큐/타이머/자동-수동 모드/랠리포인트 |
 
@@ -1062,7 +1063,7 @@ int BarracksCost = 100;           // 배럭 건설 비용
 int MiningPostCost = 50;          // 채굴소 건설 비용
 ```
 
-현재 경기 초기 골드는 맵의 `InitialGold`가 권위이며 별도의 맵 테스트 모드 분기를 두지 않는다. 경제 설정의 기본값·fallback과 경기 맵 적용을 구분한다. [현재 수치](StatsReference.md#자원-시스템)·[맵 전달 계약](TechnicalDesignDocument_Network.md), [필드 제거 당시 설계 선행 기록](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-tdd-economy-history).
+현재 초기 자원은 GameConfig.StartingGold를 ResourceUseCase에 전달한다. 맵 InitialGold의 생성·전송과 실제 시작 자원 연결은 별개이며 후자는 ROADMAP의 경제 후속 범위다. 별도의 맵 테스트 모드 분기를 두지 않는 계약을 유지하고 경제 설정의 기본값·fallback과 경기 맵 적용을 구분한다. [현재 수치](StatsReference.md#자원-시스템)·[맵 전달 계약](TechnicalDesignDocument_Network.md), [필드 제거 당시 설계 선행 기록](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-tdd-economy-history).
 
 ---
 
@@ -1117,7 +1118,7 @@ Addressables.LoadAssetAsync<GameObject>("Units/Soldier");
 
 ### Unity 프로젝트 설정
 ```
-Unity Version: 6000.0.x (Unity 6 LTS)
+Unity Version: 6000.3.5f2
 Template: 3D (URP)
 Platform: Android / iOS
 Scripting Backend: IL2CPP

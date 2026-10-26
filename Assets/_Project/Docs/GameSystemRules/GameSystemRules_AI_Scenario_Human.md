@@ -31,7 +31,7 @@
 | B — 테크형 (Tech) | 33.3% |
 | C — 균형형 (Balanced) | 33.3% |
 
-난이도(쉬움/보통/어려움)는 선택된 시나리오의 `delaySeconds` 배율과 `goldIncomeMultiplier`로만 반영된다.
+난이도(쉬움/보통/어려움)의 설계 범위는 [공통 AI 규칙](GameSystemRules_AI.md)의 난이도 파라미터와 「종족 시나리오 공통 타이밍」 예비 기준을 따르며, 시나리오 대기 시간(`delaySeconds`)·골드 수입 배율(`goldIncomeMultiplier`)·생산 시간 배율(`productionTimeMultiplier`)을 포함하되 생산 시간 배율의 효과 적용은 후속 AI 작업으로 보류 중이다.
 시나리오 자체는 변경되지 않는다.
 
 > **구현 참고**: `AIScenarioConfig_Human.asset` 내에 3개 시나리오 배열을 담고,

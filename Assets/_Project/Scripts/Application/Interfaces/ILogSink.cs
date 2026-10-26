@@ -65,10 +65,8 @@ namespace Hexiege.Application
     ///   - 한 번 정한 이름은 바꾸지 않는다 — 이름이 바뀌면 서버에 쌓인 과거 지표와 연결이 끊긴다.
     ///   - 서버 전송 시 enum 멤버 이름을 그대로(PascalCase) 사용한다. 변환 규칙을 두지 않는다.
     ///
-    /// ⚠️ 지금은 "전역 미처리 예외 수집"에 필요한 최소 항목만 정의되어 있다.
-    ///    기존 Debug.Log 209건을 GameLog 로 이관하는 후속 작업에서 항목이 늘어난다.
-    ///    (예: MatchmakingLobbyJoinFailed, CloudSaveValueParseFailed,
-    ///         ServerRejectedUpgradeInsufficientGold ...)
+    /// 전역 예외·인증·네트워크 세션·클라우드·맵 처리의 운영 이벤트를 정의한다.
+    /// 같은 사건의 세부 단계와 실패 사유는 호출부의 구조화 필드로 구분한다.
     /// </summary>
     public enum LogEvent
     {
@@ -521,8 +519,8 @@ namespace Hexiege.Application
         //    (= "재전송이 일어났다" / "끝내 실패했다" 또는 "결국 성공했다").
         //    오히려 LogRules 1.14 금지 8 이 "상태 **전이** 시점에만 남긴다"고 요구하는 바로 그 자리다.
         //
-        // ⚠️ 이 다섯 키는 **3단계 E 에서 선언만 한다.** 실제 호출은 F~H 에서 붙는다.
-        //    E 단계(= NetworkMapTransfer 골격)의 스폰/디스폰 로그는 이 키를 쓰지 않는다 —
+        // 이 다섯 키는 NetworkMapTransfer의 재전송·전송 결말·수신 검증 경로에서 사용한다.
+        //    스폰/디스폰 로그는 이 키를 쓰지 않는다 —
         //    그 사건은 에디터 2인 구성에서 그대로 재현되므로 축 B ① 이 "아니오"이고,
         //    따라서 **개발 축**(키를 받지 않는 쪽)이다 — LogRules 1.5 는 키를 운영 로그만 받는다고 정한다.
         // ====================================================================
@@ -546,7 +544,7 @@ namespace Hexiege.Application
         ///      준비 쪽은 seed·맵 유형·소요 시간, 이쪽은 조각 수·재전송 횟수·해시 대조 결과다.
         ///
         /// 축 A = Info (LogRules 1.2 — 의도된 흐름)
-        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (3단계 F~G 에서 호출이 붙는다)
+        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (LogOutcomeOnce의 성공 결말)
         /// </summary>
         MapTransferSucceeded,
 
@@ -572,7 +570,7 @@ namespace Hexiege.Application
         /// 축 A = Warn (LogRules 1.2 — 예상 밖이지만 **대체 경로(재전송)로 계속 진행**된다.
         ///        1.2 가 "재시도 성공"을 Warn 의 예로 직접 들고 있다. 그 재전송마저 실패하면
         ///        그때 MapTransferFailed 가 Error 로 따로 남으므로 심각도가 묻히지 않는다.)
-        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (3단계 F 에서 호출이 붙는다)
+        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (HandleHostTimeout의 재전송)
         /// </summary>
         MapTransferRetried,
 
@@ -591,7 +589,7 @@ namespace Hexiege.Application
         ///
         /// 축 A = Error (LogRules 1.2 — 규칙 16 이 재전송을 1회로 제한해 **더 이상 복구 경로가 없다**)
         ///        · LogRules 1.3 원칙 3
-        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (3단계 F~G 에서 호출이 붙는다)
+        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (FailHostRound/FailClientRound → LogOutcomeOnce)
         /// </summary>
         MapTransferFailed,
 
@@ -612,7 +610,7 @@ namespace Hexiege.Application
         ///    2단계 K 가 정한 규약을 그대로 잇는다(Bootstrap/GameBootstrapper.Map.cs 의 ToMapHashField).
         ///
         /// 축 A = Error (LogRules 1.2 — 재전송이 금지돼 복구 경로가 없다) · LogRules 1.3 원칙 3
-        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (3단계 G 에서 호출이 붙는다)
+        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (VerifyAndAnswer/MapReadyServerRpc → LogOutcomeOnce)
         /// </summary>
         MapHashMismatch,
 
@@ -635,7 +633,7 @@ namespace Hexiege.Application
         ///    쪼개면 그 장애 지표 자체가 만들어지지 않는다. 어느 갈래였는지는 key=value 가 담는다.
         ///
         /// 축 A = Error (LogRules 1.2 — 규칙 16 이 즉시 실패로 정해 복구 경로가 없다) · 1.3 원칙 3
-        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (3단계 G~H 에서 호출이 붙는다)
+        /// 발생 지점: Infrastructure/Network/NetworkMapTransfer.cs (VerifyAndAnswer/MapReadyServerRpc → LogOutcomeOnce)
         /// </summary>
         MapClientVerificationFailed
     }

@@ -174,7 +174,7 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            _loginUseCase = new LoginUseCase(_authService);
+            _loginUseCase = new LoginUseCase(_authService, new UgsAuthenticationService());
             _accountLinkUseCase = new AccountLinkUseCase(_authService);
 
             // 프로필/랭킹 UseCase 생성(구현체는 Infrastructure — Presentation 에서 생성 허용).

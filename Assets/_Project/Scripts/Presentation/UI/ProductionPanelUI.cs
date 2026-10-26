@@ -264,6 +264,12 @@ namespace Hexiege.Presentation
 
         private float _pointerDownTime;
         private bool _isPointerDown;
+        private bool _uiBindingsInitialized;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 갱신 호출 횟수는 구독 개수 자체가 아니다. 실제 이벤트 한 번을 발행하는 검사가 차이를 대조한다.
+        private int _refactoringQueueRefreshes, _refactoringResourceRefreshes, _refactoringTapCalls;
+        private int _refactoringInitializeCalls, _refactoringBindingCreations, _refactoringUiReceipts;
+#endif
         private const float LongPressThreshold = 0.5f;
         private bool _longPressTriggered;
         private UnitType _activeUnitType;
@@ -295,6 +301,11 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement = null,
             NetworkBuildingController networkBuildingController = null)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringInitializeCalls < int.MaxValue) _refactoringInitializeCalls++;
+#endif
+            ResetUnitPress();
+
             // 베이스 의존성/공통 버튼 등록 (닫기/철거)
             InitializeBase(buildingPlacement, resource, networkBuildingController);
 
@@ -302,6 +313,18 @@ namespace Hexiege.Presentation
             _population = population;
             _ticker = ticker;
             _networkProductionController = networkProductionController;
+
+            // 맵을 다시 준비하면 서비스는 교체되지만, 같은 UI의 입력/전역 구독은 한 번만 연결한다.
+            if (_uiBindingsInitialized)
+            {
+                RefactoringUiReceipt("initialize-reused");
+                return;
+            }
+            _uiBindingsInitialized = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _refactoringBindingCreations++;
+#endif
+            RefactoringUiReceipt("initialize-bound");
 
             // 생산 패널 고유 버튼 이벤트
             if (_rallyPointButton != null) _rallyPointButton.onClick.AddListener(OnRallyPointClick);
@@ -328,6 +351,7 @@ namespace Hexiege.Presentation
         /// </summary>
         protected override void OnShow(BuildingData building)
         {
+            ResetUnitPress();
             IsSettingRallyPoint = false;
 
             if (_ticker != null) _ticker.ShowRallyMarker(building.Id);
@@ -347,6 +371,7 @@ namespace Hexiege.Presentation
         /// </summary>
         protected override void OnBeforeClose()
         {
+            ResetUnitPress();
             IsSettingRallyPoint = false;
             if (_ticker != null) _ticker.HideAllRallyMarkers();
         }
@@ -373,8 +398,55 @@ namespace Hexiege.Presentation
             button.onClick.RemoveAllListeners();
         }
 
+        // 누르기는 현재 열린 살아 있는 건물에만 속한다. 닫기/대상 교체 뒤에 이어지면 안 된다.
+        private bool CanHandleUnitPress =>
+            isActiveAndEnabled && IsOpen && _currentBuilding != null && _currentBuilding.IsAlive;
+
+        private void ResetUnitPress()
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            bool hadPress = _isPointerDown || _longPressTriggered;
+#endif
+            _isPointerDown = false;
+            _longPressTriggered = false;
+            _pointerDownTime = 0f;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (hadPress) RefactoringUiReceipt("held-reset");
+#endif
+        }
+
+        private void OnDisable()
+        {
+            ResetUnitPress();
+            RefactoringUiReceipt("disabled");
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void RefactoringUiReceipt(string phase)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringUiReceipts >= 32)
+            {
+                if (_refactoringUiReceipts == 32)
+                    GameLog.Dev.Info("UI", nameof(ProductionPanelUI), "[REFACTOR-VERIFY]",
+                        "Generation=refactor-verify-v1, Case=UI, Status=LIMIT, Event=receipt-limit");
+                if (_refactoringUiReceipts < int.MaxValue) _refactoringUiReceipts++;
+                return;
+            }
+            _refactoringUiReceipts++;
+            GameLog.Dev.Info("UI", nameof(ProductionPanelUI), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=UI, Status=EVIDENCE, Event={phase}, Initialize={_refactoringInitializeCalls}, Bind={_refactoringBindingCreations}, QueueRefresh={_refactoringQueueRefreshes}, ResourceRefresh={_refactoringResourceRefreshes}, Tap={_refactoringTapCalls}, Held={_isPointerDown}, Instance={GetInstanceID()}, Frame={Time.frameCount}");
+#endif
+        }
+
         private void OnUnitPointerDown(UnitType type, int slotIndex)
         {
+            if (!CanHandleUnitPress)
+            {
+                ResetUnitPress();
+                return;
+            }
+
             // 이 메서드는 잠금 여부를 판정하지 않는다. 어떤 유닛을 언제 눌렀는지만 기록해 둔다.
             // 잠금 판정은 "짧은 탭"인지 "길게 누르기"인지가 확정된 뒤,
             // OnUnitTap() / OnUnitLongPress()가 각각 IsUnitLocked()로 수행한다
@@ -387,13 +459,24 @@ namespace Hexiege.Presentation
 
         private void OnUnitPointerUp()
         {
+            if (!CanHandleUnitPress)
+            {
+                ResetUnitPress();
+                return;
+            }
             if (!_isPointerDown) return;
-            _isPointerDown = false;
-            if (!_longPressTriggered) OnUnitTap(_activeUnitType);
+            bool isTap = !_longPressTriggered;
+            ResetUnitPress();
+            if (isTap) OnUnitTap(_activeUnitType);
         }
 
         private void Update()
         {
+            if (!CanHandleUnitPress)
+            {
+                ResetUnitPress();
+                return;
+            }
             if (_isPointerDown && !_longPressTriggered && (Time.unscaledTime - _pointerDownTime >= LongPressThreshold))
             {
                 _longPressTriggered = true;
@@ -436,6 +519,10 @@ namespace Hexiege.Presentation
 
         private void OnUnitTap(UnitType type)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringTapCalls < int.MaxValue) _refactoringTapCalls++;
+#endif
+            RefactoringUiReceipt("tap");
             if (_currentBuilding == null || _production == null) return;
 
             // ── 잠금 유닛 탭 시 토스트 후 종료 ─────────────────────────
@@ -526,6 +613,8 @@ namespace Hexiege.Presentation
 
         private void OnUnitLongPress(UnitType type)
         {
+            if (!CanHandleUnitPress) return;
+
             // 잠금 유닛에 대해서는 자동 생산 토글도 막는다. 안내만.
             if (IsUnitLocked(type))
             {
@@ -778,6 +867,9 @@ namespace Hexiege.Presentation
 
         private void UpdateUI()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringQueueRefreshes < int.MaxValue) _refactoringQueueRefreshes++;
+#endif
             if (_currentBuilding == null || _production == null) return;
             var state = _production.GetState(_currentBuilding.Id);
             if (state == null) return;
@@ -892,6 +984,9 @@ namespace Hexiege.Presentation
 
         private void UpdateInfoBar()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringResourceRefreshes < int.MaxValue) _refactoringResourceRefreshes++;
+#endif
             if (_currentBuilding == null) return;
 
             // ── 보유 골드 텍스트 갱신 ──

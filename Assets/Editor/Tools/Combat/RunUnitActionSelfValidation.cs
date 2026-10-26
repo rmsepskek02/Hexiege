@@ -23,6 +23,32 @@ namespace Hexiege.Editor.Combat
     /// </summary>
     public static partial class RunUnitActionSelfValidation
     {
+        /// <summary>
+        /// UnitView의 원본 파일과 같은 폴더의 partial 파일을 함께 읽어 기존 소스 검사의 범위를 유지한다.
+        /// 파일 순서를 고정해 실행 환경에 따라 검사 입력 순서가 달라지지 않게 한다.
+        /// </summary>
+        private static string ReadUnitViewSourceForValidation(string unitViewPath)
+        {
+            var source = new StringBuilder(File.ReadAllText(unitViewPath));
+            string[] partialPaths = Directory.GetFiles(Path.GetDirectoryName(unitViewPath), "UnitView.*.cs");
+            Array.Sort(partialPaths, StringComparer.Ordinal);
+            foreach (string partialPath in partialPaths)
+            {
+                source.AppendLine();
+                source.Append(File.ReadAllText(partialPath));
+            }
+            return source.ToString();
+        }
+
+        /// <summary>
+        /// Observer 원본 파일과 같은 폴더로 옮긴 clock 이력을 함께 읽어 기존 소스 검사의 범위를 유지한다.
+        /// </summary>
+        private static string ReadUnitAttackShadowObserverSourceForValidation(string mainPath)
+        {
+            return File.ReadAllText(mainPath) + "\n"
+                + File.ReadAllText(Path.Combine(Path.GetDirectoryName(mainPath), "ExpiryClockHistory.cs"));
+        }
+
         // Service wiring only: production controller still owns revision/E/receipt and
         // production View/NetworkUnit own actual animation/application. No fabricated success.
         private sealed class NativeHostServices : IGameServices, IUnitFactory
@@ -776,7 +802,12 @@ namespace Hexiege.Editor.Combat
                 "Presentation/Unit/UnitView.cs|Command|RenderedStart|RawMarker|MarkerSuppressed|VfxAttempt|VfxResult|SourceStop|TracerDecision",
                 "Infrastructure/Network/NetworkUnit.cs|Receive", "Infrastructure/Network/UnitAttackShadowObserver.cs|Decision" })
             {
-                string[] fields = item.Split('|'); source = File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
+                string[] fields = item.Split('|');
+                source = fields[0] == "Presentation/Unit/UnitView.cs"
+                    ? ReadUnitViewSourceForValidation("Assets/_Project/Scripts/" + fields[0])
+                    : fields[0] == "Infrastructure/Network/UnitAttackShadowObserver.cs"
+                        ? ReadUnitAttackShadowObserverSourceForValidation("Assets/_Project/Scripts/" + fields[0])
+                        : File.ReadAllText("Assets/_Project/Scripts/" + fields[0]);
                 for (int i = 1; i < fields.Length; i++)
                     if (!source.Contains("\"" + fields[i] + "\"")) throw new InvalidOperationException("Missing production hook " + fields[i]);
             }
@@ -970,6 +1001,7 @@ namespace Hexiege.Editor.Combat
             ValidateB3ClientAttackEntryPresentationOrder();
             ValidateB3PathStartArrivalCommit();
             ValidateB3BlockedAuthoritativeStartEgressPathfinding();
+            ValidateB3BuildingRemovalRepathLifecycle();
             ValidateB3CombatApproachAndRejoinPathfinding();
             ValidateB3SpatialTransitionPolicy();
             ValidateB3SpatialTransitionApplicationPreflight();
@@ -1373,10 +1405,9 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// BloomFairy의 생산 클립과 30fps 1:00 힐 연출 표식을 확인한다.
-        /// 실제 회복은 서버 타이머가 담당하며 준비 1초 뒤 쿨다운 3초인 힐러 예외를 보존한다.
+        /// BloomFairy HoT의 실제 VFX 설정과 채널·presenter·pool 경계를 기존 메뉴에서 확인한다.
+        /// 저장이나 자산 수정 없이 회복 효과의 소유권·재생·종료 계약을 검사한다.
         /// </summary>
-        /// <summary>기존 메뉴의 production channel/presenter/pool 회귀. 저장/asset 수정은 하지 않는다.</summary>
         public static void ValidateBloomHoTEffectBoundary()
         {
             Require(!UnityEngine.Application.isPlaying, "Bloom HoT fixture must run outside a live match.");
@@ -1670,7 +1701,7 @@ namespace Hexiege.Editor.Combat
                 Require(services.CombatReads == reads && services.UnitReads == 0, "Applied readiness has zero repeated services/factory lookup.");
                 var client = new BloomHealEffectChannel();
                 typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsServer").SetValue(network, false);
-                NetworkContext.Set(true, false);
+                NetworkContext.Set(false, true);
                 typeof(NetworkUnit).GetField("_bloomCursor", f).SetValue(network, new BloomHealEffectCursor());
                 typeof(NetworkUnit).GetField("_bloomTarget", f).SetValue(network, null);
                 typeof(NetworkUnit).GetField("_bloomChannel", f).SetValue(network, client);
@@ -1703,7 +1734,7 @@ namespace Hexiege.Editor.Combat
                     typeof(Unity.Netcode.NetworkBehaviour).GetProperty("IsSpawned").SetValue(network, false);
                     UnityEngine.Object.DestroyImmediate(root);
                 }
-                GameServicesLocator.Register(previousServices); NetworkContext.Set(netActive, netServer);
+                GameServicesLocator.Register(previousServices); NetworkContext.Set(netServer, netActive);
                 combat.BloomHealEffects.CloseVisuals("FixtureEnd");
             }
         }
@@ -2082,8 +2113,8 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// Assault의 사용자 기준 30fps 0:05를 실제 생산 자산과 두 생성 경로의 공통 helper에서
-        /// 검사한다. 설정 주기 0.2초와 clip-derived 0:10을 구분하고 주기를 임의 변경하지 않는다.
+        /// Sniper의 실제 생산 클립·프리팹·설정과 공통 타임라인 helper를 검사한다.
+        /// 30fps 1:22 타격 표식과 3초 주기를 확인하며, 자산이나 수치는 변경하지 않는다.
         /// </summary>
         private static void ValidateSniperProductionTimeline()
         {
@@ -2990,8 +3021,8 @@ namespace Hexiege.Editor.Combat
             Require(File.Exists(unitViewPath) && File.Exists(observerPath),
                 "InfernoSpirit forbidden Animator member source gate requires both production source files.");
 
-            string productionSource = File.ReadAllText(unitViewPath)
-                + "\n" + File.ReadAllText(observerPath);
+            string productionSource = ReadUnitViewSourceForValidation(unitViewPath)
+                + "\n" + ReadUnitAttackShadowObserverSourceForValidation(observerPath);
             string forbiddenPositionMember = string.Concat(".", "bodyPosition");
             string forbiddenRotationMember = string.Concat(".", "bodyRotation");
             Require(productionSource.IndexOf(forbiddenPositionMember, StringComparison.Ordinal) < 0
@@ -3487,6 +3518,140 @@ namespace Hexiege.Editor.Combat
             finally
             {
                 flowFields.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 사망 콜백에서 만들어진 차단 캐시가 실제 건물 제거 뒤에는 재사용되지 않는지 확인한다.
+        /// 전역 이벤트를 사용하는 실제 제거 흐름이므로 Play 모드와 남아 있는 경기 서비스에서는 거부한다.
+        /// </summary>
+        private static void ValidateB3BuildingRemovalRepathLifecycle()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode
+                || NetworkContext.IsNetworkActive
+                || GameServicesLocator.Current != null)
+            {
+                throw new InvalidOperationException(
+                    "Building removal lifecycle validation requires stopped Play mode, "
+                    + "no active network session, and no registered game services; "
+                    + "its global building events must not reach a running match.");
+            }
+
+            var grid = new HexGrid(11, 21, HexOrientation.FlatTop);
+            var placement = new BuildingPlacementUseCase(grid);
+            var flow = new FlowFieldService();
+            var subscriptions = new CompositeDisposable();
+            flow.Initialize(grid);
+            try
+            {
+                var start = new HexCoord(5, 16);
+                var goal = new HexCoord(6, 16);
+                var mapper = new HexMetricsCoordinateMapper();
+                var movement = new UnitMovementUseCase(grid, null, flow, mapper);
+                var unit = new UnitData(-301, UnitType.LittleKnight, TeamId.Red,
+                    start, maxHp: 1, attackPower: 1, attackRange: 1f, detectRange: 1f);
+                var research = placement.PlaceBuildingWithId(-301, BuildingType.Research,
+                    TeamId.Blue, start);
+                placement.PlaceBuildingWithId(-302, BuildingType.TrainingCamp,
+                    TeamId.Blue, goal);
+                Require(research != null && HexCoord.Distance(start, goal) == 1,
+                    "The removal regression must use the adjacent recorded start and goal.");
+
+                int diedCount = 0;
+                int removedCount = 0;
+                int resumedCount = 0;
+                HexFlowField warmedBeforeRemoval = null;
+                ulong warmedRevision = 0UL;
+                GameEvents.OnBuildingDied.Subscribe(e =>
+                {
+                    if (!ReferenceEquals(e.Building, research)) return;
+                    diedCount++;
+                    Require(ReferenceEquals(placement.GetBuilding(research.Id), research)
+                            && ReferenceEquals(placement.GetBuildingAt(start), research)
+                            && grid.GetTile(start).HasBuilding,
+                        "Died consumers must still find the registered building and blocked tile.");
+                    // 구버전 eager callback과 같은 시점에 실제 경로장을 미리 계산한다.
+                    warmedBeforeRemoval = flow.GetOrCompute(goal);
+                    warmedRevision = flow.WalkabilityRevision;
+                    Require(warmedBeforeRemoval.GetPath(start) == null,
+                        "The death callback must warm a field without the still-blocked start.");
+                }).AddTo(subscriptions);
+                GameEvents.OnBuildingRemoved.Subscribe(e =>
+                {
+                    removedCount++;
+                    Require(placement.GetBuilding(e.Building.Id) == null
+                            && !ReferenceEquals(placement.GetBuildingAt(e.Building.Position), e.Building)
+                            && !grid.GetTile(e.Building.Position).HasBuilding,
+                        "Removed must publish only after both indexes and tile occupancy commit.");
+                    if (!ReferenceEquals(e.Building, research)) return;
+                    Require(diedCount == 1 && grid.GetTile(start).IsWalkable
+                            && flow.WalkabilityRevision > warmedRevision
+                            && !ReferenceEquals(flow.GetOrCompute(goal), warmedBeforeRemoval),
+                        "Removal must invalidate the death-callback cache before eager repath.");
+                    UnitPathRequestResult resumed = movement.RequestAuthoritativeRepath(
+                        unit, mapper.HexToWorld(start), goal, flow.WalkabilityRevision);
+                    Require(resumed.IsSuccess && resumed.Path.Count == 2
+                            && resumed.Path[0] == start && resumed.Path[1] == goal,
+                        "The adjacent post-combat objective must resume from the committed root without a snap.");
+                    resumedCount++;
+                }).AddTo(subscriptions);
+
+                Require(placement.DemolishBuilding(research.Id)
+                        && diedCount == 1 && removedCount == 1 && resumedCount == 1,
+                    "Died then actual removal must each publish once and permit fresh eager repath.");
+                Require(!placement.RemoveBuilding(research.Id)
+                        && !placement.RemoveBuilding(-399) && removedCount == 1,
+                    "Repeated or missing-ID removal must not publish another completion event.");
+
+                // 직접 제거(네트워크 수신 경로)와 walkable 목적지도 같은 완료 통지를 쓴다.
+                Require(placement.RemoveBuilding(-302) && grid.GetTile(goal).IsWalkable,
+                    "Direct removal must restore an ordinary destination tile.");
+                UnitPathRequestResult walkableGoal = movement.RequestAuthoritativeRepath(
+                    unit, mapper.HexToWorld(start), goal, flow.WalkabilityRevision);
+                Require(walkableGoal.IsSuccess && walkableGoal.Path.Count == 2,
+                    "The same adjacent geometry must also work for a walkable goal.");
+
+                HexCoord mine = new HexCoord(1, 1);
+                grid.GetTile(mine).MineKind = MineKind.Neutral;
+                placement.PlaceBuildingWithId(-303, BuildingType.MiningPost, TeamId.Blue, mine);
+                Require(placement.RemoveBuilding(-303) && !grid.GetTile(mine).IsWalkable,
+                    "Removing a mine building must not make the underlying mine walkable.");
+                HexCoord terrain = new HexCoord(2, 1);
+                grid.GetTile(terrain).TileKind = TileKind.Blocked;
+                placement.PlaceBuildingWithId(-304, BuildingType.Research, TeamId.Blue, terrain);
+                Require(placement.RemoveBuilding(-304) && !grid.GetTile(terrain).IsWalkable,
+                    "Removal must preserve the underlying blocked terrain contract.");
+
+                int removalsBeforeReplacement = removedCount;
+                HexCoord upgradeTile = new HexCoord(3, 1);
+                placement.PlaceBuildingWithId(-305, BuildingType.TrainingCamp,
+                    TeamId.Blue, upgradeTile);
+                BuildingData upgraded = placement.UpgradeBuildingWithId(
+                    -305, -306, BuildingType.WarAcademy);
+                Require(upgraded != null && grid.GetTile(upgradeTile).HasBuilding
+                        && ReferenceEquals(placement.GetBuildingAt(upgradeTile), upgraded)
+                        && removedCount == removalsBeforeReplacement,
+                    "An upgrade must keep continuous occupancy without a removal completion.");
+                placement.Clear();
+                Require(placement.Buildings.Count == 0
+                        && placement.GetBuildingAt(upgradeTile) == null
+                        && removedCount == removalsBeforeReplacement,
+                    "Session-wide Clear must retain its separate no-removal-notification policy.");
+
+                foreach (HexTile tile in grid.Tiles.Values) tile.HasBuilding = true;
+                grid.GetTile(start).HasBuilding = false;
+                HexCoord isolatedGoal = new HexCoord(0, 0);
+                grid.GetTile(isolatedGoal).HasBuilding = false;
+                flow.InvalidateAll();
+                UnitPathRequestResult unreachable = movement.RequestAuthoritativeRepath(
+                    unit, mapper.HexToWorld(start), isolatedGoal, flow.WalkabilityRevision);
+                Require(unreachable.Status == UnitPathRequestStatus.Unreachable,
+                    "A genuinely disconnected objective must remain Unreachable after the lifecycle fix.");
+            }
+            finally
+            {
+                subscriptions.Dispose();
+                flow.Dispose();
             }
         }
 
@@ -5959,20 +6124,9 @@ namespace Hexiege.Editor.Combat
                     new string('x', 580));
             }
 
-            bool oversizedRejected = false;
-            try
-            {
-                buildPayloads.Invoke(
-                    null,
-                    new object[] { oversizedEntries });
-            }
-            catch (TargetInvocationException exception)
-                when (exception.InnerException is InvalidOperationException)
-            {
-                oversizedRejected = true;
-            }
-
-            Require(oversizedRejected,
+            RequireB2ManifestRejected(
+                buildPayloads,
+                oversizedEntries,
                 "A manifest requiring more than the reserved chunks must fail closed.");
             RequireB2ManifestRejected(
                 buildPayloads,
@@ -7597,7 +7751,7 @@ namespace Hexiege.Editor.Combat
                 "_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             Require(File.Exists(unitViewPath) && File.Exists(controllerPath),
                 "StreamSpirit timeline diagnostic source gate requires both production call-site files.");
-            string unitViewSource = File.ReadAllText(unitViewPath);
+            string unitViewSource = ReadUnitViewSourceForValidation(unitViewPath);
             string controllerSource = File.ReadAllText(controllerPath);
             Require(unitViewSource.Contains("RecordStreamSpiritTimelineStart(")
                     && unitViewSource.Contains("RecordStreamSpiritTimelineMarker(")
@@ -7731,7 +7885,7 @@ namespace Hexiege.Editor.Combat
                 "_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             Require(File.Exists(unitViewPath) && File.Exists(controllerPath),
                 "FoxMagician timeline diagnostic source gate requires both production call-site files.");
-            string unitViewSource = File.ReadAllText(unitViewPath);
+            string unitViewSource = ReadUnitViewSourceForValidation(unitViewPath);
             string controllerSource = File.ReadAllText(controllerPath);
             Require(unitViewSource.Contains("RecordFoxMagicianTimelineStart(")
                     && unitViewSource.Contains("RecordFoxMagicianTimelineMarker(")

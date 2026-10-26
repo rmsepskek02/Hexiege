@@ -172,7 +172,7 @@ Config 직렬화 값이 코드 fallback보다 우선한다. ×10은 저장된 �
   - 전환은 `Open(building)` 시점 + 상태 변화 시 `UpdateLayerVisibility()`가 결정한다. **연구소 단위** — 연구 중인 연구소는 진행 레이어, 유휴 연구소는 매트릭스 레이어를 본다(복수 연구소 각각 독립).
 - **진행 중 트랙 잠금(팀 단위 중복 방지)** — 팀이 어떤 트랙을 연구 중이면 그 트랙 셀은 잠긴다(규칙 8 — 복수 연구소가 같은 트랙 동시 연구 불가).
 - **닫기 규칙** — 배경 탭 시 닫힘(Popup 공통 규칙 8·9, `GameSystemRules_UI.md`).
-- **라벨 표기** — 현재는 아이콘 대신 텍스트 라벨 사용. **매트릭스 헤더 아이콘(공/방/속·그룹)과 전체 UI 레이아웃 비주얼 다듬기는 후속 보류**(에디터 스크립트 자동생성 골격 상태 — "구현 상태" 섹션 참조).
+- **라벨 표기** — 현재는 아이콘 대신 텍스트 라벨 사용. **매트릭스 헤더 아이콘(공/방/속·그룹)은 후속 보류**다. 연구 제목·철거·생산형 진행·취소 등 레이아웃 구현과 사용자 수용 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md) 및 [UI 레이아웃 수용 원본](../_Tasks/2026-10-19/15_41_ui-layout-audit/Research.md#ui-layout-implementation-acceptance-20261023)을 따르며, 전체 기기·장문·SafeArea 검증 완료로 확대하지 않는다.
 - **buildingId ↔ 진행 연구 매핑** — 싱글/호스트는 `UnitUpgradeUseCase.TryGetActiveResearchByBuilding(buildingId)`로 조회, 멀티 순수 클라는 서버가 착수 확정 시 내려준 buildingId를 로컬 진행에 귀속해 판정.
 
 ---

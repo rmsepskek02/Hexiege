@@ -55,9 +55,9 @@ Assets/_Project/Resources/Config/
 └── AIConfig.asset   ← 단일 파일, 3 난이도 파라미터 포함
 ```
 
-**규칙 4. 파라미터 구조 (DifficultyParams 중첩 구조체)**
+**규칙 4. 파라미터 구조 (직렬화 설정과 Application 값 스냅샷)**
 AIConfig ScriptableObject는 `easy`, `normal`, `hard` 3개의 `DifficultyParams` 구조체를 필드로 가진다.
-GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조체를 AIOpponentController에 주입한다.
+GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 `GetParams(difficulty)`로 해당 설정을 선택하고, 아홉 float 값을 Application의 불변 `AIDifficultyParameters` 값 스냅샷으로 복사하여 `AIOpponentController`에 주입한다.
 
 **규칙 5. 파라미터 목록**
 
@@ -479,19 +479,24 @@ Game.unity 씬을 열지 않아도 Project 창에서 에셋을 선택해 즉시 
 기존 `LocalPlayerRace` 패턴과 동일하게 구현한다.
 
 ```
-// 난이도 열거형
+// 난이도 열거형 (Domain: Hexiege.Domain)
 public enum DifficultyLevel { Easy, Normal, Hard }
 
 // 정적 홀더 (Infrastructure)
 public static class LocalPlayerDifficulty
 {
-    public static DifficultyLevel Current { get; set; } = DifficultyLevel.Normal;
+    public static DifficultyLevel Current { get; private set; } = DifficultyLevel.Normal;
+
+    public static void Set(DifficultyLevel level)
+    {
+        Current = level;
+    }
 }
 ```
 
 **규칙 33. 씬 진입 시 AIConfig 선택**
 `GameBootstrapper.InitializeAI()`에서 `LocalPlayerDifficulty.Current`를 읽어
-단일 `AIConfig.asset`을 로드한 뒤 규칙 4에 따라 `GetParams(difficulty)`로 해당 난이도의 `DifficultyParams`를 선택하여 `AIOpponentController`에 주입한다.
+단일 `AIConfig.asset`을 로드한 뒤 `GetParams(difficulty)`로 해당 난이도의 `DifficultyParams`를 선택하고, 규칙 4에 따라 아홉 값을 불변 `AIDifficultyParameters` 스냅샷으로 복사하여 `AIOpponentController`에 전달한다.
 
 난이도별 에셋을 따로 로드하지 않고 규칙4의 단일 AIConfig에서 선택 난이도 파라미터를 조회한다. 이전 사본 정정 경위는 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-ai-02)다.
 
@@ -506,7 +511,7 @@ BattleMainView
   → BattleScreen.SingleplayDifficulty 상태로 전환
   → DifficultySelectView 표시 (쉬움 / 보통 / 어려움 / 뒤로가기)
   → 난이도 버튼 클릭
-  → LocalPlayerDifficulty.Current = 선택값
+  → LocalPlayerDifficulty.Set(선택값)
   → 게임 씬 로드
 ```
 

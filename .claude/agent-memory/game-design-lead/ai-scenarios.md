@@ -3,7 +3,7 @@
 > 이 파일은 `game-design-lead/MEMORY.md` 에서 옮겨 온 **확정 설계 상세**다(2026-08-24 분리).
 > `MEMORY.md` 는 매 작업마다 읽는 파일이라 「매번 필요한 것 + 인덱스」만 남기고,
 > 분량이 큰 상세 설계는 여기로 옮겼다(근거: `.claude/MEMORY.md` 「🔴 Agent Memory Management Rules」 C-8).
-> **본문은 한 글자도 고치지 않은 원문 그대로다 — 삭제가 아니라 이동이다.**
+> 분리 당시 본문은 원문 그대로 이동했다. 2026-10-23 사용자 승인으로 아래 난이도 설명만 현행화했으며, 이전 문장은 정정 기록에 보존한다. 나머지 이관 내용은 유지한다.
 
 > 다루는 범위: AI 시나리오 ScriptableObject 에셋 / 시나리오 구조 / 3종족(Human·Spirit·Transcendence)
 > 시나리오와 생산 건물 라인 표.
@@ -20,7 +20,8 @@
 ### AI 시나리오 구조
 - Phase 4단계: Phase 1(0~3분) / Phase 2(3~6분) / Phase 3(6~9분) / Phase 4(9분~종료)
 - 시나리오 선택: 게임 시작 시 A/B/C 중 균등 확률(33.3%) 랜덤. `UnityEngine.Random.Range(0, 3)` 인덱스 사용.
-- 난이도는 `delaySeconds` 배율(쉬움 ×1.5 / 어려움 ×0.7)과 `goldIncomeMultiplier`로만 반영.
+- 난이도 설계에는 시나리오 대기 시간(`delaySeconds`), 골드 수입 배율(`goldIncomeMultiplier`), 유닛 생산 시간 배율(`productionTimeMultiplier`)이 포함된다. 쉬움 대기 시간 ×1.5 / 어려움 ×0.7은 현행 AI 규칙의 종족 시나리오 공통 타이밍과 같이 **조정 예정인 예비 기준**이며, 규칙 5의 생산 시간 배율과 별개의 값이다.
+  **[2026-10-23 사용자 승인 정정 — 이전 문장 보존: 「난이도는 `delaySeconds` 배율(쉬움 ×1.5 / 어려움 ×0.7)과 `goldIncomeMultiplier`로만 반영.」 설계 범위의 누락과 예비값의 확정 표현을 정정했다. 코드 효과 적용 완료를 뜻하지 않는다.]**
 - 채굴소(MiningPost 계열)는 Phase 2와 Phase 4에 병행 트랙으로 자동 처리.
 - 골드 경제: 시작 500g + 채굴소 10g/s × 180s × 2 = 10분 기준 이론 최대 약 5,300g.
 

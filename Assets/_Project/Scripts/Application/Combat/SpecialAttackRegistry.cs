@@ -7,10 +7,9 @@
 //   등록되지 않은 유닛은 특수 공격이 없으므로 TryGet이 null을 반환하고,
 //   ExecuteAttack은 기존 단일 타깃 동작만 수행한다(일반 유닛 무변경).
 //
-// 이번 범위:
-//   BattleAxe → SweepAttackBehavior 만 등록.
-//   나머지 특수 유닛 4종(QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy)은
-//   각자 ISpecialAttackBehavior 구현체를 만든 뒤 여기 한 줄씩 등록하면 된다(뼈대만).
+// 현재 등록:
+//   BattleAxe / TorrentSpirit / MushroomBomber / InfernoSpirit / QuakeSpirit.
+//   BloomFairy는 힐러 전용 경로를 사용하므로 이 레지스트리에 등록하지 않는다.
 //
 // 왜 인스펙터 배선이 아닌 코드 등록인가:
 //   UnitType 키 매핑이라 ScriptableObject/인스펙터 배선이 필요 없다.
@@ -56,8 +55,8 @@ namespace Hexiege.Application
             //   다른 적 유닛 + 적 건물에 즉발 스플래시 50%(올림)만. 주 타깃은 스플래시 제외).
             _behaviors[UnitType.QuakeSpirit] = new QuakeAttackBehavior();
 
-            // TODO(특수 유닛 확장): 아래처럼 핸들러를 추가 등록한다.
-            //   _behaviors[UnitType.BloomFairy]  = new HealBehavior();
+            // BloomFairy는 적 공격 전략 대신 힐러 전용 경로를 사용한다.
+            // 이 레지스트리에 별도의 HealBehavior를 등록하지 않는다(유닛 규칙 32).
         }
 
         /// <summary>

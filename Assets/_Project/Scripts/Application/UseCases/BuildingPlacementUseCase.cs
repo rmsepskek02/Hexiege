@@ -162,16 +162,7 @@ namespace Hexiege.Application
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정
-            var neighbors = _grid.GetNeighbors(position);
-            foreach (var neighbor in neighbors)
-            {
-                if (neighbor.Owner != team)
-                {
-                    _grid.SetOwner(neighbor.Coord, team);
-                    GameEvents.OnTileOwnerChanged.OnNext(
-                        new TileOwnerChangedEvent(neighbor.Coord, team));
-                }
-            }
+            ClaimAdjacentTiles(position, team);
 
             // 이벤트 발행 → BuildingFactory가 프리팹 생성
             GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
@@ -202,6 +193,20 @@ namespace Hexiege.Application
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정 (건물 건설 시 주변 영토 확장)
+            ClaimAdjacentTiles(position, team);
+
+            // 이벤트 발행 → BuildingFactory가 프리팹 생성, HexTileView가 색상 변경
+            GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
+            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
+
+            return building;
+        }
+
+        /// <summary>
+        /// 배치한 건물의 인접 타일을 같은 팀 소유로 바꾸고, 바뀐 타일마다 소유권 변경을 알린다.
+        /// </summary>
+        private void ClaimAdjacentTiles(HexCoord position, TeamId team)
+        {
             var neighbors = _grid.GetNeighbors(position);
             foreach (var neighbor in neighbors)
             {
@@ -212,12 +217,6 @@ namespace Hexiege.Application
                         new TileOwnerChangedEvent(neighbor.Coord, team));
                 }
             }
-
-            // 이벤트 발행 → BuildingFactory가 프리팹 생성, HexTileView가 색상 변경
-            GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
-            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
-
-            return building;
         }
 
         /// <summary>
@@ -371,7 +370,13 @@ namespace Hexiege.Application
                 {
                     _buildingsByPosition.Remove(building.Position);
                 }
-                return _buildings.Remove(buildingId);
+                if (!_buildings.Remove(buildingId)) return false;
+
+                // 사망 이벤트는 등록된 건물을 조회하는 구독자를 위해 제거 전에 발행된다.
+                // 경로 갱신은 HasBuilding과 두 인덱스의 변경이 모두 끝난 이 시점에 알린다.
+                // 그래야 사망 콜백에서 계산된 이전 지형의 캐시를 다시 사용하지 않는다.
+                GameEvents.OnBuildingRemoved.OnNext(new BuildingRemovedEvent(building));
+                return true;
             }
             return false;
         }

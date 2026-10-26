@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Hexiege.Domain;
-using Hexiege.Core;
 
 namespace Hexiege.Application
 {
