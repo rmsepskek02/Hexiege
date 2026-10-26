@@ -53,7 +53,7 @@ All of this is presentation only — no server damage / target / HP / RPC path c
   uniform scale.
 - *(2026-10-26 added)* The timed-damage Play log line prints the applied fit (`FitScale=`; BearGuard 0.53 = its table height) — read it
   before suspecting a per-unit scaling bug. A "hard to see" status VFX can be occlusion (flame narrower/lower than the body), not size
-  data; that BearGuard case is an unverified hypothesis with a pending user choice (server-projectile Research 17-9, Plan U-20).
+  data; that BearGuard case was handled by the status-effect Task (§10 — burn v2, user-test PASS 2026-10-27). *(2026-10-27 updated; old: "an unverified hypothesis with a pending user choice (server-projectile Research 17-9, Plan U-20)" — the U-20 row in that Task still reads open.)*
 
 ## 4. RuneSpire (Spirit AutoTower) bolt — `VfxPoolItem.TowerBolt.cs`
 
@@ -139,7 +139,7 @@ R-1 `VfxPoolItem.cs` ~164 · R-5 `VfxPoolItem.cs` ~210 · R-4 `VfxPoolItem.Timed
 
 Commit `8330b5d9` (+ material fixes `f899238f`, `609ba447`). Record: `Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/`
 Research §9 / Plan §9. Rule: `GameSystemRules_Units.md` rule 17 「차지 유닛 typed marker 계약」. User acceptance: single + multi
-**visual** check only (no log verification, regression-suite result not reported). Presentation only — server damage timing unchanged.
+**visual** check only (no log verification; regression suite counts as PASS on no user mention since 2026-10-27 — WORKFLOW 「[6] 사용자 테스트」; old: "regression-suite result not reported"). Presentation only — server damage timing unchanged.
 
 - **Detection = clip event, not a type list.** `UnitView.EnsureAttackChargeMarkerCache`: the single clip whose name ends in
   `_Attack` (more than one distinct → false) has an `OnAttackCharge` event → `_hasAttackChargeMarker`. Computed once per
@@ -207,3 +207,33 @@ human cannon tower · D `a0a23423` InfernoSpirit/FoxMagician · D-2 `fb77548c` d
   and NGO Despawn timing are unchanged. Measured: Client death lead 0.043~0.168 s before → `deathMinusImpact` 0.000 for 17/17 after.
 - **Diagnosing a "too early" report:** split the channels first (number · hit VFX · death presentation · DoT VFX). In stage D the
   numbers were already held (immediate 0); the user was seeing the death presentation. Compare times on one device clock.
+
+## 10. Status-effect width fit, view pull, burn v2 and the flipped-Client follow (2026-10-26~27)
+
+Task: `Assets/_Project/Docs/_Tasks/2026-10-26/18_34_status-effect-width-fit/` (Research §13 / Plan §10-10 = final state).
+Commits: width fit `eb660f70` · view pull `7f787d21` · burn v2 hookup `5dd22db7` (prefab `7d1b9855`, user-made) · follow fix
+`ec621589`. User-test PASS 2026-10-27 (04:15 multi: visual "no particular problem", logs normal; suite = PASS on no mention).
+Merged to `origin/main` `0a47f37f`; Unity compile after the merge is unconfirmed. Presentation only.
+
+- **Width fit (`EffectPreset` 「Recipient Width Fit」, default off).** At play it rewrites, on **every emission-enabled**
+  ParticleSystem, Shape (circle, radius from the `UnitEffectConfig` body `radius`, thickness 1) and multiplies rate/maxParticles by
+  the flame count (cap 3); originals are captured and restored on pool return (`VfxPoolItem.TimedDamage.cs` 「폭 맞춤」).
+  🔴 Do not enable it on a prefab that already emits around the body perimeter (burn v2) — it overwrites the designed Shape
+  radius and can triple particles. It suits only the old "one picture from the body centre" structure.
+- **View pull (「Recipient View Pull」 ratio, 0 = off, recommended 1.75 = 1/cos 55°).** World-space offset toward the camera of
+  ratio × body radius, computed once at play, not rotated with the unit. On the **orthographic** game camera a camera-ward move
+  changes depth only, not screen position/size; a perspective camera breaks that (log suffix `@Perspective`). Off for burn v2:
+  back flames hidden by the body give the "wrapping" depth cue.
+- **Design lesson:** one large camera-facing billboard with Start Speed 0 read as "an object stuck on the unit" whatever its
+  size/count/position; many small flames emitted around the body perimeter (v2) read as burning. Visibility of all three status
+  effects is still "not very noticeable" (user) — follow-up in ROADMAP.
+- **Stored VisualRoot Transform on the flipped Client.** The VisualRoot is a direct child of the Simulation Root; when NGO turns the
+  root in `Update`, the child is dragged along an arc of L × 2 sin(Δθ/2) (L = distance between real and mirrored position, up to
+  2× the distance to the map centre) until `VisualRootProjector.LateUpdate` calls `ProjectNow()`. LateUpdate order between the
+  presenter and the projector is undefined (no `DefaultExecutionOrder`), so a consumer that **caches** the Transform and reads it
+  every frame must call `ProjectNow()` itself right before reading (idempotent; identity on Host/single). Done for
+  `TimedDamageEffectPresenter` (projector cached per owner next to `Pose`, `ResolveProjector`); `BloomHealEffectPresenter` still
+  has the same bypass (no report yet). Precedent: `TowerBoltTarget.Projector`.
+- **Diagnostic `PoseCorrected`** (Editor/Development only, flipped Client only): logs the before/after distance when > 0.05 m and
+  only when that owner's peak grows (4 per owner, 64 total, then one `DiagnosticLimit`). 04:15: Client 32 records (Start 14 /
+  Follow 18), Delta 0.057~0.406 m, Host 0 — consistent with the cause; lower than the 1~2 m estimate (frame rate / L, unmeasured).

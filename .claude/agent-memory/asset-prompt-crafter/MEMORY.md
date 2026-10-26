@@ -235,6 +235,23 @@ Source: `Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/
   normalised curves (Size over Lifetime, rate curve); shortening Duration with the same rate cuts total particle count
   proportionally (Fox Wisps ~2.4x fewer, user accepted). Charge presets keep 「Stop When Caster Dies」 ON.
 
+## Unity AI VFX prompt lessons — burn v2, perimeter flames (2026-10-27)
+
+> **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 item 2. That guide wins.
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-26/18_34_status-effect-width-fit/` Research §11-4 (prompt gist, values handed over by
+the main session) and §13 (user-test PASS 2026-10-27).
+
+- **One large camera-facing flame picture reads as "an object stuck on the unit"**, and random re-spawn positions read as "jumping
+  sideways" — code-side width/count/position fitting did not fix that. The approved v2 (`vfx_infernospirit_burn_v2.prefab`) asked
+  for small flame tongues rising from the **edge** of a body circle (radius 0.25 / height 1.0 creation standard), embers, a
+  ground glow (Horizontal Billboard) and a faint smoke wisp; Looping + Prewarm, Local, Hierarchy, Burst 0, Start Speed 0, Velocity
+  over Lifetime x·y·z in the same mode, total max particles 33 across 4 emitting layers (root emits nothing; 5 systems).
+- The game turns off width fit and camera-ward pull for this prefab — say in the prompt that the prefab itself must wrap the body.
+- User verdict after the follow fix: usable, but burn/poison/heal are all "not very noticeable" → a visibility follow-up is in
+  ROADMAP (candidates: colour/brightness contrast, preset scale, ground ring/glow, emphasis at the moment the effect starts).
+  Poison/heal v2 remakes are a candidate there (user: consider them if the burn result is good).
+
 ## 알려진 제약사항
 - **Meshy.ai 생성 모델은 리메시 후 약 3,000 tri로 제작** (건물/오브젝트 공통 기준)
 - 모바일 최적화: 3,000 tri 이하 유지 (유닛 포함 동일 기준)

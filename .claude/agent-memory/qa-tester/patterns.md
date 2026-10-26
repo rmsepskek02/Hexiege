@@ -168,10 +168,27 @@ Programmer-side model: `.claude/agent-memory/game-programmer/vfx-presentation.md
 - **One-shot kills hide DoT.** A target killed by the direct hit never gets the burn, so DoT visibility needs a survivor
   (stage D-2 only BearGuard showed burn). Paths not seen in a run (non-projectile immediate death, rematch discard, single,
   device = Host, the other projectile units) stay unconfirmed — list them, do not infer them.
-- **Regression suite results are a Console check that RuntimeLog does not record.** Without the user's report it is "not
-  reported", never PASS; log-normal + visual-normal alone does not make the stage a user-test PASS.
+- **Regression suite results are a Console check that RuntimeLog does not record.** Since 2026-10-27 (user decision, verbatim
+  「Hexiege/Combat/Run Full Regression Suite 는 특별히 언급하지 않으면 문제가 없는 거니까 PASS라고 생각하면 될 것 같아」) the suite
+  is recorded as PASS unless the user reports a failure — always with the note "no result file, not agent-observed"
+  (WORKFLOW 「[6] 사용자 테스트」). That rule covers the suite axis only; open decisions or unobserved paths still block a user-test
+  PASS. *(2026-10-27 updated; old: "Without the user's report it is 'not reported', never PASS; log-normal + visual-normal alone
+  does not make the stage a user-test PASS.")*
 - **Check what the archive actually contains.** A ZIP can re-include an earlier log (same size/SHA256 as the prior receipt) or
   an old device log when logcat was not saved before zipping; identify the analysed file by hash and session time.
+
+## Status-effect follow and perimeter VFX checks (2026-10-26~27)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-26/18_34_status-effect-width-fit/` Research §11~13 (user-test PASS 2026-10-27).
+Programmer-side: `.claude/agent-memory/game-programmer/vfx-presentation.md` §10.
+
+- **"Jumps sideways" on an attached effect → check which screen first.** The cause was the flipped (Red-view) Client only: a cached
+  VisualRoot Transform read before `ProjectNow()` while the root turns. Host/single cannot show it. Test the flipped Client while the
+  target turns, far from the map centre; read the dev `PoseCorrected` lines (Client > 0, Host 0 expected).
+- **Roles swap between rounds** (00:40 device = Client, 04:15 Editor = Client) — always note which peer was flipped before comparing.
+- **A presenter with the same pattern can stay unfixed** (heal) — record "no report" separately from "verified fixed".
+- **Option values on a new prefab:** a perimeter-emitting prefab must run with width fit off (it overwrites Shape); check the preset
+  fields and the play log (`WidthFit=` / `ViewPull=` absent, `RecursivePS=` = prefab system count) to confirm the right prefab.
 
 ## Quaternion fixture equality and suite acceptance
 
