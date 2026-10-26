@@ -301,6 +301,42 @@ namespace Hexiege.Presentation
             return stopped;
         }
 
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 이 시전자에게 귀속된 공격 이펙트(차지 등)를 사망 대역(ghost)으로 넘긴다.
+        /// 시전자의 사망 표현이 투사체 화면 착탄까지 미뤄질 때 UnitView가 부른다 — 차지 VFX도 사망 표현과 같은 순간에 멈추게 하려는 것이다.
+        /// </summary>
+        /// <param name="caster">사망한 시전자 UnitView.</param>
+        /// <param name="ghost">사망 대역 GameObject(떼어 낸 Visual Root).</param>
+        /// <returns>넘긴 이펙트 수.</returns>
+        public int HandOverCasterOwnedAttackEffects(UnitView caster, GameObject ghost)
+        {
+            if (caster is null || ghost == null || _casterOwnedItems.Count == 0) return 0;
+            int moved = 0;
+            foreach (VfxPoolItem item in _casterOwnedItems)
+                if (item != null && item.HandOverCasterOwnershipToGhost(caster, ghost)) moved++;
+            return moved;
+        }
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 사망 대역에 귀속된 공격 이펙트를 모두 즉시 멈추고 풀에 반환한다(미뤄 둔 사망 표현을 진행할 때).
+        /// </summary>
+        /// <param name="ghost">사망 대역 GameObject(이미 파괴 중이어도 같은 참조로 찾는다).</param>
+        /// <param name="reason">정지 사유(진단용 짧은 토큰).</param>
+        /// <returns>정지한 이펙트 수.</returns>
+        public int StopGhostOwnedAttackEffects(GameObject ghost, string reason)
+        {
+            if (ghost is null || _casterOwnedItems.Count == 0) return 0;
+            _casterStopBuffer.Clear();
+            foreach (VfxPoolItem item in _casterOwnedItems)
+                if (item != null && item.IsOwnedByGhost(ghost)) _casterStopBuffer.Add(item);
+            int stopped = 0;
+            for (int i = 0; i < _casterStopBuffer.Count; i++)
+                if (_casterStopBuffer[i].StopCasterOwned(reason)) stopped++;
+            _casterStopBuffer.Clear();
+            _casterOwnedItems.RemoveWhere(owned => owned == null);
+            return stopped;
+        }
+
         /// <summary>서버에서 실제 생성된 파도만 재생한다. 기존 marker 공격 API와 소유권을 섞지 않는다.</summary>
         public bool WavePresentationReady => _unitConfig?.GetAttack(UnitType.TorrentSpirit)?.VfxPrefab != null;
 

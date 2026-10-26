@@ -44,7 +44,9 @@ namespace Hexiege.Presentation
     // IUnitView 인터페이스 구현.
     //   UnitFactory(Infrastructure)가 Presentation 구체 타입 대신 인터페이스로 Initialize를 호출하도록.
     //   SetDependencies는 Infrastructure 구체 타입을 받으므로 인터페이스에 포함하지 않음.
-    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
+    // [2026-10-26 수정안 (a)] partial로 바꿨다 — 투사체 사망타 사망 표현 보류(사망 대역) 코드를 UnitView.DeathDeferral.cs에 따로 둔다.
+    //   옛 줄(기록용): public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
+    public partial class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
         private static ulong _nextHealLifetime;
         private ulong _healLifetime, _healSequence;
@@ -1137,6 +1139,9 @@ _slot = _nextEviction;
 
         public void OnAttackHit(AnimationEvent marker)
         {
+            // [2026-10-26 수정안 (a)] 사망 표현이 미뤄진 유닛(사망 대역의 Animator가 아직 공격 클립을 재생 중)의 marker는 무시한다.
+            //   이미 죽은 유닛이라 공격 표현(총구·발사음·차지)을 새로 내면 안 된다. 대역이 남아 있는 최대 0.3초 동안만 해당한다.
+            if (_deathDeferralOwned) return;
             _nativeAttackMarker = marker;
             try { OnAttackHit(); }
             finally { _nativeAttackMarker = null; }
@@ -1154,6 +1159,8 @@ _slot = _nextEviction;
         /// </summary>
         public void OnAttackCharge(AnimationEvent marker)
         {
+            // [2026-10-26 수정안 (a)] 사망 표현이 미뤄진 유닛은 차지를 새로 켜지 않는다(위 OnAttackHit과 같은 이유).
+            if (_deathDeferralOwned) return;
             // [R-2 비활성화 — 2026-10-19 차지 유닛 발사 시점 P2-2] 옛 판별: 유닛 「타입 이름」이 FoxMagician인가.
             //   이제는 「공격 클립에 OnAttackCharge 이벤트가 있는가」로 판별한다(_hasAttackChargeMarker, P2-1).
             //   InfernoSpirit 클립에도 같은 이벤트를 넣었으므로 두 유닛이 같은 길을 쓴다.
@@ -2013,6 +2020,12 @@ _slot = _nextEviction;
                     // 다른 유닛의 사망 이벤트는 무시.
                     if (_unitData != null && e.Unit == _unitData)
                     {
+                        // [2026-10-26 수정안 (a)] 투사체 사망타가 아직 화면에 안 닿았으면 사망 "표현"을 그 착탄까지 미룬다.
+                        //   여기서는 미룰지 정하고 차지 VFX 귀속만 사망 대역(Visual Root)으로 넘긴다 — 아래 정리 코드(공격 회차 닫기 등)가
+                        //   차지 VFX를 지금 끄지 않게 하려고 정리보다 "앞"에 둔다. 대역 분리 자체는 정리가 끝난 뒤(아래)에 한다.
+                        //   미루지 않으면(비투사체 사망·이미 착탄·대역 없음) 아래 기존 코드가 예전과 똑같이 동작한다.
+                        bool deferDeathPresentation = TryBeginDeferredDeathPresentation();
+
                         EndHealPresentation("death", terminal: true);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                         PostCombatTraceEvent("unit-death", retire: true);
@@ -2021,6 +2034,20 @@ _slot = _nextEviction;
                         // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
                         ClearUnitActionShadowDesiredTarget();
                         CloseAttackPhasePresentation("attacker-death");
+
+                        // [2026-10-26 수정안 (a)] 사망 표현을 미뤘다 — Visual Root를 떼어 사망 대역으로 남긴다.
+                        //   차지 VFX 정지 · IsDead · 사망 VFX·SFX · 대역 소멸은 투사체 화면 착탄(또는 상한 0.3초) 때
+                        //   ReleaseDeferredDeathPresentation이 한 번 한다. 원래 오브젝트의 파괴 경로는 예전과 같다:
+                        //     · 싱글: 여기서 Destroy(아래 기존 분기와 같은 줄).
+                        //     · 멀티 서버(Host): 파괴하지 않는다 — NetworkCombatController의 Despawn이 처리(기존과 같다).
+                        //     · 멀티 Client: 서버 Despawn 수신 때 NGO가 파괴. NetworkUnit은 이 유닛의 사망 VFX를 대역에 맡긴다.
+                        if (deferDeathPresentation)
+                        {
+                            DetachDeferredDeathGhost();
+                            if (!NetworkContext.IsNetworkActive)
+                                Destroy(gameObject);
+                            return;
+                        }
 
                         // [2026-10-13 R2-1] 기 모으기(charge) 도중 죽으면 그 이펙트를 즉시 끈다.
                         //   아래의 "멀티 클라이언트는 여기서 반환" 분기보다 "앞"에 둬야 Host·Client·싱글 모두에서 실행된다.

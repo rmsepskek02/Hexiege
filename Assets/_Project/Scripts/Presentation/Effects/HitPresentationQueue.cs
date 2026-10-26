@@ -180,6 +180,67 @@ namespace Hexiege.Presentation
         /// <summary>[진단] 표시하지 못한 투사체 피해 숫자 수(END verdict 판정용).</summary>
         public int ProjectileTextMissingItems => _projectileTextMissing;
 
+        // ────────────────────────────────────────────────────────────────
+        // [2026-10-26 수정안 (a)] 투사체 사망타의 "사망 표현"과 화상 VFX 시작을 화면 착탄에 맞추기 위한 창구.
+        //   이 큐는 이미 번호표가 붙은 피해를 "화면 착탄 순간"까지 보관한다. 사망 표현 보류 장치
+        //   (DeferredUnitDeathPresenter)와 화상 VFX 소비자(TimedDamageEffectPresenter)는
+        //   ① 지금 보관 중인 번호표를 묻고(CollectHeldKillShotKeys · HasHeldProjectileHit)
+        //   ② 보관 항목이 화면에 나오는 순간을 통보받는다(ProjectileHitShown).
+        //   보관·방출 판단 자체는 바뀌지 않는다(읽기 + 통보만 추가).
+        // ────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 투사체 번호표가 붙은 보관 피해가 화면에 방출된 순간(착탄·순서 역전 즉시·타임아웃·상한 초과 모두) 1건마다 알린다.
+        /// 인자: 번호표, 원본 피해 이벤트(대상·남은 HP). 구독자의 예외는 여기서 막아 숫자 방출을 깨뜨리지 않는다.
+        /// </summary>
+        public event Action<ProjectileDeliveryKey, EntityDamagedEvent> ProjectileHitShown;
+
+        /// <summary>
+        /// 이 유닛을 죽인 "사망타"(남은 HP 0 이하) 중 아직 화면 착탄을 기다리며 보관 중인 번호표를 output에 모은다.
+        /// 대상은 객체 참조로 비교한다(같은 Id의 다른 유닛 — 재경기·ID 재사용 — 과 섞이지 않는다).
+        /// </summary>
+        /// <param name="unit">사망한 유닛 데이터.</param>
+        /// <param name="output">번호표를 담을 목록(호출자가 비워 둔다).</param>
+        public void CollectHeldKillShotKeys(UnitData unit, List<ProjectileDeliveryKey> output)
+        {
+            if (unit == null || output == null) return;
+            _projectileHold.CollectKeys(
+                static (held, target) => held.Event.IsUnit && held.Event.CurrentHp <= 0
+                                         && ReferenceEquals(held.Event.Entity, target),
+                unit, output);
+        }
+
+        /// <summary>
+        /// 이 대상에게 attackerId(유닛 공격자)의 투사체 피해가 아직 화면 착탄을 기다리며 보관 중인가.
+        /// 화상 VFX 시작 보류 판단에 쓴다(같은 공격자의 착탄이 화면에 나올 때까지 불을 켜지 않는다).
+        /// </summary>
+        /// <param name="target">피해 대상.</param>
+        /// <param name="attackerId">공격자 유닛 Id.</param>
+        public bool HasHeldProjectileHit(IDamageable target, int attackerId)
+        {
+            if (target == null) return false;
+            return _projectileHold.Any(
+                static (held, query) => held.Event.AttackerIsUnit && held.Event.AttackerId == query.attackerId
+                                        && ReferenceEquals(held.Event.Entity, query.target),
+                (target, attackerId));
+        }
+
+        private void NotifyProjectileHitShown(ProjectileDeliveryKey key, EntityDamagedEvent evt)
+        {
+            Action<ProjectileDeliveryKey, EntityDamagedEvent> handlers = ProjectileHitShown;
+            if (handlers == null || !key.IsValid) return;
+            foreach (Action<ProjectileDeliveryKey, EntityDamagedEvent> handler in handlers.GetInvocationList())
+            {
+                try { handler(key, evt); }
+                catch (Exception exception)
+                {
+                    GameLog.Dev.Warn("Combat", nameof(HitPresentationQueue),
+                        "Projectile hit-shown subscriber failed; number presentation unchanged",
+                        $"projectile={key}, error={exception.GetType().Name}:{exception.Message}");
+                }
+            }
+        }
+
         /// <summary>
         /// 투사체 화면 소비자가 "화면상 착탄 순간"에 부른다. 그 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 한 번 방출한다.
         /// 피해 이벤트가 아직 안 왔으면(순서 역전) 잠시 기억했다가 도착하는 즉시 방출한다.
@@ -1188,6 +1249,10 @@ namespace Hexiege.Presentation
 
             // ②·③ 피격 VFX(대상이 없으면 같은 대체 위치) · 펀치(대상이 없으면 생략).
             PlayHitReaction(evt, targetPresentation, hasFallback, fallback);
+
+            // ④ [2026-10-26 수정안 (a)] 이 번호표가 화면에 나왔음을 알린다 — 미뤄 둔 사망 표현이 지금(숫자와 같은 순간) 진행된다.
+            //   숫자·VFX를 다 낸 뒤에 알리므로 "0" 숫자와 사망 이펙트가 같은 프레임에 나온다.
+            NotifyProjectileHitShown(evt.ProjectilePresentationKey, evt);
         }
 
         // 숫자 그리기 단일 지점. 실제로는 스포너의 위치 지정 경로(TryShowDamageAt — C3가 쓰는 경로)를 쓴다.

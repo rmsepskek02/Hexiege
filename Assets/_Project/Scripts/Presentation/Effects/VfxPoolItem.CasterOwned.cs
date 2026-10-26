@@ -44,6 +44,10 @@ namespace Hexiege.Presentation
         private bool _casterOwned;        // 지금 이 재생이 시전자에게 귀속돼 있는가
         private UnitView _casterView;      // 시전자의 화면 컴포넌트(재생 시점에 1번 고정)
         private UnitData _casterData;      // 재생 시점의 시전자 Domain 객체(ID가 아니라 객체 참조로 동일성 확인)
+        // [2026-10-26 수정안 (a)] 시전자의 사망 표현이 미뤄져 "사망 대역(ghost — 떼어 낸 Visual Root)"으로 넘어갔을 때의 새 주인.
+        //   대역이 남아 있는 동안은 계속 재생하고, 대역이 사망 표현과 함께 정지시키거나 파괴되면 멈춘다.
+        //   null이 아니면 _casterView/_casterData 대신 이것으로 판단한다(넘긴 뒤 원래 View는 곧 파괴된다).
+        private GameObject _casterGhost;
 
         /// <summary>읽기 전용 진단/검증용: 지금 재생 중이며 시전자에게 귀속돼 있는지.</summary>
         public bool CasterOwned => _active && _casterOwned;
@@ -71,6 +75,27 @@ namespace Hexiege.Presentation
         /// <param name="caster">확인할 시전자 UnitView.</param>
         public bool IsOwnedByCaster(UnitView caster)
             => _active && _casterOwned && caster is object && ReferenceEquals(_casterView, caster);
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 시전자 귀속을 사망 대역(ghost)으로 넘긴다. 시전자 사망 표현이 투사체 화면 착탄까지 미뤄졌을 때
+        /// UnitView가 부른다. 넘긴 뒤에는 원래 View의 사망·제거(OnDisable)로 멈추지 않고, 대역이 정지시킬 때까지 그대로 재생된다.
+        /// </summary>
+        /// <param name="caster">원래 시전자 UnitView.</param>
+        /// <param name="ghost">사망 대역 GameObject.</param>
+        /// <returns>넘겼으면 true.</returns>
+        public bool HandOverCasterOwnershipToGhost(UnitView caster, GameObject ghost)
+        {
+            if (!IsOwnedByCaster(caster) || ghost == null) return false;
+            _casterView = null;
+            _casterData = null;
+            _casterGhost = ghost;
+            return true;
+        }
+
+        /// <summary>[2026-10-26 수정안 (a)] 이 이펙트가 지금 주어진 사망 대역에 귀속돼 재생 중인지.</summary>
+        /// <param name="ghost">확인할 사망 대역.</param>
+        public bool IsOwnedByGhost(GameObject ghost)
+            => _active && _casterOwned && ghost is object && ReferenceEquals(_casterGhost, ghost);
 
         /// <summary>
         /// 시전자 귀속 이펙트를 즉시 멈추고(남은 파티클까지 삭제) 풀에 반환한다.
@@ -101,6 +126,16 @@ namespace Hexiege.Presentation
         {
             if (!_active || !_casterOwned) return false;
             string reason;
+            // [2026-10-26 수정안 (a)] 사망 대역으로 넘어간 이펙트: 대역이 살아 있으면 계속, 파괴됐으면 정지.
+            if (_casterGhost is object)
+            {
+                if (_casterGhost != null) return false;
+                return StopCasterOwned("CasterGhostDestroyed");
+            }
+            // [2026-10-26 수정안 (a)] 시전자가 죽었어도 그 사망 표현이 투사체 화면 착탄까지 미뤄진 동안은 "아직 화면에 살아 있는" 것으로 본다.
+            //   (곧 대역으로 넘어가거나, 상한 0.3초 안에 사망 표현과 함께 정지된다.)
+            if (_casterView != null && ReferenceEquals(_casterView.Data, _casterData)
+                && _casterView.IsDeathPresentationDeferred) return false;
             // Unity 오브젝트는 파괴되면 == null 이 참이 된다(C# 참조가 남아 있어도).
             if (_casterView == null) reason = "CasterDestroyed";
             // 같은 View에 다른 UnitData가 들어왔다 = 다른 유닛으로 재사용됐다 → 원래 시전자는 이미 없다.
@@ -120,6 +155,7 @@ namespace Hexiege.Presentation
             _casterOwned = false;
             _casterView = null;
             _casterData = null;
+            _casterGhost = null;
         }
     }
 }

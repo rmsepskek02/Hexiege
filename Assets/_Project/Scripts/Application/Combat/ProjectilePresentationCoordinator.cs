@@ -406,6 +406,49 @@ namespace Hexiege.Application
             for (int i = 0; i < _expired.Count; i++) _releasedEarly.Remove(_expired[i]);
         }
 
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 보관 중인 항목 중 조건에 맞는 항목을 가진 번호표를 output에 모은다(읽기 전용 — 보관 상태 불변).
+        /// 사망 표현 보류가 "이 대상에게 아직 화면에 안 나온 사망타가 있는가"를 물을 때 쓴다(사망 때만 불려 비용이 작다).
+        /// state를 따로 받는 이유: 호출자가 static 람다를 넘겨 매번 클로저를 만들지 않게 하려는 것이다.
+        /// </summary>
+        /// <typeparam name="TState">조건 함수에 넘길 값의 타입.</typeparam>
+        /// <param name="match">항목·state → 맞으면 true.</param>
+        /// <param name="state">조건 함수에 넘길 값(예: 대상 UnitData).</param>
+        /// <param name="output">맞는 번호표를 담을 목록(호출자가 비워 둔다). 같은 번호표는 한 번만 담는다.</param>
+        public void CollectKeys<TState>(Func<T, TState, bool> match, TState state, List<ProjectileDeliveryKey> output)
+        {
+            if (match == null || output == null) return;
+            foreach (var pair in _held)
+            {
+                List<T> items = pair.Value.Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (!match(items[i], state)) continue;
+                    output.Add(pair.Key);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 보관 중인 항목 중 조건에 맞는 것이 하나라도 있는가(읽기 전용).
+        /// 화상 VFX 시작 보류가 "같은 공격자의 투사체 피해가 아직 화면 착탄을 기다리는가"를 물을 때 쓴다.
+        /// </summary>
+        /// <typeparam name="TState">조건 함수에 넘길 값의 타입.</typeparam>
+        /// <param name="match">항목·state → 맞으면 true.</param>
+        /// <param name="state">조건 함수에 넘길 값.</param>
+        public bool Any<TState>(Func<T, TState, bool> match, TState state)
+        {
+            if (match == null) return false;
+            foreach (var pair in _held)
+            {
+                List<T> items = pair.Value.Items;
+                for (int i = 0; i < items.Count; i++)
+                    if (match(items[i], state)) return true;
+            }
+            return false;
+        }
+
         /// <summary>모든 보관을 버린다(재초기화·파괴). 버린 항목은 방출하지 않는다. 진단 계수도 0으로 되돌린다.</summary>
         public void Clear()
         {
