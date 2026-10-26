@@ -1,0 +1,225 @@
+diff --git a/Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs b/Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs
+index 82f3a9b5..bf2cc437 100644
+--- a/Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs
++++ b/Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs
+@@ -15,6 +15,9 @@
+ // ============================================================================
+ 
+ using UnityEngine;
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++using Unity.Profiling;
++#endif
+ using UniRx;
+ using Hexiege.Domain;
+ using Hexiege.Core;
+@@ -25,6 +28,11 @@ namespace Hexiege.Bootstrap
+ {
+     public partial class GameBootstrapper
+     {
++
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
++        private static readonly ProfilerMarker _eagerRepathProfilerMarker = new ProfilerMarker("Hexiege.Bootstrap.RepathAllAliveUnits");
++#endif
+         // ====================================================================
+         // 네트워크 게임 진입점
+         // ====================================================================
+@@ -154,6 +162,9 @@ namespace Hexiege.Bootstrap
+         /// </summary>
+         private void RepathAllAliveUnits()
+         {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++            using var eagerRepathSample = _eagerRepathProfilerMarker.Auto();
++#endif
+ #if UNITY_EDITOR || DEVELOPMENT_BUILD
+             if (_refactoringRepathCalls < int.MaxValue) _refactoringRepathCalls++;
+ #endif
+diff --git a/Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs b/Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
+index 3d26d96a..9392d578 100644
+--- a/Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
++++ b/Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
+@@ -27,6 +27,9 @@
+ using System.Collections;
+ using Unity.Netcode;
+ using UnityEngine;
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++using Unity.Profiling;
++#endif
+ using UniRx;
+ using Hexiege.Core;
+ using Hexiege.Domain;
+@@ -42,6 +45,13 @@ namespace Hexiege.Infrastructure
+     /// </summary>
+     public partial class NetworkCombatController : NetworkBehaviour
+     {
++
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
++        private static readonly ProfilerMarker _tickCombatProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TickCombat");
++        private static readonly ProfilerMarker _targetQueriesProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TargetQueries");
++        private static readonly ProfilerMarker _projectileTickProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TickProjectiles");
++#endif
+         // ====================================================================
+         // Inspector 설정
+         // ====================================================================
+@@ -651,7 +661,12 @@ namespace Hexiege.Infrastructure
+             if (_combatStopped) return;
+             // [2026-10-20 서버 권위 투사체] 발사 예약 검사·발사·비행 추적·착탄 피해도 매 서버 frame에 진행한다.
+             //   50ms 전투 틱에 묶으면 착탄이 최대 50ms 늦어진다(Plan 위험 4). 착탄 피해로 게임이 끝날 수 있어 다시 확인한다.
+-            _services?.GetCombatUseCase()?.TickProjectiles(GetAuthoritativeServerTime());
++            {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++                using var projectileTickSample = _projectileTickProfilerMarker.Auto();
++#endif
++                _services?.GetCombatUseCase()?.TickProjectiles(GetAuthoritativeServerTime());
++            }
+             if (_combatStopped) return;
+ 
+             _attackTimer += Time.deltaTime;
+@@ -684,6 +699,9 @@ namespace Hexiege.Infrastructure
+         /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
+         private void TickCombat(float elapsed)
+         {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++            using var tickCombatSample = _tickCombatProfilerMarker.Auto();
++#endif
+             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+             if (_services == null) return;
+ 
+@@ -816,8 +834,15 @@ namespace Hexiege.Infrastructure
+                 // [스킬] 빙결/기절 상태면 공격 불가(규칙 13) — 타겟을 찾지 않아 데미지를 주지 않는다.
+                 //   HasEnemyInRange는 여전히 참일 수 있어 전투 애니메이션(적을 향한 자세)은 유지되지만
+                 //   실제 데미지(ExecuteAttack)는 발생하지 않는다. 무상태면 CanAttack=true → 기존과 동일.
+-                var attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
+-                bool hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
++                (int id, bool isUnit)? attackResult;
++                bool hasEnemy;
++                {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++                    using var targetQueriesSample = _targetQueriesProfilerMarker.Auto();
++#endif
++                    attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
++                    hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
++                }
+ 
+                 if (hasEnemy)
+                 {
+diff --git a/Assets/_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs b/Assets/_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs
+index 5100f8c2..d4a471fd 100644
+--- a/Assets/_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs
++++ b/Assets/_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs
+@@ -43,6 +43,9 @@
+ using System;
+ using UniRx;
+ using UnityEngine;
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++using Unity.Profiling;
++#endif
+ using Hexiege.Application;
+ using Hexiege.Core;
+ using Hexiege.Domain;
+@@ -55,6 +58,11 @@ namespace Hexiege.Presentation
+     /// </summary>
+     public sealed class ProjectilePresentationPresenter : MonoBehaviour, IProjectilePresentationSink
+     {
++
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
++        private static readonly ProfilerMarker _projectileViewProfilerMarker = new ProfilerMarker("Hexiege.ProjectileView.Update");
++#endif
+         /// <summary>Client 화면 지연(초). 기존 서버 확정 표현(C3·버섯·파도)과 같은 값.</summary>
+         public const double ClientPresentationDelaySeconds =
+             Hexiege.Application.Combat.Sequencing.AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
+@@ -238,6 +246,9 @@ namespace Hexiege.Presentation
+ 
+         private void Update()
+         {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++            using var projectileViewSample = _projectileViewProfilerMarker.Auto();
++#endif
+             if (_combat == null || _ended) return;
+             EnsureEpoch();
+             double serverNow = _combat.ProjectileServerTime;
+diff --git a/Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs b/Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs
+index cd6d1aae..85b70cf2 100644
+--- a/Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs
++++ b/Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs
+@@ -38,6 +38,9 @@
+ using System.Collections;
+ using System.Collections.Generic;
+ using UnityEngine;
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++using Unity.Profiling;
++#endif
+ using UniRx;
+ using Hexiege.Domain;
+ using Hexiege.Application;
+@@ -50,6 +53,11 @@ namespace Hexiege.Presentation
+ {
+     public class ProductionTicker : MonoBehaviour
+     {
++
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
++        private static readonly ProfilerMarker _incomeTickProfilerMarker = new ProfilerMarker("Hexiege.Economy.TickIncome");
++#endif
+         // ====================================================================
+         // 외부 의존성 (GameBootstrapper에서 주입)
+         // ====================================================================
+@@ -296,6 +304,9 @@ namespace Hexiege.Presentation
+             // 채굴소 수입 처리
+             if (_resourceUseCase != null && _buildingPlacement != null && _config != null)
+             {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++                using var incomeTickSample = _incomeTickProfilerMarker.Auto();
++#endif
+                 _resourceUseCase.TickIncome(dt, _buildingPlacement,
+                     _config.MiningGoldPerSecond, _config.BaseGoldPerSecond);
+             }
+diff --git a/Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs b/Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs
+index d43891df..0f2ca9a3 100644
+--- a/Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs
++++ b/Assets/_Project/Scripts/Presentation/Unit/UnitView.Movement.cs
+@@ -2,6 +2,9 @@ using System;
+ using System.Collections;
+ using System.Collections.Generic;
+ using UnityEngine;
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++using Unity.Profiling;
++#endif
+ using UniRx;
+ using Hexiege.Domain;
+ using Hexiege.Core;
+@@ -13,6 +16,12 @@ namespace Hexiege.Presentation
+ {
+     public partial class UnitView
+     {
++
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
++        private static readonly ProfilerMarker _shouldEngageProfilerMarker = new ProfilerMarker("Hexiege.UnitView.ShouldEngage");
++        private static readonly ProfilerMarker _shouldEngageAtProfilerMarker = new ProfilerMarker("Hexiege.UnitView.ShouldEngageAt");
++#endif
+         // ====================================================================
+         // 이동
+         // ====================================================================
+@@ -494,6 +503,9 @@ namespace Hexiege.Presentation
+         /// </summary>
+         private bool ShouldEngage()
+         {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++            using var shouldEngageSample = _shouldEngageProfilerMarker.Auto();
++#endif
+             if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive) return false;
+ 
+             return _unitData.IsHealer
+@@ -508,6 +520,9 @@ namespace Hexiege.Presentation
+         /// </summary>
+         private bool ShouldEngageAt(Vector3 candidatePosition)
+         {
++#if UNITY_EDITOR || DEVELOPMENT_BUILD
++            using var shouldEngageAtSample = _shouldEngageAtProfilerMarker.Auto();
++#endif
+             if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive)
+                 return false;
+ 
