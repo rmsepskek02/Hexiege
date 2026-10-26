@@ -4,13 +4,13 @@
 
 ## 1. 먼저 확인할 현재 상태
 
-인계 작성 기준은 **2026-10-26 KST**, 브랜치는 **work**, 게시된 기준 커밋은 **7c00f768d5c9f0ebb9583e93e4f6a4a45397f306**이다. 이 커밋에는 앞선 리팩토링, main VFX·서버 투사체 통합, 리팩토링 검증 로그·메뉴·기능 테스트 절차가 포함돼 있다.
+게시 확인 기준은 **2026-10-26 KST**, 최적화 **코드 기준 commit은ff8bdf9542f468f02788ff9b582f601785234fde**다. 메인이 원격 **main/work 양쪽이 이 commit과 같음**을 확인했다. 앞선 리팩토링·VFX/서버 투사체·검증 메뉴에 이어 최신 main5861fcb4의 문서 변경도3c1ac957 병합으로 포함됐다. 이후 최종 문서 commit으로 Git HEAD가 달라질 수 있으므로 코드 기준과 최종 문서 HEAD를 구분한다.
 
-**인계 초안 작성 시점에는 이번 최적화 source5파일과 인계 작성분이 미커밋·미푸시였다.** 이후 사용자 게시 승인에 따라 계측만 있는 기준을 **070ddcafa368dcfb94fb76cb3218000a6cacc474**로 로컬 커밋했다. 후속 버퍼/인계 커밋·최신 main 병합·원격 게시는 이 문서 갱신 시점에 대기다. 실제 게시 결과/최종 SHA는 전달 메시지와 수신 환경의 Git 상태로 확인한다. 원격 work가 여전히7c00f768이면 이번8marker와 버퍼 재사용 코드가 있다고 가정하면 안 된다. source 정적 검토는 완료했지만 이번 최적화의 Unity 컴파일·Android 빌드·실기·Profiler 캡처는 미실행이다.
+**초안의 미게시 상태는 해소됐다. 새 환경에서는 최신 MAIN을 받아 최적화 코드를 바로 사용할 수 있고, 최적화 적용을 위해 ZIP/patch를 다시 적용할 필요가 없다.** 계측만 있는 변경 전 기준 **070ddcafa368dcfb94fb76cb3218000a6cacc474**도 게시된 이력에 포함된다. source5개 hash는 manifest로 확인한다. 원본7c00f768과두patch는 별도 복원 대안으로 남긴다. source 정적 검토는 완료했지만 이번 최적화의 Unity 컴파일·Android 빌드·실기·Profiler 캡처는 미실행이다.
 
 | 유지할 기존 확인 | 정확한 의미 |
 |---|---|
-| 사용자 「컴파일 에러 없음」 | 당시 사용자가 확인한 버전의 컴파일 수용. 이번 미게시 최적화의 컴파일 결과로 바꾸지 않는다. |
+| 사용자 「컴파일 에러 없음」 | 당시 사용자가 확인한 버전의 컴파일 수용. 이번 최적화의 컴파일 결과로 바꾸지 않는다. |
 | 사용자 「특별히 문제없어 보임」 | 실제 확인한 일반 플레이 범위 수용. 이를 다시 미확인으로 되돌리지 않는다. |
 | 최신 싱글 피스톨러 방향 오류 없음 | 해당 테스트 시도에서 미재현. 기존 지속 방향 증상의 원인 해결 확정은 아니다. |
 | re1 멀티 두 Host 경기의 기존 adapter 실패0 | 해당 두 경기에서 기존 이동 복귀 실패 미발견. 새 종료 후 진입 교정이나 모든 지형의 실행 완료와는 별개다. |
@@ -19,7 +19,7 @@ main `f367cb52`의 VFX/서버 투사체 변경은 이미 병합돼 있으므로 
 
 ## 2. 새 환경에서의 빠른 시작
 
-1. 프로젝트 루트의 `AGENTS.md`, `CLAUDE.md`, `Assets/_Project/Docs/WORKFLOW.md`, `.claude/MEMORY.md`와 현재 사용자 승인·보류 범위를 먼저 읽는다. 아래 인계 파일과 프로젝트를 모두 전달받았는지 확인한다. 현재 최적화가 게시되지 않았으면 원격 work만으로는 부족하다.
+1. 프로젝트 루트의 `AGENTS.md`, `CLAUDE.md`, `Assets/_Project/Docs/WORKFLOW.md`, `.claude/MEMORY.md`와 현재 사용자 승인·보류 범위를 먼저 읽는다. 최신 MAIN의 코드 기준ff8bdf95와 source hash를 확인한다. 아래 인계 파일도 저장소에 포함돼 있다.
 2. 새 환경에서 Unity **6000.3.5f2**, Android Build Support/SDK·NDK·JDK, ADB 기기 연결, USB 디버깅, Profiler 대상 앱 연결을 실제로 확인한다. 사용자 PC에서 Unity/Android 사용 가능이라는 답변은 있었지만 **새 환경의 설치·연결 상태를 확인한 기록은 없다.**
 3. Computer Use가 있다면 실제 Unity 창·현재 프로젝트 경로·컴파일 완료·연결 기기를 확인한 뒤 조작한다. 도구가 있다고 가정하거나 과거 빌드 시작을 완료로 기록하지 않는다. Lobby 씬 직접 시작 대신 Login부터 정상 진입한다.
 4. 최적화 source가 있는 작업 환경 또는 별도 재현본을 확보하고 파일 hash를 확인한다. 현재 작업을 지우거나 되돌리지 않는다.
@@ -40,7 +40,7 @@ main `f367cb52`의 VFX/서버 투사체 변경은 이미 병합돼 있으므로 
 
 위 신규4파일에는 Unity meta가 함께 있으며, 기존 [기능 Testcase](../20_47_spawn-facing-and-repath-fix/Testcase.md)도 인계 자료에 포함한다. 메인이 만들 전달 ZIP의 위치는 `/workspace/scratch/Hexiege-optimization-handoff-2026-10-26.zip`이다. ZIP은 신규8개 문서/patch/meta와 기존 Profiler Research/Plan2개·기능 Testcase1개의 **저장소 상대 경로11파일**이며, **Unity 프로젝트 전체나 실행 파일, raw 게임 로그가 아니다.** ZIP 생성·실제 전달 여부는 최종 전달 결과에서 별도로 확인한다. 원본 프로젝트 또는 정확한 기준 커밋의 체크아웃도 필요하다.
 
-진행 경로는 둘 중 하나다.
+진행 경로는 다음과 같다.
 
 - **현재 최적화까지 게시되거나 작업 파일을 전달받은 경우:** 실제 source5개의 hash가 manifest의 optimized hash와 맞는지 확인하고 해당 작업본을 사용한다. 이미 적용된 코드에 patch를 다시 적용하지 않는다.
 - **계측 기준070ddcaf를 받을 수 있는 경우:** 별도 기준본을 해당 전체 SHA로 준비하면 변경 전 source는 이미 완성돼 있다. 여기에 marker-only를 또 적용하지 않는다. 별도 변경 후 본에 buffer-only만 적용한다. 이 commit의5source hash는 manifest의 marker-only hash와 같다.
@@ -49,7 +49,7 @@ main `f367cb52`의 VFX/서버 투사체 변경은 이미 병합돼 있으므로 
 | 준비할 빌드 | 정확한 구성 |
 |---|---|
 | 변경 전 계측 기준 |우선070ddcaf commit 자체. 대안은7c00f768 + marker-only.patch |
-| 변경 후 최적화 |070ddcaf + buffer-only.patch. 대안은7c00f768 + marker-only.patch + buffer-only.patch |
+| 변경 후 최적화 |우선 게시된 코드 기준ff8bdf95 자체. 복원 대안은070ddcaf + buffer-only.patch 또는7c00f768 + marker-only.patch + buffer-only.patch |
 
 **7c00f768 자체에는 새 marker가 없다.** marker 없는 원본의 전체 프레임/GC를 참고할 수는 있지만 marker 내부 시간의 변경 전 값으로 사용하지 않는다. 두 patch와 별도의 전체 working-tree patch를 중복 적용하지 않는다. 현재 진행 중인 작업 트리에 reset/clean/역patch를 적용하거나 기존 미커밋 파일을 덮어쓰지 않는다.
 
@@ -67,6 +67,8 @@ patch 원본 SHA256은 다음과 같다. manifest에도 같은 값이 있다.
 기존 source5파일에 고정8marker를 추가했다. Application/Domain·기존meta·씬·에셋·게임 수치·네트워크 주기는 변경하지 않았다. marker의 코드/SDK 참조는 Editor 또는 Development Build에만 남는다.
 
 NCC의 반복 전투 틱에서 만들던 ID 목록·중복 처리 집합·제거 목록을 controller 소유 버퍼로 재사용한다. 기존 타워/상태 콜백 뒤 snapshot 시점과 제거 목록 생성 시점, foreach3본문 순서는 보존한다. 공유 버퍼를 이미 사용하는 중첩 호출은 독립적인 새 세 컬렉션을 사용하고, finally에서 선택된 버퍼를 정리하며 공유 소유자만 사용 중 표시를 해제한다.
+
+메인 독립 대조에서070ddcaf와ff8bdf95의 문서/메모리를 제외한 실행 코드·에셋·설정 차이는 NCC 한 파일뿐이었다. 두 기준의5source hash도 manifest와 같아 동일8marker의 전후 비교 기준으로 사용할 수 있다. 이는 실제 성능 측정 결과와는 별개다.
 
 버퍼의 용량은 controller 수명 동안 남으므로 **총 RAM 감소나0B/프레임을 보장하지 않는다.** 초기 확장·중첩 fallback은 할당할 수 있고 HashSet.Clear의 CPU 비용도 있다. 전문/메인 원문 역복원·소유권·조건부 문법 선택·meta 대조와 QA 정적 blocker0을 확인했으나, 실제 FPS·GC 개선량·최신 기능 회귀는 미측정이다.
 

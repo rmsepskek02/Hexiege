@@ -5,7 +5,7 @@
 - 시작: 2026-10-25 19:44 KST. 생성 전 `TZ=Asia/Seoul date`로 확인했다.
 - 목표: 사용자 지정 최소 기기 없음, Android 30 FPS(프레임 예산 약 33.3ms).
 - 최초 기준 소스는`572d94af`였으며, 재개 시점의 clean 기준은`work / 7c00f768`이다. 기능 검증 준비까지 푸시된 상태와 실제 사용자 기기 테스트 완료는 구분한다.
-- 현재 상태(2026-10-26 KST 갱신 시점): Plan1.2의5파일/8marker와 NCC3컬렉션 재사용 및 정적 대조를 마쳤다.게시 기준7c00f768에 이어 계측만 있는 기준을070ddcaf로 로컬 커밋했고 버퍼/인계 커밋·최신 main 통합·게시는 대기다. 실제 전달 상태는 [Handoff](Handoff.md)와 [manifest](HandoffBaseline.json), 최종 게시 결과를 함께 확인한다. 실제 Unity 컴파일·기기 캡처·개선량·30 FPS 달성은 미확인이다. 기능 회귀 확인은 최적화 묶음 뒤 리팩토링의 남은 계약과 함께 진행한다.
+- 현재 상태(2026-10-26 KST 게시 확인): 최적화 코드 기준ff8bdf95를 원격main/work 양쪽에 게시했고 계측만 있는 변경 전 기준070ddcaf도 게시 이력에 포함됐다. 최신 main5861fcb4는3c1ac957로 병합됐다. 새 환경은 MAIN에서 최적화 source와 인계 자료를 바로 받을 수 있다. 최종 문서 HEAD와 코드 기준은 구분하며 [Handoff](Handoff.md)·[manifest](HandoffBaseline.json)를 따른다. 실제 Unity 컴파일·기기 캡처·개선량·30 FPS 달성은 미확인이다.
 - 현재 범위: [Plan.md](Plan.md)의 제한 계측·반복 할당 정리와 Profiler/통합 검증 인계. 기존 기능 Testcase는 게시 상태와 인계 링크의 현재 문단만 정정한다. 상시 규칙·제품 에셋·전투/네트워크 수치·VFX·AI 생산시간 배율은 변경하지 않는다.
 
 ## 1. 승인과 환경
@@ -86,4 +86,4 @@ Handoff는 기존 사용자 컴파일·일반 플레이 수용과 싱글 이번 
 
 이번 인계 작성은 새 실행 증거를 만들지 않았다. Unity/ADB/Computer Use의 새 환경 준비 여부부터 확인하고, 기능 검사는Editor Host+Android Client, 이번 NCC 성능 비교는Android Host+Editor Client로 분리한다. 실제 데이터가 오기 전에는 최신 컴파일·실기·성능 개선을 PASS로 기록하지 않는다.
 
-후속 게시 승인에 따라 메인이 계측만 있는 기준을`070ddcafa368dcfb94fb76cb3218000a6cacc474`로 커밋했다. 문서 담당도 이commit의5source가 marker-only manifest hash와 같음을 확인했다. 게시 뒤에는 이commit을 변경 전 기준으로 우선 사용할 수 있고 marker-only를 중복 적용하지 않는다.7c00f768+두patch의 기존 복원 경로도 유지한다. 현재 갱신 시점에는 버퍼/인계 commit·최신 main5861fcb4 문서 통합·원격 게시가 대기이며, 실제 최종 SHA는 게시 결과를 따른다.
+후속 게시 완료로 변경 전 계측 기준은`070ddcafa368dcfb94fb76cb3218000a6cacc474`, 변경 후 코드 기준은`ff8bdf9542f468f02788ff9b582f601785234fde`다. 메인이 원격main/work의ff8bdf95 일치를 확인했고 최신 main5861fcb4 문서도3c1ac957 병합으로 들어왔다. 두 코드 기준의5source는 각각 manifest의 marker-only/optimized hash와 같다. 새 환경에서 MAIN의 최적화 source에 patch를 중복 적용하지 않는다.7c00f768+두patch는 복원 대안으로 유지하고 이후 최종 문서 commit의SHA는 실제 Git HEAD로 확인한다.

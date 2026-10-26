@@ -105,17 +105,15 @@
     "All other source, asset and build settings must match between before and after captures."
   ],
   "instrumented_baseline_commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
-  "instrumented_baseline_publication_at_update": "local commit created; publication pending at document update",
+  "instrumented_baseline_publication_at_update": "published; included in verified main/work history",
   "preferred_reconstruction": {
     "before": {
       "commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
       "patches": []
     },
     "after": {
-      "commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
-      "patches": [
-        "buffer-only.patch"
-      ]
+      "commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+      "patches": []
     },
     "fallback_before": {
       "commit": "7c00f768d5c9f0ebb9583e93e4f6a4a45397f306",
@@ -129,6 +127,24 @@
         "marker-only.patch",
         "buffer-only.patch"
       ]
+    },
+    "after_from_instrumented_baseline": {
+      "commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+      "patches": [
+        "buffer-only.patch"
+      ]
     }
+  },
+  "optimized_code_commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+  "publication_confirmation": {
+    "date_kst": "2026-10-26",
+    "committed": true,
+    "pushed": true,
+    "optimized_code_commit": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "instrumented_baseline_commit": "070ddcafa368dcfb94fb76cb3218000a6cacc474",
+    "main_head_at_confirmation": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "work_head_at_confirmation": "ff8bdf9542f468f02788ff9b582f601785234fde",
+    "verification": "Main agent verified both remote refs with git ls-remote; document agent verified all five source hashes at both code commits.",
+    "note": "Later documentation-only commits can advance HEAD; these are code reference commits, not a promised final documentation HEAD."
   }
 }

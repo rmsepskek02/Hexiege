@@ -6,7 +6,7 @@
 
 - 조사 원본: [Research.md](Research.md).
 - 재개 기준: clean `work / 7c00f768`, Unity6000.3.5f2, Android30 FPS(약33.3ms/프레임), 최소 기기 미정. 최초572d94af와 아래1.1의 제안은 당시 이력이다.
-- 상태(2026-10-26 KST 갱신 시점): Plan1.2의5파일/8marker와 NCC3컬렉션 재사용 및 정적 대조를 마쳤다. 계측만 있는 기준을070ddcaf로 로컬 커밋했고 버퍼/인계 commit·최신 main 통합·게시는 대기다. 다른 환경에서는 [Handoff](Handoff.md)·두patch·manifest와 최종 게시 결과로 실제 source 상태를 확인한다. 실제 Unity 컴파일·전후 캡처는 미실행이며 기능/리팩토링의 남은 계약 검증은 최적화 묶음 뒤 함께 진행한다.
+- 상태(2026-10-26 KST 게시 확인): 코드 기준ff8bdf95와 변경 전 계측 기준070ddcaf가 게시됐고 원격main/work 모두ff8bdf95임을 확인했다. 최신 main5861fcb4의 문서도3c1ac957로 병합됐다. 새 환경은 MAIN을 받아 최적화 source와 [Handoff](Handoff.md)를 바로 사용한다. 두patch는 복원 대안이며 중복 적용하지 않는다. 최종 문서 HEAD는 코드 기준과 구분한다. 실제 Unity 컴파일·전후 캡처는 미실행이다.
 
 ## 1. 보존할 규칙과 첫 범위
 
@@ -157,4 +157,4 @@ CPU와 GPU는 파이프라인에서 겹쳐 일하므로 **CPU시간+GPU시간을
 
 기능 Testcase의 현재 상태 문단만 게시7c00f768과 이 인계 링크로 갱신한다. 이전 사용자 확인을 유지하고, 그 외 audit Plan5.1의 미확인 세부 계약과 현재 집중 검사/실기의 범위를 구분한다. 인계 파일 작성·source 정적 검토·실제 실행 PASS는 별개다. 문서/상대링크·신규GUID·patch SHA/현재5source hash를 확인하고 Git 게시·기기 실행은 수행하지 않는다.
 
-후속 사용자 게시 승인으로 메인이 marker-only 기준commit070ddcaf를 만들었다. 현재 source와 동일8marker의 변경 전 빌드는 이commit을 우선 사용하며,7c00f768+marker-only patch는 동일한 대안이다. 변경 후는 해당 기준에 buffer-only를 더한다. 버퍼/인계 commit·main5861fcb4 통합·게시의 최종 결과는 메인 실행 후 따로 확인한다.
+후속 게시 완료로 변경 전은070ddcaf, 변경 후 코드 기준은ff8bdf95를 우선 사용한다. 원격main/work의ff8bdf95 일치와 main5861fcb4 통합을 확인했다.7c00f768+marker-only, 이어buffer-only의 복원 대안은 유지하되 MAIN의 최적화 source에는 중복 적용하지 않는다. 이후 문서만의 commit SHA는 실제 Git HEAD로 확인한다.
