@@ -577,6 +577,23 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 - raw 테스트 로그 공유는 검증된 private Release ZIP 방식을 사용합니다. **신규 RuntimeLog txt 본문이 소스 Git에 재추적되지 않도록** 승인된 정확 원본 경로/파일명 pattern을 적용하며 ignore를 우회해 raw를 다시 추가하지 않습니다. 기존 추적 파일은 private 업로드·전체 다운로드 검증과 별도 사용자 승인 뒤에만 좁은 원본 목록으로 추적 해제합니다. 로컬 raw 원본은 그대로 보존하고 Git 이력은 남기며 **history rewrite는 하지 않습니다**.
 - **Log.md·Task·raw txt.meta 및 실제 코드/asset/doc/folder metadata는 소스 Git에 유지**합니다. `CrossAuditResult.txt`처럼 RuntimeLog가 아닌 결과 txt도 유지합니다. `_Logs/` 전체 또는 전체 txt ignore 금지입니다. raw txt 본문만 좁게 분리하는 pattern을 적용하며, 적용 전 확정 경로 검토와 사용자 승인을 받습니다. 로그 문서/meta를 광범위한 제외 패턴에 함께 넣거나 orphan 이름만으로 삭제하지 않습니다.
 
+#### 보관본 생성 도구 — `Hexiege > Logs > Create Log Archive ZIP`
+
+도구: `Assets/Editor/Tools/LogArchiveZip.cs`. 사양은 2026-10-20 사용자 승인, 시작 날짜 기본값·KST 기준은 2026-10-21 사용자 요청으로 변경. **구현·메뉴 실행 확인 상태: 메뉴·창 동작은 사용자 실행으로 확인(ZIP 3회 정상 생성, 메인 세션이 Release에서 내려받아 manifest 대조 OK — 2026-10-21). 2026-10-21 KST 기준 변경분은 아직 미실행** — 현재 상태는 [Task Plan](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md) §8을 따르며, 아래 KST 관련 동작은 실행 확인을 뜻하지 않습니다. *(2026-10-21 갱신: 종전 표기 「확인 전」을 사용자 실행 결과로 고침.)* 이 도구는 ZIP과 manifest를 **만들기만** 하고 업로드는 사용자가 합니다(클라우드 세션은 사용자 PC 파일에 접근할 수 없고, 공개 소스 저장소를 거치면 로그가 Git 이력에 영구 공개되기 때문).
+
+1. Unity 에디터에서 메뉴 **`Hexiege > Logs > Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
+2. 도구가 **날짜 폴더가 「시작 날짜」 이후(당일 포함, 기본 = 창을 열 때의 한국 시간(KST) 오늘 — 기억하지 않음)인** 실기기 로그 `_Logs/YYYY-MM-DD/*/RuntimeLog_device*.txt`(번호 붙은 파일 포함), 진단 세션 로그 `_Logs/YYYY-MM-DD/HH_MM_[작업명]/RuntimeLog.txt`(1.11), Editor daily `_Logs/_editor/YYYY-MM-DD/RuntimeLog.txt` 중 **`_Logs/_zip/`의 기존 manifest에 (경로, SHA256)으로 기록되지 않은 파일**만 고릅니다(2026-10-20 사용자 결정). 같은 폴더의 Log.md·meta·결과 txt는 대상이 아닙니다. 기록 중인 Editor daily는 읽는 시점의 snapshot으로 담고, 내용이 바뀌었으면 새로 포함합니다.
+3. `Assets/_Project/Docs/_Logs/_zip/YYYY-MM-DD/`에 `YYYY-MM-DD_HH_MM_<작업명>_<NN>.zip`과 같은 이름의 `.manifest.json`이 생깁니다(`NN`은 같은 날짜+작업명 기준 회차). ZIP 내부는 저장소 상대 경로이고 manifest에는 위 manifest 항목과 업로드 예정 Release, 「업로드는 사용자 수행」 표기가 들어갑니다. 빌드 상태는 `not inferred`입니다.
+4. 완료되면 저장 폴더와 Release 페이지(`https://github.com/rmsepskek02/Hexiege-Logs/releases/tag/logs-YYYY-MM`)가 열립니다. 대상이 없거나 오류이면 안내만 하고 끝납니다.
+5. 사용자가 ZIP과 manifest를 **둘 다** 월별 Release(제목 `로그 보관 YYYY-MM`, tag `logs-YYYY-MM`)에 올립니다. 업로드 직전 private 확인(위 첫 항목)은 업로드하는 사용자에게 그대로 적용됩니다. 그 달 Release가 아직 없으면 같은 제목·tag로 만듭니다.
+6. 메인 세션이 Release에서 ZIP·manifest를 실제로 내려받아 위 다운로드 검증 항목대로 대조한 뒤 분석합니다. manifest의 Release 위치는 **업로드 예정 위치**이므로 그 검증 전에는 보관 확인으로 기록하지 않습니다.
+
+- **도구 경계:** 원본 로그를 수정·이동·삭제하지 않고, 만든 ZIP·manifest도 자동 삭제하지 않으며, 업로드·Git 명령을 실행하지 않습니다.
+- **날짜 하한 — 「시작 날짜」 옵션 (2026-10-20 사용자 결정, 기본값은 2026-10-21 사용자 요청으로 변경):** 도구는 날짜 폴더가 시작 날짜보다 앞선 로그를 고르지 않습니다. 기본값은 **창을 열 때의 한국 시간(KST) 오늘**이며 기억하지 않고, 창의 **[오늘(KST)]** 버튼으로 그 순간의 KST 오늘로 되돌립니다. **당일을 포함하며 Editor daily에도 똑같이 적용**됩니다. **자정을 넘겨 이어진 테스트는 전날 폴더가 기본 범위에서 빠지므로 시작 날짜를 전날로 직접 지정합니다.** 2026-10-20은 기본값이 아니라 **경고 기준**으로만 남습니다 — 시작 날짜가 그보다 이르면 창이 「이전 보관분(2026-10-12 기존로그 등)과 겹칠 수 있고 도구가 확인하지 않는다」고 경고합니다. 2026-10-12 기존 로그 보관분은 이미 Release에 있으므로 그 manifest를 읽어 대조하는 대신 이 하한으로 반복 포함을 막습니다. 2026-10-13~19 공백은 사용자가 **한 번** 시작 날짜를 2026-10-13으로 두고 실행해 묶어 보관합니다 *(2026-10-21 실행·대조 완료: `2026-10-20_23_58_test_01`, 기존 보관 manifest와 중복 0 — Plan §8)*. 그 회차가 기존 보관분과 겹치는지는 도구가 확인하지 않으며, 업로드 뒤 메인 세션이 기존 manifest와 대조합니다. 결정 기록: [Task Plan](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md) §4-1.
+- **날짜 기준 — KST (2026-10-21 사용자 요청):** 시작 날짜 기본값, 출력 폴더 `_zip/YYYY-MM-DD/`, 파일명의 `YYYY-MM-DD_HH_MM`, Release 월(`logs-YYYY-MM`)은 모두 PC 시간대와 무관하게 한국 시간 기준입니다(시간대 ID `Korea Standard Time`/`Asia/Seoul` 조회 실패 시 고정 UTC+9). 🔴 **남은 차이:** 원본 로그의 날짜 폴더 `_Logs/YYYY-MM-DD/`는 지금도 `FileSink.cs`·`LogcatCapture.cs`가 **PC 로컬 날짜**로 만듭니다. PC가 KST가 아니면 원본 폴더 날짜와 도구의 KST 날짜가 하루 어긋날 수 있으며, 그때는 시작 날짜를 직접 조정합니다. manifest의 `created_at_local`은 PC 로컬 시각입니다.
+- **중복 판정 근거는 로컬 `_zip/`뿐입니다.** `_zip/`은 Git에서 제외되므로 지우거나 다른 PC에서 실행하면 이미 보관한 로그가 다시 포함됩니다(덮어쓰기·손실은 없음).
+- **Git 제외 예외 (2026-10-20 사용자 승인):** `/Assets/_Project/Docs/_Logs/_zip/` 하위 전체와 `/Assets/_Project/Docs/_Logs/_zip.meta`를 `.gitignore`로 제외합니다. 산출물이 공개 소스 저장소에 커밋되는 것을 막기 위한 것이며, 위 항목의 「folder metadata 유지·광범위한 제외 패턴 금지」에 대한 **이 경로 한정 예외**입니다. `_Logs/` 전체 또는 전체 txt 제외 금지와 그 밖의 Log.md·Task·raw txt.meta 유지는 그대로입니다.
+
 <a id="공유는-복사가-아니라-그-파일을-그대로-커밋한다"></a>
 <a id="gitignore에-넣지-않는다"></a>
 

@@ -313,6 +313,36 @@ namespace Hexiege.Bootstrap
                 _buildingPlacement,
                 _presentationPoseProvider);
 
+            // 10-4-1. [2026-10-20 서버 권위 투사체] 투사체 화면 단일 소비자.
+            //   서버 발사 기록으로 투사체를 그리고, 서버 착탄 결과로 착탄 이펙트·피해 숫자를 화면상 착탄 순간에 1회 낸다.
+            //   피격 표현 큐 초기화 뒤에 둔다(착탄 순간 숫자를 이 큐로 방출하므로). 씬 배치 없이 AddComponent한다(파도 소비자와 같은 방식).
+            var projectilePresenter = GetComponent<ProjectilePresentationPresenter>();
+            if (projectilePresenter == null) projectilePresenter = gameObject.AddComponent<ProjectilePresentationPresenter>();
+            projectilePresenter.Initialize(_unitCombat, _hitPresentationQueue, _unitFactory, _buildingFactory,
+                _presentationPoseProvider);
+            _hitPresentationQueue.SetProjectileOwnerReady(() => projectilePresenter != null && projectilePresenter.IsReady);
+
+            // 10-4-2. [2026-10-26 수정안 (a)] 투사체 사망타의 "사망 표현"을 화면 착탄까지 미루는 조율자.
+            //   피격 표현 큐 보관함의 사망타 번호표가 화면에 나오는 순간(숫자 "0"과 같은 순간)에 사망 대역이 쓰러짐·사망 VFX·SFX를 낸다.
+            //   상한 0.3초. 서버 판정·도메인 제거·NGO Despawn 시각은 바꾸지 않는다. 맵 재로드 때 이전 경기 대역은 표현 없이 치운다.
+            var deathPresenter = GetComponent<DeferredUnitDeathPresenter>();
+            if (deathPresenter == null) deathPresenter = gameObject.AddComponent<DeferredUnitDeathPresenter>();
+            deathPresenter.Initialize(_hitPresentationQueue);
+
+            // 10-4-3. [2026-10-26 수정안 (a)] 화상(InfernoSpirit) VFX 시작을 투사체 화면 착탄에 맞춘다.
+            //   표시 시각 = 서버 시계 − (순수 Client면 투사체 화면 지연, 싱글·Host면 0) — 투사체 화면 소비자와 같은 식(Presenter Update).
+            //   같은 공격자의 투사체 피해가 아직 화면 착탄 대기 중이면 그 착탄까지 미룬다(상한 0.3초).
+            var alignmentCombat = _unitCombat;
+            var alignmentHits = _hitPresentationQueue;
+            damagePresenter.SetProjectileImpactAlignment(
+                () =>
+                {
+                    double serverNow = alignmentCombat.ProjectileServerTime;
+                    bool pureClient = NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer;
+                    return serverNow - (pureClient ? ProjectilePresentationPresenter.ClientPresentationDelaySeconds : 0d);
+                },
+                (target, attackerId) => alignmentHits != null && alignmentHits.HasHeldProjectileHit(target, attackerId));
+
             // C3 read-only Presenter는 효과 writer를 주입받지 않는다. 기존 큐 초기화 뒤 조합해
             // 관측만 시작하며, Legacy HP/VFX/Animator/OnAttackHit 경로는 그대로 단일 emitter다.
             if (_unitAttackResultPresentationShadow == null)
@@ -373,6 +403,7 @@ namespace Hexiege.Bootstrap
         {
             _unitAttackResultPresentationShadow?.CloseClock();
             _unitCombat?.CloseTorrentLaunches("map-clear");
+            _unitCombat?.CloseProjectiles("map-clear");
             if (_unitFactory != null)
                 _unitFactory.DestroyAllUnits();
 

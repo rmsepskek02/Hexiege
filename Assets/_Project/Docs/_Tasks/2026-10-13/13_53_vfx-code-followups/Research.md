@@ -442,3 +442,138 @@ R4 뒤 전체 자동 검증을 다시 돌리자 급류 파도 검사는 통과�
 
 - **사용자 승인 — 완료**(2026-10-19). 사용자 화면 확인이며 정밀 픽셀·멀티 양 peer 비교·자동 검증 대상은 아니다. `Testcase.md`는 요청받지 않아 만들지 않았다(WORKFLOW [8] 해당 없음).
 - 이 결과는 10-4의 OPEN 결함(타워 번개 사망 시 끝점)과 무관하며 그 상태를 바꾸지 않는다.
+
+<a id="14-projectile-visibility-decision"></a>
+
+## 14. 원거리·마법 투사체가 보이지 않는 문제 — 사용자 결정 (2026-10-19 추가 — 1~13절은 당시 기록으로 보존)
+
+### 14-0. 쉬운 설명
+
+물폭탄·화염구·마법탄·포탄처럼 「날아가서 맞는」 공격이 화면에서 거의 보이지 않는다. 지금은 공격 동작의 타격 순간에 서버가 바로 피해를 주므로 날아가는 시간이 없기 때문이다. 사용자는 **C 방식(서버가 투사체의 발사·착탄 시각을 관리)** 으로 고치기로 정했고, **구현은 별건**으로 미뤘다. 지금은 VFX 제작을 계속하고, 완성된 VFX로 그 별건을 진행한다. 사용자 원문(2026-10-19): "C 방식으로 하는게 맞다고 생각해. 지금은 vfx작업을 진행하고 별건으로 완성된 vfx들을 활용하여 진행하도록할게 문서에 기록만 남겨줘". **이번에는 기록만 하며 코드는 바꾸지 않았다.**
+
+### 14-1. 대상과 결정
+
+- 대상: StreamSpirit 물폭탄 · InfernoSpirit 화염구 · FoxMagician 마법탄 · Tank/CannonCart 포탄 · MushroomBomber 기존 포자 트레이서.
+- **채택 C — 서버 권위 투사체**: 서버가 발사 시각과 착탄 시각(= 발사 + 거리 ÷ 투사체 속도)을 정하고 **착탄 시각에 피해를 확정**한다 → 비행·피해·피해 숫자·사망·착탄 VFX가 모든 화면에서 맞는다. 이미 규칙에 있는 목표 설계다 [직접 확인]: `GameSystemRules_UnitCombatSynchronization.md` 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`(268~270행) · `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-IMPACT-LOCKEDPOINT`(225~229행). 규칙 변경은 없다.
+- 보류(기각): **A** 발사 표시를 더 앞당김(사용자: 완성도 부족) · **B** 타격 표시를 뒤로 미룸(거리와 무관한 고정 비행 시간) · **D** 화면만 느린 투사체(피해 숫자·사망·착탄 VFX와 어긋남).
+
+### 14-2. 조사 사실 [전달 — game-programmer 읽기 전용 조사, HEAD `ec000217`, 행 번호는 근사]
+
+- 피해는 공격 클립의 OnAttackHit 시각에 서버에서 발생한다(`NetworkCombatController.cs` ~1430–1518, `UnitCombatUseCase.cs` ~709–718; 타격 시각 추출 `UnitFactory.cs` ~577–593). 게임플레이상 투사체 비행 시간은 없다.
+- 이 유닛들은 「Unresolved」 프로파일이다(`UnitAttackShadowProfileResolver.cs` ~62–68).
+- MushroomBomber 트레이서 비행 = ImpactTime + 0.10 − 현재 ≈ Host에서 0.10초(`HitPresentationQueue.cs` ~210–214, `EffectManager.cs` ~500–506) → 약 10~18 단위/초로 거의 안 보인다. 착탄 VFX 재생은 MushroomBomber 전용(`EffectManager.cs` ~531, `HitPresentationQueue.cs` ~206).
+- FoxMagician 타격 표시는 일찍 반환한다(`UnitView.cs` ~7224) → 별도 경로가 필요하다.
+- 타격 표시 시각 / 클립 길이(초): StreamSpirit 0.5/1.5 · MushroomBomber 1.0/3 · FoxMagician 차지 1.0·타격 2.8333/4 · InfernoSpirit 1.5/3 · Tank/CannonCart 0.1667/4.
+
+### 14-3. 별건에서 정할 기획 질문 (game-design-lead — 미결정)
+
+1. 유닛별 투사체 속도. 2. 비행 중 공격자가 죽으면 피해를 그대로 줄지. 3. 비행 중 대상이 죽거나 움직일 때 — 고정 지점(LockedPoint)인지 유도(Homing)인지. 4. 피해가 늦어지는 데 따른 밸런스 영향.
+
+### 14-4. 그 사이 할 일
+
+- VFX 프리팹(파티클 트레이서 + 착탄)은 지금 만들고, 연결은 그 별건에서 한다.
+- 파티클 트레이서 계약: Looping ON · Stop Action None · 몸체 Local / 꼬리(trail) World · +Z 앞 방향 · 스크립트 없음.
+- 미착수 기록: [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속) · 계획 쪽 기록 [Plan 17절](Plan.md#17-projectile-visibility-decision).
+
+<a id="15-r5-interim-impact-hookup"></a>
+
+## 15. 재작업 R5 — VFX 확인용 임시 착탄 연결 (C 방식 구현 시 교체) (2026-10-19 추가 — 1~14절은 당시 기록으로 보존)
+
+### 15-0. 쉬운 설명
+
+사용자가 물의 정령(StreamSpirit)의 물폭탄 트레이서와 착탄(물 튀김) VFX를 만들어 게임에 연결했지만, 착탄 VFX가 **물폭탄을 맞은 쪽이 아니라 엉뚱한 때에** 나왔다. 착탄 슬롯이 「때린 유닛」이 아니라 「맞은 유닛」의 종류로 고르는 칸(hitPreset)이었기 때문이다. 그래서 StreamSpirit이 남을 때릴 때는 물 튀김이 안 나오고, 반대로 StreamSpirit·Tank·CannonCart가 **맞을 때** 나왔다. 사용자는 C 방식(14절)이 구현되기 전에 **지금 VFX를 눈으로 확인**하기 위해, 피해 시각과 어긋나는 것을 감수하고 **투사체를 느리게 날리고 도착한 자리에서 착탄 VFX를 재생**하는 임시 연결을 하기로 정했다(2026-10-19). 이 연결은 C 방식 구현 때 교체된다. Tank/CannonCart도 나중에 트레이서 프리팹을 받아 같은 경로를 쓴다.
+
+### 15-1. 근거 수준
+
+- [직접] = document-manager가 이 checkout(HEAD `d302e54e`)에서 파일을 읽어 확인. [전달] = 사용자·메인 세션·game-programmer가 전달한 값으로 다시 확인하지 않음.
+
+### 15-2. 사용자가 만든 에셋 — 커밋 `bb5132ce`(2026-10-19, 메시지 「.」), 이어서 병합 커밋 `d302e54e`
+
+- [직접 `git show --name-status bb5132ce`] 추가: `Assets/_Project/Prefabs/VFX/Units/vfx_streamspirit_tracer.prefab` · `vfx_streamspirit_impact.prefab`, preset `EffectPreset_StreamSpirit_Tracer` · `EffectPreset_StreamSpirit_Hit` · `EffectPreset_Cannon_Impact`(`Assets/_Project/Resources/Config/EffectPresets/`), 텍스처 `Assets/_Project/Art/VFX/StreamSpirit/vfx_water_orb.png` · `vfx_water_ripple.png`, 머티리얼 `Mat_VFX_WaterOrb` · `Mat_VFX_WaterRipple`, Unity AI 원본 `GeneratedAssets/…`(png+json 4쌍), 각 `.meta`. 수정: `Assets/_Project/Resources/Config/UnitEffectConfig.asset` · `Assets/_Project/Scenes/Login.unity`.
+- [전달] 트레이서: 파티클 시스템 5개, Looping ON, Stop Action None, 몸체 3개 Local + 꼬리 2개 World — 14-4의 트레이서 계약에 맞는다. 착탄: 파티클 시스템 5개, 1회성, Stop Action None.
+- [전달] preset 연결: `EffectPreset_StreamSpirit_Hit` → `vfx_streamspirit_impact`, `EffectPreset_Cannon_Impact` → `vfx_cannon_impact`(Plan 16-3에서 「아무도 참조하지 않음」으로 남겼던 프리팹 — 이제 이 preset이 참조한다).
+- [직접 GUID 검색] `UnitEffectConfig.asset`: StreamSpirit 행 `tracerPreset` = `EffectPreset_StreamSpirit_Tracer`(143행, 정상) · `hitPreset` = `EffectPreset_StreamSpirit_Hit`(142행). Tank·CannonCart 두 행 `hitPreset` = `EffectPreset_Cannon_Impact`(70·78행).
+- `Login.unity`의 키보드 UI 변경은 사용자가 **의도한 별도 UI 작업**이라고 확인했다 [전달]. 이 작업과 무관하며 내용은 검토하지 않았다.
+
+### 15-3. 발견된 문제
+
+1. **슬롯 의미 불일치** [직접]: `HitPresentationQueue.cs` 870·873행이 `TryPlayUnitHit(prepared.VictimUnitType, …)`로 **맞은 유닛 종류**의 hitPreset을 재생한다. 그래서 물 튀김이 StreamSpirit이 때릴 때는 안 나오고, StreamSpirit·Tank·CannonCart가 맞을 때 나왔다.
+2. **착탄 프리팹이 작고 짧다** [전달]: Splash_Burst 입자 2~4개, 크기 0.2~0.32, 수명 0.18~0.24초. 사용자에게 키우는 값을 제안했다(제안일 뿐 적용 여부는 사용자 결정): Splash 4~6개 / 크기 0.35~0.5 / 수명 0.3~0.4초, 물방울 8~10개 / 0.08~0.12, 물결 0.7~0.8 / 0.6초, 전체 반경 약 0.4까지.
+3. 투사체가 거의 안 보이는 원래 문제는 14절 그대로다(비행 약 0.1초).
+
+### 15-4. 사용자 결정 (2026-10-19)
+
+- C 방식(14절) 구현 전 **임시 조치**로, 피해와 어긋나는 것을 받아들이고 투사체를 느리게 날린 뒤 **도착 지점에서 착탄 VFX 재생**. C 방식 구현 시 이 연결을 교체한다. 서버·피해 판정은 바꾸지 않는다.
+- Tank/CannonCart는 나중에 트레이서 프리팹을 만들어 같은 경로를 쓴다.
+- 계획 항목과 알려진 부작용은 [Plan 18절](Plan.md#18-r5-interim-impact-hookup)이 단일 소스다.
+
+<a id="15-5-r5-field-bugs"></a>
+
+### 15-5. R5 실기 테스트에서 발견된 버그 (2026-10-19 추가 — 기록만, 미착수)
+
+**쉬운 설명.** 사용자가 R5(물폭탄이 날아가 도착한 자리에서 물 튀김이 나오게 한 임시 연결, 커밋 `507cb07d`)를 직접 해 보니 물 튀김(착탄 이펙트)이 나오는 **때와 자리**가 어색한 경우가 세 가지 있었다. 모두 **코드를 고쳐야 하는 버그**지만, 사용자 지시로 **지금은 고치지 않고 기록만** 한다(지금은 VFX 제작에 집중). 이 버그들은 R5 임시 연결과, 나중에 만들 C 방식(서버 권위 투사체 — [14절](#14-projectile-visibility-decision) · [Plan 17절](Plan.md#17-projectile-visibility-decision))을 구현할 때 **함께 해결할 대상**이다. 고치는 방향은 [Plan 18-5](Plan.md#18-5-r5-followup-fix-queue)에 **제안**으로만 적었다(승인되지 않음).
+
+**근거 수준.** [사용자] = 사용자 보고 원문 요지(그대로 옮김). [확인] = document-manager가 이 checkout(HEAD `507cb07d`)의 코드를 읽어 확인(행 번호는 이 시점 기준이며 메서드 이름을 함께 적는다). [미확인] = 코드만으로 정할 수 없음. 사용자가 테스트한 빌드에 `507cb07d`가 들어 있었는지는 **미확인**이다(사용자 보고에 빌드 표시가 없다).
+
+> 번호는 B2부터 시작한다. B1(해당 유닛이 피격당할 때 피격 이펙트 발생)은 사용자가 바로 해결해 2026-10-19 사용자 지시로 이 목록에서 삭제했다. 다른 문단이 B2~B4 번호로 참조하므로 번호는 다시 매기지 않았다.
+
+| # | 사용자 보고 [사용자] | 코드에서 확인한 것 | 원인 판정 |
+|---|---|---|---|
+| B2 | **이동 중인 유닛**을 공격하면 착탄 이펙트가 투사체가 유닛에 닿을 때가 아니라 **최초 발사 시점의 타겟 위치**에서 발생한다. | [확인] 도착 지점이 발사 순간 값으로 고정된다: `UnitView.cs` 7632~7640행이 발사 순간 타겟 위치를 `targetPos`로 한 번 읽고 7669~7688행 `PlayTracer(…, playImpactOnArrive: true)`에 넘긴다 → `EffectManager.cs` `PlayTracer` 624~626행이 시작/도착 좌표를 값으로 복사하고 636~637행 `Launch`에 넘긴다 → `TracerProjectile.cs` `Launch` 116~125행이 `_target`에 저장, `Update` 154~165행이 그 고정 지점까지 직선 보간한다(비행 중 타겟을 다시 읽는 코드 없음 — 파일 머리 주석 19~21행도 이것을 설계로 적고 있다) → 도착 시 `PlayLegacyArrivalImpact` 667~677행이 그 고정 지점에서 재생한다. 덧붙여 [확인] 같은 도착 순간의 **피해 숫자·타격 반응**은 `HitPresentationQueue.cs` `Emit` 957~964행이 타겟의 **현재** 위치를 다시 읽어 그 자리에 띄우므로, 움직이는 대상이면 물 튀김과 피해 숫자가 서로 다른 자리에 나온다. | [확인] 원인 확인. 🔴 규칙 관련: `GameSystemRules_Units.md` 「공격 회차 안정 ID」 `U-IMPACT-LOCKEDPOINT`는 LockedPoint 공격이면 발사 뒤 목표점을 바꾸지 **않는다**고 정한다. 그래서 「움직이는 대상을 따라가야 한다」는 기대는 그 유닛이 **Homing**(같은 문서 `U-IMPACT-INDEPENDENT`)으로 정해질 때만 규칙과 맞는다. 유닛별 LockedPoint/Homing은 [14-3](#14-projectile-visibility-decision) 3번 **미결정**이다. |
+| B3 | **타겟이 삭제(사망/디스폰)되면** 날아가던 중간에 착탄 이펙트가 발생한다. 사용자 희망: 중간 이펙트 없이 투사체 소멸, **또는** 타겟 지점까지 날아간 뒤 착탄 이펙트 발생. | [확인] 트레이서 자체는 비행 중간에 도착 처리되지 않는다: `TracerProjectile.cs`의 도착(`Arrive`, 175~196행)은 `Launch`의 「비행 시간 0」(143~144행)과 `Update`의 「진행도 1」(163~164행)에서만 불리고, 꺼짐·파괴 때 도착을 부르는 코드가 없다. 트레이서는 타겟이 아니라 EffectManager의 VFX 보관 오브젝트 아래에 만들어진다(`EffectManager.cs` 843행). 즉 코드상 물 튀김(R5 도착 재생)은 타겟이 죽어도 **고정 지점까지 날아간 뒤** 나온다 — 사용자 희망의 두 번째 안이 코드상 이미 R5의 동작이다. 한편 타겟이 죽는 순간에 따로 화면 표현을 내는 경로는 있다: `HitPresentationQueue.cs` 안전망 ⓑ(머리 주석 20~21행, 구독 371~375행, `OnUnitDied`/`OnBuildingDied` 584~596행 → `FlushTarget` 1010~1018행)가 그 타겟을 기다리던 피격 표현을 **즉시** 방출한다 → `Emit`(941~975행)이 피해 숫자 + 타격 반응 + `PlayUnitHit(맞은 유닛 종류)`를 낸다. 또 사망 이펙트(`UnitView.cs` 1848행 `PlayUnitDeath`, 공용 preset `EffectPreset_Unit_Death_Common`)가 사망 순간에 나온다. | [미확인] **원인 미확인.** 사용자가 본 「중간 이펙트」가 위 어느 것인지 코드만으로 가를 수 없다. HEAD에서는 `hitPreset`이 모두 비어 있어 안전망 ⓑ가 VFX를 내지 않지만, `507cb07d` 이전 빌드였다면 맞은 쪽이 StreamSpirit·Tank·CannonCart일 때 안전망 ⓑ가 **사망 순간 대상 위치에서** 착탄 preset을 재생했을 것이다(테스트 빌드가 `507cb07d` 이전이었을 가능성). 사망 이펙트를 착탄으로 본 가능성도 배제하지 못했다. |
+| B4 | 착탄 이펙트가 대상 유닛/건물의 **크기에 따라 몸체에 가려진다.** 사용자 제안: 대상이 크면 중심에서 그 크기만큼 떨어진 지점(예: 공격자 쪽 표면)에서 이펙트 발생. | [확인] 재생 위치는 도착 지점 그대로다(`EffectManager.cs` `PlayLegacyArrivalImpact` 675행 `Play(impact, arrival, rotation)`; 방향은 수평 비행 방향 670~674행, 그 밖의 보정은 preset 오프셋·배율뿐). 도착 지점은 발사 순간 타겟의 표시 위치다(B2와 같은 경로 — 메서드 주석 661행은 이를 「대상 발밑 위치」라고 적는다). 대상 크기를 보는 코드는 이 경로에 없다. 참고 가능한 기존 데이터 [확인]: 유닛은 `UnitEffectConfig.asset` `_recipientFits` 표(25행 — 유닛 종류별 `radius`·`height`·`footOffset`, 측정 도구가 채움; 예 StreamSpirit 292~294행 radius 0.1667·height 0.4157)가 있으나, `UnitEffectConfig.cs` 75행 툴팁대로 `radius`는 **현재 어떤 배율 계산에도 쓰지 않는 참고값**이다. 건물은 `BuildingEffectConfig.cs` 항목(25~37행)이 파괴·업그레이드·공격 preset뿐이고 **크기 표가 없다.** | [확인] 원인(크기 미반영) 확인. 건물용 크기 데이터는 새로 마련해야 한다. |
+
+- 이 목록은 15-3(슬롯 의미 불일치 · 착탄 프리팹 크기 · 원래 비행 시간 문제)과 **별개**다. 15-3은 수정하지 않았다.
+- **[2026-10-19 덧붙임 — 15-3 원문 유지]** 15-3 1번이 인용한 `HitPresentationQueue.cs` 870·873행은 확정(authoritative) 결과 경로다. StreamSpirit 같은 Legacy 유닛이 실제로 타는 경로는 같은 파일 `Emit` 969~973행 `PlayUnitHit(맞은 유닛 종류)`이며, 이것도 맞은 유닛 종류로 고르므로 15-3의 결론(슬롯 의미 불일치)은 그대로다.
+- C 방식과의 관계: B2·B3는 14-3의 기획 질문 3번(비행 중 대상이 죽거나 움직일 때)과 같은 질문이다. B4의 「표면에서 터뜨리기」는 C 방식의 착탄 VFX에도 그대로 필요하다. 그래서 R5만 고치고 끝내지 말고 C 방식 설계 때 함께 다룬다(제안 — Plan 18-5).
+
+<a id="15-6-charge-unit-fire-timing"></a>
+
+### 15-6. 차지 유닛 발사 시점 기준과 InfernoSpirit 차지 어긋남 (2026-10-19 추가 — 같은 날 별건으로 완료)
+
+> **상태 (2026-10-19 갱신): 완료** — 별건 [`2026-10-19/11_09_charge-unit-launch-timing`](../../2026-10-19/11_09_charge-unit-launch-timing/Research.md#9-implementation-result)에서 구현·사용자 싱글·멀티 시각 확인. 아래 본문은 HEAD `3306cf1b` 기준 기록이라 고치지 않았다(차지 시점은 그 뒤 0.1667초로 확정). *(종전 제목 표시 「기록만, 미착수」)*
+
+**쉬운 설명.** 지옥불 정령(InfernoSpirit)은 공격할 때 먼저 불덩이를 모으는 「차지」 이펙트를 보여 준다. 그런데 오늘 화염구(투사체)를 연결해 보니, 차지가 **공격 동작 중간쯤에야 나타나고 같은 순간에 화염구도 날아가** 「모으는 중에 이미 쏜」 것처럼 어긋나 보였다. 원인은 이 공격 동작에 「차지 시작」 신호가 없고 「타격」 신호 하나만 있어서, 차지와 발사가 둘 다 그 한 신호에서 시작되기 때문이다. 사용자는 차지하는 유닛의 기준을 **「차지 시작 → 차지가 끝나는 순간 투사체 발사」** 로 정했고(2026-10-19), 두 시점은 코드에서 시간을 늦추는 방식이 아니라 **애니메이션 이벤트로** 정한다. 사용자 지시("기록만 해두고 VFX를 마저 제작한 뒤 별건으로 작업")에 따라 **이번에는 기록만 하며 코드·애니메이션·규칙 문서는 바꾸지 않았다.**
+
+**근거 수준.** [확인] = document-manager가 이 checkout(HEAD `3306cf1b`)에서 파일·이력을 읽어 확인(행 번호는 이 시점 기준). [전달] = 메인 세션이 전달한 값으로, 다시 재지 않음. [사용자] = 사용자 결정·기억.
+
+#### 15-6-1. 사용자 확정 기준 (2026-10-19) [사용자]
+
+- 차지하는 유닛은 **차지 시작 → 차지가 끝나는 순간 투사체 발사**.
+- `OnAttackCharge` 이벤트 = **차지 VFX만** 재생. `OnAttackHit` 이벤트 = **투사체 발사**. 서버 피해도 지금처럼 `OnAttackHit` 시점이다 — **피해 시점은 바꾸지 않는다.**
+- 두 시점 모두 애니메이션 클립의 이벤트로 정한다(코드 지연 아님).
+
+#### 15-6-2. 확인된 사실
+
+| 항목 | 내용 | 근거 |
+|---|---|---|
+| Inferno 클립 이벤트 | `InfernoSpirit_Attack.anim`(30fps, 길이 3초)의 이벤트는 `OnAttackHit` @ 1.5초 **하나뿐**이다(93389~93391행). `OnAttackCharge`는 없다. | [확인] |
+| Inferno 이벤트 이력 | `d692cec1`(2026-06-20)·`38f56aeb`(2026-09-30): `OnAttackHit` 0.5초 → `b65751c6`(2026-10-12): 1.5초(사용자 교정 1:15@30fps). 그 이전 커밋에는 이벤트가 없다. **어떤 버전에도 `OnAttackCharge`는 없었다.** | [확인 — 클립 파일 `git log` + 각 버전 `git show`] |
+| 차지 이벤트 처리 | `UnitView.cs` `OnAttackCharge`(1149~1155행)는 1151행에서 **FoxMagician이 아니면 바로 return**한다. 이벤트 중계는 `AnimationEventRelay.cs` 40~44행. | [확인] |
+| 공격(차지) VFX 재생 위치 | 공격 VFX 재생 호출 `effectManager.PlayUnitAttack(…)`는 `UnitView.cs` 7519행 **한 곳뿐**이며 공격 마커 처리 `ProcessAttackMarker` 안에 있다. Inferno에는 차지 이벤트가 없으므로 이 호출은 **타격 마커(1.5초)** 에서만 실행된다. | [확인] |
+| Inferno 차지 프리팹 연결 | `UnitEffectConfig.asset` InfernoSpirit 행(unitType 12, 96행): `attackPreset` = `EffectPreset_InfernoSpirit_Attack`(97행) → `_vfxPrefab` = `vfx_infernospirit_charge.prefab`(GUID `386d8a44…` 일치). `impactPreset` = `EffectPreset_InfernoSpirit_Impact`(100행), `tracerPreset` = `EffectPreset_InfernoSpirit_Tracer`(103행). | [확인 — GUID 대조] |
+| 오늘 무변경 | 차지 프리팹 마지막 변경 `3151d0df`(2026-08-17), 공격 preset 마지막 변경 `a840a152`(2026-10-13, 시전자 사망 시 정지). 오늘(2026-10-19) 둘 다 바뀌지 않았다. | [확인 — `git log -1`] |
+| 오늘 달라진 것 | 사용자 커밋 `35150e8f`(2026-10-19 19:08, 메시지 「.」)가 Inferno tracer·impact 프리팹 2개와 preset 2개를 추가하고 `UnitEffectConfig.asset`을 수정했다. 그래서 화염구가 같은 1.5초 타격 마커의 기존(legacy) 트레이서 경로(`UnitView.cs` 7669행 `em.PlayTracer(…)`)에서 출발한다 → **차지와 화염구가 동시에 나가 어긋나 보인다.** | [확인 — `git show --name-status 35150e8f`, 행 위치] |
+| 피해 시점 추출 | 서버 피해 시점은 `UnitFactory.cs` 586행이 함수 이름 `OnAttackHit`인 이벤트만 모아 정한다. `UnitView.cs` 820·849행도 `OnAttackHit`만 센다. → 클립에 `OnAttackCharge`를 더해도 **피해 시점 추출은 바뀌지 않는다.** | [확인] |
+| Inferno 자동 검증 | `RunUnitActionSelfValidation.cs` `ValidateInfernoSpiritProductionTimeline`(8129행~)은 `OnAttackHit`만 세어 「정확히 1개 · 1.5초」를 요구한다(8208~8217행). `OnAttackCharge`를 더해도 이 검사는 그대로 통과할 것으로 **코드상 보인다**(실행 확인은 아님). | [확인 — 코드 읽기] |
+| FoxMagician 클립 | `FoxMagician_Attack.anim`(30fps, 길이 4초): `OnAttackCharge` @ 1.0초(113276~113277행), `OnAttackHit` @ 2.8333333초(113283~113284행). → **애니메이션은 이미 사용자 기준에 맞는다.** | [확인] |
+| Fox 타격 마커 | `UnitView.cs` 7224~7235행: Fox는 타격 마커에서 진단만 기록하고 **일찍 return**한다(주석: 「VFX·recipient 큐·로컬 피격·트레이서를 다시 실행하지 않는다」). → **투사체를 쏘지 않는다.** | [확인] |
+| Fox 검증 | `RunUnitActionSelfValidation.cs` 7966~7967행이 Fox `tracerPreset` = null을 요구한다(메시지: 「tracer 연결은 별도 권위 투사체 설계가 필요」). | [확인] |
+
+#### 15-6-3. 사용자 기억과의 대조
+
+- [사용자] 「차지가 중간쯤 나오고 그 뒤에 피해」.
+- [확인] 2026-10-12(`b65751c6`) 이후 차지는 3초 동작의 **1.5초(중간)** 에서 시작한다 — 기억의 「중간쯤」과 맞는다.
+- [전달] 차지 이펙트는 약 1초 동안 커진다. 「그 뒤에 피해」는 피해 대부분이 화상 지속 피해(초당 50 — [확인] `StatsReference.md` 289행; 지속 3초는 [전달])라 직접 피해 뒤에 숫자가 이어 뜨기 때문으로 보인다(해석 — 실기 측정 아님).
+
+#### 15-6-4. 🔴 규칙 문서와 맞닿는 곳 (변경 전 사용자 확인 대상 — 이번에 수정하지 않음)
+
+- `GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 **규칙 17** 「FoxMagician typed marker 계약」(320행) [확인]: `OnAttackCharge @ 1초`는 source VFX/SFX만 내고 tracer 경로 **전에 종료**, `OnAttackHit @ 85/30초`의 로컬 callback은 **VFX 재생을 하지 않는다**고 적혀 있다. 사용자 기준의 「Fox 타격 마커에서 투사체 발사」는 이 문장 중 **「OnAttackHit에서 VFX 재생 안 함」과 충돌**한다. 별건 작업에서 이 문장을 바꾸려면 변경 전에 사용자에게 보고하고 승인을 받는다.
+- 같은 내용이 `GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」(309행)에도 「damage callback에서 charge를 소비·재생하지 않는다」로 있다 [확인]. 「차지 VFX 재재생 금지」와는 맞지만 Fox 투사체 발사 위치는 위 규칙 17을 따른다.
+- `InfernoSpirit`의 차지 이벤트를 다루는 규칙 문장은 찾지 못했다(규칙 17은 Fox 전용) [확인 — `OnAttackCharge` 전체 검색]. 「차지 유닛 공통 기준」을 규칙 문서·`VFXSFXGuide.md`에 넣을지는 별건 작업 때 사용자 확인 뒤 정한다.
+
+#### 15-6-5. 다른 기록과의 관계
+
+- [14절](#14-projectile-visibility-decision)(C 방식)과 같은 투사체 주제다. C 방식은 「언제 피해를 줄지」(착탄 시각)를, 이 절은 「언제 쏘는 모습을 보일지」(발사 시각)를 다룬다. 사용자 기준은 피해 시점을 그대로 `OnAttackHit`에 두므로, C 방식에서도 발사 = `OnAttackHit`, 착탄 = 발사 + 거리 ÷ 속도로 이어 붙일 수 있다(해석 — 설계 결정 아님).
+- [15-5](#15-5-r5-field-bugs)(R5 버그 B2~B4)와는 별개 결함이다. 같은 R5 임시 트레이서 경로를 쓰므로 함께 다루기를 제안한다.
+- 후속 작업 항목은 [Plan 18-6](Plan.md#18-6-charge-unit-fire-timing)이 단일 소스다 — 2026-10-19 별건으로 완료(위 상태 블록). *(종전 「(제안, 미착수)」)*

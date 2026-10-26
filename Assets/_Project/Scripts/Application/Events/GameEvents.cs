@@ -257,6 +257,13 @@ namespace Hexiege.Application
         /// <summary>writer가 소유하는 독립 파도 표현 키. 유효할 때만 Legacy 텍스트를 억제한다.</summary>
         public readonly WaveDeliveryKey WavePresentationKey;
 
+        /// <summary>
+        /// [2026-10-20 서버 권위 투사체] 이 피해가 "서버 투사체 착탄"으로 생겼으면 그 투사체 번호표다.
+        /// 유효하면 피격 표현 큐가 공격자별 FIFO(로컬 타격 신호 대기)를 쓰지 않고, 투사체 화면 소비자가
+        /// 화면상 착탄 순간에 숫자·피격 반응을 1회 방출하게 한다(Q7). 유효하지 않으면 기존 경로 그대로다.
+        /// </summary>
+        public readonly ProjectileDeliveryKey ProjectilePresentationKey;
+
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit)
             : this(entity, currentHp, isUnit, attackerId, attackerIsUnit, immediatePresentation: false)
@@ -272,7 +279,8 @@ namespace Hexiege.Application
 
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
-            AttackResultKey presentationResultKey, WaveDeliveryKey wavePresentationKey = default)
+            AttackResultKey presentationResultKey, WaveDeliveryKey wavePresentationKey = default,
+            ProjectileDeliveryKey projectilePresentationKey = default)
         {
             Entity = entity;
             CurrentHp = currentHp;
@@ -282,6 +290,7 @@ namespace Hexiege.Application
             ImmediatePresentation = immediatePresentation;
             PresentationResultKey = presentationResultKey;
             WavePresentationKey = wavePresentationKey;
+            ProjectilePresentationKey = projectilePresentationKey;
         }
     }
 

@@ -92,6 +92,15 @@ namespace Hexiege.Application
         /// </summary>
         public float QuakeRadius { get; }
 
+        /// <summary>
+        /// [2026-10-20 서버 권위 투사체 — Q3 Persist] true면 이 공격은 "이미 발사된 투사체의 착탄"이라
+        /// 공격자가 비행 중에 죽었어도 범위 피해·DoT를 계속 진행해야 한다는 뜻이다.
+        /// 기본값 false — 투사체가 아닌 모든 공격에서는 예전처럼 공격자가 죽었으면 핸들러가 아무것도 하지 않는다.
+        /// 지금(단계 A) 이 값을 읽는 핸들러는 버섯폭격기(Blast)·지옥불 정령(Inferno)뿐이며, 두 유닛의 스위치가
+        /// 켜지기 전까지는 실제로 true가 되지 않는다(스위치가 켜진 투사체 유닛만 착탄 경로를 탄다).
+        /// </summary>
+        public bool AttackerMayBeInactive { get; }
+
         // 단일 대상 1회 피해 절차(피해+이벤트+사망 처리)를 수행하는 재사용 헬퍼.
         // UnitCombatUseCase.ApplyDamageToVictim을 그대로 넘겨받는다.
         private readonly Action<UnitData, IDamageable> _applyDamage;
@@ -147,6 +156,7 @@ namespace Hexiege.Application
         /// <param name="buildings">전체 건물 읽기 전용 목록. QuakeSpirit 착탄 스플래시의 "적 건물" 수집에 사용.</param>
         /// <param name="quakeRadius">QuakeSpirit 착탄 즉발 스플래시 판정의 월드 반경(중심으로부터 XZ 거리 한계).</param>
         /// <param name="applyQuakeSplash">대상(적 유닛/적 건물)에 QuakeSpirit 착탄 즉발 스플래시 피해를 적용하는 델리게이트(공격자, 대상).</param>
+        /// <param name="attackerMayBeInactive">발사된 투사체의 착탄이면 true(공격자 사망 후에도 진행). 기본 false.</param>
         public SpecialAttackContext(
             UnitData attacker,
             IDamageable primaryTarget,
@@ -165,7 +175,8 @@ namespace Hexiege.Application
             Action<UnitData, UnitData> applyInfernoDot,
             IReadOnlyDictionary<int, BuildingData> buildings,
             float quakeRadius,
-            Action<UnitData, IDamageable> applyQuakeSplash)
+            Action<UnitData, IDamageable> applyQuakeSplash,
+            bool attackerMayBeInactive = false)
         {
             Attacker = attacker;
             PrimaryTarget = primaryTarget;
@@ -185,6 +196,7 @@ namespace Hexiege.Application
             Buildings = buildings;
             QuakeRadius = quakeRadius;
             _applyQuakeSplash = applyQuakeSplash;
+            AttackerMayBeInactive = attackerMayBeInactive;
         }
 
         /// <summary>

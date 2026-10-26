@@ -52,6 +52,26 @@ namespace Hexiege.Presentation
             }
         }
 
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 사망 표현 보류용 — Visual Root(메시·Animator가 든 자식)를 이 투영기에서 떼어 돌려준다.
+        /// 뗀 뒤에는 이 투영기가 더 이상 그 Transform을 쓰지 않는다(_visualRoot = null). 그래서 떼어 낸 "사망 대역(ghost)"이
+        /// 서버 Root(NetworkTransform이 계속 움직이는 쪽)를 따라 움직이지 않고, 죽은 그 자리·그 자세에 그대로 남는다.
+        /// 이후 PresentationTransform/Position은 Root 자체를 돌려준다(기존 "Visual Root 없음" 폴백과 같다).
+        /// Visual Root가 없거나 Root 자신이면 null(떼어 낼 대역이 없다 — 호출자는 사망 표현을 미루지 않는다).
+        /// </summary>
+        /// <returns>떼어 낸 Visual Root. 실제 부모 분리(SetParent)는 호출자가 한다.</returns>
+        internal Transform DetachVisualRootForDeathGhost()
+        {
+            if (_visualRoot == null || _visualRoot == transform) return null;
+            ProjectNow();   // 마지막 화면 pose(Red 반전 포함)를 한 번 더 써 둔 뒤 뗀다.
+            Transform detached = _visualRoot;
+            _visualRoot = null;
+            return detached;
+        }
+
+        /// <summary>[2026-10-26 수정안 (a)] 떼어 낼 Visual Root가 있는가(읽기 전용 — 상태 불변).</summary>
+        internal bool HasDetachableVisualRoot => _visualRoot != null && _visualRoot != transform;
+
         private void LateUpdate()
         {
             // NetworkTransform/UnitView가 Update 중 root를 쓴 뒤 렌더 직전 최종 투영한다.

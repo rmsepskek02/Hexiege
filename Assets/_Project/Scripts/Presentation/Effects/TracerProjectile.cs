@@ -115,6 +115,7 @@ namespace Hexiege.Presentation
         /// <param name="onArrive">착탄 시 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
         public void Launch(Vector3 start, Vector3 target, Action onArrive, float authoritativeDuration = -1f, bool recursiveParticles = false)
         {
+            _driven = false;   // [2026-10-20] 옛 직선 비행 경로 — 외부 구동 모드가 아니다.
             _start = start;
             _target = target;
             _onArrive = onArrive;
@@ -142,6 +143,71 @@ namespace Hexiege.Presentation
             // 거리가 0에 가까우면(발사=타겟) 비행 없이 즉시 착탄.
             if (_duration <= 0f)
                 Arrive();
+        }
+
+        // ====================================================================
+        // [2026-10-20 서버 권위 투사체] 외부 구동(driven) 모드
+        //   서버 투사체는 "언제 어디에 있어야 하는가"를 서버 발사·착탄 시각이 정한다. 그래서 이 컴포넌트가
+        //   스스로 속도(_speed)로 날지 않고, 화면 소비자(ProjectilePresentationPresenter)가 매 프레임
+        //   위치를 직접 넣어 준다(Homing — 움직이는 대상을 따라가며 착탄 시각에 정확히 닿는다).
+        //   이 모드에서는 _speed를 쓰지 않는다(Plan 위험 15 — 프리팹 속도는 서버 판정·Client 비행 계산에 쓰지 않는다).
+        //   기존 Launch()/Update() 경로는 그대로 두어 아직 옮기지 않은 유닛의 옛 트레이서는 예전과 같다.
+        // ====================================================================
+
+        /// <summary>외부 구동 중인가(화면 소비자가 위치를 넣어 주는 상태).</summary>
+        private bool _driven;
+
+        /// <summary>외부 구동 모드에서 마지막으로 놓인 위치(진행 방향 회전 계산용).</summary>
+        private Vector3 _drivenLast;
+
+        /// <summary>외부 구동 중인지 여부(검증·화면 소비자용).</summary>
+        public bool IsDriven => _driven;
+
+        /// <summary>
+        /// 외부 구동 모드로 꺼낸다. 이후 위치는 <see cref="DriveTo"/>가 정하고, 끝은 <see cref="EndDriven"/>이 정한다.
+        /// </summary>
+        /// <param name="start">발사 지점(화면 좌표).</param>
+        public void BeginDriven(Vector3 start)
+        {
+            _flying = false;          // 옛 Update 비행을 끈다(두 경로가 동시에 위치를 쓰지 않게).
+            _onArrive = null;
+            _driven = true;
+            _start = start;
+            _drivenLast = start;
+            transform.position = start;
+            gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// 외부 구동 모드에서 이번 프레임 위치를 놓는다. 움직인 방향으로 투사체 앞(forward)을 돌린다.
+        /// </summary>
+        /// <param name="position">이번 프레임 위치(화면 좌표).</param>
+        public void DriveTo(Vector3 position)
+        {
+            if (!_driven) return;
+            Vector3 delta = position - _drivenLast;
+            if (delta.sqrMagnitude > 0.000001f) transform.rotation = Quaternion.LookRotation(delta);
+            transform.position = position;
+            _drivenLast = position;
+        }
+
+        /// <summary>
+        /// 외부 구동을 끝내고 풀에 반환한다(풀이 없으면 파괴). 착탄 이펙트는 호출자가 따로 재생한다.
+        /// 여러 번 불러도 한 번만 반환한다.
+        /// </summary>
+        public void EndDriven()
+        {
+            if (!_driven) return;
+            _driven = false;
+            if (_onReturn != null)
+            {
+                gameObject.SetActive(false);
+                _onReturn(this);
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
 
         // ====================================================================

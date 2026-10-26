@@ -465,6 +465,12 @@ namespace Hexiege.Application
         {
             if (attacker == null) return 0;
 
+            // [2026-10-20 서버 권위 투사체 — Q3 Persist] 투사체 착탄 피해를 적용하는 그 순간에는
+            //   "발사 때 저장한 공격력"을 쓴다. 비행 중 공격자가 죽거나(연구 레벨·버프 조회 불가) 상태가 바뀌어도
+            //   발사 순간의 공격력으로 맞는다. 같은 공격자 객체일 때만 적용되며, 다른 모든 경로는 아래 기존 계산 그대로다.
+            if (_projectileImpactAttacker != null && ReferenceEquals(attacker, _projectileImpactAttacker))
+                return _projectileImpactAttackPower;
+
             int baseAttack = _upgrade != null
                 ? _upgrade.GetEffectiveAttack(attacker.Team, attacker.Type)
                 : attacker.AttackPower;
@@ -669,6 +675,16 @@ namespace Hexiege.Application
                     attacker, targetId, targetIsUnit, now, 0d))
                 return null;
 
+            // [2026-10-20 서버 권위 투사체 — RM-1] 이행 스위치가 켜진 투사체 유닛(단계 A: StreamSpirit)은
+            //   타격 순간 피해(PendingHit) 대신 "발사 예약"을 만든다. 피해는 착탄 시각에 기존 writer가 준다.
+            //   예약 자리(용량)는 전투 이벤트·쿨다운 커밋 전에 먼저 확인한다 — 자리가 없으면 이번 공격을 시작하지 않는다.
+            //   스위치가 꺼진 유닛과 비투사체 유닛은 아래 기존 PendingHit 경로를 그대로 탄다.
+            bool serverProjectile = !torrentReserved
+                && ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type);
+            if (serverProjectile && !CanReserveProjectileLaunches(
+                    attacker.HitFrameTimes != null ? attacker.HitFrameTimes.Length : 1))
+                return null;
+
             // --- 싱글플레이 전투 상태 변화 감지 및 이벤트 발행 ---
             // 멀티플레이에서는 NetworkCombatController가 _unitCombatTargets Dictionary와
             // StartCombat/ChangeTarget/StopCombat ClientRpc로 이 역할을 수행.
@@ -716,6 +732,9 @@ namespace Hexiege.Application
             // HitFrameTimes가 null이거나 비어 있으면 안전망으로 즉시 1회 데미지를 적용한다
             // (Inspector 미설정 대비).
             float[] hitTimes = attacker.HitFrameTimes;
+            // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(커밋)가 새 경로/기존 경로 중 어디로 갔는지 센다(읽기 전용).
+            //   스위치가 꺼진 투사체 유닛이 기존 경로를 지켰는지 경기 종료 END(path=)로 확인한다. 비투사체 유닛은 세지 않는다.
+            if (!torrentReserved) RecordProjectileUnitAttackPath(attacker.Type, serverProjectile);
             if (torrentReserved)
             {
                 // Torrent는 공통 예약 owner가 실제 wave를 발사한다.
@@ -723,8 +742,25 @@ namespace Hexiege.Application
             }
             else if (hitTimes == null || hitTimes.Length == 0)
             {
-                // 기존 동작 유지(즉시 1회 데미지)
-                ExecuteAttack(attacker, target);
+                // [서버 투사체] 타격 시각 설정이 없으면 "지금" 발사한다(옛 동작의 즉시 1회 피해 → 즉시 발사).
+                if (serverProjectile)
+                    TryReserveProjectileLaunch(attacker, targetId, targetIsUnit, now, 0);
+                else
+                    // 기존 동작 유지(즉시 1회 데미지)
+                    ExecuteAttack(attacker, target);
+            }
+            else if (serverProjectile)
+            {
+                // [서버 투사체] 타격 시각(OnAttackHit offset)마다 발사 예약 1개. 시각 계산은 아래 PendingHit과 같다:
+                //   절대 시계(absoluteSolo)면 SoloAttackPlaybackClock이 정한 due, 아니면 지금 + 타격 시각.
+                int firstHit = absoluteSolo ? occurrence.FirstHit : 0;
+                for (int i = firstHit; i < hitTimes.Length; i++)
+                {
+                    double due = absoluteSolo
+                        ? occurrence.Due[i - firstHit]
+                        : now + (hitTimes[i] > 0f ? hitTimes[i] : 0.0001f);
+                    TryReserveProjectileLaunch(attacker, targetId, targetIsUnit, due, i);
+                }
             }
             else
             {
@@ -981,10 +1017,13 @@ namespace Hexiege.Application
             int targetId,
             bool targetIsUnit,
             bool updateLegacyDomainFacing,
-            AttackResultKey presentationResultKey)
+            AttackResultKey presentationResultKey,
+            bool allowInactiveAttacker = false)
         {
             // 딜레이 동안 공격자가 사망했을 수 있으므로 재확인
-            if (attacker == null || !attacker.IsAlive)
+            // [2026-10-20 서버 권위 투사체 — Q3 · 위험 3] 이미 "발사된" 투사체의 착탄만 allowInactiveAttacker=true로 들어온다.
+            //   그때는 공격자가 죽었어도 피해를 준다(PersistsAfterSourceDeath). 그 밖의 모든 호출은 기본값 false라 예전과 같다.
+            if (attacker == null || (!attacker.IsAlive && !allowInactiveAttacker))
                 return AttackDamageObservation.Unavailable(
                     AttackDamageApplyStatus.AttackerUnavailable);
 
@@ -1765,8 +1804,19 @@ namespace Hexiege.Application
                 // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
                 // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
                 // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.
-                bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
-                    && !presentationResultKey.IsValid;
+                // ────────────────────────────────────────────────────────────────
+                // [RM-5 비활성화 — 2026-10-21 서버 권위 투사체 단계 D, 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]
+                //   위 설명은 Fox가 "피해 순간 = 타이머 시각"이던 시절의 예외다(투사체 VFX가 없어 숫자를 기다릴 표식이 없었다).
+                //   이제 Fox는 서버 투사체 유닛이라 이 피해는 "착탄 순간"에만 일어나고, 피해 이벤트에 투사체 번호표가 붙어
+                //   화면 투사체가 닿는 순간 숫자가 1회 나온다(Q7 · Q8). 그래서 즉시 표시 예외를 끈다 — 모든 유닛 false.
+                //   옛 줄(기록용 — 주석 보존, C 사용자 테스트 PASS 뒤 삭제 대상):
+                //   bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
+                //       && !presentationResultKey.IsValid;
+                // ────────────────────────────────────────────────────────────────
+                const bool immediatePrimaryPresentation = false;
+                if (attacker.Type == UnitType.FoxMagician)   // [단계 D 진단] RM-5 확인 계수(판정 무관)
+                    DiagFoxPrimaryPresentation(ProjectileImpactInProgress, immediatePrimaryPresentation,
+                        oldRuleImmediate: !presentationResultKey.IsValid);
                 ApplyDamageToVictim(
                     attacker, target, immediatePresentation: immediatePrimaryPresentation,
                     presentationResultKey: presentationResultKey);
@@ -1784,7 +1834,10 @@ namespace Hexiege.Application
                     _waveWidth, _waveLength, _waveTravelTime, _waveHeal,
                     (source, victim) => ApplyDamageOverTime(source, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval, TimedDamageVisual.Poison, damageOrigin), _blastRadius,
                     (source, victim) => ApplyDamageOverTime(source, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval, TimedDamageVisual.Burn, damageOrigin),
-                    _buildingPlacement.Buildings, _quakeRadius, ApplyQuakeSplash);
+                    _buildingPlacement.Buildings, _quakeRadius, ApplyQuakeSplash,
+                    // [2026-10-20 서버 권위 투사체 — Q3] 발사된 투사체의 착탄이면 공격자가 이미 죽었어도
+                    //   범위 피해·DoT를 진행하라는 표시. 다른 공격에서는 false라 핸들러 동작이 예전과 같다.
+                    attackerMayBeInactive: ProjectileImpactInProgress);
                 special.Apply(ctx);
             }
             if (mushroomVisual.IsValid)
@@ -1939,7 +1992,9 @@ namespace Hexiege.Application
                     attackerId: attacker.Id, attackerIsUnit: true,
                     immediatePresentation: immediatePresentation,
                     presentationResultKey: presentationResultKey,
-                    wavePresentationKey: presentationWave != null ? presentationWave.Key : default));
+                    wavePresentationKey: presentationWave != null ? presentationWave.Key : default,
+                    // [2026-10-20] 투사체 착탄으로 생긴 피해면 그 번호표를 싣는다(아니면 default — 기존 경로).
+                    projectilePresentationKey: ProjectileImpactInProgress ? _projectileImpactKey : default));
 
             // 사망/게임 종료 이벤트 전에 확정 스냅샷을 발행한다. 사라진 View를 재조회하지 않는다.
             if (presentationWave != null)
@@ -2274,7 +2329,10 @@ namespace Hexiege.Application
             GameEvents.OnEntityDamaged.OnNext(
                 new EntityDamagedEvent(target, target.Hp, targetIsUnit,
                     attackerId: attacker.Id, attackerIsUnit: true,
-                    immediatePresentation: immediatePresentation));
+                    immediatePresentation: immediatePresentation,
+                    presentationResultKey: default, wavePresentationKey: default,
+                    // [2026-10-20] 투사체 착탄 중의 고정량 피해(범위 등)도 같은 번호표로 착탄 순간에 함께 표시한다.
+                    projectilePresentationKey: ProjectileImpactInProgress ? _projectileImpactKey : default));
 
             // 사망 처리 — ApplyDamageToVictim(3-인자)의 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
             if (!target.IsAlive)

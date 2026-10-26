@@ -166,7 +166,10 @@ namespace Hexiege.Infrastructure
                 e.PresentationResultKey.VictimId,
                 e.PresentationResultKey.EffectKind,
                 e.PresentationResultKey.ResultOrdinal,
-                e.WavePresentationKey.Epoch, e.WavePresentationKey.Id);
+                e.WavePresentationKey.Epoch, e.WavePresentationKey.Id,
+                // [2026-10-20 서버 권위 투사체] 투사체 착탄 피해면 그 번호표도 함께 보낸다 —
+                //   Client 피격 표현 큐가 공격자 FIFO 대신 "화면상 착탄 순간"에 숫자를 1회 방출하게 한다(Q7).
+                e.ProjectilePresentationKey.Epoch, e.ProjectilePresentationKey.Id);
         }
 
         /// <summary>
@@ -232,7 +235,7 @@ namespace Hexiege.Infrastructure
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
             ulong attackerInstanceId, ulong attackSequenceId, int hitIndex,
             int victimKind, int victimId, int effectKind, int resultOrdinal,
-            ulong waveEpoch, ulong waveId)
+            ulong waveEpoch, ulong waveId, ulong projectileEpoch, ulong projectileId)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -255,12 +258,14 @@ namespace Hexiege.Infrastructure
             if (isUnit)
             {
                 SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit,
-                    immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
+                    immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId),
+                    new ProjectileDeliveryKey(projectileEpoch, projectileId));
             }
             else
             {
                 SyncBuildingHealth(entityId, serverHp, attackerId, attackerIsUnit,
-                    presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId));
+                    presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId),
+                    new ProjectileDeliveryKey(projectileEpoch, projectileId));
             }
         }
 
@@ -332,7 +337,8 @@ namespace Hexiege.Infrastructure
         /// 현재 HP와 서버 HP의 차이를 데미지로 적용.
         /// </summary>
         private void SyncUnitHealth(int unitId, int serverHp, int attackerId, bool attackerIsUnit,
-            bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
+            bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default,
+            ProjectileDeliveryKey projectileKey = default)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -362,8 +368,10 @@ namespace Hexiege.Infrastructure
                 unit.TakeDamage(diff);
                 // [개발] 피격마다 찍히는 고빈도 로그다(LogRules 1.14 금지 8 — 매 틱 로깅 금지).
                 //   Dev 라서 릴리스에서는 [Conditional] 로 호출과 문자열 보간까지 통째로 사라진다(1.7).
+                // [2026-10-20 단계 B 진단] 투사체 착탄 피해면 그 번호표(epoch:id)를 함께 남긴다 — 서버 [PROJECTILE] stage=hit 줄과
+                //   같은 id로 짝을 맞출 수 있다. 투사체가 아니면 Projectile=none. 옛 data(기록용): $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}"
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "유닛 HP 동기화",
-                                 $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}");
+                                 $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
 
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
@@ -373,7 +381,8 @@ namespace Hexiege.Infrastructure
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: immediatePresentation,
-                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
             }
         }
 
@@ -477,7 +486,8 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncBuildingHealth(
             int buildingId, int serverHp, int attackerId, bool attackerIsUnit,
-            AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default)
+            AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default,
+            ProjectileDeliveryKey projectileKey = default)
         {
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
@@ -501,8 +511,10 @@ namespace Hexiege.Infrastructure
             {
                 building.TakeDamage(diff);
                 // [개발] 건물 피격마다 찍히는 고빈도 로그. 위와 같은 이유로 Dev.
+                // [2026-10-20 단계 B 진단] 투사체 번호표(epoch:id)를 함께 남긴다(위 유닛 줄과 같은 이유). 옛 data(기록용):
+                //   $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}"
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "건물 HP 동기화",
-                                 $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}");
+                                 $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
 
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
@@ -510,7 +522,8 @@ namespace Hexiege.Infrastructure
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: false,
-                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey));
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
             }
         }
     }

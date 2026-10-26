@@ -274,6 +274,8 @@ namespace Hexiege.Presentation
         /// <summary>
         /// [2026-10-13 R2-1] 이 시전자에게 귀속된 공격 이펙트(기 모으기 charge 등)를 모두 즉시 멈추고 풀에 반환한다.
         /// UnitView가 사망 이벤트와 OnDisable(파괴·디스폰)에서 호출한다. Host·Client 각자 자기 화면에서 실행된다.
+        /// [P4 — 2026-10-19 차지 유닛 발사 시점] 「공격 취소」 경계에서도 호출된다: 차지 도중 공격이 끊기면
+        /// UnitView.StopOwnedChargeEffects가 이 함수로 차지 VFX를 즉시 끈다(사용자 결정 D2 — 화면 표현 전용, 피해·lease 무변경).
         /// 사망 이펙트·트레이서·착탄·타워 번개·지속 이펙트처럼 귀속되지 않은 이펙트는 건드리지 않는다.
         /// </summary>
         /// <param name="caster">사망·제거되는 유닛의 UnitView(파괴 중이어도 같은 객체 참조로 찾는다).</param>
@@ -294,6 +296,42 @@ namespace Hexiege.Presentation
                 if (_casterStopBuffer[i].StopCasterOwned(reason)) stopped++;
             _casterStopBuffer.Clear();
             // 파괴된 아이템 참조가 남아 있으면 정리한다(사망 시점에만 실행되므로 비용 무시 가능).
+            _casterOwnedItems.RemoveWhere(owned => owned == null);
+            return stopped;
+        }
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 이 시전자에게 귀속된 공격 이펙트(차지 등)를 사망 대역(ghost)으로 넘긴다.
+        /// 시전자의 사망 표현이 투사체 화면 착탄까지 미뤄질 때 UnitView가 부른다 — 차지 VFX도 사망 표현과 같은 순간에 멈추게 하려는 것이다.
+        /// </summary>
+        /// <param name="caster">사망한 시전자 UnitView.</param>
+        /// <param name="ghost">사망 대역 GameObject(떼어 낸 Visual Root).</param>
+        /// <returns>넘긴 이펙트 수.</returns>
+        public int HandOverCasterOwnedAttackEffects(UnitView caster, GameObject ghost)
+        {
+            if (caster is null || ghost == null || _casterOwnedItems.Count == 0) return 0;
+            int moved = 0;
+            foreach (VfxPoolItem item in _casterOwnedItems)
+                if (item != null && item.HandOverCasterOwnershipToGhost(caster, ghost)) moved++;
+            return moved;
+        }
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 사망 대역에 귀속된 공격 이펙트를 모두 즉시 멈추고 풀에 반환한다(미뤄 둔 사망 표현을 진행할 때).
+        /// </summary>
+        /// <param name="ghost">사망 대역 GameObject(이미 파괴 중이어도 같은 참조로 찾는다).</param>
+        /// <param name="reason">정지 사유(진단용 짧은 토큰).</param>
+        /// <returns>정지한 이펙트 수.</returns>
+        public int StopGhostOwnedAttackEffects(GameObject ghost, string reason)
+        {
+            if (ghost is null || _casterOwnedItems.Count == 0) return 0;
+            _casterStopBuffer.Clear();
+            foreach (VfxPoolItem item in _casterOwnedItems)
+                if (item != null && item.IsOwnedByGhost(ghost)) _casterStopBuffer.Add(item);
+            int stopped = 0;
+            for (int i = 0; i < _casterStopBuffer.Count; i++)
+                if (_casterStopBuffer[i].StopCasterOwned(reason)) stopped++;
+            _casterStopBuffer.Clear();
             _casterOwnedItems.RemoveWhere(owned => owned == null);
             return stopped;
         }
@@ -588,23 +626,214 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). 발사 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 1회 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
+        /// <param name="authoritativeDuration">서버 표시 시점까지 남은 비행 시간(초). 음수면 프리팹 속도(_speed)를 쓴다.</param>
+        /// <param name="playImpactOnArrive">
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체] true면 트레이서가 "도착하는 순간" 공격자 타입의
+        /// 착탄 이펙트(impactPreset)를 도착 지점에서 1회 재생한다. Legacy 트레이서 호출부(UnitView)만 true를 넘긴다.
+        /// </param>
         public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive,
-            float authoritativeDuration = -1f)
+            float authoritativeDuration = -1f, bool playImpactOnArrive = false)
         {
             EffectPreset preset = _unitConfig?.GetTracer(type);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
 
             // 트레이서 프리팹 미설정 → 비행 연출 없이 즉시 착탄 콜백 실행(폴백).
             //   이 경우 호출부의 피격 연출은 지연 없이 기존처럼 즉시 방출된다.
+            // [R5 임시] 이 폴백에서는 착탄 이펙트를 재생하지 않는다.
+            //   "날아가서 도착"한 투사체가 없으므로 도착 지점 이펙트도 없다. 그래서 착탄 이펙트만
+            //   설정되고 트레이서가 아직 없는 유닛(Tank/CannonCart)은 트레이서 프리셋이 연결될 때까지
+            //   화면 변화가 없다(데이터만 채우면 그때부터 자동으로 켜진다).
             if (prefab == null)
             {
                 onArrive?.Invoke();
                 return;
             }
 
+            // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+            //   기존 착탄 콜백(피해 텍스트 등)을 그대로 먼저 실행하고, 그 직후 착탄 이펙트를 재생하도록
+            //   콜백을 한 겹 감싼다. 착탄 이펙트가 설정되지 않은 타입이면 감싸지 않아 기존 동작과 완전히 같다.
+            Action arrive = onArrive;
+            if (playImpactOnArrive)
+            {
+                EffectPreset impact = ResolveLegacyArrivalImpact(type);
+                if (impact != null)
+                {
+                    // 발사 순간의 시작/도착 좌표를 값으로 복사해 둔다(비행 중 대상이 사라져도 안전).
+                    Vector3 impactStart = start;
+                    Vector3 impactPoint = target;
+                    arrive = () =>
+                    {
+                        onArrive?.Invoke();
+                        PlayLegacyArrivalImpact(impact, impactStart, impactPoint);
+                    };
+                }
+            }
+
             // Pool에서 트레이서를 꺼내(또는 새로 만들어) 발사.
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(start, target, onArrive, authoritativeDuration);
+            tracer.Launch(start, target, arrive, authoritativeDuration);
+        }
+
+        /// <summary>
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// Legacy 트레이서가 도착할 때 재생할 "공격자 타입"의 착탄 이펙트 프리셋을 고른다.
+        /// 프리셋이 없거나 프리팹이 비어 있으면 null(= 추가로 아무것도 하지 않음).
+        ///
+        /// MushroomBomber는 항상 null이다. 버섯의 착탄은 서버가 확정한 스냅샷 경로
+        /// (PlayAttackEffect의 MushroomImpact)가 단독으로 소유하므로, 여기서 또 재생하면 두 번 터진다.
+        /// (현재 UnitView는 버섯의 Legacy 트레이서 호출 자체를 꺼 두었지만, 실수로 다시 켜져도 안전하도록 막는다.)
+        /// </summary>
+        /// <param name="attackerType">공격한(트레이서를 쏜) 유닛 타입.</param>
+        /// <returns>재생할 착탄 프리셋 또는 null.</returns>
+        private EffectPreset ResolveLegacyArrivalImpact(UnitType attackerType)
+        {
+            if (attackerType == UnitType.MushroomBomber) return null;
+            EffectPreset impact = _unitConfig?.GetImpact(attackerType);
+            return impact != null && impact.VfxPrefab != null ? impact : null;
+        }
+
+        /// <summary>
+        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// 트레이서 도착 지점에서 착탄 이펙트를 일반 1회성(풀링) 재생으로 터뜨린다.
+        /// 위치 = 트레이서가 도착한 지점(발사 순간의 대상 발밑 위치), 회전 = 날아온 방향(수평)이다.
+        /// 프리셋의 위치 오프셋·회전 오프셋·배율은 Play()가 그대로 적용한다. 피해·HP와는 무관한 화면 표현이다.
+        /// </summary>
+        /// <param name="impact">재생할 착탄 프리셋(null 아님).</param>
+        /// <param name="start">트레이서 발사 지점(방향 계산용).</param>
+        /// <param name="arrival">트레이서 도착 지점(이펙트 위치).</param>
+        private void PlayLegacyArrivalImpact(EffectPreset impact, Vector3 start, Vector3 arrival)
+        {
+            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(물보라가 기울어지지 않도록).
+            Vector3 direction = arrival - start;
+            direction.y = 0f;
+            Quaternion rotation = direction.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(direction)
+                : Quaternion.identity;
+            Play(impact, arrival, rotation);
+            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect와 동일).
+        }
+
+        // ====================================================================
+        // [2026-10-20 서버 권위 투사체] 서버 발사 기록으로 그리는 투사체 · 착탄 이펙트
+        //   R5 임시 경로(PlayTracer의 playImpactOnArrive)를 대신하는 정식 경로다. 스위치가 켜진 유닛만 쓴다.
+        //   위치·시각은 화면 소비자(ProjectilePresentationPresenter)가 서버 기록으로 정하고, 여기서는
+        //   기존 트레이서/착탄 프리셋(UnitEffectConfig의 tracerPreset·impactPreset)을 재사용해 꺼내 주기만 한다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 투사체 1발의 화면 오브젝트(트레이서)를 외부 구동 모드로 꺼낸다.
+        /// 트레이서 프리셋이 없는 유닛이면 null(투사체 없이 착탄 이펙트·숫자만 착탄 순간에 나온다).
+        /// </summary>
+        /// <param name="attackerType">쏜 유닛 종류(트레이서 프리셋 선택).</param>
+        /// <param name="start">발사 지점(화면 좌표).</param>
+        /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
+        public TracerProjectile BeginServerProjectile(UnitType attackerType, Vector3 start)
+        {
+            EffectPreset preset = _unitConfig?.GetTracer(attackerType);
+            GameObject prefab = preset != null ? preset.VfxPrefab : null;
+            if (prefab == null) return null;
+            TracerProjectile tracer = GetOrCreateTracer(prefab);
+            tracer.BeginDriven(start);
+            return tracer;
+        }
+
+        /// <summary>외부 구동 트레이서를 거둔다(null·이미 파괴된 경우 무시).</summary>
+        /// <param name="tracer">BeginServerProjectile이 돌려준 트레이서.</param>
+        public void EndServerProjectile(TracerProjectile tracer)
+        {
+            if (tracer != null) tracer.EndDriven();
+        }
+
+        /// <summary>
+        /// 서버 착탄 지점에서 쏜 유닛의 착탄 이펙트(impactPreset)를 1회 재생한다(명중·대상 소실 공통 — Q4).
+        /// 착탄 이펙트가 설정되지 않은 유닛이면 아무것도 하지 않고 false.
+        /// </summary>
+        /// <param name="attackerType">쏜 유닛 종류(착탄 프리셋 선택).</param>
+        /// <param name="point">착탄 지점(화면 좌표 — 대상 표면점).</param>
+        /// <param name="flightDirection">날아온 방향(수평 회전 계산용).</param>
+        /// <returns>재생할 프리셋이 있었으면 true.</returns>
+        public bool PlayServerProjectileImpact(UnitType attackerType, Vector3 point, Vector3 flightDirection)
+        {
+            EffectPreset impact = _unitConfig?.GetImpact(attackerType);
+            if (impact == null || impact.VfxPrefab == null) return false;
+            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(R5 착탄 이펙트와 같은 회전 규칙).
+            flightDirection.y = 0f;
+            Quaternion rotation = flightDirection.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(flightDirection)
+                : Quaternion.identity;
+            Play(impact, point, rotation);
+            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect · R5와 동일).
+            return true;
+        }
+
+        // ====================================================================
+        // [2026-10-21 서버 권위 투사체 단계 C] 투사체 타워(인간 CannonTower) 화면 표현
+        //   ProjectilePresentationPresenter가 서버 발사 기록(건물 공격자)을 꺼낼 때·착탄할 때 부른다.
+        //   프리셋은 BuildingEffectConfig에서 고른다: 발사(총구) = _autoTowerAttacks(EffectPreset_HumanAutoTower_Attack),
+        //   투사체·착탄 = _autoTowerProjectiles(CannonCart의 EffectPreset_Cannon_Tracer / _Impact 재사용 — Q10 ①).
+        //   피해·HP와 무관한 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 서버 투사체 화면 오브젝트(트레이서)를 외부 구동 모드로 꺼낸다.
+        /// 트레이서 프리셋이 없으면 null(투사체 없이 착탄 이펙트·숫자만 착탄 순간에 나온다 — 유닛과 같은 규칙).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류(AutoTower).</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="start">발사 지점(화면 좌표 — 포구).</param>
+        /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
+        public TracerProjectile BeginServerTowerProjectile(BuildingType towerType, RaceId race, Vector3 start)
+        {
+            EffectPreset preset = _buildingConfig?.GetTowerTracer(towerType, race);
+            GameObject prefab = preset != null ? preset.VfxPrefab : null;
+            if (prefab == null) return null;
+            TracerProjectile tracer = GetOrCreateTracer(prefab);
+            tracer.BeginDriven(start);
+            return tracer;
+        }
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 "발사 신호"(포구 발사 이펙트)를 포구 위치에서 1회 재생한다.
+        /// 사용자 결정 「발사 이펙트도 대포 입구 위치로」 — 위치는 서버가 보낸 포구(발사 기록 Source)를 그대로 쓴다.
+        /// 회전은 기존 타워 발사 이펙트(PlayAttackEffect · PlayBuildingAttack)와 같이 "타워 → 대상" 수평 방향이다.
+        /// 프리셋의 Local Position Offset은 회전된 정면 기준으로 더해진다(지금 값 0,0,0 — 포구 그 자리).
+        /// 타워 발사 SFX는 아직 지정되지 않았다(사운드 규칙 15 — 추가하지 않는다).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="muzzle">포구 위치(화면 좌표).</param>
+        /// <param name="towardTarget">포구 → 대상 방향(수평 회전 계산용).</param>
+        /// <returns>발사 프리셋이 있어 재생했으면 true.</returns>
+        public bool PlayServerTowerLaunchCue(BuildingType towerType, RaceId race, Vector3 muzzle, Vector3 towardTarget)
+        {
+            EffectPreset preset = _buildingConfig?.GetAttack(towerType, race);
+            if (preset == null || preset.VfxPrefab == null) return false;
+            towardTarget.y = 0f;
+            Quaternion rotation = towardTarget.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(towardTarget)
+                : Quaternion.identity;
+            Play(preset, muzzle, rotation);
+            return true;
+        }
+
+        /// <summary>
+        /// [단계 C] 투사체 타워의 착탄 이펙트를 서버 착탄 지점(대상 표면)에서 1회 재생한다(명중·대상 소실 공통 — Q4).
+        /// </summary>
+        /// <param name="towerType">타워 건물 종류.</param>
+        /// <param name="race">타워 종족.</param>
+        /// <param name="point">착탄 지점(화면 좌표).</param>
+        /// <param name="flightDirection">날아온 방향(수평 회전 계산용).</param>
+        /// <returns>착탄 프리셋이 있어 재생했으면 true.</returns>
+        public bool PlayServerTowerProjectileImpact(BuildingType towerType, RaceId race, Vector3 point, Vector3 flightDirection)
+        {
+            EffectPreset impact = _buildingConfig?.GetTowerImpact(towerType, race);
+            if (impact == null || impact.VfxPrefab == null) return false;
+            flightDirection.y = 0f;
+            Quaternion rotation = flightDirection.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(flightDirection)
+                : Quaternion.identity;
+            Play(impact, point, rotation);
+            return true;
         }
 
         // ====================================================================

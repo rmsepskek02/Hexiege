@@ -218,6 +218,13 @@ namespace Hexiege.Infrastructure
             //    → NetworkTransform이 위치를 모든 클라이언트에 자동 동기화
             //    → Walk 시작/정지는 GameEvents → NetworkCombatController → ClientRpc로 전파
             // ----------------------------------------------------------------
+            // [2026-10-20 서버 권위 투사체 — Plan 1-2 「발사 전 — 이동 명령 → 발사 취소」]
+            //   플레이어의 명시적 이동 명령은 "공격 끊김"이다. 아직 발사하지 않은 투사체 예약을 서버가 취소한다
+            //   (투사체·발사음·피해 없음). 이미 발사된 투사체는 그대로 날아가 맞는다(Q3).
+            //   ⚠️ 2026-10-20 확인(Scripts 전체 검색): 위 RequestMove(이 ServerRpc를 보내는 공개 API)를 부르는 곳이 현재 0곳이다.
+            //      그래서 지금은 실행되지 않는 경로다. 이동 명령 호출처가 생기면 이 한 줄로 규칙이 지켜지도록 미리 연결해 둔다.
+            _services?.GetCombatUseCase()?.CancelProjectileLaunches(unit, "move-command");
+
             if (unitFactory != null)
             {
                 GameObject serverUnitObj = unitFactory.GetUnitObject(unitId);

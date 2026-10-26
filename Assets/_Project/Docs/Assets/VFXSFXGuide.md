@@ -252,6 +252,33 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - **Scaling Mode가 Local인 레이어는 루트·preset의 `Scale Multiplier`를 따르지 않는다** — 그런 레이어는 레이어마다 따로 조정해야 한다. 전체를 한 번에 키우고 줄이려면 모든 레이어를 Hierarchy로 둔다(QuakeSpirit 최종본은 전부 Hierarchy).
 - 공격자 방향을 따라 회전하는 공격 슬롯(`EffectPreset_*_Attack`)에서 재생되므로, 균열 갈래 방향은 월드 헥스 격자가 아니라 **공격 방향**을 따른다. 격자에 맞춘 모양이 필요하면 제작 전에 코드 쪽 재생 방식을 따로 확인한다.
 
+**6. 공용 재질의 텍스처 색은 파티클 색과 곱해진다 (2026-10-19 추가)**
+
+출처: InfernoSpirit 화염구·착탄 불티 초록빛 수정(사용자 확인 2026-10-19, `_Tasks/2026-10-19/11_09_charge-unit-launch-timing/` Research 9-3).
+
+- 파티클에 보이는 색 = 레이어 색(Start Color · Color over Lifetime) × **재질 텍스처의 색**이다. 텍스처가 흰색·회색이 아니면 레이어 색을 아무리 주황으로 줘도 그 텍스처 색이 섞인다.
+- `Mat_VFX_SharpSpark`의 텍스처는 RuneSpire 번개용 **청록색** `vfx_sharp_spark.png`이다. 따뜻한 색(불·불티·황금) 이펙트에 쓰면 **초록빛**으로 보인다(Inferno `Ember_Trail`·`Embers`가 그랬다). 따뜻한 색 불티에는 흰색 텍스처 재질 **`Mat_VFX_GlowAdditive`**(`vfx_soft_glow.png`)를 쓰고 색은 레이어 색으로 입힌다.
+- 프롬프트·수작업 모두 공용 재질을 고를 때 **그 재질의 텍스처가 무슨 색인지 먼저 확인**한다. 재질 이름(「Spark」)만 보고 고르지 않는다. 공용 재질 자체는 고치지 않는다(위 5번 — 다른 이펙트가 같이 쓴다).
+
+**7. 차지(기 모으기) 프리팹의 길이 = 차지 구간 (2026-10-19 추가)**
+
+출처: InfernoSpirit·FoxMagician 차지→발사 시점 작업(사용자 확인 2026-10-19, 같은 Task Plan 9-2). 규칙: [유닛 규칙 17](../GameSystemRules/GameSystemRules_Units.md) 「차지 유닛 typed marker 계약」.
+
+- 차지 이펙트는 공격 클립의 `OnAttackCharge`(차지 시작)에서 켜지고, `OnAttackHit`(발사)에서는 **다시 켜지지 않는다.** 코드가 따로 끄지도 않으므로 프리팹이 **발사 순간에 스스로 끝나야** 한다. 길이 = 클립의 (`OnAttackHit` − `OnAttackCharge`) — 현재 InfernoSpirit 1.3333초, FoxMagician 1.8333초.
+- 🔴 **자식 파티클 시스템까지 끝 시각을 계산한다.** 한 시스템이 실제로 끝나는 시각 = 시작 지연 + 마지막 방출 시각 + 최대 수명(재생 속도로 나눔)이다. 초당 방출(rate over time)이 있으면 마지막 방출은 Duration 끝, 시작 순간 burst만 있으면 burst 시각이다. 그래서 「Duration = 차지 구간」만 맞추면 꼬리가 넘친다 — Fox `Wisps`는 Duration 2 + 수명 최대 1.0이라 약 3초까지 남았고, Duration 0.8333 + 수명 1.0 = 1.8333으로 맞췄다. 자동 검증이 이 끝 시각을 차지 구간과 비교한다(구간 이하 · 구간 끝 1프레임 안까지 이어짐).
+- 「점점 모이는」 느낌은 Size over Lifetime·rate 곡선처럼 **정규화 곡선**으로 만든다. Duration을 줄이면 같은 곡선이 짧은 시간에 압축되며, 초당 방출량을 그대로 두면 **입자 총수는 Duration에 비례해 줄어든다**(Fox `Wisps`는 약 2.4배 감소 — 사용자 이의 없음).
+- 차지 이펙트 preset은 「Stop When Caster Dies」를 켠다 — 시전자 사망·제거, 그리고 발사 전 공격 취소 때 코드가 즉시 끈다.
+
+**8. 투사체(트레이서)·착탄 프리팹과 연결 칸 (2026-10-21 추가)**
+
+출처: StreamSpirit·Tank·CannonCart tracer/impact 연결(`_Tasks/2026-10-13/13_53_vfx-code-followups/` Research 14-4·15-2·15-3), 서버 권위 투사체 단계 A~C(`_Tasks/2026-10-19/13_30_server-authoritative-projectile/`). 규칙: [유닛 규칙 20](../GameSystemRules/GameSystemRules_Units.md) 「원거리 유닛 트레이서」.
+
+- **트레이서 프리팹 계약:** Looping ON · Stop Action None · 몸체 Local / 꼬리(trail) World · **+Z가 앞 방향** · 커스텀 스크립트 없음(Research 14-4).
+- **착탄 프리팹은 `impactPreset` 칸에 연결한다. `hitPreset`에 넣지 않는다** — `hitPreset`은 **맞은 유닛의 종류**로 고르는 칸이라, StreamSpirit 물 튀김을 거기 넣었더니 StreamSpirit이 때릴 때는 안 나오고 **맞을 때** 나왔다(Research 15-3). preset 이름(`EffectPreset_StreamSpirit_Hit`)과 칸 이름은 따로 확인한다 — 지금 그 preset은 impactPreset 칸에 있다.
+- **비행 속도는 프리팹이 아니라 서버 설정이 정한다.** 서버 권위 투사체로 옮긴 유닛·타워는 `Assets/_Project/Resources/Config/ProjectileConfig.asset`의 속도로 서버가 착탄 시각을 정하고, 화면 트레이서는 그 시각에 맞춰 대상을 따라간다. 이 경로에서는 tracer 프리팹의 `_speed`를 쓰지 않는다(`TracerProjectile.cs` 서버 경로 주석). 「너무 빠르다/느리다」는 프리팹이 아니라 `ProjectileConfig`에서 고친다. 값은 [StatsReference](../StatsReference.md) 「투사체 속도」 열.
+- **착탄은 대상 표면 지점에서 재생된다** — 서버 경로에서는 비행 거리를 「중심 거리 − 대상 반경」으로 계산해 착탄 이펙트도 그 표면 지점에서 낸다(규칙 20 「서버 착탄 시각·표면 지점」, 반경은 `ProjectileConfig`의 유닛·건물 반경 표). 첫 StreamSpirit 착탄은 「작고 짧다」는 지적이 있었고 키우는 값은 제안만 했다(Research 15-3 2번 — 적용 여부 사용자).
+- 서버 경로로 옮기기 전 유닛(InfernoSpirit·FoxMagician — 단계 D 진행 중)은 R5 임시 연결대로 트레이서 도착 지점에서 착탄이 나온다. 연결 상태는 [VFX 목록](VFXSFXList.md)이 관리한다.
+
 #### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
 
 화상·독·힐처럼 유닛에 붙는 이펙트의 크기를 유닛 몸집에 맞추려면 먼저 유닛별 몸 크기 표가 있어야 한다. 이 표를 채우는 에디터 도구다.

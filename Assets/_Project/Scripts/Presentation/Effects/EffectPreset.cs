@@ -59,6 +59,7 @@ namespace Hexiege.Presentation
         //   예: FoxMagician·InfernoSpirit의 "기 모으기(charge)" 이펙트는 공격 동작 앞부분에 시작해
         //   1~2초 동안 시전자 앞에서 재생된다. 그 사이에 시전자가 죽으면 이펙트만 혼자 남아 어색하다.
         //   이 값을 켠 프리셋은 시전자가 죽거나(사망) 화면에서 사라지면(제거·디스폰) 즉시 멈추고 풀로 돌아간다.
+        //   [P4 — 2026-10-19 차지 유닛 발사 시점] 차지 도중 공격이 취소돼도(Stop·타겟 교체 등) 즉시 멈춘다(UnitView.StopOwnedChargeEffects).
         //   기본값 false — 트레이서·착탄·사망 이펙트처럼 "이미 시전자에게서 떨어져 나간" 이펙트는 그대로 끝까지 재생된다.
         //   화면 표현 전용이다. 피해·타겟·서버 판정과 무관하다.
         [Header("Caster Ownership")]

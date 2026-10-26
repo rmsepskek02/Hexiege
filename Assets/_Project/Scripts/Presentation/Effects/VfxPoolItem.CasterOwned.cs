@@ -8,9 +8,16 @@
 //   이 이펙트는 일반 풀 이펙트라 파티클이 다 사라질 때까지 혼자 재생됐다.
 //   그래서 기를 모으는 도중 유닛이 죽어도 빈자리에서 이펙트가 끝까지 남아 보였다.
 //
+// [P4 — 2026-10-19 차지 유닛 발사 시점] 위 설명의 「OnAttackHit 표식에서 시작」은 당시 기준이다.
+//   지금은 「차지 시작」 표식(OnAttackCharge — Fox 1.0초, Inferno 0.1667초)에서 시작하고,
+//   프리팹 길이를 발사 신호(OnAttackHit)까지의 시간에 맞춰(Inferno 1.3333초, Fox 1.8333초) 발사 순간에 스스로 끝난다.
+//
 // 동작 방식 (두 겹 — 하나가 놓쳐도 다른 하나가 잡는다):
 //   ① 즉시 정지: UnitView가 사망 이벤트(OnUnitDied)와 OnDisable(파괴·디스폰)에서
 //      EffectManager.StopCasterOwnedAttackEffects(자기 자신)를 부른다 → 그 유닛이 소유한 이펙트만 즉시 정지.
+//      [P4 — 2026-10-19] 「공격 취소」도 정지 경로에 추가됐다: 차지 도중 공격이 끊기면(Stop·타겟 교체·이동/빙결 전환 등
+//      UnitView가 공격 허가표를 닫는 경계) UnitView.StopOwnedChargeEffects가 같은 함수를 부른다(사용자 결정 D2).
+//      이때도 트레이서·착탄 같은 비귀속 이펙트는 건드리지 않으므로 이미 날아가는 투사체는 끝까지 날아간다.
 //   ② 안전망: 이 아이템이 매 프레임(Update) 시전자 상태를 직접 확인한다.
 //      시전자 View가 파괴됐거나, 비활성화됐거나, 다른 유닛 데이터로 바뀌었거나, 죽었으면 스스로 정지한다.
 //      (이벤트 순서가 어긋나거나 구독이 없는 경로로 유닛이 사라져도 최대 1프레임 안에 정리된다.)
@@ -37,6 +44,10 @@ namespace Hexiege.Presentation
         private bool _casterOwned;        // 지금 이 재생이 시전자에게 귀속돼 있는가
         private UnitView _casterView;      // 시전자의 화면 컴포넌트(재생 시점에 1번 고정)
         private UnitData _casterData;      // 재생 시점의 시전자 Domain 객체(ID가 아니라 객체 참조로 동일성 확인)
+        // [2026-10-26 수정안 (a)] 시전자의 사망 표현이 미뤄져 "사망 대역(ghost — 떼어 낸 Visual Root)"으로 넘어갔을 때의 새 주인.
+        //   대역이 남아 있는 동안은 계속 재생하고, 대역이 사망 표현과 함께 정지시키거나 파괴되면 멈춘다.
+        //   null이 아니면 _casterView/_casterData 대신 이것으로 판단한다(넘긴 뒤 원래 View는 곧 파괴된다).
+        private GameObject _casterGhost;
 
         /// <summary>읽기 전용 진단/검증용: 지금 재생 중이며 시전자에게 귀속돼 있는지.</summary>
         public bool CasterOwned => _active && _casterOwned;
@@ -64,6 +75,27 @@ namespace Hexiege.Presentation
         /// <param name="caster">확인할 시전자 UnitView.</param>
         public bool IsOwnedByCaster(UnitView caster)
             => _active && _casterOwned && caster is object && ReferenceEquals(_casterView, caster);
+
+        /// <summary>
+        /// [2026-10-26 수정안 (a)] 시전자 귀속을 사망 대역(ghost)으로 넘긴다. 시전자 사망 표현이 투사체 화면 착탄까지 미뤄졌을 때
+        /// UnitView가 부른다. 넘긴 뒤에는 원래 View의 사망·제거(OnDisable)로 멈추지 않고, 대역이 정지시킬 때까지 그대로 재생된다.
+        /// </summary>
+        /// <param name="caster">원래 시전자 UnitView.</param>
+        /// <param name="ghost">사망 대역 GameObject.</param>
+        /// <returns>넘겼으면 true.</returns>
+        public bool HandOverCasterOwnershipToGhost(UnitView caster, GameObject ghost)
+        {
+            if (!IsOwnedByCaster(caster) || ghost == null) return false;
+            _casterView = null;
+            _casterData = null;
+            _casterGhost = ghost;
+            return true;
+        }
+
+        /// <summary>[2026-10-26 수정안 (a)] 이 이펙트가 지금 주어진 사망 대역에 귀속돼 재생 중인지.</summary>
+        /// <param name="ghost">확인할 사망 대역.</param>
+        public bool IsOwnedByGhost(GameObject ghost)
+            => _active && _casterOwned && ghost is object && ReferenceEquals(_casterGhost, ghost);
 
         /// <summary>
         /// 시전자 귀속 이펙트를 즉시 멈추고(남은 파티클까지 삭제) 풀에 반환한다.
@@ -94,6 +126,16 @@ namespace Hexiege.Presentation
         {
             if (!_active || !_casterOwned) return false;
             string reason;
+            // [2026-10-26 수정안 (a)] 사망 대역으로 넘어간 이펙트: 대역이 살아 있으면 계속, 파괴됐으면 정지.
+            if (_casterGhost is object)
+            {
+                if (_casterGhost != null) return false;
+                return StopCasterOwned("CasterGhostDestroyed");
+            }
+            // [2026-10-26 수정안 (a)] 시전자가 죽었어도 그 사망 표현이 투사체 화면 착탄까지 미뤄진 동안은 "아직 화면에 살아 있는" 것으로 본다.
+            //   (곧 대역으로 넘어가거나, 상한 0.3초 안에 사망 표현과 함께 정지된다.)
+            if (_casterView != null && ReferenceEquals(_casterView.Data, _casterData)
+                && _casterView.IsDeathPresentationDeferred) return false;
             // Unity 오브젝트는 파괴되면 == null 이 참이 된다(C# 참조가 남아 있어도).
             if (_casterView == null) reason = "CasterDestroyed";
             // 같은 View에 다른 UnitData가 들어왔다 = 다른 유닛으로 재사용됐다 → 원래 시전자는 이미 없다.
@@ -113,6 +155,7 @@ namespace Hexiege.Presentation
             _casterOwned = false;
             _casterView = null;
             _casterData = null;
+            _casterGhost = null;
         }
     }
 }

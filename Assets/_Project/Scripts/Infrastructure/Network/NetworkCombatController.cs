@@ -467,7 +467,10 @@ namespace Hexiege.Infrastructure
             _bloomEffectChannel = null;
             _committedAttackPhases.Clear();
             if (IsServer) _services?.GetCombatUseCase()?.CloseTorrentLaunches("network-despawn");
+            // [2026-10-20] 남은 투사체 예약·비행도 피해 없이 닫는다(Plan 위험 7 — 디스폰 뒤 착탄 피해 금지).
+            if (IsServer) _services?.GetCombatUseCase()?.CloseProjectiles("network-despawn");
             DisposeWaveTransport();
+            DisposeProjectileTransport();
             base.OnNetworkDespawn();
 
             // 사망 이벤트 구독을 모두 해제 (Unit/Building 두 종류 모두).
@@ -596,6 +599,8 @@ namespace Hexiege.Infrastructure
                 }
             }
             UpdateWaveTransport();
+            // [2026-10-20] 서버 투사체 발사·착탄 기록 전송(서버)과 수신 배달(Client). 파도 전송과 같은 자리·같은 방식.
+            UpdateProjectileTransport();
             // 멀티플레이 서버만 실행 + **이 오브젝트가 아직 네트워크에 살아 있을 때만** 실행
             //
             // ── 왜 IsSpawned 를 함께 보는가 (초급 개발자용 설명) ──────────────────
@@ -632,6 +637,10 @@ namespace Hexiege.Infrastructure
             if (!IsSpawned || !IsServer || _combatStopped) return;
             // 전투 ticker 간격과 무관하게 매 서버 frame에 원래 primary aim을 갱신한다.
             _services?.GetCombatUseCase()?.TickTorrentLaunches(GetAuthoritativeServerTime());
+            if (_combatStopped) return;
+            // [2026-10-20 서버 권위 투사체] 발사 예약 검사·발사·비행 추적·착탄 피해도 매 서버 frame에 진행한다.
+            //   50ms 전투 틱에 묶으면 착탄이 최대 50ms 늦어진다(Plan 위험 4). 착탄 피해로 게임이 끝날 수 있어 다시 확인한다.
+            _services?.GetCombatUseCase()?.TickProjectiles(GetAuthoritativeServerTime());
             if (_combatStopped) return;
 
             _attackTimer += Time.deltaTime;
@@ -962,6 +971,13 @@ namespace Hexiege.Infrastructure
                                 damageTargetIsUnit, GetAuthoritativeServerTime(), overshoot))
                             continue;
 
+                        // [2026-10-20 서버 권위 투사체] 스위치가 켜진 투사체 유닛은 이번 공격의 발사 예약 자리를
+                        //   쿨다운·공격 커밋 전에 먼저 확인한다(Torrent와 같은 원칙). 실제 예약은 아래 ExecuteAttack이 만든다.
+                        if (ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type)
+                            && !combat.CanReserveProjectileLaunches(
+                                unit.HitFrameTimes != null ? unit.HitFrameTimes.Length : 1))
+                            continue;
+
                         // 정지+5도와 표현 marker 창이 모두 확인된 경계에서만 gameplay를 시작한다.
                         // 이미 재생 중인 Attack은 commit RPC에서도 절대 restart하지 않는다.
                         _attackPresentationRestartPending.Remove(id);
@@ -1060,6 +1076,19 @@ namespace Hexiege.Infrastructure
             {
                 if (!activeThisTick.Contains(kvp.Key))
                 {
+                    // [2026-10-20 서버 권위 투사체 — Plan 1-2 구현 주의 · 위험 16]
+                    //   커밋된 투사체 회차가 아직 발사 전이고 원래 대상이 살아 있으면(= 대상이 사거리 밖으로 걸어 나간 경우),
+                    //   서버는 원래 대상에게 그대로 발사한다(Q5). 그 사이에 StopCombat을 보내 Client 표현(공격 동작·marker 허가)을
+                    //   닫으면 화면엔 공격이 끊겼는데 투사체가 날아가는 어긋남이 생기므로, 발사가 끝날 때까지 정지 통보를 미룬다.
+                    //   대상이 죽은 경우는 TickProjectiles가 이미 예약을 취소했으므로 여기서 미루지 않는다.
+                    if (unitSpawn.Units.TryGetValue(kvp.Key, out UnitData pendingUnit)
+                        && combat.HasPendingProjectileLaunch(pendingUnit))
+                    {
+                        // [2026-10-20 단계 B 진단] 정지 통보를 미룬 사건 수(사거리 이탈 = 원래 대상에게 발사, Q5) — 읽기 전용.
+                        DiagProjectileStopDeferred(kvp.Key);
+                        continue;
+                    }
+                    DiagProjectileStopReleased(kvp.Key);
                     toRemove.Add(kvp.Key);
                 }
             }
@@ -1500,6 +1529,28 @@ namespace Hexiege.Infrastructure
                         $"targetKind={(targetIsUnit ? "unit" : "building")}, target={targetId}, " +
                         $"commit={shadowCommitTime:F6}, scheduledImpact={scheduledImpactTime:F6}, " +
                         $"aimDirection=unavailable-tracer-a, simulationFacing={unit.Facing}");
+                }
+
+                // [2026-10-20 서버 권위 투사체 — RM-1] 이행 스위치가 켜진 투사체 유닛(단계 A: StreamSpirit)은
+                //   타격 순간 피해 코루틴(DelayedAttackDamage) 대신 "발사 예약"을 만든다. 발사 시각은 기존 코루틴의
+                //   피해 시각과 같은 값(서버 시각 + 오버슈트 보정된 hitTime)이다. 피해는 착탄 시각에 같은 단일 writer가 준다.
+                //   투사체 유닛은 C3 축에서 Unresolved라 attackShadowToken이 없으므로(토큰 검사·due 대기 대상 아님) 잃는 것이 없다.
+                //   스위치가 꺼진 유닛과 비투사체 유닛은 아래 기존 코루틴 경로를 그대로 탄다(호출문 보존).
+                // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(첫 타격 = 커밋 1회)가 새/기존 경로 중 어디로 갔는지 센다.
+                //   읽기 전용 관측이며 릴리스 빌드에서는 호출이 사라진다([Conditional]). 비투사체 유닛은 세지 않는다.
+                UnitCombatUseCase pathDiagnosticsCombat = hitIndex == 0 ? _services?.GetCombatUseCase() : null;
+                if (pathDiagnosticsCombat != null)
+                    pathDiagnosticsCombat.RecordProjectileUnitAttackPath(
+                        unit.Type, ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type));
+                if (ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type))
+                {
+                    bool projectileReserved = _services?.GetCombatUseCase()?.TryReserveProjectileLaunch(
+                        unit, targetId, targetIsUnit, GetAuthoritativeServerTime() + delay, hitIndex) == true;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    // [2026-10-21 단계 D 진단 전용] Fox 시간축 ticket을 발사 확정 순간(SendProjectileLaunch)까지 맡겨 둔다.
+                    if (projectileReserved) RememberFoxProjectileTimelineTicket(unit, foxMagicianTimelineCorrelationTicket);
+#endif
+                    continue;
                 }
 
                 StartCoroutine(DelayedAttackDamage(
@@ -2596,6 +2647,8 @@ namespace Hexiege.Infrastructure
         {
             _combatStopped = true;
             _services?.GetCombatUseCase()?.CloseTorrentLaunches("game-end");
+            // [2026-10-20] 게임 종료 직전에 발사된 투사체가 종료 뒤에 피해를 주지 않게 닫는다(테스트 M-3).
+            _services?.GetCombatUseCase()?.CloseProjectiles("game-end");
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitMovementAuthorityObserver.MarkGameplayEnded();
 #endif

@@ -1145,8 +1145,14 @@ namespace Hexiege.Infrastructure
             {
                 var unitView = GetComponent<UnitView>();
 
-                if (unitView != null && unitView.UnitData != null)
+                // [2026-10-26 수정안 (a)] 투사체 사망타로 사망 표현이 화면 착탄까지 미뤄진 유닛은
+                //   사망 VFX·SFX를 여기서 내지 않는다 — UnitView가 떼어 둔 사망 대역이 착탄 순간(상한 0.3초)에 1회 낸다.
+                //   이 오브젝트의 파괴 자체(NGO)는 예전과 같다. 미뤄지지 않은 유닛은 아래 기존 줄이 그대로 동작한다.
+                //   옛 조건(기록용): if (unitView != null && unitView.UnitData != null)
+                if (unitView != null && unitView.UnitData != null && !unitView.OwnsDeferredDeathPresentation)
                 {
+                    // 디스폰이 사망 통보보다 먼저 온 경우: 사망 VFX를 여기서 냈으니 늦게 온 사망 통보에서는 미루지 않게 표시한다.
+                    unitView.MarkDeathPresentedAtDespawn();
                     VisualRootProjector projector = GetComponent<VisualRootProjector>();
                     Vector3 deathPosition = projector != null
                         ? projector.PresentationPosition

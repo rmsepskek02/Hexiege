@@ -1,4 +1,4 @@
-# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX
+# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units
 
 Lessons verified against the code on branch `claude/vfx-code-followups` (commit `84b6ff2a`, 2026-10-15)
 and confirmed by the user's field tests (3 rounds, 2026-10-13~15). Task record:
@@ -109,6 +109,7 @@ task's "do not change" scope — separate design). None changes damage/target/HP
   stops only that caster's items; per-item `Update` safety net stops if the caster view is destroyed, inactive,
   holds different data, or is dead. Stop = stop emitting **and clear** particles, then return to pool.
 - Does not apply to death / tracer / impact / tower / status VFX. User-confirmed PASS (2026-10-13, 2026-10-15).
+- *(2026-10-19 added)* For charge units the same stop is also called on **attack cancel before launch** — see §8.
 
 ## 6. Commented-out old logic still present — delete ONLY after the §4-1 issue passes the user's test (user decision 2026-10-15)
 
@@ -119,6 +120,45 @@ R-1 `VfxPoolItem.cs` ~164 · R-5 `VfxPoolItem.cs` ~210 · R-4 `VfxPoolItem.Timed
 ## 7. Fixture value equality and generation boundaries
 
 - An inactive UnitView fixture can retain default zero Quaternion metadata. Unity Quaternion `==` is orientation comparison and can reject two unchanged zero values; use `Equals` for exact unchanged components, and exercise both zero and valid identity seeds. Do not hide the fixture bug by changing production initialization.
-- Assert lease lifetime separately from emission metadata (scope, target, position, rotation), then preserve charge-once/duplicate-no-consumption checks. Metadata stability alone does not prove every emitter was unreachable; retain the production early-return evidence.
+- Assert lease lifetime separately from emission metadata (scope, target, position, rotation), then preserve charge-once/duplicate-no-consumption checks. Metadata stability alone does not prove every emitter was unreachable; retain the production early-return evidence. *(2026-10-19: the Fox hit-marker early return this refers to is now commented out — Fox hit markers launch the tracer; the old fixture asserts are kept commented. See §8.)*
 - Re-read the current branch before applying an earlier fix: concurrent main integration may already contain the authored-particle contract. Preserve unrelated recipient-fit/tower work. Refresh scratch compiler inputs against the actual source set before interpreting missing-source failures.
 - User full-suite PASS is a native-menu acceptance report, not an agent native run or every device/role/gameplay/HP acceptance. After authorized obsolete-assertion cleanup, compare active tokens with exact literal text and keep that no-behavior-change evidence separate from the earlier user run. Exact generations remain in the existing `2026-10-19/15_21_regression-suite-contract-fixes` Task.
+
+## 8. Charge units — charge at `OnAttackCharge`, launch at `OnAttackHit` (2026-10-19)
+
+Commit `8330b5d9` (+ material fixes `f899238f`, `609ba447`). Record: `Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/`
+Research §9 / Plan §9. Rule: `GameSystemRules_Units.md` rule 17 「차지 유닛 typed marker 계약」. User acceptance: single + multi
+**visual** check only (no log verification, regression-suite result not reported). Presentation only — server damage timing unchanged.
+
+- **Detection = clip event, not a type list.** `UnitView.EnsureAttackChargeMarkerCache`: the single clip whose name ends in
+  `_Attack` (more than one distinct → false) has an `OnAttackCharge` event → `_hasAttackChargeMarker`. Computed once per
+  `Initialize` (reset there first for pooled reuse), or at the first marker if the Animator was missing. `AnimationClip.events`
+  allocates a new array per read — never read it per marker. Do not reuse `CanUseNativeAttackPhase` for this: its clip selection
+  sits inside a condition that excludes FoxMagician. Guard against silent regression: validator T-4 pins the set of `_Attack`
+  clips with `OnAttackCharge` to {FoxMagician, InfernoSpirit}.
+- 🔴 **Lease: a charge marker must only *check*, never consume.** One server commit arms the source lease for
+  `HitFrameTimes.Length` = 1 marker. If the charge consumes it, the real hit marker is Suppressed and **no projectile fires —
+  only in multiplayer** (single never uses the lease, so single tests cannot catch it). Also note
+  `TryAcquirePresentationShadowMarkerScope` silently consumes the **impact** lease too — both had to be removed from the charge
+  path. Check-only = `IsArmed && RemainingMarkerCount > 0 && !IsSourceOnly && revision == _lastAttackPresentationRevision
+  && revision != _lastChargePresentedRevision` (once-per-revision flag, because the clip loops and an unconsumed lease would let
+  the next loop's charge pass again). Impact lease: `IsArmed` is enough — while Armed at least one HitIndex remains (the last
+  consume flips it to Consumed) — so no new read API was needed in `UnitAttackPresentationPolicy`.
+- **Hit marker of a charge unit:** skip `PlayUnitAttack` (would respawn the charge after launch); skip the Inferno VFX-attempt
+  diagnostic there (an intentional skip would be counted as a playback failure); play `PlayUnitAttackSfx` next to `PlayTracer`
+  (and in the no-EffectManager branch) instead of at the attack-VFX line. SourceOnly hit → nothing at all (no VFX/SFX/tracer).
+  Fox observer records (`RecordFoxMagicianTimeline*`) are limited to `chargeOnly` so the hit marker does not double-record.
+- **Cancel stop placement:** `StopOwnedChargeEffects` lives in `RetireAndCloseAttackPresentationScope` and
+  `PreserveCommittedSourceMarkerAndCloseTargetImpact` (`ClearCombatTargetTracking` reaches both). 🔴 Exclude reason
+  `presentation-revision-replaced` — it is the **normal per-revision commit** boundary; stopping there cuts every healthy charge.
+  Single `ChangeTarget` does not stop: it fires when a new attack starts, not on a cancel. Before stopping VFX at any lifecycle
+  boundary, check whether the normal path also passes through it.
+- **Charge prefab length = charge window** (`OnAttackHit − OnAttackCharge`; Inferno 1.3333 s, Fox 1.8333 s), because the hit marker
+  no longer touches the charge. Validator T-5 computes each system's real end = (start delay + last emission + max lifetime) /
+  simulation speed (last emission = duration if rate-over-time/distance, else last burst time) and requires ≤ window and within
+  1/30 s of it. "Duration + max lifetime" is only a conservative bound for continuous emitters.
+- **Commented-out (still in code, deletion not yet authorised):** R-1 Fox hit early return, R-2 Fox type guard in `OnAttackCharge`,
+  R-3 charge-path consume, R-4 unconditional attack SFX line; validator V-1~V-3 plus several old Fox fixture asserts.
+- Known limits (not bugs of this change): Fox damage number shows before tracer arrival (rule 19 immediate path — option C);
+  number-only after a cancel (server damage already scheduled); Client Inferno charge may be skipped when the commit arrives after
+  0.1667 s [unverified].

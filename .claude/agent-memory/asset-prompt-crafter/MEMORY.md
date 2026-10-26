@@ -210,8 +210,30 @@ Dirt_Specks, Rock_Debris, Impact_Flash_Core; all Looping OFF, Stop Action None, 
   to Hierarchy if the whole effect must scale together.
 - Attack-slot effects rotate with the attacker's facing, so radial patterns follow the attack direction, not the world
   hex grid.
-- Iteration leftovers kept (not deleted, user decides): `Mat_VFX_QuakeDust` + `vfx_quake_dust.png`,
-  `Mat_VFX_GroundCracks` + `vfx_ground_cracks.png` — unreferenced as of `d1a994fb`.
+- Iteration leftovers `Mat_VFX_QuakeDust` + `vfx_quake_dust.png`, `Mat_VFX_GroundCracks` + `vfx_ground_cracks.png`
+  (unreferenced as of `d1a994fb`) were **deleted 2026-10-19 by user decision** (`344dfa42`, GUID refs 0). Lesson kept:
+  check GUID references before deleting iteration leftovers — `Mat_VFX_QuakeDustGrain` is still in use.
+
+## Unity AI VFX prompt lessons — material texture colour, charge length (2026-10-19)
+
+> **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 items 6–7.
+> That guide section wins if it differs from these notes.
+
+Source: `Assets/_Project/Docs/_Tasks/2026-10-19/11_09_charge-unit-launch-timing/` Research §9-3 / Plan §9-2 (user visual check 2026-10-19).
+
+- **The material's texture colour multiplies the particle colour.** Shown colour = Start Color / Color over Lifetime × texture.
+  `Mat_VFX_SharpSpark` uses the RuneSpire bolt texture `vfx_sharp_spark.png`, which is **teal** (avg RGB ~89/237/238, handed-over
+  figure). InfernoSpirit's orange embers (`Ember_Trail` tracer, `Embers` impact) looked **green** on it; fixed by switching to
+  `Mat_VFX_GlowAdditive` (white `vfx_soft_glow.png`) and colouring via the layer. For warm effects (fire, embers, gold) name a
+  white-texture material in the prompt; check a shared material's texture colour before picking it by name ("Spark"). Do not edit
+  the shared material. `Mat_VFX_SharpSpark` is still on FoxMagician tracer/impact `Sparkles` and RuneSpire attack (user changed
+  Inferno only).
+- **Charge (wind-up) prefabs must end exactly at launch.** Length = clip `OnAttackHit − OnAttackCharge` (InfernoSpirit 1.3333 s,
+  FoxMagician 1.8333 s); the game does not replay or stop the charge at launch, so the prefab must finish on its own. Compute every
+  child system's end = start delay + last emission (Duration end if rate over time, else last burst time) + max lifetime — Fox
+  `Wisps` had Duration 2 + lifetime 1.0 (tail to ~3 s); fixed to Duration 0.8333 + lifetime 1.0. Build the "gathering" feel with
+  normalised curves (Size over Lifetime, rate curve); shortening Duration with the same rate cuts total particle count
+  proportionally (Fox Wisps ~2.4x fewer, user accepted). Charge presets keep 「Stop When Caster Dies」 ON.
 
 ## 알려진 제약사항
 - **Meshy.ai 생성 모델은 리메시 후 약 3,000 tri로 제작** (건물/오브젝트 공통 기준)

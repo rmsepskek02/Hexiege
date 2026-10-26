@@ -36,7 +36,13 @@ namespace Hexiege.Presentation
                 _unitView.OnAttackHit(marker);
         }
 
-        /// <summary>Fox의 charge 표식을 피해 표식과 구별하여 부모의 source 연출 경계로 전달한다.</summary>
+        // [P4 — 2026-10-19 차지 유닛 발사 시점] 옛 요약: "Fox의 charge 표식을 피해 표식과 구별하여 부모의 source 연출 경계로 전달한다."
+        /// <summary>
+        /// 「차지 시작」 Animation Event(OnAttackCharge)를 부모 UnitView로 전달한다 — 차지 유닛 공통
+        /// (공격 클립에 이 이벤트가 찍힌 유닛: 현재 FoxMagician 1.0초, InfernoSpirit 0.1667초).
+        /// 피해 표식(OnAttackHit)과 구별되며, UnitView는 이 신호에서 기 모으기(charge) VFX만 켠다.
+        /// 투사체 발사·공격 SFX는 OnAttackHit에서 한다. 서버 피해 시점과는 무관하다(서버는 OnAttackHit 시간만 쓴다).
+        /// </summary>
         public void OnAttackCharge(AnimationEvent marker)
         {
             if (_unitView == null) _unitView = GetComponentInParent<UnitView>();

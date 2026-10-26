@@ -1,0 +1,149 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f36db39d44b4d78b0720a36be95a181, type: 3}
+  m_Name: ProjectileConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.ProjectileConfig
+  _unitSpeeds:
+  - unitType: 17
+    speed: 4
+  - unitType: 6
+    speed: 4
+  - unitType: 7
+    speed: 4
+  - unitType: 12
+    speed: 5
+  - unitType: 21
+    speed: 5
+  - unitType: 24
+    speed: 6
+  - unitType: 26
+    speed: 5
+  _humanTowerSpeed: 4
+  _humanTowerMuzzleOffset: {x: 0, y: 0.405, z: 0.17}
+  _unitRadii:
+  - unitType: 0
+    radius: 0.09558075
+  - unitType: 1
+    radius: 0.25569752
+  - unitType: 2
+    radius: 0.2402331
+  - unitType: 3
+    radius: 0.13545747
+  - unitType: 4
+    radius: 0.14785257
+  - unitType: 5
+    radius: 0.18417826
+  - unitType: 7
+    radius: 0.40547904
+  - unitType: 6
+    radius: 0.41331026
+  - unitType: 10
+    radius: 0.17927007
+  - unitType: 11
+    radius: 0.1552415
+  - unitType: 12
+    radius: 0.27386332
+  - unitType: 13
+    radius: 0.18861303
+  - unitType: 14
+    radius: 0.220897
+  - unitType: 15
+    radius: 0.24896576
+  - unitType: 16
+    radius: 0.13548034
+  - unitType: 17
+    radius: 0.1667204
+  - unitType: 18
+    radius: 0.19220394
+  - unitType: 20
+    radius: 0.2201102
+  - unitType: 21
+    radius: 0.17503163
+  - unitType: 22
+    radius: 0.22642957
+  - unitType: 23
+    radius: 0.24897616
+  - unitType: 24
+    radius: 0.1960031
+  - unitType: 25
+    radius: 0.08936326
+  - unitType: 26
+    radius: 0.15669334
+  - unitType: 27
+    radius: 0.1306144
+  _defaultUnitRadius: 0.15
+  _buildingRadii:
+  - buildingType: 0
+    radius: 0.35
+  - buildingType: 1
+    radius: 0.35
+  - buildingType: 2
+    radius: 0.35
+  - buildingType: 3
+    radius: 0.35
+  - buildingType: 4
+    radius: 0.35
+  - buildingType: 5
+    radius: 0.35
+  - buildingType: 6
+    radius: 0.35
+  - buildingType: 7
+    radius: 0.35
+  - buildingType: 8
+    radius: 0.35
+  - buildingType: 9
+    radius: 0.35
+  - buildingType: 10
+    radius: 0.35
+  - buildingType: 11
+    radius: 0.35
+  - buildingType: 12
+    radius: 0.35
+  - buildingType: 13
+    radius: 0.35
+  - buildingType: 14
+    radius: 0.35
+  - buildingType: 15
+    radius: 0.35
+  - buildingType: 16
+    radius: 0.35
+  - buildingType: 17
+    radius: 0.35
+  - buildingType: 18
+    radius: 0.35
+  - buildingType: 19
+    radius: 0.35
+  - buildingType: 20
+    radius: 0.35
+  - buildingType: 21
+    radius: 0.35
+  - buildingType: 22
+    radius: 0.35
+  - buildingType: 23
+    radius: 0.35
+  - buildingType: 24
+    radius: 0.35
+  - buildingType: 25
+    radius: 0.35
+  - buildingType: 26
+    radius: 0.35
+  - buildingType: 27
+    radius: 0.35
+  - buildingType: 28
+    radius: 0.35
+  - buildingType: 29
+    radius: 0.35
+  - buildingType: 30
+    radius: 0.35
+  - buildingType: 31
+    radius: 0.35
+  _defaultBuildingRadius: 0.35

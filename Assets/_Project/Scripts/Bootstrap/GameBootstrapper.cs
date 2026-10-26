@@ -71,6 +71,10 @@ namespace Hexiege.Bootstrap
         [Tooltip("특수 공격(도끼병 휩쓸기 등) 튜닝값 ScriptableObject. 미연결 시 코드 기본값(1.0/120) 사용.")]
         [SerializeField] private SpecialAttackConfig _specialAttackConfig;
 
+        [Tooltip("[2026-10-20 서버 권위 투사체] 투사체 속도·대상 반경 ScriptableObject(서버 판정 전용). "
+            + "비워 두면 Resources/Config/ProjectileConfig.asset을 자동으로 찾고, 그것도 없으면 코드 기본값을 쓴다.")]
+        [SerializeField] private ProjectileConfig _projectileConfig;
+
         [Tooltip("스킬 건물 종족별 로드아웃(슬롯 1~5) ScriptableObject. 미연결 시 스킬 발동/패널이 비활성(빈 로드아웃).")]
         [SerializeField] private SkillLoadoutConfig _skillLoadoutConfig;
 
@@ -533,6 +537,8 @@ namespace Hexiege.Bootstrap
             GameServicesLocator.Register(this);
             // 싱글/멀티 모두 종료 사건에서 미래 발사 허가를 먼저 닫는다.
             GameEvents.OnGameEnd.Subscribe(_ => _unitCombat?.CloseTorrentLaunches("game-end")).AddTo(this);
+            // [2026-10-20 서버 권위 투사체] 게임 종료 뒤에는 남은 투사체 예약·비행이 피해를 주지 않게 닫는다(싱글/멀티 공통).
+            GameEvents.OnGameEnd.Subscribe(_ => _unitCombat?.CloseProjectiles("game-end")).AddTo(this);
         }
 
         /// <summary>
@@ -552,6 +558,7 @@ namespace Hexiege.Bootstrap
             _eagerRepathSubscriptions?.Dispose();
             _eagerRepathSubscriptions = null;
             _unitCombat?.CloseTorrentLaunches("bootstrap-destroy");
+            _unitCombat?.CloseProjectiles("bootstrap-destroy");
             GameServicesLocator.Unregister();
         }
 
@@ -626,6 +633,9 @@ namespace Hexiege.Bootstrap
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
                 _unitCombat.TickPendingHits(Time.deltaTime, soloNow);
+                // [2026-10-20 서버 권위 투사체] 발사 예약 검사·발사·비행 추적·착탄 피해(매 프레임 — 착탄이 프레임만큼만 늦는다).
+                //   싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController.Update가 매 서버 frame에 호출한다(이중 진행 금지).
+                _unitCombat.TickProjectiles(soloNow);
                 // TorrentSpirit 파도(이동 전선)를 전진시키고 닿은 유닛에 피해/힐을 1회 적용.
                 // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 서버 틱에서 호출한다.
                 _unitCombat.TickWaves(Time.deltaTime);
