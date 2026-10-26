@@ -85,6 +85,9 @@ namespace Hexiege.Editor.Combat
         ///   ② 차지 도중 취소(허가 차단): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (사용자 결정 D2).
         ///   ③ Stop이 타격보다 먼저(SourceOnly): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (D2).
         ///   ④ 싱글(lease 없음): 차지 = charge 1개, 타격 = 투사체 1발·charge 재생 없음.
+        /// [2026-10-21 서버 권위 투사체 단계 D] 두 유닛이 서버 투사체로 바뀌어 ①·④의 "타격 marker = 트레이서 1발 · 도착 = 피격 신호"는
+        ///   "타격 marker = lease 소비만(로컬 트레이서·피격 신호 없음)"으로 바뀌었다(옛 검사는 V-7 주석으로 보존).
+        ///   서버 발사 기록으로 그리는 투사체·취소 통보로 끄는 차지는 ServerProjectiles의 D-6이 확인한다.
         /// 발사음(SFX)은 AudioManager를 격리했으므로 여기서 관측하지 않는다(코드 위치는 UnitView R-4 주석 — 실기 확인 항목).
         /// EditMode에서는 Update가 돌지 않으므로 트레이서 도착(Arrive)은 리플렉션으로 직접 호출한다.
         /// </summary>
@@ -179,15 +182,23 @@ namespace Hexiege.Editor.Combat
                     Require(Active(charge.VfxPrefab) == 1,
                         type + " second charge marker in the same revision does not replay the charge VFX.");
                     int tracersBefore = ActiveTracers(tracer.VfxPrefab);
+                    // [V-7 비활성화 — 2026-10-21 서버 권위 투사체 단계 D] 두 차지 유닛은 이제 서버 투사체 유닛이다.
+                    //   타격 marker는 lease만 소비하고 로컬 트레이서를 쏘지 않는다 — 투사체는 서버 발사 기록을 화면 소비자
+                    //   (ProjectilePresentationPresenter)가 그리고, 착탄 VFX·숫자는 서버 착탄 결과로 낸다(단계 D fixture D-6·소스 게이트).
+                    //   옛 검사(주석 보존 — C 사용자 테스트 PASS 뒤 정리):
+                    // view.OnAttackHit(hitEvent);
+                    // Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
+                    //     type + " launch marker fires one tracer and does not replay the charge VFX.");
+                    // TracerProjectile flying = ActiveTracer(tracer.VfxPrefab);
+                    // Require(flying != null, type + " launched tracer is flying.");
+                    // int hitsBefore = localHits, impactsBefore = Active(impact.VfxPrefab);
+                    // arrive.Invoke(flying, null);
+                    // Require(localHits == hitsBefore + 1 && Active(impact.VfxPrefab) == impactsBefore + 1,
+                    //     type + " tracer arrival raises one local-hit signal and plays one attacker impact VFX.");
+                    int hitsBefore = localHits;
                     view.OnAttackHit(hitEvent);
-                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
-                        type + " launch marker fires one tracer and does not replay the charge VFX.");
-                    TracerProjectile flying = ActiveTracer(tracer.VfxPrefab);
-                    Require(flying != null, type + " launched tracer is flying.");
-                    int hitsBefore = localHits, impactsBefore = Active(impact.VfxPrefab);
-                    arrive.Invoke(flying, null);
-                    Require(localHits == hitsBefore + 1 && Active(impact.VfxPrefab) == impactsBefore + 1,
-                        type + " tracer arrival raises one local-hit signal and plays one attacker impact VFX.");
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 1 && localHits == hitsBefore,
+                        type + " launch marker (server projectile) fires no local tracer, raises no local hit and does not replay the charge VFX.");
                     Require(manager.StopCasterOwnedAttackEffects(view, "fixture-cleanup") == 1,
                         type + " the single charge VFX of the attack is owned by its caster.");
 
@@ -220,16 +231,20 @@ namespace Hexiege.Editor.Combat
                     view.OnAttackCharge(chargeEvent);
                     Require(Active(charge.VfxPrefab) == 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
                         type + " SOLO charge marker plays one charge VFX and launches nothing.");
-                    view.OnAttackHit(hitEvent);
-                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
-                        type + " SOLO launch fires one tracer and does not replay the charge VFX.");
-                    // 정리: 날고 있는 싱글 트레이서를 착탄시켜 풀로 돌려보내고(도착 시 피격 신호 1회), charge도 끈다.
-                    TracerProjectile soloFlying = ActiveTracer(tracer.VfxPrefab);
-                    Require(soloFlying != null, type + " SOLO launched tracer is flying.");
+                    // [V-7 비활성화 — 2026-10-21 단계 D] 옛 싱글 검사(로컬 트레이서 1발 → 도착 시 피격 신호 1회) — 주석 보존:
+                    // view.OnAttackHit(hitEvent);
+                    // Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
+                    //     type + " SOLO launch fires one tracer and does not replay the charge VFX.");
+                    // TracerProjectile soloFlying = ActiveTracer(tracer.VfxPrefab);
+                    // Require(soloFlying != null, type + " SOLO launched tracer is flying.");
+                    // hitsBefore = localHits;
+                    // arrive.Invoke(soloFlying, null);
+                    // Require(localHits == hitsBefore + 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
+                    //     type + " SOLO tracer arrival raises one local-hit signal and returns the tracer to its pool.");
                     hitsBefore = localHits;
-                    arrive.Invoke(soloFlying, null);
-                    Require(localHits == hitsBefore + 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
-                        type + " SOLO tracer arrival raises one local-hit signal and returns the tracer to its pool.");
+                    view.OnAttackHit(hitEvent);
+                    Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 1 && localHits == hitsBefore,
+                        type + " SOLO launch marker (server projectile) fires no local tracer and does not replay the charge VFX.");
                     manager.StopCasterOwnedAttackEffects(view, "fixture-cleanup");
                 }
             }

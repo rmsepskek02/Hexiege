@@ -22,7 +22,10 @@ namespace Hexiege.Infrastructure
         // [2026-10-20 단계 B] 4 → 5. 투사체 epoch 알림 RPC(BeginProjectileEpochClientRpc)에 "늦은 접속 스냅샷 발사 기록 수"
         //   인자가 추가돼 RPC 모양이 바뀌었다. 단계 A 빌드(스키마 4)와 섞인 경기는 handshake에서 거부한다.
         //   옛 값(기록용, 단계 A): public const int PresentationContractSchemaRevision = 4;
-        public const int PresentationContractSchemaRevision = 5;
+        // [2026-10-21 단계 D] 5 → 6. 발사 전 취소 통보 RPC(ProjectileLaunchCancelClientRpc)가 새로 생겼다.
+        //   단계 B·C 빌드(스키마 5)와 섞인 경기는 handshake에서 거부한다(스위치 토큰도 바뀌어 해시가 다르지만, 전송 모양 변경은 스키마로도 막는다).
+        //   옛 값(기록용, 단계 B·C): public const int PresentationContractSchemaRevision = 5;
+        public const int PresentationContractSchemaRevision = 6;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

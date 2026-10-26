@@ -25,6 +25,9 @@
 //      · 투사체·착탄 이펙트 = BuildingEffectConfig의 타워 종족별 프리셋(인간 = CannonCart 것 재사용).
 //      · 발사 신호 = 포구에서 타워 발사 이펙트(EffectPreset_HumanAutoTower_Attack) 1회 — 사용자 결정 「발사 이펙트도 같은 위치」.
 //        늦은 접속 중간 복원이면 생략한다(유닛과 같은 규칙). 숫자·피격 반응은 유닛 투사체와 같은 착탄 순간 방출이다.
+//   5-2) [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician] 서버 발사 취소 통보(ProjectileLaunchCancelled)를 받아
+//      쏘려던 유닛 화면의 차지 VFX를 즉시 끈다(UnitView.ApplyServerProjectileLaunchCancel). 발사 신호는 위 5)와 같다 —
+//      차지 유닛은 발사 기록이 화면에 나올 때 총구 VFX 없이 발사음만 낸다(차지 VFX는 프리팹 길이로 발사 순간 스스로 끝난다).
 //   6) [단계 B 진단] 받은 수·그린 수·착탄 VFX 수·거부 사유·결과/화면 도착 순서·화면 착탄 지연 분포를 세어
 //      경기 종료 때 [PROJECTILE-END] side=view 2줄(2026-10-21 전에는 1줄)로 남기고, 처음 24발은 [PROJECTILE-VIEW] 표본 줄을 남긴다.
 //
@@ -151,6 +154,7 @@ namespace Hexiege.Presentation
             _coordinator.Reset(_epoch, this);
             combat.ProjectileLaunched += ReceiveLaunch;
             combat.ProjectileResolved += ReceiveResult;
+            combat.ProjectileLaunchCancelled += ReceiveLaunchCancel;   // [단계 D]
             _endSubscription = GameEvents.OnGameEnd.Subscribe(_ =>
             {
                 // 게임 종료 — 서버도 남은 투사체를 피해 없이 닫았다. 화면도 즉시 거둔다(착탄 이펙트·숫자 없음).
@@ -192,6 +196,41 @@ namespace Hexiege.Presentation
                 _view.ResultAccepted++;
                 _view.ResultLag.Add(ReadServerNow() - result.ImpactTime);
             }
+        }
+
+        /// <summary>
+        /// [2026-10-21 단계 D] 서버 발사 취소 통보 — 쏘려던 유닛 화면의 차지 VFX를 즉시 끈다(차지 유닛만, 같은 회차만).
+        /// 이 컴포넌트가 투사체 일정표에 넣는 것은 없다(취소된 예약은 발사 기록이 없어 처음부터 그릴 것이 없다).
+        /// 게임 종료 뒤에는 처리하지 않는다 — 종료 정리가 모든 화면을 거둔다.
+        /// </summary>
+        private void ReceiveLaunchCancel(ProjectileLaunchCancelPresentation cancel)
+        {
+            if (_ended) return;
+            try
+            {
+                UnitView view = ResolveUnitView(cancel.AttackerId);
+                ServerProjectileChargeCancelResult result = view != null
+                    ? view.ApplyServerProjectileLaunchCancel(cancel.PresentationRevision)
+                    : ServerProjectileChargeCancelResult.Unavailable;
+                ServerProjectileDiagnostics.RecordChargeCancelApplied((int)result);   // [진단] 읽기 전용
+            }
+            catch (Exception exception)
+            {
+                _faults++;
+                if (_faults == 1 || _faults % 64 == 0)
+                    GameLog.Dev.Warn("Combat", nameof(ProjectilePresentationPresenter),
+                        "Projectile launch-cancel presentation degraded; HP authority unchanged",
+                        $"projectile={cancel.Key}, attacker={cancel.AttackerId}, faults={_faults}, error={exception.GetType().Name}:{exception.Message}");
+            }
+        }
+
+        // 공격자 Id → 그 Id를 가진 살아 있는 화면(같은 객체 확인: View의 Data Id가 같을 때만 — ID 재사용 안전).
+        private UnitView ResolveUnitView(int unitId)
+        {
+            if (_unitFactory == null) return null;
+            GameObject go = _unitFactory.GetUnitObject(unitId);
+            UnitView view = go != null ? go.GetComponent<UnitView>() : null;
+            return view != null && view.Data != null && view.Data.Id == unitId && go.activeInHierarchy ? view : null;
         }
 
         // [진단 전용] 지금 서버 시계 값(없으면 NaN — 분포 상자는 NaN을 넣지 않는다).
@@ -430,6 +469,7 @@ namespace Hexiege.Presentation
             {
                 _combat.ProjectileLaunched -= ReceiveLaunch;
                 _combat.ProjectileResolved -= ReceiveResult;
+                _combat.ProjectileLaunchCancelled -= ReceiveLaunchCancel;   // [단계 D]
             }
             _endSubscription?.Dispose();
             _endSubscription = null;
@@ -457,6 +497,8 @@ namespace Hexiege.Presentation
         //     displayLag=...(화면 착탄 − 서버 착탄)  resultLag=...(결과 수신 − 서버 착탄)  beginLag=...(꺼냄 − 서버 발사)
         //     hold=held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N|ownerNotReady:N
         //     markers=...|path=...|legacyTracer=...  (ServerProjectileDiagnostics — UnitView marker 계수)
+        //     chargeCancel=recv:N|stopped:N|nothingActive:N|stale:N|notCharge:N|noView:N|suppressedAfterCancel:N
+        //       ([2026-10-21 단계 D] 2줄째 markers 뒤 — 서버 발사 취소 통보로 차지 VFX를 끈 수 · 취소 뒤 차지 신호를 막은 수)
         // ====================================================================
 
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
@@ -554,6 +596,7 @@ namespace Hexiege.Presentation
             string part2 = head + "part=2/2"
                 + " displayLag=" + v.DisplayLag.Format() + " resultLag=" + v.ResultLag.Format() + " beginLag=" + v.BeginLag.Format()
                 + " " + ServerProjectileDiagnostics.DescribeView()
+                + " " + ServerProjectileDiagnostics.DescribeCharge()   // [단계 D] 차지 VFX 취소 표현 계수
                 + " verdict=" + (attention.Count == 0 ? "PASS" : "ATTENTION attention=" + string.Join(",", attention));
             GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", part1);
             GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-END]", part2);

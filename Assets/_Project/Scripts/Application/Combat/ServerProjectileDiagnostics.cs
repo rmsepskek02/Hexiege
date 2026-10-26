@@ -133,6 +133,7 @@ namespace Hexiege.Application
             Array.Clear(LegacyTracersByType, 0, TypeSlots);
             _serverMarkers = _serverSourceOnlyMarkers = _serverMarkerMuzzle = 0;
             _attackerOverflow = _typeOutOfRange = 0;
+            ResetCharge();   // [단계 D]
         }
 
         /// <summary>
@@ -223,6 +224,58 @@ namespace Hexiege.Application
             if (_typeOutOfRange > 0) text.Append(" typeOutOfRange=").Append(_typeOutOfRange);
             return text.ToString();
         }
+
+        // ── [2026-10-21 단계 D] 차지 유닛 화면 쪽 취소 표현 계수(읽기 전용 관측) ──
+        //   cancelRecv   = 화면이 받은 서버 발사 취소 통보 수(유닛 공격자, 차지 여부 무관)
+        //   stopped      = 켜져 있던 차지 VFX를 그 통보로 끈 수
+        //   nothingActive= 차지 유닛이지만 끌 차지가 없던 수(차지 신호 전 취소 — Client는 그 회차 차지를 막아 둠)
+        //   stale        = 회차가 달라 적용하지 않은 수(더 새 공격 보호 — 0에 가까워야 정상)
+        //   notCharge    = 차지 유닛이 아닌 공격자의 취소(Stream·Tank 등 — 할 일 없음)
+        //   noView       = 공격자 화면을 못 찾았거나 이미 죽음
+        //   suppressedAfterCancel = 서버가 이미 취소한 뒤 온 차지 신호를 막은 수(싱글·Host 게이트)
+        private static int _chargeCancelRecv, _chargeCancelStopped, _chargeCancelNothingActive, _chargeCancelStale;
+        private static int _chargeCancelNotCharge, _chargeCancelNoView, _chargeSuppressedAfterCancel;
+
+        /// <summary>[진단 — 단계 D] 차지 표현 계수를 0으로(ResetView가 함께 부른다).</summary>
+        private static void ResetCharge()
+        {
+            _chargeCancelRecv = _chargeCancelStopped = _chargeCancelNothingActive = _chargeCancelStale = 0;
+            _chargeCancelNotCharge = _chargeCancelNoView = _chargeSuppressedAfterCancel = 0;
+        }
+
+        /// <summary>
+        /// [진단 — 단계 D] 화면이 서버 발사 취소 통보 1건을 처리한 결과를 센다.
+        /// result: 0 Stopped · 1 NothingActive · 2 StaleRevision · 3 NotChargeUnit · 4 Unavailable/화면 없음
+        /// (Presentation의 ServerProjectileChargeCancelResult 순서와 같다 — Application이 Presentation 타입을 참조하지 않게 int로 받는다).
+        /// </summary>
+        /// <param name="result">처리 결과 번호.</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void RecordChargeCancelApplied(int result)
+        {
+            _chargeCancelRecv++;
+            switch (result)
+            {
+                case 0: _chargeCancelStopped++; break;
+                case 1: _chargeCancelNothingActive++; break;
+                case 2: _chargeCancelStale++; break;
+                case 3: _chargeCancelNotCharge++; break;
+                default: _chargeCancelNoView++; break;
+            }
+        }
+
+        /// <summary>[진단 — 단계 D] 서버가 이미 발사를 취소한 공격의 차지 신호를 막은 1건(싱글·Host 게이트)을 센다.</summary>
+        /// <param name="type">차지 유닛 종류(지금은 세지 않고 합계만 — 인자는 이후 분리용).</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void RecordChargeSuppressedAfterServerCancel(UnitType type) => _chargeSuppressedAfterCancel++;
+
+        /// <summary>
+        /// [진단 — 단계 D] END 줄 조각 — "chargeCancel=recv:N|stopped:N|nothingActive:N|stale:N|notCharge:N|noView:N|suppressedAfterCancel:N".
+        /// </summary>
+        public static string DescribeCharge()
+            => string.Format(CultureInfo.InvariantCulture,
+                "chargeCancel=recv:{0}|stopped:{1}|nothingActive:{2}|stale:{3}|notCharge:{4}|noView:{5}|suppressedAfterCancel:{6}",
+                _chargeCancelRecv, _chargeCancelStopped, _chargeCancelNothingActive, _chargeCancelStale,
+                _chargeCancelNotCharge, _chargeCancelNoView, _chargeSuppressedAfterCancel);
 
         /// <summary>새 경로 marker에서 총구 VFX가 난 수(0이어야 정상 — END verdict 판정용).</summary>
         public static int ServerMarkerMuzzleCount => _serverMarkerMuzzle;

@@ -14,6 +14,9 @@
 //   · ProjectileLaunchClientRpc(epoch, id, 공격자, 대상, 위치, 반경, 발사/착탄 시각) : 발사 기록 1건.
 //   · ProjectileImpactClientRpc(epoch, id, 결과, 착탄 지점, 대상, HP, 피해량, 시각)   : 착탄 결과 1건.
 //   · RequestProjectileSnapshotServerRpc → 서버가 그 Client에게만 epoch + "지금 비행 중"인 발사 기록을 다시 보낸다(Q14 늦은 접속).
+//   · ProjectileLaunchCancelClientRpc(epoch, id, 공격자, 종류, 사유, 공격 표현 회차, 시각) : [2026-10-21 단계 D] 발사 전 취소 통보 1건.
+//       Client 화면은 이 통보로 차지 VFX를 즉시 끈다(같은 회차일 때만). 스키마 5 → 6.
+//       늦은 접속 스냅샷에는 넣지 않는다 — 이미 취소된 공격의 차지는 늦게 들어온 화면에서 시작될 수 없다(lease가 없다).
 //   중복(같은 epoch:id)은 화면 소비자(ProjectilePresentationCoordinator)가 거부한다.
 //   HP 자체는 기존 NetworkHealthSync가 맞춘다(여기서 HP를 쓰지 않는다 — 단일 HP writer 유지).
 //
@@ -46,6 +49,15 @@ namespace Hexiege.Infrastructure
         private readonly List<ProjectileLaunchPresentation> _projectileSnapshotBuffer = new List<ProjectileLaunchPresentation>();
         private readonly Queue<ProjectileLaunchPresentation> _pendingProjectileLaunches = new Queue<ProjectileLaunchPresentation>();
         private readonly Queue<ProjectileImpactPresentation> _pendingProjectileImpacts = new Queue<ProjectileImpactPresentation>();
+        // [단계 D] Client — epoch를 아직 모를 때 받은 취소 통보 대기열(발사·착탄 대기열과 같은 규칙, 같은 상한).
+        private readonly Queue<ProjectileLaunchCancelPresentation> _pendingProjectileCancels = new Queue<ProjectileLaunchCancelPresentation>();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // [단계 D 진단 전용] FoxMagician 시간축 관측의 correlation ticket(공격 커밋 때 예약) — 서버 투사체 경로에서는
+        //   피해 타이머(DelayedAttackDamage)가 돌지 않아 그 자리에서 timer-impact를 기록할 수 없으므로,
+        //   발사 확정 순간(SendProjectileLaunch)에 같은 ticket으로 기록한다. Fox는 공격 1회 = 발사 1발이라 공격자별 최신 1개면 충분하다.
+        //   판정·전송에는 쓰지 않는다.
+        private readonly Dictionary<int, ulong> _foxProjectileTimelineTickets = new Dictionary<int, ulong>();
+#endif
 
         // ── [2026-10-20 단계 B 진단 보강] 전송 계수(읽기 전용 관측 — 전송·배달 판단에는 쓰지 않는다) ──
         //   경기 종료(또는 디스폰·UseCase 교체) 때 [PROJECTILE-END] side=transport 1줄로 남긴다(Host·Client 각각).
@@ -53,6 +65,8 @@ namespace Hexiege.Infrastructure
         {
             // 서버(Host)
             public int EpochBroadcasts, LaunchesSent, LaunchesSkippedStopped, ImpactsSent;
+            // [단계 D] 발사 취소 통보 — 서버 송신 수 / 종료 뒤라 생략한 수, Client 수신·배달 수.
+            public int CancelsSent, CancelsSkippedStopped, CancelRpcs, CancelsDelivered;
             public int SnapshotRequestsReceived, SnapshotRequestsRefused, SnapshotSends, SnapshotLaunchesSent;
             public int StopDeferredTicks, StopDeferredEpisodes;
             // Client
@@ -91,6 +105,7 @@ namespace Hexiege.Infrastructure
                     DiagProjectileTransport(d => d.EpochBroadcasts++);
                     combat.ProjectileLaunched += SendProjectileLaunch;
                     combat.ProjectileResolved += SendProjectileImpact;
+                    combat.ProjectileLaunchCancelled += SendProjectileLaunchCancel;   // [단계 D]
                 }
             }
             if (IsServer)
@@ -128,6 +143,13 @@ namespace Hexiege.Infrastructure
                 combat.ReceiveProjectileImpact(_pendingProjectileImpacts.Dequeue());
                 DiagProjectileTransport(d => d.ImpactsDelivered++);
             }
+            // [단계 D] 발사 취소 통보 — 받은 RPC 핸들러 안에서 곧바로 이 함수가 불려 같은 프레임에 배달된다
+            //   (그래서 같은 공격자의 다음 공격 시작 RPC보다 먼저 화면에 닿는다 — 같은 연결의 RPC는 보낸 순서대로 온다).
+            while (_pendingProjectileCancels.Count > 0)
+            {
+                combat.ReceiveProjectileLaunchCancel(_pendingProjectileCancels.Dequeue());
+                DiagProjectileTransport(d => d.CancelsDelivered++);
+            }
         }
 
         private void DisposeProjectileSubscriptions()
@@ -135,6 +157,7 @@ namespace Hexiege.Infrastructure
             if (_projectileTransportCombat == null) return;
             _projectileTransportCombat.ProjectileLaunched -= SendProjectileLaunch;
             _projectileTransportCombat.ProjectileResolved -= SendProjectileImpact;
+            _projectileTransportCombat.ProjectileLaunchCancelled -= SendProjectileLaunchCancel;   // [단계 D]
             _projectileTransportCombat = null;
         }
 
@@ -155,6 +178,10 @@ namespace Hexiege.Infrastructure
             _projectileSnapshotBuffer.Clear();
             _pendingProjectileLaunches.Clear();
             _pendingProjectileImpacts.Clear();
+            _pendingProjectileCancels.Clear();   // [단계 D]
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _foxProjectileTimelineTickets.Clear();
+#endif
         }
 
         // ── 서버 → Client 송신 ─────────────────────────────────────────────
@@ -180,6 +207,17 @@ namespace Hexiege.Infrastructure
                     launch.AttackerId, UnitType.StreamSpirit, launch.TargetId, launch.TargetIsUnit,
                     AttackDamageApplyStatus.Applied,
                     writerResultOverride: "NotInvoked(server-projectile-launch; damage-at-impact)");
+            // [2026-10-21 단계 D] FoxMagician도 같은 이유로 발사 확정 순간에 timer-impact를 기록한다(커밋 때 예약한 ticket으로 exact 매칭).
+            //   이 기록이 없으면 서버 투사체 경로의 Fox 시간축 flow가 전부 "미완료"로 남아 진단 END가 거짓 FAIL이 된다. HP 무관.
+            if (launch.AttackerIsUnit && launch.AttackerKind == (int)UnitType.FoxMagician
+                && _foxProjectileTimelineTickets.TryGetValue(launch.AttackerId, out ulong foxTicket))
+            {
+                _foxProjectileTimelineTickets.Remove(launch.AttackerId);
+                UnitAttackShadowObserver.RecordFoxMagicianTimerImpact(
+                    foxTicket, launch.AttackerId, UnitType.FoxMagician, launch.TargetId, launch.TargetIsUnit,
+                    AttackDamageApplyStatus.Applied,
+                    writerResultOverride: "NotInvoked(server-projectile-launch; damage-at-impact)");
+            }
 #endif
             SendProjectileLaunchRpc(launch, default);
             DiagProjectileTransport(d => d.LaunchesSent++);
@@ -202,6 +240,37 @@ namespace Hexiege.Infrastructure
             DiagProjectileTransport(d => d.ImpactsSent++);
         }
 
+        /// <summary>
+        /// [2026-10-21 단계 D] 서버 UseCase의 발사 전 취소를 Client에게 전달한다. 판정은 하지 않는다(이미 확정된 사실).
+        /// 통보에는 "취소 순간 이 공격자에게 마지막으로 보낸 공격 표현 회차"를 붙인다 — Client는 자기 회차가 같을 때만
+        /// 차지 VFX를 끈다. 서버 취소는 그 공격의 발사 시각(OnAttackHit) 전에만 일어나고 발사 시각은 쿨다운보다 짧으므로
+        /// (Inferno 1.5 &lt; 3초, Fox 2.8333 &lt; 4초 — UnitStatsConfig.asset), 취소 순간의 최신 회차가 곧 취소된 공격의 회차다.
+        /// 같은 프레임 Update에서 TickProjectiles(취소)가 TickCombat(다음 커밋)보다 먼저 돈다는 순서도 이를 받친다.
+        /// </summary>
+        private void SendProjectileLaunchCancel(ProjectileLaunchCancelPresentation cancel)
+        {
+            if (!IsSpawned || !IsServer || !cancel.IsValid) return;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Fox 시간축 ticket은 발사되지 않은 공격 몫이므로 버린다(그 flow는 발사 기록 없이 만료된다 — 실제로 발사가 없었다).
+            _foxProjectileTimelineTickets.Remove(cancel.AttackerId);
+#endif
+            if (_combatStopped) { DiagProjectileTransport(d => d.CancelsSkippedStopped++); return; }
+            _attackPresentationRevisions.TryGetValue(cancel.AttackerId, out ulong revision);
+            ProjectileLaunchCancelClientRpc(cancel.Key.Epoch, cancel.Key.Id, cancel.AttackerId, cancel.AttackerKind,
+                (byte)cancel.Cause, revision, cancel.CancelTime);
+            DiagProjectileTransport(d => d.CancelsSent++);
+        }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        /// <summary>[단계 D 진단 전용] Fox 공격 커밋(서버 투사체 예약) 때 시간축 ticket을 공격자별로 맡겨 둔다.</summary>
+        private void RememberFoxProjectileTimelineTicket(UnitData unit, ulong ticket)
+        {
+            if (unit == null || unit.Type != UnitType.FoxMagician || ticket == 0UL) return;
+            if (_foxProjectileTimelineTickets.Count < 4096 || _foxProjectileTimelineTickets.ContainsKey(unit.Id))
+                _foxProjectileTimelineTickets[unit.Id] = ticket;
+        }
+#endif
+
         // ── RPC ─────────────────────────────────────────────────────────────
 
         // [2026-10-20 단계 B] snapshotLaunches 인자 추가(-1 = 일반 알림, 0 이상 = 늦은 접속 스냅샷 발사 기록 수).
@@ -216,6 +285,7 @@ namespace Hexiege.Infrastructure
                 // 같은 컨트롤러 수명에 다른 epoch가 오면(맵 재로드 등) 새 epoch로 넘어가고 옛 대기열은 버린다.
                 _pendingProjectileLaunches.Clear();
                 _pendingProjectileImpacts.Clear();
+                _pendingProjectileCancels.Clear();   // [단계 D]
                 DiagProjectileTransport(d => d.EpochSwitches++);
             }
             _remoteProjectileEpoch = epoch;
@@ -279,6 +349,24 @@ namespace Hexiege.Infrastructure
             UpdateProjectileTransport();
         }
 
+        // [2026-10-21 단계 D] 발사 전 취소 통보 수신. 값 검사·epoch 규칙은 발사/착탄 RPC와 같다.
+        [ClientRpc]
+        private void ProjectileLaunchCancelClientRpc(ulong epoch, ulong id, int attacker, int attackerKind,
+            byte cause, ulong presentationRevision, double time)
+        {
+            if (IsServer) return;
+            var cancel = new ProjectileLaunchCancelPresentation(new ProjectileDeliveryKey(epoch, id), attacker, attackerKind,
+                (ProjectileLaunchCancelCause)cause, presentationRevision, time);
+            DiagProjectileTransport(d => d.CancelRpcs++);
+            if (!cancel.IsValid) { DiagProjectileTransport(d => d.DroppedInvalid++); return; }
+            if (_remoteProjectileEpoch != 0 && epoch != _remoteProjectileEpoch) { DiagProjectileTransport(d => d.DroppedEpoch++); return; }
+            if (_pendingProjectileLaunches.Count + _pendingProjectileImpacts.Count + _pendingProjectileCancels.Count
+                >= ProjectileTransportCapacity)
+            { ProjectileTransportCapacityFailure(); return; }
+            _pendingProjectileCancels.Enqueue(cancel);
+            UpdateProjectileTransport();
+        }
+
         private void ProjectileTransportCapacityFailure()
         {
             _projectileTransportFailures++;
@@ -294,6 +382,8 @@ namespace Hexiege.Infrastructure
         // [END 줄에서 읽는 법 — 다음 실기 분석용, 태그 [PROJECTILE-END] side=transport]
         //   Host  : sent=launch:N|impact:N  snapshot=requests:N|refused:N|sends:N|launches:N  stopDeferred=episodes:N|ticks:N
         //   Client: recv=epoch:N|launch:N|impact:N  delivered=launch:N|impact:N  dropped=invalid:N|epoch:N|capacity:N
+        //   [단계 D] Host sent=에 |cancel:N|cancelSkippedStopped:N, Client recv=·delivered=에 |cancel:N이 붙는다
+        //     (Host cancel = 서버 발사 전 취소 통보 송신 수 = server 줄 cancelled 중 유닛 공격자 몫, Client는 수신·배달 수).
         //           snapshot=requested:N|epochs:N|expected:N|received:N
         //   늦은 접속 확인: Host snapshot.launches == Client snapshot.received 이면 스냅샷이 다 도착했다.
         //   (복원 = 화면이 비행 중간부터 그린 수는 side=view 줄의 begins=midFlight:N 이다.)
@@ -353,7 +443,7 @@ namespace Hexiege.Infrastructure
             if (server)
             {
                 body = $"side=transport v=1 role=Host epoch={(_projectileTransportCombat != null ? _projectileTransportCombat.ProjectileEpoch : 0UL):x16} reason={reason} "
-                    + $"epochBroadcasts={d.EpochBroadcasts} sent=launch:{d.LaunchesSent}|impact:{d.ImpactsSent}|launchSkippedStopped:{d.LaunchesSkippedStopped} "
+                    + $"epochBroadcasts={d.EpochBroadcasts} sent=launch:{d.LaunchesSent}|impact:{d.ImpactsSent}|launchSkippedStopped:{d.LaunchesSkippedStopped}|cancel:{d.CancelsSent}|cancelSkippedStopped:{d.CancelsSkippedStopped} "
                     + $"snapshot=requests:{d.SnapshotRequestsReceived}|refused:{d.SnapshotRequestsRefused}|sends:{d.SnapshotSends}|launches:{d.SnapshotLaunchesSent} "
                     + $"stopDeferred=episodes:{d.StopDeferredEpisodes}|ticks:{d.StopDeferredTicks} "
                     + $"verdict={(d.SnapshotRequestsRefused == 0 ? "PASS" : "ATTENTION")}";
@@ -363,8 +453,8 @@ namespace Hexiege.Infrastructure
                 bool snapshotComplete = d.SnapshotLaunchesReceived == d.SnapshotLaunchesExpected;
                 bool clean = d.DroppedInvalid == 0 && d.DroppedEpoch == 0 && _projectileTransportFailures == 0;
                 body = $"side=transport v=1 role=Client epoch={_remoteProjectileEpoch:x16} reason={reason} "
-                    + $"recv=epoch:{d.EpochMessages}|epochSwitch:{d.EpochSwitches}|launch:{d.LaunchRpcs}|impact:{d.ImpactRpcs} "
-                    + $"delivered=launch:{d.LaunchesDelivered}|impact:{d.ImpactsDelivered}|queuedNow:{_pendingProjectileLaunches.Count + _pendingProjectileImpacts.Count} "
+                    + $"recv=epoch:{d.EpochMessages}|epochSwitch:{d.EpochSwitches}|launch:{d.LaunchRpcs}|impact:{d.ImpactRpcs}|cancel:{d.CancelRpcs} "
+                    + $"delivered=launch:{d.LaunchesDelivered}|impact:{d.ImpactsDelivered}|cancel:{d.CancelsDelivered}|queuedNow:{_pendingProjectileLaunches.Count + _pendingProjectileImpacts.Count + _pendingProjectileCancels.Count} "
                     + $"dropped=invalid:{d.DroppedInvalid}|epoch:{d.DroppedEpoch}|capacity:{_projectileTransportFailures} "
                     + $"snapshot=requested:{d.SnapshotRequested}|epochs:{d.SnapshotEpochsReceived}|expected:{d.SnapshotLaunchesExpected}|received:{d.SnapshotLaunchesReceived} "
                     + $"verdict={(snapshotComplete && clean ? "PASS" : "ATTENTION")}";

@@ -1035,7 +1035,7 @@ namespace Hexiege.Editor.Combat
             Debug.Log("[UAS-DIAG][BLOOM-HEAL-TIMELINE] self-validation PASS: BloomFairy exact production clip/controller/Blue-Red/scene binding, single 30fps 1:00 marker, 1s preparation plus 3s post-cast cooldown, SeparateHealPipeline/N/A; server heal policy unchanged.");
 
             Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, blocked authoritative-start deterministic FlowField egress, center-reached checkpoint consumption, building-safe combat approach and Unit64-shaped same-walkable-tile center rejoin, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded v13 pre-Action target staging, Root-stop-before-Start prevention and pure-Client rendered attack-entry ordering, bounded center checkpoint error and Chase direct-safe/path evidence, bounded UnitView adapter failure evidence with post-GameEnd suppression, bounded server-checkpoint/client-final-root rotation replication evidence and compact ROOT terminal with full-line UTF-8 preflight, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, Unit30-shaped unchanged spatial recovery blocking/stale duplicate suppression/death retire, reduced/stationary/repath fallback and fatal separation, no same-frame retry, center-to-center 60-degree outgoing turn/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, C1 atomic Host-local provisional Attack handoff before remote RPC with precommit impact suppression and continuous marker-window commit without clip restart, staged candidate/provisional Start/active Change target publication separation, production stationary/5-degree attack-start gate, bounded source-marker Stop-before-marker preservation without target transfer or loop replay, exhaustive 25-type attack manifest, production-boundary sequence allocation, per-Legacy-cycle target scope including overlapping impacts, pending-reservation StopCombat isolation, sequence-first per-cycle revision reset classification shared by server/client, reservation-bound dispatch consistency independent of display-target lifecycle, fail-closed correlation, target lock/multi-hit lifecycle and atomic latest-scope replication classification, C2 single-source Legacy overshoot cooldown/impact offsets including same-zero multi-hit order, exact attacker/target unavailable authorization-result binding and both-unavailable rejection, writer-owned damage observation, dispatch/completion reservation lifecycle, attacker-death future non-persistent hit cancellation before dispatch/result/observer with authorized completion preservation, reliable full-key ImpactResult shadow and bounded duplicate/conflict/retire classification, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
-            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, TorrentSpirit launch, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; charge units (exactly FoxMagician/InfernoSpirit) start the caster-owned charge at OnAttackCharge with a check-only lease and launch tracer+SFX at OnAttackHit, charge prefabs end by the launch; StreamSpirit bounded read-only production flow diagnostics.");
+            Debug.Log("[UAS-DIAG][PRODUCTION-TIMELINE] self-validation PASS: FlameSpirit 6-hit and EmberSpirit explicit scene/Attack clip binding, DustSpirit explicit scene/Attack clip binding and Attack2-first selection, RabbitTrickster explicit scene/Attack clip binding and Attack3-first selection, QuakeSpirit, BattleAxe, TorrentSpirit launch, StreamSpirit, FoxMagician, and InfernoSpirit exact production timeline contracts; charge units (exactly FoxMagician/InfernoSpirit) start the caster-owned charge at OnAttackCharge with a check-only lease, consume it at OnAttackHit where the server projectile launches (tracer from the server launch record, SFX at its display — stage D), charge prefabs end by the launch; StreamSpirit bounded read-only production flow diagnostics.");
             Debug.Log("[UAS-DIAG][C2-AUTHORITY] self-validation PASS: absolute server-time due gate, authorization-gated single Legacy damage writer, authoritative combat-condition Miss, and canonical result classification.");
             Debug.Log("[UAS-DIAG][C3-PRESENTATION-SHADOW] self-validation PASS: match-fixed mode/schema/hash, v12 Host/Client contract gate, marker-time immutable replication evidence, normal timing/recovery timing separation with timeout-zero gate, atomic commit presentation scope independent of replicated-state arrival, continuous every-commit scope publication without Attack clip restart, one-shot production marker lease with exact old-sequence retire and late-result suppression, bounded source-only completion when Stop precedes a committed marker, all-manifest Supported scoped fail-closed versus Unresolved Legacy VFX preservation without fabricated scope, immutable ranged scope capture, bounded InfernoSpirit rendered-Hips start/impact/end evidence with exact-key dedupe, signed-yaw invalid rejection, and forbidden Animator body member source gate, bounded read-only InfernoSpirit rendered-anchor motion-jump allowance/classification with rotation-arc prediction, residual boundary, compact Android-safe full-line preflight, initialization no-event, first severe Walk/Attack transition reservation, exact-key/overflow/lifecycle reset, peer-gated client-only replication classification, production renderer/rootBone/Hips fail-closed contract, per-attacker-sequence 64-entry reorder isolation, named 8-degree direction boundary with exact-revision classification, bounded structural failure evidence, one causal Error plus one axis terminal Error aggregation, independent C2 result/C3 presentation/overall verdicts, exact-key scheduling, duplicate/conflict, both arrival orders, catch-up/expiry, retire, damage-writer-owned victim presentation snapshot, optional hit-VFX asset classification, victim presentation spatial proof, and read-only writer/emitter boundary. Android warning-zero remains a runtime device gate and is not claimed here.");
         }
@@ -7639,8 +7639,12 @@ namespace Hexiege.Editor.Combat
                     events++;
                     Require(evt.CurrentHp == victim.Hp && evt.CurrentHp == 990,
                         "Presentation must observe already-applied damage, not apply it again.");
-                    Require(evt.ImmediatePresentation == (type == UnitType.FoxMagician && !scoped),
-                        "Only unscoped FoxMagician primary damage may bypass the next marker.");
+                    // [V-4 비활성화 — 2026-10-21 서버 권위 투사체 단계 D, RM-5 · 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]
+                    //   옛 검사(Fox만 결과 키 없으면 즉시 표시)는 반대 검사가 됐다. 지우지 않고 주석으로 남긴다:
+                    // Require(evt.ImmediatePresentation == (type == UnitType.FoxMagician && !scoped),
+                    //     "Only unscoped FoxMagician primary damage may bypass the next marker.");
+                    Require(!evt.ImmediatePresentation,
+                        "[RM-5] No primary damage bypasses presentation anymore: the Fox rule-19 immediate exception is removed (Fox numbers show at the projectile impact).");
                     Require(evt.PresentationResultKey.Equals(key)
                             && evt.AttackerId == attacker.Id && evt.AttackerIsUnit
                             && evt.IsUnit == !building,
@@ -8057,26 +8061,59 @@ namespace Hexiege.Editor.Combat
                     && Math.Abs(attacker.HitFrameTimes[0] - 85f / 30f) <= 0.000001d,
                     "Production Fox asset/Factory input must select the serialized 85/30 marker.");
                 var combat = new UnitCombatUseCase(grid, spawn, new BuildingPlacementUseCase(grid), null, new SoloTimingMapper());
-                double now = 0; int events = 0; bool immediate = false;
+                // [V-5 — 2026-10-21 서버 권위 투사체 단계 D] Fox는 이제 서버 투사체 유닛이다.
+                //   85/30초(= 직렬화된 float marker)는 "피해 시각"이 아니라 "발사 시각"이고, 피해는 착탄 시각에 투사체 번호표와 함께 1회다.
+                //   옛 본문(PendingHit 타이머가 85/30초에 즉시 표시 피해를 주던 검사)은 반대 검사가 되어 아래에 주석으로 보존한다:
+                // double now = 0; int events = 0; bool immediate = false;
+                // damage = GameEvents.OnEntityDamaged.Subscribe(e => {
+                //     if (!ReferenceEquals(e.Entity, victim)) return;
+                //     events++; immediate = e.ImmediatePresentation;
+                //     Require(Math.Abs(now - 85f / 30f) <= 0.000001d,
+                //         "Authority compares serialized float due, not the exact rational double.");
+                // });
+                // int hpBefore = victim.Hp;
+                // Require(combat.TryAttack(attacker, now).HasValue, "Actual Fox TryAttack must reserve once.");
+                // now = 2.25d; combat.TickCooldowns(2.25f, now); combat.TickPendingHits(2.25f, now);
+                // Require(victim.Hp == hpBefore && events == 0, "Old decimal 2.25 must not apply Fox damage.");
+                // double due = attacker.HitFrameTimes[0];
+                // now = due - 0.000002d;
+                // combat.TickPendingHits((float)(now - 2.25d), now);
+                // Require(victim.Hp == hpBefore && events == 0, "Fox cannot hit before the serialized due.");
+                // now = due; combat.TickPendingHits(0.000002f, now);
+                // Require(victim.Hp < hpBefore && events == 1 && immediate,
+                //     "Actual writer applies one captured-target hit and keeps default-key immediate presentation.");
+                // combat.TickPendingHits(0f, now);
+                // Require(events == 1, "Repeated due processing must not duplicate authoritative damage.");
+                var launches = new List<ProjectileLaunchPresentation>();
+                combat.ProjectileLaunched += launches.Add;
+                double now = 0; int events = 0; double damageAt = double.NaN; EntityDamagedEvent hit = default;
                 damage = GameEvents.OnEntityDamaged.Subscribe(e => {
                     if (!ReferenceEquals(e.Entity, victim)) return;
-                    events++; immediate = e.ImmediatePresentation;
-                    Require(Math.Abs(now - 85f / 30f) <= 0.000001d,
-                        "Authority compares serialized float due, not the exact rational double.");
+                    events++; damageAt = now; hit = e;
                 });
                 int hpBefore = victim.Hp;
-                Require(combat.TryAttack(attacker, now).HasValue, "Actual Fox TryAttack must reserve once.");
-                now = 2.25d; combat.TickCooldowns(2.25f, now); combat.TickPendingHits(2.25f, now);
-                Require(victim.Hp == hpBefore && events == 0, "Old decimal 2.25 must not apply Fox damage.");
+                Require(combat.TryAttack(attacker, now).HasValue && combat.HasPendingProjectileLaunch(attacker),
+                    "Actual Fox TryAttack must reserve one server projectile launch.");
+                void Pump(double t) { now = t; combat.TickPendingHits(0f, now); combat.TickProjectiles(now); }
+                Pump(2.25d);
+                Require(victim.Hp == hpBefore && events == 0 && launches.Count == 0, "Old decimal 2.25 neither launches nor damages.");
                 double due = attacker.HitFrameTimes[0];
-                now = due - 0.000002d;
-                combat.TickPendingHits((float)(now - 2.25d), now);
-                Require(victim.Hp == hpBefore && events == 0, "Fox cannot hit before the serialized due.");
-                now = due; combat.TickPendingHits(0.000002f, now);
-                Require(victim.Hp < hpBefore && events == 1 && immediate,
-                    "Actual writer applies one captured-target hit and keeps default-key immediate presentation.");
-                combat.TickPendingHits(0f, now);
-                Require(events == 1, "Repeated due processing must not duplicate authoritative damage.");
+                Pump(due - 0.000002d);
+                Require(launches.Count == 0 && events == 0, "Fox cannot launch before the serialized 85/30 due.");
+                Pump(due);
+                Require(launches.Count == 1 && Math.Abs(launches[0].LaunchTime - due) <= 0.000001d
+                        && victim.Hp == hpBefore && events == 0,
+                    "Fox launches exactly at the serialized float due with no damage at launch.");
+                // 착탄 시각은 서버가 발사 때 고정한 값을 그대로 쓴다(검증이 따로 계산하지 않는다 — ac05e189 교훈).
+                double impactAt = launches[0].ImpactTime;
+                Pump(impactAt - 0.000002d);
+                Require(events == 0, "Fox deals no damage before the authoritative impact time.");
+                Pump(impactAt);
+                Require(victim.Hp < hpBefore && events == 1 && Math.Abs(damageAt - impactAt) <= 0.000001d
+                        && !hit.ImmediatePresentation && hit.ProjectilePresentationKey.Equals(launches[0].Key),
+                    "Actual writer applies one captured-target hit at impact with the projectile key and no immediate presentation (RM-5).");
+                Pump(impactAt + 1d);
+                Require(events == 1, "Repeated processing must not duplicate authoritative damage.");
             }
             finally
             {
@@ -8205,13 +8242,18 @@ namespace Hexiege.Editor.Combat
                     view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
                     Require(Source().RemainingMarkerCount == 0 && !Source().IsArmed,
                         "Fox launch consumes the commit's single source allowance.");
-                    Require(localHits == hitsBefore + 1,
-                        "Fox launch enters the tracer/local-hit path once (EffectManager absent: immediate signal fallback).");
+                    // [V-6 비활성화 — 2026-10-21 서버 권위 투사체 단계 D] Fox는 서버 투사체 유닛이라 타격 marker가 lease만 소비하고
+                    //   로컬 트레이서·피격 신호를 내지 않는다(투사체는 서버 발사 기록이, 숫자는 서버 착탄 결과가 낸다). 옛 검사(주석 보존):
+                    // Require(localHits == hitsBefore + 1,
+                    //     "Fox launch enters the tracer/local-hit path once (EffectManager absent: immediate signal fallback).");
+                    Require(localHits == hitsBefore,
+                        "Fox launch marker (server projectile) consumes the lease but emits no local tracer/hit signal.");
                     // ④ 소비된 lease로는 다음 루프의 차지도 타격도 통과하지 못한다.
                     SeedTarget();
                     view.OnAttackCharge(new AnimationEvent { time = 1f });
                     view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                    Require(localHits == hitsBefore + 1 && view.AttackPhaseLastEmissionTarget == unreachedTarget,
+                    // [V-6] 옛 조건 localHits == hitsBefore + 1(위 ③에서 1회 냈던 것)을 서버 투사체 기준 hitsBefore로 바꿨다.
+                    Require(localHits == hitsBefore && view.AttackPhaseLastEmissionTarget == unreachedTarget,
                         "A consumed lease admits neither another charge nor another launch.");
                 }
 
@@ -8230,8 +8272,9 @@ namespace Hexiege.Editor.Combat
                     "Charge leaves both the source and the impact lease unconsumed (Scoped).");
                 int scopedHitsBefore = localHits;
                 view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
+                // [V-6] 옛 조건 localHits == scopedHitsBefore + 1 → 서버 투사체 유닛은 로컬 피격 신호 없음(scopedHitsBefore).
                 Require(!Impact().IsArmed && Impact().Status == AttackPresentationImpactLeaseStatus.Consumed
-                        && Source().RemainingMarkerCount == 0 && localHits == scopedHitsBefore + 1,
+                        && Source().RemainingMarkerCount == 0 && localHits == scopedHitsBefore,
                     "The launch, not the charge, consumes the Scoped impact HitIndex and the source allowance.");
 
                 // ⑥ Stop이 먼저 온 경우(사용자 결정 D2): 차지를 시작하지 않고, SourceOnly 타격은 아무것도 내지 않는다.
@@ -8255,8 +8298,11 @@ namespace Hexiege.Editor.Combat
                 // [V-2 비활성화 — 2026-10-19 차지 유닛 발사 시점] 옛 검사: Fox 콜백은 피격 신호를 전혀 내지 않는다.
                 // Require(localHits == 0 && hpEvents == 0 && unit.Hp == 200,
                 //     "Actual SOLO/Host/Client callbacks never publish recipient/local-hit or apply HP.");
-                Require(localHits == soloHitsBefore + 1,
-                    "SOLO Fox launch (no lease) also enters the launch path at the hit marker, not at the charge.");
+                // [V-6 비활성화 — 2026-10-21 단계 D] 옛 검사(주석 보존):
+                // Require(localHits == soloHitsBefore + 1,
+                //     "SOLO Fox launch (no lease) also enters the launch path at the hit marker, not at the charge.");
+                Require(localHits == soloHitsBefore,
+                    "SOLO Fox (server projectile) charge/hit markers emit no local hit signal; the server launch record draws the projectile.");
                 Require(hpEvents == 0 && unit.Hp == 200,
                     "Actual SOLO/Host/Client charge/launch callbacks never apply HP (damage stays with the server timer).");
             }

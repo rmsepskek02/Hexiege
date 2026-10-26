@@ -29,6 +29,9 @@
 //       = 건물 공격자(타워)가 쏜 투사체만 따로 센 값. destroyedThenHit = "발사 뒤 타워가 파괴됐는데 착탄해 피해를 준" 발 수
 //         (공격자 사망과 같은 규칙 U-6 확인용). 이 값들은 server 줄의 launched/hit/targetLost/attackerDead 합계에도 함께 들어 있다.
 //       towerPath=Human:sN/lN|Spirit:sN/lN|Transcendence:sN/lN — 종족별 타워 공격 경로(공격 0회 종족도 0으로 찍는다).
+//   [2026-10-21 단계 D — 차지 유닛] 세 번째 줄 [PROJECTILE-END] side=server-charge:
+//       inferno=/fox= reserved·launched·hit·targetLost, cancel12=/cancel21= 차지 중 취소 사유별 수(target-dead = 차지 중 대상 사망 등),
+//       foxPrimary=all:N|projectileKeyed:N|immediate:N|oldRuleImmediate:N — immediate가 0이면 규칙 19 Fox 즉시 표시 예외가 꺼졌다.
 // ============================================================================
 
 using System;
@@ -65,6 +68,13 @@ namespace Hexiege.Application
             // [단계 C] 방어 타워 공격 경로(종족별, RaceId 0~2): s = 서버 투사체, l = 기존 즉발.
             public readonly int[] TowerServerPathByRace = new int[3];
             public readonly int[] TowerInstantPathByRace = new int[3];
+            // [단계 D] 차지 유닛(InfernoSpirit · FoxMagician) 몫 — 위 합계의 부분 집합. [0] = Inferno, [1] = Fox.
+            public readonly int[] ChargeReserved = new int[2], ChargeLaunched = new int[2];
+            public readonly int[] ChargeHit = new int[2], ChargeTargetLost = new int[2];
+            public readonly int[][] ChargeCancels = { new int[ProjectileCancelCauses.Length], new int[ProjectileCancelCauses.Length] };
+            // [단계 D] Fox 규칙 19 즉시 표시 예외 제거 확인(RM-5): 주 타깃 피해 수 / 그중 투사체 번호표가 붙은 수 /
+            //   실제로 즉시 표시(immediate=true)로 나간 수(0이어야 한다) / 옛 규칙이었다면 즉시 표시였을 수(결과 키 없음).
+            public int FoxPrimary, FoxProjectileKeyed, FoxImmediate, FoxOldRuleImmediate;
             public double LaunchLagMax, ImpactLagMax;
             public readonly int[] Cancels = new int[ProjectileCancelCauses.Length];
             public readonly int[] ServerPathByType = new int[32];
@@ -146,6 +156,47 @@ namespace Hexiege.Application
             else _projectileDiag.TowerInstantPathByRace[slot]++;
         }
 
+        // [단계 D] 진단 칸 번호 — 차지 유닛 2종만(0 = InfernoSpirit, 1 = FoxMagician), 그 밖은 -1.
+        //   ⚠️ 이것은 "진단 표의 칸 이름"일 뿐이다. 차지 유닛 동작 판별은 화면(UnitView)이 공격 클립의 OnAttackCharge 이벤트로 하고,
+        //   그 집합이 정확히 이 두 종류인지는 자동 검증 T-4가 고정한다. 여기 값은 어떤 판정에도 쓰지 않는다.
+        private static int ChargeDiagSlot(UnitType type)
+            => type == UnitType.InfernoSpirit ? 0 : type == UnitType.FoxMagician ? 1 : -1;
+
+        /// <summary>[진단 — 단계 D] 차지 유닛의 예약(launched=false) 또는 발사(launched=true) 1건을 센다.</summary>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        private void DiagChargeUnitStage(UnitType type, bool launched)
+        {
+            int slot = ChargeDiagSlot(type);
+            if (slot < 0) return;
+            if (launched) _projectileDiag.ChargeLaunched[slot]++;
+            else _projectileDiag.ChargeReserved[slot]++;
+        }
+
+        /// <summary>[진단 — 단계 D] 차지 유닛의 발사 전 취소 1건을 사유별로 센다(차지 중 대상 사망·공격자 사망·이동 명령 등).</summary>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        private void DiagChargeUnitCancel(UnitType type, bool attackerIsUnit, string cause)
+        {
+            int slot = attackerIsUnit ? ChargeDiagSlot(type) : -1;
+            if (slot < 0) return;
+            int index = Array.IndexOf(ProjectileCancelCauses, cause);
+            _projectileDiag.ChargeCancels[slot][index >= 0 ? index : ProjectileCancelCauses.Length - 1]++;
+        }
+
+        /// <summary>
+        /// [진단 — 단계 D, RM-5 확인] FoxMagician 주 타깃 피해 1건의 표시 방식을 센다. ExecuteAttack 주 타깃 분기에서 부른다.
+        /// </summary>
+        /// <param name="projectileKeyed">투사체 착탄 피해인가(번호표가 붙어 착탄 순간에 숫자가 나온다).</param>
+        /// <param name="immediate">실제로 즉시 표시로 나갔는가(규칙 19 예외 제거 뒤 항상 false여야 한다).</param>
+        /// <param name="oldRuleImmediate">옛 규칙(결과 키 없는 Fox = 즉시 표시)이었다면 즉시 표시였는가.</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        private void DiagFoxPrimaryPresentation(bool projectileKeyed, bool immediate, bool oldRuleImmediate)
+        {
+            _projectileDiag.FoxPrimary++;
+            if (projectileKeyed) _projectileDiag.FoxProjectileKeyed++;
+            if (immediate) _projectileDiag.FoxImmediate++;
+            if (oldRuleImmediate) _projectileDiag.FoxOldRuleImmediate++;
+        }
+
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
         private void DiagProjectileReserve(bool accepted)
         {
@@ -206,6 +257,12 @@ namespace Hexiege.Application
                 if (!record.TargetIsUnit) _projectileDiag.HitBuilding++;
             }
             else _projectileDiag.TargetLost++;
+            // [단계 D] 차지 유닛 몫(명중 / 비행 중 대상 소실).
+            int chargeSlot = record.AttackerIsUnit ? ChargeDiagSlot(record.AttackerType) : -1;
+            if (chargeSlot >= 0)
+            {
+                if (hit) _projectileDiag.ChargeHit[chargeSlot]++; else _projectileDiag.ChargeTargetLost[chargeSlot]++;
+            }
             // [단계 C] 건물 공격자(타워) 몫 — 비행 중 타워가 파괴된 뒤의 착탄 결과도 따로 센다(U-6 확인용).
             if (!record.AttackerIsUnit)
             {
@@ -246,6 +303,8 @@ namespace Hexiege.Application
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileEndLine(reason));
             // [단계 C] 건물 공격자(타워) 합계 줄 — server 줄 바로 뒤, 같은 epoch·reason 머리로 짝을 맞춘다.
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileTowerEndLine(reason));
+            // [단계 D] 차지 유닛 합계 줄(사유별 취소 · Fox 즉시 표시 제거 확인) — 같은 머리로 짝을 맞춘다.
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileChargeEndLine(reason));
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -257,6 +316,7 @@ namespace Hexiege.Application
             _projectileDiag.EndWritten = true;
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileEndLine(reason));
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileTowerEndLine(reason));   // [단계 C]
+            GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileChargeEndLine(reason));  // [단계 D]
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -367,6 +427,48 @@ namespace Hexiege.Application
             }
             text.Append(" balance=").Append(balanced ? "ok" : "mismatch")
                 .Append(" verdict=").Append(balanced ? "PASS" : "FAIL");
+            return text.ToString();
+        }
+
+        /// <summary>
+        /// [진단 — 2026-10-21 단계 D] 차지 유닛 합계 END 1줄을 만든다. 검증(fixture)도 같은 형식을 확인한다.
+        /// 형식: "side=server-charge v=1 role=.. epoch=.. reason=..
+        ///        inferno=reserved:N|launched:N|hit:N|targetLost:N cancel12=attacker-dead:N|...|other:N
+        ///        fox=reserved:N|launched:N|hit:N|targetLost:N cancel21=attacker-dead:N|...|other:N
+        ///        foxPrimary=all:N|projectileKeyed:N|immediate:N|oldRuleImmediate:N verdict=PASS|ATTENTION".
+        /// 읽는 법: cancel12/cancel21의 target-dead = "차지 중 대상 사망으로 발사 취소", attacker-dead = "차지 중 공격자 사망",
+        ///   move-command = 이동·정지 명령. foxPrimary.immediate가 0이면 규칙 19 즉시 표시 예외가 실제로 꺼졌다는 뜻이고,
+        ///   oldRuleImmediate는 "옛 규칙이었다면 착탄 전에 숫자가 먼저 떴을" 피해 수다.
+        /// verdict ATTENTION = Fox 즉시 표시가 1건이라도 나갔다(RM-5 회귀). 차지 유닛 수 맞춤은 server 줄 balance가 본다.
+        /// </summary>
+        /// <param name="reason">닫은 이유(server 줄과 같은 값).</param>
+        public string BuildProjectileChargeEndLine(string reason)
+        {
+            ProjectileDiagnosticCounters d = _projectileDiag;
+            var text = new StringBuilder(640);
+            text.Append("side=server-charge v=1 role=").Append(ServerProjectileDiagnostics.RoleName)
+                .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))
+                .Append(" reason=").Append(string.IsNullOrEmpty(reason) ? "unknown" : reason);
+            string[] names = { "inferno", "fox" };
+            int[] types = { (int)UnitType.InfernoSpirit, (int)UnitType.FoxMagician };
+            for (int slot = 0; slot < 2; slot++)
+            {
+                text.Append(' ').Append(names[slot]).Append("=reserved:").Append(d.ChargeReserved[slot])
+                    .Append("|launched:").Append(d.ChargeLaunched[slot])
+                    .Append("|hit:").Append(d.ChargeHit[slot])
+                    .Append("|targetLost:").Append(d.ChargeTargetLost[slot])
+                    .Append(" cancel").Append(types[slot]).Append('=');
+                for (int i = 0; i < ProjectileCancelCauses.Length; i++)
+                {
+                    if (i > 0) text.Append('|');
+                    text.Append(ProjectileCancelCauses[i]).Append(':').Append(d.ChargeCancels[slot][i]);
+                }
+            }
+            text.Append(" foxPrimary=all:").Append(d.FoxPrimary)
+                .Append("|projectileKeyed:").Append(d.FoxProjectileKeyed)
+                .Append("|immediate:").Append(d.FoxImmediate)
+                .Append("|oldRuleImmediate:").Append(d.FoxOldRuleImmediate)
+                .Append(" verdict=").Append(d.FoxImmediate == 0 ? "PASS" : "ATTENTION");
             return text.ToString();
         }
 

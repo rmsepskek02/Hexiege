@@ -1804,8 +1804,19 @@ namespace Hexiege.Application
                 // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
                 // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
                 // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.
-                bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
-                    && !presentationResultKey.IsValid;
+                // ────────────────────────────────────────────────────────────────
+                // [RM-5 비활성화 — 2026-10-21 서버 권위 투사체 단계 D, 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]
+                //   위 설명은 Fox가 "피해 순간 = 타이머 시각"이던 시절의 예외다(투사체 VFX가 없어 숫자를 기다릴 표식이 없었다).
+                //   이제 Fox는 서버 투사체 유닛이라 이 피해는 "착탄 순간"에만 일어나고, 피해 이벤트에 투사체 번호표가 붙어
+                //   화면 투사체가 닿는 순간 숫자가 1회 나온다(Q7 · Q8). 그래서 즉시 표시 예외를 끈다 — 모든 유닛 false.
+                //   옛 줄(기록용 — 주석 보존, C 사용자 테스트 PASS 뒤 삭제 대상):
+                //   bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
+                //       && !presentationResultKey.IsValid;
+                // ────────────────────────────────────────────────────────────────
+                const bool immediatePrimaryPresentation = false;
+                if (attacker.Type == UnitType.FoxMagician)   // [단계 D 진단] RM-5 확인 계수(판정 무관)
+                    DiagFoxPrimaryPresentation(ProjectileImpactInProgress, immediatePrimaryPresentation,
+                        oldRuleImmediate: !presentationResultKey.IsValid);
                 ApplyDamageToVictim(
                     attacker, target, immediatePresentation: immediatePrimaryPresentation,
                     presentationResultKey: presentationResultKey);

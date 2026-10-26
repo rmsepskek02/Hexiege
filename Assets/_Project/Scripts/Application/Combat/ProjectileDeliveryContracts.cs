@@ -12,6 +12,8 @@
 //   5) ProjectileSettings          : 서버가 비행 시간을 계산할 때 쓰는 속도·대상 반경 값(Inspector 값에서 만들어 주입).
 //      [단계 C] 인간 타워 속도·포구 위치(발사 원점)도 여기 있다.
 //   6) IBuildingProjectileImpactWriter: [단계 C] 타워 투사체의 착탄 피해를 타워 writer(TowerCombatUseCase)에 맡기는 창구.
+//   7) ProjectileLaunchCancelPresentation: [2026-10-21 단계 D] 서버가 "발사 전에 예약을 취소했다"는 통보
+//      (차지 유닛 화면이 차지 VFX를 즉시 끄는 서버 권위 근거 — 사유 ProjectileLaunchCancelCause).
 //
 // 왜 Application 레이어인가:
 //   발사·착탄·피해 판정은 서버 권위 게임 규칙이라 UseCase(Application)가 소유한다.
@@ -205,6 +207,85 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// [2026-10-21 단계 D] 서버가 "발사 전에" 투사체 예약을 취소한 사유. 숫자 값은 네트워크로 그대로 보내므로 바꾸지 않는다.
+    /// (진단 END 줄의 cancel= 사유 토큰과 같은 분류다 — UnitCombatUseCase.ProjectileCancelCauses.)
+    /// </summary>
+    public enum ProjectileLaunchCancelCause : byte
+    {
+        /// <summary>잘못된 값(0) — 받은 쪽에서 거부한다.</summary>
+        None = 0,
+        /// <summary>발사 전 공격자 사망(attacker-dead).</summary>
+        AttackerDead = 1,
+        /// <summary>공격자 Id에 다른 객체가 들어옴(attacker-replaced).</summary>
+        AttackerReplaced = 2,
+        /// <summary>발사 전(또는 발사 순간) 대상 사망(target-dead).</summary>
+        TargetDead = 3,
+        /// <summary>살아 있는 대상이 목록에서 사라짐(target-missing).</summary>
+        TargetMissing = 4,
+        /// <summary>대상 Id에 다른 객체가 들어옴(target-replaced).</summary>
+        TargetReplaced = 5,
+        /// <summary>이동·정지 같은 명시적 명령(move-command).</summary>
+        MoveCommand = 6,
+        /// <summary>발사 좌표가 비정상(invalid-launch-geometry).</summary>
+        InvalidGeometry = 7,
+        /// <summary>그 밖의 사유(other).</summary>
+        Other = 8
+    }
+
+    /// <summary>
+    /// [2026-10-21 단계 D] 서버가 확정한 "발사 취소 통보". 화면은 이 통보로 차지(기 모으기) VFX를 즉시 끈다.
+    ///
+    /// [왜 필요한가 — 유니티 초급자용]
+    ///   차지 유닛(InfernoSpirit · FoxMagician)은 공격 시작 직후 차지 VFX를 켜고, 발사 순간(OnAttackHit)까지 모은다.
+    ///   그 사이 대상이 죽으면 서버는 발사를 취소한다(투사체·소리·피해 없음). 그런데 다른 적이 사거리 안에 남아 있으면
+    ///   서버는 "전투 정지" 통보를 보내지 않으므로(쿨다운 중에는 타겟도 바꾸지 않는다), 화면은 취소를 알 길이 없어
+    ///   차지 VFX가 끝까지 모인 뒤 아무것도 쏘지 않는 어색한 장면이 된다.
+    ///   그래서 "서버가 취소했다"는 사실 자체를 화면에 알린다 — 판정이 아니라 서버 권위 사실의 전달이다.
+    ///
+    /// PresentationRevision: 멀티 서버가 취소 순간에 그 공격자에게 마지막으로 보낸 공격 표현 회차 번호.
+    ///   Client 화면은 자기 회차와 같을 때만 끈다(더 새 회차의 차지를 실수로 끄지 않게). 0 = 같은 프로세스(싱글·Host) 통보 —
+    ///   그 UseCase가 지금 들고 있는 회차가 곧 취소된 회차이므로 비교 없이 적용한다.
+    /// </summary>
+    public readonly struct ProjectileLaunchCancelPresentation
+    {
+        /// <summary>취소된 예약의 번호표(epoch + 예약 번호 — 발사 기록의 번호표와 같은 번호 공간).</summary>
+        public readonly ProjectileDeliveryKey Key;
+
+        /// <summary>쏘려던 유닛 Id.</summary>
+        public readonly int AttackerId;
+
+        /// <summary>쏘려던 유닛 종류((int)UnitType). 진단·필터용.</summary>
+        public readonly int AttackerKind;
+
+        /// <summary>취소 사유.</summary>
+        public readonly ProjectileLaunchCancelCause Cause;
+
+        /// <summary>서버 공격 표현 회차(0 = 같은 프로세스 통보 — 비교 없이 적용).</summary>
+        public readonly ulong PresentationRevision;
+
+        /// <summary>서버가 취소를 확정한 시각(서버 시계).</summary>
+        public readonly double CancelTime;
+
+        /// <summary>값이 정상 범위인가. 네트워크 수신 값도 이 검사를 통과해야 쓴다.</summary>
+        public bool IsValid => Key.IsValid && AttackerId >= 0 && Cause != ProjectileLaunchCancelCause.None
+            && (byte)Cause <= (byte)ProjectileLaunchCancelCause.Other
+            && ProjectileLaunchPresentation.FiniteTime(CancelTime);
+
+        /// <summary>취소 통보를 만든다. 값 검사는 IsValid가 한다.</summary>
+        public ProjectileLaunchCancelPresentation(ProjectileDeliveryKey key, int attackerId, int attackerKind,
+            ProjectileLaunchCancelCause cause, ulong presentationRevision, double cancelTime)
+        {
+            Key = key; AttackerId = attackerId; AttackerKind = attackerKind; Cause = cause;
+            PresentationRevision = presentationRevision; CancelTime = cancelTime;
+        }
+
+        /// <summary>같은 통보에 회차 번호만 붙인 사본(멀티 서버 전송 계층이 채운다).</summary>
+        /// <param name="revision">서버 공격 표현 회차.</param>
+        public ProjectileLaunchCancelPresentation WithRevision(ulong revision)
+            => new ProjectileLaunchCancelPresentation(Key, AttackerId, AttackerKind, Cause, revision, CancelTime);
+    }
+
+    /// <summary>
     /// 투사체 분류(Q11)와 유닛별 이행 스위치(RM-9)의 단일 소스.
     ///
     /// [두 축을 섞지 않는다]
@@ -238,10 +319,17 @@ namespace Hexiege.Application
         //   착탄 때 같은 단일 writer(ComputeFinalDamage)가 그대로 적용한다.
         //   ⚠️ 이 목록을 바꾸면 ManifestToken이 바뀌어 다른 빌드와는 경기가 시작되지 않는다(의도된 안전장치).
         //   옛 목록(단계 A, 기록용): { UnitType.StreamSpirit }  → ManifestToken "17"
+        //   단계 D(2026-10-21 사용자 승인 「논의한 내용대로 진행해」): 차지 유닛 InfernoSpirit(12) · FoxMagician(21)을 켠다.
+        //     · 발사 시각 = 공격 클립의 OnAttackHit(Inferno 1.5초, Fox 85/30초 = 2.8333초). OnAttackCharge(차지 시작)는 발사가 아니다.
+        //     · 착탄 때 기존 단일 writer가 피해를 준다 — Inferno 화상(DoT)도 그 착탄 순간 InfernoAttackBehavior가 건다.
+        //     · 화면 프리셋: Inferno = EffectPreset_InfernoSpirit_Tracer / _Impact, Fox = EffectPreset_FoxMagician_Tracer / _Impact
+        //       (UnitEffectConfig.asset type 12 · 21 행 tracerPreset/impactPreset에 이미 연결 — 2026-10-21 에셋 직접 확인).
+        //   옛 목록(단계 B·C, 기록용): { UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit }  → ManifestToken "6,7,17;tower:human"
         // ────────────────────────────────────────────────────────────────
         private static readonly UnitType[] EnabledUnitTypes =
         {
-            UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit
+            UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit,
+            UnitType.InfernoSpirit, UnitType.FoxMagician
         };
 
         // ────────────────────────────────────────────────────────────────
@@ -293,7 +381,7 @@ namespace Hexiege.Application
         /// <summary>
         /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열.
         /// 앞부분 = 켜진 유닛 번호를 오름차순으로 ","로 연결, 뒤에 켜진 투사체 타워 종족을 ";tower:" 뒤에 붙인다.
-        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human".
+        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human", 단계 D = "6,7,12,17,21;tower:human".
         /// 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
         /// 공백이 없어야 한다 — 진단 END 줄(공백으로 칸을 나눈다)의 switch= 칸에 그대로 들어간다.
         /// </summary>

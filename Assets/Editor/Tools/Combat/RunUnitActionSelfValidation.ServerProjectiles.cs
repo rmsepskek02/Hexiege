@@ -32,6 +32,16 @@
 //   C-4   타워는 건물을 공격하지 않는다(적 건물만 사거리 안 → 발사 0).
 //   C-5   RuneSpire(Spirit) 회귀: 즉발 피해·번호표 없음·Tower 스냅샷 1건, 서버 END path tower-Spirit:s0/l1.
 //   C-6   화면 소비자 소스 게이트: 건물 공격자 출발점 = 서버 포구 위치, 타워 트레이서·발사 신호·착탄 프리셋 경로.
+// [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician]
+//   D-1   스위치 토큰 "6,7,12,17,21;tower:human" · 스키마 6(발사 전 취소 통보 RPC).
+//   D-2   Inferno: 차지 구간 피해·화상 0 → 1.5초 발사(피해 0) → 착탄 때 직격 1회 + 화상 시작. 차지 END 줄.
+//   D-3   Fox: 85/30초 발사 → 착탄 때 1회(번호표, 즉시 표시 없음 — RM-5), foxPrimary 계수.
+//   D-4   차지 중 대상 사망 / 공격자 사망 / 이동 명령 → 발사·피해 0 + 사유별 취소 통보 1건 + 차지 표현 취소 질문 true,
+//         새 커밋이면 다시 false, 차지 중 사거리 이탈 → 원래 대상 발사, 발사 순간 대상 사망 → 발사 0.
+//   D-5   발사 뒤 대상 사망 → TargetLost(피해·화상 0), 발사 뒤 공격자 사망 → 피해 + 화상.
+//   D-6   실제 EffectManager: 서버 취소 통보로 차지 VFX 즉시 정지(싱글·Client 같은 회차), 다른 회차 무시, 취소 뒤 차지 신호 차단
+//         (lease 미소비), Host 서버 게이트, 비차지 유닛 무동작, 서버 투사체 차지 유닛 타격 marker는 로컬 트레이서 없음.
+//   D-7   소스 게이트: 취소 RPC(회차 포함)·화면 연결·RM-5 주석 처리·Fox 시간축 발사 기록.
 // 실제 Animator·VFX·NGO 전송·화면 픽셀은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 7절).
 // ============================================================================
 
@@ -97,6 +107,9 @@ namespace Hexiege.Editor.Combat
                 // [단계 B] Tank · CannonCart 속도 4(2026-10-20 결정 초기값)와 Castle 반경 0.5(건물 대상 fixture).
                 settings.SetUnitSpeed(UnitType.Tank, 4f);
                 settings.SetUnitSpeed(UnitType.CannonCart, 4f);
+                // [단계 D] 차지 유닛 InfernoSpirit · FoxMagician 속도 5(2026-10-20 결정 초기값).
+                settings.SetUnitSpeed(UnitType.InfernoSpirit, 5f);
+                settings.SetUnitSpeed(UnitType.FoxMagician, 5f);
                 settings.SetBuildingRadius(BuildingType.Castle, 0.5f);
                 settings.SetUnitRadius(UnitType.LittleKnight, 0.25f);
                 Combat.SetProjectileSettings(settings);
@@ -140,6 +153,7 @@ namespace Hexiege.Editor.Combat
             ValidateServerProjectileDiagnosticFormats();       // [단계 B] 분포 상자 · marker 계수 형식
             ValidateServerProjectileStageBSourceGates();       // [단계 B] 의심 1 수정 · 진단 오표기 C
             ValidateServerProjectileStageCSourceGates();       // [단계 C] 타워 화면 소비자 경로
+            ValidateServerProjectileStageDSourceGates();       // [단계 D] 취소 통보 전송·화면 연결 · RM-5 · Fox 시간축
             var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
             var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
             Require(dataField != null && idField != null, "Server projectile fixture global-state seams must exist.");
@@ -162,6 +176,12 @@ namespace Hexiege.Editor.Combat
                         DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 2f, HitFrameTimes = new[] { .4f } } },
                     { UnitType.EagleArcher, new UnitStats.StatValues { MaxHp = 300, AttackPower = 20, AttackRange = 3f,
                         DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 1.5f, HitFrameTimes = new[] { .2f } } },
+                    // [단계 D] 차지 유닛 fixture 값. 타격(=발사) 시각은 운영 값과 같은 1.5 · 85/30 float을 넣고,
+                    //   검증은 이 숫자를 다시 쓰지 않고 유닛 데이터의 실제 HitFrameTimes[0]로 tick 한다(ac05e189 교훈).
+                    { UnitType.InfernoSpirit, new UnitStats.StatValues { MaxHp = 600, AttackPower = 25, AttackRange = 4f,
+                        DetectRange = 4f, MoveSpeed = 1f, AttackCooldown = 3f, HitFrameTimes = new[] { 1.5f } } },
+                    { UnitType.FoxMagician, new UnitStats.StatValues { MaxHp = 200, AttackPower = 15, AttackRange = 3f,
+                        DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 4f, HitFrameTimes = new[] { 85f / 30f } } },
                 });
                 ValidateServerProjectileNormalHit();
                 ValidateServerProjectileHomingAndSpeed();
@@ -170,6 +190,8 @@ namespace Hexiege.Editor.Combat
                 ValidateServerProjectileSwitchOffKeepsLegacy();
                 ValidateServerProjectileTankAndCannonCart();   // [단계 B]
                 ValidateServerProjectileHumanTower();          // [단계 C] 인간 방어타워 투사체 + RuneSpire 즉발 회귀
+                ValidateServerProjectileChargeUnits();         // [단계 D] Inferno 화상 착탄 시작 · Fox 숫자 착탄 · 차지 중 취소/사거리 이탈
+                ValidateChargeUnitServerCancelPresentation();  // [단계 D] 차지 VFX 즉시 정지(서버 취소 통보) · 취소 뒤 차지 신호 차단
             }
             finally
             {
@@ -179,7 +201,8 @@ namespace Hexiege.Editor.Combat
             }
             // [단계 B] PASS 문구 앞부분 갱신. 옛 앞부분(기록용): "self-validation PASS: stage-A switch (StreamSpirit only), schema 4 + ..."
             // [단계 C] PASS 문구 앞부분에 인간 타워 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: kill-shot numbers (..."
-            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
+            // [단계 D] PASS 문구 앞부분에 차지 유닛 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: stage-C Human CannonTower (switch token 6,7,17;tower:human, ..."
+            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-D charge units (switch token 6,7,12,17,21;tower:human, schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation and foxPrimary counters, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 commented out, Fox timeline launch record), stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
         // ── 분류·스위치·handshake ───────────────────────────────────────────
@@ -188,18 +211,24 @@ namespace Hexiege.Editor.Combat
             // [단계 B] 옛 단언(단계 A, 기록용 — 주석 보존):
             //   Require(IsServerProjectile(StreamSpirit) && !IsServerProjectile(Tank) && !IsServerProjectile(CannonCart) && ...
             //           && ManifestToken == "17", "Stage A switches on StreamSpirit only; ...");
+            // [단계 D] 옛 단언(단계 B·C, 기록용 — 주석 보존):
+            //   Require(IsServerProjectile(StreamSpirit) && IsServerProjectile(Tank) && IsServerProjectile(CannonCart)
+            //           && !IsServerProjectile(InfernoSpirit) && !IsServerProjectile(FoxMagician) && !IsServerProjectile(EagleArcher)
+            //           && !IsServerProjectile(MushroomBomber) && !IsServerProjectile(Pistoleer),
+            //       "Stage B switches on Tank, CannonCart and StreamSpirit; every other projectile unit keeps the legacy path.");
             Require(ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.StreamSpirit)
                     && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Tank)
                     && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.CannonCart)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.FoxMagician)
+                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit)
+                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.FoxMagician)
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.EagleArcher)
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber)
                     && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer),
-                "Stage B switches on Tank, CannonCart and StreamSpirit; every other projectile unit keeps the legacy path.");
+                "[D-1] Stage D adds the charge units InfernoSpirit and FoxMagician; EagleArcher and MushroomBomber keep the legacy path.");
             // [단계 C] 옛 단언(단계 B, 기록용): ... && ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17"
-            Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17;tower:human",
-                "[C-1] Stage C switch token adds the Human CannonTower: " + ServerProjectileDeliveryPolicy.ManifestToken);
+            // [단계 D] 옛 단언(단계 C, 기록용): Require(ManifestToken == "6,7,17;tower:human", "[C-1] Stage C switch token adds the Human CannonTower: ...");
+            Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,12,17,21;tower:human",
+                "[D-1] Stage D switch token adds InfernoSpirit (12) and FoxMagician (21): " + ServerProjectileDeliveryPolicy.ManifestToken);
             Require(ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Human)
                     && ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Human)
                     && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
@@ -217,8 +246,9 @@ namespace Hexiege.Editor.Combat
                     && !ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.TorrentSpirit),
                 "Q11 projectile-unit classification is exactly the seven projectile units (Torrent excluded).");
             // [단계 B] 옛 단언(기록용): PresentationContractSchemaRevision == 4 — 단계 A 전송 계약.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 5,
-                "Stage B projectile epoch RPC (snapshot launch count) raises the presentation schema to 5.");
+            // [단계 D] 옛 단언(단계 B·C, 기록용): Require(PresentationContractSchemaRevision == 5, "Stage B projectile epoch RPC ... raises the presentation schema to 5.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 6,
+                "[D-1] The stage D launch-cancel RPC raises the presentation schema to 6.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved
@@ -226,7 +256,7 @@ namespace Hexiege.Editor.Combat
                 "U-16: MushroomBomber is TargetLocked (homing) while staying C3 Unresolved.");
             Require(UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(out string hash, out _)
                     && hash.Length == 64,
-                "Handshake hash still computes with the schema 5 manifest and the switch token.");
+                "Handshake hash still computes with the schema 6 manifest and the switch token.");
         }
 
         // ── 계약 값 검사 ────────────────────────────────────────────────────
@@ -301,7 +331,8 @@ namespace Hexiege.Editor.Combat
                 string end = f.Combat.BuildProjectileEndLine("fixture");
                 Require(end.StartsWith("side=server v=1 role=Single authority=local ") && end.Contains(" reason=fixture ")
                         // [단계 C] 옛 조각(기록용): end.Contains(" switch=6,7,17 ")
-                        && end.Contains(" switch=6,7,17;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
+                        // [단계 D] 옛 조각(기록용): end.Contains(" switch=6,7,17;tower:human ")
+                        && end.Contains(" switch=6,7,12,17,21;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
                         && end.Contains(" hit=1 ") && end.Contains(" targetLost=0 ") && end.Contains(" cancelled=0 ")
                         && end.Contains(" cancel=attacker-dead:0|attacker-replaced:0|target-dead:0|target-missing:0|target-replaced:0|move-command:0|invalid-launch-geometry:0|other:0 ")
                         && end.Contains(" flight=n:1|") && end.Contains(" path=17:s1/l0 ")
@@ -1181,6 +1212,388 @@ namespace Hexiege.Editor.Combat
                     && tower.Contains("_projectiles.TryLaunchTowerProjectile(tower, projectileRace, target, launchPower, this)")
                     && tower.Contains("projectilePresentationKey: key"),
                 "[C-6] The tower writer branches only projectile towers to the server launch and tags impact damage with the projectile key.");
+        }
+
+        // ── [2026-10-21 단계 D — D-2~D-5] 차지 유닛 InfernoSpirit · FoxMagician 서버 투사체 ─────────────────────
+        /// <summary>
+        /// 실제 UnitCombatUseCase(TryAttack → 발사 예약 → TickProjectiles)로 차지 유닛의 서버 판정을 확인한다.
+        ///   D-2 Inferno: 차지 구간(커밋~1.5초)에는 발사·피해 없음 → 1.5초 발사(피해 0, 화상 없음) → 착탄 때 직격 1회 + 화상 DoT 시작.
+        ///   D-3 Fox: 85/30초 발사 → 착탄 때 1회, 피해 이벤트에 투사체 번호표·즉시 표시 없음(규칙 19 예외 제거 RM-5), foxPrimary 계수.
+        ///   D-4 차지 중 끊김: 대상 사망 / 공격자 사망 / 이동 명령 → 발사 0 · 피해 0 · 취소 통보 1건(사유별) · 차지 표현 취소 질문 true.
+        ///       차지 중 사거리 이탈 → 원래 대상에게 발사·피해, 통보 0. 발사 순간 대상 사망 → 발사 0.
+        ///   D-5 발사 뒤 대상 사망 → TargetLost(피해·화상 없음), 발사 뒤 공격자 사망 → 피해 + 화상.
+        /// 타격 시각·착탄 시각은 유닛 데이터(HitFrameTimes)와 발사 기록(ImpactTime)의 실제 값으로 tick 한다(하드코딩 금지).
+        /// </summary>
+        private static void ValidateServerProjectileChargeUnits()
+        {
+            // D-2 Inferno 정상: 발사 때 피해·화상 0 → 착탄 때 직격 1회 + 화상 시작.
+            using (var f = new ProjectileFixture(UnitType.InfernoSpirit))
+            {
+                var cancels = new List<ProjectileLaunchCancelPresentation>();
+                f.Combat.ProjectileLaunchCancelled += cancels.Add;
+                int hp = f.Victim.Hp;
+                Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
+                    "[D-2] InfernoSpirit (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(hitAt * .5d);   // 차지 구간 한가운데
+                f.Combat.TickTimedEffects(1f);
+                Require(f.Launches.Count == 0 && f.Victim.Hp == hp && f.VictimDamage.Count == 0,
+                    "[D-2] During the charge window nothing is launched and no damage or burn is applied.");
+                f.Tick(hitAt);
+                Require(f.Launches.Count == 1 && f.Victim.Hp == hp && f.VictimDamage.Count == 0
+                        && Math.Abs(f.Launches[0].LaunchTime - hitAt) < 1e-9 && f.Launches[0].AttackerKind == (int)UnitType.InfernoSpirit,
+                    "[D-2] InfernoSpirit launches at its OnAttackHit offset (1.5 s) with no damage at launch.");
+                ProjectileLaunchPresentation launch = f.Launches[0];
+                Require(Math.Abs(launch.ImpactTime - (hitAt + (2.0d - .25d) / 5d)) < 1e-5,
+                    "[D-2] Inferno impact time = launch + (centre distance - target radius) / speed 5.");
+                f.Combat.TickTimedEffects(1f);
+                Require(f.Victim.Hp == hp && f.VictimDamage.Count == 0,
+                    "[D-2] The burn DoT does not exist while the fireball is still flying.");
+                f.Tick(launch.ImpactTime);
+                Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                        && f.VictimDamage.Count == 1 && f.Victim.Hp == hp - 25
+                        && f.VictimDamage[0].ProjectilePresentationKey.Equals(launch.Key)
+                        && !f.VictimDamage[0].ImmediatePresentation,
+                    "[D-2] At impact exactly one direct hit goes through the single writer with the projectile key.");
+                int afterImpact = f.Victim.Hp;
+                f.Combat.TickTimedEffects(1f);
+                Require(f.Victim.Hp < afterImpact,
+                    "[D-2] The Inferno burn DoT starts at the impact (first one-second tick lowers HP after the impact, never before).");
+                Require(cancels.Count == 0 && !f.Combat.IsChargePresentationCancelled(f.Attacker),
+                    "[D-2] A launched Inferno attack sends no cancel notice and is not reported as a cancelled charge.");
+                string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
+                Require(charge.StartsWith("side=server-charge v=1 role=Single epoch=") && charge.Contains(" reason=fixture ")
+                        && charge.Contains(" inferno=reserved:1|launched:1|hit:1|targetLost:0 cancel12=attacker-dead:0|")
+                        && charge.Contains(" fox=reserved:0|launched:0|hit:0|targetLost:0 cancel21=")
+                        && charge.EndsWith(" foxPrimary=all:0|projectileKeyed:0|immediate:0|oldRuleImmediate:0 verdict=PASS"),
+                    "[D-2] Server charge END line counts the Inferno reservation, launch and hit: " + charge);
+            }
+
+            // D-3 Fox: 착탄 때 숫자(번호표) — 즉시 표시 예외 없음.
+            using (var f = new ProjectileFixture(UnitType.FoxMagician))
+            {
+                int hp = f.Victim.Hp;
+                Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue, "[D-3] FoxMagician commit succeeds.");
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(1d);   // Fox 차지 신호(1초) 무렵 — 차지는 발사가 아니다
+                Require(f.Launches.Count == 0 && f.Combat.HasPendingProjectileLaunch(f.Attacker),
+                    "[D-3] The Fox charge moment (1 s) is not a launch; the reservation stays pending.");
+                f.Tick(hitAt);
+                Require(f.Launches.Count == 1 && f.Victim.Hp == hp && Math.Abs(f.Launches[0].LaunchTime - hitAt) < 1e-9,
+                    "[D-3] FoxMagician launches at its 85/30 s OnAttackHit offset with no damage at launch.");
+                f.Tick(f.Launches[0].ImpactTime);
+                Require(f.Impacts.Count == 1 && f.VictimDamage.Count == 1 && f.Victim.Hp == hp - 15
+                        && f.VictimDamage[0].ProjectilePresentationKey.Equals(f.Launches[0].Key)
+                        && !f.VictimDamage[0].ImmediatePresentation,
+                    "[D-3] RM-5: Fox damage is applied at impact with the projectile key and without the rule-19 immediate presentation.");
+                string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
+                Require(charge.Contains(" fox=reserved:1|launched:1|hit:1|targetLost:0 ")
+                        && charge.EndsWith(" foxPrimary=all:1|projectileKeyed:1|immediate:0|oldRuleImmediate:1 verdict=PASS"),
+                    "[D-3] Server charge END confirms the Fox immediate presentation is off (immediate 0, old rule would have been 1): " + charge);
+            }
+
+            // D-4 차지 중 끊김 3종 — 대상 사망 / 공격자 사망 / 이동 명령.
+            foreach (string cut in new[] { "target-dead", "attacker-dead", "move-command" })
+            foreach (UnitType type in new[] { UnitType.InfernoSpirit, UnitType.FoxMagician })
+            using (var f = new ProjectileFixture(type))
+            {
+                var cancels = new List<ProjectileLaunchCancelPresentation>();
+                f.Combat.ProjectileLaunchCancelled += cancels.Add;
+                int hp = f.Victim.Hp;
+                f.Combat.TryAttack(f.Attacker, 0d);
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(hitAt * .5d);   // 차지 중
+                if (cut == "target-dead") f.Victim.TakeDamage(f.Victim.Hp);
+                else if (cut == "attacker-dead") f.Attacker.TakeDamage(f.Attacker.Hp);
+                else f.Combat.CancelProjectileLaunches(f.Attacker, "move-command");
+                f.Tick(hitAt * .6d);
+                ProjectileLaunchCancelCause expected = cut == "target-dead" ? ProjectileLaunchCancelCause.TargetDead
+                    : cut == "attacker-dead" ? ProjectileLaunchCancelCause.AttackerDead : ProjectileLaunchCancelCause.MoveCommand;
+                Require(cancels.Count == 1 && cancels[0].IsValid && cancels[0].Cause == expected
+                        && cancels[0].AttackerId == f.Attacker.Id && cancels[0].AttackerKind == (int)type
+                        && cancels[0].Key.Epoch == f.Combat.ProjectileEpoch && cancels[0].PresentationRevision == 0UL,
+                    "[D-4] " + type + " " + cut + " during the charge publishes exactly one server cancel notice with its cause.");
+                Require(f.Combat.IsChargePresentationCancelled(f.Attacker),
+                    "[D-4] " + type + " " + cut + ": the authority reports the latest charge as cancelled (no later charge VFX).");
+                f.Tick(hitAt);
+                f.Tick(hitAt + 2d);
+                int expectedHp = cut == "target-dead" ? 0 : hp;
+                Require(f.Launches.Count == 0 && f.Impacts.Count == 0 && f.VictimDamage.Count == 0 && f.Victim.Hp == expectedHp,
+                    "[D-4] " + type + " " + cut + " before launch: no launch, no result, no damage.");
+                string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
+                string slot = type == UnitType.InfernoSpirit ? "cancel12=" : "cancel21=";
+                Require(charge.Contains(slot) && charge.Substring(charge.IndexOf(slot, StringComparison.Ordinal)).Contains(cut + ":1"),
+                    "[D-4] Server charge END counts the charge-time cancel under its own cause (" + cut + "): " + charge);
+                Require(f.Combat.BuildProjectileEndLine("fixture").Contains(" balance=ok "), "[D-4] Server END balance stays ok after the cancel.");
+            }
+
+            // D-4 새 커밋이 오면 차지 표현 취소 질문은 다시 false(다음 공격의 차지는 정상).
+            using (var f = new ProjectileFixture(UnitType.InfernoSpirit))
+            {
+                f.Combat.TryAttack(f.Attacker, 0d);
+                f.Victim.TakeDamage(f.Victim.Hp);
+                f.Tick(.3d);
+                Require(f.Combat.IsChargePresentationCancelled(f.Attacker), "[D-4] Cancelled charge is reported.");
+                UnitData next = f.Spawn.SpawnUnitWithId(9702, UnitType.LittleKnight, TeamId.Red, new HexCoord(1, 1));
+                f.Positions.Units[next.Id] = new Vector3(1.6f, 0f, .9f);
+                Require(f.Combat.TryReserveProjectileLaunch(f.Attacker, next.Id, true, 4.5d, 0)
+                        && !f.Combat.IsChargePresentationCancelled(f.Attacker),
+                    "[D-4] A new commit (new reservation) clears the cancelled-charge answer so the next charge plays.");
+            }
+
+            // D-4 차지 중 사거리 이탈 → 끊김이 아니다: 원래 대상에게 발사, 통보 0.
+            using (var f = new ProjectileFixture(UnitType.InfernoSpirit))
+            {
+                var cancels = new List<ProjectileLaunchCancelPresentation>();
+                f.Combat.ProjectileLaunchCancelled += cancels.Add;
+                int hp = f.Victim.Hp;
+                f.Combat.TryAttack(f.Attacker, 0d);
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Positions.Units[f.Victim.Id] = new Vector3(9.1f, 0f, .1f);   // 차지 중 사거리(4) 밖으로
+                f.Tick(hitAt * .5d);
+                Require(f.Combat.HasPendingProjectileLaunch(f.Attacker) && cancels.Count == 0,
+                    "[D-4] Leaving range during the charge keeps the reservation pending and sends no cancel notice.");
+                f.Tick(hitAt);
+                Require(f.Launches.Count == 1 && f.Launches[0].TargetId == f.Victim.Id,
+                    "[D-4] The out-of-range original target is still shot at the hit offset.");
+                f.Tick(f.Launches[0].ImpactTime);
+                Require(f.Impacts.Count == 1 && f.Victim.Hp == hp - 25 && cancels.Count == 0
+                        && !f.Combat.IsChargePresentationCancelled(f.Attacker),
+                    "[D-4] It hits once; the charge was never cancelled.");
+            }
+
+            // D-4 발사 순간 대상 사망 → 발사 안 함(Q15).
+            using (var f = new ProjectileFixture(UnitType.FoxMagician))
+            {
+                var cancels = new List<ProjectileLaunchCancelPresentation>();
+                f.Combat.ProjectileLaunchCancelled += cancels.Add;
+                f.Combat.TryAttack(f.Attacker, 0d);
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(hitAt - .01d);
+                f.Victim.TakeDamage(f.Victim.Hp);
+                f.Tick(hitAt);
+                Require(f.Launches.Count == 0 && cancels.Count == 1 && cancels[0].Cause == ProjectileLaunchCancelCause.TargetDead,
+                    "[D-4] A target dead at the launch moment is never shot; the cancel notice says target-dead.");
+            }
+
+            // D-5 발사 뒤 대상 사망 → TargetLost(피해·화상 없음) / 발사 뒤 공격자 사망 → 피해 + 화상.
+            using (var f = new ProjectileFixture(UnitType.InfernoSpirit))
+            {
+                f.Combat.TryAttack(f.Attacker, 0d);
+                f.Tick(f.Attacker.HitFrameTimes[0]);
+                f.Victim.TakeDamage(f.Victim.Hp);
+                f.Tick(f.Launches[0].ImpactTime);
+                Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.TargetLost && f.VictimDamage.Count == 0,
+                    "[D-5] A target lost while the fireball flies takes no damage and no burn; the result is TargetLost.");
+                Require(f.Combat.BuildProjectileChargeEndLine("fixture").Contains(" inferno=reserved:1|launched:1|hit:0|targetLost:1 "),
+                    "[D-5] Server charge END counts the in-flight target loss.");
+            }
+            using (var f = new ProjectileFixture(UnitType.InfernoSpirit))
+            {
+                int hp = f.Victim.Hp;
+                f.Combat.TryAttack(f.Attacker, 0d);
+                f.Tick(f.Attacker.HitFrameTimes[0]);
+                f.Attacker.TakeDamage(f.Attacker.Hp);
+                f.Spawn.RemoveUnit(f.Attacker.Id);
+                f.Tick(f.Launches[0].ImpactTime);
+                Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.Hit && f.Victim.Hp == hp - 25,
+                    "[D-5] Q3 Persist: a launched fireball still damages after the Inferno died.");
+                int afterImpact = f.Victim.Hp;
+                f.Combat.TickTimedEffects(1f);
+                Require(f.Victim.Hp < afterImpact, "[D-5] The burn still starts at impact after the attacker died (InfernoAttackBehavior Persist).");
+            }
+        }
+
+        // ── [단계 D — D-6] 차지 VFX 즉시 정지(서버 취소 통보)와 취소 뒤 차지 신호 차단 — 실제 EffectManager · UnitView ─────────
+        /// <summary>
+        /// 실제 UnitEffectConfig 프리셋과 EffectManager로, 서버 취소 통보가 차지 VFX를 끄는지 세 실행 형태에서 확인한다.
+        ///   싱글: 실제 UseCase 예약 → 차지 재생 → 차지 중 대상 사망 → 취소 통보로 즉시 정지 → 같은 공격의 다음 차지 신호도 안 켜짐 →
+        ///         타격 marker는 트레이서를 쏘지 않는다(서버 발사 기록이 없으므로 화면 소비자도 그리지 않는다).
+        ///   Client: 회차가 다른 통보는 무시(더 새 공격 보호), 같은 회차면 정지, 차지 신호 전에 온 통보는 그 회차 차지를 막는다(lease 미소비).
+        ///   Host: lease가 장전돼 있어도 서버 UseCase가 취소한 공격의 차지는 켜지 않고, 새 예약이 오면 다시 켠다.
+        ///   비차지 유닛: 통보를 받아도 할 일 없음(NotChargeUnit).
+        /// 화면 소비자의 실제 연결(Presenter → ApplyServerProjectileLaunchCancel)은 단계 D 소스 게이트가 확인한다.
+        /// </summary>
+        private static void ValidateChargeUnitServerCancelPresentation()
+        {
+            var units = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>("Assets/_Project/Resources/Config/UnitEffectConfig.asset");
+            var buildings = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.BuildingEffectConfig>("Assets/_Project/Resources/Config/BuildingEffectConfig.asset");
+            Require(units != null && buildings != null, "[D-6] VFX production configs exist.");
+            units.Initialize(); buildings.Initialize();
+            var effectSingleton = typeof(Hexiege.Presentation.EffectManager).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            var audioSingleton = typeof(Hexiege.Core.SingletonMonoBehaviour<Hexiege.Presentation.AudioManager>).GetField(
+                "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            Require(effectSingleton != null && audioSingleton != null, "[D-6] Fixture singleton isolation seams exist.");
+            object oldEffect = effectSingleton.GetValue(null), oldAudio = audioSingleton.GetValue(null);
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var root = new GameObject("ChargeCancelFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var casters = new List<GameObject>();
+            var fixtures = new List<ProjectileFixture>();
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            var viewType = typeof(Hexiege.Presentation.UnitView);
+            try
+            {
+                var manager = root.AddComponent<Hexiege.Presentation.EffectManager>();
+                typeof(Hexiege.Presentation.EffectManager).GetField("_vfxContainer", fields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                effectSingleton.SetValue(null, manager); audioSingleton.SetValue(null, null);
+
+                int Active(GameObject prefab)
+                {
+                    int count = 0;
+                    foreach (var item in root.GetComponentsInChildren<Hexiege.Presentation.VfxPoolItem>(true))
+                        if (item.SourcePrefab == prefab && item.gameObject.activeSelf) count++;
+                    return count;
+                }
+                int ActiveTracers()
+                {
+                    int count = 0;
+                    foreach (var t in root.GetComponentsInChildren<Hexiege.Presentation.TracerProjectile>(true))
+                        if (t.gameObject.activeSelf) count++;
+                    return count;
+                }
+                Hexiege.Presentation.UnitView View(UnitData data, UnitCombatUseCase combat, bool chargeUnit)
+                {
+                    var go = new GameObject("ChargeCancel" + data.Type) { hideFlags = HideFlags.HideAndDontSave };
+                    casters.Add(go);
+                    var view = go.AddComponent<Hexiege.Presentation.UnitView>();
+                    viewType.GetField("_unitData", fields).SetValue(view, data);
+                    viewType.GetField("_combatUseCase", fields).SetValue(view, combat);
+                    // Animator가 없는 fixture라 클립 이벤트 판별(P2-1)을 계산할 수 없다 → 판별값만 직접 연다(클립 집합은 T-4가 고정).
+                    viewType.GetField("_hasAttackChargeMarker", fields).SetValue(view, chargeUnit);
+                    viewType.GetField("_attackChargeMarkerCacheResolved", fields).SetValue(view, true);
+                    return view;
+                }
+                void Commit(Hexiege.Presentation.UnitView view, ulong revision)
+                {
+                    // 서버 커밋 1회 흉내: 수락 회차 + source lease 1회분 + LegacyFallback(두 차지 유닛의 현재 모드).
+                    var lease = new Hexiege.Application.Combat.Sequencing.AttackPresentationSourceMarkerLease();
+                    Require(lease.TryArm(revision, 1), "[D-6] Fixture source lease must arm.");
+                    viewType.GetField("_attackPresentationSourceMarkerLease", fields).SetValue(view, lease);
+                    viewType.GetField("_attackPresentationImpactMode", fields).SetValue(view, Hexiege.Application.Combat.Sequencing.AttackPresentationImpactMode.LegacyFallback);
+                    viewType.GetField("_lastAttackPresentationRevision", fields).SetValue(view, revision);
+                }
+                var charge = units.GetAttack(UnitType.InfernoSpirit);
+                Require(charge?.VfxPrefab != null && charge.StopWhenCasterDies, "[D-6] Inferno charge preset is wired and caster-owned.");
+                var chargeEvent = new AnimationEvent { time = 5f / 30f };
+                var hitEvent = new AnimationEvent { time = 1.5f };
+
+                // ── 싱글 ──
+                NetworkContext.Set(false, false);
+                var single = new ProjectileFixture(UnitType.InfernoSpirit);
+                fixtures.Add(single);
+                var singleView = View(single.Attacker, single.Combat, true);
+                var results = new List<Hexiege.Presentation.ServerProjectileChargeCancelResult>();
+                // 화면 소비자(ProjectilePresentationPresenter.ReceiveLaunchCancel)와 같은 호출을 그대로 연결한다.
+                single.Combat.ProjectileLaunchCancelled += c => results.Add(singleView.ApplyServerProjectileLaunchCancel(c.PresentationRevision));
+                Require(single.Combat.TryAttack(single.Attacker, 0d).HasValue, "[D-6] Single Inferno commit succeeds.");
+                singleView.OnAttackCharge(chargeEvent);
+                Require(Active(charge.VfxPrefab) == 1 && ActiveTracers() == 0,
+                    "[D-6] Single: the charge marker plays one charge VFX while the server reservation is pending.");
+                single.Victim.TakeDamage(single.Victim.Hp);
+                single.Tick(.5d);
+                Require(results.Count == 1 && results[0] == Hexiege.Presentation.ServerProjectileChargeCancelResult.Stopped
+                        && Active(charge.VfxPrefab) == 0,
+                    "[D-6] Single: target death during the charge stops the charge VFX at once through the server cancel notice.");
+                singleView.OnAttackCharge(chargeEvent);
+                Require(Active(charge.VfxPrefab) == 0,
+                    "[D-6] Single: a later charge marker of the cancelled attack does not restart the charge.");
+                singleView.OnAttackHit(hitEvent);
+                Require(ActiveTracers() == 0 && Active(charge.VfxPrefab) == 0 && single.Launches.Count == 0,
+                    "[D-6] Single: the hit marker of a server-projectile charge unit fires no local tracer and replays no charge.");
+
+                // ── Client(회차 규칙) ──
+                NetworkContext.Set(false, true);
+                var clientData = new UnitData(98310, UnitType.InfernoSpirit, TeamId.Red, new HexCoord(0, 0), 600, 25, 4f, 4f);
+                var clientView = View(clientData, null, true);
+                Commit(clientView, 7UL);
+                clientView.OnAttackCharge(chargeEvent);
+                Require(Active(charge.VfxPrefab) == 1, "[D-6] Client: the charge plays with the commit's lease (check only).");
+                Require(clientView.ApplyServerProjectileLaunchCancel(6UL) == Hexiege.Presentation.ServerProjectileChargeCancelResult.StaleRevision
+                        && Active(charge.VfxPrefab) == 1,
+                    "[D-6] Client: a cancel notice for another revision never stops the current attack's charge.");
+                Require(clientView.ApplyServerProjectileLaunchCancel(7UL) == Hexiege.Presentation.ServerProjectileChargeCancelResult.Stopped
+                        && Active(charge.VfxPrefab) == 0,
+                    "[D-6] Client: the same-revision server cancel notice stops the charge VFX immediately.");
+                Commit(clientView, 8UL);
+                Require(clientView.ApplyServerProjectileLaunchCancel(8UL) == Hexiege.Presentation.ServerProjectileChargeCancelResult.NothingActive,
+                    "[D-6] Client: a cancel that arrives before the charge marker has nothing to stop yet.");
+                clientView.OnAttackCharge(chargeEvent);
+                // lease는 struct라 OnAttackCharge 뒤에 다시 읽는다(앞에서 복사해 두면 바뀐 값을 못 본다).
+                var lease8 = (Hexiege.Application.Combat.Sequencing.AttackPresentationSourceMarkerLease)
+                    viewType.GetField("_attackPresentationSourceMarkerLease", fields).GetValue(clientView);
+                Require(Active(charge.VfxPrefab) == 0 && lease8.IsArmed && lease8.RemainingMarkerCount == 1,
+                    "[D-6] Client: that revision's late charge marker does not start the charge, and the lease is not consumed.");
+
+                // ── Host(서버 UseCase 게이트) ──
+                NetworkContext.Set(true, true);
+                var host = new ProjectileFixture(UnitType.InfernoSpirit);
+                fixtures.Add(host);
+                var hostView = View(host.Attacker, host.Combat, true);
+                Commit(hostView, 10UL);
+                Require(host.Combat.TryReserveProjectileLaunch(host.Attacker, host.Victim.Id, true, 1.5d, 0),
+                    "[D-6] Host: the server reservation exists.");
+                host.Combat.CancelProjectileLaunches(host.Attacker, "move-command");
+                hostView.OnAttackCharge(chargeEvent);
+                Require(Active(charge.VfxPrefab) == 0,
+                    "[D-6] Host: even with an armed lease, the charge of an attack the server already cancelled does not start.");
+                Require(host.Combat.TryReserveProjectileLaunch(host.Attacker, host.Victim.Id, true, 4.5d, 0), "[D-6] Host: next reservation.");
+                hostView.OnAttackCharge(chargeEvent);
+                Require(Active(charge.VfxPrefab) == 1, "[D-6] Host: the next committed attack's charge plays normally.");
+
+                // ── 비차지 유닛 ──
+                var streamView = View(new UnitData(98311, UnitType.StreamSpirit, TeamId.Blue, new HexCoord(0, 0), 300, 60, 3f, 3f), null, false);
+                Require(streamView.ApplyServerProjectileLaunchCancel(0UL) == Hexiege.Presentation.ServerProjectileChargeCancelResult.NotChargeUnit,
+                    "[D-6] A non-charge projectile unit has nothing to stop.");
+            }
+            finally
+            {
+                foreach (var f in fixtures) f.Dispose();
+                effectSingleton.SetValue(null, oldEffect); audioSingleton.SetValue(null, oldAudio);
+                NetworkContext.Set(oldServer, oldActive);
+                foreach (var go in casters) if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        // ── [단계 D — D-7] 취소 통보 전송·화면 연결 · RM-5 · Fox 시간축 소스 게이트 ─────────────────────────
+        private static void ValidateServerProjectileStageDSourceGates()
+        {
+            string Read(string relative)
+            {
+                string path = Path.Combine(UnityEngine.Application.dataPath, relative);
+                Require(File.Exists(path), "Stage D source gate file exists: " + relative);
+                return File.ReadAllText(path);
+            }
+            string Active(string source)
+            {
+                var kept = new System.Text.StringBuilder(source.Length);
+                foreach (string line in source.Split('\n'))
+                    if (!line.TrimStart().StartsWith("//", StringComparison.Ordinal)) kept.Append(line).Append('\n');
+                return kept.ToString();
+            }
+            string transport = Active(Read("_Project/Scripts/Infrastructure/Network/NetworkCombatController.Projectiles.cs"));
+            string presenter = Active(Read("_Project/Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs"));
+            string unitView = Active(Read("_Project/Scripts/Presentation/Unit/UnitView.cs"));
+            string useCase = Active(Read("_Project/Scripts/Application/UseCases/UnitCombatUseCase.cs"));
+            Require(transport.Contains("combat.ProjectileLaunchCancelled += SendProjectileLaunchCancel;")
+                    && transport.Contains("_attackPresentationRevisions.TryGetValue(cancel.AttackerId, out ulong revision);")
+                    && transport.Contains("private void ProjectileLaunchCancelClientRpc(")
+                    && transport.Contains("combat.ReceiveProjectileLaunchCancel(_pendingProjectileCancels.Dequeue());"),
+                "[D-7] The server cancel notice is sent with the attacker's latest presentation revision and delivered to the client use case.");
+            Require(presenter.Contains("combat.ProjectileLaunchCancelled += ReceiveLaunchCancel;")
+                    && presenter.Contains("view.ApplyServerProjectileLaunchCancel(cancel.PresentationRevision)"),
+                "[D-7] The projectile presenter routes every cancel notice to the attacker's UnitView.");
+            Require(unitView.Contains("if (chargeOnly && IsServerProjectileChargeCancelled())")
+                    && unitView.Contains("_combatUseCase.IsChargePresentationCancelled(_unitData)"),
+                "[D-7] The charge marker asks the server authority (single/Host) whether the attack was already cancelled.");
+            Require(useCase.Contains("const bool immediatePrimaryPresentation = false;")
+                    && !useCase.Contains("bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician"),
+                "[D-7] RM-5: the Fox rule-19 immediate presentation branch is commented out (kept as a comment, not active).");
+            Require(transport.Contains("UnitAttackShadowObserver.RecordFoxMagicianTimerImpact(")
+                    && transport.Contains("RememberFoxProjectileTimelineTicket(UnitData unit, ulong ticket)"),
+                "[D-7] The Fox timeline diagnostic records its timer-impact at the server launch on the projectile path.");
         }
     }
 }

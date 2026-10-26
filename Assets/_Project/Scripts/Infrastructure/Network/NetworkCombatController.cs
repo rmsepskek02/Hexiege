@@ -1544,8 +1544,12 @@ namespace Hexiege.Infrastructure
                         unit.Type, ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type));
                 if (ServerProjectileDeliveryPolicy.IsServerProjectile(unit.Type))
                 {
-                    _services?.GetCombatUseCase()?.TryReserveProjectileLaunch(
-                        unit, targetId, targetIsUnit, GetAuthoritativeServerTime() + delay, hitIndex);
+                    bool projectileReserved = _services?.GetCombatUseCase()?.TryReserveProjectileLaunch(
+                        unit, targetId, targetIsUnit, GetAuthoritativeServerTime() + delay, hitIndex) == true;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    // [2026-10-21 단계 D 진단 전용] Fox 시간축 ticket을 발사 확정 순간(SendProjectileLaunch)까지 맡겨 둔다.
+                    if (projectileReserved) RememberFoxProjectileTimelineTicket(unit, foxMagicianTimelineCorrelationTicket);
+#endif
                     continue;
                 }
 

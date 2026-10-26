@@ -1635,8 +1635,12 @@ namespace Hexiege.Infrastructure
             UnitType unitType,
             int targetId,
             bool targetIsUnit,
-            AttackDamageApplyStatus writerResult)
+            AttackDamageApplyStatus writerResult,
+            string writerResultOverride = null)
         {
+            // [2026-10-21 단계 D] writerResultOverride: 서버 투사체 경로에서는 이 기록이 피해 writer가 아니라 "발사 확정" 순간에 남는다
+            //   (피해는 착탄 때). 그 의미를 로그 글자로만 바꾼다 — 매칭·계수·완료 판정은 예전과 같다(null이면 종전 그대로).
+            //   StreamSpirit의 같은 이름 인자(2026-10-20 단계 B)와 같은 규칙이다.
             if (!_active || !_isServer || unitType != UnitType.FoxMagician) return;
 
             if (correlationTicket == 0UL
@@ -1667,7 +1671,7 @@ namespace Hexiege.Infrastructure
                 match,
                 "timer-impact",
                 match.TimerImpactServerTime,
-                $"correlationTicket={correlationTicket}, writerResult={writerResult}");
+                $"correlationTicket={correlationTicket}, writerResult={(writerResultOverride ?? writerResult.ToString())}");
         }
 
         private static string BuildFoxMagicianTimelineKey(int unitId, ulong revision)

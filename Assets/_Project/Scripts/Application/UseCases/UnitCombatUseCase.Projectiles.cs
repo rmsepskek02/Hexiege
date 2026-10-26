@@ -19,6 +19,10 @@
 //        · 비행 중: 원래 대상 "객체"를 따라간다(Homing). 대상이 사라지면 마지막 위치를 고정한다.
 //        · 착탄 시각: 대상이 살아 있으면 피해 1회 + 결과(Hit), 사라졌으면 결과(TargetLost)만 — 피해 없음(Q4).
 //   3) 게임 종료·맵 정리·디스폰·서비스 교체 → CloseProjectiles: 남은 예약/비행을 모두 피해 없이 닫는다(위험 7).
+//   [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician]
+//     2)의 "발사 취소"가 일어나면 ProjectileLaunchCancelled(사유 포함)를 발행한다. 화면 소비자가 받아 차지 VFX를 즉시 끄고,
+//     전송 계층이 Client에게 같은 통보를 보낸다(회차 번호를 붙여). 싱글·Host 화면은 IsChargePresentationCancelled로
+//     "이미 취소된 공격의 차지 신호"를 막는다. 사거리 이탈은 여전히 취소가 아니다(Q5).
 //
 // [2026-10-21 단계 C — 건물 공격자(인간 방어타워 CannonTower)]
 //   타워는 공격 애니메이션 marker가 없어 "공격 순간 = 발사 순간"이다. 그래서 예약 단계 없이
@@ -152,6 +156,13 @@ namespace Hexiege.Application
         public event Action<ProjectileImpactPresentation> ProjectileResolved;
 
         /// <summary>
+        /// [2026-10-21 단계 D] 서버가 유닛 공격자의 발사 예약을 "발사 전에" 취소했을 때(Client는 취소 통보를 받았을 때) 발행된다.
+        /// 화면 소비자(ProjectilePresentationPresenter)가 구독해 그 공격자의 차지 VFX를 즉시 끈다. 전송 계층은 Client로 전달한다.
+        /// 피해·HP와는 무관하다(취소된 예약은 처음부터 피해를 만들지 않는다).
+        /// </summary>
+        public event Action<ProjectileLaunchCancelPresentation> ProjectileLaunchCancelled;
+
+        /// <summary>
         /// 조합 루트(GameBootstrapper)가 Inspector 설정(ProjectileConfig)에서 만든 속도·반경 값을 주입한다.
         /// null이면 코드 기본값을 유지한다.
         /// </summary>
@@ -217,6 +228,7 @@ namespace Hexiege.Application
             _projectiles.Add(record);
             _projectileCueStates[attacker.Id] = new ProjectileCueState { Attacker = attacker, Cancelled = false };
             DiagProjectileReserve(true);
+            DiagChargeUnitStage(attacker.Type, launched: false);   // [단계 D 진단] 차지 유닛 예약 수
             ProjectileLog("reserved", record, due);
             return true;
         }
@@ -358,6 +370,34 @@ namespace Hexiege.Application
                 || !ReferenceEquals(state.Attacker, attacker))
                 return false;
             return state.Cancelled && !HasPendingProjectileLaunch(attacker);
+        }
+
+        /// <summary>
+        /// [2026-10-21 단계 D] 차지 유닛 화면이 "차지 시작" 신호(OnAttackCharge)에서 차지 VFX를 켜도 되는지 묻는 서버 권위 질문.
+        /// true = 이 공격자의 가장 최근 서버 투사체 예약이 발사 전에 취소됐고, 그 뒤 새 예약이 없다 → 차지를 켜지 않는다.
+        ///
+        /// [왜 필요한가 — 유니티 초급자용]
+        ///   싱글플레이에는 멀티의 "공격 1회분 허가표(lease)"가 없어서, 화면은 서버가 이번 공격을 취소했는지 알 수 없다.
+        ///   예: 공격을 시작하자마자(Inferno 차지 신호 0.1667초 전) 대상이 죽으면, 서버는 발사를 이미 취소했는데
+        ///   화면은 곧이어 차지 VFX를 켜고 끝까지 모은 뒤 아무것도 쏘지 않는다. 이 질문이 그 장면을 막는다.
+        ///   새 공격이 커밋되면(새 예약) false로 돌아가 다음 차지는 정상적으로 켜진다.
+        /// 서버 권위가 있는 실행 형태(싱글·Host)에서만 의미가 있다 — 순수 Client는 예약 정보가 없어 항상 false다
+        ///   (Client는 대신 서버 취소 통보 + lease 회차 규칙으로 막는다 — UnitView.ApplyServerProjectileLaunchCancel).
+        /// 스위치가 꺼진(옛 경로) 유닛은 예약이 없어 항상 false다 → 예전 동작 그대로.
+        /// </summary>
+        /// <param name="attacker">차지를 켜려는 유닛.</param>
+        public bool IsChargePresentationCancelled(UnitData attacker)
+            => attacker != null && ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type)
+               && WasLatestProjectileLaunchCancelled(attacker);
+
+        /// <summary>
+        /// [2026-10-21 단계 D] Client 전용 — 서버의 발사 취소 통보를 받아 화면 소비자에게 넘긴다. 판정 목록은 건드리지 않는다.
+        /// </summary>
+        /// <param name="cancel">서버 취소 통보(회차 번호 포함).</param>
+        public void ReceiveProjectileLaunchCancel(ProjectileLaunchCancelPresentation cancel)
+        {
+            if (NetworkContext.IsNetworkServer || !cancel.IsValid || cancel.Key.Epoch != ProjectileEpoch) return;
+            PublishProjectileLaunchCancelled(cancel);
         }
 
         /// <summary>
@@ -579,6 +619,7 @@ namespace Hexiege.Application
             }
             _projectileCueStates[record.Attacker.Id] = new ProjectileCueState { Attacker = record.Attacker, Cancelled = false };
             DiagProjectileLaunch(record, now, centerDistance);
+            DiagChargeUnitStage(record.AttackerType, launched: true);   // [단계 D 진단] 차지 유닛 발사 수
             ProjectileLog("launched", record, impactTime,
                 FormattableString.Invariant($"distance={centerDistance:F3}, flight={impactTime - launchTime:F3}"));
             PublishProjectileLaunched(record.Launch);
@@ -699,7 +740,38 @@ namespace Hexiege.Application
             if (record.Attacker != null)
                 _projectileCueStates[record.Attacker.Id] = new ProjectileCueState { Attacker = record.Attacker, Cancelled = true };
             DiagProjectileCancel(cause);
+            DiagChargeUnitCancel(record.AttackerType, record.AttackerIsUnit, cause);   // [단계 D 진단] 차지 유닛 사유별 취소 수
             ProjectileLog("cancelled-" + reason, record, record.Due, "cause=" + cause);
+            // [2026-10-21 단계 D] 유닛 공격자의 취소는 화면(차지 VFX 즉시 정지)과 전송 계층(Client 전달)에 알린다.
+            //   건물 공격자(타워)는 예약 단계가 없고 차지도 없어 알리지 않는다.
+            //   알림은 판정이 끝난 뒤의 "사실 전달"이다 — 구독자 예외는 격리되어 서버 판정(다음 투사체)을 멈추지 않는다.
+            if (record.AttackerIsUnit && record.Attacker != null)
+                PublishProjectileLaunchCancelled(new ProjectileLaunchCancelPresentation(
+                    new ProjectileDeliveryKey(ProjectileEpoch, record.Id), record.Attacker.Id, (int)record.AttackerType,
+                    ToCancelCause(cause), presentationRevision: 0UL, cancelTime: SafeProjectileTime()));
+        }
+
+        // [단계 D] 진단 사유 토큰(문자열) → 네트워크로 보내는 취소 사유 값. 표에 없는 토큰은 Other.
+        private static ProjectileLaunchCancelCause ToCancelCause(string cause)
+        {
+            switch (cause)
+            {
+                case "attacker-dead": return ProjectileLaunchCancelCause.AttackerDead;
+                case "attacker-replaced": return ProjectileLaunchCancelCause.AttackerReplaced;
+                case "target-dead": return ProjectileLaunchCancelCause.TargetDead;
+                case "target-missing": return ProjectileLaunchCancelCause.TargetMissing;
+                case "target-replaced": return ProjectileLaunchCancelCause.TargetReplaced;
+                case "move-command": return ProjectileLaunchCancelCause.MoveCommand;
+                case "invalid-launch-geometry": return ProjectileLaunchCancelCause.InvalidGeometry;
+                default: return ProjectileLaunchCancelCause.Other;
+            }
+        }
+
+        // [단계 D] 취소 통보의 시각. 시계가 비정상(NaN·음수)이면 0 — 통보 검사(FiniteTime)를 통과시켜 화면 정지가 빠지지 않게 한다.
+        private double SafeProjectileTime()
+        {
+            double now = ProjectileServerTime;
+            return double.IsNaN(now) || double.IsInfinity(now) || now < 0d ? 0d : now;
         }
 
         private void CompactProjectiles()
@@ -736,6 +808,18 @@ namespace Hexiege.Application
             {
                 try { ((Action<ProjectileImpactPresentation>)handlers[i])(impact); }
                 catch (Exception exception) { ProjectileSubscriberFault("impact", impact.Key, i, exception); }
+            }
+        }
+
+        // [단계 D] 발사 취소 통보 — 다른 두 발행과 같은 격리 규칙.
+        private void PublishProjectileLaunchCancelled(ProjectileLaunchCancelPresentation cancel)
+        {
+            Delegate[] handlers = ProjectileLaunchCancelled?.GetInvocationList();
+            if (handlers == null) return;
+            for (int i = 0; i < handlers.Length; i++)
+            {
+                try { ((Action<ProjectileLaunchCancelPresentation>)handlers[i])(cancel); }
+                catch (Exception exception) { ProjectileSubscriberFault("launch-cancel", cancel.Key, i, exception); }
             }
         }
 

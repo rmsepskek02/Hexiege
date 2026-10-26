@@ -1245,6 +1245,53 @@ _slot = _nextEviction;
             if (!_hasAttackChargeMarker) return;
             EffectManager.Instance?.StopCasterOwnedAttackEffects(this, reason);
         }
+
+        /// <summary>
+        /// [2026-10-21 서버 권위 투사체 단계 D] 서버가 이 유닛의 발사 예약을 "발사 전에" 취소했다는 통보를 화면에 적용한다.
+        /// 차지 유닛이면 켜져 있던 차지 VFX를 즉시 끄고(투사체·발사음은 처음부터 없다 — 서버 발사 기록이 없으므로),
+        /// 멀티 Client에서는 같은 회차의 차지 신호가 늦게 오더라도 차지를 다시 켜지 않도록 그 회차를 "차지 끝남"으로 표시한다.
+        ///
+        /// [언제 불리는가 — 유니티 초급자용]
+        ///   투사체 화면 소비자(ProjectilePresentationPresenter)가 UseCase의 ProjectileLaunchCancelled를 받아 부른다.
+        ///   · 싱글·Host: 서버 UseCase가 취소한 바로 그 순간(같은 프레임).
+        ///   · Client: 서버 취소 통보 RPC를 받은 순간(그 RPC는 같은 연결에서 다음 공격 시작 RPC보다 먼저 온다).
+        ///
+        /// [왜 기존 Stop/사망 경로만으로는 부족한가]
+        ///   공격자 사망은 기존 시전자 귀속 정지(Stop When Caster Dies)가, 전투 정지는 StopCombat → SourceOnly 경로가 이미 끈다.
+        ///   그러나 "차지 중 대상 사망 + 사거리 안에 다른 적이 남음"이면 서버는 쿨다운 동안 타겟도 바꾸지 않고 정지 통보도 보내지 않는다.
+        ///   싱글은 lease 자체가 없다. 그래서 서버가 확정한 취소 사실을 직접 받아 끈다(판정이 아니라 서버 권위 사실의 표현).
+        ///
+        /// 화면 표현 전용 — lease 소비·피해·HP·서버 결과를 바꾸지 않는다(NET-AUTH-001).
+        /// </summary>
+        /// <param name="presentationRevision">서버 공격 표현 회차(0 = 같은 프로세스 통보 — 회차 비교 없이 적용).</param>
+        /// <returns>적용 결과(진단 계수용).</returns>
+        public ServerProjectileChargeCancelResult ApplyServerProjectileLaunchCancel(ulong presentationRevision)
+        {
+            if (_unitData == null || !_unitData.IsAlive) return ServerProjectileChargeCancelResult.Unavailable;
+            EnsureAttackChargeMarkerCache();
+            if (!_hasAttackChargeMarker) return ServerProjectileChargeCancelResult.NotChargeUnit;
+            if (NetworkContext.IsNetworkActive && presentationRevision != 0UL)
+            {
+                // 더 새 회차(다음 공격)의 차지는 끄지 않는다. 같은 회차일 때만 끄고 그 회차의 남은 차지 신호도 막는다
+                //   (CanPresentAttackChargeWithoutConsuming의 ④ "회차당 1회" 칸을 그대로 쓴다 — lease는 소비하지 않는다).
+                if (presentationRevision != _lastAttackPresentationRevision)
+                    return ServerProjectileChargeCancelResult.StaleRevision;
+                _lastChargePresentedRevision = presentationRevision;
+            }
+            EffectManager effects = EffectManager.Instance;
+            int stopped = effects != null ? effects.StopCasterOwnedAttackEffects(this, "AttackCancel-ServerLaunchCancelled") : 0;
+            return stopped > 0 ? ServerProjectileChargeCancelResult.Stopped : ServerProjectileChargeCancelResult.NothingActive;
+        }
+
+        /// <summary>
+        /// [2026-10-21 단계 D] 서버 권위가 있는 화면(싱글·Host)에서 "이번 공격의 발사가 이미 취소됐는가"를 묻는다.
+        /// true면 차지 신호(OnAttackCharge)에서 차지 VFX를 켜지 않는다 — 취소된 공격의 차지가 뒤늦게 시작되지 않게.
+        /// 순수 Client는 서버 예약을 모르므로 false(대신 취소 통보 + 회차 규칙이 막는다). 스위치가 꺼진 유닛도 false(예전 그대로).
+        /// </summary>
+        private bool IsServerProjectileChargeCancelled()
+            => (!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer)
+               && _combatUseCase != null && _unitData != null
+               && _combatUseCase.IsChargePresentationCancelled(_unitData);
         private AttackPresentationImpactMode _attackPresentationImpactMode;
         private ulong _lastAttackPresentationRevision;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -7446,6 +7493,15 @@ _slot = _nextEviction;
 #endif
                 return;
             }
+            // [2026-10-21 서버 권위 투사체 단계 D] 차지 신호인데 서버(싱글·Host의 UseCase)가 이번 공격의 발사를 이미 취소했다면
+            //   차지 VFX를 켜지 않는다(사용자 결정: 차지 중 끊김 = 투사체·소리·피해 없음, 차지 VFX 즉시 정지 후 다음 동작).
+            //   이미 켜진 차지는 취소 통보(ApplyServerProjectileLaunchCancel)가 그 순간 끈다 — 이 줄은 "취소 뒤에 오는 차지 신호"를 막는다.
+            //   lease는 읽지도 소비하지도 않는다(차지 = lease 확인 전용 계약 유지). 순수 Client는 이 질문이 항상 false다.
+            if (chargeOnly && IsServerProjectileChargeCancelled())
+            {
+                ServerProjectileDiagnostics.RecordChargeSuppressedAfterServerCancel(_unitData.Type);
+                return;
+            }
             // 멀티플레이 일반 공격은 유효한 커밋 scope를 이 지점에서 먼저 소비해야만
             // VFX/SFX/tracer/로컬 피격 신호를 방출한다. BloomFairy 힐과 싱글플레이는
             // C3 공격 상관관계의 대상이 아니므로 기존 별도 경로를 유지한다.
@@ -7764,6 +7820,12 @@ _slot = _nextEviction;
             if (!chargeOnly)
                 ServerProjectileDiagnostics.RecordProjectileUnitMarker(_unitData.Type, _unitData.Id,
                     serverProjectileMarker, sourceOnlyPresentation, muzzleAtMarker: false);
+            // [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician도 여기서 끝난다]
+            //   · 타격(OnAttackHit) marker: 위에서 lease를 소비했고(차지 marker는 확인만 — 규칙 17 차지 계약 그대로),
+            //     차지 VFX를 다시 켜지 않으며(P2-4), 트레이서·발사음도 여기서 내지 않는다.
+            //   · 발사음은 서버 발사 기록이 화면에 나오는 순간 PlayServerProjectileLaunchCue가 낸다(차지 유닛은 총구 VFX 없이 소리만).
+            //   · 차지 VFX는 프리팹 길이 = 차지 구간(Inferno 1.3333초, Fox 1.8333초)이라 이 타격 순간에 스스로 끝난다.
+            //   그래서 "발사 신호 = 서버 발사 기록 표시 시점"(의심 1 수정)과 "차지 = 차지 marker에서만"(차지 계약)이 서로 다른 신호를 맡아 겹치지 않는다.
             if (serverProjectileMarker) return;
             UnitAttackVfxPlaybackResult vfxResult = default;
             if (!chargeUnitLaunchMarker)
@@ -8951,5 +9013,23 @@ _slot = _nextEviction;
 
             // 의도적으로 비워둠 — 위 summary 참조.
         }
+    }
+
+    /// <summary>
+    /// [2026-10-21 서버 권위 투사체 단계 D] UnitView.ApplyServerProjectileLaunchCancel 결과(진단 계수용 — 동작 판단에는 쓰지 않는다).
+    /// 숫자 값은 ServerProjectileDiagnostics.RecordChargeCancelApplied의 결과 번호와 같다(바꾸면 그쪽도 함께 바꾼다).
+    /// </summary>
+    public enum ServerProjectileChargeCancelResult
+    {
+        /// <summary>켜져 있던 차지 VFX를 껐다.</summary>
+        Stopped = 0,
+        /// <summary>끌 차지 VFX가 없었다(아직 차지 신호 전 — 멀티 Client는 그 회차 차지를 막아 두었다).</summary>
+        NothingActive = 1,
+        /// <summary>통보의 회차가 화면의 현재 회차와 달라 적용하지 않았다(더 새 공격의 차지를 지키기 위해).</summary>
+        StaleRevision = 2,
+        /// <summary>차지 유닛이 아니다(공격 클립에 OnAttackCharge 없음) — 할 일이 없다.</summary>
+        NotChargeUnit = 3,
+        /// <summary>유닛 데이터가 없거나 이미 죽었다(사망 쪽 정지 경로가 처리한다).</summary>
+        Unavailable = 4
     }
 }
