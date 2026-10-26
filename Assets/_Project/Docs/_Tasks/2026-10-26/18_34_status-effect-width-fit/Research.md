@@ -14,6 +14,8 @@
 
 **다음 단계 「새 화상 VFX v2 교체·연결」(2026-10-26 22:21 실기 뒤 추가).** 몸 앞에 그리기까지 넣은 뒤 다시 실기했더니, 로그로는 곰전사 불꽃이 계산대로 2장·몸 앞으로 당겨져 나왔다. 하지만 사용자는 "불에 타오르는 느낌보다 **물건이 붙어 있는 느낌**", "불꽃이 **좌우로 빠르게 튄다**", "더 키워서 **몸을 감싸는 느낌**이면 좋겠다"고 했다. 지금 화상은 큰 불꽃 그림 한 장이 움직이지 않고 서 있는 구조라서, 크기·개수·위치를 코드로 아무리 맞춰도 "타오르는" 모습이 되기 어렵다는 것이 메인 세션의 판단이다 `[추정]`. 그래서 사용자는 **화상 이펙트 자체를 새로 만들기로** 했다 — 작은 불꽃 혀 여러 개가 몸 둘레에서 일렁이며 올라가는 모양이다. 새 이펙트(v2)는 이미 만들어져 올라왔고, 이 문서는 그것을 **화상에 연결하는 단계**를 다룬다. 새 이펙트는 스스로 몸 둘레에서 불꽃을 내므로, 앞 단계에서 넣은 "폭 맞춤"과 "몸 앞으로 당기기"는 화상에서 **끈다**(코드는 옵션으로 남기고, 기존 이펙트 파일도 되돌리기용으로 남긴다). 이번에도 **화상만** 바꾸며 독·힐은 그대로다. 실기 결과와 조사는 [11절](#11-새-화상-vfx-v2-교체연결-plan-9절), 연결 계획은 [Plan.md 9절](Plan.md#9-새-화상-vfx-v2-교체연결)이다.
 
+**다음 단계 「뒤집힌 Client에서 상태 이펙트가 회전 중 옆으로 튐 — 따라가기 직전 위치 바로잡기」(2026-10-27 00:40 실기 뒤 추가).** 새 화상(v2)을 연결한 뒤 멀티로 실기했더니, 로그로는 v2가 Host·Client 모두에서 쓰였고 오류도 없었다. 사용자는 "화상 이펙트가 어느 정도 만들어진 것 같은데, **유닛 범위를 벗어나 잠깐씩 빠르게 옆으로 튄다**"고 했다(Host·Client 중 어느 화면인지, 어떤 유닛인지는 구분하지 못함). 코드를 읽어 보니 유력한 원인은 이렇다 `[추정 — 확정 아님]`: 화면이 뒤집혀 보이는 쪽(Red 관점 Client)에서는 유닛의 **눈에 보이는 몸**이 실제 위치와 맵 반대편에 따로 그려진다. 화상 이펙트는 그 "보이는 몸"의 위치를 매 프레임 읽어 따라가는데, 유닛이 **방향을 트는 프레임**에는 보이는 몸 위치가 아직 바로잡히기 전이라 잠깐 엉뚱한 곳(1~2 m 옆)을 가리킬 수 있다. 이펙트가 그 순간의 틀린 위치로 따라갔다가 다음 프레임에 돌아오니 "옆으로 튀는" 것처럼 보인다. 그래서 이 단계는 **이펙트가 따라가기 직전에 보이는 몸 위치를 먼저 바로잡게** 한다. 화면이 뒤집히지 않는 Host·싱글에서는 결과가 바뀌지 않는다. 화상과 같은 코드를 쓰는 독도 함께 고쳐지고, 같은 구조인 힐은 사용자가 "문제 없었던 것 같다"고 해 이번에는 빼고 작업 뒤 따로 확인한다. 조사는 [12절](#12-뒤집힌-client에서-상태-이펙트가-회전-중-옆으로-튐-plan-10절), 계획은 [Plan.md 10절](Plan.md#10-뒤집힌-client에서-상태-이펙트가-회전-중-옆으로-튐--따라가기-직전-위치-바로잡기)이다.
+
 **표기:** `[사실]` = 코드·에셋·문서를 직접 읽어 확인한 것(2026-10-26 기준) · `[계산]` = 사실 값으로 계산한 것 · `[추정]` = 확인하지 않은 판단 · `[제안]` = 문서 담당이 제안하는 것(결정 아님).
 
 ---
@@ -31,6 +33,7 @@
 - 자체 검증 항목을 추가할지 — 추가 구현(메뉴 실행 결과 미보고)
 - 몸 앞뒤 가려짐이 남을 때 후속으로 돌릴지 — **실기에서 남음 확인(9절) → 후속 단계 착수 승인(2026-10-26).** 후속 단계의 결정 항목은 [Plan.md 8-2절](Plan.md#8-2-사용자-결정-사항-d7-후속)
 - *(2026-10-26 22:21 실기 뒤 추가)* 화상 이펙트를 새로 만들어(v2) 교체할지 — **사용자 결정: 교체.** 연결 방식(폭 맞춤·당김 끄기, 기존 프리팹 보존)도 사용자 승인. 상세는 [Plan.md 9-2절](Plan.md#9-2-사용자-결정승인-사항)
+- *(2026-10-27 00:40 실기 뒤 추가)* 뒤집힌 Client에서 이펙트가 옆으로 튀는 문제를 어떻게 고칠지 — **사용자 결정: 추천안(수정안 1 — 따라가기 직전에 보이는 몸 위치를 바로잡기)대로 진행.** 힐은 이번 범위에서 빼고 작업 뒤 확인. 상세는 [Plan.md 10-2절](Plan.md#10-2-사용자-결정승인-사항)
 
 ---
 
@@ -552,7 +555,7 @@ Plan 1절 D7은 "가려짐이 남으면 후속 작업으로 기록"이었다. 9�
 1. asset-prompt-crafter가 Unity AI용 프롬프트를 작성했다. 요지: 작은 불꽃 혀가 몸 둘레 **원 가장자리**에서 올라가며 일렁임, 불씨, 발밑 글로우, 옅은 연기. 제작 기준 키 1.0·반경 0.25(VFXSFXGuide 「유닛에 붙는 상태 이펙트의 모양」의 원기둥 기준). Looping·Prewarm, Simulation Space Local, Scaling Mode Hierarchy, Burst 0, Start Speed 0, Velocity over Lifetime의 x·y·z를 같은 모드로, 동시 입자 상한 33.
 2. 사용자가 Unity AI로 생성해 원격 커밋 `7d1b9855`로 `Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_burn_v2.prefab`(guid `fcdce88228c7b2d41b8cc869e75a5344`)을 올렸다.
 
-`[사실]` 이 체크아웃에는 이 커밋이 없다(`git show 7d1b9855` → unknown revision, v2 프리팹·.meta 파일 없음). 규칙 5로 fetch를 할 수 없어 **문서 담당은 v2 프리팹을 직접 읽지 않았다.** 아래 값은 메인 세션 점검값이다.
+`[사실]` 이 체크아웃에는 이 커밋이 없다(`git show 7d1b9855` → unknown revision, v2 프리팹·.meta 파일 없음). 규칙 5로 fetch를 할 수 없어 **문서 담당은 v2 프리팹을 직접 읽지 않았다.** 아래 값은 메인 세션 점검값이다. *(2026-10-27 추가: 지금 체크아웃에는 `7d1b9855`와 연결 커밋 `5dd22db7`이 있다 — 상세는 12-1.)*
 
 **레이어 구성** `[전달 — 메인 점검]`
 
@@ -636,3 +639,155 @@ Plan 1절 D7은 "가려짐이 남으면 후속 작업으로 기록"이었다. 9�
 | v2가 감싸는 느낌·튐 없음·크기·뒤쪽 가림을 만족하는지 | 실기 육안(Plan 9-7) |
 | v2 동시 입자 33의 성능 영향 | 실기(PERF-2) |
 | 같은 커밋의 패키지 버전 변경이 다른 기능에 영향을 주는지 | 이번 범위 밖 — 기록만 |
+
+---
+
+## 12. 뒤집힌 Client에서 상태 이펙트가 회전 중 옆으로 튐 (Plan 10절)
+
+11절(Plan 9절) v2 연결 뒤 멀티 실기에서 "옆으로 튐"이 보고됐다. 이 절은 실기 기록, 원인 진단(가설 비교), 고치는 방안 비교를 정리한다. **이 절도 판정(PASS)을 매기지 않는다** — 회귀 스위트 결과가 보고되지 않았고, 원인은 코드 읽기로 좁힌 **추정**이며 재현 실험으로 확정하지 않았다.
+
+### 12-1. 앞 단계 구현 상태 `[사실: git log · 에셋 직접 확인]`
+
+- v2 프리팹 커밋 `7d1b9855`와 연결 커밋 `5dd22db7`(「Connect burn VFX v2 to InfernoSpirit burn preset」)이 지금 체크아웃에 있다. 11-4·11-6의 "이 체크아웃에는 없다/아직 변경 전" 표기는 그 문서 작성 시점의 사실이다.
+- 화상 프리셋 `EffectPreset_InfernoSpirit_Burn.asset`: `_vfxPrefab` guid `fcdce88228c7b2d41b8cc869e75a5344`(v2) · `_widthFitEnabled: 0` · `_viewPullRadiusRatio: 0` · `_scaleMultiplier` 1, 1, 1(15·21·23·18행) — Plan 9-2 V3~V5와 같다.
+- v2 프리팹에는 파티클 시스템이 **5개**이고, 다섯 모두 `moveWithTransform: 0`(Local 시뮬레이션 — 입자가 오브젝트를 따라 움직임)이다. 11-4의 "루트 포함 5개로 보인다" 계산과 맞는다.
+- Plan 9-4 3번(자체 검증 수정)은 같은 커밋에 들어갔다. 커밋 메시지 요지: 실제 화상 프리셋은 v2·옵션 꺼짐을 확인하고, 폭 맞춤·당김 기능 검사는 메모리 안 시험용 프리셋으로 돈다 `[사실: 커밋 메시지 — 검사 코드 내용은 이 절에서 다시 읽지 않음]`.
+
+### 12-2. 실기 확인 (2026-10-27 00:40 로그)
+
+**로그 출처** `[전달 — 메인 세션]`
+
+| 항목 | 값 |
+|---|---|
+| ZIP | Hexiege-Logs 릴리스 asset `678618903` — `2026-10-27_00_40_server-projectile-charge3_01.zip`, sha256 `fadbe518dba01cdb4dbc9007b06f83100b43a7f85c2b0d3cbaf4db5814892630` |
+| manifest | asset `678618859`, sha256 `3618241d…bf6` — **업로드됨** |
+| 무결성 | ZIP·manifest 둘 다 Release digest와 일치. manifest의 두 소스 파일 해시가 실제 추출본과 일치 |
+| 포함 로그 | 기기 `00_40_logcat` 28,019,800 B · 에디터 `_editor/2026-10-27` 1,249,228 B |
+
+*(manifest 해시는 메인 세션이 앞·뒤 일부만 전달한 값이다. 문서 담당은 ZIP을 직접 내려받아 다시 확인하지 않았다. 아래 로그 수치는 메인 세션 보고값이다.)*
+
+**관측** `[전달]`
+
+| 관측 | 내용 |
+|---|---|
+| 화상 재생 기록 | **31건**, Host·Client 모두 `RecursivePS=5`(v2 사용 — 12-1), `FitScale=0.53` |
+| `WidthFit=` · `ViewPull=` | 없음(옵션 꺼짐 — Plan 9-7 「로그 확인」 기댓값과 같다) |
+| 오류 | 0 |
+| 종료 경로 | Host: `AttachmentClose` 사유 `RecipientDespawn` 31건 · Client: `LocalDeath` 31건(기기 로그 17361행) · 정지는 각 `StopEmitting` 30 + `ServerStop` 1, 그 뒤 약 1.27초 동안 남은 입자가 사라지고(Drain) 풀로 반환(Return) |
+| 회귀 스위트 | **미보고** |
+
+**사용자 육안** `[전달 — 사용자 발언]`
+
+- 「화상 이펙트가 어느 정도 만들어진 것 같은데 유닛 범위를 벗어나 잠깐씩 빠르게 옆으로 튐」
+- 호스트·클라이언트 중 어느 화면인지 구분하지 못함. 어떤 유닛(오브젝트)에서였는지도 불명.
+
+*(`FitScale=0.53`은 곰전사 키와 같은 값이다(2-2 표). 31건이 모두 곰전사였는지, 같은 값의 다른 유닛(대포수레 0.53)이 섞였는지는 전달되지 않았다 `[미확인]`.)*
+
+### 12-3. 원인 진단 — 가설 비교 `[전달 — game-programmer 읽기 전용 진단 · 일부 문서 담당 재확인]`
+
+진단 결과 **H3이 유력**하다. 이것은 코드와 로그로 좁힌 **추정이며 확정이 아니다** — 이펙트 위치를 프레임 단위로 기록한 로그나 재현 실험은 없다.
+
+| 가설 | 내용 | 판단 |
+|---|---|---|
+| H1 | 유닛이 죽는 순간 이펙트가 튄다 | **기각** — 아래 12-5 |
+| H2 | 사망 뒤 몸이 사라졌는데 불만 남아 보인다 | **별개 현상** — "튐"이 아니다. 기록만(12-5) |
+| **H3** | 뒤집힌 Client에서, 유닛이 방향을 트는 프레임에 이펙트가 바로잡히기 전의 보이는 몸 위치를 따라간다 | **유력** — 12-4 |
+| H4 | v2 프리팹 자체가 옆으로 튀는 입자를 낸다 | **주원인 아님** — 아래 12-5 |
+
+### 12-4. H3 — 구조와 크기
+
+**코드 경로** (`[사실]`은 문서 담당이 이번에 다시 읽은 줄)
+
+| 단계 | 내용 | 근거 |
+|---|---|---|
+| ① 몸 위치 얻기(1회) | 화상·독 presenter는 대상 유닛의 pose Transform을 **처음 한 번만** 얻어 저장하고 이후 그대로 쓴다 | `Scripts/Presentation/Effects/TimedDamageEffectPresenter.cs` 106 `if (owner.Pose == null) owner.Pose = _pose?.Invoke(owner.Target);` `[사실]` |
+| ② 그 Transform은 무엇인가 | 연결 함수는 `PresentationPoseProvider.GetUnitTransform` → `VisualRootProjector.PresentationTransform`. getter는 **읽는 그 순간에만** `ProjectNow()`를 부르고 VisualRoot Transform 자체를 돌려준다 | `Scripts/Bootstrap/GameBootstrapper.Map.cs` 289~295 · `Scripts/Presentation/Unit/PresentationPoseProvider.cs` 31~43 · `Scripts/Presentation/Unit/VisualRootProjector.cs` 28~35 `[사실]` |
+| ③ 매 프레임 따라가기 | presenter `LateUpdate`가 저장한 Transform으로 `FollowTimedDamage`를 부르고, 그 안에서 `pose.position`·`pose.rotation`을 읽어 이펙트를 옮긴다. 이 경로에서는 `ProjectNow()`를 부르지 않는다 | `TimedDamageEffectPresenter.cs` 114 → `Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs` 90 `[사실]` |
+| ④ 보이는 몸 위치를 정하는 곳 | `ProjectNow()`는 멀티 Client이면서 화면이 뒤집혔을 때(`ViewConverter.IsFlipped`) VisualRoot를 맵 중심 점대칭 위치(`ViewConverter.ToView`)·180° 돌린 방향으로 둔다. Host·싱글·뒤집히지 않은 Client는 실제 Root와 같은 pose다. 같은 입력이면 같은 결과(멱등) | `VisualRootProjector.cs` 81~107 `[사실]` |
+| ⑤ 정기 바로잡기 시점 | `VisualRootProjector.LateUpdate`가 매 프레임 `ProjectNow()`를 부른다 | `VisualRootProjector.cs` 75~79 `[사실]` |
+| ⑥ 부모·자식 관계 | VisualRoot는 실제 위치 루트(Simulation Root)의 **직계 자식**이다. 그래서 `Update` 중에 NetworkTransform이 루트를 옮기거나 돌리면, ⑤가 다시 바로잡기 전까지 VisualRoot는 "루트와 함께 움직인" 틀린 위치에 있다 | [동기화 규칙](../../../GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) 「2. Simulation Root와 Visual Root」 NET-ROOT-004 「직접 자식 `VisualRoot`」 `[사실: 규칙 원문]` · 로그 `visualRootDirectChild=True` `[전달]` |
+| ⑦ 실행 순서 | presenter와 `VisualRootProjector` 둘 다 `DefaultExecutionOrder`가 없다. 프로젝트에서 이 속성을 쓰는 곳은 `InputFormController`(−100)·`UnitRootPoseConsistencyObserver`(10000) 두 곳뿐이다. 따라서 같은 `LateUpdate` 단계에서 **presenter가 먼저 돌지, 바로잡기가 먼저 돌지 정해져 있지 않다** | 전체 `Assets/` 검색 `[사실]` |
+
+**정리:** 뒤집힌 Client에서 presenter의 `LateUpdate`가 그 유닛의 바로잡기(⑤)보다 먼저 돌면, 이펙트는 ⑥의 틀린 위치를 따라간다. 다음 프레임 순서나 바로잡기 결과에 따라 다시 맞는 위치로 돌아오므로 "잠깐씩 옆으로 튐"과 맞는다 `[추정]`. 저장한 Transform을 쓰지 않고 매번 getter를 거쳤다면 ②처럼 읽을 때 바로잡혔을 것이다 — 화상 경로는 그 바로잡기를 **우회**하고 있다 `[사실 + 추정]`.
+
+**로그로 본 실제·화면 위치 차이** `[전달]`
+
+| 시각 | 쪽 | `isFlipped` | 비고 |
+|---|---|---|---|
+| 기기 00:22:38.973 `[UAS-ROOT-POSE]` | Client(기기) | **True** | `visualRootDirectChild=True`, 실제 위치 (6.01, −2.18) 대 화면 위치 (1.49, −15.14) — 차이 약 **13.7 m** |
+| Host 00:22:39.314 | Host | False | 같은 기록 줄. 뒤집히지 않음 |
+
+`[계산]` 두 점 차이 = √(4.52² + 12.96²) ≈ 13.7 m.
+
+**튀는 크기** `[계산]`
+
+루트가 한 프레임에 Δθ만큼 돌면, 루트 피벗에서 거리 L만큼 떨어진 자식(VisualRoot)은 그 프레임 안에서 원호를 따라 L × 2 × sin(Δθ ÷ 2)만큼 옆으로 밀린다. 유닛 회전 속도는 초당 270°다(`Scripts/Presentation/Unit/UnitView.cs` 742 `_rotationSpeed = 270f` `[사실]`).
+
+| 프레임 | 프레임당 회전 Δθ | 옆으로 밀리는 거리(L = 13.7 m) |
+|---|---|---|
+| 60fps | 4.5° | 약 **1.08 m** |
+| 30fps | 9° | 약 **2.15 m** |
+
+- 몸 반경은 가장 큰 탱크도 0.413이다(2-2 표). 즉 회전하는 프레임 하나에서 이펙트가 **몸 폭의 몇 배**만큼 옆에 그려질 수 있다 — "유닛 범위를 벗어나 옆으로 튐"과 크기가 맞는다 `[계산 + 추정]`.
+- 이동만 할 때는 이 밀림이 프레임당 이동 거리 정도(수 cm)라 눈에 띄지 않는다 `[전달 — 진단 계산]`.
+- L은 유닛이 맵 중심에서 멀수록 커진다(점대칭이므로 L = 맵 중심까지 거리의 2배) `[계산]`. 같은 회전이라도 맵 가장자리 유닛에서 더 크게 튄다.
+- Host·싱글에서는 ④에서 VisualRoot = 루트 pose라 L = 0, 밀림이 없다 `[계산]`. 사용자가 어느 화면인지 구분하지 못했지만, 이 가설이 맞다면 **뒤집힌 Client 화면에서만** 생긴다.
+- 기존 화상 프리팹도 Local 시뮬레이션이었으므로(10-1) 이 현상은 v2 전부터 있었을 수 있다. v2에서 불꽃이 커지고 움직임이 생겨 눈에 띄게 됐을 가능성이 있다 `[추정]`.
+
+### 12-5. 기각·별개 가설
+
+**H1 사망 순간 튐 — 기각** `[전달 — 진단 · 일부 사실 확인]`
+- 종료는 사망 RPC / despawn 처리 **안에서 동기적으로** 일어나고, 그 뒤 따라가기(follow)가 더 돌지 않는다(`TimedDamageEffectPresenter.cs` 127~129 `Stop`·`Attachment` `[전달]`; Client `LocalDeath`는 `LateUpdate` 105행에서 `CloseAttachment` 뒤 `continue` `[사실]`).
+- 사망 대역(ghost)은 떼기 전에 `ProjectNow()`로 마지막 화면 pose를 쓴 뒤(`VisualRootProjector.cs` 66 `[사실]`) 월드 위치를 유지한 채 부모에서 분리된다(`Scripts/Presentation/Unit/UnitView.DeathDeferral.cs` 93 `root.SetParent(null, true)` `[사실]`). 대역 쪽에서 위치가 튈 구조가 없다.
+
+**H2 사망 뒤 몸 없이 불만 남음 — 별개 현상, 기록만**
+- 사망 대역은 최대 0.3초 뒤 파괴된다(`UnitView.DeathDeferral.cs` 126 `Destroy(ghost)` `[사실]` · 0.3초 상한 `[전달]`). 화상 이펙트는 정지 뒤 약 1.27초 동안 남은 입자가 사라진다(12-2 `[전달]`). 그래서 **몸이 사라진 자리에 불이 1초 남짓 남을 수 있다** `[계산]`.
+- 이것은 "옆으로 튐"이 아니라 "제자리에 남음"이라 이번 보고의 원인으로 보지 않는다. 사용자가 거슬린다고 하면 별도 후속 후보로 다룬다(Plan 10-8).
+
+**H4 프리팹 자체 — 주원인 아님** `[전달 — 진단]`
+- v2 불꽃 텍스처는 16칸 중앙의 고리 모양 덩어리이고, 속도 x·z 성분이 0이며, noise 흔들림이 약 0.08 m다. 몸 반경(0.1~0.4) 밖으로 1 m 넘게 튀는 크기가 아니다.
+
+### 12-6. 고치는 방안 비교
+
+| 안 | 내용 | 장점 | 단점 | 판단 |
+|---|---|---|---|---|
+| **수정안 1** | presenter `LateUpdate`에서 `FollowTimedDamage` **직전에** 그 유닛의 `VisualRootProjector.ProjectNow()`를 부른다(매 프레임 `PresentationTransform` getter를 거치거나, Owner에 projector를 저장해 두고 부름 — 구현 시 결정) | 실행 순서와 무관하게 따라가는 순간 항상 바로잡힌 위치를 읽는다. `ProjectNow()`가 멱등이라 같은 프레임에 여러 번 불러도 결과가 같고(`VisualRootProjector.cs` 81~85 주석 `[사실]`), Host·싱글은 ④대로 결과 불변. 화상·독이 같은 presenter라 한 곳 수정으로 둘 다 적용 | 유닛당 매 프레임 `ProjectNow()` 1회 추가(위치·회전 계산과 대입 — 미미 `[추정]`) | **채택(사용자 승인)** |
+| 수정안 2 | `DefaultExecutionOrder`로 projector가 presenter보다 먼저 돌게 순서를 고정 | 코드 변경이 속성 한 줄 | 실행 순서 전역 설정이라 다른 소비자·다른 컴포넌트와의 순서에 영향이 퍼진다. 프로젝트에서 거의 쓰지 않는 방식(⑦ — 2곳뿐). 나중에 새 소비자가 생기면 같은 문제가 반복될 수 있다 `[추정]` | 기각 |
+| 수정안 3 | 화상 이펙트를 World 시뮬레이션으로 바꿔 튄 프레임의 영향을 줄인다 | 이미 나온 입자는 튄 위치로 끌려가지 않는다 | 원인(틀린 위치를 읽음)을 고치지 않는다 — 새로 나오는 입자는 여전히 튄 위치에서 나온다. 규칙 34 / VFXSFXGuide 「코드 계약」 1번 표의 상태 이펙트 계약 **Local**과 충돌하고, 이동 중 꼬리가 남는 등 모양이 바뀐다 `[사실: 계약 원문 + 추정: 모양]` | 기각 |
+
+### 12-7. 영향 범위
+
+| 대상 | 영향 | 근거 |
+|---|---|---|
+| 화상·독 | 같은 presenter(`TimedDamageEffectPresenter`)라 함께 적용된다. 독도 같은 이유로 뒤집힌 Client에서 튈 수 있었다 `[추정]` | 2-1 · 10-3 |
+| 힐 | `BloomHealEffectPresenter.cs` 91~96이 **같은 패턴**(저장한 pose로 `FollowBloomPose`) `[사실]`. 사용자가 「힐은 문제 없었던 것 같다」고 해 **이번 범위에서 제외**, 작업 뒤 사용자 확인 → 후속 후보 | 사용자 결정 `[전달]` |
+| Host·싱글 | 결과 불변 — `ProjectNow()`가 Root pose를 그대로 쓰고, 이미 같은 값이면 같은 값 | ④ `[사실]` |
+| 다른 pose 소비자 | `ProjectNow()`는 VisualRoot만 쓰고 Simulation Root를 쓰지 않는다(`VisualRootProjector.cs` 81~84 주석). 같은 프레임 다른 소비자가 읽는 값은 "이미 바로잡힌 값"으로 같아진다 | `[사실 + 계산]` |
+| 사망 대역 | 대역이 떼어진 뒤 `_visualRoot = null`이므로 `ProjectNow()`가 아무것도 하지 않는다(`VisualRootProjector.cs` 63~69 · 88~89) | `[사실]` |
+| 멀티·싱글 판정 | Presentation 전용. 서버 판정·피해·DoT 틱·RPC 무관. 표현 소비자는 presentation pose를 읽는다 | 동기화 규칙 NET-ROOT-002 · NET-ROOT-004 「표현 소비자는 presentation pose를 읽으며」 |
+| 성능 | 활성 화상·독 1건당 매 프레임 `ProjectNow()` 1회 | `[추정 — 미미]` |
+
+### 12-8. 미확인 항목
+
+| 항목 | 확인 방법 |
+|---|---|
+| 튐이 실제로 H3(뒤집힌 Client·회전 프레임)에서 생기는지 | 수정 뒤 Client 기기 육안. 가능하면 진단 로그(Plan 10-4 3번 제안) |
+| 튄 화면이 Host였는지 Client였는지, 어떤 유닛이었는지 | 사용자 미구분 — 다음 실기에서 화면 구분해 확인 |
+| 31건의 대상 유닛 구성 | 로그 재분석(이번에는 미전달) |
+| 독도 같은 현상이 있었는지 | 이번 판 독 기록 미전달 — 수정 뒤 SINGLE/MULTI 확인 |
+| 힐도 같은 현상이 있는지 | 이번 작업 뒤 사용자 육안(Plan 10-7 MULTI-7) |
+| 사망 뒤 불 남음(H2)이 거슬리는지 | 사용자 육안 — 거슬리면 후속 |
+
+### 12-9. 근거 파일 (이 절에서 추가로 읽은 것)
+
+| 파일 | 확인 내용 |
+|---|---|
+| `Assets/_Project/Scripts/Presentation/Effects/TimedDamageEffectPresenter.cs` | Owner 구조(13행), pose 1회 저장(106), 따라가기(114), 종료(105·126~129) |
+| `Assets/_Project/Scripts/Presentation/Unit/VisualRootProjector.cs` | getter(28~53), 대역 분리(63~69), `LateUpdate`(75~79), `ProjectNow`(81~107) |
+| `Assets/_Project/Scripts/Presentation/Unit/PresentationPoseProvider.cs` | `GetUnitTransform` → `PresentationTransform`(31~43) |
+| `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Map.cs` | 화상·독·힐 presenter의 pose 연결(274~295) |
+| `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs` | `FollowTimedDamage`(86~92) |
+| `Assets/_Project/Scripts/Presentation/Effects/BloomHealEffectPresenter.cs` | 같은 패턴(91~96) |
+| `Assets/_Project/Scripts/Presentation/Unit/UnitView.DeathDeferral.cs` | 대역 분리(85·93)·파괴(126) |
+| `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` | 회전 속도(742) |
+| `Assets/_Project/Resources/Config/EffectPresets/EffectPreset_InfernoSpirit_Burn.asset` · `Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_burn_v2.prefab` | v2 연결·옵션 꺼짐·파티클 시스템 5개 Local |

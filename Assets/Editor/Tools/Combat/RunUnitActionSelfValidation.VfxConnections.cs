@@ -71,6 +71,7 @@ namespace Hexiege.Editor.Combat
             ValidateDamageParticles(units.GetTimedDamage(UnitType.InfernoSpirit));
             ValidateTimedDamageWidthFit(units); // [2026-10-26 상태 이펙트 폭 맞춤]
             ValidateRecipientViewPull(units);   // [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기]
+            ValidateTimedDamageFlippedFollow(units, buildings); // [2026-10-26 Plan 10 — 뒤집힌 Client 따라가기 직전 바로잡기]
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
@@ -819,6 +820,146 @@ namespace Hexiege.Editor.Combat
                     "Fitted timed damage natural return restores the authored scale.");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
+        }
+
+        // ====================================================================
+        // [2026-10-26 Plan 10 — 뒤집힌 Client 따라가기 직전 바로잡기] (Plan _Tasks/2026-10-26/18_34_status-effect-width-fit 10-4 4번)
+        //   실제 TimedDamageEffectPresenter + 실제 EffectManager + 실제 화상·독 프리셋으로 다음을 확인한다.
+        //   ① 뒤집힌 Client(NetworkContext Client + ViewConverter.IsFlipped): Simulation Root를 돌려 자식 Visual Root를 "바로잡기 전 틀린 자리"로
+        //      만든 뒤(=VisualRootProjector.LateUpdate가 아직 안 돈 상태), presenter LateUpdate만 부른다 → 이펙트가 바로잡힌 화면 위치에 있어야 한다.
+        //      재생 시작 경로(화상 시작 보류 뒤 시작)와 따라가기 경로를 모두 본다.
+        //   ② Host: 같은 회전에서 결과가 Root pose 그대로(바뀌지 않음)이고, 진단 계수가 늘지 않는다.
+        //   EditMode라 Update/LateUpdate가 저절로 돌지 않으므로 presenter LateUpdate는 리플렉션으로 직접 부른다(= "presenter가 먼저 도는" 순서 재현).
+        //   이 검사는 실행 순서 문제의 기하(자식이 Root와 함께 휘둘림)를 재현할 뿐, 실기 NetworkTransform 타이밍 자체를 재현하지는 않는다.
+        // ====================================================================
+        private static void ValidateTimedDamageFlippedFollow(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            Require(!UnityEngine.Application.isPlaying, "Flipped follow fixture must not run in a match.");
+            var lateUpdate = typeof(TimedDamageEffectPresenter).GetMethod("LateUpdate", VfxFields);
+            var ownersField = typeof(TimedDamageEffectPresenter).GetField("_owners", VfxFields);
+            var visualRootField = typeof(VisualRootProjector).GetField("_visualRoot", VfxFields);
+            var offsetField = typeof(VfxPoolItem).GetField("_damageOffset", VfxFields);
+            var eulerField = typeof(VfxPoolItem).GetField("_damageEuler", VfxFields);
+            var pullField = typeof(VfxPoolItem).GetField("_damageViewPull", VfxFields);
+            Require(lateUpdate != null && ownersField != null && visualRootField != null && offsetField != null && eulerField != null && pullField != null,
+                "Flipped follow fixture seams (presenter LateUpdate/_owners, projector _visualRoot, item follow offsets) exist.");
+            bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
+            var root = new GameObject("FlippedFollowFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var channel = new TimedDamageEffectChannel();
+            double clock = 0d;
+            try
+            {
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+                // 유닛 흉내: Simulation Root(projector) → 직계 자식 Visual Root(보이는 몸). 실제 프리팹 구조(NET-ROOT-004)와 같다.
+                var sim = new GameObject("FlippedFollowSim") { hideFlags = HideFlags.HideAndDontSave };
+                sim.transform.SetParent(root.transform, false);
+                var visual = new GameObject("FlippedFollowVisual") { hideFlags = HideFlags.HideAndDontSave };
+                visual.transform.SetParent(sim.transform, false);
+                var projector = sim.AddComponent<VisualRootProjector>();
+                visualRootField.SetValue(projector, visual.transform);
+                var presenter = root.AddComponent<TimedDamageEffectPresenter>();
+                // 시작 보류 함수: clock < 화상 시작 시각이면 보류. 보류 중에 Root가 돌면 "Pose는 앞 프레임에 얻고 시작은 나중" 상황이 된다.
+                presenter.SetProjectileImpactAlignment(() => clock, (_, _) => false);
+                channel.Clock = () => 100d;
+                UnitData current = null;
+                // 생산 조합 루트와 같이 getter(PresentationTransform)로 Pose를 얻는다.
+                presenter.Initialize(channel, manager, t => ReferenceEquals(t, current) ? projector.PresentationTransform : null);
+
+                object OwnerOf(UnitData target)
+                {
+                    var owners = (IDictionary)ownersField.GetValue(presenter);
+                    return owners.Contains(target.Id) ? owners[target.Id] : null;
+                }
+                T OwnerField<T>(object owner, string name) => (T)owner.GetType().GetField(name).GetValue(owner);
+                void Tick() => lateUpdate.Invoke(presenter, null);
+                // 이번 프레임의 올바른 화면 pose(ProjectNow와 같은 식): 뒤집힌 Client면 점대칭 위치 + 180° 회전, 아니면 Root 그대로.
+                bool Flipped() => NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped;
+                Vector3 ScreenPos() => Flipped() ? ViewConverter.ToView(sim.transform.position) : sim.transform.position;
+                Quaternion ScreenRot() => Flipped() ? Quaternion.Euler(0f, 180f, 0f) * sim.transform.rotation : sim.transform.rotation;
+                void RequireAtScreenPose(VfxPoolItem item, string label)
+                {
+                    Vector3 offset = (Vector3)offsetField.GetValue(item), euler = (Vector3)eulerField.GetValue(item), pull = (Vector3)pullField.GetValue(item);
+                    Vector3 expected = ScreenPos() + ScreenRot() * offset + pull;
+                    Require((item.transform.position - expected).sqrMagnitude < 1e-6f
+                            && Quaternion.Angle(item.transform.rotation, ScreenRot() * Quaternion.Euler(euler)) < .01f,
+                        label + $" — expected={expected}, actual={item.transform.position}.");
+                }
+                // NetworkTransform이 Update 중 Root를 돌리는 것 흉내: 30fps 한 프레임(270°/s → 9°) + 약간의 이동. 자식은 Root를 따라 휘둘린다.
+                void TurnRoot() { sim.transform.Rotate(0f, 9f, 0f, Space.World); sim.transform.position += new Vector3(.05f, 0f, .03f); }
+
+                // ── ① 뒤집힌 Client ──
+                NetworkContext.Set(false, true);
+                ViewConverter.Setup(true, new Vector3(10f, 0f, 20f));
+                sim.transform.SetPositionAndRotation(new Vector3(16f, 0f, -2f), Quaternion.Euler(0f, 30f, 0f)); // 맵 중심에서 먼 유닛
+                projector.ProjectNow();
+                int nextId = 98300;
+                foreach (var kind in new[] { TimedDamageVisual.Burn, TimedDamageVisual.Poison })
+                {
+                    current = VfxUnit(nextId++);
+                    bool holdable = kind == TimedDamageVisual.Burn && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
+                    clock = holdable ? 99d : 1000d;
+                    channel.Upsert(current, 1, kind, 3f);
+                    Tick();
+                    object owner = OwnerOf(current);
+                    Require(owner != null, kind + " flipped fixture owner exists.");
+                    if (holdable)
+                    {
+                        // 시작 경로: 보류 프레임에 Pose만 얻고, Root가 돈 다음 프레임에 시작한다.
+                        Require(OwnerField<VfxPoolItem>(owner, "Item") == null && OwnerField<Transform>(owner, "Pose") == visual.transform,
+                            "Burn start is held while the Pose is already acquired (start-path fixture precondition).");
+                        TurnRoot();
+                        Require(Vector3.Distance(visual.transform.position, ScreenPos()) > .5f,
+                            "Fixture reproduces the stale child pose before the start-path correction.");
+                        clock = 1000d;
+                        Tick();
+                        var started = OwnerField<VfxPoolItem>(owner, "Item");
+                        Require(started != null, "Burn starts after the hold is released.");
+                        RequireAtScreenPose(started, "[Plan 10] Flipped Client burn START reads the corrected screen pose, not the stale child pose");
+                    }
+                    var item = OwnerField<VfxPoolItem>(owner, "Item");
+                    Require(item != null && OwnerField<VisualRootProjector>(owner, "Projector") == projector,
+                        kind + " playback started and the presenter stored the pose's own projector.");
+                    TurnRoot();
+                    Require(Vector3.Distance(visual.transform.position, ScreenPos()) > .5f,
+                        "Fixture reproduces the stale child pose before the follow correction (presenter-first order).");
+                    int overBefore = OwnerField<int>(owner, "PoseOverCount");
+                    Tick();
+                    RequireAtScreenPose(item, "[Plan 10] Flipped Client " + kind + " FOLLOW after a root turn equals the corrected screen pose");
+                    Require(OwnerField<int>(owner, "PoseOverCount") == overBefore + 1,
+                        "[Plan 10 J5] The flipped Client diagnostic counts the corrected stale frame.");
+                    channel.CloseAttachment(current, "FixtureNext");
+                }
+
+                // ── ② Host: 뒤집힘 설정이 남아 있어도 서버 쪽은 투영이 Root 그대로 → 결과 불변 ──
+                NetworkContext.Set(true, true);
+                projector.ProjectNow();
+                current = VfxUnit(nextId++);
+                clock = 1000d;
+                channel.Upsert(current, 1, TimedDamageVisual.Poison, 3f);
+                Tick();
+                object hostOwner = OwnerOf(current);
+                var hostItem = hostOwner != null ? OwnerField<VfxPoolItem>(hostOwner, "Item") : null;
+                Require(hostItem != null, "Host fixture playback started.");
+                TurnRoot();
+                Require(VfxApprox(visual.transform.position, sim.transform.position),
+                    "Host Visual Root already equals the Root pose before the correction (nothing to fix).");
+                Tick();
+                RequireAtScreenPose(hostItem, "[Plan 10] Host FOLLOW is unchanged (Root pose)");
+                Require(VfxApprox(visual.transform.position, sim.transform.position) && OwnerField<int>(hostOwner, "PoseOverCount") == 0,
+                    "[Plan 10] Host correction is a no-op and records no diagnostic.");
+                channel.CloseAttachment(current, "FixtureEnd");
+            }
+            finally
+            {
+                channel.CloseVisuals("FixtureEnd"); // presenter Close(구독 해제·재생 정지)까지 이어진다.
+                UnityEngine.Object.DestroyImmediate(root);
+                NetworkContext.Set(oldServer, oldActive);
+                // ViewConverter는 맵 중심을 읽는 API가 없어 이전 값을 그대로 되돌릴 수 없다 → EditMode 기본값으로 초기화한다
+                //   (RunAuthoritativeAttackPresentationValidation의 뒤집힘 fixture와 같은 처리).
+                ViewConverter.Reset();
+            }
         }
 
         // ====================================================================
