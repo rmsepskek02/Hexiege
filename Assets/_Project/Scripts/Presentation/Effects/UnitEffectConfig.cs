@@ -72,7 +72,11 @@ namespace Hexiege.Presentation
         [Tooltip("이 크기 값이 적용되는 유닛 타입")]
         public UnitType unitType;
 
-        [Tooltip("몸통 반경(미터). 측정 도구가 채운다. 현재 배율 계산에는 쓰지 않고 참고·튜닝용으로 보관한다(D-3 균등 배율)")]
+        // [2026-10-26 상태 이펙트 폭 맞춤] 예전 Tooltip은 "배율 계산에는 쓰지 않고 참고·튜닝용"이었다.
+        //   크기(배율) 계산에 안 쓰는 것은 지금도 같다(D-3 균등 배율). 다만 이제 「폭 맞춤」이 켜진 프리셋(현재 화상)은
+        //   이 반경으로 불꽃이 피어오르는 원판 범위와 불꽃 개수를 정하므로 "참고용"이 더 이상 사실이 아니다.
+        [Tooltip("몸통 반경(미터). 측정 도구가 채운다. 크기(배율) 계산에는 쓰지 않는다(D-3 균등 배율). "
+            + "EffectPreset의 「폭 맞춤」이 켜진 상태 이펙트(현재 화상)는 이 값으로 불꽃이 퍼지는 범위·개수를 정한다. 0 이하면 폭 맞춤 안 함")]
         public float radius;
 
         [Tooltip("몸통 키(미터). 자동 배율 = 키 ÷ 1.0(이펙트 제작 기준 키). 0 이하면 이 줄은 무시된다")]
@@ -89,8 +93,9 @@ namespace Hexiege.Presentation
     // RecipientFit
     // 크기 표에서 계산한 "실제로 적용할 값" 묶음. VfxPoolItem이 재생 시작 때 1번 받는다.
     //
-    // 🔴 default(RecipientFit) = Identity = 배율 1, 발밑 보정 0 → 예전과 완전히 같은 크기·위치.
+    // 🔴 default(RecipientFit) = Identity = 배율 1, 발밑 보정 0, 몸통 반경 0 → 예전과 완전히 같은 크기·위치.
     //   그래서 표에 없는 유닛이나 크기를 모르는 호출은 아무것도 안 바꾼 것과 같다(안전한 기본값).
+    //   [2026-10-26 폭 맞춤] 몸통 반경(Radius)도 함께 들고 다닌다. 반경 0 = "몸 폭을 모름" → 폭 맞춤을 하지 않는다.
     // ========================================================================
     public readonly struct RecipientFit
     {
@@ -103,16 +108,33 @@ namespace Hexiege.Presentation
         public readonly float Scale;
         /// <summary>원본 발밑 보정 값(검증 전).</summary>
         public readonly Vector3 FootOffset;
+        /// <summary>
+        /// 원본 몸통 반경 값(월드 미터, 검증 전). 크기 표의 radius 칸을 그대로 옮긴 값이다.
+        /// 배율 계산에는 쓰지 않고, 프리셋 「폭 맞춤」이 켜진 상태 이펙트의 방출 범위·개수 계산에만 쓴다.
+        /// </summary>
+        public readonly float Radius;
 
-        /// <summary>배율과 발밑 보정으로 맞춤 값을 만든다.</summary>
-        public RecipientFit(float scale, Vector3 footOffset)
+        /// <summary>배율과 발밑 보정으로 맞춤 값을 만든다(몸통 반경 0 = 폭 맞춤 없음). 기존 호출·검증 fixture용.</summary>
+        /// <param name="scale">균등 배율(검증 전).</param>
+        /// <param name="footOffset">발밑 위치 보정(검증 전).</param>
+        public RecipientFit(float scale, Vector3 footOffset) : this(scale, footOffset, 0f) { }
+
+        /// <summary>배율·발밑 보정·몸통 반경으로 맞춤 값을 만든다.</summary>
+        /// <param name="scale">균등 배율(검증 전).</param>
+        /// <param name="footOffset">발밑 위치 보정(검증 전).</param>
+        /// <param name="radius">몸통 반경(월드 미터, 검증 전). 0 이하·NaN·무한대면 SafeRadius가 0이 된다.</param>
+        public RecipientFit(float scale, Vector3 footOffset, float radius)
         {
             Scale = scale;
             FootOffset = footOffset;
+            Radius = radius;
         }
 
-        /// <summary>크기 맞춤을 하지 않는 값(배율 1, 보정 0). default와 같다.</summary>
+        /// <summary>크기 맞춤을 하지 않는 값(배율 1, 보정 0, 반경 0). default와 같다.</summary>
         public static RecipientFit Identity => default;
+
+        /// <summary>실제로 쓸 몸통 반경(월드 미터). 0 이하·NaN·무한대면 0(= 몸 폭을 모름 → 폭 맞춤 안 함).</summary>
+        public float SafeRadius => Radius > 0f && !float.IsNaN(Radius) && !float.IsInfinity(Radius) ? Radius : 0f;
 
         /// <summary>실제로 곱할 균등 배율. 유효하지 않으면 1, 유효하면 [MinScale, MaxScale]로 제한.</summary>
         public float UniformScale => Scale > 0f && !float.IsNaN(Scale) && !float.IsInfinity(Scale)
@@ -144,7 +166,11 @@ namespace Hexiege.Presentation
 
         /// <summary>상태 이펙트(화상·독·힐) 프리팹을 만들 때 기준으로 삼은 유닛 키(미터). 이 키면 배율 1.</summary>
         public const float RecipientReferenceHeight = 1.0f;
-        /// <summary>상태 이펙트 프리팹 제작 기준 반경(미터). 참고용(현재 배율 계산은 키 기준 균등).</summary>
+        /// <summary>
+        /// 상태 이펙트 프리팹 제작 기준 반경(미터). 프리팹을 만들 때의 기준값으로만 남아 있다.
+        /// 배율 계산(키 기준 균등)에도, 2026-10-26 폭 맞춤에도 쓰지 않는다 —
+        /// 폭 맞춤은 크기 표의 radius(실측 월드 미터)를 그대로 쓰므로 기준 반경으로 나눌 필요가 없다.
+        /// </summary>
         public const float RecipientReferenceRadius = 0.25f;
 
         [Header("상태 이펙트 크기 맞춤 (화상·독·힐)")]
@@ -195,6 +221,7 @@ namespace Hexiege.Presentation
         /// 이 유닛 종류에 쓸 상태 이펙트 크기 맞춤 값을 반환한다.
         /// 표에 없거나 값이 쓸 수 없으면 false + Identity(배율 1, 보정 0).
         /// 배율 = manualScale(양수일 때) 우선, 아니면 키 ÷ RecipientReferenceHeight (D-3 균등 배율).
+        /// 몸통 반경 = 표의 radius 그대로(0 이하·NaN·무한대면 0). 배율에는 영향을 주지 않는다.
         /// </summary>
         /// <param name="type">이펙트가 붙을 대상 유닛 타입.</param>
         /// <param name="fit">적용할 맞춤 값.</param>
@@ -205,8 +232,10 @@ namespace Hexiege.Presentation
             if (_fitCache == null || !_fitCache.TryGetValue(type, out UnitRecipientFitEntry entry)) return false;
             float scale = IsPositiveFinite(entry.manualScale) ? entry.manualScale
                 : IsPositiveFinite(entry.height) ? entry.height / RecipientReferenceHeight : 0f;
-            if (scale <= 0f) return false; // 키도 수동 배율도 없는 줄 → 맞춤 없음(배율 1)
-            fit = new RecipientFit(scale, entry.footOffset);
+            if (scale <= 0f) return false; // 키도 수동 배율도 없는 줄 → 맞춤 없음(배율 1, 반경 0)
+            // [2026-10-26 폭 맞춤] 반경은 여기서 "쓸 수 있는 값"으로 걸러 넣는다. 잘못된 값이면 0 = 폭 맞춤 안 함.
+            float radius = IsPositiveFinite(entry.radius) ? entry.radius : 0f;
+            fit = new RecipientFit(scale, entry.footOffset, radius);
             return true;
         }
 

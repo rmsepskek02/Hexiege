@@ -67,6 +67,30 @@ namespace Hexiege.Presentation
             + "기 모으기(charge)처럼 시전자 몸 앞에서 재생되는 공격 이펙트에만 켠다. 트레이서·착탄·사망 이펙트에는 켜지 않는다.")]
         [SerializeField] private bool _stopWhenCasterDies;
 
+        // [2026-10-26 상태 이펙트 폭 맞춤] 화상·독·힐처럼 "유닛 몸에 붙는 상태 이펙트" 전용 옵션.
+        //   문제: 상태 이펙트 크기는 유닛 "키"로만 맞춘다(D-3 균등 배율). 그래서 키는 비슷한데 몸이 옆으로 넓은
+        //         곰전사·탱크·대포수레는 넓은 몸통 한가운데에 좁은 불꽃 한 장만 보였다.
+        //   해결: 이 옵션을 켜면 불꽃 "한 장의 크기"는 그대로 두고, 재생 시작 때
+        //         ① 불꽃이 피어오르는 범위를 몸통 폭(UnitEffectConfig 크기 표의 radius)만큼 원판으로 넓히고
+        //         ② 몸통 폭 ÷ 불꽃 폭(반올림)만큼 불꽃 개수(초당 방출 수·최대 입자 수)를 늘린다.
+        //         계산 결과가 1장이면 아무것도 바꾸지 않는다 → 몸이 좁은 유닛은 예전과 똑같다.
+        //   기본값 꺼짐 — 값을 넣지 않은 기존 프리셋(독·힐 포함)은 예전과 완전히 같다. 프리팹 자체는 고치지 않으며,
+        //   바꾼 파티클 값은 풀 반환 때 원래 값으로 되돌린다(VfxPoolItem.TimedDamage.cs 「폭 맞춤」 절).
+        //   화면 표현 전용이다. 피해량·지속시간·서버 판정과 무관하다.
+        [Header("Recipient Width Fit (상태 이펙트 전용)")]
+        [Tooltip("켜면 몸이 넓은 유닛에서 불꽃(파티클)이 몸통 폭만큼 넓은 범위에서 여러 장 피어오른다. "
+            + "불꽃 한 장의 크기·모양은 그대로다. 몸이 좁아 계산상 1장이면 예전과 똑같다. "
+            + "화상·독·힐 같은 대상 상태 이펙트 프리셋에서만 의미가 있다(공격·사망 이펙트에는 효과 없음).")]
+        [SerializeField] private bool _widthFitEnabled;
+
+        [Tooltip("폭 맞춤으로 늘어나는 불꽃 개수의 상한(배수). 1이면 늘리지 않는다. "
+            + "새 대형 유닛이 생겨도 파티클 수가 무한히 늘지 않게 막는 안전장치다.")]
+        [Min(1)]
+        [SerializeField] private int _widthFitMaxCount = DefaultWidthFitMaxCount;
+
+        /// <summary>폭 맞춤 개수 상한 기본값(2026-10-26 사용자 결정 D2 = 3). 현재 크기 표의 최대 필요 개수(탱크·대포수레)와 같다.</summary>
+        public const int DefaultWidthFitMaxCount = 3;
+
         /// <summary> 재생할 파티클 시스템 프리팹. 없으면 null. </summary>
         public GameObject VfxPrefab => _vfxPrefab;
 
@@ -94,6 +118,17 @@ namespace Hexiege.Presentation
         /// 현재 공격 이펙트(UnitEffectConfig.attackPreset) 재생 경로에서만 읽는다.
         /// </summary>
         public bool StopWhenCasterDies => _stopWhenCasterDies;
+
+        /// <summary>
+        /// 상태 이펙트 폭 맞춤을 켤지. 화상·독(VfxPoolItem.PlayTimedDamage)과 힐(VfxPoolItem.PlayBloomLoop) 재생 경로에서만 읽는다.
+        /// false(기본)면 그 재생 경로는 파티클 모듈 값을 전혀 바꾸지 않는다 — 예전과 같다.
+        /// </summary>
+        public bool WidthFitEnabled => _widthFitEnabled;
+
+        /// <summary>
+        /// 폭 맞춤 불꽃 개수 상한. Inspector에 1 미만이 들어가도(옛 에셋·직접 편집) 1 이상으로 보정한다.
+        /// </summary>
+        public int WidthFitMaxCount => Mathf.Max(1, _widthFitMaxCount);
 
         // SOUND_SYSTEM_REFACTOR: SFX는 AudioManager + SoundConfig로 이전 완료.
         // 검증(실기 테스트) 통과 전까지 기존 SFX 필드/프로퍼티를 주석으로 비활성화한다.

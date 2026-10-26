@@ -122,6 +122,8 @@ namespace Hexiege.Presentation
             _bloomAcquirePending = false;
             _active = false; _bloomLoop = false; _bloomStopped = false;
             foreach (var ps in _bloomSystems) if (ps != null) ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            // [2026-10-26 폭 맞춤] 거부된 재생이 바꾼 방출 범위·개수가 있으면 되돌린다(힐 프리셋은 옵션이 꺼져 있어 보통 아무 일도 없다).
+            RestoreWidthFit();
             gameObject.SetActive(false);
             _onReturn?.Invoke(this); // pending을 먼저 해제하여 중복 실패 callback도 1회만 반환한다.
         }
@@ -168,6 +170,9 @@ namespace Hexiege.Presentation
             // 개수는 "1개 이상"이면 된다. 대신 바로 아래의 시스템별 규격 검사(반복 재생·scaled 시간·
             // stopAction None·Local 좌표·burst 0)는 그대로 두므로 잘못 만든 프리팹은 여전히 재생 전에 거부된다.
             if (_bloomSystems.Length == 0) return 0;
+            // [2026-10-26 폭 맞춤] 이중 안전장치 — 지난 재생의 원복이 빠졌더라도 검사·재생 전에 원래 값으로 되돌린다.
+            //   폭 맞춤을 적용한 적이 없으면(힐 프리셋 기본 = 옵션 꺼짐) 아무것도 하지 않는다.
+            RestoreWidthFit();
             foreach (var ps in _bloomSystems)
                 if (!ps.main.loop || ps.main.useUnscaledTime || ps.main.stopAction != ParticleSystemStopAction.None
                     || ps.main.simulationSpace != ParticleSystemSimulationSpace.Local || ps.emission.burstCount != 0) return 0;
@@ -184,14 +189,22 @@ namespace Hexiege.Presentation
 #endif
             FollowBloomPose(_bloomLease, pose);
             gameObject.SetActive(true);
+            // [2026-10-26 폭 맞춤] FollowBloomPose가 크기(localScale)를 정한 뒤, Play 전에 1번만 적용한다(refresh는 다시 하지 않는다).
+            //   힐 프리셋은 옵션이 꺼져 있으므로(사용자 결정 D1) null — 아무것도 바꾸지 않아 예전과 같다.
+            string widthFit = ApplyWidthFit(_bloomSystems, preset, fit);
             foreach (var ps in _bloomSystems)
             {
                 ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
-                // authored 전체 PS의 burst=0 계약을 위에서 검증했다. emission 설정을 변형하지 않는다.
+                // authored 전체 PS의 burst=0 계약을 위에서 검증했다.
+                // [2026-10-26 정정] 예전 주석 "emission 설정을 변형하지 않는다"는 폭 맞춤 옵션이 꺼져 있을 때(힐 기본)만 참이다.
+                //   옵션을 켜면 위 ApplyWidthFit이 초당 방출 수(rate)·최대 입자 수·Shape 범위만 바꾸고, burst는 건드리지 않으므로
+                //   위 재생 전 검사(burst 0, 규칙 34)와 충돌하지 않는다. 바꾼 값은 Return/RejectBloomAcquire에서 되돌린다.
                 ps.Play(false);
             }
             // 로그에는 "실제로 재생한 개수"를 적는다(옛 고정 문구 "RecursivePS=5"는 사실과 달라 교체).
-            ObserveBloom("Play", "RecursivePS=" + _bloomSystems.Length + ", FitScale=" + _bloomFitScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            //   폭 맞춤 기록은 옵션이 켜진 경우에만 덧붙는다 → 옵션이 꺼진 힐 로그는 예전과 같다.
+            ObserveBloom("Play", "RecursivePS=" + _bloomSystems.Length + ", FitScale=" + _bloomFitScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                + (widthFit != null ? ", WidthFit=" + widthFit : string.Empty));
             _bloomAcquirePending = false;
             return _bloomLease;
         }
@@ -597,6 +610,9 @@ namespace Hexiege.Presentation
 
             ResetTravelState();
             transform.localScale = _originalLocalScale;
+            // [2026-10-26 폭 맞춤] 자연 반환 — 크기와 함께 방출 범위·개수도 프리팹 원래 값으로 되돌린다.
+            //   (화상·독·힐 모두 이 Return을 거친다. 폭 맞춤을 적용한 적이 없으면 아무것도 하지 않는다.)
+            RestoreWidthFit();
 
             gameObject.SetActive(false);
             _onReturn?.Invoke(this);

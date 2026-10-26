@@ -1494,8 +1494,13 @@ namespace Hexiege.Editor.Combat
                 Require(returns == 1 && proof.Ended && proof.PendingTails == 0 && item.BloomSnapshot.Equals(terminal), "All authored PS drain/return once retains terminal key.");
                 Require(item.BeginBloomAcquire(), "Returned item can be checked out again.");
                 // [C] 재사용 lease는 크기 맞춤(배율 2, 발밑 보정)으로 재생해 배율·위치·refresh 유지·반환 복원을 확인한다.
-                var bloomFit = new Hexiege.Presentation.RecipientFit(2f, new Vector3(0.1f, 0.05f, -0.2f));
+                // [2026-10-26 폭 맞춤] 넓은 몸통 반경(0.4m)을 함께 넘긴다. 실제 힐 프리셋은 폭 맞춤이 꺼져 있으므로(사용자 결정 D1)
+                //   파티클 모듈 값(Shape 범위·초당 방출 수·최대 입자 수)이 하나도 바뀌지 않아야 한다 — 아래 Require.
+                var bloomWidthAuthored = SnapshotWidthFitModules(systems);
+                var bloomFit = new Hexiege.Presentation.RecipientFit(2f, new Vector3(0.1f, 0.05f, -0.2f), 0.4f);
                 ulong lease2 = item.PlayBloomLoop(next, pose.transform, preset, bloomFit, new BloomHealEffectDiagnostics());
+                Require(!preset.WidthFitEnabled && SameWidthFitModules(SnapshotWidthFitModules(systems), bloomWidthAuthored),
+                    "Width-fit-off Bloom keeps every authored particle module even on a wide recipient.");
                 Vector3 fittedBloomScale = Vector3.Scale(authoredScale, preset.ScaleMultiplier) * 2f;
                 Require(VfxApprox(item.transform.localScale, fittedBloomScale)
                     && VfxApprox(item.transform.position, pose.transform.position

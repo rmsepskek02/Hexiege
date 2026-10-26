@@ -18,3 +18,5 @@ MonoBehaviour:
   _scaleMultiplier: {x: 1, y: 1, z: 1}
   _forwardTravelDistance: 0
   _forwardTravelDuration: 0
+  _widthFitEnabled: 1
+  _widthFitMaxCount: 3

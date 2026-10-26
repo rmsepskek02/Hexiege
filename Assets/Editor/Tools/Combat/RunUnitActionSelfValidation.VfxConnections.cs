@@ -69,6 +69,7 @@ namespace Hexiege.Editor.Combat
             ValidateDamageNetworkCurrentValue();
             ValidateDamageParticles(units.GetTimedDamage(UnitType.MushroomBomber));
             ValidateDamageParticles(units.GetTimedDamage(UnitType.InfernoSpirit));
+            ValidateTimedDamageWidthFit(units); // [2026-10-26 상태 이펙트 폭 맞춤]
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
@@ -541,7 +542,9 @@ namespace Hexiege.Editor.Combat
                 var rows = new List<UnitRecipientFitEntry>
                 {
                     new UnitRecipientFitEntry { unitType = UnitType.LittleKnight, height = UnitEffectConfig.RecipientReferenceHeight },
-                    new UnitRecipientFitEntry { unitType = UnitType.Tank, height = 2f, footOffset = new Vector3(0f, 0.1f, 0f) },
+                    new UnitRecipientFitEntry { unitType = UnitType.Tank, height = 2f, footOffset = new Vector3(0f, 0.1f, 0f), radius = 0.4f },
+                    // [2026-10-26 폭 맞춤] 키는 정상이고 반경만 잘못된 줄 → 배율은 그대로 쓰고 반경만 0(폭 맞춤 없음).
+                    new UnitRecipientFitEntry { unitType = UnitType.LionKnight, height = 0.5f, radius = float.NaN },
                     new UnitRecipientFitEntry { unitType = UnitType.BloomFairy, height = 0.5f, manualScale = 1.5f },
                     new UnitRecipientFitEntry { unitType = UnitType.Sniper, height = float.NaN },
                     new UnitRecipientFitEntry { unitType = UnitType.Assault, height = 100f },
@@ -554,6 +557,11 @@ namespace Hexiege.Editor.Combat
                 Require(probe.TryGetRecipientFit(UnitType.Tank, out var tall) && Mathf.Approximately(tall.UniformScale, 2f)
                     && VfxApprox(tall.SafeFootOffset, new Vector3(0f, 0.1f, 0f)),
                     "Default scale is height ÷ reference height with foot offset.");
+                Require(Mathf.Approximately(tall.SafeRadius, 0.4f) && Mathf.Approximately(reference.SafeRadius, 0f),
+                    "Recipient fit carries the table radius (missing radius = 0) without changing the scale.");
+                Require(probe.TryGetRecipientFit(UnitType.LionKnight, out var badRadius)
+                    && Mathf.Approximately(badRadius.UniformScale, 0.5f) && Mathf.Approximately(badRadius.SafeRadius, 0f),
+                    "Invalid radius keeps the height scale and disables only the width fit.");
                 Require(probe.TryGetRecipientFit(UnitType.BloomFairy, out var manual) && Mathf.Approximately(manual.UniformScale, 1.5f),
                     "Positive manualScale overrides the height ratio.");
                 Require(!probe.TryGetRecipientFit(UnitType.Sniper, out var invalid) && Mathf.Approximately(invalid.UniformScale, 1f),
@@ -808,6 +816,257 @@ namespace Hexiege.Editor.Combat
                 item.Return();
                 Require(returned == 2 && VfxApprox(instance.transform.localScale, authoredScale),
                     "Fitted timed damage natural return restores the authored scale.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
+        }
+
+        // ====================================================================
+        // [2026-10-26 상태 이펙트 폭 맞춤] (Plan _Tasks/2026-10-26/18_34_status-effect-width-fit 3-6, 사용자 결정 D6)
+        //   폭 맞춤이 바꾸는 파티클 모듈 값(Shape 범위 · 초당 방출 수 · 최대 입자 수)을 한 번에 비교하기 위한 스냅샷.
+        //   Burst 개수·방출 켜짐도 함께 담아 "건드리면 안 되는 값"이 그대로인지도 본다.
+        // ====================================================================
+        private struct WidthFitModules
+        {
+            public bool EmissionEnabled, ShapeEnabled;
+            public ParticleSystemShapeType ShapeType;
+            public float ShapeRadius, RadiusThickness, RateMultiplier;
+            public Vector3 ShapeRotation;
+            public int MaxParticles, BurstCount;
+        }
+
+        private static WidthFitModules[] SnapshotWidthFitModules(ParticleSystem[] systems)
+        {
+            var result = new WidthFitModules[systems.Length];
+            for (int i = 0; i < systems.Length; i++)
+            {
+                var ps = systems[i];
+                result[i] = new WidthFitModules
+                {
+                    EmissionEnabled = ps.emission.enabled, ShapeEnabled = ps.shape.enabled, ShapeType = ps.shape.shapeType,
+                    ShapeRadius = ps.shape.radius, RadiusThickness = ps.shape.radiusThickness,
+                    RateMultiplier = ps.emission.rateOverTimeMultiplier, ShapeRotation = ps.shape.rotation,
+                    MaxParticles = ps.main.maxParticles, BurstCount = ps.emission.burstCount,
+                };
+            }
+            return result;
+        }
+
+        /// <summary>두 스냅샷이 완전히 같은지. 원복은 저장해 둔 값을 그대로 다시 쓰므로 float도 정확히 같아야 한다.</summary>
+        private static bool SameWidthFitModules(WidthFitModules[] a, WidthFitModules[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (a[i].EmissionEnabled != b[i].EmissionEnabled || a[i].ShapeEnabled != b[i].ShapeEnabled
+                    || a[i].ShapeType != b[i].ShapeType || a[i].ShapeRadius != b[i].ShapeRadius
+                    || a[i].RadiusThickness != b[i].RadiusThickness || a[i].RateMultiplier != b[i].RateMultiplier
+                    || a[i].ShapeRotation != b[i].ShapeRotation || a[i].MaxParticles != b[i].MaxParticles
+                    || a[i].BurstCount != b[i].BurstCount) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// [2026-10-26 상태 이펙트 폭 맞춤] 화상 불꽃을 몸통 폭에 맞추는 기능을 확인한다.
+        ///   (1) 실제 프리셋 설정: 화상만 켜짐(상한 3), 독·힐은 꺼짐 — 사용자 결정 D1·D2. 결정이 바뀌면 이 줄도 함께 바꾼다.
+        ///   (2) 순수 공식: 반올림(D3, 2.5 → 3) · 윤곽 안 반경(D4) · 상한(D2) · 잘못된 입력은 폭 맞춤 없음.
+        ///   (3) 실제 화상 프리팹: 넓은 대상 → 방출 켜진 시스템만 범위·개수가 공식대로, Burst·방출 꺼진 루트는 그대로,
+        ///       같은 대상 갱신은 재계산 없음, 자연 반환 뒤 원본 복원, 넓은 → 좁은/Identity 재사용 시 원본 그대로.
+        ///   (4) 실제 크기 표로 유닛별 결과를 로그에 남긴다(곰·탱크·대포수레·스트림·래빗) — 사용자 육안 확인과 대조용.
+        ///   (5) 재생 실패 거부 · 강제 정리 경로 원복, 원복이 빠진 채 다음 재생이 시작돼도 먼저 원본으로 돌아감(이중 안전장치).
+        ///   (6) 옵션이 꺼진 실제 독 프리셋: 넓은 대상이어도 모든 값이 원본 그대로.
+        ///   힐(옵션 꺼짐)의 "넓은 대상이어도 그대로"는 기존 Bloom fixture(RunUnitActionSelfValidation.cs)에 덧붙였다.
+        /// EditMode에서는 OnDisable이 자동으로 불리지 않으므로 기존 fixture처럼 리플렉션으로 직접 호출한다.
+        /// </summary>
+        private static void ValidateTimedDamageWidthFit(UnitEffectConfig units)
+        {
+            var burn = units.GetTimedDamage(UnitType.InfernoSpirit);
+            var poison = units.GetTimedDamage(UnitType.MushroomBomber);
+            var heal = units.GetHeal(UnitType.BloomFairy);
+            Require(burn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
+                "Burn, poison and heal recipient presets exist for the width-fit fixture.");
+
+            // (1) 사용자 결정 D1(화상만 켬, 독·힐 현행 유지) · D2(상한 3)
+            Require(burn.WidthFitEnabled && burn.WidthFitMaxCount == EffectPreset.DefaultWidthFitMaxCount,
+                "Burn preset enables recipient width fit with max count 3 (user decision D1/D2, 2026-10-26).");
+            Require(!poison.WidthFitEnabled && !heal.WidthFitEnabled,
+                "Poison and heal presets keep width fit off (user decision D1 — current behavior preserved).");
+
+            // (2) 순수 공식. 기대값은 Plan 1절 표의 계산과 같은 방식(불꽃 폭 = 0.55 × 키)으로 직접 적었다.
+            void Formula(float radius, float width, int cap, int expectCount, float expectRadius, string message)
+            {
+                bool ok = VfxPoolItem.TryComputeWidthFit(radius, width, cap, out int n, out float r);
+                Require(ok && n == expectCount && Mathf.Abs(r - expectRadius) < 1e-4f,
+                    message + " (count=" + n + ", radius=" + r + ")");
+            }
+            Formula(.413f, .55f * .521f, 3, 3, .413f - .55f * .521f * .5f, "Tank-like wide body gets 3 flames inside its outline.");
+            Formula(.22f, .55f * .53f, 3, 2, .22f - .55f * .53f * .5f, "BearGuard-like body gets 2 flames.");
+            Formula(.167f, .55f * .416f, 3, 1, .167f - .55f * .416f * .5f, "StreamSpirit-like body stays 1 flame (round, not ceil).");
+            Formula(.089f, .55f * .356f, 3, 1, 0f, "RabbitTrickster-like narrow body stays 1 flame with zero spread.");
+            Formula(.3125f, .25f, 3, 3, .1875f, "Exact x.5 rounds half up (2.5 → 3), not to even.");
+            Formula(1f, .2f, 3, 3, .9f, "Flame count is capped by the preset maximum.");
+            Formula(1f, .2f, 0, 1, .9f, "A cap below 1 is treated as 1 (no extra flames).");
+            Require(!VfxPoolItem.TryComputeWidthFit(0f, .3f, 3, out int c0, out _) && c0 == 1
+                && !VfxPoolItem.TryComputeWidthFit(float.NaN, .3f, 3, out _, out _)
+                && !VfxPoolItem.TryComputeWidthFit(float.PositiveInfinity, .3f, 3, out _, out _)
+                && !VfxPoolItem.TryComputeWidthFit(.4f, 0f, 3, out _, out _),
+                "Unknown/invalid radius or flame width means no width fit (count 1).");
+            Require(Mathf.Approximately(default(RecipientFit).SafeRadius, 0f)
+                && Mathf.Approximately(new RecipientFit(1f, Vector3.zero).SafeRadius, 0f)
+                && Mathf.Approximately(new RecipientFit(1f, Vector3.zero, -1f).SafeRadius, 0f)
+                && Mathf.Approximately(new RecipientFit(1f, Vector3.zero, .3f).SafeRadius, .3f),
+                "RecipientFit radius defaults to 0 (no width fit) and rejects invalid values.");
+
+            var root = new GameObject("WidthFitFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var channel = new TimedDamageEffectChannel();
+            try
+            {
+                var pose = new GameObject("WidthFitPose") { hideFlags = HideFlags.HideAndDontSave };
+                pose.transform.SetParent(root.transform, false);
+                pose.transform.SetPositionAndRotation(new Vector3(2f, 0f, -1f), Quaternion.Euler(0f, 40f, 0f));
+                int nextUnit = 98100;
+
+                // ── (3) 실제 화상 프리팹 ──
+                var instance = UnityEngine.Object.Instantiate(burn.VfxPrefab, root.transform);
+                instance.SetActive(false);
+                var item = instance.AddComponent<VfxPoolItem>();
+                int returned = 0; item.Setup(burn.VfxPrefab, _ => returned++);
+                var systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+                var authored = SnapshotWidthFitModules(systems);
+                TimedDamageEffectPresentation PlayBurn(RecipientFit fit)
+                {
+                    var s = channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Burn, 3f);
+                    item.PlayTimedDamage(s, pose.transform, burn, channel, fit);
+                    return s;
+                }
+                // 기존 ValidateDamageParticles와 같은 자연 drain 재현: Stop → 시뮬레이션으로 입자 소멸 → 멈춤 상태 재확인 → Return.
+                void DrainBurn()
+                {
+                    item.StopTimedDamage(item.DamageLease, "Expired");
+                    foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                    item.Return();
+                }
+
+                const float wideRadius = .413f;
+                var wideState = PlayBurn(new RecipientFit(.521f, Vector3.zero, wideRadius)); // 탱크와 같은 키·반경
+                int fitted = 0;
+                for (int i = 0; i < systems.Length; i++)
+                {
+                    var ps = systems[i];
+                    if (!authored[i].EmissionEnabled)
+                    {
+                        Require(SameWidthFitModules(new[] { SnapshotWidthFitModules(systems)[i] }, new[] { authored[i] }),
+                            "Non-emitting burn system keeps its authored modules: " + ps.name);
+                        continue;
+                    }
+                    Require(ps.main.scalingMode == ParticleSystemScalingMode.Hierarchy,
+                        "Burn emitting system uses Hierarchy scaling (width-fit radius conversion premise): " + ps.name);
+                    float scaleX = Mathf.Abs(ps.transform.lossyScale.x);
+                    float width = (ps.main.startSize3D ? ps.main.startSizeX : ps.main.startSize).constantMax * scaleX;
+                    Require(VfxPoolItem.TryComputeWidthFit(wideRadius, width, burn.WidthFitMaxCount, out int n, out float r),
+                        "Burn flame width is measurable: " + ps.name);
+                    if (n <= 1)
+                    {
+                        Require(SameWidthFitModules(new[] { SnapshotWidthFitModules(systems)[i] }, new[] { authored[i] }),
+                            "Single-flame result leaves the system untouched: " + ps.name);
+                        continue;
+                    }
+                    fitted++;
+                    var shape = ps.shape;
+                    Require(shape.enabled && shape.shapeType == ParticleSystemShapeType.Circle
+                        && Mathf.Abs(shape.radius * scaleX * Mathf.Abs(shape.scale.x) - r) < 1e-4f
+                        && Mathf.Approximately(shape.radiusThickness, VfxPoolItem.WidthFitRadiusThickness)
+                        // Euler 값은 같은 회전도 표기가 다를 수 있어(-90 / 270) 회전 각도 차이로 비교한다.
+                        && Quaternion.Angle(Quaternion.Euler(shape.rotation), Quaternion.Euler(-90f, 0f, 0f)) < .01f,
+                        "Wide recipient spreads emission on a horizontal circle of world radius R: " + ps.name);
+                    Require(n <= burn.WidthFitMaxCount
+                        && Mathf.Approximately(ps.emission.rateOverTimeMultiplier, authored[i].RateMultiplier * n)
+                        && ps.main.maxParticles == authored[i].MaxParticles * n
+                        && ps.emission.burstCount == authored[i].BurstCount,
+                        "Wide recipient multiplies rate/max particles by N (≤ cap) and leaves bursts unchanged: " + ps.name);
+                    Require(r + width * .5f <= wideRadius + 1e-4f,
+                        "Flame outer edge stays inside the body outline (D4): " + ps.name);
+                }
+                Require(fitted > 0, "A Tank-sized recipient needs at least 2 burn flames on an emitting system "
+                    + "(if the burn prefab flame was resized, re-check the expected width-fit result).");
+                var widened = SnapshotWidthFitModules(systems);
+                wideState.Revision++; item.RefreshTimedDamage(item.DamageLease, wideState);
+                Require(SameWidthFitModules(SnapshotWidthFitModules(systems), widened),
+                    "Same-owner refresh does not recompute or restore the width fit.");
+                DrainBurn();
+                Require(returned == 1 && SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Natural return restores the authored burn modules.");
+
+                PlayBurn(new RecipientFit(.356f, Vector3.zero, .089f)); // 래빗과 같은 키·반경 → 1장
+                Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Wide → narrow reuse plays with authored modules (no leftover spread/count).");
+                DrainBurn();
+                PlayBurn(RecipientFit.Identity);
+                Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Unknown recipient (identity fit, radius 0) keeps authored modules.");
+                DrainBurn();
+                Require(returned == 3, "Narrow and identity burn plays return naturally.");
+
+                // ── (4) 실제 크기 표로 유닛별 결과 기록(통과 조건은 상한·원복만 — 표는 사용자가 다시 잴 수 있다) ──
+                string report = null;
+                foreach (var type in new[] { UnitType.Tank, UnitType.CannonCart, UnitType.BearGuard, UnitType.StreamSpirit, UnitType.RabbitTrickster })
+                {
+                    PlayBurn(units.GetRecipientFit(type));
+                    string entry = type + ":1";
+                    for (int i = 0; i < systems.Length; i++)
+                    {
+                        if (!authored[i].EmissionEnabled || authored[i].MaxParticles <= 0) continue;
+                        int n = systems[i].main.maxParticles / authored[i].MaxParticles;
+                        Require(n >= 1 && n <= burn.WidthFitMaxCount, "Actual table width fit stays within the cap: " + type);
+                        if (n > 1)
+                            entry = type + ":" + n + "@" + (systems[i].shape.radius * Mathf.Abs(systems[i].transform.lossyScale.x)
+                                * Mathf.Abs(systems[i].shape.scale.x)).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    report = report == null ? entry : report + "|" + entry;
+                    DrainBurn();
+                    Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored), "Actual table play restores authored modules: " + type);
+                }
+                GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
+                    "화상 폭 맞춤 — 실제 크기 표 기준 유닛별 불꽃 개수@방출 반경(m). 1 = 예전과 같은 한 점 방출", "WidthFit=" + report);
+
+                // ── (5) 재생 실패 거부 · 강제 정리 · 이중 안전장치 ──
+                PlayBurn(new RecipientFit(.521f, Vector3.zero, wideRadius));
+                Require(!SameWidthFitModules(SnapshotWidthFitModules(systems), authored), "Wide play changed modules before the reject check.");
+                int beforeReject = returned;
+                item.RejectTimedDamageAcquire();
+                Require(returned == beforeReject + 1 && SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Rejected acquire restores the authored modules before returning to the pool.");
+
+                PlayBurn(new RecipientFit(.521f, Vector3.zero, wideRadius));
+                var onDisable = typeof(VfxPoolItem).GetMethod("OnDisable", VfxFields);
+                Require(onDisable != null, "VfxPoolItem forced-teardown method exists for the width-fit fixture.");
+                onDisable.Invoke(item, null);
+                Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Forced teardown (OnDisable) restores the authored modules.");
+
+                // 원복이 빠진 상황을 일부러 만든다: 넓게 재생한 뒤 "재생 중" 표시만 지우고(원복 없이) 좁은 대상으로 다시 재생.
+                PlayBurn(new RecipientFit(.521f, Vector3.zero, wideRadius));
+                typeof(VfxPoolItem).GetField("_active", VfxFields).SetValue(item, false);
+                typeof(VfxPoolItem).GetField("_damageLoop", VfxFields).SetValue(item, false);
+                PlayBurn(new RecipientFit(.356f, Vector3.zero, .089f));
+                Require(SameWidthFitModules(SnapshotWidthFitModules(systems), authored),
+                    "Play start restores authored modules even if a previous restore was missed (double safety).");
+                DrainBurn();
+
+                // ── (6) 옵션이 꺼진 실제 독 프리셋: 넓은 대상이어도 원본 그대로 ──
+                var poisonInstance = UnityEngine.Object.Instantiate(poison.VfxPrefab, root.transform);
+                poisonInstance.SetActive(false);
+                var poisonItem = poisonInstance.AddComponent<VfxPoolItem>();
+                int poisonReturned = 0; poisonItem.Setup(poison.VfxPrefab, _ => poisonReturned++);
+                var poisonSystems = poisonInstance.GetComponentsInChildren<ParticleSystem>(true);
+                var poisonAuthored = SnapshotWidthFitModules(poisonSystems);
+                poisonItem.PlayTimedDamage(channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Poison, 3f), pose.transform, poison, channel,
+                    new RecipientFit(.521f, Vector3.zero, wideRadius));
+                Require(SameWidthFitModules(SnapshotWidthFitModules(poisonSystems), poisonAuthored),
+                    "Width-fit-off poison keeps every authored module even on a wide recipient.");
+                poisonItem.StopTimedDamage(poisonItem.DamageLease, "Expired");
+                foreach (var ps in poisonSystems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                poisonItem.Return();
+                Require(poisonReturned == 1 && SameWidthFitModules(SnapshotWidthFitModules(poisonSystems), poisonAuthored),
+                    "Width-fit-off poison natural return keeps authored modules.");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
         }
