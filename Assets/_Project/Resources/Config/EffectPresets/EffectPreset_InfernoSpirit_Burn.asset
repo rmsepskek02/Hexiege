@@ -20,3 +20,4 @@ MonoBehaviour:
   _forwardTravelDuration: 0
   _widthFitEnabled: 1
   _widthFitMaxCount: 3
+  _viewPullRadiusRatio: 1.75

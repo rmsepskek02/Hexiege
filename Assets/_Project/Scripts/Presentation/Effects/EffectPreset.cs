@@ -91,6 +91,36 @@ namespace Hexiege.Presentation
         /// <summary>폭 맞춤 개수 상한 기본값(2026-10-26 사용자 결정 D2 = 3). 현재 크기 표의 최대 필요 개수(탱크·대포수레)와 같다.</summary>
         public const int DefaultWidthFitMaxCount = 3;
 
+        // [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기] 화상·독·힐처럼 "유닛 몸에 붙는 상태 이펙트" 전용 옵션.
+        //   문제: 상태 이펙트는 유닛 몸 "한가운데"(발밑 기준 위치)에 서 있다. 유닛 몸은 불투명이라 먼저 그려지며
+        //         "여기까지가 몸 표면"이라는 깊이 정보를 남기고, 불꽃(투명)은 나중에 그 깊이와 비교해
+        //         몸 표면보다 카메라에서 먼 부분은 그리지 않는다. 그래서 몸 앞부분이 불꽃 대부분을 덮어 잘 안 보였다
+        //         (곰전사 실기 2026-10-26 「몸 안에 가려져서 안 보인다」, Research 10-1·10-5).
+        //   해결: 이 값을 0보다 크게 넣으면 재생 시작 때 이펙트 위치를 "카메라 쪽 방향"으로
+        //         (크기 표의 몸통 반경 × 이 값)만큼 당긴다(사용자 결정 D7-1 (가)·D7-2 (a)).
+        //   🔴 이 게임 카메라는 원근이 없는 직교(Orthographic) 카메라다. 직교 카메라에서는 물체를 카메라 쪽으로 옮겨도
+        //      화면에서의 위치·크기·모양이 전혀 바뀌지 않고 "무엇의 앞에 그려지는지(깊이)"만 바뀐다.
+        //      즉 불꽃 모양은 그대로이고, 몸에 덮이던 부분만 몸 앞에 드러난다.
+        //      (카메라를 원근으로 바꾸면 이 전제가 깨져 당긴 만큼 화면 위치·크기가 조금 달라진다.)
+        //   기본값 0 = 꺼짐 — 값을 넣지 않은 기존 프리셋(독·힐 포함)은 예전과 완전히 같다(D7-3 (a): 구조만 두고 화상만 켬).
+        //   재질·셰이더·프리팹은 바꾸지 않는다. 화면 표현 전용이다. 피해량·지속시간·서버 판정과 무관하다.
+        [Header("Recipient View Pull (상태 이펙트 전용)")]
+        [Tooltip("0보다 크면 상태 이펙트를 카메라 쪽으로 (몸통 반경 × 이 값)만큼 당겨, 유닛 몸에 가려지던 부분을 몸 앞에 그린다. "
+            + "직교 카메라에서는 화면 위치·크기가 바뀌지 않고 깊이(앞뒤)만 바뀐다. 0 = 꺼짐(예전과 같음). "
+            + "권장 1.75 = 1 ÷ cos 55°(카메라 기울기 55°에서 몸 가운데 불꽃이 몸 앞면을 벗어나는 최소 비율). "
+            + "더 잘 보이게 하려면 올리고, 앞을 지나가는 유닛·건물 앞으로 튀어나와 보이면 내린다. "
+            + "화상·독·힐 같은 대상 상태 이펙트 프리셋에서만 의미가 있다(공격·사망 이펙트에는 효과 없음).")]
+        [Min(0f)]
+        [SerializeField] private float _viewPullRadiusRatio;
+
+        /// <summary>
+        /// 카메라 쪽 당김 비율 권장값(2026-10-26 사용자 결정 D7-2 = 1.75). 화상 프리셋에 넣은 값이다.
+        /// 1 ÷ cos 55° ≈ 1.743 — 카메라가 55° 기울어져 있을 때, 몸통을 원기둥으로 본 근사에서
+        /// 몸 가운데 불꽃이 몸 앞면을 벗어나기 위한 최소 비율을 조금 올려 잡은 값이다(Research 10-5).
+        /// 필드 기본값은 이것이 아니라 0(꺼짐)이다 — 기존 프리셋이 저절로 바뀌지 않게 하기 위해서다.
+        /// </summary>
+        public const float RecommendedViewPullRadiusRatio = 1.75f;
+
         /// <summary> 재생할 파티클 시스템 프리팹. 없으면 null. </summary>
         public GameObject VfxPrefab => _vfxPrefab;
 
@@ -129,6 +159,14 @@ namespace Hexiege.Presentation
         /// 폭 맞춤 불꽃 개수 상한. Inspector에 1 미만이 들어가도(옛 에셋·직접 편집) 1 이상으로 보정한다.
         /// </summary>
         public int WidthFitMaxCount => Mathf.Max(1, _widthFitMaxCount);
+
+        /// <summary>
+        /// 상태 이펙트 카메라 쪽 당김 비율(몸통 반경에 곱하는 값). 화상·독(VfxPoolItem.PlayTimedDamage)과
+        /// 힐(VfxPoolItem.PlayBloomLoop) 재생 경로에서만 읽는다.
+        /// 0(기본) = 당기지 않음 — 예전과 같다. Inspector나 옛 에셋에 음수·NaN·무한대가 들어가도 0(꺼짐)으로 본다.
+        /// </summary>
+        public float ViewPullRadiusRatio => _viewPullRadiusRatio > 0f && !float.IsInfinity(_viewPullRadiusRatio)
+            ? _viewPullRadiusRatio : 0f; // NaN은 "> 0" 비교가 false라 자동으로 0이 된다
 
         // SOUND_SYSTEM_REFACTOR: SFX는 AudioManager + SoundConfig로 이전 완료.
         // 검증(실기 테스트) 통과 전까지 기존 SFX 필드/프로퍼티를 주석으로 비활성화한다.

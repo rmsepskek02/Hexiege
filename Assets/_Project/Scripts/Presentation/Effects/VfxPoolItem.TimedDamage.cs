@@ -11,12 +11,17 @@ namespace Hexiege.Presentation
         private TimedDamageEffectPresentation _damageState;
         private TimedDamageEffectChannel _damageChannel;
         private Vector3 _damageOffset, _damageEuler;
+        // [2026-10-26 D7 후속] 카메라 쪽 당김(월드 좌표). 재생 시작 때 1번 정하고 매 프레임 Follow에서 더하기만 한다.
+        //   대상 유닛 회전을 곱하지 않는 "월드" 값이다 — 유닛은 돌아서지만 카메라는 돌지 않기 때문이다(아래 「카메라 쪽 당김」 절).
+        private Vector3 _damageViewPull;
         public ulong DamageLease => _damageLease;
         public void RejectTimedDamageAcquire()
         {
             foreach (var ps in GetComponentsInChildren<ParticleSystem>(true)) ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             // [2026-10-26 폭 맞춤] 재생 도중 실패로 거부돼도 바꾼 방출 범위·개수를 원래 값으로 되돌린 뒤 풀에 넣는다.
             RestoreWidthFit();
+            // [2026-10-26 D7 후속] 거부된 재생의 카메라 쪽 당김도 비운다(다음 재생이 어차피 덮어쓰지만 이중 안전장치).
+            _damageViewPull = Vector3.zero;
             _active = false; _damageLoop = false; _damageChannel = null; gameObject.SetActive(false); _onReturn?.Invoke(this);
         }
         /// <summary>
@@ -24,6 +29,7 @@ namespace Hexiege.Presentation
         /// fit(대상 크기 맞춤)은 재생 시작 때 1번만 적용되며, 같은 owner refresh는 재시작하지 않으므로 크기도 유지된다.
         /// fit을 생략하면 Identity(배율 1, 보정 0, 반경 0) — 예전과 완전히 같은 크기·위치다.
         /// 프리셋의 「폭 맞춤」이 켜져 있으면 fit의 몸통 반경으로 불꽃 방출 범위·개수도 재생 시작 때 1번 맞춘다(아래 「폭 맞춤」 절).
+        /// 프리셋의 「카메라 쪽 당김」 비율이 0보다 크면 몸통 반경 × 비율만큼 카메라 쪽으로 당겨 몸 앞에 그린다(아래 「카메라 쪽 당김」 절).
         /// </summary>
         /// <param name="state">서버가 정한 지속 피해 표현 상태.</param>
         /// <param name="pose">대상 유닛의 VisualRoot Transform(발밑 기준).</param>
@@ -45,6 +51,10 @@ namespace Hexiege.Presentation
             _damageState = state; _damageChannel = channel; _damageLoop = true; _damageStopped = false;
             // [C] 위치 보정 = 프리셋 보정 + 크기 표의 발밑 보정. 미리 더해 두면 Follow는 예전 계산 그대로다.
             _damageOffset = preset.LocalPositionOffset + fit.SafeFootOffset; _damageEuler = preset.EulerRotationOffset;
+            // [2026-10-26 D7 후속] 카메라 쪽 당김을 재생 시작 때 1번 정한다. 아래 FollowTimedDamage(첫 위치 잡기)보다 먼저여야
+            //   첫 프레임부터 당긴 위치에 나온다. 매 재생마다 덮어쓰므로 풀 재사용 때 이전 대상의 당김이 남지 않는다.
+            //   옵션이 꺼진 프리셋(독)은 0 벡터 + 기록 없음(null) → 예전과 같은 위치·같은 로그.
+            string viewPull = ResolveViewPull(preset, fit, out _damageViewPull);
             // [R-4 비활성화 — 2026-10-13] 대상과 무관한 고정 배율. 작은 유닛엔 너무 크고 큰 유닛엔 어색했다.
             //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
             // transform.localScale = Vector3.Scale(_originalLocalScale, preset.ScaleMultiplier);
@@ -64,10 +74,22 @@ namespace Hexiege.Presentation
             // 폭 맞춤 기록은 옵션이 켜진 프리셋에서만 덧붙는다 → 옵션이 꺼진 독의 로그 줄은 예전과 글자 하나 다르지 않다.
             channel.Record("Play", state, "RecursivePS=" + _damageSystems.Length
                 + "; FitScale=" + fit.UniformScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
-                + (widthFit != null ? "; WidthFit=" + widthFit : string.Empty));
+                + (widthFit != null ? "; WidthFit=" + widthFit : string.Empty)
+                + (viewPull != null ? "; ViewPull=" + viewPull : string.Empty));
         }
+        /// <summary>
+        /// 화상·독 이펙트를 대상 유닛의 현재 자세(pose)에 맞춰 옮긴다. TimedDamageEffectPresenter가 매 프레임(LateUpdate) 부른다.
+        /// 위치 = 대상 발밑 + 대상 회전 × (프리셋 보정 + 발밑 보정) + 카메라 쪽 당김(회전을 곱하지 않는 월드 값).
+        /// </summary>
+        /// <param name="lease">재생 시작 때 받은 lease. 지금 lease와 다르면(옛 재생) 아무것도 하지 않는다.</param>
+        /// <param name="pose">대상 유닛의 VisualRoot Transform.</param>
         public void FollowTimedDamage(ulong lease, Transform pose)
-        { if (lease != _damageLease || pose == null) return; transform.SetPositionAndRotation(pose.position + pose.rotation * _damageOffset, pose.rotation * Quaternion.Euler(_damageEuler)); }
+        {
+            if (lease != _damageLease || pose == null) return;
+            // [2026-10-26 D7 후속] 원래 식 그대로에 _damageViewPull만 더했다. 당김이 0이면(독·옵션 꺼짐) 예전과 완전히 같은 위치다.
+            transform.SetPositionAndRotation(pose.position + pose.rotation * _damageOffset + _damageViewPull,
+                pose.rotation * Quaternion.Euler(_damageEuler));
+        }
         public void RefreshTimedDamage(ulong lease, TimedDamageEffectPresentation state)
         { if (_active && _damageLoop && !_damageStopped && lease == _damageLease && _damageState.SameOwner(state)
             && state.Revision >= _damageState.Revision && state.Visual == _damageState.Visual) _damageState = state; }
@@ -92,6 +114,7 @@ namespace Hexiege.Presentation
             foreach (var ps in _damageSystems) if (ps != null) ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             // [2026-10-26 폭 맞춤] 강제 정리도 바꾼 방출 범위·개수를 원래 값으로 되돌린다(입자는 바로 위에서 이미 비웠다).
             RestoreWidthFit();
+            _damageViewPull = Vector3.zero; // [2026-10-26 D7 후속] 강제 정리도 카메라 쪽 당김을 비운다.
             _damageLoop = false; _damageStopped = false; _damageChannel = null; _active = false;
             // Forced cleanup is not a natural return and does not enqueue a destroyed/disabled lease.
         }
@@ -299,5 +322,109 @@ namespace Hexiege.Presentation
             }
             _widthFitApplied = false;
         }
+
+        // ====================================================================
+        // [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기] (Plan: _Tasks/2026-10-26/18_34_status-effect-width-fit 8절)
+        //
+        // 왜 필요한가:
+        //   상태 이펙트(화상 불꽃 등)는 유닛 몸 한가운데에 서 있는 얇은 판(Billboard)처럼 그려진다.
+        //   유닛 몸은 불투명 재질이라 먼저 그려지면서 "몸 표면까지의 깊이"를 남기고, 불꽃은 투명 재질이라
+        //   나중에 그 깊이와 비교해 "몸 표면보다 카메라에서 먼 픽셀"은 그리지 않는다.
+        //   그래서 카메라 쪽에 있는 몸 앞부분이 불꽃의 아래·가운데 대부분을 덮었다(Research 10-1·10-5).
+        //
+        // 무엇을 하나:
+        //   재생 시작 때 1번, "카메라 쪽 방향 × (몸통 반경 × 프리셋 비율)"인 월드 벡터를 구해 두고,
+        //   매 프레임 따라붙을 때(Follow) 위치에 더한다. 비율은 프리셋 값(화상 1.75, 독·힐 0 = 꺼짐).
+        //
+        // 🔴 왜 화면 모습이 안 바뀌나 (전제: 직교 카메라):
+        //   직교(Orthographic) 카메라는 원근이 없어서, 화면 좌표가 "카메라 오른쪽 축·위쪽 축 성분"만으로 정해진다.
+        //   카메라 쪽 방향(= 카메라가 바라보는 방향의 반대)은 그 두 축과 직각이라, 그 방향으로 옮겨도
+        //   화면 위치·크기·모양이 전혀 바뀌지 않고 깊이(무엇의 앞에 그려지는가)만 바뀐다.
+        //   ⚠️ 카메라를 원근(Perspective)으로 바꾸면 이 전제가 깨진다 — 당긴 만큼 화면 위치·크기가 조금 달라진다.
+        //      그런 경우가 생기면 로그 값 끝에 "@Perspective"가 붙는다(동작은 같게 두고 알아볼 수 있게만 했다).
+        //   기본 비율 1.75는 현재 카메라 기울기 55°에서 나온 값(1 ÷ cos 55° ≈ 1.74)이다. 기울기를 바꾸면 다시 정한다.
+        //
+        // 왜 유닛 회전을 곱하지 않나:
+        //   기존 위치 보정(프리셋 보정 + 발밑 보정)은 유닛을 따라 도는 "유닛 기준(로컬)" 값이라 pose 회전을 곱한다.
+        //   그러나 카메라는 유닛이 돌아도 돌지 않는다. 당김에 유닛 회전을 곱하면 유닛이 돌아설 때 불꽃이
+        //   카메라 반대쪽(몸 뒤)으로 가 버린다. 그래서 당김은 회전 없이 월드 값 그대로 더한다.
+        //
+        // 카메라는 어떻게 얻나 (game-programmer 결정, 근거):
+        //   - 재생 시작 때 Camera.main을 1번 읽는다. 기존 Presentation 코드(FloatingHpText)도 같은 방식이다.
+        //   - 매 프레임 다시 읽지 않는 이유: 카메라 회전을 바꾸는 코드는 CameraController.ApplyTilt 한 곳뿐이고(X축 55°),
+        //     양 팀이 같은 회전을 쓴다(Red 관점은 카메라를 돌리지 않고 좌표를 뒤집는다 — ViewConverter).
+        //     카메라 이동(팬)·확대(orthographicSize)는 "바라보는 방향"을 바꾸지 않으므로 당김 방향도 그대로다.
+        //   - EffectManager가 카메라를 넘겨주는 방식은 쓰지 않았다: 재생 함수 시그니처(기존 호출·검증 fixture 다수)를
+        //     바꿔야 하는데, 얻는 이득(카메라 한 번 조회 절약)이 없다.
+        //   - 카메라를 못 구하면(에디터 자체 검증처럼 씬에 카메라가 없을 때) 당김 0 + 로그 "NoCamera". 예외를 내지 않는다.
+        //     → 당김이 없으면 "예전과 같은 위치"일 뿐이라 화면이 깨지지 않는 쪽이 안전하다.
+        //   - 자체 검증은 ViewPullCameraOverride로 시험용 카메라(또는 "카메라 없음")를 넣는다. 런타임 코드는 이 값을 쓰지 않는다.
+        //
+        // 풀 재사용 안전:
+        //   당김은 재생 시작 때마다 새로 덮어쓰고, 자연 반환(Return)·재생 실패 거부(Reject…)·강제 정리(OnDisable)에서도
+        //   0으로 되돌린다(이중 안전장치). 폭 맞춤(파티클 모듈 값)과 달리 오브젝트 위치만 바꾸므로 원본 저장이 필요 없다.
+        //
+        // 규칙 34(상태 이펙트 loop 계약)와의 관계:
+        //   오브젝트 위치만 바꾼다. Looping·Stop Action·Simulation Space·Burst·rate는 건드리지 않는다.
+        //   같은 대상 갱신(refresh)은 다시 계산하지 않는다(재생 시작 때 1번).
+        //
+        // 화면 표현 전용 — 피해·DoT 틱·서버 판정·RPC·Simulation Root와 무관하다(NET-ROOT-002).
+        //   Host와 Client는 같은 크기 표·프리셋·같은 카메라 회전으로 같은 당김을 계산한다.
+        // ====================================================================
+
+        /// <summary>
+        /// [자체 검증 전용] 카메라 쪽 당김이 쓸 카메라를 바꿔 끼우는 통로. null(기본)이면 Camera.main을 쓴다.
+        /// 값이 있으면 그 함수의 결과를 쓴다 — 함수가 null을 돌려주면 "카메라 없음"(당김 0)으로 처리한다.
+        /// 🔴 런타임 게임 코드에서는 설정하지 않는다. 검증은 try/finally로 반드시 null로 되돌린다.
+        /// </summary>
+        public static Func<Camera> ViewPullCameraOverride { get; set; }
+
+        /// <summary>
+        /// 카메라 쪽 당김 벡터를 계산한다. 순수 계산이라 오브젝트를 건드리지 않는다.
+        /// 당김 = (카메라가 바라보는 방향의 반대, 길이 1) × (비율 × 몸통 반경).
+        /// </summary>
+        /// <param name="ratio">프리셋의 당김 비율(EffectPreset.ViewPullRadiusRatio).</param>
+        /// <param name="bodyRadius">몸통 반경(월드 미터). 크기 표의 radius.</param>
+        /// <param name="cameraForward">카메라가 바라보는 방향(Camera.transform.forward). 길이는 상관없다.</param>
+        /// <param name="pull">당김 벡터(월드 좌표). 계산할 수 없으면 0 벡터.</param>
+        /// <returns>비율·반경이 0 이하·NaN·무한대이거나 카메라 방향이 0·NaN이면 false(당김 없음).</returns>
+        public static bool TryComputeViewPull(float ratio, float bodyRadius, Vector3 cameraForward, out Vector3 pull)
+        {
+            pull = Vector3.zero;
+            if (!IsPositiveFiniteForPull(ratio) || !IsPositiveFiniteForPull(bodyRadius)) return false;
+            if (!IsFiniteForPull(cameraForward.x) || !IsFiniteForPull(cameraForward.y) || !IsFiniteForPull(cameraForward.z)) return false;
+            // 길이가 거의 0이면 방향을 정할 수 없다(normalized가 0 벡터가 된다).
+            if (cameraForward.sqrMagnitude < 1e-8f) return false;
+            pull = -cameraForward.normalized * (ratio * bodyRadius);
+            return true;
+        }
+
+        /// <summary>
+        /// 프리셋·크기 맞춤·카메라로 이번 재생의 카메라 쪽 당김을 정한다. 재생 시작 때 1번만 부른다.
+        /// </summary>
+        /// <param name="preset">재생 중인 상태 이펙트 프리셋.</param>
+        /// <param name="fit">대상 유닛 크기 맞춤(몸통 반경 포함).</param>
+        /// <param name="pull">당김 벡터(월드 좌표). 당기지 않으면 0 벡터.</param>
+        /// <returns>
+        /// 옵션이 꺼져 있으면 null(로그에 아무것도 덧붙이지 않음 → 독·힐 로그는 예전과 글자 하나 다르지 않다).
+        /// 켜져 있으면 로그용 값: 당긴 거리(예: "0.385"), 반경을 모르면 "NoRadius", 카메라를 못 구하면 "NoCamera".
+        /// </returns>
+        private static string ResolveViewPull(EffectPreset preset, RecipientFit fit, out Vector3 pull)
+        {
+            pull = Vector3.zero;
+            float ratio = preset != null ? preset.ViewPullRadiusRatio : 0f;
+            if (ratio <= 0f) return null;
+            float bodyRadius = fit.SafeRadius;
+            // 크기 표에 반경이 없거나 대상 타입을 모름(Identity) → 몸 두께를 모르니 당기지 않는다(예전과 같은 위치).
+            if (bodyRadius <= 0f) return "NoRadius";
+            Camera cam = ViewPullCameraOverride != null ? ViewPullCameraOverride() : Camera.main;
+            if (cam == null) return "NoCamera"; // Unity null 검사 — 파괴된 카메라도 여기서 걸린다
+            if (!TryComputeViewPull(ratio, bodyRadius, cam.transform.forward, out pull)) return "NoCamera";
+            string distance = (ratio * bodyRadius).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            return cam.orthographic ? distance : distance + "@Perspective";
+        }
+
+        private static bool IsFiniteForPull(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+        private static bool IsPositiveFiniteForPull(float v) => v > 0f && !float.IsInfinity(v);
     }
 }

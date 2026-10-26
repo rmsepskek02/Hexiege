@@ -70,6 +70,7 @@ namespace Hexiege.Editor.Combat
             ValidateDamageParticles(units.GetTimedDamage(UnitType.MushroomBomber));
             ValidateDamageParticles(units.GetTimedDamage(UnitType.InfernoSpirit));
             ValidateTimedDamageWidthFit(units); // [2026-10-26 상태 이펙트 폭 맞춤]
+            ValidateRecipientViewPull(units);   // [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기]
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
@@ -1069,6 +1070,264 @@ namespace Hexiege.Editor.Combat
                     "Width-fit-off poison natural return keeps authored modules.");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
+        }
+
+        /// <summary>
+        /// [2026-10-26 D7 후속 — 상태 이펙트를 몸 앞에 그리기] (Plan _Tasks/2026-10-26/18_34_status-effect-width-fit 8-4 6번, 사용자 결정 D7-4)
+        /// 상태 이펙트를 카메라 쪽으로 (몸통 반경 × 프리셋 비율)만큼 당기는 기능을 확인한다.
+        ///   (1) 실제 프리셋 설정: 화상만 비율 1.75, 독·힐은 0(꺼짐) — 사용자 결정 D7-2·D7-3. 결정이 바뀌면 이 줄도 함께 바꾼다.
+        ///   (2) 순수 공식: 당김 = 카메라 반대 방향 × 비율 × 반경. 비율·반경 0·NaN·무한대, 카메라 방향 0·NaN이면 당김 없음.
+        ///   (3) 로그 값: 옵션 꺼짐 = null(독·힐 로그 불변) · 반경 없음 "NoRadius" · 카메라 없음 "NoCamera" · 정상 = 거리.
+        ///   (4) 실제 화상 프리팹 + 시험용 직교 카메라(55°): 위치 = 기존 공식 + 당김, 카메라 화면 기준 좌표(오른쪽·위쪽 성분)는
+        ///       당기기 전과 같다. 같은 대상 갱신·따라붙기·대상 회전 변경 뒤에도 당김 벡터·방향이 그대로다.
+        ///   (5) 반경 0 fit(기존 2인자 fixture와 같은 값) → 기존 공식 그대로. 넓은 → 반경 0 / Identity 재사용 → 당김 0.
+        ///   (6) 자연 반환 · 재생 실패 거부 · 강제 정리(OnDisable)에서 당김이 0으로 돌아온다. 카메라가 없으면 당김 0, 예외 없음.
+        ///   (7) 옵션이 꺼진 실제 독 프리셋: 반경·카메라가 있어도 위치가 기존 공식 그대로.
+        ///   (8) 힐 경로: 실제 힐 프리셋(꺼짐)은 당김 0. 시험용 복제 프리셋(비율 1.75, 메모리에만 존재)으로 힐 경로의 당김·원복을 확인.
+        ///   (9) 실제 크기 표로 유닛별 당김 거리를 로그에 남긴다 — 사용자 육안 확인과 대조용(통과 조건 아님).
+        /// 시험용 카메라는 Camera 컴포넌트를 꺼 둔 숨김 오브젝트라 에디터 화면에 아무것도 그리지 않는다.
+        /// VfxPoolItem.ViewPullCameraOverride는 finally에서 반드시 null로 되돌린다(다른 검사가 실제 Camera.main을 쓰게).
+        /// </summary>
+        private static void ValidateRecipientViewPull(UnitEffectConfig units)
+        {
+            var burn = units.GetTimedDamage(UnitType.InfernoSpirit);
+            var poison = units.GetTimedDamage(UnitType.MushroomBomber);
+            var heal = units.GetHeal(UnitType.BloomFairy);
+            Require(burn?.VfxPrefab != null && poison?.VfxPrefab != null && heal?.VfxPrefab != null,
+                "Burn, poison and heal recipient presets exist for the view-pull fixture.");
+
+            // (1) 사용자 결정 D7-2(화상 비율 1.75) · D7-3(독·힐은 구조만, 꺼짐)
+            Require(Mathf.Approximately(burn.ViewPullRadiusRatio, EffectPreset.RecommendedViewPullRadiusRatio),
+                "Burn preset pulls toward the camera by radius × 1.75 (user decision D7-2, 2026-10-26). ratio=" + burn.ViewPullRadiusRatio);
+            Require(poison.ViewPullRadiusRatio == 0f && heal.ViewPullRadiusRatio == 0f,
+                "Poison and heal presets keep the camera pull off (user decision D7-3 — current behavior preserved).");
+
+            // (2) 순수 공식
+            Vector3 tiltForward = Quaternion.Euler(55f, 0f, 0f) * Vector3.forward; // 실제 게임 카메라와 같은 기울기
+            Require(VfxPoolItem.TryComputeViewPull(1.75f, .22f, tiltForward, out Vector3 bearPull)
+                && VfxApprox(bearPull, -tiltForward * (1.75f * .22f)) && Mathf.Abs(bearPull.magnitude - .385f) < 1e-4f,
+                "View pull = opposite camera forward × ratio × radius (BearGuard-like 0.22 × 1.75 = 0.385).");
+            Require(VfxPoolItem.TryComputeViewPull(1f, .5f, tiltForward * 7f, out Vector3 unitPull) && Mathf.Abs(unitPull.magnitude - .5f) < 1e-4f,
+                "View pull normalizes the camera direction (forward length does not change the distance).");
+            Require(!VfxPoolItem.TryComputeViewPull(0f, .3f, tiltForward, out Vector3 z0) && z0 == Vector3.zero
+                && !VfxPoolItem.TryComputeViewPull(-1f, .3f, tiltForward, out _)
+                && !VfxPoolItem.TryComputeViewPull(float.NaN, .3f, tiltForward, out _)
+                && !VfxPoolItem.TryComputeViewPull(float.PositiveInfinity, .3f, tiltForward, out _)
+                && !VfxPoolItem.TryComputeViewPull(1.75f, 0f, tiltForward, out _)
+                && !VfxPoolItem.TryComputeViewPull(1.75f, float.NaN, tiltForward, out _)
+                && !VfxPoolItem.TryComputeViewPull(1.75f, .3f, Vector3.zero, out _)
+                && !VfxPoolItem.TryComputeViewPull(1.75f, .3f, new Vector3(float.NaN, 0f, 1f), out Vector3 zNaN) && zNaN == Vector3.zero,
+                "Invalid ratio, radius or camera direction means no pull (zero vector).");
+
+            var resolve = typeof(VfxPoolItem).GetMethod("ResolveViewPull", BindingFlags.Static | BindingFlags.NonPublic);
+            var damagePullField = typeof(VfxPoolItem).GetField("_damageViewPull", VfxFields);
+            var bloomPullField = typeof(VfxPoolItem).GetField("_bloomViewPull", VfxFields);
+            Require(resolve != null && damagePullField != null && bloomPullField != null,
+                "VfxPoolItem view-pull members exist for the fixture.");
+            string Resolve(EffectPreset preset, RecipientFit fit, out Vector3 pull)
+            {
+                var args = new object[] { preset, fit, null };
+                var text = (string)resolve.Invoke(null, args);
+                pull = (Vector3)args[2];
+                return text;
+            }
+            Vector3 DamagePull(VfxPoolItem i) => (Vector3)damagePullField.GetValue(i);
+            Vector3 BloomPull(VfxPoolItem i) => (Vector3)bloomPullField.GetValue(i);
+
+            var root = new GameObject("ViewPullFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var channel = new TimedDamageEffectChannel();
+            EffectPreset pulledHeal = null;
+            try
+            {
+                // 시험용 직교 카메라 — 실제 게임 카메라(Game.unity: 직교, X축 55°)와 같은 방향. 꺼 둔 컴포넌트라 아무것도 그리지 않는다.
+                var camGo = new GameObject("ViewPullFixtureCamera") { hideFlags = HideFlags.HideAndDontSave };
+                camGo.transform.SetParent(root.transform, false);
+                camGo.transform.SetPositionAndRotation(new Vector3(0f, 10f, -7f), Quaternion.Euler(55f, 0f, 0f));
+                var cam = camGo.AddComponent<Camera>();
+                cam.enabled = false; cam.orthographic = true;
+                Camera fixtureCamera = cam;
+                VfxPoolItem.ViewPullCameraOverride = () => fixtureCamera;
+                Vector3 toward = -cam.transform.forward;
+
+                // (3) 로그 값
+                var bearFit = new RecipientFit(.53f, new Vector3(0f, .01f, .02f), .22f);
+                Require(Resolve(poison, bearFit, out Vector3 offPull) == null && offPull == Vector3.zero,
+                    "Pull-off preset (poison) adds no log text and no pull.");
+                Require(Resolve(burn, new RecipientFit(.53f, Vector3.zero), out Vector3 noRadiusPull) == "NoRadius" && noRadiusPull == Vector3.zero,
+                    "Unknown body radius logs ViewPull=NoRadius and does not pull.");
+                string expectedBear = (burn.ViewPullRadiusRatio * .22f).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                Require(Resolve(burn, bearFit, out Vector3 logPull) == expectedBear && VfxApprox(logPull, toward * (burn.ViewPullRadiusRatio * .22f)),
+                    "Burn on a BearGuard-sized body logs the pull distance (ViewPull=" + expectedBear + ").");
+                cam.orthographic = false;
+                Require(Resolve(burn, bearFit, out _) == expectedBear + "@Perspective",
+                    "A perspective camera is flagged in the log (orthographic premise broken).");
+                cam.orthographic = true;
+                fixtureCamera = null;
+                Require(Resolve(burn, bearFit, out Vector3 noCamPull) == "NoCamera" && noCamPull == Vector3.zero,
+                    "No camera logs ViewPull=NoCamera and does not pull (no exception).");
+                fixtureCamera = cam;
+
+                var pose = new GameObject("ViewPullPose") { hideFlags = HideFlags.HideAndDontSave };
+                pose.transform.SetParent(root.transform, false);
+                pose.transform.SetPositionAndRotation(new Vector3(2f, 0f, -1f), Quaternion.Euler(0f, 40f, 0f));
+                int nextUnit = 98200;
+                Vector3 BasePosition(EffectPreset preset, RecipientFit fit) => pose.transform.position
+                    + pose.transform.rotation * (preset.LocalPositionOffset + fit.SafeFootOffset);
+
+                // ── (4) 실제 화상 프리팹 ──
+                var instance = UnityEngine.Object.Instantiate(burn.VfxPrefab, root.transform);
+                instance.SetActive(false);
+                var item = instance.AddComponent<VfxPoolItem>();
+                int returned = 0; item.Setup(burn.VfxPrefab, _ => returned++);
+                var systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+                TimedDamageEffectPresentation PlayBurn(RecipientFit fit)
+                {
+                    var s = channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Burn, 3f);
+                    item.PlayTimedDamage(s, pose.transform, burn, channel, fit);
+                    return s;
+                }
+                void DrainBurn()
+                {
+                    item.StopTimedDamage(item.DamageLease, "Expired");
+                    foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                    item.Return();
+                }
+
+                float bearDistance = burn.ViewPullRadiusRatio * .22f;
+                var bearState = PlayBurn(bearFit);
+                Vector3 basePos = BasePosition(burn, bearFit);
+                Vector3 moved = instance.transform.position - basePos;
+                Require(VfxApprox(instance.transform.position, basePos + toward * bearDistance),
+                    "Burn position = pose + pose rotation × (preset offset + foot offset) + camera pull.");
+                Require(Mathf.Abs(Vector3.Dot(moved, cam.transform.right)) < 1e-4f && Mathf.Abs(Vector3.Dot(moved, cam.transform.up)) < 1e-4f
+                    && Mathf.Abs(Vector3.Dot(moved, toward) - bearDistance) < 1e-4f,
+                    "Orthographic screen coordinates (camera right/up components) stay unchanged; only depth moves toward the camera.");
+                Vector3 playPull = DamagePull(item);
+                bearState.Revision++; item.RefreshTimedDamage(item.DamageLease, bearState);
+                pose.transform.SetPositionAndRotation(pose.transform.position + new Vector3(1f, 0f, .5f), Quaternion.Euler(0f, 200f, 0f));
+                item.FollowTimedDamage(item.DamageLease, pose.transform);
+                Require(VfxApprox(DamagePull(item), playPull)
+                    && VfxApprox(instance.transform.position, BasePosition(burn, bearFit) + toward * bearDistance),
+                    "Refresh/follow/target rotation keep the Play-time world pull (direction does not turn with the unit).");
+                DrainBurn();
+                Require(returned == 1 && DamagePull(item) == Vector3.zero, "Natural return clears the camera pull.");
+
+                // (5) 반경 0 fit(기존 위치 검사 fixture와 같은 2인자 생성자) → 기존 공식 그대로
+                var radiusZeroFit = new RecipientFit(2f, new Vector3(.05f, .02f, -.1f));
+                PlayBurn(radiusZeroFit);
+                Require(DamagePull(item) == Vector3.zero && VfxApprox(instance.transform.position, BasePosition(burn, radiusZeroFit)),
+                    "Radius-0 fit (existing position fixture value) keeps the old position formula.");
+                DrainBurn();
+                // 넓은 대상 → Identity 재사용: 이전 당김이 남지 않는다(매 재생 덮어쓰기)
+                PlayBurn(new RecipientFit(.521f, Vector3.zero, .413f));
+                Require(DamagePull(item) != Vector3.zero, "Wide recipient pulls before the reuse check.");
+                // 원복이 빠진 상황을 일부러 만든다: 재생 중 표시만 지우고(원복 없이) Identity로 다시 재생.
+                typeof(VfxPoolItem).GetField("_active", VfxFields).SetValue(item, false);
+                typeof(VfxPoolItem).GetField("_damageLoop", VfxFields).SetValue(item, false);
+                PlayBurn(RecipientFit.Identity);
+                Require(DamagePull(item) == Vector3.zero && VfxApprox(instance.transform.position, BasePosition(burn, RecipientFit.Identity)),
+                    "Wide → identity reuse plays with zero pull even if a previous clear was missed (overwrite at Play).");
+                DrainBurn();
+
+                // (6) 재생 실패 거부 · 강제 정리 · 카메라 없음
+                PlayBurn(bearFit);
+                Require(DamagePull(item) != Vector3.zero, "Pulled play before the reject check.");
+                int beforeReject = returned;
+                item.RejectTimedDamageAcquire();
+                Require(returned == beforeReject + 1 && DamagePull(item) == Vector3.zero, "Rejected acquire clears the camera pull.");
+                PlayBurn(bearFit);
+                var onDisable = typeof(VfxPoolItem).GetMethod("OnDisable", VfxFields);
+                Require(onDisable != null, "VfxPoolItem forced-teardown method exists for the view-pull fixture.");
+                onDisable.Invoke(item, null);
+                Require(DamagePull(item) == Vector3.zero, "Forced teardown (OnDisable) clears the camera pull.");
+                fixtureCamera = null;
+                PlayBurn(bearFit); // 예외 없이 재생돼야 한다
+                Require(DamagePull(item) == Vector3.zero && VfxApprox(instance.transform.position, BasePosition(burn, bearFit)),
+                    "No camera → zero pull, old position, no exception.");
+                DrainBurn();
+                fixtureCamera = cam;
+
+                // (7) 옵션이 꺼진 실제 독 프리셋
+                var poisonInstance = UnityEngine.Object.Instantiate(poison.VfxPrefab, root.transform);
+                poisonInstance.SetActive(false);
+                var poisonItem = poisonInstance.AddComponent<VfxPoolItem>();
+                int poisonReturned = 0; poisonItem.Setup(poison.VfxPrefab, _ => poisonReturned++);
+                var poisonSystems = poisonInstance.GetComponentsInChildren<ParticleSystem>(true);
+                poisonItem.PlayTimedDamage(channel.Upsert(VfxUnit(nextUnit++), 1, TimedDamageVisual.Poison, 3f), pose.transform, poison, channel, bearFit);
+                Require(DamagePull(poisonItem) == Vector3.zero && VfxApprox(poisonInstance.transform.position, BasePosition(poison, bearFit)),
+                    "Pull-off poison keeps the old position even with a radius and a camera.");
+                poisonItem.StopTimedDamage(poisonItem.DamageLease, "Expired");
+                foreach (var ps in poisonSystems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                poisonItem.Return();
+                Require(poisonReturned == 1, "Pull-off poison returns naturally.");
+
+                // ── (8) 힐 경로 ──
+                var healChannel = new BloomHealEffectChannel();
+                var healInstance = UnityEngine.Object.Instantiate(heal.VfxPrefab, root.transform);
+                healInstance.SetActive(false);
+                var healItem = healInstance.AddComponent<VfxPoolItem>();
+                int healReturned = 0; healItem.Setup(heal.VfxPrefab, _ => healReturned++);
+                var healSystems = healInstance.GetComponentsInChildren<ParticleSystem>(true);
+                var update = typeof(VfxPoolItem).GetMethod("Update", VfxFields);
+                Require(update != null, "VfxPoolItem Update exists for the heal view-pull fixture.");
+                void DrainHeal(ulong lease)
+                {
+                    healItem.StopBloom(lease, "FixtureStop");
+                    foreach (var ps in healSystems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                    update.Invoke(healItem, null);
+                }
+                // 실제 힐 프리셋(꺼짐): 반경·카메라가 있어도 당김 0
+                Require(healItem.BeginBloomAcquire(), "Heal fixture checkout begins.");
+                ulong healLease = healItem.PlayBloomLoop(healChannel.Grant(VfxUnit(nextUnit++)), pose.transform, heal, bearFit, new BloomHealEffectDiagnostics());
+                Require(healLease != 0 && BloomPull(healItem) == Vector3.zero
+                    && VfxApprox(healInstance.transform.position, BasePosition(heal, bearFit)),
+                    "Pull-off heal keeps the old position even with a radius and a camera.");
+                DrainHeal(healLease);
+                Require(healReturned == 1, "Pull-off heal returns naturally.");
+                // 시험용 복제 프리셋(메모리에만 존재, 에셋 저장 없음) — 같은 힐 프리팹 + 비율 1.75
+                pulledHeal = ScriptableObject.CreateInstance<EffectPreset>();
+                pulledHeal.hideFlags = HideFlags.HideAndDontSave;
+                typeof(EffectPreset).GetField("_vfxPrefab", VfxFields).SetValue(pulledHeal, heal.VfxPrefab);
+                typeof(EffectPreset).GetField("_viewPullRadiusRatio", VfxFields).SetValue(pulledHeal, EffectPreset.RecommendedViewPullRadiusRatio);
+                Require(healItem.BeginBloomAcquire(), "Heal fixture second checkout begins.");
+                var pulledState = healChannel.Grant(VfxUnit(nextUnit++));
+                healLease = healItem.PlayBloomLoop(pulledState, pose.transform, pulledHeal, bearFit, new BloomHealEffectDiagnostics());
+                float healDistance = EffectPreset.RecommendedViewPullRadiusRatio * .22f;
+                Require(healLease != 0 && VfxApprox(healInstance.transform.position, BasePosition(pulledHeal, bearFit) + toward * healDistance),
+                    "Heal path with a pull ratio adds the same world camera pull.");
+                Vector3 healPlayPull = BloomPull(healItem);
+                var healRefresh = pulledState; healRefresh.Revision++;
+                healItem.RefreshBloom(healLease, healRefresh);
+                pose.transform.SetPositionAndRotation(pose.transform.position + new Vector3(-.5f, 0f, 1f), Quaternion.Euler(0f, 95f, 0f));
+                healItem.FollowBloomPose(healLease, pose.transform);
+                Require(VfxApprox(BloomPull(healItem), healPlayPull)
+                    && VfxApprox(healInstance.transform.position, BasePosition(pulledHeal, bearFit) + toward * healDistance),
+                    "Heal refresh/follow/target rotation keep the Play-time world pull.");
+                DrainHeal(healLease);
+                Require(healReturned == 2 && BloomPull(healItem) == Vector3.zero, "Heal natural return clears the camera pull.");
+                Require(healItem.BeginBloomAcquire(), "Heal fixture reject checkout begins.");
+                bloomPullField.SetValue(healItem, Vector3.one); // 거부 경로가 남은 당김을 비우는지 보기 위해 일부러 채운다
+                healItem.RejectBloomAcquire();
+                Require(healReturned == 3 && BloomPull(healItem) == Vector3.zero, "Rejected heal acquire clears the camera pull.");
+
+                // ── (9) 실제 크기 표로 유닛별 당김 거리 기록(통과 조건 아님 — 표·비율은 사용자가 조정할 수 있다) ──
+                string report = null;
+                foreach (var type in new[] { UnitType.BearGuard, UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit,
+                    UnitType.LittleKnight, UnitType.RabbitTrickster })
+                {
+                    string entry = type + ":" + (Resolve(burn, units.GetRecipientFit(type), out _) ?? "Off");
+                    report = report == null ? entry : report + "|" + entry;
+                }
+                GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
+                    "화상 카메라 쪽 당김 — 실제 크기 표 기준 유닛별 당김 거리(m) = 몸통 반경 × 프리셋 비율", "ViewPull=" + report);
+            }
+            finally
+            {
+                VfxPoolItem.ViewPullCameraOverride = null;
+                if (pulledHeal != null) UnityEngine.Object.DestroyImmediate(pulledHeal);
+                UnityEngine.Object.DestroyImmediate(root);
+                channel.CloseVisuals("FixtureEnd");
+            }
         }
 
         /// <summary>

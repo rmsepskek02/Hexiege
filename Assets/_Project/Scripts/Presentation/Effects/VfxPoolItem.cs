@@ -97,6 +97,9 @@ namespace Hexiege.Presentation
         //   재생 시작 때 1번만 정해 두고, 매 프레임 Follow에서는 이 저장값만 곱한다(재계산 없음).
         //   크기 표에 대상 유닛이 없으면 1 → 예전과 완전히 같은 크기.
         private float _bloomFitScale = 1f;
+        // [2026-10-26 D7 후속] 힐 이펙트의 카메라 쪽 당김(월드 좌표). 화상·독의 _damageViewPull과 같은 구조다
+        //   (VfxPoolItem.TimedDamage.cs 「카메라 쪽 당김」 절). 힐 프리셋은 비율 0(꺼짐)이라 지금은 늘 0 벡터다(D7-3 (a)).
+        private Vector3 _bloomViewPull;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private Hexiege.Application.BloomHealEffectDiagnostics _bloomDiagnostics;
 #endif
@@ -124,6 +127,7 @@ namespace Hexiege.Presentation
             foreach (var ps in _bloomSystems) if (ps != null) ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
             // [2026-10-26 폭 맞춤] 거부된 재생이 바꾼 방출 범위·개수가 있으면 되돌린다(힐 프리셋은 옵션이 꺼져 있어 보통 아무 일도 없다).
             RestoreWidthFit();
+            _bloomViewPull = Vector3.zero; // [2026-10-26 D7 후속] 거부된 재생의 카메라 쪽 당김도 비운다(이중 안전장치).
             gameObject.SetActive(false);
             _onReturn?.Invoke(this); // pending을 먼저 해제하여 중복 실패 callback도 1회만 반환한다.
         }
@@ -184,6 +188,9 @@ namespace Hexiege.Presentation
             _bloomOffset = preset.LocalPositionOffset + fit.SafeFootOffset; _bloomEuler = preset.EulerRotationOffset;
             _bloomScale = preset.ScaleMultiplier;
             _bloomFitScale = fit.UniformScale;
+            // [2026-10-26 D7 후속] 카메라 쪽 당김을 재생 시작 때 1번 정한다(아래 첫 FollowBloomPose보다 먼저).
+            //   매 재생 덮어쓰기라 풀 재사용 때 이전 대상의 당김이 남지 않는다. 힐 프리셋은 비율 0 → 0 벡터 + 기록 없음(null).
+            string viewPull = ResolveViewPull(preset, fit, out _bloomViewPull);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             _bloomDiagnostics = diagnostics;
 #endif
@@ -204,7 +211,8 @@ namespace Hexiege.Presentation
             // 로그에는 "실제로 재생한 개수"를 적는다(옛 고정 문구 "RecursivePS=5"는 사실과 달라 교체).
             //   폭 맞춤 기록은 옵션이 켜진 경우에만 덧붙는다 → 옵션이 꺼진 힐 로그는 예전과 같다.
             ObserveBloom("Play", "RecursivePS=" + _bloomSystems.Length + ", FitScale=" + _bloomFitScale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
-                + (widthFit != null ? ", WidthFit=" + widthFit : string.Empty));
+                + (widthFit != null ? ", WidthFit=" + widthFit : string.Empty)
+                + (viewPull != null ? ", ViewPull=" + viewPull : string.Empty)); // 옵션이 꺼진 힐 로그는 예전과 같다
             _bloomAcquirePending = false;
             return _bloomLease;
         }
@@ -218,7 +226,9 @@ namespace Hexiege.Presentation
         public void FollowBloomPose(ulong lease, Transform pose)
         {
             if (!BloomLoopActive || lease != _bloomLease || pose == null) return;
-            transform.SetPositionAndRotation(pose.position + pose.rotation * _bloomOffset,
+            // [2026-10-26 D7 후속] 원래 식에 카메라 쪽 당김(_bloomViewPull)만 더했다. 당김은 유닛 회전을 곱하지 않는 월드 값이다
+            //   — 유닛은 돌아서지만 카메라는 돌지 않기 때문이다. 0 벡터(힐 기본)면 예전과 완전히 같은 위치다.
+            transform.SetPositionAndRotation(pose.position + pose.rotation * _bloomOffset + _bloomViewPull,
                 pose.rotation * Quaternion.Euler(_bloomEuler));
             // [R-5 비활성화 — 2026-10-13] 대상 Transform 스케일(lossyScale)을 곱하던 옛 방식.
             //   유닛 VisualRoot 스케일은 전 유닛 1이라(25종 Blue/Red 프리팹 실측, 런타임에 유닛 스케일을
@@ -602,6 +612,8 @@ namespace Hexiege.Presentation
             if (_bloomLoop) ObserveBloom("Return", "RecursivePS=" + _bloomSystems.Length);
             _bloomLoop = false; _bloomStopped = false;
             _bloomFitScale = 1f; // 다음 재사용에 이전 대상의 맞춤 배율이 남지 않게 한다.
+            // [2026-10-26 D7 후속] 자연 반환 — 카메라 쪽 당김도 비운다(화상·독·힐 모두 이 Return을 거친다).
+            _bloomViewPull = Vector3.zero; _damageViewPull = Vector3.zero;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             _bloomDiagnostics = null;
 #endif
