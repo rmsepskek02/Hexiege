@@ -1,7 +1,7 @@
 # Research — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 원 조사: game-programmer 읽기 전용 기술 조사 보고서(HEAD `657a4f31` 기준. 그 뒤 커밋 `344dfa42`·`ab9d55d7`은 문서와 미사용 VFX 에셋 삭제뿐이라 행 번호는 유효하다고 보았다 — [추정, 메인 세션 판단])
-> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))* *(2026-10-21: 코드는 `639ac1aa`(단계 B — Tank·CannonCart ON, 의심 1 수정)·`ac05e189`(회귀 검증 수정)에서 다시 바뀌었다. 단계 B 실기 로그 분석 — 🔴 사망타 피해 숫자 누락(회귀), 수정 사용자 승인 대기 — 은 [13절](#13-stage-b-field-log-analysis-20261021))* *(2026-10-21 B-2: 그 수정은 13-7 A안으로 `64b743c8`에서 들어갔고(화면 표현·진단·회귀 검증만), 실기 로그상 사망타 숫자 누락 0 — [14절](#14-stage-b2-kill-shot-number-check-20261021). 회귀 스위트 결과는 미보고)* *(2026-10-21 단계 C: 코드는 `b819dc51`(인간 대포 타워 투사체 전환)에서 다시 바뀌었다. 실기 로그상 인간 타워 투사체 정상(scoped), 사용자 「테스트 완료 · 육안상 특별한 문제 없음」, **회귀 스위트 PASS(사용자 Console 확인 — RuntimeLog에는 남지 않음)** — [15절](#15-stage-c-human-cannon-tower-check-20261021). 앞 조각의 「회귀 스위트 결과는 미보고」는 B-2 회차 당시 상태다)*
+> **상태: 조사 완료 — 사용자 결정 대부분 기록됨, 남은 미결·Plan 승인 대기.** 질문 Q1~Q17과 결정 기록(Q12만 대기)·남은 미결 U-1~U-12·단계 계획은 같은 폴더 [Plan.md](Plan.md) 1-1·1-3절에 있다. 코드·에셋·규칙 문서는 이 작업으로 바뀌지 않았다(컨트롤러의 EagleArcher Attack2 상태 삭제는 사용자 커밋 `a11b5381` — 11절). *(2026-10-20 갱신 — 종전 「조사 완료 — 사용자 결정 대기」)* *(2026-10-20 5차: 앞 문장은 조사 회차 당시 사실이다. 그 뒤 규칙 문서는 `7e527c12`(승인 개정안 반영), 코드·에셋은 `d09cc4a9`(단계 A — 공통 기반 + StreamSpirit만 ON)에서 바뀌었다. 단계 A 실기 로그 분석은 [12절](#12-stage-a-field-log-analysis-20261020))* *(2026-10-21: 코드는 `639ac1aa`(단계 B — Tank·CannonCart ON, 의심 1 수정)·`ac05e189`(회귀 검증 수정)에서 다시 바뀌었다. 단계 B 실기 로그 분석 — 🔴 사망타 피해 숫자 누락(회귀), 수정 사용자 승인 대기 — 은 [13절](#13-stage-b-field-log-analysis-20261021))* *(2026-10-21 B-2: 그 수정은 13-7 A안으로 `64b743c8`에서 들어갔고(화면 표현·진단·회귀 검증만), 실기 로그상 사망타 숫자 누락 0 — [14절](#14-stage-b2-kill-shot-number-check-20261021). 회귀 스위트 결과는 미보고)* *(2026-10-21 단계 C: 코드는 `b819dc51`(인간 대포 타워 투사체 전환)에서 다시 바뀌었다. 실기 로그상 인간 타워 투사체 정상(scoped), 사용자 「테스트 완료 · 육안상 특별한 문제 없음」, **회귀 스위트 PASS(사용자 Console 확인 — RuntimeLog에는 남지 않음)** — [15절](#15-stage-c-human-cannon-tower-check-20261021). 앞 조각의 「회귀 스위트 결과는 미보고」는 B-2 회차 당시 상태다)* *(2026-10-26 단계 D: 코드는 `a0a23423`(차지 유닛 InfernoSpirit · FoxMagician ON, main 병합 `e340f783`)에서 다시 바뀌었다. 실기 로그상 서버 판정 · 차지 취소 · Fox 즉시 표시 0 · 숫자 hold 정상(scoped), 🔴 **Client 사망 표현 · 화상 VFX가 화면 착탄보다 0.04~0.17초 앞섬**(사용자 보고와 일치) — 수정 방식 (a)/(b)/(c) 사용자 결정 대기, 회귀 스위트 결과 미보고 — [16절](#16-stage-d-charge-unit-check-20261026))*
 > 근거 표기: **[확인]** = document-manager가 이 checkout에서 파일을 다시 읽어 확인한 행 · **[전달]** = game-programmer 보고서 값을 옮긴 것(다시 읽지 않음) · **[추정]** = 코드로 확정하지 못한 해석 · **[미확인]** = 실행·실기 증거 없음. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 
 ## 0. 쉬운 설명
@@ -1037,6 +1037,191 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 1. **유닛 투사체 6·7·17 실기 회귀** — 이번 로그로 확인 불가. 다음 실기에서 유닛 투사체와 인간 타워를 섞어 확인 [제안].
 2. **포구 Source 직접 확인** — 진단 줄에 source 칸 추가(승인 필요). 지금은 간접 근거(15-6)와 육안뿐.
 3. **실기에서 아직 안 나온 경로:** 비행 중 타워 파괴(Plan U-6 결정 「피해 들어간다」의 실기), 늦은 접속(스냅샷 expected 0 / received 0), 싱글, 타임아웃 · 순서 역전 방출(이번에도 모두 resultBeforeArrival), 경기 4 Client displayLag 0.333 1건 · 0.2~0.3 1건의 원인(표본 24줄 밖이라 [미확인]).
-4. **InfernoSpirit · FoxMagician(차지 유닛) 시작 전에 정할 것:** 차지 marker부터 발사까지 끊기는 구간과 그 취소 규칙(Plan 1-2 확정표와의 대조), 차지 중 숫자 표시 규칙(Units 규칙 19 — Plan 4-2-3 F-4로 Fox 예외 삭제)과의 관계.
+4. **InfernoSpirit · FoxMagician(차지 유닛) 시작 전에 정할 것:** 차지 marker부터 발사까지 끊기는 구간과 그 취소 규칙(Plan 1-2 확정표와의 대조), 차지 중 숫자 표시 규칙(Units 규칙 19 — Plan 4-2-3 F-4로 Fox 예외 삭제)과의 관계. *(2026-10-26: 단계 D `a0a23423`으로 구현됐다 — 차지 중 끊김은 서버 발사 취소 + 취소 통보, 사거리 이탈은 원래 대상 발사, Fox 예외는 RM-5로 비활성화. 실기 결과는 [16절](#16-stage-d-charge-unit-check-20261026))*
    - *document-manager 주:* 분석 원문은 여기에 「겹사격 정책을 유닛에도 적용할지」도 넣었다. 겹사격 헛방은 Q15 결정의 결과이므로(15-7) 정책 질문으로 옮기지 않았다. 유닛에서도 같은 헛방이 생기는 것은 Q15상 정상 동작이다 [추정 — Q15 문장이 유닛·타워를 나누지 않으므로].
 5. **인간 타워 전방 120°** — 15-9, Plan 9절(기록만, 미착수).
+
+---
+
+<a id="16-stage-d-charge-unit-check-20261026"></a>
+
+## 16. 단계 D 차지 유닛 실기 확인 (2026-10-26)
+
+> 기준 checkout HEAD `e340f783`(main 병합 — 부모 `a0a23423` · `7c66e4c5`) · 대상 구현 커밋 `a0a23423` 「feat(combat): 서버 권위 투사체 단계 D — 차지 유닛 InfernoSpirit·FoxMagician 활성화」, 14개 파일(+1099 / −63) [확인 — `git show --stat`]. 병합은 이 Task 문서를 바꾸지 않았다 [확인 — `git diff --stat a0a23423 e340f783 --` 이 폴더 0건].
+> 출처: 메인 세션의 읽기 전용 로그 분석 원문(scratchpad `stageD_log_analysis.md`)을 전달받음 [전달]. 로그 수치는 모두 [전달]이며 document-manager는 로그 본문을 다시 분석하지 않았다. **영수증의 해시와 이번 회차에 다시 읽은 코드 행만 [확인]이다.**
+> 사용자 상시 승인(로그 분석 결과는 확인 없이 해당 Task에 기록)에 따라 작성했다. 이 기록은 코드·에셋·빌드·규칙 문서 변경을 승인하지 않는다.
+
+<a id="16-1-plain-explanation"></a>
+
+### 16-1. 쉬운 설명
+
+단계 D는 **기를 모은 뒤 쏘는 두 유닛 — 지옥불 정령(InfernoSpirit)과 여우 마법사(FoxMagician)** 를 새 방식으로 바꾼 것이다. 이제 서버가 공격 동작의 발사 순간에 투사체를 「쐈다」고 기록하고, 닿는 순간에 피해를 준다. 기를 모으는 도중 대상이나 공격자가 죽거나 이동 명령을 받으면 쏘지 않고 취소하며, 화면의 기 모으기 이펙트도 바로 꺼진다.
+
+사용자는 테스트 뒤 이렇게 알렸다. **「에디터가 Host일 때는 육안상 문제없어 보이는데, Client(기기)에서는 투사체가 맞기 전에 대미지가 적용되는 느낌이 강하다 — Inferno 투사체가 Fox에게 닿기 전에 Fox에게 대미지가 적용됐다.」**
+
+로그로 보면 서버 판정은 정상이다. 피해는 서버 착탄 순간에 들어갔고, 피해 숫자도 화면 착탄까지 기다렸다가 나왔다. 사용자가 본 「대미지」는 숫자가 아니라 **사망 표현**이다. Inferno 한 발은 Fox에게 언제나 치명타라서, Client 화면에서는 Fox가 쓰러지고 사망 이펙트가 터지고 사라지는 장면이 투사체가 닿기 0.04~0.17초(평균 0.13초) **전에** 나왔다. Client는 투사체 그림만 일부러 0.10초 늦게 그리는데, 사망 소식은 늦추지 않고 바로 보여 주기 때문이다. 게다가 Client의 서버 시계가 이미 조금 뒤처져 있어, 그 0.10초가 고스란히 「앞섬」으로 더해진다.
+
+고치는 방법 세 가지(16-9)를 정리했다. **어느 방법으로 고칠지는 사용자가 정한다.** 정하기 전에는 코드를 바꾸지 않는다. 별개로 기기에서 파티클 오류 문구가 12,007번 찍혔다(16-8).
+
+<a id="16-2-implementation"></a>
+
+### 16-2. 구현 내용 (`a0a23423`) [확인 — 커밋 본문 · 코드 표본]
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | `ProjectileDeliveryContracts.cs` 329~333 `EnabledUnitTypes` | 유닛 스위치에 **InfernoSpirit · FoxMagician 추가** → Tank · CannonCart · StreamSpirit · InfernoSpirit · FoxMagician [확인]. 커밋 본문: 스위치 토큰 `6,7,12,17,21;tower:human`, 스키마 5 → 6(발사 전 취소 통보 RPC) |
+| 2 | 커밋 본문 | `OnAttackHit`에서 서버 발사(Inferno 1.5초, Fox 85/30초) → 착탄 때 피해, Inferno 화상은 착탄 때 시작 |
+| 3 | 커밋 본문 | 차지 중 대상·공격자 사망, 이동 명령 → 서버 발사 취소 + 취소 통보로 차지 VFX 즉시 정지(Client는 공격 회차가 맞을 때만 정지). 사거리 이탈은 원래 대상에게 발사(Plan 1-2 확정표) |
+| 4 | `UnitCombatUseCase.cs` 1808행 주석 | **RM-5 실행** — Fox 규칙 19 즉시 표시 분기 비활성화(주석 보존) → 숫자는 착탄 때 [확인 — 주석 「[RM-5 비활성화 — … 단계 D, 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]」]. 같은 파일 1817행에 RM-5 확인 진단 계수 |
+| 5 | 커밋 본문 · `RunUnitActionSelfValidation.ServerProjectiles.cs` 156 · 193 | 진단 `side=server-charge` · transport cancel 계수 · view `chargeCancel`, 회귀 검증 D-1~D-7(`ValidateServerProjectileStageDSourceGates` · `ValidateServerProjectileChargeUnits`), 옛 Fox 검사 V-4~V-7 주석 보존 |
+
+<a id="16-3-log-archive-receipt"></a>
+
+### 16-3. 로그 보관 영수증 (LogRules §1.10)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 보관 위치 | private 저장소 `rmsepskek02/Hexiege-Logs`, Release `logs-2026-10` | [전달 — 메인 세션] |
+| 업로드 주체 | 사용자 | [전달 — 메인 세션] |
+| 🔴 **manifest** | **두 ZIP 모두 manifest가 업로드되지 않았다** | [전달 — 메인 세션]. 그래서 **ZIP SHA256만 Release digest와 대조했고(OK), ZIP 안 파일별 대조는 할 수 없었다.** 아래 「안의 로그」 해시는 document-manager가 ZIP을 풀어 계산한 값이며 대조할 manifest 값이 없다 |
+| document-manager 재계산 | 메인이 내려받은 scratchpad 사본에서 두 ZIP과 풀어 둔 세 로그 본문의 SHA256을 다시 계산 → ZIP 값은 아래(메인 전달 값)와 일치 | [확인] |
+| LogRules 대비 | manifest 미업로드는 이번이 **2회째**다. 메인 세션이 사용자에게 「다음부터 ZIP과 manifest를 함께 업로드」를 안내했다 | [전달 — 메인 세션] |
+
+| ZIP (remote 이름) | ZIP asset id / 크기(B) | ZIP SHA256 |
+|---|---|---|
+| `2026-10-26_13_00_server-projectile-charge_01.zip` | 676948296 / 2855737 | `31e95bec1aa352e495d36835f994c80a40fc59d034888fc65bfcf665b66f6548` [전달 + 확인] |
+| `2026-10-26_13_03_server-projectile-charge-DEVICE_01.zip` | 676955456 / 930964 | `a9767efe25607bb72832cfb345a78b3238103eb2d6cfee90139bfdbf28764a2f` [전달 + 확인] |
+
+| 안의 로그 | 들어 있는 ZIP | 크기(B) | SHA256 [확인 — 풀어서 계산, manifest 대조 없음] | 분석 대상 |
+|---|---|---|---|---|
+| 에디터 `_Logs/_editor/2026-10-26/RuntimeLog.txt` | charge_01 | 11890772 | `2f33289baef7329ab4c33bc5f0519c9518861c6fc56b403e537aeb2eecc35120` | ✅ 대상 세션 12:52:11~ [전달] |
+| 기기 `_Logs/2026-10-26/03_09_logcat/RuntimeLog_device.txt` | charge_01 | 30899436 | `08ff22e46c9e35b4ab26346e625d89117d7d669d352bb918d03443ef49d3475a` | ❌ **이전 빌드 로그 — 대상 아님.** 사용자가 이번 logcat을 저장하기 전에 ZIP을 만들었다 [전달] |
+| 기기 `_Logs/2026-10-26/13_03_logcat/RuntimeLog_device.txt` | charge-DEVICE_01 | 15117754 | `6dc348f27fb2b8ff9b11262399a894eb5fbc6b6c77f3439150099486ab40828e` | ✅ 대상 [전달] |
+
+- **소스 저장소 쪽 [확인]:** 이 checkout에는 `_Logs/2026-10-26/`이 없다. 로그 본문은 위 Release에만 있다.
+
+<a id="16-4-conclusion"></a>
+
+### 16-4. 결론
+
+| 축 | 판정 | 범위·근거 |
+|---|---|---|
+| **서버 판정(발사·착탄 피해·차지 취소)** | ✅ **로그상 정상 — scoped** | 모든 END 줄 verdict PASS. 예약 = 발사 + 취소 + 닫힘 수지 일치(16-7) [전달] |
+| 차지 취소 통보 전송 | ✅ 정상 | sent = recv = delivered, dropped 0(16-7) [전달] |
+| **Fox 즉시 표시 0(RM-5)** | ✅ 확인 | `foxPrimary` projectileKeyed 126 · immediate 0 [전달]. 차지 Task 한계 **L-1(Fox 숫자 선행)** 은 숫자에 대해서는 이번 로그로 재현되지 않았다 |
+| 피해 숫자 hold | ✅ 정상 | hold held = atImpact, immediate 0 · timeout 0, text missing 0 · missingDead 0(16-5). 치명타가 아닌 명중에서 숫자·피격 VFX·펀치는 앞서지 않는다 [전달] |
+| 🔴 **Client 사망 표현** | **화면 착탄보다 앞섬 — 사용자 보고와 일치** | 사망 RPC가 화면 착탄보다 0.043~0.168초(평균 0.129) 먼저, 표본 27건 전부 앞섬(16-6) [전달]. Host(에디터)는 displayLag 0~0.009초라 같은 프레임 — 「Host에서는 문제없어 보인다」와 일치 |
+| 🔴 Client 화상(Inferno DoT) VFX | **화면 착탄보다 앞섬** | 표본 0.103 · 0.068초 앞섬. 다만 이번 경기의 화상은 BearGuard에만 걸렸다 — 사용자가 본 Fox 장면의 원인은 아니다(16-6) [전달] |
+| HP 막대 | **해당 없음 — 게임에 없음** | 분석이 Presentation·프리팹·씬에서 HpBar류를 찾지 못했다 [전달]. HP는 숫자로만 보인다 |
+| 사용자 육안 | Host 「문제없어 보임」 / Client 「맞기 전에 대미지가 적용되는 느낌이 강함」(2026-10-26) | [전달 — 메인 세션] |
+| **회귀 스위트** | **미보고** | 이번 회차에 결과가 전달되지 않았다. PASS로 적지 않는다(RuntimeLog에 남지 않는 확인이라 로그로도 알 수 없다 — 14-4 근거) |
+| 수정 방식 | 🔴 **사용자 결정 대기** — (a) · (b) · (c) | 16-9, Plan 1-3 U-18 |
+| 별건 오류 | 기기 파티클 오류 12,007건 | 16-8, Plan 1-3 U-19 |
+
+<a id="16-5-match-and-figures"></a>
+
+### 16-5. 경기와 수치 [전달]
+
+| # | 시각 (epoch) | Host | Client | 종족 | 종료 |
+|---|---|---|---|---|---|
+| 1 | 12:54:16~12:56:59 (`4241eb81…`) | 에디터 Blue | 기기 Red | Blue 초월, Red 정령 | Host 포기 |
+| 2 | 12:57:04~12:59:25 재경기 (`498cdd42…`) | 같음 | 같음 | 같음 | Host 포기, 12:59:29 Client 이탈 |
+
+- 경기 1 유닛: Red InfernoSpirit 10 · Blue FoxMagician 79. 경기 2: Red Inferno 8 · Blue Fox 21 · BearGuard 3.
+- Inferno는 기기 소유, Fox는 에디터 소유. 사용자가 본 장면은 기기(Client) 화면에서 「내 Inferno가 상대 Fox를 쏜」 경우다.
+- 두 경기 모두 에디터 = Host다. **기기가 Host인 경기와 싱글은 없다.** Tank · CannonCart · StreamSpirit · 인간 타워는 나오지 않았다 → 이들의 로그 회귀 확인은 없다.
+
+**Client `[PROJECTILE-END]` view 집계**
+
+| 항목 | 경기 1 | 경기 2 |
+|---|---|---|
+| displayLag (화면 착탄 − 서버 착탄, 초) | 0.100~0.133, 평균 0.117 | 0.100~0.133, 평균 0.116 |
+| resultLag (결과 수신 − 착탄, Client 시계, 초) | −0.089~+0.050, 평균 −0.048 (음수 199/205) | −0.079~−0.010, 평균 −0.049 (음수 81/81) |
+| hold held / atImpact / immediate / timeout | 173 / 173 / 0 / 0 | 66 / 66 / 0 / 0 |
+| text played / fallback / missing / missingDead | 105 / 68 / 0 / 0 | 39 / 27 / 0 / 0 |
+| order resultBeforeArrival | 205 / 205 | 81 / 81 |
+
+- Client의 투사체 번호표가 붙은 Fox 피격 64건이 전부 `AppliedDamage=200, Hp=0`(서버 공격력 250) — Inferno 한 발은 Fox에게 언제나 치명타다. 치명타 뒤 빈 자리에 「0」이 대체 위치로 뜬다(text fallback 68 / 27).
+
+<a id="16-6-death-presentation-ahead"></a>
+
+### 16-6. Client 사망 표현이 앞서는 원인 [전달 + 코드 표본 확인]
+
+**투사체별 대조** — 같은 기기 시계로 잰 값이라 시계 정렬이 필요 없다 [전달]:
+
+| 측정 | n | 범위(초) | 평균 | 앞선 비율 |
+|---|---|---|---|---|
+| 화면 finish − HP 동기화 수신 | 41 | 0.046~0.176 | 0.137 | 100% |
+| 화면 finish − 사망 RPC (Fox 치명타) | 27 | 0.043~0.168 | 0.129(중앙값 0.135) | 100%(0.1초 이상 23건) |
+| 사망 RPC − HP 동기화 | 77(번호표 붙은 치명타 전부) | 0~0.003 | — | 같은 시점 |
+
+- 비행 시간이 0.47~0.67초이므로, 투사체가 경로의 약 75~80% 지점에 있을 때 Fox가 사라지는 셈이다 [전달].
+- 🔴 **표본 한계:** 화면 finish 줄은 맵당 처음 24발만 남는다. 투사체별 대조는 표본 기준이고, 전체 발수는 16-5 집계로만 본다.
+- 극단 예(`498cdd42…:8`, 비행 0.026초): HP 동기화 07.863 · 화상 Receive 07.898이 화면 begin 08.000보다도 먼저 왔고 finish는 08.002 [전달].
+
+**왜 앞서는가:**
+
+1. **Client는 투사체 그림만 늦춘다** [확인]. `ProjectilePresentationPresenter.cs` 246행 `presentationTime = serverNow - (pureClient ? ClientPresentationDelaySeconds : 0d)` — 순수 Client만 지연, Host는 0. 상수는 59~60행에서 `AuthoritativeAttackPresentationCoordinator.cs` 67행 `PresentationDelaySeconds = 0.10d`를 참조한다(C3 · 버섯 · 파도와 공유).
+2. **Client의 서버 시계가 이미 뒤처져 있다** [시계 출처 확인 · 수치 전달]. 시계는 `GameBootstrapper.Setup.cs` 367~372행 `network.ServerTime.Time`(NGO). 결과를 받는 순간 Client 시계는 착탄 시각보다 평균 0.048초 앞을 가리킨다(resultLag 음수 280/286). 그래서 0.10초 지연이 도착 지연을 흡수하지 못하고 **고스란히 앞섬으로 더해진다.** 「회선 지연이 0.1초 넘으면 오히려 HP가 늦다」는 처음 가설은 실측으로 성립하지 않았다. NGO가 ServerTime을 내부에서 어떻게 계산하는지는 소스로 확인하지 않았다 [미확인 — 실측만 근거].
+3. **사망 표현에는 지연 장치가 없다** [확인]. 서버가 `NetworkCombatController.cs` 2905행에서 `netObj.Despawn(destroy: true)`. Client는 `HandleUnitDied`(3362행~)가 도메인에서 유닛을 지우고 `GameEvents.OnUnitDied`를 바로 재발행 → `UnitView.cs` 2027행 차지 VFX 정지 · 2033행 `AnimIsDead` 켬(분석 원문 2028 · 2034행) → `NetworkUnit.cs` `OnNetworkDespawn`(1099행~)에서 `PlayUnitDeath`(1154행 부근) VFX·SFX와 오브젝트 파괴.
+4. **피해 숫자는 기다린다** [확인]. `HitPresentationQueue.cs` 563~576행이 번호표 붙은 피격을 보관하고, 화면 finish → `ReleaseProjectileImpact`(195행)에서 한 번 방출한다. 사망 처리(757행 `OnUnitDied`)는 투사체 보관함을 비우지 않는다는 것이 분석 판단이며 timeout 0 · immediate 0이 근거다 [전달].
+5. **화상 VFX도 기다리지 않는다** [경로 확인 · 수치 전달]. NetworkVariable 수신 → `NetworkUnit.cs` 561~570행 → `TimedDamageEffectPresentation.cs` 73~88행 `Receive` → `EffectManager.cs` 329행 `PlayTimedDamage`. 지연 장치가 없다. Fox는 직접 피해로 죽어 `InfernoAttackBehavior.cs` 65행(`!victim.IsAlive` → DoT 건너뜀)으로 화상이 걸리지 않는다 [확인] — 그래서 사용자가 본 Fox 장면의 원인은 화상이 아니다. DoT 틱 숫자는 hold를 거치지 않지만 첫 틱이 착탄 약 0.9~1초 뒤라 착탄 전에 보이는 경로가 아니다(`UnitCombatUseCase.cs` 2911 · 2971행 — 분석 원문 인용, 다시 읽지 않음) [전달].
+
+- **규칙과의 관계 [확인 — 원문 읽음, 판정 아님]:** `GameSystemRules_UnitCombatSynchronization.md` 「5. 서버 시간 재생」 `NET-TIME-002`는 「표시용 HP바·텍스트·피격 반응만 권위 Result와 같은 표현 Impact에 맞춘다」고 적고, **사망 표현(쓰러짐 · 사망 VFX·SFX · 소멸)과 화상 VFX는 그 목록에 없다.** 또 「HP바」가 적혀 있지만 이 게임에는 HP 막대가 없다(위 결론). 같은 규칙의 「호스트도 같은 표현 지연 정책을 사용」과 지금 코드의 Host 지연 0(1번 항목)은 단계 A부터의 기존 차이이며 이번 판정 대상이 아니다.
+
+<a id="16-7-charge-cancel-balance"></a>
+
+### 16-7. 차지 취소와 수지 [전달]
+
+| 항목 | 경기 1 | 경기 2 |
+|---|---|---|
+| cancelled | 205 (Inferno 5+11, Fox 23+166 — 합 맞음) | 59 (Inferno 54, Fox 5 — 합 맞음) |
+| reserved = launched + cancelled + closedReserved | 421 = 205 + 205 + 11 | 146 = 83 + 59 + 4 |
+| 취소 통보 전송 | sent 205 = recv · delivered 205, dropped 0 | sent 59 = recv · delivered 59, dropped 0 |
+| Client chargeCancel stopped + nothingActive + noView | 128 + 49 + 28 = 205 | 32 + 22 + 5 = 59 |
+| Host chargeCancel | 129 + 48 + 28 | 29 + 25 + 5 |
+| suppressedAfterCancel | Host 49 · Client 0 | Host 51 · Client 0 |
+| verdict | 모든 END 줄 PASS | 모든 END 줄 PASS |
+
+- `suppressedAfterCancel` Client 0은 Host·싱글 전용 게이트라 설계상 정상이라는 것이 분석 판단이다 [전달].
+- 차지 Task 한계 **L-2(차지 중 취소 뒤 숫자만 표시)**: 취소된 회차는 서버 발사·피해가 없으므로(위 수지) 숫자가 생길 원인이 없다는 것까지가 로그 근거다. 「취소 뒤 숫자만 뜨는 장면」을 직접 세는 항목은 로그에 없다 [미확인].
+
+<a id="16-8-errors"></a>
+
+### 16-8. 오류 [전달]
+
+- 🔴 **기기 Unity 엔진 오류 「Particle Velocity curves must all be in the same mode」 12,007건 — 이번 타이밍 문제와 별건.**
+  - 첫 발생 12:55:08.744 — 첫 Inferno 화면 착탄 14ms 뒤. 이전 기기 로그 4개(b2 · c · d · e/03_09)에는 0건.
+  - 정적 검사 후보 둘: `Assets/_Project/Prefabs/VFX/Units/vfx_infernospirit_impact.prefab` · `vfx_foxmagician_impact.prefab`의 활성 VelocityModule이 x=0 · y=3 · z=0으로 축마다 모드가 섞여 있다(분석 스크립트 `velmode.py` 결과 — document-manager는 다시 검사하지 않았다). 두 프리팹 파일이 이 checkout에 있는 것만 확인했다 [확인].
+  - 어느 프리팹이 원인인지는 로그로 확정하지 못했다 [미확인]. 기기에서 착탄 VFX 모양이 달라질 수 있다 [추정]. 처리 여부는 Plan 1-3 U-19.
+- **에디터 `[UAS-MOVE-AUTH] END verdict=FAIL`** (12:59:30, 경기 2 Client 이탈 직후 network-despawn) — 진단 관찰자의 판정이며 범위 밖이라 원인을 확인하지 않았다(15-8의 같은 이름 FAIL과 같은 원인인지도 [미확인]).
+- 그 밖에는 기존에 알려진 경고뿐(UnitFactory 스폰 순서 128, WAVE clock-invalid 2, root-pose 용량, inferno-vfx-overflow 등). **예외(Exception) 0건.**
+
+<a id="16-9-fix-options"></a>
+
+### 16-9. 수정안 (제안 — 미실행, 🔴 사용자 결정 대기)
+
+> 분석의 제안을 옮긴 것이다 [전달]. 효과는 실측 기반 **예상**이며 실행으로 확인하지 않았다. 코드 변경은 사용자 결정과 별도 승인 뒤에만 한다.
+
+| 안 | 내용 | 예상 효과 | 장점 | 단점 · 위험 | 영향 코드 [전달] |
+|---|---|---|---|---|---|
+| **(a) 번호표 단위 사망 · 화상 표현 보류** (분석 권고) | Client에서 치명타 번호표가 보관 중인 대상의 사망 표현(`OnUnitDied` 재발행 · IsDead · 사망 VFX · 소멸)과 화상 VFX 시작을 그 키의 화면 착탄까지(상한 약 0.3초) 미룬다. 도메인 제거는 즉시 유지 | 앞섬 0(화면 착탄과 같은 프레임) | 정확함. 서버 판정 · Host 무변경 | **규모가 크다.** NGO Despawn이 오브젝트를 파괴하므로 시각 대리체(ghost)를 떼어 두거나 서버 Despawn 유예가 필요하다. 재경기 · ID 재사용 · 관찰자 Retire · 호밍 IsAlive 판정과 얽힌다. 화상만은 `Start + 지연`까지 미루면 비교적 간단 | NCC 3362~3394 · 2905 / NetworkUnit 1099~1160 / UnitView 2009~2035 / HitPresentationQueue 195 · 563 / TimedDamage Receive 73 |
+| **(b) 투사체 Client 지연 0.10 → 0** | 공유 상수에서 떼어 투사체 전용 값으로 둔다 | 앞섬 약 0.13 → 약 0.05초(\|resultLag\|만큼 남음). 늦은 결과(6/286, 최대 +0.05초)는 끝점에서 기다림(`ProjectilePresentationCoordinator.cs` 231~246행 — [확인]) | 한 곳만 바꾸면 됨, 위험 낮음. (a)와 함께 쓸 수 있음 | 0이 되지는 않는다. 발사 기록이 늦게 오면 begin이 늦어져 진행도가 튈 수 있다(발사 수신 지연 미측정) | Presenter 59~60 · 246 |
+| **(c) 적응형 오프셋** | 화면 시각 = 서버 시각 − EMA(resultLag)로 두어 화면 착탄을 결과 도착 순간에 맞춘다 | 대부분 약 0, 흔들림만큼 오차 | (a)보다 훨씬 작음 | HP와 결과 RPC가 같은 프레임에 오지 않는 표본이 있다(finish − HP 0.046~0.176초 편차, 원인 미확인) | Presenter 197 · 246 |
+
+- **분석 권고 [전달]:** 정확도를 우선하는 원칙(CLAUDE.md 규칙 7)에 따르면 (a)가 근본 해결이다. 화상만 먼저 `Start + 지연` 보류로 처리하는 것은 비교적 작다. (b)는 빠른 완화책으로 (a)와 함께 쓸 수 있다.
+- 🔴 **규칙과의 관계 — 변경 전 사용자 보고 대상 [확인 — 원문 대조, 판정은 사용자]:**
+  - (b) 투사체 Client 지연 0은 `NET-TIME-002`의 「실제 적용값은 … 0.075~0.25초 범위에서 조정한다」 범위 밖이다.
+  - (c)는 같은 문장의 「조정」과 방향은 맞지만, 기준(「NetworkTransform 보간 지연과 추정 단방향 지연 + jitter margin 중 큰 값」)과 다른 기준(resultLag EMA)이다.
+  - (a)는 `NET-TIME-002`의 맞춤 대상 목록(「표시용 HP바·텍스트·피격 반응」)에 사망 표현 · 화상 VFX를 더하는 쪽이다. 지금 문장이 사망 표현을 금지하지는 않지만 명시하지도 않는다.
+- **fixture 후보** (`Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.ServerProjectiles.cs` — 메서드 위치 [확인]): 857 `ValidateServerProjectilePresentationCoordinator`(지연값과 늦은 결과의 끝점 대기) · 914 `ValidateServerProjectileImpactHold` · 959 `ValidateServerProjectileKillShotNumbers`(사망 표현 보류) · 1561 `ValidateServerProjectileStageDSourceGates`(상수 분리 게이트) · 새로 만들 것: 화상 Play를 `Start + 지연`까지 미루는 검증 [전달].
+
+<a id="16-10-unconfirmed"></a>
+
+### 16-10. 미확인 · 남은 것
+
+1. **회귀 스위트 결과 [미보고].** 사용자 Console 결과를 받아야 한다.
+2. NGO ServerTime 내부 버퍼 구성(실측만 있음) · HP RPC와 결과 메시지의 도착 프레임 차이 원인 · Despawn 메시지의 Client 도착 시각(로그 없음, 코드상 사망 RPC 직후 같은 프레임 송신) · 표본(맵당 24발) 밖 투사체별 앞섬 값 · 파티클 오류를 낸 프리팹 [미확인 — 분석 원문 「미확인」].
+3. **실기에서 아직 안 나온 구성:** 기기 = Host, 싱글, Tank · CannonCart · StreamSpirit · 인간 타워와 섞인 경기(15-10 항목 1과 같은 이유로 유닛 투사체 6·7·17 · 인간 타워 로그 회귀 확인 없음).
+4. **에디터 `[UAS-MOVE-AUTH]` FAIL** — 범위 밖, 원인 미확인(16-8).
+5. **남은 대상:** EagleArcher · MushroomBomber. 수정안(16-9)을 고르면 단계 D 재실기가 필요하다 [추정 — 차지 유닛 화면 경로가 바뀌므로].
