@@ -203,6 +203,14 @@ namespace Hexiege.Infrastructure
         /// 인터넷 도달 확인기. 판정 직전에만 쓰므로 처음 필요할 때 만든다(지연 생성).
         /// </summary>
         private InternetReachabilityProbe _reachabilityProbe;
+#if UNITY_EDITOR
+        // 검사는 실제 감시 코루틴을 진행시키면서 도달 확인의 완료 시점만 통제한다.
+        // 런타임 정책이나 타임아웃을 바꾸지 않으며 릴리스/기기 빌드에는 존재하지 않는다.
+        private System.Func<System.Threading.Tasks.Task<InternetReachabilityResult>> _refactoringReachabilityProbe;
+#endif
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringFreshSignals;
+#endif
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -1475,7 +1483,12 @@ namespace Hexiege.Infrastructure
                 //      넘긴다」를 쓴다. async void 로 빼지 않는 이유는 그렇게 하면 예외가 조용히
                 //      사라지고, 판정 순서(확인 → 결론)도 코드에서 보이지 않게 되기 때문이다.
                 if (_reachabilityProbe == null) _reachabilityProbe = new InternetReachabilityProbe();
+#if UNITY_EDITOR
+                var probeTask = _refactoringReachabilityProbe != null
+                    ? _refactoringReachabilityProbe() : _reachabilityProbe.CheckAsync();
+#else
                 var probeTask = _reachabilityProbe.CheckAsync();
+#endif
                 while (!probeTask.IsCompleted) yield return null;
 
                 // 확인기는 예외를 던지지 않도록 만들어 뒀지만, 만약 그래도 터졌다면
@@ -1510,7 +1523,16 @@ namespace Hexiege.Infrastructure
                     yield break;
                 }
                 silenceSeconds = Time.realtimeSinceStartup - _lastOpponentSignalRealtime;
-                if (silenceSeconds < ResultScreenSilenceTimeoutSeconds) continue;
+                if (silenceSeconds < ResultScreenSilenceTimeoutSeconds)
+                {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    if (_refactoringFreshSignals < int.MaxValue) _refactoringFreshSignals++;
+                    if (_refactoringFreshSignals <= 4)
+                        GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "[REFACTOR-VERIFY]",
+                            $"Generation=refactor-verify-v1, Case=HB, Status=EVIDENCE, Event=fresh-signal-preserved, SilenceMilliseconds={(int)(silenceSeconds * 1000)}, IsServer={IsServer}");
+#endif
+                    continue;
+                }
 
                 // 내 인터넷은 되는데 상대만 조용하다 → 상대 이탈로 확정한다.
                 ConfirmOpponentLeftAfterSilence(silenceSeconds);

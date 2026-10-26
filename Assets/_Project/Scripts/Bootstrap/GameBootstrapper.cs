@@ -555,8 +555,18 @@ namespace Hexiege.Bootstrap
         private void OnDestroy()
         {
             // 씬을 바로 떠나는 경우에도 정적 건물 이벤트가 이전 Bootstrap을 붙잡지 않도록 정리한다.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            bool hadRepathSubscriptions = _eagerRepathSubscriptions != null;
+#endif
             _eagerRepathSubscriptions?.Dispose();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            bool repathDisposed = _eagerRepathSubscriptions != null && _eagerRepathSubscriptions.IsDisposed;
+#endif
             _eagerRepathSubscriptions = null;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=BOOTSTRAP, Status=EVIDENCE, Event=destroy-disposed, HadSubscriptions={hadRepathSubscriptions}, Disposed={repathDisposed}, Cleared={_eagerRepathSubscriptions == null}, Calls={_refactoringRepathCalls}, Instance={GetInstanceID()}");
+#endif
             _unitCombat?.CloseTorrentLaunches("bootstrap-destroy");
             _unitCombat?.CloseProjectiles("bootstrap-destroy");
             GameServicesLocator.Unregister();

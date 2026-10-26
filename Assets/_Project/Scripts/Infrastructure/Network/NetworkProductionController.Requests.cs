@@ -100,6 +100,7 @@ namespace Hexiege.Infrastructure
             // 발신자 팀과 서버 생산 상태의 실제 소유 팀을 함께 검증한다.
             if (state.Team != expectedTeam)
             {
+                RefactoringRequestRejected("Enqueue", barracksId, "Owner", state.Team, expectedTeam, -1);
                 SendEnqueueFailed(senderClientId, "팀 불일치");
                 return;
             }
@@ -206,7 +207,13 @@ namespace Hexiege.Infrastructure
 
             // 다른 팀의 생산 큐와 음수 슬롯 인덱스는 상태 변경 전에 거부한다.
             var state = production.GetState(barracksId);
-            if (state == null || state.Team != expectedTeam || slotIndex < 0) return;
+            if (state == null || state.Team != expectedTeam || slotIndex < 0)
+            {
+                RefactoringRequestRejected("Cancel", barracksId,
+                    state == null ? "Missing" : state.Team != expectedTeam ? "Owner" : "NegativeSlot",
+                    state?.Team ?? expectedTeam, expectedTeam, slotIndex);
+                return;
+            }
 
             // 서버에서 CancelQueueAt 실행
             // 내부에서 골드 환불 + OnProductionQueueChanged 이벤트 발행
@@ -288,7 +295,12 @@ namespace Hexiege.Infrastructure
 
             // 요청 인수의 팀이 맞아도 대상 생산건물이 다른 팀이면 변경하지 않는다.
             var state = production.GetState(barracksId);
-            if (state == null || state.Team != expectedTeam) return;
+            if (state == null || state.Team != expectedTeam)
+            {
+                RefactoringRequestRejected("Rally", barracksId, state == null ? "Missing" : "Owner",
+                    state?.Team ?? expectedTeam, expectedTeam, -1);
+                return;
+            }
 
             // ----------------------------------------------------------------
             // 3. 서버 상태에 랠리포인트 반영
@@ -364,7 +376,12 @@ namespace Hexiege.Infrastructure
 
             // 자동 생산도 서버 생산 상태의 실제 소유 팀을 확인한 뒤 변경한다.
             var state = production.GetState(barracksId);
-            if (state == null || state.Team != expectedTeam) return;
+            if (state == null || state.Team != expectedTeam)
+            {
+                RefactoringRequestRejected("Auto", barracksId, state == null ? "Missing" : "Owner",
+                    state?.Team ?? expectedTeam, expectedTeam, -1);
+                return;
+            }
 
             // unitTypeInt를 UnitType으로 변환하여 토글
             UnitType unitType = (UnitType)unitTypeInt;
@@ -386,5 +403,20 @@ namespace Hexiege.Infrastructure
             AutoProductionChangedClientRpc(barracksId, isAuto, unitTypeInt);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringRequestRejections;
+#endif
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void RefactoringRequestRejected(string request, int building, string reason,
+            TeamId actual, TeamId expected, int slot)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringRequestRejections < int.MaxValue) _refactoringRequestRejections++;
+            if (_refactoringRequestRejections > 24) return;
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=RPC, Status=EVIDENCE, Event=rejected, Request={request}, Building={building}, Reason={reason}, Actual={actual}, Expected={expected}, Slot={slot}, Count={_refactoringRequestRejections}");
+#endif
+        }
     }
 }

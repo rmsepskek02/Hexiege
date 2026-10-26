@@ -292,6 +292,11 @@ namespace Hexiege.Infrastructure
         ///   OnNetworkSpawn(서버 분기)과 OnNetworkDespawn 양쪽에서 false로 되돌린다.
         /// </summary>
         private bool _combatStopped = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 게임 종료 뒤 실제 입구 차단을 관측한다. 매 프레임 출력하지 않고 경기당 네 줄만 남긴다.
+        private int _refactoringStoppedEntries;
+        private bool _refactoringEndReceipted;
+#endif
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -398,6 +403,12 @@ namespace Hexiege.Infrastructure
                 // (= 성이 파괴될 수 없어 게임이 영원히 끝나지 않는다).
                 // 위 두 줄과 나란히 두어 "이 자리는 경기마다 리셋하는 자리" 임이 눈에 보이게 한다.
                 _combatStopped = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                _refactoringStoppedEntries = 0;
+                _refactoringEndReceipted = false;
+                GameLog.Dev.Info("Network", nameof(NetworkCombatController), "[REFACTOR-VERIFY]",
+                    $"Generation=refactor-verify-v1, Case=END, Status=EVIDENCE, Event=server-spawn, Frame={Time.frameCount}");
+#endif
 
                 // 사망 이벤트는 OnUnitDied / OnBuildingDied 두 갈래로 분리되었으므로
                 // 서버 측에서도 각각 구독한다.
@@ -2646,6 +2657,14 @@ namespace Hexiege.Infrastructure
         private void OnGameEndHandler(GameEndEvent e)
         {
             _combatStopped = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!_refactoringEndReceipted)
+            {
+                _refactoringEndReceipted = true;
+                GameLog.Dev.Info("Network", nameof(NetworkCombatController), "[REFACTOR-VERIFY]",
+                    $"Generation=refactor-verify-v1, Case=END, Status=EVIDENCE, Event=stopped, Targets={_unitCombatTargets.Count}, Frame={Time.frameCount}");
+            }
+#endif
             _services?.GetCombatUseCase()?.CloseTorrentLaunches("game-end");
             // [2026-10-20] 게임 종료 직전에 발사된 투사체가 종료 뒤에 피해를 주지 않게 닫는다(테스트 M-3).
             _services?.GetCombatUseCase()?.CloseProjectiles("game-end");
@@ -2729,7 +2748,21 @@ namespace Hexiege.Infrastructure
             //   ⚠️ IsServer 조건이 새로 붙지만 동작은 달라지지 않는다 — 이 이벤트 구독은 OnNetworkSpawn 의
             //      IsServer 블록 안에서만 이루어지므로, 원래도 서버에서만 호출되던 자리다.
             //      같은 파일 안에서 가드 모양이 갈리지 않도록 Update()·OnUnitDied 와 형태를 통일한다.
-            if (!IsSpawned || !IsServer) return;
+            // 승패 확정 뒤에도 UnitView 코루틴이 같은 프레임에 진입 이벤트를 보낼 수 있다.
+            // 종료된 공격 수명에 타겟과 표현을 다시 등록하지 않도록 전투 정지 상태도 확인한다.
+            if (!IsSpawned || !IsServer || _combatStopped)
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (IsSpawned && IsServer && _combatStopped)
+                {
+                    if (_refactoringStoppedEntries < int.MaxValue) _refactoringStoppedEntries++;
+                    if (_refactoringStoppedEntries <= 4)
+                        GameLog.Dev.Info("Network", nameof(NetworkCombatController), "[REFACTOR-VERIFY]",
+                            $"Generation=refactor-verify-v1, Case=END, Status=EVIDENCE, Event=entry-blocked, Unit={e.UnitId}, Target={e.TargetId}, Count={_refactoringStoppedEntries}, Frame={Time.frameCount}");
+                }
+#endif
+                return;
+            }
 
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null) return;

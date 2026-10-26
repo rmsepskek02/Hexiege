@@ -79,6 +79,9 @@ namespace Hexiege.Presentation
         private float _decayTimer;
         private readonly CompositeDisposable _eventSubscriptions = new CompositeDisposable();
         private bool _eventSubscriptionsBoundToLifetime;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringTickerBinds;
+#endif
 
         // ====================================================================
         // 랠리포인트 마커 관리
@@ -162,6 +165,12 @@ namespace Hexiege.Presentation
             _decayTimer = 0f;
 
             SubscribeEvents();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringTickerBinds < int.MaxValue) _refactoringTickerBinds++;
+            if (_refactoringTickerBinds <= 8)
+                GameLog.Dev.Info("UI", nameof(ProductionTicker), "[REFACTOR-VERIFY]",
+                    $"Generation=refactor-verify-v1, Case=UI, Status=EVIDENCE, Event=ticker-bound, Bind={_refactoringTickerBinds}, Subscriptions={_eventSubscriptions.Count}, Instance={GetInstanceID()}");
+#endif
         }
 
         /// <summary>
@@ -250,6 +259,10 @@ namespace Hexiege.Presentation
         private void OnDestroy()
         {
             _eventSubscriptions.Dispose();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            GameLog.Dev.Info("UI", nameof(ProductionTicker), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=UI, Status=EVIDENCE, Event=ticker-disposed, Disposed={_eventSubscriptions.IsDisposed}, Instance={GetInstanceID()}");
+#endif
         }
 
         // ====================================================================

@@ -223,6 +223,7 @@ namespace Hexiege.Infrastructure
             // 요청 인수만 믿지 않고 서버의 실제 연구소 생존·종류·소유 팀을 확인한다.
             if (!IsOwnedLiveResearchBuilding(services, buildingId, expectedTeam))
             {
+                RefactoringResearchRejected("Start", services, buildingId, expectedTeam);
                 SendResearchFailed(senderClientId, "연구 불가");
                 return;
             }
@@ -286,7 +287,11 @@ namespace Hexiege.Infrastructure
             if (team != expectedTeam) return;
 
             // 다른 팀의 연구소나 파괴된 건물 ID로 연구를 취소할 수 없게 한다.
-            if (!IsOwnedLiveResearchBuilding(services, buildingId, expectedTeam)) return;
+            if (!IsOwnedLiveResearchBuilding(services, buildingId, expectedTeam))
+            {
+                RefactoringResearchRejected("Cancel", services, buildingId, expectedTeam);
+                return;
+            }
 
             // 서버 권위: 취소 + 골드 100% 환불(NetworkResourceSync가 클라에 골드 반영).
             bool canceled = upgrade.CancelResearchByBuilding(buildingId, resource);
@@ -465,6 +470,21 @@ namespace Hexiege.Infrastructure
                              $"Reason={reason}");
             if (reason == "연구 불가")
                 GameEvents.OnToastRequested.OnNext(ToastKey.GoldInsufficient);
+        }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringResearchRejections;
+#endif
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void RefactoringResearchRejected(string request, IGameServices services, int id, TeamId expected)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringResearchRejections < int.MaxValue) _refactoringResearchRejections++;
+            if (_refactoringResearchRejections > 16) return;
+            var building = services.GetBuildingPlacement()?.GetBuilding(id);
+            GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=RPC, Status=EVIDENCE, Event=rejected, Request=Research{request}, Building={id}, Exists={building != null}, Alive={building?.IsAlive}, Type={building?.Type}, Actual={building?.Team}, Expected={expected}, Count={_refactoringResearchRejections}");
+#endif
         }
     }
 }

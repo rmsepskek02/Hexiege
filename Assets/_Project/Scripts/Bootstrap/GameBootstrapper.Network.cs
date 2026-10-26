@@ -96,6 +96,10 @@ namespace Hexiege.Bootstrap
         // eager 경로 재계산 트리거 설정
         // ====================================================================
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int _refactoringRepathCalls, _refactoringRepathBinds, _refactoringRepathReceipts;
+#endif
+
         /// <summary>
         /// 건물 배치 / 건물 사망 이벤트를 구독하여
         /// 살아있는 모든 유닛에게 OnPathInvalidated() 호출 → 동일 destination으로
@@ -119,8 +123,29 @@ namespace Hexiege.Bootstrap
             // 인덱스의 실제 제거가 끝난 뒤에만 최신 walkability로 재경로를 요청한다.
             // FlowFieldService의 캐시 무효화 구독은 맵 초기화 시 이 구독보다 먼저 설치된다.
             GameEvents.OnBuildingRemoved
-                .Subscribe(_ => RepathAllAliveUnits())
+                .Subscribe(e =>
+                {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    if (_refactoringRepathReceipts < 16)
+                    {
+                        _refactoringRepathReceipts++;
+                        bool registered = e.Building != null && _buildingPlacement != null
+                            && _buildingPlacement.GetBuilding(e.Building.Id) != null;
+                        var tile = e.Building != null ? _grid?.GetTile(e.Building.Position) : null;
+                        bool occupied = tile?.HasBuilding == true;
+                        GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[REFACTOR-VERIFY]",
+                            $"Generation=refactor-verify-v1, Case=PATH, Status=EVIDENCE, Event=removed-before-repath, Building={e.Building?.Id}, RegistryReady={_buildingPlacement != null}, TileExists={tile != null}, Registered={registered}, Occupied={occupied}, Revision={_flowFieldService?.WalkabilityRevision}, Instance={GetInstanceID()}");
+                    }
+#endif
+                    RepathAllAliveUnits();
+                })
                 .AddTo(_eagerRepathSubscriptions);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringRepathBinds < int.MaxValue) _refactoringRepathBinds++;
+            if (_refactoringRepathBinds <= 8)
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[REFACTOR-VERIFY]",
+                $"Generation=refactor-verify-v1, Case=BOOTSTRAP, Status=EVIDENCE, Event=bind, Bind={_refactoringRepathBinds}, Subscriptions={_eagerRepathSubscriptions.Count}, Instance={GetInstanceID()}");
+#endif
         }
 
         /// <summary>
@@ -129,6 +154,9 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void RepathAllAliveUnits()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_refactoringRepathCalls < int.MaxValue) _refactoringRepathCalls++;
+#endif
             // 서버 가드 — 싱글(IsNetworkActive==false) 또는 Host(IsNetworkServer==true) 통과.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
             if (_unitSpawn == null || _unitFactory == null) return;
