@@ -3,9 +3,9 @@
 로그인부터 로비・게임・공통 팝업까지 실제 에디터 화면을 하나씩 열어, 글자와 버튼이 읽히고 눌리며 화면 크기와 상태가 달라도 배치가 무너지지 않는지 점검한다. 앞서 공유된 이미지 네 장에만 한정하지 않고 전체 UI를 살핀다. 이 문서는 구조 조사와 실제 화면 관측을 구분하고, 수정 전에 합의할 문제와 기준을 기록한다.
 
 - 작업 시작: 2026-10-19 15:41 KST (메인 시각 확인 인계)
-- 브랜치: D프로젝트는 `codex/ui-improvements` 유지. 메인 실행 인계 기준 UI제품 `de2a424b`와 통합기록 `69b5e5c4`의 로컬 main fast-forward 완료・원격push 없음.
+- 브랜치/이전 기준: 이전 UI 최종 수용분 `7c66e4c5`의 main push 완료는 메인 인계다. 앞선 de2a424b/69b5e5c4 로컬 통합 기록은 당시 이력으로 보존하며 이번 방코드 후속의 새 push 권한/반영 근거가 아니다.
 - 사용자 승인: Task 문서와 에디터 직접 점검에 이어 남은 점검 후 레이아웃 작업 진행 승인. 구체 구현 범위/규칙 근거 계획은 후속 인계 뒤 반영
-- 현재 상태: 최종 랭킹10행 높이/배치 사용자 정상 확인 완료・기수용UI항목유지 / de2a424b제품통합+69b5e5c4기록통합 실제완료・push없음 / 빌드완료설치실행의에이전트직접관측·전체기기증명과별도
+- 현재 상태: 2026-10-26 방 코드 입력창 Lobby 1파일/3레코드·13필드 교정 구현 및 소스 검사 완료 / Login 동일 내부 비율·38 크기·입력 Light/placeholder Bold / C#0·재컴파일 없음 / 새 native·빌드·실기 확인·Git 변경 없음
 - 문서 담당 범위: 이 폴더의 Research/Plan 두 파일만 생성・관측 후 갱신하며 제품 파일・상시 문서・메모리・기존 Task・Git을 직접 변경하지 않는다. 메인이 별도 사용자 승인으로 수행한 main 동기화는 16절에 분리 기록한다.
 - 연결 계획: [Plan.md](Plan.md). 새 폴더/Markdown의 meta는 수동 작성하지 않으며 Unity가 자동 생성할 수 있다.
 
@@ -1037,3 +1037,27 @@ Build And Run 시작과완료/설치/기기실행미관찰, 새랭킹높이사�
 이 확인 기록 작성 당시 Task2/PROJECT_STATUS/ROADMAP/WORK_HISTORY5문서의 후속 커밋/main FF는 대기 중이었다. 이는 작성 시점의 거래 이력으로만 남기며 현황 문서의 현재 상태나 자기참조 hash 갱신 조건으로 반복하지 않는다. 제품/메모리/원본규칙/Git/TCQA/원시로그는이번문서담당범위에서변경하지않는다.
 
 이번 사용자 정상 확인 후5문서 최종검사 python3 1회는 ResourceUnavailable로 본문 실행 불가였다. 자동PASS/추가runtime탐색 없이 최신수용범위・실제통합완료/새문서반영예정 구분과 로컬링크/앵커를 수동검수했다.
+
+## 26. 방 코드 입력창 에셋 내부 텍스트 정렬 후속 — 2026-10-26
+
+사용자는 방 코드 입력창에 에셋을 적용했지만 텍스트가 맞지 않아 Login 씬 입력창처럼 배치하도록 요청했고 기존 문서에 이어 기록하도록 승인했다. 사용량 초기화 뒤 계속 진행 지시도 받았다. 이전 UI 최종 수용과7c66e4c5 main push 완료는 이전 범위로 보존하며 이번 새 교정/수용/배포 근거로 쓰지 않는다.
+
+당시 구현 담당자의 읽기 조사 단계였다. 로그인 입력창과 방 코드 입력창의 에셋 내부 텍스트/placeholder/viewport 배치를 대조한 뒤 구체 파일/근거/변경·유지 범위를 Plan에 추가하고 GO/구현 결과를 따로 기록한다. 아직 새 제품 수정/새 화면 관측/빌드/사용자 수용은 없다.
+
+기존 입력 동작/키보드/방 참가·매칭 수용과 guest/auth는 보존하고 새 반복 검사 관문으로 추가하지 않는다. 기존 공통 레이아웃과 source/native/사용자 수용 근거를 분리한다. 이번 문서 변경은 Task2뿐이며 새 Task/원본규칙/상태3/메모리/Git/TCQA/native/빌드/원시 로그 조작은 없다. 과거 push 승인을 새 push 권한으로 확대하지 않는다. 최종 문서 검사는 최종 저장 뒤 한 번 진행하고 Python 실행 불가 때 추가 runtime을 탐색하지 않는다.
+
+### 방 코드 입력 내부 배치 확정 계획・GO
+
+메인 인계 기준 디스크 Lobby는 clean/기준SHA2DB113B3…CAF3A다. CodeInput 배경Image1075429686은Login과같은ui_input_light(GUID00d6f7b7e9fe57f4ca437f6dfc71aa89/fileID7742578998628659349), Sliced1/preserveAspect0라배경교체문제가아니다. 현viewport47311981은(.02,.05)~(.98,.95), 입력TMP1410947178/placeholder1529964493은크기48/Geometry4096이고 placeholder는Light/Italic/회청색이다. Login일반6개기준은안쪽(.15,.08)~(.85,.92)・38/Middle512여서배치차이를확인했다.
+
+메인은사용자에게이방향을설명하고Lobby1파일/3레코드의구체안을GO했다. viewport와실제입력/placeholder만Login비율/LeftMiddle/38/검정/style0로맞추고실입력Light/placeholder실제Bold를적용한다. runtimeCustomJoin/InputForm이해당위치/폰트를덮지않아C#추가는없다는source인계다. 외곽/배경/문구/자체textrect/부모/InputField/events를보존한다. 계획 당시 최종 snapshot/delta/hash 인계는 대기였으며 아래 최종 결과로 갱신한다. 새native/build/Git은이번요청범위가아니며기존push권한을확대하지않는다.
+
+### 최종 구현 및 소스 검사 완료 — 실제 표시 확인 전
+
+`Assets/_Project/Scenes/Lobby.unity` 한 파일의 3레코드·13필드를 교정했다. 최종 SHA256은 `AB84E386DEB1314FBAE9A81010CF5B76CF2937D7F50CCEEC04C01C23391CF07F`이며 메인과 문서 담당자가 현 파일을 직접 대조했다. viewport는 Login 일반 6필드와 같은 좌우 15%·상하 8% 내부 비율이고, 입력은 Light38, placeholder는 실제 Bold38/검정/Left/Middle/style0으로 맞췄다. 초기 개발 도구 요약의 14필드는 하드코딩 오기였으며 `field-delta.csv`의 실제 13행을 기준으로 정정한다.
+
+근거는 작업 루트 `.utmp/ui-code-input-20261026/`의 `manifest-final.csv`, `field-delta.csv`, `login-six-comparison.csv`, `checks-final.log`와 씬 snapshot이다. 문서 담당자는 manifest·delta·checks를 직접 읽었다. 추가/삭제0, 역치환 바이트 동일, ID/참조 및 배경·외곽·TMP 입력 설정·events·문구 보존은 구현 담당자의 소스 검사 결과이며 메인도 delta/checks를 확인했다.
+
+C# 변경이 없어 컴파일을 다시 실행하지 않았다. 이번 새 native 관측·빌드·계정 조작·실기 사용자 확인·Git 변경은 없다. 방 코드 입력창의 실제 표시 확인은 아직이며, 과거 입력/매칭 수용이나 이전 UI main push 완료와 이번 미커밋 교정을 분리한다.
+
+이번 마감의 `python3 Tools/check_docs.py` 1회 시도는 WindowsApps Python의 ResourceUnavailable로 본문 실행 불가였다. 자동 검사 PASS가 아니며 추가 runtime 탐색 없이 Task 두 문서의 로컬 링크 대상(누락0), 변경 의미/형식과 diff 공백 오류 없음을 수동 확인했다.
