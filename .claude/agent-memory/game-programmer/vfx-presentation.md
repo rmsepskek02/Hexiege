@@ -1,4 +1,4 @@
-# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units
+# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units, server projectiles
 
 Lessons verified against the code on branch `claude/vfx-code-followups` (commit `84b6ff2a`, 2026-10-15)
 and confirmed by the user's field tests (3 rounds, 2026-10-13~15). Task record:
@@ -32,6 +32,11 @@ All of this is presentation only — no server damage / target / HP / RPC path c
   ("Damage loop contract").
 - Validator asserts authored count >= 1 and lease count == authored count — never hard-code a particle count
   from one prefab revision (the user removed `Bloom_Ring`, 5 → 4, and the heal VFX silently disappeared).
+- *(2026-10-26 added)* An enabled VelocityModule whose x / y / z curves use different `minMaxState` modes logs the engine
+  error "Particle Velocity curves must all be in the same mode" **on device only** (12,007 lines in one Android match; the
+  Editor RuntimeLog does not capture engine errors). Fix = make all three axes the same mode, keep the values
+  (`fb77548c`: Fox / Inferno impact prefabs x · z 0 → 3 to match y). Fixture E-5 in
+  `RunUnitActionSelfValidation.ProjectileDeathHold.cs` now checks every enabled VelocityModule in the project.
 
 ## 3. Recipient (status VFX) fitting — `UnitEffectConfig` table + presets
 
@@ -46,6 +51,9 @@ All of this is presentation only — no server damage / target / HP / RPC path c
   `manualScale` 0 everywhere; Heal and Poison `Scale Multiplier` 2, Burn 1; all `Local Position Offset` 0. Tuning continues.
 - ⚠️ `manualScale` also changes that unit's RuneSpire chest height (§4) because chest height derives from the same
   uniform scale.
+- *(2026-10-26 added)* The timed-damage Play log line prints the applied fit (`FitScale=`; BearGuard 0.53 = its table height) — read it
+  before suspecting a per-unit scaling bug. A "hard to see" status VFX can be occlusion (flame narrower/lower than the body), not size
+  data; that BearGuard case is an unverified hypothesis with a pending user choice (server-projectile Research 17-9, Plan U-20).
 
 ## 4. RuneSpire (Spirit AutoTower) bolt — `VfxPoolItem.TowerBolt.cs`
 
@@ -122,6 +130,9 @@ R-1 `VfxPoolItem.cs` ~164 · R-5 `VfxPoolItem.cs` ~210 · R-4 `VfxPoolItem.Timed
 - An inactive UnitView fixture can retain default zero Quaternion metadata. Unity Quaternion `==` is orientation comparison and can reject two unchanged zero values; use `Equals` for exact unchanged components, and exercise both zero and valid identity seeds. Do not hide the fixture bug by changing production initialization.
 - Assert lease lifetime separately from emission metadata (scope, target, position, rotation), then preserve charge-once/duplicate-no-consumption checks. Metadata stability alone does not prove every emitter was unreachable; retain the production early-return evidence. *(2026-10-19: the Fox hit-marker early return this refers to is now commented out — Fox hit markers launch the tracer; the old fixture asserts are kept commented. See §8.)*
 - Re-read the current branch before applying an earlier fix: concurrent main integration may already contain the authored-particle contract. Preserve unrelated recipient-fit/tower work. Refresh scratch compiler inputs against the actual source set before interpreting missing-source failures.
+- *(2026-10-26 added)* **Float hit times: tick fixtures with the unit data's own value.** `HitFrameTimes` are `float`; a fixture that
+  ticked with a double literal (`.2d` / `.4d`) ran before the due time widened from float (0.2000000030… / 0.4000000060…) and failed
+  although production was right. Tick with `HitFrameTimes[0]` (and derive expected impact times from it) — `ac05e189`, test-only.
 - User full-suite PASS is a native-menu acceptance report, not an agent native run or every device/role/gameplay/HP acceptance. After authorized obsolete-assertion cleanup, compare active tokens with exact literal text and keep that no-behavior-change evidence separate from the earlier user run. Exact generations remain in the existing `2026-10-19/15_21_regression-suite-contract-fixes` Task.
 
 ## 8. Charge units — charge at `OnAttackCharge`, launch at `OnAttackHit` (2026-10-19)
@@ -159,6 +170,40 @@ Research §9 / Plan §9. Rule: `GameSystemRules_Units.md` rule 17 「차지 유�
   1/30 s of it. "Duration + max lifetime" is only a conservative bound for continuous emitters.
 - **Commented-out (still in code, deletion not yet authorised):** R-1 Fox hit early return, R-2 Fox type guard in `OnAttackCharge`,
   R-3 charge-path consume, R-4 unconditional attack SFX line; validator V-1~V-3 plus several old Fox fixture asserts.
-- Known limits (not bugs of this change): Fox damage number shows before tracer arrival (rule 19 immediate path — option C);
-  number-only after a cancel (server damage already scheduled); Client Inferno charge may be skipped when the commit arrives after
-  0.1667 s [unverified].
+- Known limits (not bugs of this change): Client Inferno charge may be skipped when the commit arrives after 0.1667 s [unverified].
+  *(2026-10-26 updated — the other two limits of this commit, "Fox damage number before tracer arrival (rule 19 immediate path)" and
+  "number-only after a cancel", belong to the old instant-damage path: server projectile stage D `a0a23423` disabled the Fox
+  immediate branch (RM-5; device log `foxPrimary` immediate 0) and cancels the launch with no damage when the charge is cut — §9.)*
+
+## 9. Server-authoritative projectiles — damage at impact, presentation waits for the screen (2026-10-20~26)
+
+Task: `Assets/_Project/Docs/_Tasks/2026-10-19/13_30_server-authoritative-projectile/` (Plan = decisions Q/U, stages; Research 12~17 =
+per-stage device logs). Stages A `d09cc4a9` StreamSpirit · B `639ac1aa` Tank/CannonCart · B-2 `64b743c8` kill-shot number · C `b819dc51`
+human cannon tower · D `a0a23423` InfernoSpirit/FoxMagician · D-2 `fb77548c` death/burn hold. Rules: `GameSystemRules_UnitCombatSynchronization.md`
+「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`; do not restate them here. Remaining units: EagleArcher, MushroomBomber.
+
+- **Server model** (`UnitCombatUseCase.Projectiles.cs` header is the map): the `OnAttackHit` offset is now the **launch** time. At launch the
+  impact time = launch + (centre distance − target radius) ÷ speed is computed **once and fixed**, attack power is stored; flight is
+  ticked every frame (not the 50 ms combat tick). Impact calls the **existing single HP writer** once — units `ApplyAttackDamageCore`,
+  towers `IBuildingProjectileImpactWriter` — so armour / building ×2 / DoT / splash stay identical. Target gone at impact → result only,
+  no damage. Targets and attackers are held by object reference (ID reuse safe). Speeds live in `Resources/Config/ProjectileConfig.asset`,
+  not `UnitStatsConfig`.
+- **Per-unit switch:** `ServerProjectileDeliveryPolicy` `EnabledUnitTypes` (`Application/Combat/ProjectileDeliveryContracts.cs`) →
+  `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the match-start handshake hash, so builds with different lists refuse to
+  start a match (intended). When an RPC's shape changes, also bump `PresentationContractSchemaRevision`
+  (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC).
+- **Charge units:** cut during the charge (attacker/target dead or replaced, move order) → server cancels the launch (no projectile, SFX
+  or damage) and sends a cancel notice so the Client stops the charge VFX for that attack revision; leaving range is **not** a cancel.
+- **Display clock:** `ProjectilePresentationPresenter` draws at `serverNow − 0.10 s` on a pure Client and `− 0` on Host/single (constant
+  shared with `AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds`). The Client server clock was already ~0.05 s behind
+  the result arrival, so anything **not** held to the projectile's screen impact shows early on Client only — Host/Editor looks fine.
+  Always judge "damage before hit" reports on the **Client device**.
+- **What waits for the screen impact:** `HitPresentationQueue` holds projectile-keyed hits (number, hit VFX, punch) and releases them at
+  the screen finish (`ReleaseProjectileImpact`); if the target view is already gone the number shows at a fallback point (screen impact
+  point or the position remembered when held). D-2 added the two channels that did not wait: a lethal keyed hit detaches the VisualRoot
+  as a **death ghost** (`DeferredUnitDeathPresenter`, `UnitView.DeathDeferral.cs`) and plays stop-charge → IsDead → death VFX/SFX →
+  removal at the screen impact; the burn VFX start waits likewise (`TimedDamageEffectPresenter`). Both are capped by
+  `ProjectileKillPresentationSchedule.MaxHoldSeconds = 0.3` so a lost signal never freezes the view. Server judgement, domain removal
+  and NGO Despawn timing are unchanged. Measured: Client death lead 0.043~0.168 s before → `deathMinusImpact` 0.000 for 17/17 after.
+- **Diagnosing a "too early" report:** split the channels first (number · hit VFX · death presentation · DoT VFX). In stage D the
+  numbers were already held (immediate 0); the user was seeing the death presentation. Compare times on one device clock.
