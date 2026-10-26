@@ -64,6 +64,7 @@
 | 결정 필요 | CanvasGroup 숨김 원칙의 제목/취소 버튼 예외를 규칙에 명시할지. 현재 알림 레이아웃의 SetActive 의도와 구현 수용을 뒤집는 작업은 아님 |
 | 낮음·추후 기획 미결 | GDD의 Non-P2W 원칙과 카드 레벨업 스탯 증가·패배 후 광고 부활 원안의 충돌 검토. 선택·해결책은 아직 미정 |
 | 낮음·보류 | 마법 타워·Idle/Patrol/Retreat 확장·서든데스·튜토리얼·카드/IAP 등 추가 콘텐츠 |
+| 추후 추가 예정 | HP바. 현재 게임에는 없다. 추가되면 표시 시점은 [UnitCombatSynchronization](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) `NET-TIME-002`(「5. 서버 시간 재생」)의 같은 표현 시점 정책을 따른다. 우선순위·디자인 미정 *(2026-10-26 사용자 결정 「HP바는 나중에 추가할 생각」)* |
 | 추후 조건부 | Victory/Defeat BGM 분리는 [Sound](GameSystemRules/GameSystemRules_Sound.md)의 LocalPlayerTeam.Set() 선행조건이 있는 향후 작업. 일반 게임종료 BGM·기존 사운드 구현을 미구현으로 되돌리지 않음 |
 | 별도 백엔드 | 서버 전적 처리·Functions/IAP 등 실제 미완 범위. Firebase 인증·이미 연결된 UGS Cloud Save/Leaderboards와 Firestore 새 계획을 섞지 않고 플랫폼/기능 선택은 확정 근거에 따라 진행 |
 | 인프라 | Firebase/EDM SDK·플러그인의 버전 관리/신규 clone 재현성 방침. 과거 Auth 컴파일 게이트 제거 완료와 별개 |

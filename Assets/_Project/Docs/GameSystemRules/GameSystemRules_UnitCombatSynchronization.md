@@ -206,7 +206,7 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 - 초기값은 0.10초다.
 - 실제 적용값은 NetworkTransform 보간 지연과 추정 단방향 지연 + jitter margin 중 큰 값으로 정하고 0.075~0.25초 범위에서 조정한다.
 - 호스트도 같은 표현 지연 정책을 사용해 공격 모션과 HP·피격 표현의 상대 시점을 맞춘다.
-- 서버 내부 HP와 판정은 지연하지 않는다. 표시용 HP바·텍스트·피격 반응만 권위 Result와 같은 표현 Impact에 맞춘다.
+- 서버 내부 HP와 판정은 지연하지 않는다. 표시용 HP 텍스트·피격 반응만 권위 Result와 같은 표현 Impact에 맞춘다. **HP바는 아직 게임에 없다 — 추후 추가 예정 기능이다.** 추가되면 HP바도 이 항목과 같은 표현 시점 정책(권위 Result와 같은 표현 Impact)을 따른다. *(2026-10-26 개정 — 사용자 결정 「HP바는 나중에 추가할 생각」: 현재 기능처럼 적혀 있던 「HP바」를 지우지 않고 추후 추가 예정 표기로 바꿨다. 개정 전 원문 「서버 내부 HP와 판정은 지연하지 않는다. 표시용 HP바·텍스트·피격 반응만 권위 Result와 같은 표현 Impact에 맞춘다.」 — [서버 권위 투사체 Plan 4-3](../_Tasks/2026-10-19/13_30_server-authoritative-projectile/Plan.md#4-3-net-time-002-pending-amendment-20261026) T-2. 같은 절의 사망 표현 맞춤(T-1)과 호스트 지연 문장(T-3)은 아직 사용자 승인 대기라 반영하지 않았다)*
 
 회차 계획을 미리 받은 클라이언트는 공격자 Windup·발사 모션을 표현 시간축에 예약한다. 피격 VFX·HP 텍스트·피해자 반응은 권위 `AttackImpactResult`를 받은 경우에만 같은 표현 Impact에 재생한다. 결과를 미리 추측하지 않는다.
 
