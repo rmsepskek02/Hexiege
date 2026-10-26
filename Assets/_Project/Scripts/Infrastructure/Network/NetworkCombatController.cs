@@ -27,6 +27,9 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using UniRx;
 using Hexiege.Core;
 using Hexiege.Domain;
@@ -42,6 +45,13 @@ namespace Hexiege.Infrastructure
     /// </summary>
     public partial class NetworkCombatController : NetworkBehaviour
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _tickCombatProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TickCombat");
+        private static readonly ProfilerMarker _targetQueriesProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TargetQueries");
+        private static readonly ProfilerMarker _projectileTickProfilerMarker = new ProfilerMarker("Hexiege.NetworkCombat.TickProjectiles");
+#endif
         // ====================================================================
         // Inspector 설정
         // ====================================================================
@@ -651,7 +661,12 @@ namespace Hexiege.Infrastructure
             if (_combatStopped) return;
             // [2026-10-20 서버 권위 투사체] 발사 예약 검사·발사·비행 추적·착탄 피해도 매 서버 frame에 진행한다.
             //   50ms 전투 틱에 묶으면 착탄이 최대 50ms 늦어진다(Plan 위험 4). 착탄 피해로 게임이 끝날 수 있어 다시 확인한다.
-            _services?.GetCombatUseCase()?.TickProjectiles(GetAuthoritativeServerTime());
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                using var projectileTickSample = _projectileTickProfilerMarker.Auto();
+#endif
+                _services?.GetCombatUseCase()?.TickProjectiles(GetAuthoritativeServerTime());
+            }
             if (_combatStopped) return;
 
             _attackTimer += Time.deltaTime;
@@ -684,6 +699,9 @@ namespace Hexiege.Infrastructure
         /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
         private void TickCombat(float elapsed)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var tickCombatSample = _tickCombatProfilerMarker.Auto();
+#endif
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null) return;
 
@@ -816,8 +834,15 @@ namespace Hexiege.Infrastructure
                 // [스킬] 빙결/기절 상태면 공격 불가(규칙 13) — 타겟을 찾지 않아 데미지를 주지 않는다.
                 //   HasEnemyInRange는 여전히 참일 수 있어 전투 애니메이션(적을 향한 자세)은 유지되지만
                 //   실제 데미지(ExecuteAttack)는 발생하지 않는다. 무상태면 CanAttack=true → 기존과 동일.
-                var attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
-                bool hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
+                (int id, bool isUnit)? attackResult;
+                bool hasEnemy;
+                {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    using var targetQueriesSample = _targetQueriesProfilerMarker.Auto();
+#endif
+                    attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
+                    hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
+                }
 
                 if (hasEnemy)
                 {

@@ -15,6 +15,9 @@
 // ============================================================================
 
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
@@ -25,6 +28,11 @@ namespace Hexiege.Bootstrap
 {
     public partial class GameBootstrapper
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _eagerRepathProfilerMarker = new ProfilerMarker("Hexiege.Bootstrap.RepathAllAliveUnits");
+#endif
         // ====================================================================
         // 네트워크 게임 진입점
         // ====================================================================
@@ -154,6 +162,9 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void RepathAllAliveUnits()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var eagerRepathSample = _eagerRepathProfilerMarker.Auto();
+#endif
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (_refactoringRepathCalls < int.MaxValue) _refactoringRepathCalls++;
 #endif

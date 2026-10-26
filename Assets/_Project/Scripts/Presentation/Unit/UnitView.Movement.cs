@@ -2,6 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
@@ -13,6 +16,12 @@ namespace Hexiege.Presentation
 {
     public partial class UnitView
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _shouldEngageProfilerMarker = new ProfilerMarker("Hexiege.UnitView.ShouldEngage");
+        private static readonly ProfilerMarker _shouldEngageAtProfilerMarker = new ProfilerMarker("Hexiege.UnitView.ShouldEngageAt");
+#endif
         // ====================================================================
         // 이동
         // ====================================================================
@@ -494,6 +503,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private bool ShouldEngage()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var shouldEngageSample = _shouldEngageProfilerMarker.Auto();
+#endif
             if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive) return false;
 
             return _unitData.IsHealer
@@ -508,6 +520,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private bool ShouldEngageAt(Vector3 candidatePosition)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var shouldEngageAtSample = _shouldEngageAtProfilerMarker.Auto();
+#endif
             if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive)
                 return false;
 

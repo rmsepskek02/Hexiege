@@ -38,6 +38,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -50,6 +53,11 @@ namespace Hexiege.Presentation
 {
     public class ProductionTicker : MonoBehaviour
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _incomeTickProfilerMarker = new ProfilerMarker("Hexiege.Economy.TickIncome");
+#endif
         // ====================================================================
         // 외부 의존성 (GameBootstrapper에서 주입)
         // ====================================================================
@@ -296,6 +304,9 @@ namespace Hexiege.Presentation
             // 채굴소 수입 처리
             if (_resourceUseCase != null && _buildingPlacement != null && _config != null)
             {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                using var incomeTickSample = _incomeTickProfilerMarker.Auto();
+#endif
                 _resourceUseCase.TickIncome(dt, _buildingPlacement,
                     _config.MiningGoldPerSecond, _config.BaseGoldPerSecond);
             }

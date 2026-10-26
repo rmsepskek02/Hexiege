@@ -43,6 +43,9 @@
 using System;
 using UniRx;
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Unity.Profiling;
+#endif
 using Hexiege.Application;
 using Hexiege.Core;
 using Hexiege.Domain;
@@ -55,6 +58,11 @@ namespace Hexiege.Presentation
     /// </summary>
     public sealed class ProjectilePresentationPresenter : MonoBehaviour, IProjectilePresentationSink
     {
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 고정 이름으로 동기 호출 구간만 측정한다. 릴리스에는 계측 참조·필드·호출이 남지 않는다.
+        private static readonly ProfilerMarker _projectileViewProfilerMarker = new ProfilerMarker("Hexiege.ProjectileView.Update");
+#endif
         /// <summary>Client 화면 지연(초). 기존 서버 확정 표현(C3·버섯·파도)과 같은 값.</summary>
         public const double ClientPresentationDelaySeconds =
             Hexiege.Application.Combat.Sequencing.AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
@@ -238,6 +246,9 @@ namespace Hexiege.Presentation
 
         private void Update()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using var projectileViewSample = _projectileViewProfilerMarker.Auto();
+#endif
             if (_combat == null || _ended) return;
             EnsureEpoch();
             double serverNow = _combat.ProjectileServerTime;
