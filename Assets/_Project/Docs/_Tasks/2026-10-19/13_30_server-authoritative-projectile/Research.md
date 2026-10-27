@@ -1593,7 +1593,7 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | 6 | `Scripts/Presentation/Effects/DeferredUnitDeathPresenter.cs` 184~217 | 진단 `[PROJECTILE-DEATH-HOLD] side=view` **v=1 → v=2** — `poison=held\|released\|cap\|immediate` 칸 추가, attention에 `poison-cap` 추가(212행), 옛 형식은 주석 보존 [확인]. *(관찰: 같은 블록 184행의 형식 설명 줄은 아직 「v=1」로 적혀 있다 — 192행이 v=2로 바뀐 이유를 적고, 217행이 실제로 v=2를 낸다. 코드 주석 표기 차이일 뿐이며 이번에 고치지 않았다)* |
 | 7 | `Scripts/Infrastructure/Network/UnitAttackShadowProfileResolver.cs` 85~88 | **E-E (가)**: 사유 문자열 갱신 — Eagle 「projectile-system-unresolved」 · Mushroom 「projectile-and-periodic-result-unresolved」(옛 줄 주석 보존) [확인] |
 | 8 | `Presentation/Effects/TracerProjectile.cs` · `EffectManager.cs` · `ProjectilePresentationPresenter.cs` | 풀에서 꺼낸 메시 트레이서의 첫 프레임 방향, 팀으로 트레이서 선택 [커밋 본문 — 행 단위로 다시 읽지 않음] |
-| 9 | `Assets/Editor/Setup/EagleArcherArrowTracerSetup.cs` (신규 — 사용자 지시로 퇴역 · 삭제 진행 중, 19-3) | 1회성 메뉴 `Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers` — 유닛 프리팹 자식 `EagleArrow`의 메시 · 머티리얼을 복사해 팀별 프리팹 · 프리셋 2개씩을 만들고 type 24 행에 연결. 착탄 · 발사 이펙트 · SFX는 만들지 않는다. 화살촉 끝을 루트 원점에 둔다(머리 주석) [확인 — 머리 주석] |
+| 9 | `Assets/Editor/Setup/EagleArcherArrowTracerSetup.cs` (신규 — 사용자 지시로 퇴역, `0ded0999`에서 삭제 완료, 19-3) *(2026-10-27 갱신 — 종전 「퇴역 · 삭제 진행 중」)* | 1회성 메뉴 `Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers` — 유닛 프리팹 자식 `EagleArrow`의 메시 · 머티리얼을 복사해 팀별 프리팹 · 프리셋 2개씩을 만들고 type 24 행에 연결. 착탄 · 발사 이펙트 · SFX는 만들지 않는다. 화살촉 끝을 루트 원점에 둔다(머리 주석) [확인 — 머리 주석] |
 | 10 | 검증 `RunUnitActionSelfValidation.ServerProjectiles.cs` · `.VfxConnections.cs` · `.ProjectileDeathHold.cs` | 단계 E fixture, 스위치 OFF 예시 fixture 퇴역(RM-13 — 꺼진 투사체 유닛이 없다) [커밋 본문] |
 
 <a id="19-3-asset-setup"></a>
@@ -1608,7 +1608,11 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | `UnitEffectConfig.asset` type 24 행(205~213행) | — | `tracerPreset` = Blue 프리셋(GUID `f92c580e…`), `redTeamTracerPreset` = Red 프리셋(GUID `5cd5fc00…`). `attackPreset` · `impactPreset` · `hitPreset`은 빈칸 그대로(착탄 이펙트 없음 — U-10). 다른 행은 빈 `redTeamTracerPreset` 칸만 생겼다(diff) |
 
 - 사용자 커밋 `be9b6e1a`에는 위 에셋 말고도 `_Logs/2026-10-27` · `_Tasks/2026-10-23` 아래 `.meta` 파일들이 함께 들어 있다(이 단계와 무관) [확인 — `--stat`].
-- **1회성 스크립트 퇴역:** 사용자 지시 「1회성 에디터 스크립트는 삭제하도록 하자」(2026-10-27) [전달 — 메인 세션]. **삭제 작업은 진행 중**이며 결과는 아직 전달되지 않았다. 커밋 `be9b6e1a`에는 `Assets/Editor/Setup/EagleArcherArrowTracerSetup.cs` · `.meta` · `Assets/Editor/Setup.meta`가 있다 [확인 — `git show HEAD:…`]. 이 문서를 쓰는 동안 작업 트리에서는 세 파일이 커밋되지 않은 삭제 상태로 바뀌었고 `RunUnitActionSelfValidation.ServerProjectiles.cs`도 수정 중이었다 [확인 — `git status`] — 진행 중인 작업의 중간 상태이므로 결과로 기록하지 않는다. 메뉴 경로는 `Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers`(와 화살촉 반대 버전 「… (Reversed Tip)」)였다 [확인 — `be9b6e1a`의 86 · 90행].
+- **1회성 스크립트 퇴역 — ✅ 완료 `0ded0999`** 「Retire one-time EagleArcher arrow tracer setup menu」 [확인 — 커밋 본문 · `--stat`]. 사용자 지시 「1회성 에디터 스크립트는 삭제하도록 하자」(2026-10-27) [전달 — 메인 세션].
+  - 삭제: `Assets/Editor/Setup/EagleArcherArrowTracerSetup.cs`(306행) · `.cs.meta` · 빈 폴더 메타 `Assets/Editor/Setup.meta`.
+  - 갱신: 검증 `RunUnitActionSelfValidation.ServerProjectiles.cs`의 실패 안내문 — 「메뉴를 먼저 실행하라」 → 「커밋된 에셋(`be9b6e1a`)이 있어야 한다」(`committedAssetsHint`, 옛 줄 주석 보존), 같은 파일 요약 주석, `ProjectileDeliveryContracts.cs` · `UnitEffectConfig.cs`의 메뉴 언급 주석(「1회성 메뉴로 한 번 만들었고 결과 에셋은 `be9b6e1a`에 있다 · 메뉴 스크립트는 삭제」) [확인 — diff].
+  - 메뉴 경로는 `Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers`와 화살촉 반대 버전 「… (Reversed Tip)」 두 개였다 [확인 — `be9b6e1a`판 86 · 90행]. **「(Reversed Tip)」은 실행되지 않았다** [전달 — 메인 세션] — 커밋된 두 프리팹의 자식 `Arrow` 회전 (0, −0.7071068, 0, 0.7071068)은 기본 메뉴(화살촉 = 길이 축 「+」 끝, `DefaultTipOnPositiveEnd = true` — 83행)가 `Quaternion.FromToRotation(+축, Vector3.forward)`(218행)로 만드는 값과 같다 [확인 — 프리팹 · 스크립트 대조. 길이 축이 X라는 전제의 계산이며, 반대 메뉴였다면 y 부호가 +].
+  - *(2026-10-27 갱신 — 종전 「**삭제 작업은 진행 중**이며 결과는 아직 전달되지 않았다. 커밋 `be9b6e1a`에는 … 세 파일이 있다. 이 문서를 쓰는 동안 작업 트리에서는 세 파일이 커밋되지 않은 삭제 상태로 바뀌었고 `RunUnitActionSelfValidation.ServerProjectiles.cs`도 수정 중이었다 — 진행 중인 작업의 중간 상태이므로 결과로 기록하지 않는다.」)*
 
 <a id="19-4-regression-suite"></a>
 
@@ -1652,7 +1656,7 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 | 회귀 스위트 | ✅ PASS(재실행 오류 없음) | 19-4 |
 | **사용자 육안** | 「우선 테스트했을 때 육안상으로 잘 작업된 것으로 보여」(2026-10-27) | [전달 — 메인 세션] |
 | **단계 E 사용자 테스트** | ✅ **PASS(2026-10-27)** | 사용자 「3번은 PASS하면 될 것 같아, 후속 작업인 도달거리 수정만 진행하면 될 것 같아」 [전달 — 메인 세션]. 근거 = 육안 정상 · 로그 정상(scoped) · 회귀 스위트 재실행 오류 없음. 「3번」이 무엇을 가리키는지는 메인 세션이 사용자에게 보인 선택지 번호이며, 메인 세션 전달로 「단계 E 판정」으로 기록한다 |
-| 화살 도달 거리 | 🔶 후속 — 진행 중 | 19-10 |
+| 화살 도달 거리 | 🔶 후속 — 진단 완료 · 수정안 (c) 사용자 결정 · 구현 진행 중 *(2026-10-27 갱신 — 종전 「🔶 후속 — 진행 중」)* | 19-10 |
 
 <a id="19-7-match-and-figures"></a>
 
@@ -1723,21 +1727,36 @@ Supported 분기에는 이미 「서버 착탄 + 0.10 − now」 방식이 있�
 
 <a id="19-10-arrow-reach-followup"></a>
 
-### 19-10. 후속 — 화살 도달 거리 (🔶 진행 중)
+### 19-10. 후속 — 화살 도달 거리 (🔶 진단 완료 · 수정안 (c) 결정 · 구현 진행 중)
 
 | 항목 | 내용 | 근거 |
 |---|---|---|
 | 사용자 원문 | 「화살이 오브젝트에 조금 더 가까이 도달하면 좋을 것 같아, 지금은 약간 닿지 않으면서 사라지고 있거든」(2026-10-27) | [전달 — 메인 세션] |
 | 사용자 지시 | 「3번은 PASS하면 될 것 같아, 후속 작업인 도달거리 수정만 진행하면 될 것 같아」 · 「2번 task 문서 갱신하는 방향으로 진행」 — 메인 세션 전달로 **이 Task 문서에 후속 항목으로 기록**한다(「2번」은 메인 세션이 보인 선택지 번호) | [전달 — 메인 세션] |
-| 상태 | **원인 진단 · 수정안 비교 진행 중**(game-programmer). 결과는 메인 세션이 전달한 뒤 이 자리와 [Plan 10-11](Plan.md#10-11-arrow-reach-followup)에 기록한다 | [전달 — 메인 세션] |
-| 지금 알고 있는 관련 사실 | 서버는 비행 거리를 「중심 거리 − 대상 반경」으로 정하고 착탄을 **대상 표면 지점**에 둔다(규칙 20 · 18-2 「발사 예약 · 발사 · 비행 · 착탄」 행). 화살 프리팹은 **화살촉 끝을 루트 원점에** 두도록 만들어졌다(19-2 #9 — 1회성 스크립트 머리 주석). EagleArcher 반경은 `ProjectileConfig.asset` 0.1960031(18-2) | [확인 — 코드 · 에셋 주석]. 이 사실들이 「닿기 전에 사라짐」의 원인인지는 **판단하지 않았다** — 원인 진단은 game-programmer 결과를 기다린다 |
+| 상태 | ✅ **원인 진단 · 수정안 비교 완료**(game-programmer 정적 분석 — 실행 · 실측 없음) → **사용자 결정 (c)**(아래) → 🔶 **구현 진행 중**(game-programmer, 커밋은 메인 세션이 전달). 수정안 비교 · 결정 · 후속 후보는 [Plan 10-11](Plan.md#10-11-arrow-reach-followup) *(2026-10-27 갱신 — 종전 「**원인 진단 · 수정안 비교 진행 중**(game-programmer). 결과는 메인 세션이 전달한 뒤 이 자리와 Plan 10-11에 기록한다」)* | [전달 — 메인 세션] |
+| 지금 알고 있는 관련 사실 | 서버는 비행 거리를 「중심 거리 − 대상 반경」으로 정하고 착탄을 **대상 표면 지점**에 둔다(규칙 20 · 18-2 「발사 예약 · 발사 · 비행 · 착탄」 행). 화살 프리팹은 **화살촉 끝을 루트 원점에** 두도록 만들어졌다(19-2 #9 — 1회성 스크립트 머리 주석). EagleArcher 반경은 `ProjectileConfig.asset` 0.1960031(18-2) *(2026-10-27 — 이 사실들이 원인에 어떻게 닿는지는 아래 진단 ②③. 종전 근거 칸 「이 사실들이 원인인지는 판단하지 않았다 — 원인 진단은 game-programmer 결과를 기다린다」)* | [확인 — 코드 · 에셋 주석] |
+
+**원인 진단 [전달 — game-programmer 정적 분석. document-manager가 HEAD `065becb6`에서 다시 읽은 행만 [확인]]**
+
+| # | 원인 | 내용 | 근거 · 사실/추정 |
+|---|---|---|---|
+| ① | **끝점 프레임이 그려지지 않는다** | `ProjectilePresentationCoordinator.Tick`(211행~)은 매 프레임 `Advance`(229행) 뒤 진행도가 1 이상이고 결과가 와 있으면 **같은 프레임에** `Finish`(236행)를 부른다 → `ProjectilePresentationPresenter.Finish`(348행) → `EndVisual`(463행) → `EffectManager.EndServerProjectile`(762행) → `TracerProjectile.EndDriven`(215행~)이 `SetActive(false)`(221행). 그래서 끝점 위치로 옮긴 그 프레임은 화면에 렌더되지 않고, 직전 프레임 위치가 마지막으로 보인다. 손실 = 속도 6 × 프레임 간격 — 30fps에서 0~0.20 m, 평균 0.10 m | 호출 사슬 [확인 — 코드]. 속도 6 [확인 — `ProjectileConfig.asset` type 24]. **30fps는 [추정]** — 프로젝트에 `Application.targetFrameRate` 설정이 없고(`Assets/_Project`·`ProjectSettings` 검색 0건 [확인]) `QualitySettings.asset` `vSyncCount: 0`(32 · 86행 [확인])이라 Android 기본 30fps로 본 것이다. 손실 수치는 [계산 — 전달] |
+| ① 보충 | 결과보다 화살이 먼저 도착하는 경우 | 진행도 1인데 결과가 없으면 끝점에서 결과를 기다린다(`ArrivedLocal`, 상한 `ResultWaitSeconds`) — 이때는 끝점에 머무는 화살이 보인다 | [확인 — `Tick` 240~246행] |
+| ② | **서버 착탄점이 실제 표면보다 바깥** | 착탄점 = XZ 중심 거리 − 반경. 유닛 반경은 측정 도구가 「몸통 XZ 가운데에서 가장 먼 점까지 거리」(외접값)로 잰 값이라, 대부분의 방향에서 실제 몸 표면보다 바깥에 착탄점이 생긴다. 건물 반경은 `_buildingRadii` 전부 임시 0.35 | 반경 정의 [확인 — `UnitRecipientFitMeasureTool.cs` 28행]. 건물: `ProjectileConfig.asset` `_buildingRadii`(84행~)에 `BuildingType` 0~31 **32개 전부 0.35** [확인]. *(전달 문구는 「건물 28종」이었으나 에셋 항목은 32개다 — 어느 쪽 기준인지 전달되지 않았다 [미확인])* 「바깥에 생긴다」는 외접 정의에서 나오는 판단 [전달] |
+| ③ | **화살 피벗 = 화살촉** | 트레이서 루트가 화살촉 끝이다 — 자식 `Arrow`가 z −0.1794(배율 약 18.75)만큼 뒤로 물러나 있어, 루트가 착탄점에 닿는 순간 화살촉이 착탄점에 있다. 메시 길이 약 0.358 m | 커밋 프리팹 값 `m_LocalPosition` z −0.17943561(Blue) · −0.17943557(Red), `m_LocalScale` 약 18.75 [확인 — `git show HEAD:` 두 프리팹]. 메시 길이 0.358 m는 [전달](z 오프셋 ≈ 길이의 절반과 맞는다 [계산]) |
+| ④ | **출발 · 끝점이 발밑 높이** | EagleArcher 유닛 프리팹의 `_vfxSpawnPoint`가 비어 있어 발사 · 착탄 높이가 발밑 기준이다 → 55° 카메라에서 화살이 몸 아래쪽에서 끝나 보일 수 있다 | `_vfxSpawnPoint: {fileID: 0}` — `Unit_EagleArcher_Blue.prefab` 913행 · `_Red.prefab` 822행 [확인]. **화면에서 그렇게 보인다는 것은 [추정]** · 이번 수정과 별개 작업 |
+| ⑤ | **즉시 비활성화** | 거둘 때 페이드 없이 바로 꺼지고, 피해 숫자와 같은 프레임이다 — Eagle은 착탄 이펙트도 없어(U-10) 「닿는 순간」을 보여 줄 것이 없다 | `SetActive(false)` 즉시 [확인 — `TracerProjectile.cs` 221행]. 숫자와 같은 프레임 [전달] |
+
+**결정 [전달 — 메인 세션]:** 사용자가 **수정안 (c)** — 화살 프리팹 자식 `Arrow`의 z를 −0.1794 → **−0.08**(필요하면 0까지, 0 초과는 비권장) — 를 골랐다(2026-10-27). 데이터만 바꾸고 EagleArcher에만 닿으며 피해 시각은 그대로다. 프레임 손실(①)을 고정 오프셋으로 덮는 방식이라는 한계와, 작은 대상에서 화살촉이 몸 안으로 들어가 보일 수 있다는 위험이 있다. (a) · (b) 비교와 후속 후보 R-A1 ~ R-A3은 [Plan 10-11](Plan.md#10-11-arrow-reach-followup).
+
+- 이 문서를 쓰는 동안 작업 트리의 두 화살 프리팹 `Arrow` z가 −0.08로 커밋되지 않은 수정 상태였다 [확인 — `git diff`]. 진행 중인 작업의 중간 상태이므로 결과로 기록하지 않는다.
 
 <a id="19-11-unconfirmed"></a>
 
 ### 19-11. 미확인 · 남은 것
 
-1. **화살 도달 거리 후속(19-10)** — 진행 중.
-2. **1회성 스크립트 삭제** — 진행 중(19-3). 결과 전달 뒤 기록.
+1. **화살 도달 거리 후속(19-10)** — 수정안 (c) 결정, 구현 진행 중. 후속 후보 3건은 [Plan 10-11](Plan.md#10-11-arrow-reach-followup)(기록만). *(2026-10-27 갱신 — 종전 「진행 중」)*
+2. **1회성 스크립트 삭제** — ✅ 완료 `0ded0999`(19-3). *(2026-10-27 갱신 — 종전 「진행 중(19-3). 결과 전달 뒤 기록.」)*
 3. 이번 로그로 확인하지 못한 것: 싱글 플레이(10-6 S-1~S-3의 싱글 판정 전달 없음), 기기 = Host 구성, Red 팀 화살 색의 로그 근거(색은 로그 항목이 아니다 — 사용자 육안 「잘 작업된 것」만), Mushroom `ServerConfirm`/`TracerPlay` 잔존 수, 파티클 오류 수, 서버 → Client 1건 · 3건 차이의 원인(19-7), poison 미시작 1건의 실제 사유(19-8).
 4. 늦은 접속은 사용자 결정(2026-10-27)으로 실기 테스트 생략.
 5. **P5(전 대상 사용자 테스트 PASS 뒤 정리)** — 이번 PASS로 투사체 대상 전원(유닛 7종 + 인간 타워)이 사용자 테스트를 통과했다. 스위치 제거(RM-9)와 주석 블록 삭제는 **사용자 지시가 있을 때** 착수한다(이번에 착수하지 않음) — [Plan 10-9](Plan.md#10-9-cleanup-split).

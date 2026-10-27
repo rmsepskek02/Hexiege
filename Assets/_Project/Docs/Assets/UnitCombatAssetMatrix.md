@@ -31,7 +31,7 @@
 | BattleAxe | Blue/Red Attack·1.02초, production asset/config gate | [교정 Plan](../_Tasks/2026-09-19/23_06_battleaxe-impact-marker-correction/Plan.md) |
 | DustSpirit | Blue/Red 명시 Attack·1.04초, Attack2-first/명시 선택 gate | [교정 Plan](../_Tasks/2026-09-27/10_54_dustspirit-explicit-attack-clip-binding/Plan.md) |
 | LittleKnight | fallback .25/1.15초·Supported 2, 연속 timeline wait/no restart·atomic cooldown·first-boundary gate | [공통 교정 Research](../_Tasks/2026-09-13/11_41_attack-entry-target-payload-seam/Research.md) |
-| EagleArcher | fallback .1초·Unresolved Projectile/Legacy. 전용 production timeline gate는 발견되지 않음 | [기존 pipeline Plan](../_Tasks/2026-07-22/13_26_unit-action-sequence-implementation/Plan.md) |
+| EagleArcher | fallback .2초 *(2026-10-27 정정 — `UnitStatsConfig.asset` type 24 `hitFrameTimes` 0.2, `d09cc4a9`에서 marker 0.2초에 맞춤(U-15); 종전 「fallback .1초」)*·Unresolved Projectile/Legacy. 전용 production timeline gate는 발견되지 않음 | [기존 pipeline Plan](../_Tasks/2026-07-22/13_26_unit-action-sequence-implementation/Plan.md) |
 
 위 연결은 programmer 감사, Main 독립 확인은 Factory 선택·resolver·LittleKnight 공통 근거와 config3종으로 범위가 다르다. 새 전체 source/clip·native·raw-log 감사나 global migration PASS를 뜻하지 않는다. 이전 감사 대기·날짜별 수용·경기·컴파일·빌드 인계 원문과 소스 범례는 [상세 이력](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-matrix-01)에 보존한다.
 

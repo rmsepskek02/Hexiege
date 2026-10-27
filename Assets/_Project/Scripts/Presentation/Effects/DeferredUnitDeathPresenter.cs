@@ -181,7 +181,7 @@ namespace Hexiege.Presentation
 
         // ====================================================================
         // [진단] 읽기 전용 관측 — 릴리스 빌드에서는 호출이 사라진다.
-        //   [PROJECTILE-DEATH-HOLD] side=view v=1 role=.. reason=..
+        //   [PROJECTILE-DEATH-HOLD] side=view v=2 role=.. reason=..
         //     death=deferred|atImpact|cap|forced|discarded|heldNow      — 미룬 수 · 착탄 순간 진행 · 상한 초과 · 게임 종료 · 버림 · 남은 수
         //     immediate=noHeldKillShot|afterImpact|capacity             — 즉시 진행(보관 사망타 없음 · 그중 착탄이 먼저였음 · 상한)
         //     gate=notReady|noVisualRoot                                 — 조율자 미준비 · 대역 불가(옛 프리팹)로 즉시 진행한 수
