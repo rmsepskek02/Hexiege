@@ -176,6 +176,15 @@ Programmer-side model: `.claude/agent-memory/game-programmer/vfx-presentation.md
   does not make the stage a user-test PASS.")*
 - **Check what the archive actually contains.** A ZIP can re-include an earlier log (same size/SHA256 as the prior receipt) or
   an old device log when logcat was not saved before zipping; identify the analysed file by hash and session time.
+- **Read `[PROJECTILE-END]` by its `v=` first (P5-3 `d77b8e68`, 2026-10-27).** `side=server` v=2 — no `switch=`, unit `path=` is
+  `type:sN` (no `/l`); `side=server-tower` v=1 — `towerPath=` keeps `s/l` (`l` = RuneSpire/VineTower instant, expected);
+  `side=server-charge` v=2 — no `foxPrimary=`, verdict FAIL = balance mismatch, ATTENTION = any charge cancel `other` or
+  `invalid-launch-geometry`, else PASS (no fixture exercises ATTENTION/FAIL — a real ATTENTION is new ground, look at the cancel
+  columns); `side=view` v=3 (2 lines) — no `switch=`, `path=…/l`, `legacyTracer=`. Older logs (v=1/v=2) keep those columns;
+  compare across versions only on the columns that still exist. Source: Research §20-9.
+- **A no-behaviour-change cleanup still needs the non-projectile paths checked.** P5 removed the switch but kept the immediate-damage
+  path for melee/gunner units and the RuneSpire/VineTower instant path; a field check should show their damage unchanged and
+  `towerPath=Spirit:s0/lN` for RuneSpire (Plan §11-6).
 
 ## Status-effect follow and perimeter VFX checks (2026-10-26~27)
 

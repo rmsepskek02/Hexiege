@@ -180,7 +180,9 @@ Research §9 / Plan §9. Rule: `GameSystemRules_Units.md` rule 17 「차지 유�
 Task: `Assets/_Project/Docs/_Tasks/2026-10-19/13_30_server-authoritative-projectile/` (Plan = decisions Q/U, stages; Research 12~17 =
 per-stage device logs). Stages A `d09cc4a9` StreamSpirit · B `639ac1aa` Tank/CannonCart · B-2 `64b743c8` kill-shot number · C `b819dc51`
 human cannon tower · D `a0a23423` InfernoSpirit/FoxMagician · D-2 `fb77548c` death/burn hold. Rules: `GameSystemRules_UnitCombatSynchronization.md`
-「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`; do not restate them here. Remaining units: EagleArcher, MushroomBomber.
+「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`; do not restate them here. Stage E `5b8fb82e` EagleArcher/MushroomBomber → all 7 units +
+human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993` · `d77b8e68` (Research §20 / Plan §11), user check pending.
+*(2026-10-27 updated; old: "Remaining units: EagleArcher, MushroomBomber.")*
 
 - **Server model** (`UnitCombatUseCase.Projectiles.cs` header is the map): the `OnAttackHit` offset is now the **launch** time. At launch the
   impact time = launch + (centre distance − target radius) ÷ speed is computed **once and fixed**, attack power is stored; flight is
@@ -188,10 +190,24 @@ human cannon tower · D `a0a23423` InfernoSpirit/FoxMagician · D-2 `fb77548c` d
   towers `IBuildingProjectileImpactWriter` — so armour / building ×2 / DoT / splash stay identical. Target gone at impact → result only,
   no damage. Targets and attackers are held by object reference (ID reuse safe). Speeds live in `Resources/Config/ProjectileConfig.asset`,
   not `UnitStatsConfig`.
-- **Per-unit switch:** `ServerProjectileDeliveryPolicy` `EnabledUnitTypes` (`Application/Combat/ProjectileDeliveryContracts.cs`) →
-  `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the match-start handshake hash, so builds with different lists refuse to
-  start a match (intended). When an RPC's shape changes, also bump `PresentationContractSchemaRevision`
-  (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC).
+- **Classification, not a switch (P5-2 `b73c0993`, 2026-10-27):** `ServerProjectileDeliveryPolicy.IsProjectileUnit` /
+  `IsProjectileTower` over the code constants `ProjectileUnitTypes` / `ProjectileTowerRaces` (`Application/Combat/ProjectileDeliveryContracts.cs`)
+  decide the path. `ManifestToken` is **computed from the classification** (`6,7,12,17,21,24,26;tower:human`, byte-identical to the old
+  switch token so pre-P5 builds still match) and goes into the match-start handshake hash — builds with a different classification refuse
+  to start (intended). The self-validation pins the token string. When an RPC's shape changes, also bump
+  `PresentationContractSchemaRevision` (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC; P5 kept 6).
+  *(2026-10-27 replaced; old bullet: "Per-unit switch: `EnabledUnitTypes` → `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the
+  handshake hash …" — the switch lists and `IsServerProjectile*` no longer exist.)*
+- **Cleanup lesson (P5, 2026-10-27):** a migration plan's "delete in P5" list can name live code. RM-1 (immediate damage `ExecuteAttack` /
+  `PendingHit` / `DelayedAttackDamage`) and RM-10 (tower instant path) are the **only** damage paths of non-projectile units and
+  RuneSpire/VineTower — only the "projectile unit may go here" branch was removed. `PlayTracer` stays (non-projectile ranged units call it;
+  no tracer prefab → instant callback), `AttackEffectVisual.MushroomImpact` stays (DoT origin value), and `UnitView` `if (!_hasAttackChargeMarker)`
+  turned out live (Research §20-4 B-2 had it as unreachable). Source-string gates in the self-validation must change in the **same commit**
+  as the code; there was a 4th gate the research missed (`immediatePrimaryPresentation` absence check).
+- **Dev END diagnostics after P5-3 `d77b8e68`:** `side=server` v=2 (no `switch=`, unit `path=` is `type:sN` only), `side=server-tower` v=1
+  (tower `s/l` kept — `l` = RuneSpire/VineTower instant), `side=server-charge` v=2 (no `foxPrimary=`; verdict FAIL on balance mismatch,
+  ATTENTION if any charge cancel is `other`/`invalid-launch-geometry`, else PASS — no fixture drives ATTENTION/FAIL), `side=view` v=3
+  (no `switch=`, `path=…/l`, `legacyTracer=`). Format history: Research §20-9.
 - **Charge units:** cut during the charge (attacker/target dead or replaced, move order) → server cancels the launch (no projectile, SFX
   or damage) and sends a cancel notice so the Client stops the charge VFX for that attack revision; leaving range is **not** a cancel.
 - **Display clock:** `ProjectilePresentationPresenter` draws at `serverNow − 0.10 s` on a pure Client and `− 0` on Host/single (constant

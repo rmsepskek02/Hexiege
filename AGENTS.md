@@ -42,7 +42,7 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_BuildingPanelsUI.md` | 생산·MistShrine·건물 배치 패널 규칙 원본 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_SettingsUI.md` | 인게임·로비 설정·프로필 UI 규칙 원본 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_MatchFlow.md` | 맵 전송·실패 복구·재경기·결과 화면/재로드 이탈 운영 규칙 원본 |
-| `Assets/_Project/Docs/TechnicalDesignDocument_Network.md` | 네트워크 상세 기술 — Netcode·동기화·맵 데이터 계약·이탈 판정 구조·치팅 방어 |
+| `Assets/_Project/Docs/TechnicalDesignDocument_Network.md` | 네트워크 상세 기술 — Netcode·동기화·맵 데이터 계약·서버 권위 투사체 전송·이탈 판정 구조·치팅 방어 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 이동·타겟·공격·피해·표현의 유닛 불변 계약 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UnitCombatSynchronization.md` | 서버 권위 행동 회차·타격 결과·멀티플레이 표현 동기화 계약 |
 | `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md` | 25종 유닛 공격 에셋·설정·구현·검증 상태 감사표 |

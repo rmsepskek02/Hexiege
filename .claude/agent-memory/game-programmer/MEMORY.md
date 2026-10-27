@@ -128,8 +128,8 @@
   3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」,
   and (§8, 2026-10-19) charge units: clip-event detection, charge marker = lease check-only (consuming it kills the
   multiplayer projectile), launch SFX at the tracer, cancel-stop placement excluding the normal revision commit.
-  (§9, 2026-10-26) server-authoritative projectiles: impact time fixed at launch, single HP writer, per-unit switch token +
-  schema bump, Client −0.10 s / Host 0 display clock, impact hold + fallback point, death ghost / burn hold capped 0.3 s.
+  (§9, 2026-10-26~27) server-authoritative projectiles: impact time fixed at launch, single HP writer, classification
+  token (per-unit switch removed in P5, 2026-10-27) + schema bump, P5 "what must not be deleted" list, Client −0.10 s / Host 0 display clock, impact hold + fallback point, death ghost / burn hold capped 0.3 s.
   (§10, 2026-10-27) status-effect width fit / view pull options (off; never width-fit a perimeter-emitting prefab), burn v2,
   re-project a cached VisualRoot Transform (`ProjectNow()`) before reading it on the flipped Client, `PoseCorrected` diagnostic.
   🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX / projectile presentation.**

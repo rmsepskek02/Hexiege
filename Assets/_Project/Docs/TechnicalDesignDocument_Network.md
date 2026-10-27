@@ -2,7 +2,7 @@
 
 **문서 역할**
 - **목적·질문:** 네트워크 구현 구조·데이터 계약·실패 처리 방법을 설명한다.
-- **포함:** Netcode·권위/복제 구조·맵 전송·시간·이탈 판정·치팅 방어 설계.
+- **포함:** Netcode·권위/복제 구조·맵 전송·서버 권위 투사체 전송·시간·이탈 판정·치팅 방어 설계.
 - **제외·담당:** 사용자에게 보이는 동작은 [네트워크 규칙](GameSystemRules/GameSystemRules_Network.md)·[경기 운영 규칙](GameSystemRules/GameSystemRules_MatchFlow.md), 실행 결과는 [현황](PROJECT_STATUS.md)·[이력](History/ImplementationVerificationHistory.md).
 - **원본·참조:** 상세 네트워크 기술 원본. 공통 구조는 [TDD](TechnicalDesignDocument.md).
 - **갱신:** 승인된 계약이나 실제 구현 구조가 바뀌면 해당 기술 절을 갱신한다. 회차별 전송/실기 수치는 이력에 둔다.
@@ -20,6 +20,23 @@
 Recipient poison/burn은 실제 writer의 `(target lifetime, TimedEffectKind.Damage)` 단일 레코드에 identity/revision/poison-burn provenance를 연결한다. network current value·late-init/restoration/shutdown은 single presenter로 전달하며, 동일 owner refresh의 noRestart·overwrite 종료/교체·취소/만료/사망 후 StopEmitting/drain/lease 반환을 구분한다.
 
 위 현행 기술계약의 승인 원문과 당시 진행 단계는 [구현·검증 이력의 TDD 원문](History/ImplementationVerificationHistory.md#tdd-handoff)에 보존했다. preset 키·Mushroom marker와 에셋 연결 사양은 [VFXSFXList.md](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계), 현재 개별 연결·검증 범위는 해당 목록과 [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md)에서 확인한다. 이 기술계약 요약은 실기 수용이나 전체 migration 완료를 선언하지 않는다.
+
+<a id="server-authoritative-projectile-transport"></a>
+
+### 서버 권위 투사체 전송 계약
+
+투사체 유닛 7종(Tank · CannonCart · InfernoSpirit · StreamSpirit · FoxMagician · EagleArcher · MushroomBomber)과 Human CannonTower는 **서버가 발사 · 비행 · 착탄을 소유**한다. 제품 동작은 [동기화 규칙](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`과 [유닛 규칙](GameSystemRules/GameSystemRules_Units.md) 규칙 17 · 19 · 20, 결정 · 회차 기록은 [서버 권위 투사체 Task](_Tasks/2026-10-19/13_30_server-authoritative-projectile/Plan.md)가 원본이다. 위 절의 `TowerCombatUseCase` 스냅샷 계약은 투사체가 아닌 타워(Spirit RuneSpire · Transcendence VineTower)의 즉발 경로다.
+
+- **분류:** `ServerProjectileDeliveryPolicy`(`Application/Combat/ProjectileDeliveryContracts.cs`)의 코드 상수 `ProjectileUnitTypes` · `ProjectileTowerRaces`가 단일 소스다(`IsProjectileUnit` · `IsProjectileTower`). Inspector 값이 아닌 이유는 Host와 Client의 분류가 다르면 한쪽은 로컬 트레이서, 다른 쪽은 서버 투사체를 그려 이중 재생이 생기기 때문이다. 이행 기간의 유닛별 스위치는 2026-10-27 P5에서 없어졌다.
+- **발사 · 착탄 시각:** 공격의 `OnAttackHit` offset이 서버 발사 시각이다. 발사 때 착탄 시각 = 발사 + (중심 거리 − 대상 반경) ÷ 속도를 **한 번 계산해 고정**하고(`UnitCombatUseCase.Projectiles.cs` 발사 기록 `ImpactTime`), 비행은 매 프레임 진행한다. 속도 · 반경은 서버 전용 `Resources/Config/ProjectileConfig.asset`.
+- **단일 writer:** 착탄 때 기존 피해 writer를 한 번 부른다 — 유닛 `ApplyAttackDamageCore`, 타워 `IBuildingProjectileImpactWriter`. 전송 계층(`NetworkCombatController.Projectiles.cs`)은 판정하지 않고 HP를 쓰지 않는다 — Client HP는 기존 `NetworkHealthSync`가 맞춘다.
+- **RPC:** 서버 UseCase의 `ProjectileLaunched` · `ProjectileResolved` · `ProjectileLaunchCancelled` 이벤트를 각각 `ProjectileLaunchClientRpc`(발사 기록 1건 — epoch · id · 공격자 · 대상 · 위치 · 반경 · 발사/착탄 시각) · `ProjectileImpactClientRpc`(착탄 결과 1건 — 결과 · 착탄 지점 · 대상 · HP · 피해량 · 시각) · `ProjectileLaunchCancelClientRpc`(발사 전 취소 통보 1건 — 공격자 · 종류 · 사유 · 공격 표현 회차 · 시각)로 그대로 전달한다. 이 셋 앞에 `BeginProjectileEpochClientRpc`(이 경기 UseCase 수명 번호 — 다른 epoch 기록은 버린다)가 붙는다. 같은 `epoch:id` 중복은 화면 소비자(`ProjectilePresentationCoordinator`)가 거부한다.
+- **늦은 접속:** Client가 `RequestProjectileSnapshotServerRpc`를 한 번 보내면 서버가 그 Client에게만 epoch(스냅샷 건수 포함) + **지금 비행 중인** 발사 기록을 다시 보낸다. 취소 통보는 스냅샷에 넣지 않는다. 이 경로는 실기로 관측하지 않았다(사용자 결정으로 실기 테스트 생략).
+- **표시 시각:** 화면(`ProjectilePresentationPresenter`)은 서버 시계에서 **순수 Client는 0.10초**(`AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds` 공유), **Host · 싱글은 0초**를 뺀 시각으로 그린다(`NET-TIME-002`). 피해 숫자 · 피격 표현 · 사망타의 사망 표현 · 화상/독 VFX 시작은 그 화면 착탄까지 기다린다(보류 상한 0.3초). 서버 판정 · 도메인 제거 · Despawn은 지연하지 않는다.
+- **경기 시작 호환 확인:** Host가 만드는 표현 프로필 해시 원문은 `c3-schema=<스키마>|server-projectile=<분류 토큰>|…유닛 프로필…`이다(`UnitAttackShadowProfileResolver.TryComputePresentationProfileHash`). 분류 토큰 `ManifestToken` = 투사체 유닛 번호 오름차순 + `;tower:` + 투사체 타워 종족 — 지금 `6,7,12,17,21,24,26;tower:human`. 스키마 `PresentationContractSchemaRevision` = **6**. Client 준비 신호의 스키마 · 해시가 다르면 Host가 시작을 거부하고 그 Client를 끊는다(`NetworkGameFlow`). 따라서 분류가 다른 빌드끼리는 경기가 시작되지 않는다. **RPC 모양이 바뀌면 스키마를 올린다**(선례: 4 → 5 스냅샷 건수 인자, 5 → 6 취소 통보 RPC). 늦은 접속 Client가 같은 확인을 거치는지는 코드를 읽지 않았다.
+- **진단(개발 빌드 전용):** 경기 종료 때 `[PROJECTILE-END]` 줄을 남긴다 — 서버 `side=server` v=2 · `side=server-tower` v=1 · `side=server-charge` v=2, 화면 `side=view` v=3(2줄). 기록 메서드는 `[Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]`라 릴리스 빌드에서 사라지고 판정에 쓰이지 않는다. 칸 설명은 `UnitCombatUseCase.ProjectileDiagnostics.cs` · `ProjectilePresentationPresenter.cs` 머리 주석, 형식 변경 이력은 [Research 20-9](_Tasks/2026-10-19/13_30_server-authoritative-projectile/Research.md#20-9-p5-results).
+
+이 절은 구조와 계약 요약이며 실기 수용을 선언하지 않는다 — 회차별 결과는 위 Task와 [현황](PROJECT_STATUS.md). *(2026-10-27 신설 — 서버 권위 투사체 Plan 11-3 P5-H 사용자 승인. 근거: 이 checkout의 코드 머리 주석 · 상수를 다시 읽음)*
 
 <a id="네트워크-동작-규정은-별도-문서로-이관됐다--최상위-원칙--이탈-시-승패-기록--인게임-이탈-처리-2026-10-12"></a>
 
