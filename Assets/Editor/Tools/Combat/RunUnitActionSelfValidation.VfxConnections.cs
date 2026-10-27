@@ -784,17 +784,21 @@ namespace Hexiege.Editor.Combat
                 Require(item.DamageLease == lease, "Same owner refresh does not reacquire native playback.");
                 item.StopTimedDamage(lease + 1, "OldLease");
                 Require(!(bool)typeof(VfxPoolItem).GetField("_damageStopped", VfxFields).GetValue(item), "Stale lease cannot stop new owner.");
+                // 실패 메시지에 어느 프리셋·프리팹인지 붙인다(이 함수는 독·화상 두 프리셋으로 불린다 — ValidateVfxConnections 70·71줄).
+                string label = preset.name + "/" + preset.VfxPrefab.name;
                 item.StopTimedDamage(lease, "Expired"); item.Return();
-                Require(returned == 0, "Live particles block early return.");
-                foreach (var ps in systems)
-                {
-                    ps.Simulate(30f, false, false, false);
-                    Require(ps.particleCount == 0, "Natural simulation removes particles before stop reassertion.");
-                    // Unity Simulate는 paused로 끝난다. test-only NoClear로 실제 stopped 상태를 재현한다.
-                    ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
-                }
+                Require(returned == 0, "Live particles block early return: " + label);
+                // [2026-10-27 옛 줄 — 기록용] Prewarm이 켜진 화상 v2에서 "다 사라진 뒤 반환"이 재현되지 않아 아래 도우미로 바꿨다.
+                // foreach (var ps in systems)
+                // {
+                //     ps.Simulate(30f, false, false, false);
+                //     Require(ps.particleCount == 0, "Natural simulation removes particles before stop reassertion.");
+                //     // Unity Simulate는 paused로 끝난다. test-only NoClear로 실제 stopped 상태를 재현한다.
+                //     ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+                // }
+                DrainTimedDamageFixtureSystems(systems, label);
                 item.Return(); item.Return();
-                Require(returned == 1, "Natural drain returns lease exactly once.");
+                Require(returned == 1, "Natural drain returns lease exactly once: " + label);
 
                 // [C] 같은 아이템 재사용 + 크기 맞춤(배율 2, 발밑 보정): 재생 배율·위치, refresh 유지, 반환 복원.
                 var pose = new GameObject("DamageFitPose") { hideFlags = HideFlags.HideAndDontSave };
@@ -814,13 +818,78 @@ namespace Hexiege.Editor.Combat
                 Require(item.DamageLease == fitLease && VfxApprox(instance.transform.localScale, fittedScale),
                     "Same-owner refresh/follow keeps the Play-time fit scale without restart.");
                 item.StopTimedDamage(fitLease, "Expired");
-                foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                // [2026-10-27 옛 줄 — 기록용] foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                DrainTimedDamageFixtureSystems(systems, label + " (fit)");
                 item.Return();
                 Require(returned == 2 && VfxApprox(instance.transform.localScale, authoredScale),
-                    "Fitted timed damage natural return restores the authored scale.");
+                    "Fitted timed damage natural return restores the authored scale: " + label);
             }
             finally { UnityEngine.Object.DestroyImmediate(root); channel.CloseVisuals("FixtureEnd"); }
         }
+
+        // ====================================================================
+        // [2026-10-27 화상 v2 Prewarm — 자연 소멸 fixture 보정]
+        //
+        // 무엇이 문제였나:
+        //   EditMode에서는 Unity가 파티클을 저절로 갱신하지 않는다. 그래서 fixture는 "남은 입자가 다 사라진 뒤"를
+        //   ① Simulate(30초)로 남은 입자를 다 없애고(→ Unity Simulate는 '일시정지(paused)' 상태로 끝난다)
+        //   ② StopEmitting을 한 번 더 걸어 '멈춤(stopped)' 상태로 만들어 재현해 왔다.
+        //   Prewarm이 꺼진 독·옛 화상·힐 프리팹은 이렇게 하면 IsAlive(false)가 false가 되어 통과했다(지난 스위트 PASS).
+        //   Prewarm이 켜진 화상 v2(루트 + 4 자식 모두 Prewarm ON)는 입자 수가 0인데도 반환이 막혀
+        //   「Natural drain returns lease exactly once」가 실패했다(2026-10-27 사용자 스위트).
+        //   → 반환을 막는 것은 VfxPoolItem.DamageCanReturn의 IsAlive(false)뿐이므로, ②를 거친 뒤에도
+        //     IsAlive(false)가 true로 남는 시스템이 있다는 뜻이다. 네 프리팹의 직렬화 값 중 v2만 다른 것은 Prewarm이다.
+        //     (Unity 내부에서 Prewarm이 이 '일시정지 → StopEmitting' 전이에 어떻게 끼어드는지는 Unity를 돌려 보지 못해 [추정]이다.)
+        //
+        // 실제 게임에서는 문제없다:
+        //   플레이 중에는 Unity가 매 프레임 갱신하며 "StopEmitting + 입자 0"을 스스로 멈춤 상태로 바꾼다.
+        //   실기 로그(2026-10-27 00:40·04:15)에서 v2 화상은 Drain(NaturalDrain=True) → Return이 정상 기록됐다.
+        //   그래서 제품 코드(VfxPoolItem)는 바꾸지 않고, fixture가 그 "멈춤 상태"를 재현하는 방법만 보강한다.
+        //
+        // 보강 방법(검사의 뜻은 그대로):
+        //   ①·② 는 예전과 똑같이 한다. ②를 거친 뒤에도 IsAlive(false)가 true인 시스템에만,
+        //   "입자 수 0"을 먼저 확인한 다음 StopEmittingAndClear로 멈춤 상태를 마저 만든다.
+        //   입자가 0개라 Clear가 지우는 입자는 없다 → "살아 있는 입자가 있으면 반환이 막힌다"(이 도우미보다 앞의 검사)와
+        //   "다 사라지면 정확히 1번 반환된다"(이 도우미 뒤의 검사)의 뜻은 바뀌지 않는다.
+        //   보강이 필요했던 시스템은 상태와 함께 로그로 남긴다 → 다음 스위트 실행에서 [추정]을 사실로 확인하는 근거가 된다.
+        // ====================================================================
+
+        /// <summary>
+        /// 화상·독 fixture에서 "남은 입자가 다 사라지고 시스템이 멈춘" 런타임 상태를 EditMode로 재현한다.
+        /// 호출 전에 반드시 StopTimedDamage(StopEmitting)가 걸려 있어야 한다(그래야 Simulate 중에 새 입자가 나오지 않는다).
+        /// </summary>
+        /// <param name="systems">이펙트 인스턴스의 모든 ParticleSystem(루트 포함, GetComponentsInChildren 결과).</param>
+        /// <param name="label">실패·진단 메시지에 붙일 이름(프리셋/프리팹).</param>
+        private static void DrainTimedDamageFixtureSystems(ParticleSystem[] systems, string label)
+        {
+            string completed = null; // StopEmittingAndClear로 멈춤을 마저 만든 시스템 기록(없으면 로그 안 남김)
+            foreach (var ps in systems)
+            {
+                // ① 남은 입자 소멸. Simulate는 일시정지로 끝난다(Unity 문서: 시뮬레이션 뒤 pause).
+                ps.Simulate(30f, false, false, false);
+                Require(ps.particleCount == 0, "Natural simulation removes particles before stop reassertion: " + label + "/" + ps.name);
+                // ② 예전 재현 방식 그대로 — 입자를 지우지 않는 StopEmitting으로 멈춤 상태를 다시 건다.
+                ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+                if (!ps.IsAlive(false)) continue; // Prewarm 꺼진 시스템은 여기서 끝(예전과 같은 결과)
+                // ③ 입자는 0인데 아직 "살아 있음"으로 남은 시스템(화상 v2의 Prewarm 시스템으로 추정).
+                //    입자 0을 위에서 확인했으므로 Clear는 아무 입자도 지우지 않고 멈춤 상태만 마저 만든다.
+                string before = DescribeFixtureParticleState(ps);
+                ps.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                Require(!ps.IsAlive(false), "Zero-particle system reaches the stopped state for natural return: "
+                    + label + " before=" + before + " after=" + DescribeFixtureParticleState(ps));
+                completed = (completed == null ? string.Empty : completed + " | ") + before;
+            }
+            if (completed != null)
+                GameLog.Dev.Info("Combat", "RunUnitActionSelfValidation",
+                    "자연 소멸 fixture — 입자 0개인데 Simulate+StopEmitting 뒤에도 IsAlive가 true여서 StopEmittingAndClear로 멈춤을 마저 만든 시스템(fixture 재현 한계, 제품 코드 무관)",
+                    "Label=" + label + "; Systems=" + completed);
+        }
+
+        /// <summary>fixture 진단용 — 파티클 시스템 하나의 재생 상태를 한 줄로 만든다.</summary>
+        private static string DescribeFixtureParticleState(ParticleSystem ps)
+            => ps.name + "{prewarm=" + ps.main.prewarm + ",playing=" + ps.isPlaying + ",paused=" + ps.isPaused
+                + ",stopped=" + ps.isStopped + ",emitting=" + ps.isEmitting + ",count=" + ps.particleCount
+                + ",alive=" + ps.IsAlive(false) + "}";
 
         // ====================================================================
         // [2026-10-26 Plan 10 — 뒤집힌 Client 따라가기 직전 바로잡기] (Plan _Tasks/2026-10-26/18_34_status-effect-width-fit 10-4 4번)
@@ -1277,7 +1346,9 @@ namespace Hexiege.Editor.Combat
                 Require(SameWidthFitModules(SnapshotWidthFitModules(v2Systems), v2Authored),
                     "Width-fit-off actual burn (v2) keeps every authored module even on a wide recipient.");
                 v2Item.StopTimedDamage(v2Item.DamageLease, "Expired");
-                foreach (var ps in v2Systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                // [2026-10-27 옛 줄 — 기록용] v2는 Prewarm ON이라 이 재현으로는 반환되지 않았다(DrainTimedDamageFixtureSystems 머리 주석).
+                // foreach (var ps in v2Systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                DrainTimedDamageFixtureSystems(v2Systems, "WidthFit(7)/" + actualBurn.VfxPrefab.name);
                 v2Item.Return();
                 Require(v2Returned == 1 && SameWidthFitModules(SnapshotWidthFitModules(v2Systems), v2Authored),
                     "Width-fit-off actual burn (v2) natural return keeps authored modules.");
@@ -1425,7 +1496,9 @@ namespace Hexiege.Editor.Combat
                 void DrainBurn()
                 {
                     item.StopTimedDamage(item.DamageLease, "Expired");
-                    foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                    // [2026-10-27 옛 줄 — 기록용] 이 fixture의 화상은 실제 v2 프리팹(Prewarm ON)이라 이 재현으로는 반환되지 않았다.
+                    // foreach (var ps in systems) { ps.Simulate(30f, false, false, false); ps.Stop(false, ParticleSystemStopBehavior.StopEmitting); }
+                    DrainTimedDamageFixtureSystems(systems, "ViewPull/" + burn.VfxPrefab.name);
                     item.Return();
                 }
 
