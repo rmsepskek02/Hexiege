@@ -67,7 +67,10 @@ namespace Hexiege.Presentation
         //     · 채우면 Red 팀 공격자는 이 프리셋, Blue·중립 공격자는 위 tracerPreset을 쓴다.
         //   왜 Blue 칸을 따로 만들지 않았나: 기존 tracerPreset을 그대로 "기본(=Blue)"로 쓰면 옛 에셋(이 칸이 없는 행)이
         //   그대로 읽히고, 팀 구분이 필요 없는 유닛은 아무것도 바꿀 필요가 없다(가장 적은 변경으로 하위 호환).
-        //   값은 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 채운다(사람이 Inspector에서 고쳐도 된다).
+        //   EagleArcher 행의 값은 1회성 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」로 한 번 채웠고
+        //   그 결과가 UnitEffectConfig.asset에 커밋돼 있다(사용자 커밋 be9b6e1a). 메뉴 스크립트는 2026-10-27 삭제했으므로
+        //   앞으로 바꿀 때는 Inspector에서 직접 고친다.
+        //   옛 줄(기록용): 값은 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 채운다(사람이 Inspector에서 고쳐도 된다).
         // ────────────────────────────────────────────────────────────────
         [Tooltip("Red 팀 공격자 전용 트레이서. 비워 두면 Red 팀도 위 tracerPreset을 쓴다(팀 색이 없는 파티클 트레이서는 비워 둔다). "
             + "EagleArcher 화살처럼 팀별 머티리얼이 다른 투사체만 채운다")]

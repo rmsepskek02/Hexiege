@@ -328,8 +328,9 @@ namespace Hexiege.Application
         //   단계 E(2026-10-27 사용자 승인 「추천대로 진행하고 (가)로 진행」 · 「두 유닛 모두 한 번에 테스트」):
         //     남은 투사체 유닛 EagleArcher(24) · MushroomBomber(26)를 한 번에 켠다 → 이제 투사체 유닛 7종이 모두 켜졌다.
         //     · EagleArcher: 특수 공격·DoT가 없는 단일 타격(단계 B의 Tank와 같은 모양). 발사 = OnAttackHit 0.2초, 속도 6.
-        //       화면 화살 = 팀별 화살 트레이서 2개(EffectPreset_EagleArcher_Tracer_Blue / _Red — 메뉴
-        //       「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 만들어 UnitEffectConfig type 24 행에 연결). 착탄 이펙트 없음(U-10).
+        //       화면 화살 = 팀별 화살 트레이서 2개(EffectPreset_EagleArcher_Tracer_Blue / _Red — 1회성 메뉴
+        //       「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」로 한 번 만들어 UnitEffectConfig type 24 행에 연결했고,
+        //       결과 에셋은 사용자 커밋 be9b6e1a로 저장소에 있다. 메뉴 스크립트는 2026-10-27 사용자 지시로 삭제). 착탄 이펙트 없음(U-10).
         //     · MushroomBomber: 발사 = OnAttackHit 1.0초, 속도 5. 착탄 순간 같은 단일 writer가 주 타깃 직접 피해 →
         //       BlastAttackBehavior(주 타깃 위치 중심 반경 안 적에게 독)를 그대로 실행한다.
         //       옛 "서버 피해 순간 스냅샷"(OnAttackEffectConfirmed)은 이 스위치가 켜지면 발행하지 않는다(RM-8 — UnitCombatUseCase.ExecuteAttack).

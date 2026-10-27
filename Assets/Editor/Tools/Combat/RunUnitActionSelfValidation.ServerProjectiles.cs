@@ -1815,13 +1815,17 @@ namespace Hexiege.Editor.Combat
 
         // ── [2026-10-27 단계 E — E1-2] EagleArcher 팀별 화살 트레이서 에셋 계약 + 팀 선택 ─────────────────────
         /// <summary>
-        /// 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 만든 에셋이 연결돼 있는지 확인한다(사용자가 먼저 실행해야 한다).
+        /// 저장소에 커밋된 EagleArcher 화살 트레이서 에셋(사용자 커밋 be9b6e1a)이 그대로 연결돼 있는지 확인한다.
+        ///   이 에셋들은 2026-10-27 1회성 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」로 한 번 만들었고,
+        ///   그 메뉴 스크립트(Assets/Editor/Setup/EagleArcherArrowTracerSetup.cs)는 사용자 지시로 같은 날 삭제했다.
+        ///   → 이 검사가 실패하면 "메뉴를 다시 실행"이 아니라 "커밋된 에셋이 지워졌거나 연결이 바뀌었는지" 확인해야 한다.
+        ///   옛 줄(기록용): 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 만든 에셋이 연결돼 있는지 확인한다(사용자가 먼저 실행해야 한다).
         ///   · UnitEffectConfig type 24 행: tracerPreset = EffectPreset_EagleArcher_Tracer_Blue, redTeamTracerPreset = _Red,
         ///     attackPreset · impactPreset · hitPreset = 비어 있음(착탄 이펙트 없음 — U-10).
         ///   · 두 프리팹: 파티클 없음, 자식 Arrow의 메시 = 그 팀 유닛 프리팹 손 화살(EagleArrow)과 같은 메시, 머티리얼 = 그 팀 화살 머티리얼.
         ///   · 실제 EffectManager.BeginServerProjectile이 팀으로 프리팹을 고르고(Blue → blue, Red → red), 처음부터 대상 쪽을 본다.
         ///   · 팀 칸이 비어 있는 다른 투사체 유닛(Tank)은 두 팀 모두 같은 트레이서(예전 동작 그대로).
-        /// 경로 문자열은 1회성 Setup 스크립트의 상수를 참조하지 않고 여기 따로 적는다(1회성 스크립트 직접 의존 금지 — WORKFLOW [5-2]).
+        /// 경로 문자열은 이 검사 안에 직접 적는다(처음부터 1회성 Setup 스크립트의 상수를 참조하지 않았다 — 그래서 스크립트 삭제 뒤에도 그대로 컴파일된다).
         /// </summary>
         private static void ValidateEagleArcherArrowTracerAssets()
         {
@@ -1832,14 +1836,18 @@ namespace Hexiege.Editor.Combat
             const string redUnitPath = "Assets/_Project/Prefabs/Units/Transcendence/Unit_EagleArcher_Red.prefab";
             const string blueMaterialPath = "Assets/_Project/Materials/Units/EagleArcher/mat_eaglearrow_blue.mat";
             const string redMaterialPath = "Assets/_Project/Materials/Units/EagleArcher/mat_eaglearrow_red.mat";
-            const string setupMenu = "Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers";
+            // [2026-10-27] 1회성 메뉴 스크립트를 삭제해 "메뉴를 먼저 실행하라"는 안내가 더 이상 사실이 아니다 →
+            //   실패 안내를 "커밋된 에셋(be9b6e1a)이 있어야 한다"로 바꿨다.
+            //   옛 줄(기록용): const string setupMenu = "Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers";
+            const string committedAssetsHint = "assets committed in be9b6e1a must be present; the one-off setup menu was removed on 2026-10-27";
 
             var units = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>(configPath);
             var bluePreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(bluePresetPath);
             var redPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(redPresetPath);
             Require(units != null && bluePreset != null && redPreset != null
                     && bluePreset.VfxPrefab != null && redPreset.VfxPrefab != null && bluePreset.VfxPrefab != redPreset.VfxPrefab,
-                "[E1-2] EagleArcher team arrow tracer presets exist with two different prefabs (run the menu '" + setupMenu + "' first).");
+                // 옛 줄(기록용): "[E1-2] ... two different prefabs (run the menu '" + setupMenu + "' first)."
+                "[E1-2] EagleArcher team arrow tracer presets exist with two different prefabs (" + committedAssetsHint + ").");
 
             // UnitEffectConfig 행(직렬화 값 그대로 — intValue로 UnitType 비교).
             var serialized = new SerializedObject(units);
