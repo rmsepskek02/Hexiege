@@ -47,6 +47,8 @@
 //   E1-1  EagleArcher: 0.2초 발사(피해 0) → 착탄 때 단일 writer 1회(번호표), 착탄 시각 = 발사 + (중심 거리 − 반경) ÷ 속도 6.
 //   E1-2  EagleArcher 화살 트레이서 에셋 계약: 팀별 프리셋 2개(Blue = tracerPreset, Red = redTeamTracerPreset), 프리팹 메시 머티리얼이
 //         그 팀 유닛의 손 화살 머티리얼과 같음, 착탄·공격·피격 프리셋 비어 있음(U-10), 실제 EffectManager가 팀으로 프리팹을 고름.
+//         [2026-10-28 수정안 C] 두 유닛 프리팹의 총구 기준점(_vfxSpawnPoint) = 손 화살 EagleArrow 아래 ArrowLaunchPoint,
+//         손 화살 중심에서 화살촉 쪽 0.08m(= 트레이서 Arrow 자식 −z — 첫 프레임에 두 화살이 겹치는 자리).
 //   E2-1  MushroomBomber: 1.0초 발사(피해·독 0) → 착탄 때 주 타깃 직접 피해 1회 + 반경 안 적에게 독(주 타깃 위치 중심), 반경 밖 0.
 //   E2-2  Mushroom 착탄에서 옛 스냅샷(OnAttackEffectConfirmed) 발행 0건(RM-8 — 이중 착탄 VFX 금지).
 //   E2-3  비행 중 공격자 사망 → 피해·독 진행(Persist), 비행 중 대상 소실 → 피해·독 0, TargetLost.
@@ -1752,6 +1754,7 @@ namespace Hexiege.Editor.Combat
         ///   · 두 프리팹: 파티클 없음, 자식 Arrow의 메시 = 그 팀 유닛 프리팹 손 화살(EagleArrow)과 같은 메시, 머티리얼 = 그 팀 화살 머티리얼.
         ///   · 실제 EffectManager.BeginServerProjectile이 팀으로 프리팹을 고르고(Blue → blue, Red → red), 처음부터 대상 쪽을 본다.
         ///   · 팀 칸이 비어 있는 다른 투사체 유닛(Tank)은 두 팀 모두 같은 트레이서(예전 동작 그대로).
+        ///   · [2026-10-28 수정안 C] 두 유닛 프리팹의 화살 출발점(_vfxSpawnPoint)이 손 화살 아래 ArrowLaunchPoint이고 트레이서와 겹치는 자리다.
         /// 경로 문자열은 이 검사 안에 직접 적는다(처음부터 1회성 Setup 스크립트의 상수를 참조하지 않았다 — 그래서 스크립트 삭제 뒤에도 그대로 컴파일된다).
         /// </summary>
         private static void ValidateEagleArcherArrowTracerAssets()
@@ -1812,6 +1815,35 @@ namespace Hexiege.Editor.Combat
             }
             RequireArrowPrefab(bluePreset.VfxPrefab, blueUnitPath, blueMaterialPath, "Blue");
             RequireArrowPrefab(redPreset.VfxPrefab, redUnitPath, redMaterialPath, "Red");
+
+            // [2026-10-28 수정안 C] 화살 출발점 = 손 화살. 유닛 프리팹 UnitView의 총구 기준점(_vfxSpawnPoint)이
+            //   손 화살(EagleArrow) 바로 아래 빈 자식 "ArrowLaunchPoint"이고, 그 자리가 "트레이서가 손 화살과 겹쳐 보이는 자리"인지 본다.
+            //   · 트레이서 프리팹은 루트 원점 뒤쪽(Arrow 자식 z = −0.08)에 화살 중심이 있다 → 손 화살 중심에서 화살촉 쪽(+X)으로
+            //     같은 0.08m 앞에 출발점을 두면 첫 프레임에 두 화살이 겹친다. 그래서 기대값을 트레이서 프리팹 값에서 읽는다.
+            //   · 프리팹 에셋 루트는 원점 · 무회전이라 월드 거리 = 손 화살 배율(75 × 메시 0.25)이 반영된 실제 미터다.
+            //   (손 자세는 Humanoid 근육 커브라 여기서 재현하지 않는다 — 공격 자세의 실제 위치는 사용자 실기 확인 항목이다.)
+            void RequireArrowLaunchPoint(string unitPath, GameObject tracerPrefab, string team)
+            {
+                var unit = AssetDatabase.LoadAssetAtPath<GameObject>(unitPath);
+                var view = unit != null ? unit.GetComponent<Hexiege.Presentation.UnitView>() : null;
+                Transform spawn = view != null
+                    ? new SerializedObject(view).FindProperty("_vfxSpawnPoint")?.objectReferenceValue as Transform
+                    : null;
+                Transform handArrow = spawn != null ? spawn.parent : null;
+                Transform tracerArrow = tracerPrefab != null ? tracerPrefab.transform.Find("Arrow") : null;
+                float expected = tracerArrow != null ? -tracerArrow.localPosition.z : float.NaN;
+                Require(spawn != null && spawn.name == "ArrowLaunchPoint" && spawn.childCount == 0
+                        && handArrow != null && handArrow.name == "EagleArrow" && handArrow.GetComponent<MeshFilter>() != null,
+                    "[E1-2] " + team + " EagleArcher UnitView launch point (_vfxSpawnPoint) is the empty child ArrowLaunchPoint of the hand arrow EagleArrow.");
+                Vector3 local = spawn != null ? spawn.localPosition : Vector3.zero;
+                float worldOffset = spawn != null && handArrow != null ? Vector3.Distance(spawn.position, handArrow.position) : float.NaN;
+                Require(spawn != null && local.x > 0f && Mathf.Abs(local.y) < 1e-6f && Mathf.Abs(local.z) < 1e-6f
+                        && expected > 0f && Mathf.Abs(worldOffset - expected) < 0.002f,
+                    "[E1-2] " + team + " launch point sits on the hand arrow's tip axis (+X) " + expected.ToString("F3")
+                    + " m ahead of its centre so the flying arrow starts overlapping the held arrow (measured " + worldOffset.ToString("F4") + " m).");
+            }
+            RequireArrowLaunchPoint(blueUnitPath, bluePreset.VfxPrefab, "Blue");
+            RequireArrowLaunchPoint(redUnitPath, redPreset.VfxPrefab, "Red");
 
             // 실제 EffectManager: 팀으로 프리팹 선택 + 처음 바라보는 방향.
             var root = new GameObject("EagleArrowTracerFixture") { hideFlags = HideFlags.HideAndDontSave };

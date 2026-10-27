@@ -146,6 +146,9 @@ namespace Hexiege.Presentation
         /// 프리팹에서 무기 끝 같은 위치에 빈 GameObject("VfxSpawnPoint")를 두고 이 슬롯에 연결한다.
         /// 유닛은 공격 시 적 방향으로 이미 회전하므로, 이 Transform의 월드 회전이 곧 발사 방향이 된다.
         /// 연결하지 않은 유닛(피스톨러 외)은 기존처럼 유닛 발 위치(transform.position)로 폴백한다.
+        /// [2026-10-28] EagleArcher는 손 화살(…/RightHand/EagleArrow) 아래 빈 자식 "ArrowLaunchPoint"를 연결한다 —
+        ///   서버 투사체 화살(트레이서)이 첫 프레임에 손 화살과 정확히 겹친 자리에서 출발하도록 손 화살 중심에서 화살촉 쪽으로
+        ///   0.08m(트레이서 프리팹의 Arrow 자식 z 오프셋과 같은 값) 앞에 둔다. 위치만 쓰고 회전은 쓰지 않는다(아래 회전 주의와 같다).
         /// </summary>
         [Tooltip("공격 VFX 스폰 기준 Transform(총구 등). 비어 있으면 유닛 발 위치로 폴백.")]
         [SerializeField] private Transform _vfxSpawnPoint;
@@ -1415,10 +1418,26 @@ _slot = _nextEviction;
         /// 총구 기준점(VfxSpawnPoint)이 연결돼 있으면 그 위치, 없으면 화면 Root 위치다 —
         /// 기존 로컬 트레이서(OnAttackHit 원거리 분기)가 쓰던 출발점과 같은 규칙이다.
         /// 투사체 화면 소비자(ProjectilePresentationPresenter)만 읽으며 Simulation Root를 바꾸지 않는다.
+        ///
+        /// [2026-10-28 EagleArcher 출발점 — 수정안 C] 총구 기준점을 읽기 "전에" 반드시 PresentationTransform을 먼저 거친다.
+        ///   왜: PresentationTransform getter가 VisualRootProjector.ProjectNow()를 불러 화면 Root(VisualRoot)를 이번 프레임의
+        ///   서버 Root 자세에 맞춰 둔다. 총구 기준점(손 화살 · 총구 같은 VisualRoot 아래 자식)의 월드 위치는 그 화면 Root를 따라
+        ///   계산되므로, 투영 전에 읽으면 뒤집힌(Red 관점) Client에서 NGO가 이번 프레임에 Root를 돌린 만큼 끌려간 옛 자리가 나온다
+        ///   (vfx 메모리 10절 「Stored VisualRoot Transform on the flipped Client」와 같은 원인 — LateUpdate 투영보다 먼저 읽는 소비자).
+        ///   ProjectNow는 멱등이고 싱글 · Host에서는 위치가 그대로라 그 화면에서는 값이 바뀌지 않는다.
+        ///   발사 신호(PlayServerProjectileLaunchCue)는 원래 PresentationTransform을 먼저 읽고 있었으므로 이제 둘이 같은 점을 쓴다.
+        /// 옛 식(참고): _vfxSpawnPoint != null ? _vfxSpawnPoint.position : PresentationTransform.position
         /// </summary>
-        public Vector3 ProjectileLaunchPoint => _vfxSpawnPoint != null
-            ? _vfxSpawnPoint.position
-            : PresentationTransform.position;
+        public Vector3 ProjectileLaunchPoint
+        {
+            get
+            {
+                Transform presentationTransform = PresentationTransform;   // ← 여기서 화면 Root 투영(ProjectNow)이 먼저 일어난다
+                return _vfxSpawnPoint != null
+                    ? _vfxSpawnPoint.position
+                    : presentationTransform.position;
+            }
+        }
 
         /// <summary>
         /// [2026-10-20 단계 B — 의심 1 수정] 서버 투사체의 "발사 신호"(총구 VFX + 발사음)를 지금 1회 낸다.

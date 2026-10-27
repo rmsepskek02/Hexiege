@@ -444,7 +444,8 @@ Transform:
   m_LocalPosition: {x: -0.063, y: -0.222, z: -0.051}
   m_LocalScale: {x: 74.999985, y: 75.00011, z: 75.00013}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 6434271014532844770}
   m_Father: {fileID: 8940504995852461477}
   m_LocalEulerAnglesHint: {x: 12.076, y: 93.234, z: 84.23}
 --- !u!33 &2364475741140832333
@@ -819,7 +820,7 @@ MonoBehaviour:
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
-  _vfxSpawnPoint: {fileID: 0}
+  _vfxSpawnPoint: {fileID: 6434271014532844770}
   _rotationSpeed: 270
 --- !u!114 &7343549212641205038
 MonoBehaviour:
@@ -1349,3 +1350,34 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.027916074, y: 0.40470767, z: -0.07465455}
     m_Extent: {x: 1.0963956, y: 1.0678877, z: 0.7918178}
   m_DirtyAABB: 0
+--- !u!1 &3479311921204700624
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6434271014532844770}
+  m_Layer: 0
+  m_Name: ArrowLaunchPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6434271014532844770
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3479311921204700624}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.0042666667, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4039496861170667272}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
