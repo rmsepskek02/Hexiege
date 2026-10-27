@@ -1,0 +1,15 @@
+{
+    "asset": "7accca9ffe15ae943a0e5684d74d2574",
+    "fileName": "01a17e57-8c35-7f74-80fe-4b217a5d5483.wav",
+    "prompt": "A single solid cartoon rock melee punch impact. Weighty rounded stone thud-crack with gritty small pebbles scattering, subtle soft low magical crystal hum underneath, punchy and compact, mid-range focused, dry, zero reverb, fast decay, no boom, no swoosh, no explosion.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

@@ -1,0 +1,15 @@
+{
+    "asset": "75b666935f6d05540bd8a72ac032a9a0",
+    "fileName": "01a17bde-bda9-7ec3-a8e1-930f41afc490.wav",
+    "prompt": "A single dry toy-like cartoon pistol shot. Sharp snappy crack with a short metallic click or ring at the front, tiny puff of powder blast, compact and punchy, very short fast-fading tail, clean sound effect, zero reverb, no heavy boom.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

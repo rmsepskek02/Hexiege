@@ -19,10 +19,35 @@ MonoBehaviour:
   _bgmCrossfadeDuration: 1
   _unitSoundEntries:
   - unitType: 0
-    attackClip: {fileID: 8300000, guid: baf9b0d4d4d4f2a4fad9f54e70d755b9, type: 3}
-    attackVolume: 0.1
-    deathClip: {fileID: 8300000, guid: 809405fcd77b31847af77b294fd7d146, type: 3}
-    deathVolume: 0
+    attackClip: {fileID: 8300000, guid: cf0be5aa82e3a0c46802a56cdfa5eed7, type: 3}
+    attackVolume: 0.85
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
+  - unitType: 24
+    attackClip: {fileID: 8300000, guid: f4190e85180e20049868039f473edf90, type: 3}
+    attackVolume: 0.85
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
+  - unitType: 20
+    attackClip: {fileID: 8300000, guid: c83100e3db42de34abf11db3103506d7, type: 3}
+    attackVolume: 0.9
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
+  - unitType: 3
+    attackClip: {fileID: 8300000, guid: 88b0f01f223bfe04dbc11a06b84083f1, type: 3}
+    attackVolume: 0.85
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
+  - unitType: 14
+    attackClip: {fileID: 8300000, guid: 7accca9ffe15ae943a0e5684d74d2574, type: 3}
+    attackVolume: 0.9
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
+  - unitType: 11
+    attackClip: {fileID: 8300000, guid: bad19d7c28fad9548a74b5cd7fe6accf, type: 3}
+    attackVolume: 0.85
+    deathClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
+    deathVolume: 0.7
   _buildingSoundEntries:
   - buildingType: 0
     placeClip: {fileID: 0}

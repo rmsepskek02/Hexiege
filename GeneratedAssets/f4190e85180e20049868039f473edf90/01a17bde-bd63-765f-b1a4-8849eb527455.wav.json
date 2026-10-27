@@ -1,0 +1,15 @@
+{
+    "asset": "f4190e85180e20049868039f473edf90",
+    "fileName": "01a17bde-bd63-765f-b1a4-8849eb527455.wav",
+    "prompt": "A single clean bowstring release. Crisp wooden bowstring twang, subtle flexing wood creak, quick light feathered arrow whoosh flying away, organic natural sound, bright, punchy, dry, zero reverb, no impact sound.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

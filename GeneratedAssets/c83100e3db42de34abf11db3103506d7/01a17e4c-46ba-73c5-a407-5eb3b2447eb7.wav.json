@@ -1,0 +1,15 @@
+{
+    "asset": "c83100e3db42de34abf11db3103506d7",
+    "fileName": "01a17e4c-46ba-73c5-a407-5eb3b2447eb7.wav",
+    "prompt": "A single heavy blunt melee slam. Dull heavy earthy thud, low-mid leather and ground impact, subtle brief rough beast breath puff at the transient, controlled low-end, punchy, dry, zero reverb, quick decay, no metallic clangs, no explosive boom.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

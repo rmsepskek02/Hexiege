@@ -1,0 +1,15 @@
+{
+    "asset": "bad19d7c28fad9548a74b5cd7fe6accf",
+    "fileName": "01a17e57-9f6a-735c-b2b4-594d004217c1.wav",
+    "prompt": "A single cartoon fire spirit melee hit. Light rounded thwump impact with an immediate soft warm flame fwoosh-crackle and tiny popping embers, subtle magical shimmer crystal chime tail, small, cute, bright, dry, zero reverb, fast decay, no heavy boom.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

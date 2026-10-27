@@ -1,0 +1,15 @@
+{
+    "asset": "88b0f01f223bfe04dbc11a06b84083f1",
+    "fileName": "01a17e4c-4621-7c0b-97ff-9270bedbb7d3.wav",
+    "prompt": "A single quick light sword slash. Fast air blade swish whoosh ending with a crisp bright metallic shing ring, light steel blade, sharp and nimble, isolated sound effect, dry, zero reverb, no sword clash, no armor rattle.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}
