@@ -1,4 +1,4 @@
-# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units, server projectiles
+# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units, server projectiles, EagleArcher hand arrow
 
 Lessons verified against the code on branch `claude/vfx-code-followups` (commit `84b6ff2a`, 2026-10-15)
 and confirmed by the user's field tests (3 rounds, 2026-10-13~15). Task record:
@@ -181,7 +181,7 @@ Task: `Assets/_Project/Docs/_Tasks/2026-10-19/13_30_server-authoritative-project
 per-stage device logs). Stages A `d09cc4a9` StreamSpirit · B `639ac1aa` Tank/CannonCart · B-2 `64b743c8` kill-shot number · C `b819dc51`
 human cannon tower · D `a0a23423` InfernoSpirit/FoxMagician · D-2 `fb77548c` death/burn hold. Rules: `GameSystemRules_UnitCombatSynchronization.md`
 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE`; do not restate them here. Stage E `5b8fb82e` EagleArcher/MushroomBomber → all 7 units +
-human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993` · `d77b8e68` (Research §20 / Plan §11), user check pending.
+human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993` · `d77b8e68` (Research §20 / Plan §11), user-test PASS 2026-10-28 *(2026-10-28 updated; old: "user check pending")*. EagleArcher hand-arrow follow-ups → §11.
 *(2026-10-27 updated; old: "Remaining units: EagleArcher, MushroomBomber.")*
 
 - **Server model** (`UnitCombatUseCase.Projectiles.cs` header is the map): the `OnAttackHit` offset is now the **launch** time. At launch the
@@ -253,3 +253,28 @@ Merged to `origin/main` `0a47f37f`; Unity compile after the merge is unconfirmed
 - **Diagnostic `PoseCorrected`** (Editor/Development only, flipped Client only): logs the before/after distance when > 0.05 m and
   only when that owner's peak grows (4 per owner, 64 total, then one `DiagnosticLimit`). 04:15: Client 32 records (Start 14 /
   Follow 18), Delta 0.057~0.406 m, Host 0 — consistent with the cause; lower than the 1~2 m estimate (frame rate / L, unmeasured).
+
+## 11. EagleArcher hand arrow — Write Defaults jump and launch point (2026-10-28)
+
+Task: `Assets/_Project/Docs/_Tasks/2026-10-19/13_30_server-authoritative-projectile/` Plan §12 (12-5 fix A result, 12-7 fix C result).
+Fix A `2de0ed28` · fix C `5510b175`, both user-test PASS 2026-10-28. Presentation only — server damage and impact time unchanged.
+
+- **Weapon child defaults must equal the clip value.** The hand arrow `EagleArrow` (child of the right-hand bone, inactive by default)
+  had a prefab default ~0.98 m away from the pose the attack clip writes; with Write Defaults ON (`EagleArcher.controller`), the
+  0.08 / 0.1 s walk ↔ attack blends crossed between the two and the arrow looked like it jumped. Fix A set the prefab default
+  position/rotation to the attack clip's 0 s value. The cause stays a **hypothesis** — the probe shipped in the same commit, so there
+  is no before-fix measurement; the evidence is "no jump after the fix". Check this whenever a clip animates a child the prefab also places.
+- **Launch point under the hand arrow.** Fix C added an empty child `ArrowLaunchPoint` under `EagleArrow` at local x `0.0042666667`
+  (× arrow scale 75 × mesh 0.25 = 0.08 m toward the tip = the tracer prefab's `Arrow` child z −0.08), wired to `UnitView._vfxSpawnPoint`
+  on both team prefabs, so the flying arrow starts overlapping the held one. Self-validation E1-2 `RequireArrowLaunchPoint` pins it.
+- **Read `_vfxSpawnPoint` only after `ProjectNow()`.** `UnitView.ProjectileLaunchPoint` now reads `PresentationTransform` first (its
+  getter projects the VisualRoot) and only then `_vfxSpawnPoint.position`; reading the child first returns last frame's dragged pose on
+  the flipped Client (same cause as §10 「Stored VisualRoot Transform」). Shared property: it also corrects the flipped-Client start
+  point of every projectile unit with a wired spawn point (Tank, CannonCart, InfernoSpirit, StreamSpirit, FoxMagician); single/Host
+  unchanged. Any new VisualRoot-child reader needs the same order.
+- **Log diagnostics in place of eyeballing.** `EagleArrowPoseProbe` (`Presentation/Unit/`, Editor/Development only, read-only) prints
+  one `[EAGLE-ARROW] side=view v=1 … verdict=` line per view per match, sampling only frames where the arrow is active, in hand-local
+  space (unit movement and the Red flip do not leak in); thresholds 0.05 m / 10°, step 0.05 m. Fix A: 4 views PASS, offPose/step 0;
+  fix C match: Host 22502 / Client 146092 samples, 0 / 0. Keep/delete is a pending user decision (LogRules 「1.2 두 축」 `임시` question).
+- **Not covered:** the end point height is still at the feet (Plan 10-11 R-A2), fix B (hide the held arrow at launch) is a follow-up
+  candidate only, and no log line records the launch coordinate — "starts at the hand" is the user's visual verdict.
