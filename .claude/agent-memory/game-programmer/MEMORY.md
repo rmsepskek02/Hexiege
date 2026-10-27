@@ -132,6 +132,8 @@
   token (per-unit switch removed in P5, 2026-10-27) + schema bump, P5 "what must not be deleted" list, Client −0.10 s / Host 0 display clock, impact hold + fallback point, death ghost / burn hold capped 0.3 s.
   (§10, 2026-10-27) status-effect width fit / view pull options (off; never width-fit a perimeter-emitting prefab), burn v2,
   re-project a cached VisualRoot Transform (`ProjectNow()`) before reading it on the flipped Client, `PoseCorrected` diagnostic.
+  (§11, 2026-10-28) EagleArcher hand arrow: weapon-child prefab default must equal the clip value (Write Defaults blend jump),
+  `ArrowLaunchPoint` under the hand arrow as `_vfxSpawnPoint`, read `_vfxSpawnPoint` only after `ProjectNow()`, `[EAGLE-ARROW]` log probe (deleted `6971072d`, user decision 2026-10-28 — the lesson stays).
   🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX / projectile presentation.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
