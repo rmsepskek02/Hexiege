@@ -272,9 +272,10 @@ Fix A `2de0ed28` · fix C `5510b175`, both user-test PASS 2026-10-28. Presentati
   the flipped Client (same cause as §10 「Stored VisualRoot Transform」). Shared property: it also corrects the flipped-Client start
   point of every projectile unit with a wired spawn point (Tank, CannonCart, InfernoSpirit, StreamSpirit, FoxMagician); single/Host
   unchanged. Any new VisualRoot-child reader needs the same order.
-- **Log diagnostics in place of eyeballing.** `EagleArrowPoseProbe` (`Presentation/Unit/`, Editor/Development only, read-only) prints
+- **Log diagnostics in place of eyeballing.** `EagleArrowPoseProbe` (`Presentation/Unit/`, Editor/Development only, read-only) printed
   one `[EAGLE-ARROW] side=view v=1 … verdict=` line per view per match, sampling only frames where the arrow is active, in hand-local
   space (unit movement and the Red flip do not leak in); thresholds 0.05 m / 10°, step 0.05 m. Fix A: 4 views PASS, offPose/step 0;
-  fix C match: Host 22502 / Client 146092 samples, 0 / 0. Keep/delete is a pending user decision (LogRules 「1.2 두 축」 `임시` question).
-- **Not covered:** the end point height is still at the feet (Plan 10-11 R-A2), fix B (hide the held arrow at launch) is a follow-up
-  candidate only, and no log line records the launch coordinate — "starts at the hand" is the user's visual verdict.
+  fix C match: Host 22502 / Client 146092 samples, 0 / 0. **The probe code is deleted** — `6971072d` removed `EagleArrowPoseProbe.cs` + `.meta` and the 3-line `UnitView` call (user decision 2026-10-28: 「투사체 관련 작업이 완료됐으니 로그는 남길 필요 없을 것 같다」). The lesson stays: a read-only, hand-local probe can replace eyeballing for a pose jump; rebuild it if needed (see server-projectile Plan §12-5 for the old format). *(2026-10-28 updated — old: "Keep/delete is a pending user decision (LogRules 「1.2 두 축」 `임시` question).")*
+- **Not covered:** the end point height is still at the feet (Plan 10-11 R-A2) and fix B (hide the held arrow at launch) is not done —
+  both, with R-A1 / R-A3, will not be done by user decision 2026-10-28 (「됐어 이대로 유지하도록 하자」, Plan §12-8; old: "follow-up
+  candidate only"), and no log line records the launch coordinate — "starts at the hand" is the user's visual verdict.

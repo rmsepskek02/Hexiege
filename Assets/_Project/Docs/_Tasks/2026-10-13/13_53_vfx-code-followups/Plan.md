@@ -635,7 +635,7 @@ R4 뒤 전체 검증이 Torrent 파도 검사는 통과했지만 그 뒤 여우 
 | B4 | 큰 대상 몸체에 착탄 이펙트가 가려진다 | 확인 — 재생 위치가 도착 지점 그대로, 크기 미반영 | 대상 중심에서 공격자 쪽으로 대상 반경만큼 당긴 표면 지점에서 재생(사용자 제안). 유닛은 `UnitEffectConfig` 크기 표의 `radius` 사용 후보, 건물은 크기 데이터가 없어 새로 마련해야 함 | 규칙 변경 없음(화면 표현) — 건물 크기 데이터 형식은 별도 결정 |
 
 - 서버·피해·HP·RPC는 어느 제안에서도 바꾸지 않는다(이 작업의 화면 전용 경계).
-- 착수 시점: 사용자 지시 전까지 미착수. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속)의 C 방식 행에 이 목록을 가리키는 포인터만 둔다.
+- 착수 시점: 사용자 지시 전까지 미착수. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속)의 C 방식 행에 이 목록을 가리키는 포인터만 둔다. *(2026-10-28: ROADMAP의 C 방식 행은 서버 권위 투사체 작업 전체 완료로 삭제됐다 — ROADMAP은 이력 문서가 아니라는 사용자 결정. 그 작업의 기록은 [서버 권위 투사체 Task](../../2026-10-19/13_30_server-authoritative-projectile/Plan.md) · `WORK_HISTORY.md`에 있다. 이 목록 항목의 종결 여부는 이 메모에서 판정하지 않는다)*
 
 <a id="18-6-charge-unit-fire-timing"></a>
 
@@ -654,5 +654,5 @@ R4 뒤 전체 검증이 Torrent 파도 검사는 통과했지만 그 뒤 여우 
 | CH-3 | 규칙 문서에 위 기준 반영: `GameSystemRules_Units.md` 「전투 연출 동기화 규칙」 규칙 17 「FoxMagician typed marker 계약」, 필요하면 `GameSystemRules_UnitCombatSynchronization.md` 「8. Animation Event와 표현」, `VFXSFXGuide.md` | document-manager | 🔴 **사용자 확인 후.** 규칙 17은 지금 「OnAttackHit callback은 VFX 재생을 하지 않는다」고 적고 있어 CH-2 (다)와 충돌한다(Research 15-6-4). 변경 전 사용자 보고·승인 필요. 규칙 번호는 바꾸지 않는다 |
 
 - 연결: [17절](#17-projectile-visibility-decision)(C 방식 — 피해를 착탄 시각에 확정) · [Research 14절](Research.md#14-projectile-visibility-decision) · [18-5](#18-5-r5-followup-fix-queue)(R5 버그 B2~B4). 같은 투사체 경로를 쓰므로 C 방식 또는 18-5와 묶어 진행하기를 제안한다(제안 — 묶을지는 사용자 결정).
-- 착수 시점: VFX 제작 완료 뒤 사용자 지시로. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속) C 방식 행의 포인터.
+- 착수 시점: VFX 제작 완료 뒤 사용자 지시로. 미착수 위치 표시는 [ROADMAP 「전투·유닛 후속」](../../../ROADMAP.md#전투유닛-후속) C 방식 행의 포인터. *(2026-10-28: ROADMAP의 C 방식 행은 서버 권위 투사체 작업 전체 완료로 삭제됐다 — ROADMAP은 이력 문서가 아니라는 사용자 결정. 그 작업의 기록은 [서버 권위 투사체 Task](../../2026-10-19/13_30_server-authoritative-projectile/Plan.md) · `WORK_HISTORY.md`에 있다. 이 목록 항목의 종결 여부는 이 메모에서 판정하지 않는다)*
 - `Testcase.md` 없음 — 요청받지 않았다(WORKFLOW [8] 해당 없음).
