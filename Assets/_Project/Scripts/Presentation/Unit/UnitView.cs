@@ -1832,6 +1832,9 @@ _slot = _nextEviction;
             EnsureAttackChargeMarkerCache();
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             CacheInfernoRenderedAnchor();
+            // [2026-10-27 진단] EagleArcher 손 화살 튐 확인용 — 화살 오브젝트에 읽기 전용 관측기를 붙인다.
+            //   EagleArcher가 아니면 즉시 반환. 릴리스 빌드에서는 이 줄과 EagleArrowPoseProbe 파일이 함께 사라진다.
+            EagleArrowPoseProbe.AttachTo(transform, _unitData, _animator);
 #endif
 
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
