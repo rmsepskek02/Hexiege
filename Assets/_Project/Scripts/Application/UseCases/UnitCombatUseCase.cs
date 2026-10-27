@@ -675,12 +675,12 @@ namespace Hexiege.Application
                     attacker, targetId, targetIsUnit, now, 0d))
                 return null;
 
-            // [2026-10-20 서버 권위 투사체 — RM-1] 이행 스위치가 켜진 투사체 유닛(단계 A: StreamSpirit)은
+            // [2026-10-20 서버 권위 투사체 — RM-1] 투사체 유닛(ServerProjectileDeliveryPolicy 분류 — 7종)은
             //   타격 순간 피해(PendingHit) 대신 "발사 예약"을 만든다. 피해는 착탄 시각에 기존 writer가 준다.
             //   예약 자리(용량)는 전투 이벤트·쿨다운 커밋 전에 먼저 확인한다 — 자리가 없으면 이번 공격을 시작하지 않는다.
-            //   스위치가 꺼진 유닛과 비투사체 유닛은 아래 기존 PendingHit 경로를 그대로 탄다.
+            //   🔴 비투사체 유닛(근접·총잡이 등)은 아래 기존 PendingHit 경로를 그대로 탄다 — 그 경로가 비투사체 유닛의 유일한 피해 경로다.
             bool serverProjectile = !torrentReserved
-                && ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type);
+                && ServerProjectileDeliveryPolicy.IsProjectileUnit(attacker.Type);
             if (serverProjectile && !CanReserveProjectileLaunches(
                     attacker.HitFrameTimes != null ? attacker.HitFrameTimes.Length : 1))
                 return null;
@@ -733,7 +733,7 @@ namespace Hexiege.Application
             // (Inspector 미설정 대비).
             float[] hitTimes = attacker.HitFrameTimes;
             // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(커밋)가 새 경로/기존 경로 중 어디로 갔는지 센다(읽기 전용).
-            //   스위치가 꺼진 투사체 유닛이 기존 경로를 지켰는지 경기 종료 END(path=)로 확인한다. 비투사체 유닛은 세지 않는다.
+            //   비투사체 유닛은 세지 않는다.
             if (!torrentReserved) RecordProjectileUnitAttackPath(attacker.Type, serverProjectile);
             if (torrentReserved)
             {

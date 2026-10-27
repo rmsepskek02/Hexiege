@@ -220,24 +220,19 @@ namespace Hexiege.Editor.Combat
             Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-E EagleArcher and MushroomBomber (switch token 6,7,12,17,21,24,26;tower:human, all seven projectile units on, schema 6 kept, C3 reasons updated, EagleArcher 0.2 s launch then one single-writer impact at speed 6, team arrow tracer assets (Blue tracerPreset / Red redTeamTracerPreset, unit arrow mesh and team material, no impact preset) and team selection with first-frame facing in the actual EffectManager, MushroomBomber 1.0 s launch then one direct hit plus blast-radius poison centred on the primary target, no legacy writer snapshot at impact (RM-8) with poison provenance kept, attacker-dead Persist hit and poison, in-flight target loss with no poison, poison VFX start held like the burn with separate counters, switch-off legacy fixture retired RM-13), projectile kill-shot death presentation hold (deferred until the kill shot's screen impact, two keys, 0.3 s cap, immediate for melee/non-lethal/ID-reuse/no-visual-root/impact-first, rematch discard, game-end release, diagnostic line), burn VFX start alignment, death-hold source gates (server/domain timing unchanged), particle velocity curve modes, stage-D charge units (switch token 6,7,12,17,21;tower:human, schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation and foxPrimary counters, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 commented out, Fox timeline launch record), stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
-        // ── 분류·스위치·handshake ───────────────────────────────────────────
+        // ── 분류·handshake ───────────────────────────────────────────
         private static void ValidateServerProjectilePolicyAndManifest()
         {
-            // [단계 E — E-0] 투사체 유닛 7종이 모두 켜졌다. 비투사체(Pistoleer)·파도(TorrentSpirit)는 계속 꺼져 있다(분류 밖).
-            UnitType[] switchedOn = { UnitType.Tank, UnitType.CannonCart, UnitType.InfernoSpirit, UnitType.StreamSpirit,
-                UnitType.FoxMagician, UnitType.EagleArcher, UnitType.MushroomBomber };
-            Require(Array.TrueForAll(switchedOn, ServerProjectileDeliveryPolicy.IsServerProjectile)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.TorrentSpirit),
-                "[E-0] Stage E switches on EagleArcher and MushroomBomber; all seven projectile units are now on the server projectile path.");
+            // [2026-10-27 P5 정리 — 결정 P5-A (가) · P5-B (가)] 이행 스위치를 지우고 "투사체 분류" 하나만 묻는다.
+            //   handshake 토큰은 분류 목록에서 만들며, 단계 E의 스위치 토큰과 한 글자도 다르지 않아야 한다
+            //   (같아야 P5 이전 빌드와 handshake 해시가 같다 — 이 단언이 그 값을 고정한다).
             Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,12,17,21,24,26;tower:human",
-                "[E-0] Stage E switch token adds EagleArcher (24) and MushroomBomber (26): " + ServerProjectileDeliveryPolicy.ManifestToken);
+                "[P5-A] The handshake token is computed from the projectile classification and stays byte-identical to the stage-E token: "
+                + ServerProjectileDeliveryPolicy.ManifestToken);
             Require(ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Human)
-                    && ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Human)
                     && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Transcendence)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.Castle, RaceId.Human),
+                    && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Transcendence)
+                    && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.Castle, RaceId.Human),
                 "[C-1] Only the Human AutoTower (CannonTower) is a projectile tower; RuneSpire and VineTower stay instant.");
             UnitType[] projectileUnits = { UnitType.Tank, UnitType.CannonCart, UnitType.InfernoSpirit,
                 UnitType.StreamSpirit, UnitType.FoxMagician, UnitType.EagleArcher, UnitType.MushroomBomber };
@@ -246,9 +241,11 @@ namespace Hexiege.Editor.Combat
                 if (ServerProjectileDeliveryPolicy.IsProjectileUnit(type)) projectileCount++;
             Require(projectileCount == projectileUnits.Length
                     && Array.TrueForAll(projectileUnits, ServerProjectileDeliveryPolicy.IsProjectileUnit)
-                    && !ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.TorrentSpirit),
-                "Q11 projectile-unit classification is exactly the seven projectile units (Torrent excluded).");
-            // [단계 E] 스키마는 6 그대로다 — 스위치 목록·사유 문자열만 바뀌고 RPC 모양은 그대로다(결정 E-E).
+                    && !ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.TorrentSpirit)
+                    && !ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.Pistoleer),
+                "Q11 projectile-unit classification is exactly the seven projectile units (Torrent and non-projectile Pistoleer excluded).");
+            // [단계 E] 스키마는 6 그대로다 — 사유 문자열만 바뀌고 RPC 모양은 그대로다(결정 E-E).
+            //   [P5 정리] 스위치 제거도 RPC 모양을 바꾸지 않으므로 6 그대로다(결정 P5-A).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 6,
                 "[D-1] The stage D launch-cancel RPC raises the presentation schema to 6 (stage E keeps 6 — no RPC shape change).");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
@@ -265,7 +262,7 @@ namespace Hexiege.Editor.Combat
                 "[E-0] EagleArcher / MushroomBomber C3 reasons are updated (E-E) while their C3 classification is unchanged.");
             Require(UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(out string hash, out _)
                     && hash.Length == 64,
-                "Handshake hash still computes with the schema 6 manifest and the switch token.");
+                "Handshake hash still computes with the schema 6 manifest and the projectile classification token.");
         }
 
         // ── 계약 값 검사 ────────────────────────────────────────────────────
@@ -511,7 +508,7 @@ namespace Hexiege.Editor.Combat
             {
                 int hp = f.Victim.Hp;
                 Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
-                    "Tank (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                    "Tank (projectile unit) commit creates a launch reservation instead of a hit-time damage timer.");
                 // [2026-10-20 검증 수정] 발사 예약 시각 = float 타격 시각(.4f)을 double로 넓힌 값(0.40000000596…)이다.
                 //   옛 줄 f.Tick(.4d)·.4d 기준 착탄 시각은 그보다 조금 이르므로 운영 코드의 "now < Due"/"now < ImpactTime"
                 //   판정에 걸려 발사·착탄이 일어나지 않는다. 유닛 데이터의 실제 타격 시각을 읽어 기준으로 삼는다.
@@ -537,7 +534,7 @@ namespace Hexiege.Editor.Combat
                 Require(castle != null && castle.IsAlive, "Fixture castle target is placed.");
                 int hp = castle.Hp;
                 Require(f.Combat.TryReserveProjectileLaunch(f.Attacker, castle.Id, false, .4d, 0),
-                    "CannonCart (switch ON) can reserve a launch against a building target.");
+                    "CannonCart (projectile unit) can reserve a launch against a building target.");
                 f.Tick(.4d);
                 Require(f.Launches.Count == 1 && !f.Launches[0].TargetIsUnit && Mathf.Approximately(f.Launches[0].TargetRadius, .5f)
                         && castle.Hp == hp,
@@ -1182,7 +1179,7 @@ namespace Hexiege.Editor.Combat
                     && presenter.Contains("!launch.AttackerIsUnit && !midFlight && effects != null")
                     && presenter.Contains("effects.PlayServerTowerProjectileImpact(visual.TowerType, visual.TowerRace, point, point - visual.Start)"),
                 "[C-6] Tower projectiles start at the server muzzle, use the tower tracer/impact presets and emit the muzzle launch cue only for non-mid-flight begins.");
-            Require(tower.Contains("ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, projectileRace)")
+            Require(tower.Contains("ServerProjectileDeliveryPolicy.IsProjectileTower(tower.Type, projectileRace)")
                     && tower.Contains("_projectiles.TryLaunchTowerProjectile(tower, projectileRace, target, launchPower, this)")
                     && tower.Contains("projectilePresentationKey: key"),
                 "[C-6] The tower writer branches only projectile towers to the server launch and tags impact damage with the projectile key.");
@@ -1207,7 +1204,7 @@ namespace Hexiege.Editor.Combat
                 f.Combat.ProjectileLaunchCancelled += cancels.Add;
                 int hp = f.Victim.Hp;
                 Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
-                    "[D-2] InfernoSpirit (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                    "[D-2] InfernoSpirit (projectile unit) commit creates a launch reservation instead of a hit-time damage timer.");
                 double hitAt = f.Attacker.HitFrameTimes[0];
                 f.Tick(hitAt * .5d);   // 차지 구간 한가운데
                 f.Combat.TickTimedEffects(1f);
@@ -1583,7 +1580,7 @@ namespace Hexiege.Editor.Combat
             {
                 int hp = f.Victim.Hp;
                 Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
-                    "[E1-1] EagleArcher (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                    "[E1-1] EagleArcher (projectile unit) commit creates a launch reservation instead of a hit-time damage timer.");
                 double hitAt = f.Attacker.HitFrameTimes[0];
                 f.Tick(hitAt * .5d);
                 Require(f.Launches.Count == 0 && f.Victim.Hp == hp && f.VictimDamage.Count == 0,
@@ -1651,7 +1648,7 @@ namespace Hexiege.Editor.Combat
                     UnitData ally = Add(f, 9704, TeamId.Blue, new HexCoord(0, 1), 2.3f);
                     int hp = f.Victim.Hp;
                     Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
-                        "[E2-1] MushroomBomber (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                        "[E2-1] MushroomBomber (projectile unit) commit creates a launch reservation instead of a hit-time damage timer.");
                     double hitAt = f.Attacker.HitFrameTimes[0];
                     f.Tick(hitAt * .5d);
                     Require(f.Launches.Count == 0 && f.Victim.Hp == hp && !Poisoned(f, f.Victim) && !Poisoned(f, near),
@@ -1682,7 +1679,7 @@ namespace Hexiege.Editor.Combat
                             && poison.SourceId == f.Attacker.Id && poison.AttackSequence != 0UL && poison.AttackMatch != 0UL,
                         "[E2-2] The poison keeps its attack provenance (damageOrigin is still created at the impact).");
                     Require(snapshots.Count == 0,
-                        "[E2-2] RM-8: a switched-on Mushroom impact publishes no legacy writer snapshot (no legacy 0.1 s tracer, no second impact VFX).");
+                        "[E2-2] RM-8: a Mushroom impact publishes no legacy writer snapshot (no legacy 0.1 s tracer, no second impact VFX).");
                     int afterImpact = f.Victim.Hp;
                     f.Combat.TickTimedEffects(1f);
                     Require(f.Victim.Hp < afterImpact, "[E2-1] The poison DoT ticks after the impact.");

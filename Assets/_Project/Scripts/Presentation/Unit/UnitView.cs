@@ -1266,7 +1266,7 @@ _slot = _nextEviction;
         /// <summary>
         /// [2026-10-21 단계 D] 서버 권위가 있는 화면(싱글·Host)에서 "이번 공격의 발사가 이미 취소됐는가"를 묻는다.
         /// true면 차지 신호(OnAttackCharge)에서 차지 VFX를 켜지 않는다 — 취소된 공격의 차지가 뒤늦게 시작되지 않게.
-        /// 순수 Client는 서버 예약을 모르므로 false(대신 취소 통보 + 회차 규칙이 막는다). 스위치가 꺼진 유닛도 false(예전 그대로).
+        /// 순수 Client는 서버 예약을 모르므로 false(대신 취소 통보 + 회차 규칙이 막는다). 투사체가 아닌 유닛도 false(발사 예약이 없다).
         /// </summary>
         private bool IsServerProjectileChargeCancelled()
             => (!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer)
@@ -3053,7 +3053,7 @@ _slot = _nextEviction;
             //   차지 marker(chargeOnly)는 이 분기와 무관하게 기존 차지 VFX 규칙(규칙 17)을 그대로 따른다.
             // ────────────────────────────────────────────────────────────────
             bool serverProjectileMarker = !chargeOnly
-                && ServerProjectileDeliveryPolicy.IsServerProjectile(_unitData.Type);
+                && ServerProjectileDeliveryPolicy.IsProjectileUnit(_unitData.Type);
             if (!chargeOnly)
                 ServerProjectileDiagnostics.RecordProjectileUnitMarker(_unitData.Type, _unitData.Id,
                     serverProjectileMarker, sourceOnlyPresentation, muzzleAtMarker: false);

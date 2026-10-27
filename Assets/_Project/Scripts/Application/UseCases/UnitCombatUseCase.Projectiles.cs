@@ -198,7 +198,7 @@ namespace Hexiege.Application
             double due, int hitIndex)
         {
             if (_projectilesClosed || attacker == null || !attacker.IsAlive
-                || !ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type)
+                || !ServerProjectileDeliveryPolicy.IsProjectileUnit(attacker.Type)   // 비투사체 유닛이 잘못 들어오면 거절
                 || !IsCurrentProjectileAttacker(attacker)
                 || double.IsNaN(due) || double.IsInfinity(due) || due < 0d)
             {
@@ -256,7 +256,7 @@ namespace Hexiege.Application
             double now = ProjectileServerTime;
             if (_projectilesClosed || tower == null || !tower.IsAlive || target == null || !target.IsAlive
                 || writer == null || attackPower < 0
-                || !ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, race)
+                || !ServerProjectileDeliveryPolicy.IsProjectileTower(tower.Type, race)   // 즉발 타워가 잘못 들어오면 거절
                 || !IsCurrentProjectileTower(tower) || !IsCurrentProjectileTargetUnit(target)
                 || double.IsNaN(now) || double.IsInfinity(now) || now < 0d || !CanReserveProjectileLaunches(1))
             {
@@ -383,11 +383,11 @@ namespace Hexiege.Application
         ///   새 공격이 커밋되면(새 예약) false로 돌아가 다음 차지는 정상적으로 켜진다.
         /// 서버 권위가 있는 실행 형태(싱글·Host)에서만 의미가 있다 — 순수 Client는 예약 정보가 없어 항상 false다
         ///   (Client는 대신 서버 취소 통보 + lease 회차 규칙으로 막는다 — UnitView.ApplyServerProjectileLaunchCancel).
-        /// 스위치가 꺼진(옛 경로) 유닛은 예약이 없어 항상 false다 → 예전 동작 그대로.
+        /// 투사체가 아닌 유닛은 발사 예약이 없으므로 항상 false다.
         /// </summary>
         /// <param name="attacker">차지를 켜려는 유닛.</param>
         public bool IsChargePresentationCancelled(UnitData attacker)
-            => attacker != null && ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type)
+            => attacker != null && ServerProjectileDeliveryPolicy.IsProjectileUnit(attacker.Type)
                && WasLatestProjectileLaunchCancelled(attacker);
 
         /// <summary>

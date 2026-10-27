@@ -393,7 +393,7 @@ namespace Hexiege.Bootstrap
             _towerCombat.SetEffectClock(() => _unitCombat.WaveServerTime);
             // [2026-10-21 서버 권위 투사체 단계 C] 인간 방어타워(CannonTower)가 같은 경기의 투사체 수명 관리자로
             //   발사·비행·착탄을 맡기도록 연결한다(발사 시계 = ProjectileServerTime = 위 WaveServerTime과 같은 시계).
-            //   RuneSpire·VineTower는 이 연결과 무관하게 즉발 피해를 유지한다(ServerProjectileDeliveryPolicy.IsServerProjectileTower).
+            //   RuneSpire·VineTower는 이 연결과 무관하게 즉발 피해를 유지한다("투사체 타워" 분류 밖 — ServerProjectileDeliveryPolicy.IsProjectileTower).
             _towerCombat.SetProjectileLauncher(_unitCombat);
             _unitCombat.TimedDamageEffects.Clock = () => _unitCombat.WaveServerTime;
             _unitUpgrade = new UnitUpgradeUseCase();

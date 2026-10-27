@@ -1755,9 +1755,9 @@ namespace Hexiege.Editor.Combat
                 //   아래 타워 공격 뒤에서 Tower 스냅샷으로 확인한다.
                 //   [P5 정리] 큐의 MushroomImpact 재생 갈래(옛 0.1초 트레이서 · 옛 due 착탄)를 코드에서 삭제해 그 재생 단언도 지웠다.
                 // ────────────────────────────────────────────────────────────────
-                Require(ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber),
-                    "[E-2 RM-8] Fixture precondition: MushroomBomber is on the server projectile switch.");
-                Require(!snapshot.IsValid, "[E-2 RM-8] A switched-on Mushroom impact publishes no legacy writer snapshot (no double impact VFX).");
+                Require(ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.MushroomBomber),
+                    "[E-2 RM-8] Fixture precondition: MushroomBomber is a projectile unit (server projectile path).");
+                Require(!snapshot.IsValid, "[E-2 RM-8] A Mushroom impact publishes no legacy writer snapshot (no double impact VFX).");
                 var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
                 // 독 출처: 발행은 끊었지만 스냅샷 "생성"(damageOrigin)은 그대로라, 독 상태가 공격 출처 키를 그대로 가진다.
                 Require(combat.TimedDamageEffects.TryGet(target, out var effect) && effect.Visual == TimedDamageVisual.Poison

@@ -75,7 +75,7 @@ namespace Hexiege.Infrastructure
                 //     이제 Tank·CannonCart와 같은 "특수 공격 없는 단일 타격 투사체"이므로 같은 사유를 쓴다.
                 //   · MushroomBomber: "지점(LockedPoint) 투사체"는 U-16에서 TargetLocked(Homing)로 바뀌었다.
                 //     이제 InfernoSpirit과 같은 "투사체 + 지속 피해(독)" 모양이므로 같은 사유를 쓴다.
-                //   ⚠️ 사유 문자열은 handshake 해시에 들어간다(아래 ComputeHash의 profile.Reason). 같은 커밋에서 스위치 토큰도 바뀌므로
+                //   ⚠️ 사유 문자열은 handshake 해시에 들어간다(아래 ComputeHash의 profile.Reason). 같은 커밋에서 (당시) 스위치 토큰도 바뀌므로
                 //      다른 빌드끼리는 어차피 경기가 거부된다. RPC 모양은 그대로라 스키마(6)는 올리지 않는다(선례: 스키마는 RPC 모양 변경 때만).
                 //   C3 축 분류(Unresolved · TargetLocked · 기대 타격 수 1 · secondary 여부)는 바뀌지 않는다.
                 case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-system-unresolved", out profile);
@@ -284,8 +284,11 @@ namespace Hexiege.Infrastructure
             var manifest = new StringBuilder(2048);
             manifest.Append("c3-schema=")
                 .Append(PresentationContractSchemaRevision.ToString(CultureInfo.InvariantCulture));
-            // [2026-10-20] 서버 권위 투사체 이행 스위치(켜진 유닛 목록)도 해시에 넣는다. Host와 Client의 스위치가
-            //   다르면(다른 빌드) 한쪽은 옛 트레이서·다른 쪽은 새 투사체를 그려 이중 재생이 생기므로 경기를 시작하지 않는다.
+            // [2026-10-20] 서버 권위 투사체 분류 토큰(투사체 유닛 번호 + 투사체 타워 종족 — ManifestToken)도 해시에 넣는다.
+            //   Host와 Client의 분류가 다르면(다른 빌드) 한쪽은 로컬 트레이서·다른 쪽은 서버 투사체를 그려 이중 재생이 생기므로
+            //   경기를 시작하지 않는다.
+            //   [2026-10-27 P5 정리 — 결정 P5-A (가)] 토큰은 예전 "이행 스위치 목록" 대신 "분류 목록"에서 만든다.
+            //   두 목록의 원소가 같았으므로 문자열("6,7,12,17,21,24,26;tower:human")과 이 해시는 P5 이전 빌드와 같다(스키마 6 유지).
             manifest.Append("|server-projectile=")
                 .Append(Hexiege.Application.ServerProjectileDeliveryPolicy.ManifestToken);
             for (int index = 0; index < ManifestTypes.Length; index++)

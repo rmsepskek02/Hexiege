@@ -96,8 +96,8 @@ namespace Hexiege.Application
         /// [2026-10-20 서버 권위 투사체 — Q3 Persist] true면 이 공격은 "이미 발사된 투사체의 착탄"이라
         /// 공격자가 비행 중에 죽었어도 범위 피해·DoT를 계속 진행해야 한다는 뜻이다.
         /// 기본값 false — 투사체가 아닌 모든 공격에서는 예전처럼 공격자가 죽었으면 핸들러가 아무것도 하지 않는다.
-        /// 지금(단계 A) 이 값을 읽는 핸들러는 버섯폭격기(Blast)·지옥불 정령(Inferno)뿐이며, 두 유닛의 스위치가
-        /// 켜지기 전까지는 실제로 true가 되지 않는다(스위치가 켜진 투사체 유닛만 착탄 경로를 탄다).
+        /// 이 값을 읽는 핸들러는 버섯폭격기(Blast)·지옥불 정령(Inferno)뿐이다. 두 유닛은 투사체 유닛이라
+        /// 서버 착탄 경로(UnitCombatUseCase 투사체 착탄)에서 이 값이 true로 들어온다.
         /// </summary>
         public bool AttackerMayBeInactive { get; }
 

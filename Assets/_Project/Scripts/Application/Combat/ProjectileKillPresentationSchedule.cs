@@ -296,7 +296,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 이 지속 피해 종류가 "서버 투사체 착탄으로 시작"하는가(= 화면 착탄에 맞춰 시작을 미룰 대상인가).
-        /// 화상 = InfernoSpirit, 독 = MushroomBomber가 거는 유일한 지속 피해이므로, 그 유닛이 서버 투사체 스위치에 켜져 있을 때만 true다.
+        /// 화상 = InfernoSpirit, 독 = MushroomBomber가 거는 유일한 지속 피해이므로, 그 유닛이 투사체 유닛(서버 투사체 분류)일 때 true다.
         /// (지속 피해 종류 → 거는 유닛 대응은 이 한 곳에만 둔다 — 화면 쪽(TimedDamageEffectPresenter)이 이 함수를 부른다.)
         /// </summary>
         /// <param name="visual">지속 피해 종류.</param>
@@ -305,8 +305,8 @@ namespace Hexiege.Application
         {
             switch (visual)
             {
-                case TimedDamageVisual.Burn: return ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
-                case TimedDamageVisual.Poison: return ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber);
+                case TimedDamageVisual.Burn: return ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.InfernoSpirit);
+                case TimedDamageVisual.Poison: return ServerProjectileDeliveryPolicy.IsProjectileUnit(UnitType.MushroomBomber);
                 default: return false;
             }
         }
@@ -314,7 +314,7 @@ namespace Hexiege.Application
         /// <summary>
         /// 지금 시작을 미뤄야 하는가.
         /// </summary>
-        /// <param name="visual">지속 피해 종류(화상·독이 대상 — 그 밖은 즉시). 스위치 확인은 호출자가 IsProjectileAligned로 한다.</param>
+        /// <param name="visual">지속 피해 종류(화상·독이 대상 — 그 밖은 즉시). 투사체 정렬 대상인지는 호출자가 IsProjectileAligned로 확인한다.</param>
         /// <param name="effectStart">서버가 정한 시작 시각(서버 시계).</param>
         /// <param name="presentationNow">이 화면의 표시 시각(서버 시계 − 표시 지연). NaN·무한대면 ①은 보지 않는다.</param>
         /// <param name="heldProjectileHit">같은 공격자의 투사체 피해가 대상에게 아직 보관 중인가.</param>

@@ -6,9 +6,9 @@
 //   1) ProjectileDeliveryKey      : 투사체 1발을 구별하는 번호표(경기 수명 epoch + 발사 번호).
 //   2) ProjectileLaunchPresentation: 서버가 "지금 쐈다"고 확정한 기록(발사 기록). 화면은 이것만 보고 투사체를 날린다.
 //   3) ProjectileImpactPresentation: 서버가 "지금 닿았다/대상이 사라졌다"고 확정한 기록(착탄 결과).
-//   4) ServerProjectileDeliveryPolicy: 어떤 유닛이 "투사체 유닛"인가(Q11 분류)와,
-//      그중 어느 유닛을 지금 새 경로로 돌릴지(유닛별 이행 스위치 — RM-9)를 정하는 표.
-//      [2026-10-21 단계 C] 같은 클래스에 "투사체 타워"(인간 CannonTower) 분류·스위치도 있다.
+//   4) ServerProjectileDeliveryPolicy: 어떤 유닛이 "투사체 유닛"인가(Q11 분류)를 정하는 표.
+//      분류에 든 유닛은 항상 서버 투사체 경로로 공격한다(이행 스위치는 2026-10-27 P5 정리에서 없앴다).
+//      [2026-10-21 단계 C] 같은 클래스에 "투사체 타워"(인간 CannonTower) 분류도 있다.
 //   5) ProjectileSettings          : 서버가 비행 시간을 계산할 때 쓰는 속도·대상 반경 값(Inspector 값에서 만들어 주입).
 //      [단계 C] 인간 타워 속도·포구 위치(발사 원점)도 여기 있다.
 //   6) IBuildingProjectileImpactWriter: [단계 C] 타워 투사체의 착탄 피해를 타워 writer(TowerCombatUseCase)에 맡기는 창구.
@@ -286,23 +286,28 @@ namespace Hexiege.Application
     }
 
     /// <summary>
-    /// 투사체 분류(Q11)와 유닛별 이행 스위치(RM-9)의 단일 소스.
+    /// "투사체 유닛 / 투사체 타워" 분류(Q10 · Q11)의 단일 소스.
+    /// 분류에 든 유닛·타워의 공격은 항상 "서버 권위 투사체" 경로(서버 발사 기록 → 비행 → 착탄 때 피해)로 처리된다.
     ///
     /// [두 축을 섞지 않는다]
     ///   · "투사체 유닛 / 즉발 유닛"은 게임플레이 전달 방식 분류다(이 클래스).
     ///   · 기존 Supported/Unresolved는 C3 시퀀서가 그 유닛을 다루는가 하는 다른 축이다(UnitAttackShadowProfileResolver).
     ///   투사체 유닛은 C3 축에서 Unresolved를 그대로 유지하고, 서버 투사체는 별도 경로로 동작한다(Torrent 선례).
     ///
-    /// [이행 스위치는 왜 코드 상수인가 — Inspector 값이 아닌 이유]
-    ///   Host와 Client가 같은 유닛에 대해 서로 다른 스위치를 가지면 한쪽은 옛 트레이서, 다른 쪽은 새 투사체를 그려
+    /// [분류는 왜 코드 상수인가 — Inspector 값이 아닌 이유]
+    ///   Host와 Client가 같은 유닛을 서로 다르게 분류하면 한쪽은 로컬 트레이서, 다른 쪽은 서버 투사체를 그려
     ///   이중 재생·이중 숫자가 생긴다. 코드 상수는 같은 빌드끼리 반드시 같고, 아래 ManifestToken이 경기 시작
-    ///   handshake 해시에 들어가므로(UnitAttackShadowProfileResolver) 다른 빌드끼리는 경기가 시작되지 않는다.
+    ///   handshake 해시에 들어가므로(UnitAttackShadowProfileResolver) 분류가 다른 빌드끼리는 경기가 시작되지 않는다.
     ///
-    /// ⚠️ RM-9: 모든 대상 유닛의 사용자 테스트가 끝나면 이 스위치를 제거하고 항상 새 경로로 동작하게 한다.
+    /// [2026-10-27 P5 정리 — 이행 스위치(RM-9) 제거]
+    ///   투사체 대상을 한 종씩 옮기는 동안(단계 A~E) "분류"와 별도로 "이행 스위치" 목록을 두고 그 목록에 든 유닛만 새 경로로
+    ///   보냈다. 단계 E에서 분류 7종 + 인간 타워가 모두 스위치에 들어가 두 목록이 같아졌고 사용자 테스트도 끝나서
+    ///   스위치 목록을 지우고 "분류에 들었는가" 하나만 묻게 했다(사용자 결정 P5-B (가)).
     /// </summary>
     public static class ServerProjectileDeliveryPolicy
     {
         // 투사체 유닛 전체(Q11 분류, 2026-10-20 결정). 근접·Hitscan·파도(Torrent)는 즉발/별도 경로라 없다.
+        //   ⚠️ 이 목록을 바꾸면 ManifestToken이 바뀌어 다른 빌드와는 경기가 시작되지 않는다(의도된 안전장치).
         private static readonly UnitType[] ProjectileUnitTypes =
         {
             UnitType.Tank, UnitType.CannonCart, UnitType.InfernoSpirit, UnitType.StreamSpirit,
@@ -310,56 +315,18 @@ namespace Hexiege.Application
         };
 
         // ────────────────────────────────────────────────────────────────
-        // [RM-9 — 테스트 완료 전까지만 존재하는 유닛별 이행 스위치]
-        //   단계 A(2026-10-20): StreamSpirit 1종만 켠다. 나머지 투사체 유닛은 꺼진 상태로 기존 동작
-        //   (타격 순간 즉시 피해 + 로컬 트레이서)을 유지한다. 다음 단계에서 한 종씩 이 목록에 추가한다.
-        //   단계 B(2026-10-20 사용자 승인): Tank · CannonCart를 추가로 켠다. 두 유닛은 특수 공격 핸들러가 없는
-        //   단일 타격 유닛이고, 화면 프리셋(트레이서 EffectPreset_Cannon_Tracer · 착탄 EffectPreset_Cannon_Impact)이
-        //   UnitEffectConfig.asset의 type 6·7 행에 이미 연결돼 있다(2026-10-20 에셋 직접 확인). 건물 2배 피해는
-        //   착탄 때 같은 단일 writer(ComputeFinalDamage)가 그대로 적용한다.
-        //   ⚠️ 이 목록을 바꾸면 ManifestToken이 바뀌어 다른 빌드와는 경기가 시작되지 않는다(의도된 안전장치).
-        //   옛 목록(단계 A, 기록용): { UnitType.StreamSpirit }  → ManifestToken "17"
-        //   단계 D(2026-10-21 사용자 승인 「논의한 내용대로 진행해」): 차지 유닛 InfernoSpirit(12) · FoxMagician(21)을 켠다.
-        //     · 발사 시각 = 공격 클립의 OnAttackHit(Inferno 1.5초, Fox 85/30초 = 2.8333초). OnAttackCharge(차지 시작)는 발사가 아니다.
-        //     · 착탄 때 기존 단일 writer가 피해를 준다 — Inferno 화상(DoT)도 그 착탄 순간 InfernoAttackBehavior가 건다.
-        //     · 화면 프리셋: Inferno = EffectPreset_InfernoSpirit_Tracer / _Impact, Fox = EffectPreset_FoxMagician_Tracer / _Impact
-        //       (UnitEffectConfig.asset type 12 · 21 행 tracerPreset/impactPreset에 이미 연결 — 2026-10-21 에셋 직접 확인).
-        //   옛 목록(단계 B·C, 기록용): { UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit }  → ManifestToken "6,7,17;tower:human"
-        //   단계 E(2026-10-27 사용자 승인 「추천대로 진행하고 (가)로 진행」 · 「두 유닛 모두 한 번에 테스트」):
-        //     남은 투사체 유닛 EagleArcher(24) · MushroomBomber(26)를 한 번에 켠다 → 이제 투사체 유닛 7종이 모두 켜졌다.
-        //     · EagleArcher: 특수 공격·DoT가 없는 단일 타격(단계 B의 Tank와 같은 모양). 발사 = OnAttackHit 0.2초, 속도 6.
-        //       화면 화살 = 팀별 화살 트레이서 2개(EffectPreset_EagleArcher_Tracer_Blue / _Red — 1회성 메뉴
-        //       「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」로 한 번 만들어 UnitEffectConfig type 24 행에 연결했고,
-        //       결과 에셋은 사용자 커밋 be9b6e1a로 저장소에 있다. 메뉴 스크립트는 2026-10-27 사용자 지시로 삭제). 착탄 이펙트 없음(U-10).
-        //     · MushroomBomber: 발사 = OnAttackHit 1.0초, 속도 5. 착탄 순간 같은 단일 writer가 주 타깃 직접 피해 →
-        //       BlastAttackBehavior(주 타깃 위치 중심 반경 안 적에게 독)를 그대로 실행한다.
-        //       옛 "서버 피해 순간 스냅샷"(OnAttackEffectConfirmed)은 이 스위치가 켜지면 발행하지 않는다(RM-8 — UnitCombatUseCase.ExecuteAttack).
-        //   옛 목록(단계 D, 기록용):
-        //     { UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit, UnitType.InfernoSpirit, UnitType.FoxMagician }
-        //     → ManifestToken "6,7,12,17,21;tower:human"
-        // ────────────────────────────────────────────────────────────────
-        private static readonly UnitType[] EnabledUnitTypes =
-        {
-            UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit,
-            UnitType.InfernoSpirit, UnitType.FoxMagician,
-            UnitType.EagleArcher, UnitType.MushroomBomber
-        };
-
-        // ────────────────────────────────────────────────────────────────
         // [2026-10-21 단계 C — 인간 방어타워(CannonTower) 전환]
         //   "투사체 타워" 분류(Q10 결정): 방어 타워(AutoTower) 중 Human 종족(CannonTower)만 투사체 타워다.
         //   Spirit RuneSpire(번개)는 투사체 개념이 아니라 즉발 피해를 유지하고(Q10 ②),
         //   Transcendence VineTower는 결정이 없어 바꾸지 않는다(Buildings 규칙 12 「인간 타워만」).
-        //   ⚠️ 아래 두 표는 "분류"(ProjectileTowerRaces)와 "이행 스위치"(EnabledTowerRaces — RM-9)를 나눠 둔다.
-        //      유닛 쪽 ProjectileUnitTypes / EnabledUnitTypes와 같은 구조다. 스위치를 끄면(목록에서 Human을 빼면)
-        //      인간 타워는 옛 즉발 피해 + 발사 스냅샷 경로로 돌아간다.
-        //   ⚠️ 이 목록도 ManifestToken에 들어가 경기 시작 handshake 해시에 반영된다(다른 빌드끼리는 경기가 시작되지 않는다).
+        //   ⚠️ 이 목록도 ManifestToken에 들어가 경기 시작 handshake 해시에 반영된다(분류가 다른 빌드끼리는 경기가 시작되지 않는다).
         // ────────────────────────────────────────────────────────────────
         private static readonly RaceId[] ProjectileTowerRaces = { RaceId.Human };
-        private static readonly RaceId[] EnabledTowerRaces = { RaceId.Human };
 
         /// <summary>
-        /// 이 건물(종류 + 종족)이 "투사체 타워"(Q10 분류)인가. 스위치와 무관한 분류 자체다.
+        /// 이 건물(종류 + 종족)이 "투사체 타워"(Q10 분류)인가.
+        /// true면 즉발 피해 대신 서버 발사 기록 → 비행 → 착탄 피해로 동작한다.
+        /// false면 기존 경로(공격 순간 즉발 피해 + 발사 스냅샷)를 그대로 탄다 — RuneSpire·VineTower는 항상 false.
         /// 지금은 방어 타워(AutoTower) + Human(CannonTower)만 true다.
         /// </summary>
         /// <param name="type">건물 종류.</param>
@@ -368,50 +335,34 @@ namespace Hexiege.Application
             => type == BuildingType.AutoTower && Array.IndexOf(ProjectileTowerRaces, race) >= 0;
 
         /// <summary>
-        /// 이 타워의 공격을 지금 "서버 권위 투사체" 경로로 처리하는가(분류 + 이행 스위치).
-        /// true면 즉발 피해 대신 서버 발사 기록 → 비행 → 착탄 피해로 동작한다.
-        /// false면 기존 경로(공격 순간 즉발 피해 + 발사 스냅샷)를 그대로 탄다 — RuneSpire·VineTower는 항상 false.
+        /// 이 유닛 종류가 "투사체 유닛"(Q11 분류)인가.
+        /// true면 타격 순간 피해 대신 서버 발사 기록 → 비행 → 착탄 피해로 동작한다.
+        /// false(근접·총잡이 등 비투사체 유닛)면 기존 경로(타격 순간 즉시 피해)를 그대로 탄다.
         /// </summary>
-        /// <param name="type">건물 종류.</param>
-        /// <param name="race">건물 소유 팀의 종족.</param>
-        public static bool IsServerProjectileTower(BuildingType type, RaceId race)
-            => IsProjectileTower(type, race) && Array.IndexOf(EnabledTowerRaces, race) >= 0;
-
-        /// <summary>이 유닛 종류가 "투사체 유닛"(Q11 분류)인가. 스위치와 무관한 분류 자체다.</summary>
         /// <param name="type">유닛 종류.</param>
         public static bool IsProjectileUnit(UnitType type)
             => Array.IndexOf(ProjectileUnitTypes, type) >= 0;
 
         /// <summary>
-        /// 이 유닛의 공격을 지금 "서버 권위 투사체" 경로로 처리하는가(분류 + 이행 스위치).
-        /// true면 타격 순간 피해 대신 서버 발사 기록 → 비행 → 착탄 피해로 동작한다.
-        /// false면 기존 경로(타격 순간 즉시 피해)를 그대로 탄다.
-        /// </summary>
-        /// <param name="type">유닛 종류.</param>
-        public static bool IsServerProjectile(UnitType type)
-            => IsProjectileUnit(type) && Array.IndexOf(EnabledUnitTypes, type) >= 0;
-
-        /// <summary>
-        /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열.
-        /// 앞부분 = 켜진 유닛 번호를 오름차순으로 ","로 연결, 뒤에 켜진 투사체 타워 종족을 ";tower:" 뒤에 붙인다.
-        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human", 단계 D = "6,7,12,17,21;tower:human",
-        /// 단계 E = "6,7,12,17,21,24,26;tower:human".
-        /// 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
-        /// 공백이 없어야 한다 — 진단 END 줄(공백으로 칸을 나눈다)의 switch= 칸에 그대로 들어간다.
+        /// 경기 시작 handshake 해시에 넣는 "투사체 분류" 요약 문자열.
+        /// 앞부분 = 투사체 유닛 번호를 오름차순으로 ","로 연결, 뒤에 투사체 타워 종족(소문자)을 ";tower:" 뒤에 붙인다.
+        /// 지금 값 = "6,7,12,17,21,24,26;tower:human".
+        /// [2026-10-27 P5 정리 — 사용자 결정 P5-A (가)] 예전에는 이행 스위치 목록에서 만들었다. 스위치를 지우면서
+        ///   분류 목록에서 만들게 바꿨지만, 단계 E 이후 두 목록의 원소가 같았으므로 문자열은 한 글자도 바뀌지 않는다
+        ///   (P5 이전 빌드와 handshake 해시가 같다 — 동작이 같은 빌드끼리 경기를 막지 않기 위해서다. 스키마 6 유지).
+        /// 두 빌드의 분류가 다르면 해시가 달라 경기가 시작되지 않는다.
+        /// 공백이 없어야 한다 — handshake 원문은 "|" · "=" 로 칸을 나눈다.
         /// </summary>
         public static string ManifestToken
         {
             get
             {
-                var values = new List<int>(EnabledUnitTypes.Length);
-                foreach (UnitType type in EnabledUnitTypes)
-                    if (IsProjectileUnit(type)) values.Add((int)type);
+                var values = new List<int>(ProjectileUnitTypes.Length);
+                foreach (UnitType type in ProjectileUnitTypes) values.Add((int)type);
                 values.Sort();
-                // [단계 C] 옛 반환(단계 A·B, 기록용): return string.Join(",", values);
                 string units = string.Join(",", values);
-                var towers = new List<string>(EnabledTowerRaces.Length);
-                foreach (RaceId race in EnabledTowerRaces)
-                    if (IsProjectileTower(BuildingType.AutoTower, race)) towers.Add(race.ToString().ToLowerInvariant());
+                var towers = new List<string>(ProjectileTowerRaces.Length);
+                foreach (RaceId race in ProjectileTowerRaces) towers.Add(race.ToString().ToLowerInvariant());
                 towers.Sort(StringComparer.Ordinal);
                 return towers.Count == 0 ? units : units + ";tower:" + string.Join(",", towers);
             }

@@ -33,9 +33,9 @@
 //     · 피해는 착탄 시각에 이 파일의 타워 writer(ApplyTowerProjectileImpact)가 1회 준다.
 //     · 비행 중 타워가 파괴돼도 맞으면 피해를 준다(공격자 사망과 같다).
 //   Spirit RuneSpire · Transcendence VineTower는 바뀌지 않는다 — 아래 ExecuteTowerAttack의 기존 즉발 경로 그대로다.
-//   분기 기준은 ServerProjectileDeliveryPolicy.IsServerProjectileTower(이행 스위치 RM-9 포함)다.
-//   ⚠️ RM-10: 인간 타워의 옛 즉발 피해·Tower 발사 스냅샷은 지우지 않았다 — 같은 코드를 RuneSpire가 계속 쓰고,
-//      스위치를 끄면 인간 타워도 다시 그 경로를 탄다. 모든 대상 테스트 PASS 뒤 스위치 제거(P5) 때 정리 범위를 정한다.
+//   분기 기준은 "투사체 타워" 분류 ServerProjectileDeliveryPolicy.IsProjectileTower다.
+//   🔴 즉발 피해 · Tower 발사 스냅샷 경로는 지우지 않는다 — RuneSpire · VineTower가 지금도 쓰는 유일한 피해 경로다
+//      (2026-10-27 P5 정리에서 지운 것은 인간 타워용 이행 스위치뿐이다).
 //
 // Application 레이어 — Domain에 의존. Infrastructure(NetworkManager/GameRaceContext)에
 //   직접 의존하지 않기 위해 NetworkContext 정적 홀더와 race 해석 델리게이트를 사용한다.
@@ -250,14 +250,14 @@ namespace Hexiege.Application
             //   Tower 발사 스냅샷(OnAttackEffectConfirmed)도 내지 않는다: 발사 이펙트는 화면 소비자
             //   (ProjectilePresentationPresenter)가 서버 발사 기록을 꺼내는 순간 포구 위치에 낸다(이중 재생 방지).
             RaceId projectileRace = ResolveRace(tower.Team);
-            if (_projectiles != null && ServerProjectileDeliveryPolicy.IsServerProjectileTower(tower.Type, projectileRace))
+            if (_projectiles != null && ServerProjectileDeliveryPolicy.IsProjectileTower(tower.Type, projectileRace))
             {
                 int launchPower = BuildingStats.GetAttackPower(tower.Type, projectileRace);
                 bool launched = _projectiles.TryLaunchTowerProjectile(tower, projectileRace, target, launchPower, this);
                 if (launched) _projectiles.RecordProjectileTowerAttackPath(projectileRace, true);   // [진단] 판정 무관
                 return launched;
             }
-            // 아래는 기존 즉발 경로(RuneSpire·VineTower, 그리고 스위치가 꺼졌거나 launcher가 없을 때의 인간 타워) — 동작 무변경.
+            // 아래는 기존 즉발 경로(RuneSpire·VineTower, 그리고 투사체 launcher가 연결되지 않았을 때의 인간 타워) — 동작 무변경.
             if (_projectiles != null) _projectiles.RecordProjectileTowerAttackPath(projectileRace, false);   // [진단] 즉발 경로 수(RuneSpire 회귀 확인용)
             Vector3 effectSource = default, effectImpact = default;
             double effectTime = double.NaN;

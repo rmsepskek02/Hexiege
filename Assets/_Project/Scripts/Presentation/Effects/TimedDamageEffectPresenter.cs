@@ -127,7 +127,7 @@ namespace Hexiege.Presentation
 
         // 화상·독 VFX 시작을 이번 프레임 미뤄야 하는가. 판단은 순수 함수(ProjectileAlignedTimedDamageStart)가 한다.
         // [2026-10-27 서버 권위 투사체 단계 E — 사용자 결정 E-B (a)] 독(MushroomBomber)도 화상과 같은 장치로 미룬다.
-        //   "이 지속 피해가 서버 투사체 착탄으로 시작하는가"(화상 = Inferno 스위치, 독 = Mushroom 스위치)는
+        //   "이 지속 피해가 서버 투사체 착탄으로 시작하는가"(화상 = InfernoSpirit, 독 = MushroomBomber — 둘 다 투사체 유닛)는
         //   ProjectileAlignedTimedDamageStart.IsProjectileAligned 한 곳이 정한다(종류 → 유닛 대응을 여기 두지 않는다).
         private bool ShouldHoldStart(Owner owner)
         {
