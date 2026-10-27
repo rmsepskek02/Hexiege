@@ -898,7 +898,10 @@ namespace Hexiege.Editor.Combat
                 foreach (var kind in new[] { TimedDamageVisual.Burn, TimedDamageVisual.Poison })
                 {
                     current = VfxUnit(nextId++);
-                    bool holdable = kind == TimedDamageVisual.Burn && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
+                    // [2026-10-27 단계 E] 독(MushroomBomber)도 화면 착탄 정렬 대상이 됐으므로 "시작 보류 → 바로잡힌 pose로 시작" 경로를
+                    //   독에도 똑같이 돌린다. 판단은 운영 코드와 같은 함수(IsProjectileAligned)를 쓴다.
+                    //   옛 줄(기록용): bool holdable = kind == TimedDamageVisual.Burn && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
+                    bool holdable = ProjectileAlignedTimedDamageStart.IsProjectileAligned(kind);
                     clock = holdable ? 99d : 1000d;
                     channel.Upsert(current, 1, kind, 3f);
                     Tick();
@@ -908,15 +911,15 @@ namespace Hexiege.Editor.Combat
                     {
                         // 시작 경로: 보류 프레임에 Pose만 얻고, Root가 돈 다음 프레임에 시작한다.
                         Require(OwnerField<VfxPoolItem>(owner, "Item") == null && OwnerField<Transform>(owner, "Pose") == visual.transform,
-                            "Burn start is held while the Pose is already acquired (start-path fixture precondition).");
+                            kind + " start is held while the Pose is already acquired (start-path fixture precondition).");
                         TurnRoot();
                         Require(Vector3.Distance(visual.transform.position, ScreenPos()) > .5f,
                             "Fixture reproduces the stale child pose before the start-path correction.");
                         clock = 1000d;
                         Tick();
                         var started = OwnerField<VfxPoolItem>(owner, "Item");
-                        Require(started != null, "Burn starts after the hold is released.");
-                        RequireAtScreenPose(started, "[Plan 10] Flipped Client burn START reads the corrected screen pose, not the stale child pose");
+                        Require(started != null, kind + " starts after the hold is released.");
+                        RequireAtScreenPose(started, "[Plan 10] Flipped Client " + kind + " START reads the corrected screen pose, not the stale child pose");
                     }
                     var item = OwnerField<VfxPoolItem>(owner, "Item");
                     Require(item != null && OwnerField<VisualRootProjector>(owner, "Projector") == projector,
@@ -1741,24 +1744,46 @@ namespace Hexiege.Editor.Combat
                 AttackEffectPresentation snapshot = default;
                 capture = GameEvents.OnAttackEffectConfirmed.Subscribe(s => snapshot = s);
                 typeof(UnitCombatUseCase).GetMethod("ExecuteAttack", VfxFields).Invoke(combat, new object[] { attacker, target, true, default(AttackResultKey) });
-                Require(snapshot.IsValid && !snapshot.ResultKey.IsValid && snapshot.ImpactTime == now, "Unresolved writer owns LegacyIndependent immutable snapshot, no fake C3 key.");
-                var tracers = root.GetComponentsInChildren<TracerProjectile>(true);
-                Require(tracers.Length == 1 && tracers[0].gameObject.activeSelf, "Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.");
-                int hp = target.Hp;
-                typeof(TracerProjectile).GetMethod("Arrive", VfxFields).Invoke(tracers[0], null);
-                Require(target.Hp == hp && root.GetComponentsInChildren<VfxPoolItem>(true).Length == 0, "Tracer callback only returns object, no HP/impact release authority.");
+                // ────────────────────────────────────────────────────────────────
+                // [RM-8 — 2026-10-27 서버 권위 투사체 단계 E, 결정 E-D (가)] MushroomBomber가 서버 투사체 스위치에 켜졌으므로
+                //   ExecuteAttack(= 서버 착탄 순간)은 옛 "피해 순간 스냅샷"을 발행하지 않는다. 포자 비행·착탄 이펙트는 서버 발사/착탄 기록
+                //   경로(ProjectilePresentationPresenter)가 그리고, 그 경로는 ServerProjectiles 검증 E-2가 확인한다.
+                //   그래서 이 fixture의 Mushroom 부분은 "스냅샷 0건 · 옛 트레이서/착탄 0건 · 독 출처(origin)는 그대로 채워짐"으로 바꾼다.
+                //   스냅샷 큐 자체(중복 거부 · 잘못된 값 거부 · 수명 종료 뒤 무시)는 Spirit RuneSpire Tower 스냅샷이 계속 쓰므로
+                //   아래 타워 공격 뒤로 옮겨 Tower 스냅샷으로 확인한다.
+                //   옛 단언(기록용 — 주석 보존, P5 삭제 대상):
+                //   Require(snapshot.IsValid && !snapshot.ResultKey.IsValid && snapshot.ImpactTime == now, "Unresolved writer owns LegacyIndependent immutable snapshot, no fake C3 key.");
+                //   var tracers = root.GetComponentsInChildren<TracerProjectile>(true);
+                //   Require(tracers.Length == 1 && tracers[0].gameObject.activeSelf, "Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.");
+                //   int hp = target.Hp;
+                //   typeof(TracerProjectile).GetMethod("Arrive", VfxFields).Invoke(tracers[0], null);
+                //   Require(target.Hp == hp && root.GetComponentsInChildren<VfxPoolItem>(true).Length == 0, "Tracer callback only returns object, no HP/impact release authority.");
+                //   now += AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
+                //   typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields).Invoke(queue, null);
+                //   Require(root.GetComponentsInChildren<VfxPoolItem>(true).Length == 1 && target.Hp == hp, "Same immutable snapshot emits due impact without changing HP.");
+                //   var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
+                //   GameEvents.OnAttackEffectConfirmed.OnNext(snapshot);
+                //   Require(pending.Count == 0, "Duplicate snapshot emits neither flight nor impact twice.");
+                //   var bad = snapshot; bad.Visual = (AttackEffectVisual)255; bad.Sequence++;
+                //   Require(!bad.IsValid, "Invalid attack enum rejected.");
+                //   bad = snapshot; bad.Visual = AttackEffectVisual.Tower; bad.Race = (RaceId)255;
+                //   Require(!bad.IsValid, "Invalid tower race rejected.");
+                //   Require(combat.TimedDamageEffects.TryGet(target, out var effect) && effect.Visual == TimedDamageVisual.Poison
+                //       && effect.AttackSequence == snapshot.Sequence && effect.AttackMatch == snapshot.Match, "Actual Damage writer provenance joins exact attack snapshot.");
+                // ────────────────────────────────────────────────────────────────
+                Require(ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber),
+                    "[E-2 RM-8] Fixture precondition: MushroomBomber is on the server projectile switch.");
+                Require(!snapshot.IsValid, "[E-2 RM-8] A switched-on Mushroom impact publishes no legacy writer snapshot (no double impact VFX).");
+                var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
                 now += AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
                 typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields).Invoke(queue, null);
-                Require(root.GetComponentsInChildren<VfxPoolItem>(true).Length == 1 && target.Hp == hp, "Same immutable snapshot emits due impact without changing HP.");
-                var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
-                GameEvents.OnAttackEffectConfirmed.OnNext(snapshot);
-                Require(pending.Count == 0, "Duplicate snapshot emits neither flight nor impact twice.");
-                var bad = snapshot; bad.Visual = (AttackEffectVisual)255; bad.Sequence++;
-                Require(!bad.IsValid, "Invalid attack enum rejected.");
-                bad = snapshot; bad.Visual = AttackEffectVisual.Tower; bad.Race = (RaceId)255;
-                Require(!bad.IsValid, "Invalid tower race rejected.");
+                Require(pending.Count == 0 && root.GetComponentsInChildren<TracerProjectile>(true).Length == 0
+                        && root.GetComponentsInChildren<VfxPoolItem>(true).Length == 0,
+                    "[E-2 RM-8] No legacy 0.1 s Mushroom tracer and no legacy due impact are played from the snapshot queue.");
+                // 독 출처: 발행은 끊었지만 스냅샷 "생성"(damageOrigin)은 그대로라, 독 상태가 공격 출처 키를 그대로 가진다.
                 Require(combat.TimedDamageEffects.TryGet(target, out var effect) && effect.Visual == TimedDamageVisual.Poison
-                    && effect.AttackSequence == snapshot.Sequence && effect.AttackMatch == snapshot.Match, "Actual Damage writer provenance joins exact attack snapshot.");
+                        && effect.AttackSequence != 0UL && effect.AttackMatch != 0UL,
+                    "[E-2 RM-8] The poison keeps its attack provenance (damageOrigin is still created, only the publish is off).");
                 combat.ApplyDamageOverTime(attacker, target, 5, 3, 1, TimedDamageVisual.Burn);
                 Require(combat.TimedDamageEffects.TryGet(target, out var overwritten) && overwritten.SameOwner(effect) && overwritten.Visual == TimedDamageVisual.Burn,
                     "Actual same target Damage record resets, poison/burn never stack.");
@@ -1791,6 +1816,16 @@ namespace Hexiege.Editor.Combat
                 typeof(TowerCombatUseCase).GetMethod("ExecuteTowerAttack", VfxFields).Invoke(tower, new object[] { towerData, victim });
                 Require(snapshot.Visual == AttackEffectVisual.Tower && snapshot.Race == RaceId.Spirit
                     && snapshot.AppliedDamage == before - victim.Hp && snapshot.ResultHp == victim.Hp, "Tower writer snapshot correlates actual HP result and race.");
+                // [RM-8 — 단계 E] 위에서 옮겨 온 스냅샷 큐 확인 — 이제 Mushroom 스냅샷이 없으므로 RuneSpire Tower 스냅샷으로 본다.
+                //   (Tower 스냅샷은 비행 없이 큐에 1건 대기하다가 due에 착탄 표현을 낸다 — 중복이면 다시 쌓이지 않아야 한다.)
+                int towerPending = pending.Count;
+                Require(towerPending == 1, "[E-2 RM-8] The RuneSpire Tower snapshot is queued once by the actual queue.");
+                GameEvents.OnAttackEffectConfirmed.OnNext(snapshot);
+                Require(pending.Count == towerPending, "Duplicate snapshot is not queued (or played) twice.");
+                var bad = snapshot; bad.Visual = (AttackEffectVisual)255; bad.Sequence++;
+                Require(!bad.IsValid, "Invalid attack enum rejected.");
+                bad = snapshot; bad.Visual = AttackEffectVisual.Tower; bad.Race = (RaceId)255;
+                Require(!bad.IsValid, "Invalid tower race rejected.");
                 using (GameEvents.OnAttackEffectConfirmed.Subscribe(_ => throw new InvalidOperationException("fixture subscriber")))
                 {
                     var dead = VfxUnit(98007); dead.TakeDamage(999); dictionary[dead.Id] = dead;

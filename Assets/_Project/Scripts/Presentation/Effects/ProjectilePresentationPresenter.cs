@@ -292,8 +292,12 @@ namespace Hexiege.Presentation
                 ResolveTarget(launch, visual);
                 visual.LastEndpoint = SurfacePoint(visual.Start, visual.LastCenter, launch.TargetRadius);
                 EffectManager effects = EffectManager.Instance;
+                // [2026-10-27 단계 E] 팀별 트레이서(EagleArcher 화살 Blue/Red 머티리얼)를 고르도록 서버 발사 기록의 Team을 넘기고,
+                //   메시 화살이 첫 프레임부터 대상 쪽을 보도록 처음 바라볼 지점(바로 위에서 정한 표면점)도 넘긴다.
+                //   Team은 서버가 채운 실제 팀이다(Red 관점 Client의 화면 뒤집기와 무관) → 양쪽 화면에서 같은 팀 색이 나온다.
+                //   옛 줄(기록용): visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, visual.Start);
                 if (effects != null && launch.AttackerIsUnit)
-                    visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, visual.Start);
+                    visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, launch.Team, visual.Start, visual.LastEndpoint);
                 // [단계 C] 타워 투사체 — CannonCart 트레이서 프리셋(BuildingEffectConfig 종족별 줄).
                 if (effects != null && !launch.AttackerIsUnit)
                     visual.Tracer = effects.BeginServerTowerProjectile(visual.TowerType, visual.TowerRace, visual.Start);

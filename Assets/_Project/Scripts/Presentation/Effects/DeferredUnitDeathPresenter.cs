@@ -187,7 +187,10 @@ namespace Hexiege.Presentation
         //     gate=notReady|noVisualRoot                                 — 조율자 미준비 · 대역 불가(옛 프리팹)로 즉시 진행한 수
         //     holdDuration=분포   deathMinusImpact=분포(0 = 착탄과 같은 순간, 음수 = 사망 표현이 먼저)
         //     burn=held|released|cap|immediate                          — 화상 VFX 시작 보류(TimedDamageEffectPresenter)
-        //     verdict=PASS | ATTENTION attention=cap,burn-cap,no-visual-root,faults
+        //     poison=held|released|cap|immediate                        — [2026-10-27 단계 E] 독 VFX 시작 보류(같은 presenter)
+        //     verdict=PASS | ATTENTION attention=cap,burn-cap,poison-cap,no-visual-root,faults
+        //   [단계 E] poison 칸이 늘어 형식이 바뀌었으므로 v=1 → v=2(선례: [PROJECTILE-END] side=view v=1 → v=2).
+        //     옛 형식(기록용): "side=view v=1 ... burn=held:N|released:N|cap:N|immediate:N verdict=..."
         // ====================================================================
 
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
@@ -203,13 +206,15 @@ namespace Hexiege.Presentation
         /// <param name="reason">줄을 남기는 사유.</param>
         public string DescribeForDiagnostics(string reason)
         {
-            var attention = new List<string>(4);
+            var attention = new List<string>(5);
             if (_schedule.ReleasedCap > 0) attention.Add("cap");
             if (ProjectileAlignedTimedDamageDiagnostics.CapExceeded > 0) attention.Add("burn-cap");
+            if (ProjectileAlignedTimedDamageDiagnostics.PoisonCapExceeded > 0) attention.Add("poison-cap");   // [단계 E]
             if (_noVisualRoot > 0) attention.Add("no-visual-root");
             if (_faults > 0) attention.Add("faults");
+            // [단계 E] 옛 머리(기록용): $"side=view v=1 role={...} reason={reason} "
             return FormattableString.Invariant(
-                       $"side=view v=1 role={ServerProjectileDiagnostics.RoleName} reason={reason} ")
+                       $"side=view v=2 role={ServerProjectileDiagnostics.RoleName} reason={reason} ")
                    + _schedule.DescribeForDiagnostics()
                    + FormattableString.Invariant($" gate=notReady:{_notReady}|noVisualRoot:{_noVisualRoot} faults={_faults} ")
                    + ProjectileAlignedTimedDamageDiagnostics.Describe()

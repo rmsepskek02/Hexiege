@@ -130,8 +130,33 @@ namespace Hexiege.Editor.Combat
             Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Burn, 10d, 9d, true,
                     ProjectileAlignedTimedDamageStart.MaxHoldSeconds),
                 "[E-2] Burn VFX starts at the 0.3 s cap even if still held.");
-            Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9d, true, 0d),
-                "[E-2] Poison is not delayed (Mushroom is not on the server projectile path yet).");
+            // [2026-10-27 단계 E — 결정 E-B (a)] MushroomBomber가 서버 투사체가 되어 독도 화상과 같은 규칙으로 미룬다.
+            //   옛 단언(기록용 — 주석 보존):
+            //   Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9d, true, 0d),
+            //       "[E-2] Poison is not delayed (Mushroom is not on the server projectile path yet).");
+            Require(ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9.95d, false, .05d),
+                "[E-2 / E2-4] Poison VFX waits while the screen time is before the server start (other enemies in the blast radius).");
+            Require(ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 11d, true, .1d),
+                "[E-2 / E2-4] Poison VFX waits while the Mushroom's projectile hit on the primary target is still held.");
+            Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 10d, false, .1d)
+                    && !ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9d, true,
+                        ProjectileAlignedTimedDamageStart.MaxHoldSeconds),
+                "[E-2 / E2-4] Poison VFX starts at the screen impact, or at the same 0.3 s cap as the burn.");
+            Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.None, 10d, 9d, true, 0d),
+                "[E-2] A timed effect without a visual is never delayed.");
+            Require(ProjectileAlignedTimedDamageStart.IsProjectileAligned(TimedDamageVisual.Burn)
+                    && ProjectileAlignedTimedDamageStart.IsProjectileAligned(TimedDamageVisual.Poison)
+                    && !ProjectileAlignedTimedDamageStart.IsProjectileAligned(TimedDamageVisual.None),
+                "[E-2 / E2-4] Burn (InfernoSpirit) and poison (MushroomBomber) are both server-projectile aligned while their units are switched on.");
+            // [단계 E] 진단 계수는 화상·독을 따로 센다.
+            ProjectileAlignedTimedDamageDiagnostics.Reset();
+            ProjectileAlignedTimedDamageDiagnostics.RecordHeld(TimedDamageVisual.Poison);
+            ProjectileAlignedTimedDamageDiagnostics.RecordReleased(TimedDamageVisual.Poison, false);
+            ProjectileAlignedTimedDamageDiagnostics.RecordImmediate(TimedDamageVisual.Burn);
+            string counters = ProjectileAlignedTimedDamageDiagnostics.Describe();
+            ProjectileAlignedTimedDamageDiagnostics.Reset();
+            Require(counters == "burn=held:0|released:0|cap:0|immediate:1 poison=held:1|released:1|cap:0|immediate:0",
+                "[E-2 / E2-4] Burn and poison start-hold counters are separate: " + counters);
             Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Burn, 10d, double.NaN, false, 0d),
                 "[E-2] An unreadable presentation clock never blocks the burn VFX.");
         }
@@ -231,10 +256,16 @@ namespace Hexiege.Editor.Combat
                 Require(!deaths.TryDefer(h, new DeathHoldFixtureOwner(), true), "[E-3] Impact already shown → immediate (Host order).");
 
                 string line = deaths.DescribeForDiagnostics("fixture");
-                Require(line.StartsWith("side=view v=1 role=Single reason=fixture death=deferred:4|atImpact:3|cap:1|forced:0|discarded:0|heldNow:0 "
+                // [2026-10-27 단계 E] poison 칸 추가로 v=1 → v=2. 옛 단언(기록용 — 주석 보존):
+                //   Require(line.StartsWith("side=view v=1 role=Single reason=fixture death=deferred:4|atImpact:3|cap:1|forced:0|discarded:0|heldNow:0 "
+                //               + "immediate=noHeldKillShot:5|afterImpact:1|capacity:0 holdDuration=n:4|", StringComparison.Ordinal)
+                //           && line.Contains(" gate=notReady:0|noVisualRoot:1 faults=0 burn=held:0|released:0|cap:0|immediate:0 verdict=ATTENTION attention=cap,no-visual-root"),
+                //       "[E-3] [PROJECTILE-DEATH-HOLD] line format: " + line);
+                Require(line.StartsWith("side=view v=2 role=Single reason=fixture death=deferred:4|atImpact:3|cap:1|forced:0|discarded:0|heldNow:0 "
                             + "immediate=noHeldKillShot:5|afterImpact:1|capacity:0 holdDuration=n:4|", StringComparison.Ordinal)
-                        && line.Contains(" gate=notReady:0|noVisualRoot:1 faults=0 burn=held:0|released:0|cap:0|immediate:0 verdict=ATTENTION attention=cap,no-visual-root"),
-                    "[E-3] [PROJECTILE-DEATH-HOLD] line format: " + line);
+                        && line.Contains(" gate=notReady:0|noVisualRoot:1 faults=0 burn=held:0|released:0|cap:0|immediate:0 "
+                            + "poison=held:0|released:0|cap:0|immediate:0 verdict=ATTENTION attention=cap,no-visual-root"),
+                    "[E-3] [PROJECTILE-DEATH-HOLD] line format (v=2 with the poison start-hold counters): " + line);
 
                 // ⑨ 재경기(맵 재초기화): 미뤄 둔 사망은 표현 없이 버린다.
                 UnitData j = Unit(9858); var ownerJ = new DeathHoldFixtureOwner();

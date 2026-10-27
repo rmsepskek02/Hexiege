@@ -332,6 +332,8 @@ namespace Hexiege.Bootstrap
             // 10-4-3. [2026-10-26 수정안 (a)] 화상(InfernoSpirit) VFX 시작을 투사체 화면 착탄에 맞춘다.
             //   표시 시각 = 서버 시계 − (순수 Client면 투사체 화면 지연, 싱글·Host면 0) — 투사체 화면 소비자와 같은 식(Presenter Update).
             //   같은 공격자의 투사체 피해가 아직 화면 착탄 대기 중이면 그 착탄까지 미룬다(상한 0.3초).
+            //   [2026-10-27 단계 E] 독(MushroomBomber)도 같은 두 함수로 미룬다 — 어느 종류를 미룰지는
+            //   ProjectileAlignedTimedDamageStart.IsProjectileAligned가 정하므로 여기 연결은 바뀌지 않는다(주석만 추가).
             var alignmentCombat = _unitCombat;
             var alignmentHits = _hitPresentationQueue;
             damagePresenter.SetProjectileImpactAlignment(

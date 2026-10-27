@@ -26,6 +26,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Hexiege.Domain;   // [2026-10-27 단계 E] 지속 피해 종류 → 그 효과를 거는 유닛 종류(UnitType) 대응표용
 
 namespace Hexiege.Application
 {
@@ -280,16 +281,40 @@ namespace Hexiege.Application
     /// 시작을 미룬다. 단, 받은 뒤 MaxHoldSeconds(0.3초)를 넘기면 기다리지 않고 시작한다.
     /// 싱글·Host는 표시 지연이 0이라 ①은 항상 통과하고, ②도 길어야 한 프레임이다.
     /// 표현 전용 — 화상 피해·틱·지속 시간은 바꾸지 않는다.
+    ///
+    /// [2026-10-27 서버 권위 투사체 단계 E — 사용자 결정 E-B (a)] MushroomBomber 독(Poison)도 같은 규칙으로 미룬다.
+    ///   독은 버섯 포자 투사체가 닿는 순간 서버가 건다(BlastAttackBehavior — 주 타깃 위치 중심 반경 안의 적 전원).
+    ///   화상과 같은 수신 경로(지속 피해 상태 → 화면)라 Client에서 포자가 닿기 전에 독이 먼저 보일 수 있었다.
+    ///   · 주 타깃: ①(화면 시각) + ②(그 공격자의 투사체 피해 보관 중) 둘 다 본다 — 화상과 같다.
+    ///   · 반경 안 다른 적: 직접 피해가 없어 보관된 번호표가 없으므로 ①만 본다(Client에서 이 시각 ≈ 화면 착탄).
+    ///   상한 0.3초도 화상과 같다. 독 피해·틱·지속 시간은 바꾸지 않는다.
     /// </summary>
     public static class ProjectileAlignedTimedDamageStart
     {
-        /// <summary>화상 VFX 시작을 미룰 수 있는 최대 실제 시간(초). 사망 표현 상한과 같다.</summary>
+        /// <summary>화상·독 VFX 시작을 미룰 수 있는 최대 실제 시간(초). 사망 표현 상한과 같다.</summary>
         public const double MaxHoldSeconds = 0.3d;
+
+        /// <summary>
+        /// 이 지속 피해 종류가 "서버 투사체 착탄으로 시작"하는가(= 화면 착탄에 맞춰 시작을 미룰 대상인가).
+        /// 화상 = InfernoSpirit, 독 = MushroomBomber가 거는 유일한 지속 피해이므로, 그 유닛이 서버 투사체 스위치에 켜져 있을 때만 true다.
+        /// (지속 피해 종류 → 거는 유닛 대응은 이 한 곳에만 둔다 — 화면 쪽(TimedDamageEffectPresenter)이 이 함수를 부른다.)
+        /// </summary>
+        /// <param name="visual">지속 피해 종류.</param>
+        /// <returns>화면 착탄 정렬 대상이면 true. None·알 수 없는 값이면 false(즉시 시작 — 예전 동작).</returns>
+        public static bool IsProjectileAligned(TimedDamageVisual visual)
+        {
+            switch (visual)
+            {
+                case TimedDamageVisual.Burn: return ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
+                case TimedDamageVisual.Poison: return ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber);
+                default: return false;
+            }
+        }
 
         /// <summary>
         /// 지금 시작을 미뤄야 하는가.
         /// </summary>
-        /// <param name="visual">지속 피해 종류(화상만 대상 — 독은 즉시).</param>
+        /// <param name="visual">지속 피해 종류(화상·독이 대상 — 그 밖은 즉시). 스위치 확인은 호출자가 IsProjectileAligned로 한다.</param>
         /// <param name="effectStart">서버가 정한 시작 시각(서버 시계).</param>
         /// <param name="presentationNow">이 화면의 표시 시각(서버 시계 − 표시 지연). NaN·무한대면 ①은 보지 않는다.</param>
         /// <param name="heldProjectileHit">같은 공격자의 투사체 피해가 대상에게 아직 보관 중인가.</param>
@@ -297,7 +322,8 @@ namespace Hexiege.Application
         public static bool ShouldWait(TimedDamageVisual visual, double effectStart, double presentationNow,
             bool heldProjectileHit, double waitedSeconds)
         {
-            if (visual != TimedDamageVisual.Burn) return false;
+            // [단계 E] 옛 줄(기록용 — 화상만 미뤘다): if (visual != TimedDamageVisual.Burn) return false;
+            if (visual != TimedDamageVisual.Burn && visual != TimedDamageVisual.Poison) return false;
             if (double.IsNaN(waitedSeconds) || waitedSeconds >= MaxHoldSeconds) return false;
             if (heldProjectileHit) return true;
             if (double.IsNaN(presentationNow) || double.IsInfinity(presentationNow)) return false;
@@ -309,34 +335,69 @@ namespace Hexiege.Application
     /// <summary>
     /// [2026-10-26 수정안 (a) 진단] 화상 VFX 시작 보류 계수(정적 — 진단 전용, 판단에 쓰지 않는다).
     /// 릴리스 빌드에서는 기록 호출이 사라진다.
+    ///
+    /// [2026-10-27 단계 E — 독 보류 추가] 화상(burn)과 독(poison)을 따로 센다. 독도 같은 보류 장치를 타므로
+    ///   한 계수에 섞으면 "Client 독 held = released, cap 0" 같은 실기 확인을 할 수 없다.
+    ///   옛 계수(기록용 — 화상만 있었다): private static int _held, _releasedInTime, _releasedCap, _immediate;
+    ///   옛 기록 함수(기록용): RecordHeld() · RecordReleased(bool capExceeded) · RecordImmediate() — 인자 없이 화상만 셌다.
     /// </summary>
     public static class ProjectileAlignedTimedDamageDiagnostics
     {
-        private static int _held, _releasedInTime, _releasedCap, _immediate;
+        // 화상(InfernoSpirit) 계수.
+        private static int _burnHeld, _burnReleasedInTime, _burnReleasedCap, _burnImmediate;
+        // [단계 E] 독(MushroomBomber) 계수.
+        private static int _poisonHeld, _poisonReleasedInTime, _poisonReleasedCap, _poisonImmediate;
 
         /// <summary>새 경기 — 0으로.</summary>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        public static void Reset() => _held = _releasedInTime = _releasedCap = _immediate = 0;
+        public static void Reset()
+        {
+            _burnHeld = _burnReleasedInTime = _burnReleasedCap = _burnImmediate = 0;
+            _poisonHeld = _poisonReleasedInTime = _poisonReleasedCap = _poisonImmediate = 0;
+        }
 
-        /// <summary>화상 VFX 시작을 처음 미룬 1건.</summary>
+        /// <summary>화상·독 VFX 시작을 처음 미룬 1건.</summary>
+        /// <param name="visual">지속 피해 종류(화상·독 밖의 값은 세지 않는다).</param>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        public static void RecordHeld() => _held++;
+        public static void RecordHeld(TimedDamageVisual visual)
+        {
+            if (visual == TimedDamageVisual.Burn) _burnHeld++;
+            else if (visual == TimedDamageVisual.Poison) _poisonHeld++;
+        }
 
-        /// <summary>미뤘던 화상 VFX를 시작한 1건(capExceeded = 상한을 넘겨 시작했는가).</summary>
+        /// <summary>미뤘던 화상·독 VFX를 시작한 1건(capExceeded = 상한을 넘겨 시작했는가).</summary>
+        /// <param name="visual">지속 피해 종류.</param>
         /// <param name="capExceeded">상한 초과로 시작했으면 true.</param>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        public static void RecordReleased(bool capExceeded) { if (capExceeded) _releasedCap++; else _releasedInTime++; }
+        public static void RecordReleased(TimedDamageVisual visual, bool capExceeded)
+        {
+            if (visual == TimedDamageVisual.Burn) { if (capExceeded) _burnReleasedCap++; else _burnReleasedInTime++; }
+            else if (visual == TimedDamageVisual.Poison) { if (capExceeded) _poisonReleasedCap++; else _poisonReleasedInTime++; }
+        }
 
-        /// <summary>미룰 필요 없이 바로 시작한 화상 VFX 1건.</summary>
+        /// <summary>미룰 필요 없이 바로 시작한 화상·독 VFX 1건.</summary>
+        /// <param name="visual">지속 피해 종류.</param>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        public static void RecordImmediate() => _immediate++;
+        public static void RecordImmediate(TimedDamageVisual visual)
+        {
+            if (visual == TimedDamageVisual.Burn) _burnImmediate++;
+            else if (visual == TimedDamageVisual.Poison) _poisonImmediate++;
+        }
 
-        /// <summary>상한 초과로 시작한 수(verdict 판정용).</summary>
-        public static int CapExceeded => _releasedCap;
+        /// <summary>화상 VFX가 상한 초과로 시작한 수(verdict 판정용). 옛 이름 CapExceeded의 뜻(화상만)을 그대로 유지한다.</summary>
+        public static int CapExceeded => _burnReleasedCap;
 
-        /// <summary>로그 조각 — "burn=held:N|released:N|cap:N|immediate:N".</summary>
+        /// <summary>[단계 E] 독 VFX가 상한 초과로 시작한 수(verdict 판정용).</summary>
+        public static int PoisonCapExceeded => _poisonReleasedCap;
+
+        /// <summary>
+        /// 로그 조각 — "burn=held:N|released:N|cap:N|immediate:N poison=held:N|released:N|cap:N|immediate:N".
+        /// [단계 E] 옛 형식(기록용): "burn=held:N|released:N|cap:N|immediate:N" — 뒤에 poison 칸을 더했다.
+        /// </summary>
         public static string Describe()
-            => string.Format(CultureInfo.InvariantCulture, "burn=held:{0}|released:{1}|cap:{2}|immediate:{3}",
-                _held, _releasedInTime, _releasedCap, _immediate);
+            => string.Format(CultureInfo.InvariantCulture,
+                "burn=held:{0}|released:{1}|cap:{2}|immediate:{3} poison=held:{4}|released:{5}|cap:{6}|immediate:{7}",
+                _burnHeld, _burnReleasedInTime, _burnReleasedCap, _burnImmediate,
+                _poisonHeld, _poisonReleasedInTime, _poisonReleasedCap, _poisonImmediate);
     }
 }

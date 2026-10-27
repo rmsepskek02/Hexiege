@@ -179,6 +179,23 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// [2026-10-27 서버 권위 투사체 단계 E] 외부 구동 모드로 꺼내면서 처음 바라볼 방향도 정한다.
+        /// 왜 필요한가: 지금까지 트레이서는 파티클이라 방향이 거의 보이지 않았지만, EagleArcher 화살은 "앞(화살촉)·뒤(깃)"가
+        /// 분명한 메시다. DriveTo는 "움직인 만큼"으로 방향을 정하므로, 꺼낸 첫 프레임에 거의 움직이지 않으면 회전이 바뀌지 않아
+        /// 풀에서 재사용한 화살이 지난번 방향(또는 프리팹 기본 방향)으로 한 프레임 보일 수 있다. 그래서 대상 쪽을 미리 바라보게 한다.
+        /// 위치·구동 상태는 BeginDriven(start)와 완전히 같다(그 함수를 그대로 부른다).
+        /// </summary>
+        /// <param name="start">발사 지점(화면 좌표).</param>
+        /// <param name="facingPoint">처음 바라볼 지점(화면 좌표). 시작점과 거의 같으면 방향을 바꾸지 않는다.</param>
+        public void BeginDriven(Vector3 start, Vector3 facingPoint)
+        {
+            Vector3 facing = facingPoint - start;
+            // 방향 계산 기준은 DriveTo와 같은 아주 작은 문턱(움직임이 없으면 회전을 건드리지 않는다).
+            if (facing.sqrMagnitude > 0.000001f) transform.rotation = Quaternion.LookRotation(facing);
+            BeginDriven(start);
+        }
+
+        /// <summary>
         /// 외부 구동 모드에서 이번 프레임 위치를 놓는다. 움직인 방향으로 투사체 앞(forward)을 돌린다.
         /// </summary>
         /// <param name="position">이번 프레임 위치(화면 좌표).</param>

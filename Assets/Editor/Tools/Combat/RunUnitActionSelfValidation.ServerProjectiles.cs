@@ -42,6 +42,16 @@
 //   D-6   실제 EffectManager: 서버 취소 통보로 차지 VFX 즉시 정지(싱글·Client 같은 회차), 다른 회차 무시, 취소 뒤 차지 신호 차단
 //         (lease 미소비), Host 서버 게이트, 비차지 유닛 무동작, 서버 투사체 차지 유닛 타격 marker는 로컬 트레이서 없음.
 //   D-7   소스 게이트: 취소 RPC(회차 포함)·화면 연결·RM-5 주석 처리·Fox 시간축 발사 기록.
+// [2026-10-27 단계 E — EagleArcher · MushroomBomber (두 유닛 한 번에 — 사용자 「두 유닛 모두 한 번에 테스트」)]
+//   E-0   스위치 토큰 "6,7,12,17,21,24,26;tower:human" · 투사체 유닛 7종 모두 ON · 스키마 6 유지 · 두 유닛 resolver 사유 갱신(E-E).
+//   E1-1  EagleArcher: 0.2초 발사(피해 0) → 착탄 때 단일 writer 1회(번호표), 착탄 시각 = 발사 + (중심 거리 − 반경) ÷ 속도 6.
+//   E1-2  EagleArcher 화살 트레이서 에셋 계약: 팀별 프리셋 2개(Blue = tracerPreset, Red = redTeamTracerPreset), 프리팹 메시 머티리얼이
+//         그 팀 유닛의 손 화살 머티리얼과 같음, 착탄·공격·피격 프리셋 비어 있음(U-10), 실제 EffectManager가 팀으로 프리팹을 고름.
+//   E2-1  MushroomBomber: 1.0초 발사(피해·독 0) → 착탄 때 주 타깃 직접 피해 1회 + 반경 안 적에게 독(주 타깃 위치 중심), 반경 밖 0.
+//   E2-2  스위치 켜진 Mushroom 착탄에서 옛 스냅샷(OnAttackEffectConfirmed) 발행 0건(RM-8 — 이중 착탄 VFX 금지).
+//   E2-3  비행 중 공격자 사망 → 피해·독 진행(Persist), 비행 중 대상 소실 → 피해·독 0, TargetLost.
+//   E2-4  독 VFX 시작 보류(ProjectileDeathHold E-2) — 독도 화상처럼 화면 착탄까지(상한 0.3초).
+//   RM-13 스위치 OFF 예시 fixture는 꺼진 투사체 유닛이 없어져 주석 처리했다(아래 ValidateServerProjectileSwitchOffKeepsLegacy).
 // 실제 Animator·VFX·NGO 전송·화면 픽셀은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 7절).
 // ============================================================================
 
@@ -110,6 +120,9 @@ namespace Hexiege.Editor.Combat
                 // [단계 D] 차지 유닛 InfernoSpirit · FoxMagician 속도 5(2026-10-20 결정 초기값).
                 settings.SetUnitSpeed(UnitType.InfernoSpirit, 5f);
                 settings.SetUnitSpeed(UnitType.FoxMagician, 5f);
+                // [단계 E] EagleArcher 6 · MushroomBomber 5(2026-10-20 결정 1-1-2 값 = ProjectileConfig.asset 값).
+                settings.SetUnitSpeed(UnitType.EagleArcher, 6f);
+                settings.SetUnitSpeed(UnitType.MushroomBomber, 5f);
                 settings.SetBuildingRadius(BuildingType.Castle, 0.5f);
                 settings.SetUnitRadius(UnitType.LittleKnight, 0.25f);
                 Combat.SetProjectileSettings(settings);
@@ -155,6 +168,7 @@ namespace Hexiege.Editor.Combat
             ValidateServerProjectileStageBSourceGates();       // [단계 B] 의심 1 수정 · 진단 오표기 C
             ValidateServerProjectileStageCSourceGates();       // [단계 C] 타워 화면 소비자 경로
             ValidateServerProjectileStageDSourceGates();       // [단계 D] 취소 통보 전송·화면 연결 · RM-5 · Fox 시간축
+            ValidateEagleArcherArrowTracerAssets();            // [단계 E] E1-2 팀별 화살 트레이서 에셋 계약 + 팀 선택(실제 EffectManager)
             var dataField = typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
             var idField = typeof(UnitData).GetField("_nextId", BindingFlags.Static | BindingFlags.NonPublic);
             Require(dataField != null && idField != null, "Server projectile fixture global-state seams must exist.");
@@ -183,16 +197,25 @@ namespace Hexiege.Editor.Combat
                         DetectRange = 4f, MoveSpeed = 1f, AttackCooldown = 3f, HitFrameTimes = new[] { 1.5f } } },
                     { UnitType.FoxMagician, new UnitStats.StatValues { MaxHp = 200, AttackPower = 15, AttackRange = 3f,
                         DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 4f, HitFrameTimes = new[] { 85f / 30f } } },
+                    // [단계 E] MushroomBomber fixture 값. 발사 시각은 운영 값과 같은 1.0초(MushroomBomber_Attack.anim OnAttackHit).
+                    //   사거리는 fixture 거리(중심 2.0)에 맞춰 3으로 둔다(운영 2 — 이 검증은 사거리 판정이 아니라 발사·착탄·독을 본다).
+                    //   EagleArcher 행(위, 단계 B부터 있던 값)은 이제 스위치 ON 예시(E1-1)로 쓴다.
+                    { UnitType.MushroomBomber, new UnitStats.StatValues { MaxHp = 300, AttackPower = 30, AttackRange = 3f,
+                        DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 3f, HitFrameTimes = new[] { 1f } } },
                 });
                 ValidateServerProjectileNormalHit();
                 ValidateServerProjectileHomingAndSpeed();
                 ValidateServerProjectileFlightOutcomes();
                 ValidateServerProjectilePrelaunchCancellation();
-                ValidateServerProjectileSwitchOffKeepsLegacy();
+                // [RM-13 비활성화 — 2026-10-27 단계 E] 투사체 유닛 7종이 모두 스위치 ON이 되어 "꺼진 투사체 유닛"이 없다.
+                //   OFF 예시 fixture는 검증 대상이 사라졌으므로 호출을 주석 처리한다(메서드 본문도 주석 보존 — RM-9와 함께 P5 삭제).
+                //   옛 줄(기록용): ValidateServerProjectileSwitchOffKeepsLegacy();
                 ValidateServerProjectileTankAndCannonCart();   // [단계 B]
                 ValidateServerProjectileHumanTower();          // [단계 C] 인간 방어타워 투사체 + RuneSpire 즉발 회귀
                 ValidateServerProjectileChargeUnits();         // [단계 D] Inferno 화상 착탄 시작 · Fox 숫자 착탄 · 차지 중 취소/사거리 이탈
                 ValidateChargeUnitServerCancelPresentation();  // [단계 D] 차지 VFX 즉시 정지(서버 취소 통보) · 취소 뒤 차지 신호 차단
+                ValidateServerProjectileEagleArcher();         // [단계 E] E1-1 EagleArcher 단일 타격 발사 → 착탄
+                ValidateServerProjectileMushroomBomber();      // [단계 E] E2-1~E2-3 MushroomBomber 착탄 피해 · 범위 독 · 옛 스냅샷 0
             }
             finally
             {
@@ -204,7 +227,8 @@ namespace Hexiege.Editor.Combat
             // [단계 C] PASS 문구 앞부분에 인간 타워 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: kill-shot numbers (..."
             // [단계 D] PASS 문구 앞부분에 차지 유닛 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: stage-C Human CannonTower (switch token 6,7,17;tower:human, ..."
             // [2026-10-26 수정안 (a)] PASS 문구 앞에 사망 표현 보류 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: stage-D charge units (..."
-            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: projectile kill-shot death presentation hold (deferred until the kill shot's screen impact, two keys, 0.3 s cap, immediate for melee/non-lethal/ID-reuse/no-visual-root/impact-first, rematch discard, game-end release, diagnostic line), burn VFX start alignment, death-hold source gates (server/domain timing unchanged), particle velocity curve modes, stage-D charge units (switch token 6,7,12,17,21;tower:human, schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation and foxPrimary counters, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 commented out, Fox timeline launch record), stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
+            // [2026-10-27 단계 E] PASS 문구 앞에 단계 E 항목을 더했다. 옛 앞부분(기록용): "self-validation PASS: projectile kill-shot death presentation hold (..."
+            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-E EagleArcher and MushroomBomber (switch token 6,7,12,17,21,24,26;tower:human, all seven projectile units on, schema 6 kept, C3 reasons updated, EagleArcher 0.2 s launch then one single-writer impact at speed 6, team arrow tracer assets (Blue tracerPreset / Red redTeamTracerPreset, unit arrow mesh and team material, no impact preset) and team selection with first-frame facing in the actual EffectManager, MushroomBomber 1.0 s launch then one direct hit plus blast-radius poison centred on the primary target, no legacy writer snapshot at impact (RM-8) with poison provenance kept, attacker-dead Persist hit and poison, in-flight target loss with no poison, poison VFX start held like the burn with separate counters, switch-off legacy fixture retired RM-13), projectile kill-shot death presentation hold (deferred until the kill shot's screen impact, two keys, 0.3 s cap, immediate for melee/non-lethal/ID-reuse/no-visual-root/impact-first, rematch discard, game-end release, diagnostic line), burn VFX start alignment, death-hold source gates (server/domain timing unchanged), particle velocity curve modes, stage-D charge units (switch token 6,7,12,17,21;tower:human, schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation and foxPrimary counters, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 commented out, Fox timeline launch record), stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
         // ── 분류·스위치·handshake ───────────────────────────────────────────
@@ -218,19 +242,23 @@ namespace Hexiege.Editor.Combat
             //           && !IsServerProjectile(InfernoSpirit) && !IsServerProjectile(FoxMagician) && !IsServerProjectile(EagleArcher)
             //           && !IsServerProjectile(MushroomBomber) && !IsServerProjectile(Pistoleer),
             //       "Stage B switches on Tank, CannonCart and StreamSpirit; every other projectile unit keeps the legacy path.");
-            Require(ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.StreamSpirit)
-                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Tank)
-                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.CannonCart)
-                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit)
-                    && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.FoxMagician)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.EagleArcher)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber)
-                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer),
-                "[D-1] Stage D adds the charge units InfernoSpirit and FoxMagician; EagleArcher and MushroomBomber keep the legacy path.");
+            // [단계 E] 옛 단언(단계 D, 기록용 — 주석 보존):
+            //   Require(IsServerProjectile(StreamSpirit) && IsServerProjectile(Tank) && IsServerProjectile(CannonCart)
+            //           && IsServerProjectile(InfernoSpirit) && IsServerProjectile(FoxMagician)
+            //           && !IsServerProjectile(EagleArcher) && !IsServerProjectile(MushroomBomber) && !IsServerProjectile(Pistoleer),
+            //       "[D-1] Stage D adds the charge units InfernoSpirit and FoxMagician; EagleArcher and MushroomBomber keep the legacy path.");
+            // [단계 E — E-0] 투사체 유닛 7종이 모두 켜졌다. 비투사체(Pistoleer)·파도(TorrentSpirit)는 계속 꺼져 있다(분류 밖).
+            UnitType[] switchedOn = { UnitType.Tank, UnitType.CannonCart, UnitType.InfernoSpirit, UnitType.StreamSpirit,
+                UnitType.FoxMagician, UnitType.EagleArcher, UnitType.MushroomBomber };
+            Require(Array.TrueForAll(switchedOn, ServerProjectileDeliveryPolicy.IsServerProjectile)
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.Pistoleer)
+                    && !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.TorrentSpirit),
+                "[E-0] Stage E switches on EagleArcher and MushroomBomber; all seven projectile units are now on the server projectile path.");
             // [단계 C] 옛 단언(단계 B, 기록용): ... && ServerProjectileDeliveryPolicy.ManifestToken == "6,7,17"
             // [단계 D] 옛 단언(단계 C, 기록용): Require(ManifestToken == "6,7,17;tower:human", "[C-1] Stage C switch token adds the Human CannonTower: ...");
-            Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,12,17,21;tower:human",
-                "[D-1] Stage D switch token adds InfernoSpirit (12) and FoxMagician (21): " + ServerProjectileDeliveryPolicy.ManifestToken);
+            // [단계 E] 옛 단언(단계 D, 기록용): Require(ManifestToken == "6,7,12,17,21;tower:human", "[D-1] Stage D switch token adds InfernoSpirit (12) and FoxMagician (21): ...");
+            Require(ServerProjectileDeliveryPolicy.ManifestToken == "6,7,12,17,21,24,26;tower:human",
+                "[E-0] Stage E switch token adds EagleArcher (24) and MushroomBomber (26): " + ServerProjectileDeliveryPolicy.ManifestToken);
             Require(ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Human)
                     && ServerProjectileDeliveryPolicy.IsServerProjectileTower(BuildingType.AutoTower, RaceId.Human)
                     && !ServerProjectileDeliveryPolicy.IsProjectileTower(BuildingType.AutoTower, RaceId.Spirit)
@@ -249,13 +277,21 @@ namespace Hexiege.Editor.Combat
                 "Q11 projectile-unit classification is exactly the seven projectile units (Torrent excluded).");
             // [단계 B] 옛 단언(기록용): PresentationContractSchemaRevision == 4 — 단계 A 전송 계약.
             // [단계 D] 옛 단언(단계 B·C, 기록용): Require(PresentationContractSchemaRevision == 5, "Stage B projectile epoch RPC ... raises the presentation schema to 5.");
+            // [단계 E] 스키마는 6 그대로다 — 스위치 목록·사유 문자열만 바뀌고 RPC 모양은 그대로다(결정 E-E).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 6,
-                "[D-1] The stage D launch-cancel RPC raises the presentation schema to 6.");
+                "[D-1] The stage D launch-cancel RPC raises the presentation schema to 6 (stage E keeps 6 — no RPC shape change).");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved
                     && !mushroom.CanRunSequencer,
                 "U-16: MushroomBomber is TargetLocked (homing) while staying C3 Unresolved.");
+            // [단계 E — E-E] 두 유닛의 C3 사유 문자열이 지금 사실과 맞는다(근거가 사라진 옛 문자열을 쓰지 않는다).
+            //   Eagle = Tank·CannonCart와 같은 단일 타격 투사체, Mushroom = Inferno와 같은 투사체 + 지속 피해. 분류값(C3 Unresolved)은 그대로.
+            Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.EagleArcher, out var eagle)
+                    && eagle.Reason == "projectile-system-unresolved" && !eagle.HasSecondaryResults
+                    && eagle.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved
+                    && mushroom.Reason == "projectile-and-periodic-result-unresolved" && mushroom.HasSecondaryResults,
+                "[E-0] EagleArcher / MushroomBomber C3 reasons are updated (E-E) while their C3 classification is unchanged.");
             Require(UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(out string hash, out _)
                     && hash.Length == 64,
                 "Handshake hash still computes with the schema 6 manifest and the switch token.");
@@ -334,7 +370,8 @@ namespace Hexiege.Editor.Combat
                 Require(end.StartsWith("side=server v=1 role=Single authority=local ") && end.Contains(" reason=fixture ")
                         // [단계 C] 옛 조각(기록용): end.Contains(" switch=6,7,17 ")
                         // [단계 D] 옛 조각(기록용): end.Contains(" switch=6,7,17;tower:human ")
-                        && end.Contains(" switch=6,7,12,17,21;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
+                        // [단계 E] 옛 조각(기록용): end.Contains(" switch=6,7,12,17,21;tower:human ")
+                        && end.Contains(" switch=6,7,12,17,21,24,26;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
                         && end.Contains(" hit=1 ") && end.Contains(" targetLost=0 ") && end.Contains(" cancelled=0 ")
                         && end.Contains(" cancel=attacker-dead:0|attacker-replaced:0|target-dead:0|target-missing:0|target-replaced:0|move-command:0|invalid-launch-geometry:0|other:0 ")
                         && end.Contains(" flight=n:1|") && end.Contains(" path=17:s1/l0 ")
@@ -514,23 +551,31 @@ namespace Hexiege.Editor.Combat
             //               && !f.VictimDamage[0].ProjectilePresentationKey.IsValid,
             //           "Switch OFF keeps the legacy hit-time damage with no projectile key (no double damage).");
             //   }
-            using (var f = new ProjectileFixture(UnitType.EagleArcher))
-            {
-                int hp = f.Victim.Hp;
-                Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue, "EagleArcher TryAttack commits one attack.");
-                Require(!f.Combat.HasPendingProjectileLaunch(f.Attacker), "A switched-off unit creates no projectile reservation.");
-                // [2026-10-20 검증 수정] 타격 예정 시각은 float 타격 시각(.2f)을 double로 넓힌 값(0 + 0.20000000298…)이다.
-                //   옛 줄 f.Tick(.2d)는 그보다 아주 조금 이른 0.2라서 운영 코드의 "now < DueAt" 판정에 걸려 피해가 아직 안 들어갔다.
-                //   그래서 유닛 데이터의 실제 타격 시각을 그대로 읽어 Tick 한다(하드코딩 시각 금지).
-                //   옛 줄(기록용): f.Tick(.2d);
-                f.Tick(f.Attacker.HitFrameTimes[0]);
-                Require(f.Launches.Count == 0 && f.Impacts.Count == 0 && f.Victim.Hp == hp - 20 && f.VictimDamage.Count == 1
-                        && !f.VictimDamage[0].ProjectilePresentationKey.IsValid,
-                    "Switch OFF keeps the legacy hit-time damage with no projectile key (no double damage).");
-                string end = f.Combat.BuildProjectileEndLine("fixture");
-                Require(end.Contains(" path=24:s0/l1 ") && end.Contains(" reserved=0 ") && end.Contains(" launched=0 "),
-                    "[B-3] The switched-off unit is counted on the legacy path in the server END path field: " + end);
-            }
+            // ────────────────────────────────────────────────────────────────
+            // [RM-13 비활성화 — 2026-10-27 서버 권위 투사체 단계 E, 결정 E-F]
+            //   이 fixture는 "스위치가 꺼진 투사체 유닛은 옛 경로(타격 순간 피해)를 그대로 탄다"를 확인했다.
+            //   단계 E에서 EagleArcher · MushroomBomber가 함께 켜져 꺼진 투사체 유닛이 하나도 없다 → 확인할 대상이 없다.
+            //   (Mushroom으로 옮겨 E-1 동안 유지하는 안은 두 유닛을 한 번에 이행하기로 해(사용자 「두 유닛 모두 한 번에 테스트」) 필요가 없어졌다.)
+            //   옛 경로 자체는 RM-1 · RM-9(스위치 제거)와 함께 P5에서 정리한다. 이 주석 블록도 그때 삭제한다.
+            //   옛 블록(단계 B~D, 기록용 — 주석 보존):
+            // using (var f = new ProjectileFixture(UnitType.EagleArcher))
+            // {
+            //     int hp = f.Victim.Hp;
+            //     Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue, "EagleArcher TryAttack commits one attack.");
+            //     Require(!f.Combat.HasPendingProjectileLaunch(f.Attacker), "A switched-off unit creates no projectile reservation.");
+            //     // [2026-10-20 검증 수정] 타격 예정 시각은 float 타격 시각(.2f)을 double로 넓힌 값(0 + 0.20000000298…)이다.
+            //     //   옛 줄 f.Tick(.2d)는 그보다 아주 조금 이른 0.2라서 운영 코드의 "now < DueAt" 판정에 걸려 피해가 아직 안 들어갔다.
+            //     //   그래서 유닛 데이터의 실제 타격 시각을 그대로 읽어 Tick 한다(하드코딩 시각 금지).
+            //     //   옛 줄(기록용): f.Tick(.2d);
+            //     f.Tick(f.Attacker.HitFrameTimes[0]);
+            //     Require(f.Launches.Count == 0 && f.Impacts.Count == 0 && f.Victim.Hp == hp - 20 && f.VictimDamage.Count == 1
+            //             && !f.VictimDamage[0].ProjectilePresentationKey.IsValid,
+            //         "Switch OFF keeps the legacy hit-time damage with no projectile key (no double damage).");
+            //     string end = f.Combat.BuildProjectileEndLine("fixture");
+            //     Require(end.Contains(" path=24:s0/l1 ") && end.Contains(" reserved=0 ") && end.Contains(" launched=0 "),
+            //         "[B-3] The switched-off unit is counted on the legacy path in the server END path field: " + end);
+            // }
+            // ────────────────────────────────────────────────────────────────
         }
 
         // ── [단계 B — B-2] Tank(유닛 대상) · CannonCart(건물 대상, 건물 2배) ───────────────────
@@ -1127,6 +1172,9 @@ namespace Hexiege.Editor.Combat
 
             // marker 계수: StreamSpirit 공격자 5가 marker 2 · 받은 발사 1 → "서버 발사 없이 나온 marker" 1.
             //   EagleArcher(스위치 OFF)는 기존 경로 marker·로컬 트레이서로, Pistoleer(비투사체)는 세지 않는다.
+            //   [2026-10-27 단계 E] EagleArcher는 이제 스위치 ON이라 실제 경기에서는 아래 "옛 경로" 입력이 나오지 않는다.
+            //     이 검사는 END 줄 칸(path=..|..:s0/l1 · legacyTracer=)의 "형식"을 보는 것이고, 계수 함수는 스위치를 보지 않으므로
+            //     (ServerProjectileDiagnostics — 투사체 분류만 확인) 가상 입력으로 그대로 둔다. 옛 경로 칸은 RM-9 스위치 제거 때 함께 정리한다.
             ServerProjectileDiagnostics.ResetView();
             try
             {
@@ -1596,6 +1644,275 @@ namespace Hexiege.Editor.Combat
             Require(transport.Contains("UnitAttackShadowObserver.RecordFoxMagicianTimerImpact(")
                     && transport.Contains("RememberFoxProjectileTimelineTicket(UnitData unit, ulong ticket)"),
                 "[D-7] The Fox timeline diagnostic records its timer-impact at the server launch on the projectile path.");
+        }
+
+        // ── [2026-10-27 단계 E — E1-1] EagleArcher: 특수 공격 없는 단일 타격 투사체 ─────────────────────
+        /// <summary>
+        /// 실제 UnitCombatUseCase로 EagleArcher의 서버 판정을 확인한다(단계 B Tank와 같은 모양).
+        ///   발사 = OnAttackHit(fixture 값 = 운영 값 0.2초)에 피해 0 → 착탄 시각(발사 + (중심 거리 − 반경) ÷ 속도 6)에 단일 writer 1회.
+        /// 타격 시각은 유닛 데이터의 실제 HitFrameTimes[0](float)로 tick 한다(하드코딩 금지 — ac05e189 교훈).
+        /// </summary>
+        private static void ValidateServerProjectileEagleArcher()
+        {
+            using (var f = new ProjectileFixture(UnitType.EagleArcher))
+            {
+                int hp = f.Victim.Hp;
+                Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
+                    "[E1-1] EagleArcher (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                double hitAt = f.Attacker.HitFrameTimes[0];
+                f.Tick(hitAt * .5d);
+                Require(f.Launches.Count == 0 && f.Victim.Hp == hp && f.VictimDamage.Count == 0,
+                    "[E1-1] Before the OnAttackHit offset nothing is launched and no damage is applied.");
+                f.Tick(hitAt);
+                Require(f.Launches.Count == 1 && f.Victim.Hp == hp && f.VictimDamage.Count == 0
+                        && Math.Abs(f.Launches[0].LaunchTime - hitAt) < 1e-9
+                        && f.Launches[0].AttackerKind == (int)UnitType.EagleArcher && f.Launches[0].Team == TeamId.Blue,
+                    "[E1-1] EagleArcher launches at its OnAttackHit offset (0.2 s) with no damage; the launch record carries the team (arrow colour).");
+                ProjectileLaunchPresentation launch = f.Launches[0];
+                double expectedImpact = hitAt + (2.0d - .25d) / 6d;
+                Require(Math.Abs(launch.ImpactTime - expectedImpact) < 1e-5 && launch.Homing,
+                    "[E1-1] EagleArcher impact time = launch + (centre distance - target radius) / speed 6 (homing).");
+                f.Tick(expectedImpact - .001d);
+                Require(f.Impacts.Count == 0 && f.Victim.Hp == hp, "[E1-1] No damage before the authoritative impact.");
+                f.Tick(expectedImpact);
+                Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                        && f.VictimDamage.Count == 1 && f.Victim.Hp == hp - 20
+                        && f.VictimDamage[0].ProjectilePresentationKey.Equals(launch.Key)
+                        && !f.VictimDamage[0].ImmediatePresentation,
+                    "[E1-1] At impact exactly one hit goes through the single writer with the projectile key (number waits for the arrow).");
+                f.Tick(expectedImpact + 2d);
+                Require(f.Impacts.Count == 1 && f.VictimDamage.Count == 1, "[E1-1] Repeated ticks never duplicate the arrow impact.");
+                string end = f.Combat.BuildProjectileEndLine("fixture");
+                Require(end.Contains(" switch=6,7,12,17,21,24,26;tower:human ") && end.Contains(" path=24:s1/l0 ")
+                        && end.Contains(" launched=1 ") && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
+                    "[E1-1] Server END counts the EagleArcher attack on the server path (24:s1/l0): " + end);
+            }
+        }
+
+        // ── [2026-10-27 단계 E — E2-1~E2-3] MushroomBomber: 착탄 피해 + 범위 독 + 옛 스냅샷 0 ─────────────────────
+        /// <summary>
+        /// 실제 UnitCombatUseCase로 MushroomBomber의 서버 판정을 확인한다.
+        ///   E2-1 발사 = OnAttackHit 1.0초(피해·독 0) → 착탄 때 주 타깃 직접 피해 1회(번호표) + BlastAttackBehavior가
+        ///        "주 타깃 위치" 중심 반경(기본 1.0) 안의 적 전원(주 타깃 포함)에게 독. 반경 밖 적 · 아군은 독 없음.
+        ///   E2-2 착탄 순간 옛 "피해 순간 스냅샷"(OnAttackEffectConfirmed) 발행 0건(RM-8 — 이중 착탄 VFX 방지).
+        ///        독의 공격 출처 키(damageOrigin)는 그대로 채워진다(생성은 유지 — 결정 E-D (가)).
+        ///   E2-3 비행 중 공격자 사망 → 피해·독 진행(Persist — BlastAttackBehavior AttackerMayBeInactive),
+        ///        비행 중 대상 소실 → 피해·독 0, 결과 TargetLost(반경 안 다른 적도 독 없음).
+        /// </summary>
+        private static void ValidateServerProjectileMushroomBomber()
+        {
+            // 주 타깃(9701, x 2.1) 주변에 적 2 · 아군 1을 둔다. 반경 1.0(UnitCombatUseCase 기본값)은 주 타깃 "위치"가 중심이다.
+            //   near(x 2.6) = 주 타깃에서 0.5 → 안, far(x 3.6) = 1.5 → 밖(공격자에게서 3.5라 사거리 3 밖 — 주 타깃으로 뽑히지 않는다),
+            //   ally(x 2.3, Blue) = 반경 안이지만 아군 → 제외(규칙 16).
+            UnitData Add(ProjectileFixture f, int id, TeamId team, HexCoord hex, float x)
+            {
+                UnitData unit = f.Spawn.SpawnUnitWithId(id, UnitType.LittleKnight, team, hex);
+                Require(unit != null, "[E2] Mushroom fixture neighbour spawns on the fixture grid: " + id);
+                f.Positions.Units[id] = new Vector3(x, 0f, .1f);
+                return unit;
+            }
+            bool Poisoned(ProjectileFixture f, UnitData unit)
+                => f.Combat.TimedDamageEffects.TryGet(unit, out TimedDamageEffectPresentation state)
+                   && state.Active && state.Visual == TimedDamageVisual.Poison;
+
+            // E2-1 · E2-2 정상 착탄.
+            using (var f = new ProjectileFixture(UnitType.MushroomBomber))
+            {
+                var snapshots = new List<AttackEffectPresentation>();
+                using (GameEvents.OnAttackEffectConfirmed.Subscribe(snapshots.Add))
+                {
+                    UnitData near = Add(f, 9702, TeamId.Red, new HexCoord(2, 0), 2.6f);
+                    UnitData far = Add(f, 9703, TeamId.Red, new HexCoord(0, 2), 3.6f);
+                    UnitData ally = Add(f, 9704, TeamId.Blue, new HexCoord(0, 1), 2.3f);
+                    int hp = f.Victim.Hp;
+                    Require(f.Combat.TryAttack(f.Attacker, 0d).HasValue && f.Combat.HasPendingProjectileLaunch(f.Attacker),
+                        "[E2-1] MushroomBomber (switch ON) commit creates a launch reservation instead of a hit-time damage timer.");
+                    double hitAt = f.Attacker.HitFrameTimes[0];
+                    f.Tick(hitAt * .5d);
+                    Require(f.Launches.Count == 0 && f.Victim.Hp == hp && !Poisoned(f, f.Victim) && !Poisoned(f, near),
+                        "[E2-1] Before the 1.0 s OnAttackHit offset nothing is launched, no damage and no poison.");
+                    f.Tick(hitAt);
+                    Require(f.Launches.Count == 1 && f.Victim.Hp == hp && f.VictimDamage.Count == 0
+                            && !Poisoned(f, f.Victim) && !Poisoned(f, near)
+                            && Math.Abs(f.Launches[0].LaunchTime - hitAt) < 1e-9 && f.Launches[0].AttackerKind == (int)UnitType.MushroomBomber
+                            && f.Launches[0].TargetId == f.Victim.Id && f.Launches[0].Homing,
+                        "[E2-1] MushroomBomber launches a homing spore at 1.0 s with no damage and no poison at launch.");
+                    ProjectileLaunchPresentation launch = f.Launches[0];
+                    Require(Math.Abs(launch.ImpactTime - (hitAt + (2.0d - .25d) / 5d)) < 1e-5,
+                        "[E2-1] Mushroom impact time = launch + (centre distance - target radius) / speed 5.");
+                    f.Positions.Units[f.Victim.Id] = new Vector3(2.2f, 0f, .1f);   // 비행 중 주 타깃이 조금 움직인다(Homing) — 반경 중심도 따라간다.
+                    f.Tick(launch.ImpactTime - .001d);
+                    Require(f.Impacts.Count == 0 && f.Victim.Hp == hp && !Poisoned(f, near),
+                        "[E2-1] No damage and no poison before the authoritative impact.");
+                    f.Tick(launch.ImpactTime);
+                    Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                            && f.VictimDamage.Count == 1 && f.Victim.Hp == hp - 30
+                            && f.VictimDamage[0].ProjectilePresentationKey.Equals(launch.Key)
+                            && !f.VictimDamage[0].ImmediatePresentation,
+                        "[E2-1] At impact exactly one direct hit goes through the single writer with the projectile key.");
+                    Require(Poisoned(f, f.Victim) && Poisoned(f, near) && !Poisoned(f, far) && !Poisoned(f, ally),
+                        "[E2-1] At impact the blast poisons every enemy within the radius of the primary target's position (primary included); "
+                        + "enemies outside the radius and allies get none (rules 38~40 unchanged — only the timing moved to the impact).");
+                    Require(f.Combat.TimedDamageEffects.TryGet(near, out TimedDamageEffectPresentation poison)
+                            && poison.SourceId == f.Attacker.Id && poison.AttackSequence != 0UL && poison.AttackMatch != 0UL,
+                        "[E2-2] The poison keeps its attack provenance (damageOrigin is still created at the impact).");
+                    Require(snapshots.Count == 0,
+                        "[E2-2] RM-8: a switched-on Mushroom impact publishes no legacy writer snapshot (no legacy 0.1 s tracer, no second impact VFX).");
+                    int afterImpact = f.Victim.Hp;
+                    f.Combat.TickTimedEffects(1f);
+                    Require(f.Victim.Hp < afterImpact, "[E2-1] The poison DoT ticks after the impact.");
+                    string end = f.Combat.BuildProjectileEndLine("fixture");
+                    Require(end.Contains(" path=26:s1/l0 ") && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
+                        "[E2-1] Server END counts the MushroomBomber attack on the server path (26:s1/l0): " + end);
+                }
+            }
+
+            // E2-3a 비행 중 공격자 사망 → 그래도 피해 + 독(Q3 Persist).
+            using (var f = new ProjectileFixture(UnitType.MushroomBomber))
+            {
+                UnitData near = Add(f, 9702, TeamId.Red, new HexCoord(2, 0), 2.6f);
+                int hp = f.Victim.Hp;
+                f.Combat.TryAttack(f.Attacker, 0d);
+                f.Tick(f.Attacker.HitFrameTimes[0]);
+                Require(f.Launches.Count == 1, "[E2-3] Mushroom launched before the attacker dies.");
+                f.Attacker.TakeDamage(f.Attacker.Hp);
+                f.Spawn.RemoveUnit(f.Attacker.Id);
+                f.Tick(f.Launches[0].ImpactTime);
+                Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.Hit
+                        && f.Victim.Hp == hp - 30 && Poisoned(f, f.Victim) && Poisoned(f, near),
+                    "[E2-3] Q3 Persist: a spore launched before its attacker died still hits and still poisons the blast radius.");
+            }
+
+            // E2-3b 비행 중 대상 소실 → 피해·독 0, TargetLost(반경 안 다른 적도 독 없음).
+            using (var f = new ProjectileFixture(UnitType.MushroomBomber))
+            {
+                var snapshots = new List<AttackEffectPresentation>();
+                using (GameEvents.OnAttackEffectConfirmed.Subscribe(snapshots.Add))
+                {
+                    UnitData near = Add(f, 9702, TeamId.Red, new HexCoord(2, 0), 2.6f);
+                    f.Combat.TryAttack(f.Attacker, 0d);
+                    f.Tick(f.Attacker.HitFrameTimes[0]);
+                    f.Victim.TakeDamage(f.Victim.Hp);                               // 다른 원인으로 비행 중 사망.
+                    f.Tick(f.Launches[0].ImpactTime);
+                    Require(f.Impacts.Count == 1 && f.Impacts[0].Outcome == ProjectileImpactOutcome.TargetLost
+                            && f.Impacts[0].AppliedAmount == 0 && f.VictimDamage.Count == 0 && !Poisoned(f, near) && snapshots.Count == 0,
+                        "[E2-3] Q4: a target lost in flight gets no damage, the blast does not run (no poison) and no snapshot is published.");
+                }
+            }
+
+            // E2-2 소스 게이트: 발행만 끊고 생성은 남겼다(독 origin) — 주석 처리된 옛 블록이 아니라 실제 코드 줄로 확인한다.
+            string useCase = File.ReadAllText(Path.Combine(UnityEngine.Application.dataPath,
+                "_Project/Scripts/Application/UseCases/UnitCombatUseCase.cs"));
+            var active = new System.Text.StringBuilder(useCase.Length);
+            foreach (string line in useCase.Split('\n'))
+                if (!line.TrimStart().StartsWith("//", StringComparison.Ordinal)) active.Append(line).Append('\n');
+            string code = active.ToString();
+            Require(code.Contains("if (mushroomVisual.IsValid && !ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type))")
+                    && code.Contains("damageOrigin = _attackEffects.Create(attacker, target, AttackEffectVisual.MushroomImpact,")
+                    && code.Contains("if (attacker.Type == UnitType.MushroomBomber) mushroomVisual = damageOrigin;"),
+                "[E2-2] RM-8: ExecuteAttack keeps creating damageOrigin (poison/burn origin) and only gates the legacy publish on the switch.");
+        }
+
+        // ── [2026-10-27 단계 E — E1-2] EagleArcher 팀별 화살 트레이서 에셋 계약 + 팀 선택 ─────────────────────
+        /// <summary>
+        /// 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 만든 에셋이 연결돼 있는지 확인한다(사용자가 먼저 실행해야 한다).
+        ///   · UnitEffectConfig type 24 행: tracerPreset = EffectPreset_EagleArcher_Tracer_Blue, redTeamTracerPreset = _Red,
+        ///     attackPreset · impactPreset · hitPreset = 비어 있음(착탄 이펙트 없음 — U-10).
+        ///   · 두 프리팹: 파티클 없음, 자식 Arrow의 메시 = 그 팀 유닛 프리팹 손 화살(EagleArrow)과 같은 메시, 머티리얼 = 그 팀 화살 머티리얼.
+        ///   · 실제 EffectManager.BeginServerProjectile이 팀으로 프리팹을 고르고(Blue → blue, Red → red), 처음부터 대상 쪽을 본다.
+        ///   · 팀 칸이 비어 있는 다른 투사체 유닛(Tank)은 두 팀 모두 같은 트레이서(예전 동작 그대로).
+        /// 경로 문자열은 1회성 Setup 스크립트의 상수를 참조하지 않고 여기 따로 적는다(1회성 스크립트 직접 의존 금지 — WORKFLOW [5-2]).
+        /// </summary>
+        private static void ValidateEagleArcherArrowTracerAssets()
+        {
+            const string configPath = "Assets/_Project/Resources/Config/UnitEffectConfig.asset";
+            const string bluePresetPath = "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_EagleArcher_Tracer_Blue.asset";
+            const string redPresetPath = "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_EagleArcher_Tracer_Red.asset";
+            const string blueUnitPath = "Assets/_Project/Prefabs/Units/Transcendence/Unit_EagleArcher_Blue.prefab";
+            const string redUnitPath = "Assets/_Project/Prefabs/Units/Transcendence/Unit_EagleArcher_Red.prefab";
+            const string blueMaterialPath = "Assets/_Project/Materials/Units/EagleArcher/mat_eaglearrow_blue.mat";
+            const string redMaterialPath = "Assets/_Project/Materials/Units/EagleArcher/mat_eaglearrow_red.mat";
+            const string setupMenu = "Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers";
+
+            var units = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.UnitEffectConfig>(configPath);
+            var bluePreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(bluePresetPath);
+            var redPreset = AssetDatabase.LoadAssetAtPath<Hexiege.Presentation.EffectPreset>(redPresetPath);
+            Require(units != null && bluePreset != null && redPreset != null
+                    && bluePreset.VfxPrefab != null && redPreset.VfxPrefab != null && bluePreset.VfxPrefab != redPreset.VfxPrefab,
+                "[E1-2] EagleArcher team arrow tracer presets exist with two different prefabs (run the menu '" + setupMenu + "' first).");
+
+            // UnitEffectConfig 행(직렬화 값 그대로 — intValue로 UnitType 비교).
+            var serialized = new SerializedObject(units);
+            SerializedProperty entries = serialized.FindProperty("_entries");
+            int rows = 0;
+            for (int i = 0; entries != null && i < entries.arraySize; i++)
+            {
+                SerializedProperty row = entries.GetArrayElementAtIndex(i);
+                if (row.FindPropertyRelative("unitType").intValue != (int)UnitType.EagleArcher) continue;
+                rows++;
+                Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == bluePreset
+                        && row.FindPropertyRelative("redTeamTracerPreset").objectReferenceValue == redPreset
+                        && row.FindPropertyRelative("attackPreset").objectReferenceValue == null
+                        && row.FindPropertyRelative("impactPreset").objectReferenceValue == null
+                        && row.FindPropertyRelative("hitPreset").objectReferenceValue == null,
+                    "[E1-2] UnitEffectConfig EagleArcher row: tracer Blue / red-team tracer Red, and no attack/impact/hit preset (U-10 no impact VFX).");
+            }
+            Require(rows == 1, "[E1-2] UnitEffectConfig has exactly one EagleArcher row.");
+
+            // 프리팹: 파티클 없는 메시 화살, 메시·머티리얼 = 그 팀 유닛 손 화살.
+            void RequireArrowPrefab(GameObject prefab, string unitPath, string materialPath, string team)
+            {
+                var unit = AssetDatabase.LoadAssetAtPath<GameObject>(unitPath);
+                var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+                MeshFilter source = null;
+                if (unit != null)
+                    foreach (var filter in unit.GetComponentsInChildren<MeshFilter>(true))
+                        if (filter.gameObject.name == "EagleArrow") { source = filter; break; }
+                Transform arrow = prefab.transform.Find("Arrow");
+                var arrowFilter = arrow != null ? arrow.GetComponent<MeshFilter>() : null;
+                var arrowRenderer = arrow != null ? arrow.GetComponent<MeshRenderer>() : null;
+                Require(source != null && material != null && arrowFilter != null && arrowRenderer != null
+                        && arrowFilter.sharedMesh == source.sharedMesh && arrowRenderer.sharedMaterial == material
+                        && prefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0
+                        && prefab.transform.localRotation == Quaternion.identity,
+                    "[E1-2] " + team + " arrow tracer prefab copies the unit's EagleArrow mesh with the " + team + " arrow material (no particles).");
+            }
+            RequireArrowPrefab(bluePreset.VfxPrefab, blueUnitPath, blueMaterialPath, "Blue");
+            RequireArrowPrefab(redPreset.VfxPrefab, redUnitPath, redMaterialPath, "Red");
+
+            // 실제 EffectManager: 팀으로 프리팹 선택 + 처음 바라보는 방향.
+            var root = new GameObject("EagleArrowTracerFixture") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var manager = root.AddComponent<Hexiege.Presentation.EffectManager>();
+                typeof(Hexiege.Presentation.EffectManager).GetField("_vfxContainer", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(manager, root.transform);
+                manager.Initialize(units, null, null);
+                Require(units.GetTracer(UnitType.EagleArcher, TeamId.Blue) == bluePreset
+                        && units.GetTracer(UnitType.EagleArcher, TeamId.Red) == redPreset
+                        && units.GetTracer(UnitType.EagleArcher, TeamId.Neutral) == bluePreset
+                        && units.GetTracer(UnitType.EagleArcher) == bluePreset,
+                    "[E1-2] Team tracer lookup: Blue/Neutral use tracerPreset, Red uses redTeamTracerPreset.");
+                Require(units.GetTracer(UnitType.Tank, TeamId.Red) == units.GetTracer(UnitType.Tank, TeamId.Blue)
+                        && units.GetTracer(UnitType.Tank, TeamId.Red) == units.GetTracer(UnitType.Tank),
+                    "[E1-2] A unit without a red-team tracer uses the same tracer for both teams (unchanged behaviour).");
+                Vector3 start = new Vector3(1f, .4f, 1f), facing = new Vector3(3f, .2f, 1f);
+                var blue = manager.BeginServerProjectile(UnitType.EagleArcher, TeamId.Blue, start, facing);
+                var red = manager.BeginServerProjectile(UnitType.EagleArcher, TeamId.Red, start, facing);
+                Require(blue != null && red != null && blue.SourcePrefab == bluePreset.VfxPrefab && red.SourcePrefab == redPreset.VfxPrefab
+                        && blue.IsDriven && red.IsDriven,
+                    "[E1-2] The actual EffectManager picks the Blue/Red arrow prefab from the launch team.");
+                Vector3 expected = (facing - start).normalized;
+                Require(Vector3.Angle(blue.transform.forward, expected) < .01f && (blue.transform.position - start).sqrMagnitude < 1e-8f,
+                    "[E1-2] The arrow faces its target from the first frame (no stale pooled rotation) and starts at the launch point.");
+                manager.EndServerProjectile(blue);
+                manager.EndServerProjectile(red);
+                Require(!blue.gameObject.activeSelf && !red.gameObject.activeSelf, "[E1-2] Ending the driven arrows returns them to the pool.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
     }
 }

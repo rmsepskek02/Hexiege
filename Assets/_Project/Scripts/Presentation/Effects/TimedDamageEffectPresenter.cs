@@ -126,11 +126,17 @@ namespace Hexiege.Presentation
             _heldProjectileHit = heldProjectileHit;
         }
 
-        // 화상 VFX 시작을 이번 프레임 미뤄야 하는가. 판단은 순수 함수(ProjectileAlignedTimedDamageStart)가 한다.
+        // 화상·독 VFX 시작을 이번 프레임 미뤄야 하는가. 판단은 순수 함수(ProjectileAlignedTimedDamageStart)가 한다.
+        // [2026-10-27 서버 권위 투사체 단계 E — 사용자 결정 E-B (a)] 독(MushroomBomber)도 화상과 같은 장치로 미룬다.
+        //   "이 지속 피해가 서버 투사체 착탄으로 시작하는가"(화상 = Inferno 스위치, 독 = Mushroom 스위치)는
+        //   ProjectileAlignedTimedDamageStart.IsProjectileAligned 한 곳이 정한다(종류 → 유닛 대응을 여기 두지 않는다).
+        //   옛 조건(기록용 — 화상만):
+        //   if (owner.State.Visual != TimedDamageVisual.Burn || _presentationClock == null
+        //       || !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit)) return false;
         private bool ShouldHoldStart(Owner owner)
         {
-            if (owner.State.Visual != TimedDamageVisual.Burn || _presentationClock == null
-                || !ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit)) return false;
+            if (_presentationClock == null
+                || !ProjectileAlignedTimedDamageStart.IsProjectileAligned(owner.State.Visual)) return false;
             double now = Time.realtimeSinceStartupAsDouble;
             if (double.IsNaN(owner.ReceivedLocal)) owner.ReceivedLocal = now;
             double presentationNow;
@@ -141,15 +147,18 @@ namespace Hexiege.Presentation
             bool wait = ProjectileAlignedTimedDamageStart.ShouldWait(owner.State.Visual, owner.State.StartTime, presentationNow, held, waited);
             if (wait)
             {
-                if (!owner.AlignHeld) { owner.AlignHeld = true; ProjectileAlignedTimedDamageDiagnostics.RecordHeld(); }
+                // [단계 E] 화상·독을 따로 센다 — 종류를 넘긴다. 옛 줄(기록용): ...RecordHeld(); }
+                if (!owner.AlignHeld) { owner.AlignHeld = true; ProjectileAlignedTimedDamageDiagnostics.RecordHeld(owner.State.Visual); }
                 return true;
             }
-            // [진단] 한 화상에 1번만 센다(프리셋이 없어 시작이 매 프레임 재시도되는 경우에도 중복으로 세지 않게).
+            // [진단] 한 화상·독에 1번만 센다(프리셋이 없어 시작이 매 프레임 재시도되는 경우에도 중복으로 세지 않게).
+            //   [단계 E] 옛 두 줄(기록용): RecordReleased(waited >= MaxHoldSeconds) / RecordImmediate() — 종류 인자가 없었다.
             if (!owner.AlignCounted)
             {
                 owner.AlignCounted = true;
-                if (owner.AlignHeld) ProjectileAlignedTimedDamageDiagnostics.RecordReleased(waited >= ProjectileAlignedTimedDamageStart.MaxHoldSeconds);
-                else ProjectileAlignedTimedDamageDiagnostics.RecordImmediate();
+                if (owner.AlignHeld) ProjectileAlignedTimedDamageDiagnostics.RecordReleased(owner.State.Visual,
+                    waited >= ProjectileAlignedTimedDamageStart.MaxHoldSeconds);
+                else ProjectileAlignedTimedDamageDiagnostics.RecordImmediate(owner.State.Visual);
             }
             return false;
         }

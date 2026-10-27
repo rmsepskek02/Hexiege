@@ -1,7 +1,7 @@
 # Plan — 서버 권위 투사체 (옵션 C)
 
 > 작성 2026-10-19 · 기준 checkout HEAD `ab9d55d7` · 근거 조사: 같은 폴더 [Research.md](Research.md)
-> **상태: 승인됨 — 구현 진행 · 단계 D(차지 유닛 InfernoSpirit · FoxMagician — 스위치 `6,7,12,17,21;tower:human`, 스키마 6) 구현 `a0a23423` + 단계 D-2(U-18 (a)안 — 투사체 사망타의 사망 표현 · 화상 VFX 화면 착탄까지 보류, U-19 파티클 커브 모드 수정) `fb77548c` · main 병합 `f367cb52`(= origin/main) · 실기 로그상 사망 표현 17/17 화면 착탄과 같은 순간 · 화상 보류 3/3 · 파티클 오류 0(scoped), 사용자 육안 「피격된 뒤 대미지가 들어가는 것 같다」(정상) · **단계 D · D-2 사용자 테스트 PASS(2026-10-27)** · U-20(BearGuard 화상 크기) 종결 — [상태 이펙트 Task](../../2026-10-26/18_34_status-effect-width-fit/Plan.md) 화상 v2로 해결 · `NET-TIME-002` 문장 정리 반영 완료(4-3 T-1 · T-2 · T-3a — 사용자 결정 2026-10-26, T-3b 기각) *(2026-10-26 갱신: 종전 「`NET-TIME-002` 개정안 사용자 승인 대기(4-3)」)* · 늦은 접속은 사용자 결정으로 실기 테스트 생략 · **단계 E(EagleArcher · MushroomBomber) Plan 작성 — 사용자 승인 대기([10절](#10-stage-e-eaglearcher-mushroombomber))** *(2026-10-27 11차 — 사용자 결정 「인페르노·여우 작업 완료한 거 아니야? 뭐 더 확인해야 해?」 · 「게임 도중 접속한 클라이언트(늦은 접속) 상황은 테스트하기 어려우니 넘어가도록 하자」 · 「다음 작업은 이글아처·버섯폭탄병 서버 투사체 작업 진행」 [전달 — 메인 세션]. 종전 10차 상태의 뒷부분 「🔴 BearGuard 화상 VFX가 잘 안 보임 — 크기 수정안 U-20 사용자 결정 대기 · … · 회귀 스위트 결과 미보고(단계 D 사용자 테스트 PASS 아님) · 남은 대상 EagleArcher · MushroomBomber」)* *(2026-10-26 10차 — 근거 [Research 17절](Research.md#17-stage-d2-death-hold-check-20261026). 종전 9차 상태 「승인됨 — 구현 진행 · 단계 D(차지 유닛 InfernoSpirit · FoxMagician — 스위치 `6,7,12,17,21;tower:human`, 스키마 6) 구현 `a0a23423`(main 병합 `e340f783`) · 실기 로그상 서버 판정 · 차지 취소 · Fox 즉시 표시 0 · 숫자 hold 정상(scoped) · 🔴 Client 사망 표현 · 화상 VFX가 화면 착탄보다 0.04~0.17초 앞섬(사용자 보고 「Client에서 투사체가 닿기 전에 대미지」와 일치) — 수정 방식 U-18 사용자 결정 대기 · 별건 기기 파티클 오류 U-19 · 회귀 스위트 결과 미보고 · 남은 대상 EagleArcher · MushroomBomber」)* *(2026-10-26 9차 — 근거 [Research 16절](Research.md#16-stage-d-charge-unit-check-20261026). 종전 8차 상태 「단계 C(인간 대포 타워 투사체 — 스위치 `6,7,17;tower:human`) 구현 `b819dc51` · 실기 로그상 인간 타워 투사체 정상(scoped, Red 반전 포함) · 사용자 「테스트 완료 · 육안상 특별한 문제 없음」 · 회귀 스위트 PASS(사용자 Console 확인 — RuntimeLog에는 남지 않음) · 남은 대상 InfernoSpirit · FoxMagician · EagleArcher · MushroomBomber」)* *(2026-10-21 8차 — 근거 [Research 15절](Research.md#15-stage-c-human-cannon-tower-check-20261021). 종전 7차 상태 「단계 B(Tank·CannonCart·StreamSpirit ON) 구현 `639ac1aa` + 회귀 검증 수정 `ac05e189` + 사망타 숫자 수정 `64b743c8`(U-17 A안 — 닫힘) · 실기 로그상 사망타 숫자 누락 0 · 서버·화면 판정 PASS(scoped) · 사용자 육안 「괜찮아 보여」 · 회귀 스위트 결과 미보고」. 회귀 스위트는 8차에 PASS로 닫혔다)* *(2026-10-21 7차 — 근거 [Research 14절](Research.md#14-stage-b2-kill-shot-number-check-20261021). 종전 6차 상태 「단계 B … 서버 판정 로그 정상(scoped) · 의심 1 수정 효과 확인 · 🔴 사망타 피해 숫자 누락(단계 B 회귀) — 수정 방식(U-17) 사용자 승인 대기 · 회귀 스위트 재실행 결과 미보고」)* *(2026-10-21 6차 — 근거 [Research 13절](Research.md#13-stage-b-field-log-analysis-20261021). 종전 5차 상태 「단계 A(StreamSpirit만 ON) 구현 `d09cc4a9`, 사용자 육안 확인 + 서버 판정 로그 확인(scoped), 화면 표현 로그 미확인, 의심 1 후속 판단 대기」)* *(2026-10-20 5차 — 근거 [Research 12절](Research.md#12-stage-a-field-log-analysis-20261020). 아래 4차 조각의 「코드·에셋은 아직 바뀌지 않았다」는 4차 당시 사실이다)* *(2026-10-20 4차 갱신 — 사용자 승인 「나머지는 추천방식대로 진행해」. 1-3절 미결 전부 닫힘, 4-2절 개정안 F-1~F-9를 규칙 문서·`StatsReference.md`에 **승인된 목표 계약(미구현 표시)**으로 반영 — [4-2-3절](#4-2-3-규칙-문서-반영과-개정-전-원문). 코드·에셋은 아직 바뀌지 않았다. 종전 상태 「결정 반영 초안 — 남은 미결(1-3절의 「열림」 행) + 4-2절 개정안 승인 + Plan 승인 대기(구현 전)」. 아래 이 줄의 나머지는 2차 당시 문장이다)* Q1~Q17 결정이 모두 [1-1절](#1-1-사용자-결정-기록-2026-10-1920)·[1-1-2절](#1-1-2-추가-결정-2026-10-20-2차)·[1-1-3절](#1-1-3-mushroombomber-예외-철회-2026-10-20-3차)에 기록됐고(Q12는 2026-10-20 2차에 확정, Mushroom 예외는 3차에 철회), 남은 미결·확인 항목은 [1-3절](#1-3-남은-미결확인-항목)에 있다. *(2026-10-20 2차 갱신 — 1차 때는 「Q12를 뺀 결정 … 남은 미결·확인 U-1~U-12」였다)* 이것들이 닫히고 이 Plan이 승인되기 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]). 규칙 개정 문안은 4-2절에 **승인 대기 개정안**으로만 두었다. *(2026-10-20 갱신 — 종전 상태 「초안 — 사용자 결정 대기(승인 전)」. 2·3·4·5·6·7절은 결정에 맞춰 고쳐 썼고, 2026-10-19 초안 원문은 커밋 `e5958406`의 이 파일에 그대로 있다. 1절 질문 표는 원문 그대로 두었다)*
+> **상태: 승인됨 — 구현 진행 · 단계 D(차지 유닛 InfernoSpirit · FoxMagician — 스위치 `6,7,12,17,21;tower:human`, 스키마 6) 구현 `a0a23423` + 단계 D-2(U-18 (a)안 — 투사체 사망타의 사망 표현 · 화상 VFX 화면 착탄까지 보류, U-19 파티클 커브 모드 수정) `fb77548c` · main 병합 `f367cb52`(= origin/main) · 실기 로그상 사망 표현 17/17 화면 착탄과 같은 순간 · 화상 보류 3/3 · 파티클 오류 0(scoped), 사용자 육안 「피격된 뒤 대미지가 들어가는 것 같다」(정상) · **단계 D · D-2 사용자 테스트 PASS(2026-10-27)** · U-20(BearGuard 화상 크기) 종결 — [상태 이펙트 Task](../../2026-10-26/18_34_status-effect-width-fit/Plan.md) 화상 v2로 해결 · `NET-TIME-002` 문장 정리 반영 완료(4-3 T-1 · T-2 · T-3a — 사용자 결정 2026-10-26, T-3b 기각) *(2026-10-26 갱신: 종전 「`NET-TIME-002` 개정안 사용자 승인 대기(4-3)」)* · 늦은 접속은 사용자 결정으로 실기 테스트 생략 · **단계 E(EagleArcher · MushroomBomber) 사용자 승인 — 결정 E-A ~ E-F 확정, 구현 대기 · E-0 에셋 스크립트 실행 뒤 E-1 · E-2를 한 번에 구현 · 한 번에 사용자 테스트([10절](#10-stage-e-eaglearcher-mushroombomber))** *(2026-10-27 12차 — 사용자 「추천대로 진행하고 가로 진행하자」 · 「"스위치 꺼진 유닛" 검사 … 테스트하는데 스위치를 끄면 안 되는 거 아닌가? 두 유닛 모두 한 번에 테스트할 수도 있어」 [전달 — 메인 세션]. 종전 11차 표기 「단계 E(EagleArcher · MushroomBomber) Plan 작성 — 사용자 승인 대기」)* *(2026-10-27 11차 — 사용자 결정 「인페르노·여우 작업 완료한 거 아니야? 뭐 더 확인해야 해?」 · 「게임 도중 접속한 클라이언트(늦은 접속) 상황은 테스트하기 어려우니 넘어가도록 하자」 · 「다음 작업은 이글아처·버섯폭탄병 서버 투사체 작업 진행」 [전달 — 메인 세션]. 종전 10차 상태의 뒷부분 「🔴 BearGuard 화상 VFX가 잘 안 보임 — 크기 수정안 U-20 사용자 결정 대기 · … · 회귀 스위트 결과 미보고(단계 D 사용자 테스트 PASS 아님) · 남은 대상 EagleArcher · MushroomBomber」)* *(2026-10-26 10차 — 근거 [Research 17절](Research.md#17-stage-d2-death-hold-check-20261026). 종전 9차 상태 「승인됨 — 구현 진행 · 단계 D(차지 유닛 InfernoSpirit · FoxMagician — 스위치 `6,7,12,17,21;tower:human`, 스키마 6) 구현 `a0a23423`(main 병합 `e340f783`) · 실기 로그상 서버 판정 · 차지 취소 · Fox 즉시 표시 0 · 숫자 hold 정상(scoped) · 🔴 Client 사망 표현 · 화상 VFX가 화면 착탄보다 0.04~0.17초 앞섬(사용자 보고 「Client에서 투사체가 닿기 전에 대미지」와 일치) — 수정 방식 U-18 사용자 결정 대기 · 별건 기기 파티클 오류 U-19 · 회귀 스위트 결과 미보고 · 남은 대상 EagleArcher · MushroomBomber」)* *(2026-10-26 9차 — 근거 [Research 16절](Research.md#16-stage-d-charge-unit-check-20261026). 종전 8차 상태 「단계 C(인간 대포 타워 투사체 — 스위치 `6,7,17;tower:human`) 구현 `b819dc51` · 실기 로그상 인간 타워 투사체 정상(scoped, Red 반전 포함) · 사용자 「테스트 완료 · 육안상 특별한 문제 없음」 · 회귀 스위트 PASS(사용자 Console 확인 — RuntimeLog에는 남지 않음) · 남은 대상 InfernoSpirit · FoxMagician · EagleArcher · MushroomBomber」)* *(2026-10-21 8차 — 근거 [Research 15절](Research.md#15-stage-c-human-cannon-tower-check-20261021). 종전 7차 상태 「단계 B(Tank·CannonCart·StreamSpirit ON) 구현 `639ac1aa` + 회귀 검증 수정 `ac05e189` + 사망타 숫자 수정 `64b743c8`(U-17 A안 — 닫힘) · 실기 로그상 사망타 숫자 누락 0 · 서버·화면 판정 PASS(scoped) · 사용자 육안 「괜찮아 보여」 · 회귀 스위트 결과 미보고」. 회귀 스위트는 8차에 PASS로 닫혔다)* *(2026-10-21 7차 — 근거 [Research 14절](Research.md#14-stage-b2-kill-shot-number-check-20261021). 종전 6차 상태 「단계 B … 서버 판정 로그 정상(scoped) · 의심 1 수정 효과 확인 · 🔴 사망타 피해 숫자 누락(단계 B 회귀) — 수정 방식(U-17) 사용자 승인 대기 · 회귀 스위트 재실행 결과 미보고」)* *(2026-10-21 6차 — 근거 [Research 13절](Research.md#13-stage-b-field-log-analysis-20261021). 종전 5차 상태 「단계 A(StreamSpirit만 ON) 구현 `d09cc4a9`, 사용자 육안 확인 + 서버 판정 로그 확인(scoped), 화면 표현 로그 미확인, 의심 1 후속 판단 대기」)* *(2026-10-20 5차 — 근거 [Research 12절](Research.md#12-stage-a-field-log-analysis-20261020). 아래 4차 조각의 「코드·에셋은 아직 바뀌지 않았다」는 4차 당시 사실이다)* *(2026-10-20 4차 갱신 — 사용자 승인 「나머지는 추천방식대로 진행해」. 1-3절 미결 전부 닫힘, 4-2절 개정안 F-1~F-9를 규칙 문서·`StatsReference.md`에 **승인된 목표 계약(미구현 표시)**으로 반영 — [4-2-3절](#4-2-3-규칙-문서-반영과-개정-전-원문). 코드·에셋은 아직 바뀌지 않았다. 종전 상태 「결정 반영 초안 — 남은 미결(1-3절의 「열림」 행) + 4-2절 개정안 승인 + Plan 승인 대기(구현 전)」. 아래 이 줄의 나머지는 2차 당시 문장이다)* Q1~Q17 결정이 모두 [1-1절](#1-1-사용자-결정-기록-2026-10-1920)·[1-1-2절](#1-1-2-추가-결정-2026-10-20-2차)·[1-1-3절](#1-1-3-mushroombomber-예외-철회-2026-10-20-3차)에 기록됐고(Q12는 2026-10-20 2차에 확정, Mushroom 예외는 3차에 철회), 남은 미결·확인 항목은 [1-3절](#1-3-남은-미결확인-항목)에 있다. *(2026-10-20 2차 갱신 — 1차 때는 「Q12를 뺀 결정 … 남은 미결·확인 U-1~U-12」였다)* 이것들이 닫히고 이 Plan이 승인되기 전에는 코드·에셋·규칙 문서·`StatsReference.md`를 하나도 바꾸지 않는다(WORKFLOW [4]). 규칙 개정 문안은 4-2절에 **승인 대기 개정안**으로만 두었다. *(2026-10-20 갱신 — 종전 상태 「초안 — 사용자 결정 대기(승인 전)」. 2·3·4·5·6·7절은 결정에 맞춰 고쳐 썼고, 2026-10-19 초안 원문은 커밋 `e5958406`의 이 파일에 그대로 있다. 1절 질문 표는 원문 그대로 두었다)*
 > 갱신 기준 checkout HEAD `a11b5381`(2026-10-20 1차) → **`968e56bc`(2026-10-20 2차 — 사용자 커밋: `EagleArcher_Attack.anim` `OnAttackHit` 0.1 → 0.2초)**. 이번 회차에 새로 다시 읽은 행은 [확인]으로 적었다.
 > 근거 표기는 Research와 같다: [확인] · [전달] · [추정] · [미확인]. 행 번호는 바뀔 수 있으므로 메서드 이름을 함께 적는다.
 > 읽은 규칙 원본(WORKFLOW [4]): `GameSystemRules.md` 인덱스 · `GameSystemRules_Units.md`(「공격 회차 안정 ID」, 「전투 연출 동기화 규칙」 규칙 17~20, 「착탄형 DoT 확장」 규칙 38~40) · `GameSystemRules_UnitCombatSynchronization.md`(「6. 방향과 타겟 동기화」, 「7. 전달 방식별 동기화」, 「9. 취소·사망·중단」) · `GameSystemRules_Buildings.md`(「방어 타워 시스템」 규칙 12).
@@ -20,7 +20,7 @@
 범위도 넓어졌다. 독수리 궁수(EagleArcher)의 화살과 **인간 방어타워(CannonTower)의 포탄**도 같은 방식의 투사체가 된다. 정령 방어타워(RuneSpire)의 번개는 투사체가 아니므로 지금처럼 즉시 피해를 준다. 결정 전체는 1-1절, 아직 정하지 못한 것은 1-3절에 있다.
 **같은 날 2차 결정.** 큰 유닛·건물은 투사체가 **몸체 표면에 닿는 순간** 피해가 들어가고 착탄 이펙트도 그 표면에서 보인다. 쏘기 전에 이동 명령을 받거나 대상이 죽으면 쏘지 않는다. 인간 타워는 대포 입구에서 쏘고, 쏜 뒤 타워가 부서져도 포탄은 맞으면 피해를 준다. 독수리 궁수는 공격 동작 0.2초에 화살을 쏘며 착탄 이펙트는 없다. 버섯 폭격기는 쏜 순간 대상이 있던 자리를 노리며, 그 자리를 벗어난 적은 피해를 받지 않는 것이 메인 세션의 기본안이다(사용자 승인 대기). **3차(같은 날):** 사용자가 「복잡하니 예외를 두지 말자」고 정해 버섯 폭격기도 다른 투사체처럼 대상을 따라가 맞히고, 맞은 대상 위치를 중심으로 지금처럼 폭발·독을 준다. 앞 문장의 기본안은 폐기됐다.
 
-**2026-10-27 — 단계 E (남은 두 유닛).** 여섯 대상(물의 정령 · 탱크 · 대포 수레 · 인간 대포 타워 · 지옥불 정령 · 여우 마법사)은 새 방식으로 바뀌어 사용자 테스트를 통과했다. 이제 **독수리 궁수(EagleArcher)와 버섯 폭격기(MushroomBomber)** 를 같은 방식으로 바꾼다. 공통 장치는 이미 있어서 두 유닛을 「켜는」 것이 중심이다. 다만 독수리 궁수는 **날아갈 화살 모양을 새로 만들어야 하고**(지금은 화살이 아예 안 날아간다), 버섯 폭격기는 **옛 서버 표현 기록을 꺼야 착탄 이펙트가 두 번 나오지 않으며**, **독 이펙트를 포자가 닿는 순간까지 미룰지** 정해야 한다. 독수리 궁수부터 하고(E-1) 버섯 폭격기를 뒤에 한다(E-2). 정할 것과 추천은 [10절](#10-stage-e-eaglearcher-mushroombomber)에 있다. **사용자가 승인하기 전에는 구현하지 않는다.**
+**2026-10-27 — 단계 E (남은 두 유닛).** 여섯 대상(물의 정령 · 탱크 · 대포 수레 · 인간 대포 타워 · 지옥불 정령 · 여우 마법사)은 새 방식으로 바뀌어 사용자 테스트를 통과했다. 이제 **독수리 궁수(EagleArcher)와 버섯 폭격기(MushroomBomber)** 를 같은 방식으로 바꾼다. 공통 장치는 이미 있어서 두 유닛을 「켜는」 것이 중심이다. 다만 독수리 궁수는 **날아갈 화살 모양을 새로 만들어야 하고**(지금은 화살이 아예 안 날아간다), 버섯 폭격기는 **옛 서버 표현 기록을 꺼야 착탄 이펙트가 두 번 나오지 않으며**, **독 이펙트를 포자가 닿는 순간까지 미룰지** 정해야 한다. 독수리 궁수부터 하고(E-1) 버섯 폭격기를 뒤에 한다(E-2). 정할 것과 추천은 [10절](#10-stage-e-eaglearcher-mushroombomber)에 있다. **사용자가 승인하기 전에는 구현하지 않는다.** *(2026-10-27 12차: 사용자가 추천대로 승인했다 — 화살은 팀별 두 개(파랑 · 빨강), 독 이펙트는 닿는 순간까지 미룬다. 순서는 바뀌어 **두 유닛을 한 번에 구현하고 한 번에 테스트**한다 — [10-3-1절](#10-3-1-stage-e-confirmed))*
 
 ---
 
@@ -44,7 +44,7 @@
 | **RM-10** | 인간 방어타워의 즉발 피해 — `TowerCombatUseCase.cs` 241행 `target.TakeDamage(damage)`와 그 뒤 Tower 스냅샷 발행(245~248행) [확인], 화면 쪽 Tower 표현 중 Human 분기 | 기존 구조(`GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 「즉발 데미지 유지」) | **2026-10-20 신설 (Q10 결정).** Race가 Human인 타워만 발사 기록 생성으로 분기하고 즉발 호출은 주석 보존. **Spirit RuneSpire·Transcendence VineTower 경로는 그대로** | 규칙 12 개정(4-2절, 승인 대기)이 먼저다. 타워는 유닛 전투 경로(`UnitCombatUseCase`)가 아니라 `TowerCombatUseCase`에서 피해를 주므로 P1 발사 기록이 건물 공격자를 받아야 한다 [확인 — 파일 분리 / 설계는 추정] |
 | **RM-11** | `EagleArcher_Attack2.anim` (컨트롤러 미참조 클립) | 기존 에셋 | **2026-10-20 신설 → 4차: 사용자가 직접 삭제한다(U-11).** 이 작업의 어느 단계에서도 손대지 않는다(주석·삭제 대상 아님). 사용자가 커밋 `a11b5381`에서 컨트롤러의 Attack2 상태를 지웠고 파일만 남았다(Research 11절). *(종전 「정리 후보, 사용자 확인 필요 … 삭제 여부·시점은 사용자 지시로만 정한다」)* | 컨트롤러·프리팹·에셋·씬·코드 어디에서도 이 클립 GUID나 이름을 찾지 못했다(Research 11-1) |
 | **RM-12** | `UnitEffectConfig._recipientFits`의 `radius`(Presentation 설정) | 기존 구조 | **2026-10-20 2차 신설 (Q12 결정).** 반경을 서버 권위 데이터로 **옮긴 뒤** Presentation 쪽 값을 남길지(다른 용도 — 상태 이펙트 크기 맞춤 등)·주석 처리할지는 game-programmer 설계에서 정한다 | 서버와 화면이 다른 반경을 읽으면 착탄 지점이 어긋난다(위험 17). 「옮겨 사용」은 사용자 결정 [전달 — 메인 세션] |
-| **RM-13** | 스위치 OFF 예시 검증 — `RunUnitActionSelfValidation.ServerProjectiles.cs` `ValidateServerProjectileSwitchOffKeepsLegacy`(503~537행, 517행 EagleArcher) · 진단 형식의 EagleArcher OFF 예시(1129~1138행) [확인 — HEAD `751436a1`] | 이 작업(단계 B에서 Tank → EagleArcher로 옮김) | **2026-10-27 신설 (단계 E, 제안).** E-1에서 OFF 예시를 MushroomBomber로 옮기고(옛 단언은 주석 보존), E-2에서 꺼진 투사체 유닛이 없어지면 **주석 처리로 비활성화**한다 → RM-9와 함께 P5에서 삭제 | 검증 대상(스위치가 꺼진 투사체 유닛)이 E-2 뒤 존재하지 않는다. 옛 경로 자체는 RM-1 · RM-9로 정리된다 |
+| **RM-13** | 스위치 OFF 예시 검증 — `RunUnitActionSelfValidation.ServerProjectiles.cs` `ValidateServerProjectileSwitchOffKeepsLegacy`(503~537행, 517행 EagleArcher) · 진단 형식의 EagleArcher OFF 예시(1129~1138행) [확인 — HEAD `751436a1`] | 이 작업(단계 B에서 Tank → EagleArcher로 옮김) | **2026-10-27 신설 (단계 E, 제안).** E-1에서 OFF 예시를 MushroomBomber로 옮기고(옛 단언은 주석 보존), E-2에서 꺼진 투사체 유닛이 없어지면 **주석 처리로 비활성화**한다 → RM-9와 함께 P5에서 삭제. *(2026-10-27 12차: 사용자 승인(E-F 추천대로) · E-1 · E-2 한 번에 구현으로 바뀌어, 사용자 테스트 시점에는 두 유닛이 모두 켜져 있으므로 이 검사는 **주석 처리된 상태**로 테스트한다 — [10-3-1절](#10-3-1-stage-e-confirmed) E-F)* | 검증 대상(스위치가 꺼진 투사체 유닛)이 E-2 뒤 존재하지 않는다. 옛 경로 자체는 RM-1 · RM-9로 정리된다 |
 
 ---
 
@@ -541,6 +541,7 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 | 2026-10-26 (10차 보충) | **4-3 T-2 사용자 결정 반영 — 「HP바」는 삭제하지 않고 추후 추가 예정 기능으로 표기.** `GameSystemRules_UnitCombatSynchronization.md` `NET-TIME-002` 209행과 `GameSystemRules_Units.md` 규칙 37의 HoT 두 문장(524 · 525행)을 「HP바는 아직 없음 — 추후 추가 예정, 추가되면 `NET-TIME-002`의 같은 표현 시점 정책을 따른다」 취지로 바꾸고, 개정 전 원문을 각 자리 날짜 조각에 남김. `ROADMAP.md` 「기획·경제·콘텐츠·UI」 표에 HP바 미래 항목 1행 추가. 이 Plan은 4-3 T-2 행 · 4-3 머리 · 4-3 「함께 보면 좋은 문장」 HP바 항목 · 4-1 참조 목록 조각만 갱신. **T-1 · T-3은 승인 대기 그대로 — 고치지 않음**(T-1 문안에 HP바 예정 문장이 없다는 점은 T-2 행에 보고) | 사용자 결정 「HP바는 나중에 추가할 생각이야, 그렇게 문서에 정리하자」(2026-10-26) [전달 — 메인 세션]. document-manager가 HEAD `3ebb5274`에서 두 규칙 문서 해당 행을 다시 읽고, 관리 문서 전체(`Docs/` — `_Tasks/` · `_Logs/` 제외 — · `AGENTS.md` · `CLAUDE.md` · `.claude/agents/`)에서 「HP바 · HP 바 · HP 막대 · 체력바 · HealthBar · HpBar」를 grep함 — 현행 기능 서술은 위 3문장뿐, 그 밖은 이력 문서(`History/ImplementationVerificationHistory.md` 3526 · 8198행 — 이력이라 고치지 않음)와 `Assets/UIAssetGuide.md` 46 · 150행(바 프레임 에셋 종류의 예시 — 기능 서술 아님, 고치지 않음). 코드에서는 `Scripts`에 HP바 구현을 찾지 못했고 `NetworkHealthSync.cs` 416행 주석 한 줄만 「HP바」를 언급함 [확인 — grep]. **코드 · 에셋은 바꾸지 않았다** |
 | 2026-10-26 (10차 보충 2) | **4-3 T-1 · T-3a 사용자 결정 반영 — 현재 구현 동작에 맞춰 규칙 문장 교정, T-3b(서버 투사체 코드에 Host 지연 0.10초 추가) 기각.** `GameSystemRules_UnitCombatSynchronization.md` 「5. 서버 시간 재생」 `NET-TIME-002` 208행(T-3a — 서버 투사체 표현과 그에 맞춘 사망 표현 · 화상 VFX 시작은 순수 클라이언트만 지연, 호스트 · 싱글 0초, 그 밖의 경로는 종전 문장 유지)과 209행(T-1 — 사망 처리 무지연, 투사체 사망타의 사망 표현 · 화상 VFX 시작을 화면 착탄까지 보류(상한 0.3초), 그 밖의 사망 표현 · 독 등은 즉시, **T-2의 HP바 추후 추가 예정 문장 유지**)을 같은 자리에서 고치고 각 자리에 개정 전 원문 날짜 조각 + 4-3 링크를 남김. ID · 항목 순서 무변경. 4-3 문안과 다른 점: 「지속 피해 VFX」 → 「화상(InfernoSpirit)」(코드가 화상만 미룸 — T-1 행). 이 Plan은 머리 상태 · U-18 행 · 4-1 참조 조각 · 4-3 머리 · T-1 · T-2(보고 조각) · T-3 행 · 마지막 항목만 갱신. 같은 사실의 현재 상태 표기를 고침: Research 17-10 항목 8 머리, `PROJECT_STATUS.md` 「서버 권위 투사체」 행, `ROADMAP.md` 별건 후속 행 두 곳, `WORK_HISTORY.md` 2026-10-26 행, `.claude/MEMORY.md` 서버 권위 투사체 항목 | 사용자 결정 「현재 구현 동작이 올바르기 때문에 이 동작에 맞춰서 문서 교정을 진행」(2026-10-26) [전달 — 메인 세션]. document-manager가 HEAD `42134e31`에서 `ProjectilePresentationPresenter.cs` 245 · 246, `GameBootstrapper.Map.cs` 341 · 342(둘 다 순수 Client만 0.10초, 호스트 · 싱글 0초), `ProjectileKillPresentationSchedule.cs` 51 · 287(상한 0.3초) · 292 · 300(화상만 보류), `ProjectileDeliveryContracts.cs` 329~333(켜진 유닛 — Mushroom 미포함), `UnitCombatUseCase.cs` 1835 · 1836 · 2250 · 2264(독 = Mushroom, 화상 = Inferno), `a0a23423` 커밋 본문을 다시 읽음 [확인]. 「그 밖의 경로」 Host 처리는 이번에도 전수 확인하지 않음. 관리 문서에서 「호스트도 · 표현 지연 · 사망 표현 · 화상 VFX」 grep — 같은 사실을 다르게 적은 현행 문장은 위 상태 표기뿐. **코드 · 에셋은 바꾸지 않았다** |
 | 2026-10-27 (11차) | **① 단계 D · D-2 사용자 테스트 PASS 정정 · U-20 종결. ② 단계 E(EagleArcher · MushroomBomber) Research 18절 · Plan 10절 신설 — 사용자 승인 대기.** ① 근거 = 사용자 육안 정상 · 로그 정상(Research 16 · 17절, scoped) · 회귀 스위트는 사용자 FAIL 언급 없음 → PASS 간주(WORKFLOW 「[6] 사용자 테스트」 — 결과 파일 없음) · U-20은 별건 상태 이펙트 Task 18_34(화상 v2 `5dd22db7` · `ec621589`, 2026-10-27 04:15 사용자 테스트 PASS)로 해결. 늦은 접속은 사용자 결정으로 실기 테스트 생략(J-1). 고친 자리: 이 Plan 머리 상태 · 1-3 머리 · U-18 막는 단계 칸 · U-20 상태 칸 · P4 진행 조각 · J-1, Research 머리 · 16-4 회귀 스위트 행 · 16-10 항목 1 · 17-4 세 행 · 17-10 항목 1, 그리고 상시 문서 `UnitCombatAssetMatrix.md` 104 · 111행 · `GameSystemRules_UnitCombatSynchronization.md` 309행 · `GameSystemRules_Units.md` 328 · 340 · 351행 · `WORK_HISTORY.md` 17행 · `PROJECT_STATUS.md` 21행 · `ROADMAP.md` 28행(모두 날짜 조각에 종전 표기 보존). ② 새 Task 대신 이 Task에 단계 E로 붙인 것은 **메인 세션 제안**(사용자 이견 없음). RM-8 행에 현재 행 번호 보충, RM-13 신설(제안), 0절에 단계 E 쉬운 설명 추가 | 사용자 결정(2026-10-27) 「인페르노·여우 작업 완료한 거 아니야? 뭐 더 확인해야 해?」 · 「'게임 도중 접속한 클라이언트(늦은 접속) 상황'은 테스트하기 어려우니 넘어가도록 하자」 · 「다음 작업은 이글아처·버섯폭탄병 서버 투사체 작업 진행」 · 「task 문서 작성하자」 [전달 — 메인 세션]. document-manager가 HEAD `751436a1`에서 18_34 Plan 17행(PASS 기록) · `5dd22db7` · `ec621589` `--stat`, 그리고 Research 18절의 코드 · 에셋 행을 다시 읽음 [확인]. 메인 세션이 적어 준 「`WORK_HISTORY.md` 16행」은 상태 이펙트 행이라, 서버 투사체 단계 D 행인 17행을 고쳤다. 차지 유닛 Task(11_09)는 「Client Inferno 차지 간헐 누락 [추정]」이 단계 D 로그로 닫히지 않아(Research 18-7) 고치지 않았다. **코드 · 에셋은 바꾸지 않았다** |
+| 2026-10-27 (12차) | **단계 E 사용자 승인 — 결정 E-A ~ E-F 확정, 단계 분할 변경(한 번에 구현 · 한 번에 테스트).** E-A (가) Editor 1회성 스크립트로 `EagleArrow` 메시 복사 화살 트레이서 + 팀별 프리팹 2개(Blue · Red — 10-3 표의 ②), E-B (a) 독 VFX 화면 착탄까지 보류(`NET-TIME-002` 209행 개정 승인 포함으로 기록 — 규칙 문장은 구현 뒤 동작에 맞춰 반영), E-C (가) AoE manifest 신설 안 함, E-D (가) 옛 스냅샷 발행만 주석 처리, E-E (가) resolver 사유 문자열 갱신 · 스키마 6 유지, E-F (가) 추천대로. E-F 설명 보충(OFF 예시 검사는 사용자 실기가 아니라 회귀 스위트의 자동 검사 — 두 유닛 이행 뒤 주석 처리, P5에서 스위치 제거와 함께 정리). 단계 분할을 E-0 → E-1 · E-2 한 번에 구현 · 한 번에 사용자 테스트로 바꾸고 원인 분리 위험을 E-R10(로그 진단 유닛 구분)으로 기록. 10-3-1절 신설, 머리 상태 · 0절 단계 E 문단 · RM-13 행 · 10절 제목 · 10절 머리 · 10-1 · 10-2(행 3개 추가 · 상태 행) · 10-3 머리 · E-B 문안 bullet · 10-4 머리 · 10-5 두 행 · 10-6 두 곳 · E-R3 · 10-9 RM-13 행에 날짜 조각. Research 18절 머리에 한 줄 | 사용자 결정(2026-10-27) 「추천대로 진행하고 가로 진행하자」 · 「"스위치 꺼진 유닛" 검사 … 테스트하는데 스위치를 끄면 안 되는 거 아닌가? 두 유닛 모두 한 번에 테스트할 수도 있어」 [전달 — 메인 세션]. 「가」가 팀별 프리팹 2개를 뜻한다는 대응은 메인 세션 전달이다(이 Plan 표의 (가)는 만드는 방법 선택지). document-manager가 HEAD `5a18345e`에서 `UnitCombatUseCase.ProjectileDiagnostics.cs` 6 · 21 · 32~34 · 366~374 · 453 · 476~481행(END 줄 유닛 구분)과 `GameSystemRules_UnitCombatSynchronization.md` 209행(현행 문장 — 「독 등 다른 지속 피해 VFX는 즉시」)을 다시 읽음 [확인]. 🔶 메인 세션 확인: E-F (가)의 「E-1에서 Mushroom으로 이동」 중간 단계는 사용자 테스트 시점이 없어짐 · server END 합계는 유닛 종류별로 나뉘지 않음(E-R10). **코드 · 에셋 · 규칙 문서는 바꾸지 않았다** |
 
 ---
 
@@ -566,10 +567,10 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 
 <a id="10-stage-e-eaglearcher-mushroombomber"></a>
 
-## 10. 단계 E — EagleArcher · MushroomBomber 서버 투사체 이행 (2026-10-27 작성 · 🔴 사용자 승인 대기)
+## 10. 단계 E — EagleArcher · MushroomBomber 서버 투사체 이행 (2026-10-27 작성 · ✅ 2026-10-27 사용자 승인 — 구현 대기)
 
 > 근거 조사: [Research 18절](Research.md#18-stage-e-eaglearcher-mushroombomber-research-20261027) · 기준 checkout HEAD `751436a1`. 읽은 규칙 원본(WORKFLOW [4]): `GameSystemRules.md` 인덱스 · `GameSystemRules_Units.md` 규칙 17 · 19 · 20 · 27 · 38 · 39 · 40 · `GameSystemRules_UnitCombatSynchronization.md` 「5. 서버 시간 재생」 `NET-TIME-002` · 「7. 전달 방식별 동기화」 `NET-DELIVERY-PROJECTILE` · 「8. Animation Event와 표현」 `NET-PRESENT-001` · `NET-PRESENT-003` · `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 · `GameSystemRules_Sound.md` 규칙 15.
-> 🔴 **승인 전 구현 금지.** 이 절이 승인되기 전에는 코드 · 에셋 · 규칙 문서를 바꾸지 않는다(WORKFLOW [4]). 근거 표기는 이 문서 머리와 같다.
+> 🔴 **승인 전 구현 금지.** 이 절이 승인되기 전에는 코드 · 에셋 · 규칙 문서를 바꾸지 않는다(WORKFLOW [4]). 근거 표기는 이 문서 머리와 같다. *(2026-10-27 12차: 승인됨 — 결정 확정은 [10-3-1절](#10-3-1-stage-e-confirmed), 승인 원문은 [10-2절](#10-2-approval-record). 이 갱신에서도 코드 · 에셋 · 규칙 문서는 바꾸지 않았다)*
 
 <a id="10-1-plain-explanation"></a>
 
@@ -582,6 +583,8 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 
 순서는 독수리 궁수(E-1) → 버섯 폭격기(E-2)다. 두 유닛 모두 끝나고 사용자 테스트가 통과하면, 그동안 남겨 둔 스위치와 주석 처리한 옛 코드를 정리한다(P5).
 
+*(2026-10-27 12차 — 사용자가 추천대로 승인했다. 정해진 것: 화살은 몸의 화살 모양을 복사하는 에디터 스크립트로 만들되 **파랑 팀 · 빨강 팀용 두 개**를 만든다. 독 이펙트는 **포자가 닿는 순간까지 미룬다**. 그리고 순서가 바뀌었다 — 사용자 「두 유닛 모두 한 번에 테스트할 수도 있어」에 따라 **화살 만드는 스크립트를 먼저 실행한 뒤, 두 유닛을 한 번에 바꾸고 한 번에 테스트**한다. 위 문단의 「E-1 → E-2」 순서는 구현 안의 작업 순서로만 남는다. 자세한 것은 [10-3-1절](#10-3-1-stage-e-confirmed) · [10-4절](#10-4-stage-split))*
+
 <a id="10-2-approval-record"></a>
 
 ### 10-2. 승인 기록
@@ -591,13 +594,17 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 | 작업 착수 | 사용자 「다음 작업은 이글아처·버섯폭탄병 서버 투사체 작업 진행」, 「task 문서 작성하자」(2026-10-27) | [전달 — 메인 세션] |
 | 기존 Task에 단계 E로 붙임 | **메인 세션 제안** — 사용자 이견 없음. 새 Task 폴더를 만들지 않는다 | [전달 — 메인 세션] |
 | 이미 정해진 것(재결정 아님) | Homing(1-1-3) · 비행 시간 발사 때 고정(U-1) · 표면 거리(Q12) · 속도 Eagle 6 · Mushroom 5(1-1-2, `ProjectileConfig.asset` 27 · 29행 [확인]) · Eagle 발사 0.2초(U-9, fallback도 0.2 — U-15 반영 [확인]) · Eagle 화살 = `EagleArrow` 메시 복사 투사체 · 착탄 이펙트 없음(U-10) · 손의 화살 그대로(U-13) · 발사 전 끊김 경계(1-2 · U-14) · Mushroom 범위 중심 = 주 타깃 월드 위치 · 규칙 38~40 개정 없음(F-6 · F-7) · 늦은 접속 실기 테스트 생략(2026-10-27 사용자 결정) | 이 Plan의 각 절 |
-| 이 절의 상태 | 🔴 **사용자 승인 대기** — 10-3의 E-A ~ E-F 결정 포함 | — |
+| 단계 E 승인 · 결정 E-A ~ E-F 확정 | 사용자 「추천대로 진행하고 가로 진행하자」(2026-10-27). E-A ~ E-F 모두 10-3의 추천대로, E-A 팀 색은 **팀별 트레이서 프리팹 2개(Blue · Red)**. 사용자 원문의 「가」는 메인 세션이 사용자에게 보인 팀 색 선택지 표기이며, 이 Plan 10-3 표에서는 팀 색 ②에 해당한다(메인 세션 전달 — 10-3 표의 (가)는 「만드는 방법」 선택지라 표기가 다르다) | [전달 — 메인 세션] |
+| `NET-TIME-002` 209행 개정 승인 | E-B (a) 승인에 **규칙 문장 개정 승인이 포함된 것으로 기록**한다(메인 세션 전달). 실제 문장 개정은 **구현 뒤 동작에 맞춰** 4-3 방식으로 반영한다 — 이번 갱신에서는 규칙 문서를 고치지 않았다 | [전달 — 메인 세션] |
+| E-F 설명 보충 · 단계 분할 변경 | 사용자 질문 「"스위치 꺼진 유닛" 검사 … 테스트하는데 스위치를 끄면 안 되는 거 아닌가? 두 유닛 모두 한 번에 테스트할 수도 있어」(2026-10-27). 답(메인 세션): 사용자 실기에서 스위치를 끄는 것이 아니라 **회귀 스위트 안의 자동 검사**가 꺼진 유닛 하나를 예시로 쓴다. → 단계 분할을 **E-0 → E-1 · E-2 한 번에 구현 · 한 번에 사용자 테스트**로 바꿈(10-4) | [전달 — 메인 세션] |
+| 이 절의 상태 | ✅ **사용자 승인(2026-10-27) — 구현 대기.** *(종전 「🔴 사용자 승인 대기 — 10-3의 E-A ~ E-F 결정 포함」)* | 위 세 행 |
 
 <a id="10-3-stage-e-decisions"></a>
 
 ### 10-3. 결정 항목 (🔴 사용자 확인 필요 — 추천과 근거)
 
 > 1-3절 U- 번호와 섞이지 않도록 **E-** 접두사를 쓴다. 「추천」은 document-manager가 Research 18절 사실로 정리한 제안이며 메인 세션 검토 전이다.
+> *(2026-10-27 12차: 아래 표는 결정 전 원문 그대로 둔다. **확정 결과는 [10-3-1절](#10-3-1-stage-e-confirmed)**)*
 
 | # | 정할 것 | 선택지 | 추천 | 근거 · 영향 |
 |---|---|---|---|---|
@@ -608,12 +615,35 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 | **E-E** | **resolver 사유 문자열을 고치나** | (가) E-1 · E-2에서 각각 사실에 맞게 고친다(예: Eagle 「projectile-animation-selection-unresolved」, Mushroom 「locked-point-…」) · (나) 그대로 둔다(C3 축 분류값으로만 남김) | **(가) — 단, 스키마는 올리지 않는다** | 두 문자열의 근거가 이미 사라졌다(Research 11-2 · 18-2 — Mushroom은 TargetLocked가 됐다). 문자열은 handshake 해시에 들어가지만(`UnitAttackShadowProfileResolver.cs` 304행) 스위치 토큰도 같은 커밋에서 바뀌므로 다른 빌드는 어차피 거부된다. RPC 모양은 바뀌지 않으므로 스키마 6 유지(선례 21~27행) [추정]. 이 값을 단언하는 검증이 있으면 함께 고친다 |
 | **E-F** | **스위치 OFF 예시 검증(RM-13)** | (가) E-1에서 Mushroom으로 옮기고 E-2에서 주석 비활성화 · (나) E-2에서 바로 비활성화 | **(가)** | E-1 동안에도 「꺼진 유닛은 옛 경로」 검사를 유지할 수 있다. E-2 뒤에는 대상이 없다(Research 18-5) |
 
-- **E-B를 (a)로 고르면** 규칙 문장 개정안은 승인 뒤 4-3 방식(현재 문장 보존 + 날짜 조각)으로 반영한다. 문안 초안: 「… 그 착탄으로 시작하는 **화상(InfernoSpirit) · 독(MushroomBomber)** 지속 피해 VFX의 시작도 같은 화면 착탄까지 미룬다(각 보류 상한 0.3초). 그 밖의 사망 표현은 즉시 재생한다.」 — 구현 전에는 반영하지 않는다(초안).
+- **E-B를 (a)로 고르면** 규칙 문장 개정안은 승인 뒤 4-3 방식(현재 문장 보존 + 날짜 조각)으로 반영한다. 문안 초안: 「… 그 착탄으로 시작하는 **화상(InfernoSpirit) · 독(MushroomBomber)** 지속 피해 VFX의 시작도 같은 화면 착탄까지 미룬다(각 보류 상한 0.3초). 그 밖의 사망 표현은 즉시 재생한다.」 — 구현 전에는 반영하지 않는다(초안). *(2026-10-27 12차: E-B (a) 확정 — 개정 승인 포함으로 기록. 반영 시점은 그대로 「구현 뒤」이며, 문안은 구현된 동작에 맞춰 다듬는다 — 10-3-1)*
 - 사용자 원칙 「모든 판정은 서버」(1-0 원칙 3)는 위 어느 선택에서도 바뀌지 않는다 — E-A · E-B · E-D는 화면 표현, E-E는 분류 문자열이다.
+
+<a id="10-3-1-stage-e-confirmed"></a>
+
+### 10-3-1. 확정 결과 (2026-10-27 12차 — 사용자 「추천대로 진행하고 가로 진행하자」)
+
+| # | 확정 | 메모 |
+|---|---|---|
+| **E-A** | **(가) Editor 1회성 스크립트**(game-programmer 작성 → 사용자가 메뉴 실행, WORKFLOW [5-2])로 `EagleArrow` 메시 · 머티리얼을 복사한 화살 트레이서를 만든다. **팀 색 = 팀별 트레이서 프리팹 2개(Blue = `mat_eaglearrow_blue`, Red = `mat_eaglearrow_red`)** — 10-3 표의 ② | 팀으로 트레이서를 고르는 Presentation 코드가 필요하다(10-5 「E-0 (②·③일 때만)」 행이 해당). 지금 트레이서 선택이 유닛 종류만 받는다는 점(`UnitEffectConfig.cs` 333행 — 10-3 표)은 그대로 사실이다. 선택 방식의 세부 설계는 game-programmer |
+| **E-B** | **(a) 독 VFX 시작을 화면 착탄까지 보류** | `NET-TIME-002` 209행 개정 — **사용자 승인 포함으로 기록**(10-2). 실제 규칙 문장은 **구현 뒤 동작에 맞춰** 반영한다(구현 전 반영 안 함) |
+| **E-C** | **(가) AoE manifest 신설 안 함** | `NET-PRESENT-003` 341행의 미배선 단계 보고 방식 그대로 — 규칙 변경 없음 |
+| **E-D** | **(가) 옛 Mushroom 스냅샷은 발행만 주석 처리**, `damageOrigin` 생성 유지 | RM-8 |
+| **E-E** | **(가) resolver 사유 문자열 갱신 · 스키마 6 유지** | RPC 모양이 바뀌면 그때 올린다(10-4 끝 문장) |
+| **E-F** | **(가) 추천대로** — 단, 아래 단계 분할 변경으로 사용자 테스트 시점에는 꺼진 투사체 유닛이 없으므로 **OFF 예시 검사는 주석 처리**된 상태가 된다. 전 유닛 사용자 테스트 PASS 뒤 P5에서 스위치 자체 제거(RM-9)와 함께 정리(RM-13) | 아래 「E-F 설명 보충」 |
+
+**E-F 설명 보충 (사용자 질문에 대한 답 — 메인 세션 [전달])**
+- 사용자 질문: 「"스위치 꺼진 유닛" 검사 … 테스트하는데 스위치를 끄면 안 되는 거 아닌가?」
+- 답: 이 검사는 **사용자가 실기에서 스위치를 끄는 것이 아니다.** 회귀 스위트(`Hexiege/Combat/Run Full Regression Suite`) 안의 **자동 검사**가 「아직 새 방식으로 옮기지 않은 유닛은 기존 경로로 동작한다」를 확인하려고, 스위치가 꺼진 유닛 하나를 **예시로** 쓰는 것이다(RM-13 — 지금 예시는 EagleArcher).
+- 두 유닛이 모두 새 방식으로 옮겨지면 꺼진 투사체 유닛이 없어 예시가 없어진다 → 그 검사는 **주석 처리**한다(이행 원칙: 삭제 대신 비활성화 — WORKFLOW [4]). 실제 삭제는 전 유닛 PASS 뒤 P5에서 스위치 제거와 함께.
+- 10-3 표 E-F (가)의 「E-1에서 Mushroom으로 옮긴다」 중간 단계는, 한 번에 구현 · 테스트하게 되면서 **사용자 테스트로 확인하는 시점이 없다.** 그 중간 단계를 코드 작업 안에서 거칠지는 game-programmer 재량이며 최종 상태(주석 처리)는 같다 — 🔶 메인 세션 확인 사항으로 남긴다.
+
+**단계 분할 변경** — 사용자 「두 유닛 모두 한 번에 테스트할 수도 있어」: 10-4의 「E-1 실기 → E-2 실기」 두 번을 **E-0(에셋 스크립트 실행) → E-1 · E-2 한 번에 구현 → 한 번에 사용자 테스트**로 바꾼다. 원인이 섞이는 위험(10-4 「왜 이 순서인가」 2)은 **로그 진단의 유닛 구분**으로 보완한다 — 10-8 E-R10.
 
 <a id="10-4-stage-split"></a>
 
 ### 10-4. 구현 단계 분할 — E-1 EagleArcher → E-2 MushroomBomber (권장)
+
+> *(2026-10-27 12차 — **분할 변경(사용자):** 「두 유닛 모두 한 번에 테스트할 수도 있어」 → **E-0 에셋 스크립트 실행 → E-1 · E-2 한 번에 구현 → 한 번에 사용자 테스트.** 아래 「왜 이 순서인가」와 표는 작성 당시 원문이다. 「E-1 실기」 · 「E-2 실기」 두 행은 **하나의 실기**로 합쳐지고, E-1 · E-2는 구현 안의 작업 묶음으로만 남는다. 항목 2의 「따로 실기한다」는 이 변경으로 대체되며, 원인 분리는 로그 진단의 유닛 구분으로 보완한다(10-8 E-R10). 항목 3(E-1 동안 OFF 예시 유지)은 테스트 시점에 해당 없음 — 10-3-1 E-F)*
 
 **왜 이 순서인가**
 1. EagleArcher는 **특수 공격 · DoT · 옛 스냅샷이 없는 단일 타격**이다(Research 18-3). 단계 B의 Tank · CannonCart와 같은 모양이라 공통 경로를 다시 확인하는 위험이 가장 낮다.
@@ -639,13 +669,13 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 |---|---|---|
 | E-0 | 신규 화살 트레이서 프리팹 · `Resources/Config/EffectPresets/` 신규 트레이서 EffectPreset | `EagleArrow` 메시 · 머티리얼 복사(E-A). 루트에 `TracerProjectile`(없으면 자동 부착 — `EffectManager.cs` 1005~1009행) |
 | E-0 | `Resources/Config/UnitEffectConfig.asset` type 24 행(184~191) | `tracerPreset` 연결. `attackPreset` · `impactPreset` · `hitPreset`은 그대로 비움 |
-| E-0 (②·③일 때만) | `UnitEffectConfig.cs` · `EffectManager.BeginServerProjectile` · `ProjectilePresentationPresenter` | 팀(발사 기록 `Team`)으로 트레이서/머티리얼 선택 |
+| E-0 (②·③일 때만) | `UnitEffectConfig.cs` · `EffectManager.BeginServerProjectile` · `ProjectilePresentationPresenter` | 팀(발사 기록 `Team`)으로 트레이서/머티리얼 선택 *(2026-10-27 12차: ② 팀별 트레이서 프리팹 2개로 확정 — 이 행 해당. 프리팹 2개 · 트레이서 선택 코드)* |
 | E-1 · E-2 | `Scripts/Application/Combat/ProjectileDeliveryContracts.cs` 329~333 | 스위치 추가(옛 목록 주석) |
 | E-1 · E-2 | `Scripts/Infrastructure/Network/UnitAttackShadowProfileResolver.cs` 76 · 77 | 사유 문자열(E-E) |
 | E-2 | `Scripts/Application/UseCases/UnitCombatUseCase.cs` 1843~1848 | 스위치 켜진 Mushroom이면 스냅샷 발행 안 함(주석 보존, RM-8) |
 | E-2 (E-B (a)) | `ProjectileKillPresentationSchedule.cs` 300 · `TimedDamageEffectPresenter.cs` 132~133 | 보류 대상에 Poison 추가(Mushroom 스위치 조건) |
 | E-1 · E-2 | `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.ServerProjectiles.cs` · `.VfxConnections.cs` | 10-6 검증 |
-| E-2 | `GameSystemRules_UnitCombatSynchronization.md` `NET-TIME-002` 209 (E-B (a)일 때만) | 개정(사용자 승인 뒤) |
+| E-2 | `GameSystemRules_UnitCombatSynchronization.md` `NET-TIME-002` 209 (E-B (a)일 때만) | 개정(사용자 승인 뒤) *(2026-10-27 12차: E-B (a) 확정 · 개정 승인 포함으로 기록 — 반영은 구현 뒤 동작에 맞춰, document-manager)* |
 | 각 단계 뒤 | `GameSystemRules_Units.md` 328 · 340 · 351 · 423, `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` | 상태 표시 갱신(규칙 문장 자체는 그대로 — Research 18-6) |
 
 <a id="10-6-test-plan"></a>
@@ -662,8 +692,9 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 - E2-4. (E-B (a)일 때) Client 독 VFX 시작이 화면 착탄까지 보류(상한 0.3초), 범위 안 다른 적은 화면 시각 기준(Research 18-4-4), Host · 싱글 즉시.
 - E2-5. 스위치 · 토큰(`6,7,12,17,21,24,26;tower:human`), RM-13 비활성화 뒤 스위트 전체 통과.
 - 결과는 WORKFLOW 「[6] 사용자 테스트」 규칙대로 기록한다(사용자 FAIL 언급 없음 → PASS 간주, 결과 파일 없음 표기).
+- *(2026-10-27 12차: E-1 · E-2 한 번에 구현이면 E1-3의 중간 토큰(`6,7,12,17,21,24;tower:human`) · 「OFF 예시 = Mushroom」 상태는 사용자 테스트 시점에 존재하지 않는다 — 스위트에서 단언되는 최종 상태는 E2-5(최종 토큰 · OFF 예시 주석 처리). 중간 단언을 둘지는 game-programmer 설계)*
 
-**사용자 실기 — 각 단계(E-1 · E-2)마다**
+**사용자 실기 — 각 단계(E-1 · E-2)마다** *(2026-10-27 12차: **한 번에** — E-0 에셋 스크립트를 실행한 뒤 두 유닛을 같은 경기들에서 함께 확인한다. 아래 항목은 그대로)*
 - S-1. 싱글: 화살 · 포자가 **눈에 보이는 속도로** 날아가 닿는 순간 숫자(포자는 착탄 이펙트 · 독도). 숫자가 먼저 뜨지 않는다(7절 S-1 · S-10 · S-6).
 - S-2. 싱글: 움직이는 적을 따라가 맞는다(S-2), 비행 중 다른 아군이 대상을 처치 → 화살은 사라지기만(착탄 이펙트 없음), 포자는 마지막 지점에서 착탄 이펙트만 · 숫자 · 독 없음(S-3).
 - S-3. 싱글: 발사 전 이동 · 정지 명령, 발사 전 대상 사망 → 화살 · 포자 · 피해 없음(S-8).
@@ -700,13 +731,14 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 |---|---|---|
 | E-R1 | 화살 트레이서 없이 스위치를 켜면 「보이지 않는 화살」 — 숫자만 착탄 순간에 뜬다(`EffectManager.cs` 725 · 734행) | E-0 에셋 연결을 E-1 스위치보다 먼저(같은 커밋 또는 앞 커밋), 에셋 계약 fixture(E1-2) |
 | E-R2 | 화살 방향 — 메시 축이 +Z가 아니면 옆으로 · 뒤로 날아 보인다 | 프리팹 자식 회전으로 맞추고 싱글에서 육안 확인 |
-| E-R3 | 팀 색 — 한 색 프리팹이면 상대 팀 화살 색이 틀린다 | E-A 결정 |
+| E-R3 | 팀 색 — 한 색 프리팹이면 상대 팀 화살 색이 틀린다 | E-A 결정 *(2026-10-27 12차: 팀별 프리팹 2개로 확정 — 실기 M-1에서 Blue · Red 색 확인)* |
 | E-R4 | Mushroom 옛 스냅샷이 남으면 착탄 VFX 이중 재생 · 공격자 착탄 순간 위치에서 0.1초 옛 트레이서(위험 2) | E-D (가)를 스위치와 같은 커밋, E2-2 fixture |
 | E-R5 | `damageOrigin`까지 끄면 독 origin이 비어 화면 독 표현이 달라질 수 있다 [추정 — origin의 화면 용도 미확인] | E-D (가) — 생성은 유지 |
 | E-R6 | 독 보류(E-B (a)) 장치 ②는 주 타깃만 — 범위 안 다른 적은 화면 시각만 본다. 시계가 크게 튀면 상한 0.3초 안에서 어긋날 수 있다 | 상한 0.3초 유지, 로그 held/released/cap 확인 |
 | E-R7 | E-2 뒤 OFF 예시 fixture가 대상 없이 실패 | RM-13 비활성화를 E-2 커밋에 |
 | E-R8 | 버섯 첫 피해가 비행 시간만큼 늦어진다(속도 7 → 5, 위험 9 · 14와 같은 축) | Inspector(`ProjectileConfig.asset`) 튜닝 |
 | E-R9 | Mushroom은 지금 Host · 싱글도 0.10초 늦게 착탄 VFX를 냈다(`HitPresentationQueue.cs` 412~413). 새 경로는 Host · 싱글 0초라 **Host 화면에서 착탄이 0.1초 빨라 보일 수 있다** — 결함이 아니라 `NET-TIME-002` 208행대로의 변화 [추정] | 실기 육안 확인 항목으로만 |
+| E-R10 | *(2026-10-27 12차 신설)* **두 유닛을 한 번에 테스트하므로, 문제가 생기면 어느 유닛 · 어느 변경 때문인지 섞일 수 있다**(10-4 「왜 이 순서인가」 2가 피하려던 위험) | 로그 진단의 **유닛 구분**으로 원인을 나눈다(메인 세션 방침 [전달]). 지금 코드에서 확인한 구분 [확인 — HEAD `5a18345e`, `UnitCombatUseCase.ProjectileDiagnostics.cs`]: `[PROJECTILE-END]`는 줄마다 `side=`(server · server-tower · server-charge · view 등)로 나뉘고, `side=server` 줄의 `path=`는 **유닛 종류 번호별** 새 경로/기존 경로 타격 수(`24:s…/l…` · `26:s…/l…`, 21 · 366~374행)다. 개별 `[PROJECTILE]` 줄의 `type=`도 유닛 종류 번호다(476~481행) — 단, 경기당 앞 96줄 상한(6행). **발사 · 취소 · 착탄 합계(reserved · launched · cancel 등)는 server 줄에서 유닛 종류별로 나뉘지 않는다**(종류별 합계는 차지 유닛 줄 `side=server-charge`의 Inferno · Fox뿐 — 32~34 · 453행). 이 한계를 진단 보강으로 메울지는 game-programmer · 메인 세션 판단(이번에 정하지 않음). 화면 쪽 진단의 유닛 구분은 이번에 확인하지 않았다 [미확인] |
 
 <a id="10-9-cleanup-split"></a>
 
@@ -726,4 +758,4 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 | RM-10 인간 타워 즉발 | 그대로 | 삭제 |
 | RM-11 `EagleArcher_Attack2.anim` | 손대지 않음 | 손대지 않음(사용자) |
 | RM-12 Presentation radius | 그대로 | game-programmer 설계대로 |
-| **RM-13 OFF 예시 검증** | E-1 Mushroom으로 이동 · E-2 주석 | 삭제 |
+| **RM-13 OFF 예시 검증** | E-1 Mushroom으로 이동 · E-2 주석 *(2026-10-27 12차: 한 번에 구현 · 테스트 — 테스트 시점에는 주석 처리 상태, 10-3-1 E-F)* | 삭제 |

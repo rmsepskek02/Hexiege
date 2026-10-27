@@ -1840,7 +1840,28 @@ namespace Hexiege.Application
                     attackerMayBeInactive: ProjectileImpactInProgress);
                 special.Apply(ctx);
             }
-            if (mushroomVisual.IsValid)
+            // ────────────────────────────────────────────────────────────────
+            // [RM-8 비활성화 — 2026-10-27 서버 권위 투사체 단계 E, 사용자 결정 E-D (가)]
+            //   MushroomBomber가 서버 투사체 유닛이 되면 이 메서드는 "서버 착탄 순간"에만 불린다(발사 예약 → 비행 → 착탄).
+            //   그 착탄의 화면 표현(포자 투사체 비행 · 착탄 이펙트 · 숫자)은 이미 서버 발사/착탄 기록 경로
+            //   (ProjectilePresentationPresenter → EffectManager.BeginServerProjectile / PlayServerProjectileImpact)가 맡는다.
+            //   여기서 옛 "피해 순간 스냅샷"까지 발행하면 Host·Client 모두
+            //     ① 공격자의 "착탄 순간" 위치에서 0.1초짜리 옛 트레이서가 한 번 더 날고(HitPresentationQueue → PlayConfirmedMushroomTracer),
+            //     ② ImpactTime + 0.10초에 옛 착탄 이펙트가 또 터져(PlayAttackEffect의 MushroomImpact) 착탄 이펙트가 두 번 나온다(Plan 위험 2).
+            //   그래서 스위치가 켜진 유닛이면 "발행"만 하지 않는다 — 인간 타워 단계 C(TowerCombatUseCase.ExecuteTowerAttack)의
+            //   "서버 투사체면 Tower 발사 스냅샷을 내지 않는다"와 같은 방식이다.
+            //   🔴 위쪽의 스냅샷 "생성"(damageOrigin)은 그대로 둔다: 같은 값이 독 부여(ApplyDamageOverTime)의 origin으로 넘어가
+            //      지속 피해 상태의 공격 출처(AttackMatch · AttackLifetime · AttackSequence)를 채운다. Inferno 화상도 같은 값을 쓴다.
+            //   스위치가 꺼진 경우(이론상 — 지금은 켜져 있다)는 아래 옛 발행이 그대로 돈다(RM-9 스위치 제거 때 함께 정리, P5).
+            //   옛 블록(기록용 — 조건만 바뀌었고 본문은 그대로다):
+            //   if (mushroomVisual.IsValid)
+            //   {
+            //       mushroomVisual.AppliedDamage = Mathf.Max(0, visualHpBefore - target.Hp); mushroomVisual.ResultHp = target.Hp;
+            //       try { AttackEffectIdentity.Record("ServerConfirm", mushroomVisual, now: mushroomVisual.ImpactTime); GameEvents.OnAttackEffectConfirmed.OnNext(mushroomVisual); }
+            //       catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactPublish:" + ex.Message); }
+            //   }
+            // ────────────────────────────────────────────────────────────────
+            if (mushroomVisual.IsValid && !ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type))
             {
                 mushroomVisual.AppliedDamage = Mathf.Max(0, visualHpBefore - target.Hp); mushroomVisual.ResultHp = target.Hp;
                 try { AttackEffectIdentity.Record("ServerConfirm", mushroomVisual, now: mushroomVisual.ImpactTime); GameEvents.OnAttackEffectConfirmed.OnNext(mushroomVisual); }

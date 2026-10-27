@@ -325,11 +325,23 @@ namespace Hexiege.Application
         //     · 화면 프리셋: Inferno = EffectPreset_InfernoSpirit_Tracer / _Impact, Fox = EffectPreset_FoxMagician_Tracer / _Impact
         //       (UnitEffectConfig.asset type 12 · 21 행 tracerPreset/impactPreset에 이미 연결 — 2026-10-21 에셋 직접 확인).
         //   옛 목록(단계 B·C, 기록용): { UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit }  → ManifestToken "6,7,17;tower:human"
+        //   단계 E(2026-10-27 사용자 승인 「추천대로 진행하고 (가)로 진행」 · 「두 유닛 모두 한 번에 테스트」):
+        //     남은 투사체 유닛 EagleArcher(24) · MushroomBomber(26)를 한 번에 켠다 → 이제 투사체 유닛 7종이 모두 켜졌다.
+        //     · EagleArcher: 특수 공격·DoT가 없는 단일 타격(단계 B의 Tank와 같은 모양). 발사 = OnAttackHit 0.2초, 속도 6.
+        //       화면 화살 = 팀별 화살 트레이서 2개(EffectPreset_EagleArcher_Tracer_Blue / _Red — 메뉴
+        //       「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 만들어 UnitEffectConfig type 24 행에 연결). 착탄 이펙트 없음(U-10).
+        //     · MushroomBomber: 발사 = OnAttackHit 1.0초, 속도 5. 착탄 순간 같은 단일 writer가 주 타깃 직접 피해 →
+        //       BlastAttackBehavior(주 타깃 위치 중심 반경 안 적에게 독)를 그대로 실행한다.
+        //       옛 "서버 피해 순간 스냅샷"(OnAttackEffectConfirmed)은 이 스위치가 켜지면 발행하지 않는다(RM-8 — UnitCombatUseCase.ExecuteAttack).
+        //   옛 목록(단계 D, 기록용):
+        //     { UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit, UnitType.InfernoSpirit, UnitType.FoxMagician }
+        //     → ManifestToken "6,7,12,17,21;tower:human"
         // ────────────────────────────────────────────────────────────────
         private static readonly UnitType[] EnabledUnitTypes =
         {
             UnitType.Tank, UnitType.CannonCart, UnitType.StreamSpirit,
-            UnitType.InfernoSpirit, UnitType.FoxMagician
+            UnitType.InfernoSpirit, UnitType.FoxMagician,
+            UnitType.EagleArcher, UnitType.MushroomBomber
         };
 
         // ────────────────────────────────────────────────────────────────
@@ -381,7 +393,8 @@ namespace Hexiege.Application
         /// <summary>
         /// 경기 시작 handshake 해시에 넣는 스위치 요약 문자열.
         /// 앞부분 = 켜진 유닛 번호를 오름차순으로 ","로 연결, 뒤에 켜진 투사체 타워 종족을 ";tower:" 뒤에 붙인다.
-        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human", 단계 D = "6,7,12,17,21;tower:human".
+        /// 예: 단계 A = "17", 단계 B = "6,7,17", 단계 C = "6,7,17;tower:human", 단계 D = "6,7,12,17,21;tower:human",
+        /// 단계 E = "6,7,12,17,21,24,26;tower:human".
         /// 두 빌드의 스위치가 다르면 해시가 달라 경기가 시작되지 않는다.
         /// 공백이 없어야 한다 — 진단 END 줄(공백으로 칸을 나눈다)의 switch= 칸에 그대로 들어간다.
         /// </summary>

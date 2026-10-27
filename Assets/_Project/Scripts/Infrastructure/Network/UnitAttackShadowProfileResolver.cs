@@ -73,8 +73,19 @@ namespace Hexiege.Infrastructure
                 case UnitType.InfernoSpirit: return UnresolvedProjectile(type, true, "projectile-and-periodic-result-unresolved", out profile);
                 case UnitType.StreamSpirit: return UnresolvedProjectile(type, false, "projectile-timeline-unresolved", out profile);
                 case UnitType.FoxMagician: return UnresolvedProjectile(type, false, "projectile-system-unresolved", out profile);
-                case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-animation-selection-unresolved", out profile);
-                case UnitType.MushroomBomber: return UnresolvedProjectile(type, true, "locked-point-projectile-and-periodic-result-unresolved", out profile);
+                // [2026-10-27 서버 권위 투사체 단계 E — 결정 E-E] 두 사유 문자열의 근거가 사라졌으므로 지금 사실에 맞게 고친다.
+                //   · EagleArcher: "어느 공격 클립인지 모름"은 해소됐다(컨트롤러가 _Attack 하나만 참조 — Research 11-2).
+                //     이제 Tank·CannonCart와 같은 "특수 공격 없는 단일 타격 투사체"이므로 같은 사유를 쓴다.
+                //   · MushroomBomber: "지점(LockedPoint) 투사체"는 U-16에서 TargetLocked(Homing)로 바뀌었다.
+                //     이제 InfernoSpirit과 같은 "투사체 + 지속 피해(독)" 모양이므로 같은 사유를 쓴다.
+                //   ⚠️ 사유 문자열은 handshake 해시에 들어간다(아래 ComputeHash의 profile.Reason). 같은 커밋에서 스위치 토큰도 바뀌므로
+                //      다른 빌드끼리는 어차피 경기가 거부된다. RPC 모양은 그대로라 스키마(6)는 올리지 않는다(선례: 스키마는 RPC 모양 변경 때만).
+                //   C3 축 분류(Unresolved · TargetLocked · 기대 타격 수 1 · secondary 여부)는 바뀌지 않는다.
+                //   옛 줄(기록용 — 주석 보존):
+                //   case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-animation-selection-unresolved", out profile);
+                //   case UnitType.MushroomBomber: return UnresolvedProjectile(type, true, "locked-point-projectile-and-periodic-result-unresolved", out profile);
+                case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-system-unresolved", out profile);
+                case UnitType.MushroomBomber: return UnresolvedProjectile(type, true, "projectile-and-periodic-result-unresolved", out profile);
 
                 case UnitType.QuakeSpirit: return Supported(type, AttackDeliveryKind.MeleeContact, 1, true, out profile);
 

@@ -56,6 +56,22 @@ namespace Hexiege.Presentation
         [Tooltip("원거리 공격 시 발사할 트레이서(발사체) 이펙트. VfxPrefab 슬롯에 트레이서 프리팹을 연결한다. "
             + "비워두면 트레이서 없이 기존처럼 즉시 피격 연출(폴백). 근접 유닛은 사용하지 않음")]
         public EffectPreset tracerPreset;
+
+        // ────────────────────────────────────────────────────────────────
+        // [2026-10-27 서버 권위 투사체 단계 E — 사용자 결정 E-A ②(가) 「팀별 트레이서 프리팹 2개」]
+        //   지금까지 트레이서는 파티클(불꽃·물방울 등)이라 팀 색이 없어서 "유닛 종류당 1개"로 충분했다.
+        //   EagleArcher 화살은 유닛 손에 든 화살 메시를 그대로 복사한 것이라, 팀마다 머티리얼이 다르다
+        //   (Blue 유닛 = mat_eaglearrow_blue, Red 유닛 = mat_eaglearrow_red). 한 프리팹이면 상대 팀 화살이 내 팀 색으로 보인다.
+        //   그래서 "Red 팀 전용" 칸을 하나 더 둔다:
+        //     · 비워 두면(기본) 예전과 같다 — 두 팀 모두 위 tracerPreset을 쓴다(다른 유닛 행은 모두 비어 있어 동작 무변경).
+        //     · 채우면 Red 팀 공격자는 이 프리셋, Blue·중립 공격자는 위 tracerPreset을 쓴다.
+        //   왜 Blue 칸을 따로 만들지 않았나: 기존 tracerPreset을 그대로 "기본(=Blue)"로 쓰면 옛 에셋(이 칸이 없는 행)이
+        //   그대로 읽히고, 팀 구분이 필요 없는 유닛은 아무것도 바꿀 필요가 없다(가장 적은 변경으로 하위 호환).
+        //   값은 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 채운다(사람이 Inspector에서 고쳐도 된다).
+        // ────────────────────────────────────────────────────────────────
+        [Tooltip("Red 팀 공격자 전용 트레이서. 비워 두면 Red 팀도 위 tracerPreset을 쓴다(팀 색이 없는 파티클 트레이서는 비워 둔다). "
+            + "EagleArcher 화살처럼 팀별 머티리얼이 다른 투사체만 채운다")]
+        public EffectPreset redTeamTracerPreset;
     }
 
     // ========================================================================
@@ -334,6 +350,22 @@ namespace Hexiege.Presentation
         {
             if (_cache == null) return null;
             return _cache.TryGetValue(type, out UnitEffectEntry entry) ? entry.tracerPreset : null;
+        }
+
+        /// <summary>
+        /// [2026-10-27 서버 권위 투사체 단계 E] 쏜 유닛의 "팀"까지 보고 트레이서 프리셋을 고른다.
+        /// Red 팀이고 그 행의 redTeamTracerPreset이 채워져 있으면 그것을, 아니면 기본 tracerPreset을 돌려준다.
+        /// (redTeamTracerPreset이 비어 있는 유닛은 GetTracer(type)과 결과가 완전히 같다 — 다른 유닛 동작 무변경.)
+        /// 서버 투사체 화면(EffectManager.BeginServerProjectile)이 서버 발사 기록의 Team으로 부른다.
+        /// </summary>
+        /// <param name="type">쏜 유닛 타입.</param>
+        /// <param name="team">쏜 유닛의 팀(서버 발사 기록 값 — 화면 뒤집기와 무관한 실제 팀).</param>
+        /// <returns>트레이서 EffectPreset 또는 null(그 유닛 행이 없거나 기본 칸도 비어 있으면).</returns>
+        public EffectPreset GetTracer(UnitType type, TeamId team)
+        {
+            if (_cache == null || !_cache.TryGetValue(type, out UnitEffectEntry entry)) return null;
+            if (team == TeamId.Red && entry.redTeamTracerPreset != null) return entry.redTeamTracerPreset;
+            return entry.tracerPreset;
         }
     }
 }

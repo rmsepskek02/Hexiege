@@ -725,15 +725,33 @@ namespace Hexiege.Presentation
         /// 트레이서 프리셋이 없는 유닛이면 null(투사체 없이 착탄 이펙트·숫자만 착탄 순간에 나온다).
         /// </summary>
         /// <param name="attackerType">쏜 유닛 종류(트레이서 프리셋 선택).</param>
+        /// <param name="attackerTeam">
+        /// [2026-10-27 단계 E] 쏜 유닛의 팀(서버 발사 기록의 Team). 팀별 트레이서(EagleArcher 화살 Blue/Red 머티리얼)를 고른다.
+        /// Red 전용 칸이 비어 있는 유닛은 팀과 무관하게 같은 트레이서가 나온다(예전과 같음).
+        /// </param>
         /// <param name="start">발사 지점(화면 좌표).</param>
+        /// <param name="facingPoint">
+        /// [2026-10-27 단계 E] 처음 바라볼 지점(화면 좌표 — 보통 대상 표면점). 메시 화살처럼 "모양에 앞뒤가 있는" 투사체가
+        /// 첫 프레임에 이전 사용 때의 방향(풀 재사용)으로 한 번 보이는 것을 막는다. 시작점과 같으면 방향을 바꾸지 않는다.
+        /// </param>
         /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
-        public TracerProjectile BeginServerProjectile(UnitType attackerType, Vector3 start)
+        // 옛 서명·본문(기록용 — 단계 A~D): 팀을 받지 않아 유닛 종류당 트레이서 1개만 고를 수 있었다.
+        //   public TracerProjectile BeginServerProjectile(UnitType attackerType, Vector3 start)
+        //   {
+        //       EffectPreset preset = _unitConfig?.GetTracer(attackerType);
+        //       GameObject prefab = preset != null ? preset.VfxPrefab : null;
+        //       if (prefab == null) return null;
+        //       TracerProjectile tracer = GetOrCreateTracer(prefab);
+        //       tracer.BeginDriven(start);
+        //       return tracer;
+        //   }
+        public TracerProjectile BeginServerProjectile(UnitType attackerType, TeamId attackerTeam, Vector3 start, Vector3 facingPoint)
         {
-            EffectPreset preset = _unitConfig?.GetTracer(attackerType);
+            EffectPreset preset = _unitConfig?.GetTracer(attackerType, attackerTeam);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
             if (prefab == null) return null;
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.BeginDriven(start);
+            tracer.BeginDriven(start, facingPoint);
             return tracer;
         }
 
