@@ -129,7 +129,6 @@ namespace Hexiege.Presentation
         private Func<bool> _projectileOwnerReady;
         // [2026-10-21 사망타 숫자 누락 수정 — 제안 A] 보관함에는 피해 이벤트만이 아니라
         //   "보관한 순간(HP 이벤트 도착 시점)의 대상 화면 위치"도 같이 넣는다(ProjectileHeldHit 참조).
-        //   옛 줄(기록용): ProjectileImpactPresentationHold<EntityDamagedEvent> _projectileHold / List<EntityDamagedEvent> _projectileReleased
         private readonly ProjectileImpactPresentationHold<ProjectileHeldHit> _projectileHold =
             new ProjectileImpactPresentationHold<ProjectileHeldHit>();
         private readonly List<ProjectileHeldHit> _projectileReleased = new List<ProjectileHeldHit>();
@@ -383,20 +382,8 @@ namespace Hexiege.Presentation
             if (_attackEffectKeys.Count >= 8192 || _attackEffectPending.Count >= 256)
             { _attackEffectOverflow++; AttackEffectIdentity.Record("Fault", s, "CapacityFailure; Completeness=Unknown"); return; }
             _attackEffectKeys.Add(key);
-            if (s.Visual == AttackEffectVisual.MushroomImpact)
-            {
-                Vector3 source = s.Source, impact = s.Impact;
-                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped)
-                { source = ViewConverter.ToView(source); impact = ViewConverter.ToView(impact); }
-                double remaining = s.ImpactTime + AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds - ReadAttackEffectClock();
-                try
-                {
-                    bool started = EffectManager.Instance != null && EffectManager.Instance.PlayConfirmedMushroomTracer(source, impact, remaining);
-                    if (!started && !(remaining <= 0d)) _attackEffectFailures++;
-                    AttackEffectIdentity.Record(started ? "TracerPlay" : "TracerSkip", s, remaining <= 0d ? "LateResultNoFlight" : started ? "WriterSnapshot; Callback=ObjectOnly" : "MissingTracerOrManager", ReadAttackEffectClock());
-                }
-                catch (Exception ex) { _attackEffectFailures++; AttackEffectIdentity.Record("Fault", s, "Tracer:" + ex.Message); }
-            }
+            // 화면으로 오는 공격 표현 스냅샷은 즉발 타워 발사(Tower)뿐이다 — 받은 즉시 아래 EmitAttackEffects가 재생한다.
+            //   (MushroomBomber 착탄은 서버 투사체 기록 경로가 그리므로 스냅샷이 오지 않는다 — UnitCombatUseCase.ExecuteAttack.)
             _attackEffectReceivedAt[key] = Time.realtimeSinceStartupAsDouble;
             _attackEffectPending.Add(s);
         }
@@ -409,9 +396,8 @@ namespace Hexiege.Presentation
                 var key = (s.Match, s.Lifetime, s.Sequence);
                 if (Time.realtimeSinceStartupAsDouble - _attackEffectReceivedAt[key] >= AuthoritativeAttackPresentationCoordinator.MissingScheduleDeadlineSeconds)
                 { _attackEffectFailures++; AttackEffectIdentity.Record("Skip", s, "PresentationClockWaitExpired; Completeness=Unknown", now); _attackEffectPending.RemoveAt(i); _attackEffectReceivedAt.Remove(key); continue; }
-                double due = s.ImpactTime + (s.Visual == AttackEffectVisual.MushroomImpact
-                    ? AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds : 0d);
-                if (double.IsNaN(now) || double.IsInfinity(now) || (s.Visual == AttackEffectVisual.MushroomImpact && now < due)) continue;
+                // 타워 스냅샷은 표시 시각을 기다리지 않고 바로 재생한다(공격 순간 = 발사 이펙트). 시계 값이 비정상이면 다음 프레임에 다시 본다.
+                if (double.IsNaN(now) || double.IsInfinity(now)) continue;
                 Vector3 source = s.Source, impact = s.Impact;
                 if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped)
                 { source = ViewConverter.ToView(source); impact = ViewConverter.ToView(impact); }
@@ -420,7 +406,7 @@ namespace Hexiege.Presentation
                 {
                     // [2026-10-13 B] 정령 타워만 "원래 맞은 유닛"의 화면 오브젝트를 재생 1회 시점에 해석해 넘긴다.
                     //   해석 실패면 default → 추적 없이 스냅샷 Impact까지 길이만 맞춘다(NET-PRESENT-003).
-                    //   Human 타워·버섯 착탄은 해석하지 않으며 PlayAttackEffect도 이 인자를 무시한다.
+                    //   Human 타워는 해석하지 않으며 PlayAttackEffect도 이 인자를 무시한다.
                     TowerBoltTarget boltTarget = default;
                     string boltUntracked = null;
                     if (s.Visual == AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
@@ -626,7 +612,6 @@ namespace Hexiege.Presentation
                 ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
                 // [제안 A] 지금(HP 이벤트 도착 순간) 대상 화면 위치를 기억해 둔다. 화면 착탄 지점 없이 방출되는 경로
                 //   (타임아웃·보관 상한 초과)에서 대상이 이미 사라졌을 때의 대체 위치다. 대상이 없으면 기억하지 않는다.
-                //   옛 줄(기록용): if (_projectileHold.HoldOrRelease(key, evt, now)) Emit(evt, EmittedImmediate);
                 var held = new ProjectileHeldHit(evt, TryReadTargetPosition(evt, out Vector3 remembered), remembered);
                 if (_projectileHold.HoldOrRelease(evt.ProjectilePresentationKey, held, Time.realtimeSinceStartupAsDouble))
                 {
@@ -839,8 +824,7 @@ namespace Hexiege.Presentation
         private void Update()
         {
             // [2026-10-20] 화면 착탄 신호가 끝내 오지 않은 투사체 피해 표현은 상한 시간 뒤 강제 방출한다(표시 유실 방지).
-            //   옛 3줄(기록용): _projectileReleased.Clear(); _projectileHold.CollectExpired(now, _projectileReleased);
-            //                   EmitProjectileReleased(EmittedTimeout);  → 같은 일 + 착탄 지점 기억 정리를 TickProjectileHold로 옮겼다.
+            //   이 일과 착탄 지점 기억 정리는 TickProjectileHold가 함께 한다.
             TickProjectileHold(Time.realtimeSinceStartupAsDouble);
             EmitAttackEffects();
             RetryAuthoritativePresentations(Time.realtimeSinceStartupAsDouble);
@@ -1192,9 +1176,7 @@ namespace Hexiege.Presentation
             ObserveFoxLegacyPresentation(evt, "emitted",
                 textDisplayed ? "text-played" : "text-missing");
 
-            // [제안 A] 타겟 조회와 ②·③을 아래 두 헬퍼로 옮겼다(투사체 보관 항목 방출도 같은 코드를 쓰게). 동작은 그대로다.
-            //   옛 코드(기록용): targetGo = 팩토리 조회 → targetPresentation = pose 조회(없으면 targetGo.transform)
-            //                    → 유닛이면 EffectManager.PlayUnitHit(type, targetPresentation.position) → HitReactionPunch.Play(...)
+            // [제안 A] 타겟 조회와 ②·③은 아래 두 헬퍼가 한다(투사체 보관 항목 방출도 같은 코드를 쓰게).
             Transform targetPresentation = ResolveTargetPresentation(evt);
             PlayHitReaction(evt, targetPresentation, false, default);
         }

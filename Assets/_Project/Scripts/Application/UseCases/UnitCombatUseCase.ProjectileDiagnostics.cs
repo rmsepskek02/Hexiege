@@ -112,7 +112,7 @@ namespace Hexiege.Application
         {
             return new ProjectileImpactDiagnosticSnapshot
             {
-                // [단계 C] 옛 칸(기록용): AttackerId = record.Attacker != null ? record.Attacker.Id : -1,
+                // [단계 C] 공격자가 건물(타워)이면 건물 Id를 쓴다.
                 Id = record.Id,
                 AttackerId = record.Attacker != null ? record.Attacker.Id
                     : record.AttackerBuilding != null ? record.AttackerBuilding.Id : -1,

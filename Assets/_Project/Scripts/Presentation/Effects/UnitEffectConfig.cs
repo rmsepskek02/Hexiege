@@ -70,7 +70,6 @@ namespace Hexiege.Presentation
         //   EagleArcher 행의 값은 1회성 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」로 한 번 채웠고
         //   그 결과가 UnitEffectConfig.asset에 커밋돼 있다(사용자 커밋 be9b6e1a). 메뉴 스크립트는 2026-10-27 삭제했으므로
         //   앞으로 바꿀 때는 Inspector에서 직접 고친다.
-        //   옛 줄(기록용): 값은 메뉴 「Hexiege/Effects/Setup/Create EagleArcher Arrow Tracers」가 채운다(사람이 Inspector에서 고쳐도 된다).
         // ────────────────────────────────────────────────────────────────
         [Tooltip("Red 팀 공격자 전용 트레이서. 비워 두면 Red 팀도 위 tracerPreset을 쓴다(팀 색이 없는 파티클 트레이서는 비워 둔다). "
             + "EagleArcher 화살처럼 팀별 머티리얼이 다른 투사체만 채운다")]

@@ -131,9 +131,6 @@ namespace Hexiege.Editor.Combat
                     ProjectileAlignedTimedDamageStart.MaxHoldSeconds),
                 "[E-2] Burn VFX starts at the 0.3 s cap even if still held.");
             // [2026-10-27 단계 E — 결정 E-B (a)] MushroomBomber가 서버 투사체가 되어 독도 화상과 같은 규칙으로 미룬다.
-            //   옛 단언(기록용 — 주석 보존):
-            //   Require(!ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9d, true, 0d),
-            //       "[E-2] Poison is not delayed (Mushroom is not on the server projectile path yet).");
             Require(ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 9.95d, false, .05d),
                 "[E-2 / E2-4] Poison VFX waits while the screen time is before the server start (other enemies in the blast radius).");
             Require(ProjectileAlignedTimedDamageStart.ShouldWait(TimedDamageVisual.Poison, 10d, 11d, true, .1d),
@@ -256,11 +253,7 @@ namespace Hexiege.Editor.Combat
                 Require(!deaths.TryDefer(h, new DeathHoldFixtureOwner(), true), "[E-3] Impact already shown → immediate (Host order).");
 
                 string line = deaths.DescribeForDiagnostics("fixture");
-                // [2026-10-27 단계 E] poison 칸 추가로 v=1 → v=2. 옛 단언(기록용 — 주석 보존):
-                //   Require(line.StartsWith("side=view v=1 role=Single reason=fixture death=deferred:4|atImpact:3|cap:1|forced:0|discarded:0|heldNow:0 "
-                //               + "immediate=noHeldKillShot:5|afterImpact:1|capacity:0 holdDuration=n:4|", StringComparison.Ordinal)
-                //           && line.Contains(" gate=notReady:0|noVisualRoot:1 faults=0 burn=held:0|released:0|cap:0|immediate:0 verdict=ATTENTION attention=cap,no-visual-root"),
-                //       "[E-3] [PROJECTILE-DEATH-HOLD] line format: " + line);
+                // [2026-10-27 단계 E] poison 칸 추가로 v=1 → v=2.
                 Require(line.StartsWith("side=view v=2 role=Single reason=fixture death=deferred:4|atImpact:3|cap:1|forced:0|discarded:0|heldNow:0 "
                             + "immediate=noHeldKillShot:5|afterImpact:1|capacity:0 holdDuration=n:4|", StringComparison.Ordinal)
                         && line.Contains(" gate=notReady:0|noVisualRoot:1 faults=0 burn=held:0|released:0|cap:0|immediate:0 "

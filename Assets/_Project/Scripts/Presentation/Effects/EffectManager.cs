@@ -534,20 +534,10 @@ namespace Hexiege.Presentation
             //   (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
         }
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
-        public bool PlayConfirmedMushroomTracer(Vector3 source, Vector3 impact, double remaining)
-        {
-            if (double.IsNaN(remaining) || double.IsInfinity(remaining) || remaining <= 0d) return false;
-            var prefab = _unitConfig?.GetTracer(UnitType.MushroomBomber)?.VfxPrefab;
-            if (prefab == null) return false;
-            var tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(source, impact, null, (float)remaining, true); // callback has no HP/result authority.
-            bool started = false;
-            foreach (var ps in tracer.GetComponentsInChildren<ParticleSystem>(true)) started |= ps.isPlaying;
-            return tracer.gameObject.activeInHierarchy && started;
-        }
         /// <summary>
-        /// 서버가 확정한 공격 표현 스냅샷(타워 발사 / 버섯 착탄)을 이 화면에서 재생한다.
+        /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.
         /// 피해·HP와 무관한 화면 표현 전용이다.
+        /// MushroomBomber 착탄은 이 스냅샷이 아니라 서버 투사체 기록(PlayServerProjectileImpact)이 재생한다.
         /// </summary>
         /// <param name="s">서버 확정 스냅샷.</param>
         /// <param name="source">시작점(화면 좌표).</param>
@@ -555,17 +545,18 @@ namespace Hexiege.Presentation
         /// <param name="outcome">진단 기록용 결과 문자열.</param>
         /// <param name="boltTarget">
         /// [2026-10-13 B] 정령(Spirit) 타워 번개가 따라갈 "원래 맞은 유닛". Spirit 타워일 때만 쓰인다.
-        /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. Human 타워·버섯 착탄은 무시한다.
+        /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. Human 타워는 무시한다.
         /// </param>
         /// <param name="boltUntrackedReason">boltTarget이 default인 이유(진단용). null 허용.</param>
         public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome,
             TowerBoltTarget boltTarget = default, string boltUntrackedReason = null)
         {
             outcome = "InvalidSnapshotOrVisual";
-            if (!s.IsValid || (s.Visual != Hexiege.Application.AttackEffectVisual.Tower && s.Visual != Hexiege.Application.AttackEffectVisual.MushroomImpact)) return false;
-            if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Transcendence) { outcome = "UnspecifiedTranscendence"; return false; }
-            EffectPreset preset = s.Visual == Hexiege.Application.AttackEffectVisual.Tower
-                ? _buildingConfig?.GetAttack(BuildingType.AutoTower, s.Race) : _unitConfig?.GetImpact(UnitType.MushroomBomber);
+            // 화면으로 발행되는 스냅샷은 Tower(타워 발사)뿐이다. MushroomImpact 값은 지속 피해 출처 기록 전용이라 여기 오지 않는다
+            //   (UnitCombatUseCase.ExecuteAttack — 발행하지 않음). 혹시 오더라도 재생하지 않고 false로 돌려준다.
+            if (!s.IsValid || s.Visual != Hexiege.Application.AttackEffectVisual.Tower) return false;
+            if (s.Race == RaceId.Transcendence) { outcome = "UnspecifiedTranscendence"; return false; }
+            EffectPreset preset = _buildingConfig?.GetAttack(BuildingType.AutoTower, s.Race);
             if (preset?.VfxPrefab == null) { outcome = "MissingConfiguredPreset"; return false; }
             Vector3 direction = impact - source; direction.y = 0f;
             var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
@@ -573,16 +564,17 @@ namespace Hexiege.Presentation
             var systems = item.GetComponentsInChildren<ParticleSystem>(true);
             if (systems.Length == 0) { outcome = "ParticleSystemUnavailable"; item.RejectTimedDamageAcquire(); return false; }
             foreach (var ps in systems) { var main = ps.main; main.stopAction = ParticleSystemStopAction.None; }
-            item.Play(s.Visual == Hexiege.Application.AttackEffectVisual.Tower ? source : impact, rotation,
+            // 타워 발사 이펙트는 타워 위치(source)에서 낸다.
+            item.Play(source, rotation,
                 preset.LocalPositionOffset, preset.EulerRotationOffset, preset.ScaleMultiplier, preset.ForwardTravelDistance, preset.ForwardTravelDuration);
             bool started = false; foreach (var ps in systems) started |= ps.isPlaying;
             outcome = started ? "AuthoritySnapshotStarted" : "PlaybackInactive";
             // [2026-10-13 B] 정령 타워만: 번개 길이를 실제 거리에 맞추고 원래 맞은 유닛을 끝점으로 추적한다.
-            //   Human 타워(현행 유지)와 MushroomImpact는 이 분기를 타지 않아 동작이 이전과 같다.
+            //   Human 타워(현행 유지)는 이 분기를 타지 않아 동작이 이전과 같다.
             //   Type+Race 선택(위 preset 조회)과 Transcendence 미지정 no-fallback은 그대로다.
             // [R2-2] 끝점 높이 = 맞은 유닛의 가슴 높이(UnitEffectConfig 크기 표의 키 × 비율, 표에 없으면 0.6m).
             //   대상 데이터를 모르면(해석 실패) 같은 대체값 0.6m를 쓴다. 화면 표현 전용 값이다.
-            if (s.Visual == Hexiege.Application.AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
+            if (s.Race == RaceId.Spirit)
                 outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
                     preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
             // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
@@ -627,95 +619,30 @@ namespace Hexiege.Presentation
         /// <param name="target">도착 지점(월드). 발사 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 1회 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
         /// <param name="authoritativeDuration">서버 표시 시점까지 남은 비행 시간(초). 음수면 프리팹 속도(_speed)를 쓴다.</param>
-        /// <param name="playImpactOnArrive">
-        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체] true면 트레이서가 "도착하는 순간" 공격자 타입의
-        /// 착탄 이펙트(impactPreset)를 도착 지점에서 1회 재생한다. Legacy 트레이서 호출부(UnitView)만 true를 넘긴다.
-        /// </param>
         public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive,
-            float authoritativeDuration = -1f, bool playImpactOnArrive = false)
+            float authoritativeDuration = -1f)
         {
             EffectPreset preset = _unitConfig?.GetTracer(type);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
 
             // 트레이서 프리팹 미설정 → 비행 연출 없이 즉시 착탄 콜백 실행(폴백).
             //   이 경우 호출부의 피격 연출은 지연 없이 기존처럼 즉시 방출된다.
-            // [R5 임시] 이 폴백에서는 착탄 이펙트를 재생하지 않는다.
-            //   "날아가서 도착"한 투사체가 없으므로 도착 지점 이펙트도 없다. 그래서 착탄 이펙트만
-            //   설정되고 트레이서가 아직 없는 유닛(Tank/CannonCart)은 트레이서 프리셋이 연결될 때까지
-            //   화면 변화가 없다(데이터만 채우면 그때부터 자동으로 켜진다).
+            //   이 로컬 트레이서는 착탄 이펙트를 내지 않는다 — 착탄 이펙트는 서버 투사체 경로(PlayServerProjectileImpact)만 낸다.
             if (prefab == null)
             {
                 onArrive?.Invoke();
                 return;
             }
 
-            // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
-            //   기존 착탄 콜백(피해 텍스트 등)을 그대로 먼저 실행하고, 그 직후 착탄 이펙트를 재생하도록
-            //   콜백을 한 겹 감싼다. 착탄 이펙트가 설정되지 않은 타입이면 감싸지 않아 기존 동작과 완전히 같다.
-            Action arrive = onArrive;
-            if (playImpactOnArrive)
-            {
-                EffectPreset impact = ResolveLegacyArrivalImpact(type);
-                if (impact != null)
-                {
-                    // 발사 순간의 시작/도착 좌표를 값으로 복사해 둔다(비행 중 대상이 사라져도 안전).
-                    Vector3 impactStart = start;
-                    Vector3 impactPoint = target;
-                    arrive = () =>
-                    {
-                        onArrive?.Invoke();
-                        PlayLegacyArrivalImpact(impact, impactStart, impactPoint);
-                    };
-                }
-            }
-
             // Pool에서 트레이서를 꺼내(또는 새로 만들어) 발사.
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(start, target, arrive, authoritativeDuration);
-        }
-
-        /// <summary>
-        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
-        /// Legacy 트레이서가 도착할 때 재생할 "공격자 타입"의 착탄 이펙트 프리셋을 고른다.
-        /// 프리셋이 없거나 프리팹이 비어 있으면 null(= 추가로 아무것도 하지 않음).
-        ///
-        /// MushroomBomber는 항상 null이다. 버섯의 착탄은 서버가 확정한 스냅샷 경로
-        /// (PlayAttackEffect의 MushroomImpact)가 단독으로 소유하므로, 여기서 또 재생하면 두 번 터진다.
-        /// (현재 UnitView는 버섯의 Legacy 트레이서 호출 자체를 꺼 두었지만, 실수로 다시 켜져도 안전하도록 막는다.)
-        /// </summary>
-        /// <param name="attackerType">공격한(트레이서를 쏜) 유닛 타입.</param>
-        /// <returns>재생할 착탄 프리셋 또는 null.</returns>
-        private EffectPreset ResolveLegacyArrivalImpact(UnitType attackerType)
-        {
-            if (attackerType == UnitType.MushroomBomber) return null;
-            EffectPreset impact = _unitConfig?.GetImpact(attackerType);
-            return impact != null && impact.VfxPrefab != null ? impact : null;
-        }
-
-        /// <summary>
-        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
-        /// 트레이서 도착 지점에서 착탄 이펙트를 일반 1회성(풀링) 재생으로 터뜨린다.
-        /// 위치 = 트레이서가 도착한 지점(발사 순간의 대상 발밑 위치), 회전 = 날아온 방향(수평)이다.
-        /// 프리셋의 위치 오프셋·회전 오프셋·배율은 Play()가 그대로 적용한다. 피해·HP와는 무관한 화면 표현이다.
-        /// </summary>
-        /// <param name="impact">재생할 착탄 프리셋(null 아님).</param>
-        /// <param name="start">트레이서 발사 지점(방향 계산용).</param>
-        /// <param name="arrival">트레이서 도착 지점(이펙트 위치).</param>
-        private void PlayLegacyArrivalImpact(EffectPreset impact, Vector3 start, Vector3 arrival)
-        {
-            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(물보라가 기울어지지 않도록).
-            Vector3 direction = arrival - start;
-            direction.y = 0f;
-            Quaternion rotation = direction.sqrMagnitude > 0.0001f
-                ? Quaternion.LookRotation(direction)
-                : Quaternion.identity;
-            Play(impact, arrival, rotation);
-            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect와 동일).
+            tracer.Launch(start, target, onArrive, authoritativeDuration);
         }
 
         // ====================================================================
         // [2026-10-20 서버 권위 투사체] 서버 발사 기록으로 그리는 투사체 · 착탄 이펙트
-        //   R5 임시 경로(PlayTracer의 playImpactOnArrive)를 대신하는 정식 경로다. 스위치가 켜진 유닛만 쓴다.
+        //   투사체 유닛(ServerProjectileDeliveryPolicy 분류)의 화면 투사체 · 착탄 이펙트는 모두 이 경로로 그린다.
+        //   (2026-10-19의 R5 임시 경로 — 로컬 트레이서 도착 순간 착탄 이펙트 — 는 P5 정리에서 삭제했다.)
         //   위치·시각은 화면 소비자(ProjectilePresentationPresenter)가 서버 기록으로 정하고, 여기서는
         //   기존 트레이서/착탄 프리셋(UnitEffectConfig의 tracerPreset·impactPreset)을 재사용해 꺼내 주기만 한다.
         // ====================================================================
@@ -735,16 +662,6 @@ namespace Hexiege.Presentation
         /// 첫 프레임에 이전 사용 때의 방향(풀 재사용)으로 한 번 보이는 것을 막는다. 시작점과 같으면 방향을 바꾸지 않는다.
         /// </param>
         /// <returns>외부 구동 중인 트레이서. 없으면 null.</returns>
-        // 옛 서명·본문(기록용 — 단계 A~D): 팀을 받지 않아 유닛 종류당 트레이서 1개만 고를 수 있었다.
-        //   public TracerProjectile BeginServerProjectile(UnitType attackerType, Vector3 start)
-        //   {
-        //       EffectPreset preset = _unitConfig?.GetTracer(attackerType);
-        //       GameObject prefab = preset != null ? preset.VfxPrefab : null;
-        //       if (prefab == null) return null;
-        //       TracerProjectile tracer = GetOrCreateTracer(prefab);
-        //       tracer.BeginDriven(start);
-        //       return tracer;
-        //   }
         public TracerProjectile BeginServerProjectile(UnitType attackerType, TeamId attackerTeam, Vector3 start, Vector3 facingPoint)
         {
             EffectPreset preset = _unitConfig?.GetTracer(attackerType, attackerTeam);
@@ -774,13 +691,13 @@ namespace Hexiege.Presentation
         {
             EffectPreset impact = _unitConfig?.GetImpact(attackerType);
             if (impact == null || impact.VfxPrefab == null) return false;
-            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(R5 착탄 이펙트와 같은 회전 규칙).
+            // 높이 차이는 무시하고 땅 위에서 본 방향만 쓴다(물보라 등 착탄 이펙트가 기울어지지 않도록).
             flightDirection.y = 0f;
             Quaternion rotation = flightDirection.sqrMagnitude > 0.0001f
                 ? Quaternion.LookRotation(flightDirection)
                 : Quaternion.identity;
             Play(impact, point, rotation);
-            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect · R5와 동일).
+            // Sound15: 착탄 SFX는 아직 지정되지 않아 추가하지 않는다(PlayAttackEffect와 동일).
             return true;
         }
 

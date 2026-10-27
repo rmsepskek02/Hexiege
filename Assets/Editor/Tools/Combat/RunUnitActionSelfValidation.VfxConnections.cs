@@ -84,15 +84,13 @@ namespace Hexiege.Editor.Combat
         /// [T-1 보강 — 2026-10-19 차지 유닛 발사 시점] 실제 EffectManager로 두 차지 유닛(FoxMagician·InfernoSpirit)의
         /// 「차지 시작 → 발사」 화면 표현을 확인한다. (메인 파일의 Fox fixture는 EffectManager를 격리해 lease 수명만 본다.)
         ///   ① 정상: 차지 marker = charge VFX 1개·투사체 없음 / 같은 회차 두 번째 차지 = 추가 재생 없음 /
-        ///      타격 marker = 투사체(트레이서) 1발·charge 재생 없음 / 도착 = 로컬 피격 신호 1회 + 착탄 VFX.
+        ///      타격 marker = lease 소비만(로컬 트레이서·피격 신호 없음 — 두 유닛은 서버 투사체 유닛) · charge 재생 없음.
         ///   ② 차지 도중 취소(허가 차단): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (사용자 결정 D2).
         ///   ③ Stop이 타격보다 먼저(SourceOnly): charge 즉시 정지, 이후 타격에서 투사체·charge 없음 (D2).
-        ///   ④ 싱글(lease 없음): 차지 = charge 1개, 타격 = 투사체 1발·charge 재생 없음.
-        /// [2026-10-21 서버 권위 투사체 단계 D] 두 유닛이 서버 투사체로 바뀌어 ①·④의 "타격 marker = 트레이서 1발 · 도착 = 피격 신호"는
-        ///   "타격 marker = lease 소비만(로컬 트레이서·피격 신호 없음)"으로 바뀌었다(옛 검사는 V-7 주석으로 보존).
+        ///   ④ 싱글(lease 없음): 차지 = charge 1개, 타격 = 로컬 트레이서 없음·charge 재생 없음.
         ///   서버 발사 기록으로 그리는 투사체·취소 통보로 끄는 차지는 ServerProjectiles의 D-6이 확인한다.
-        /// 발사음(SFX)은 AudioManager를 격리했으므로 여기서 관측하지 않는다(코드 위치는 UnitView R-4 주석 — 실기 확인 항목).
-        /// EditMode에서는 Update가 돌지 않으므로 트레이서 도착(Arrive)은 리플렉션으로 직접 호출한다.
+        /// 발사음(SFX)은 AudioManager를 격리했으므로 여기서 관측하지 않는다
+        ///   (발사음은 서버 발사 기록이 화면에 나올 때 UnitView.PlayServerProjectileLaunchCue가 낸다 — 실기 확인 항목).
         /// </summary>
         private static void ValidateChargeUnitLaunchTiming(UnitEffectConfig units, BuildingEffectConfig buildings)
         {
@@ -101,9 +99,8 @@ namespace Hexiege.Editor.Combat
                 "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
             var audioSingleton = typeof(SingletonMonoBehaviour<AudioManager>).GetField(
                 "<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
-            var arrive = typeof(TracerProjectile).GetMethod("Arrive", VfxFields);
-            Require(effectSingleton != null && audioSingleton != null && arrive != null,
-                "Charge-unit launch fixture seams (EffectManager/AudioManager singletons, tracer arrival) must exist.");
+            Require(effectSingleton != null && audioSingleton != null,
+                "Charge-unit launch fixture seams (EffectManager/AudioManager singletons) must exist.");
             object oldEffect = effectSingleton.GetValue(null), oldAudio = audioSingleton.GetValue(null);
             bool oldActive = NetworkContext.IsNetworkActive, oldServer = NetworkContext.IsNetworkServer;
             var root = new GameObject("ChargeUnitLaunchFixture") { hideFlags = HideFlags.HideAndDontSave };
@@ -135,12 +132,6 @@ namespace Hexiege.Editor.Combat
                     foreach (var t in root.GetComponentsInChildren<TracerProjectile>(true))
                         if (IsTracerOf(t, prefab)) count++;
                     return count;
-                }
-                TracerProjectile ActiveTracer(GameObject prefab)
-                {
-                    foreach (var t in root.GetComponentsInChildren<TracerProjectile>(true))
-                        if (IsTracerOf(t, prefab)) return t;
-                    return null;
                 }
 
                 foreach (var (type, chargeTime, hitTime) in new[]
@@ -185,19 +176,9 @@ namespace Hexiege.Editor.Combat
                     Require(Active(charge.VfxPrefab) == 1,
                         type + " second charge marker in the same revision does not replay the charge VFX.");
                     int tracersBefore = ActiveTracers(tracer.VfxPrefab);
-                    // [V-7 비활성화 — 2026-10-21 서버 권위 투사체 단계 D] 두 차지 유닛은 이제 서버 투사체 유닛이다.
-                    //   타격 marker는 lease만 소비하고 로컬 트레이서를 쏘지 않는다 — 투사체는 서버 발사 기록을 화면 소비자
-                    //   (ProjectilePresentationPresenter)가 그리고, 착탄 VFX·숫자는 서버 착탄 결과로 낸다(단계 D fixture D-6·소스 게이트).
-                    //   옛 검사(주석 보존 — C 사용자 테스트 PASS 뒤 정리):
-                    // view.OnAttackHit(hitEvent);
-                    // Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
-                    //     type + " launch marker fires one tracer and does not replay the charge VFX.");
-                    // TracerProjectile flying = ActiveTracer(tracer.VfxPrefab);
-                    // Require(flying != null, type + " launched tracer is flying.");
-                    // int hitsBefore = localHits, impactsBefore = Active(impact.VfxPrefab);
-                    // arrive.Invoke(flying, null);
-                    // Require(localHits == hitsBefore + 1 && Active(impact.VfxPrefab) == impactsBefore + 1,
-                    //     type + " tracer arrival raises one local-hit signal and plays one attacker impact VFX.");
+                    // 두 차지 유닛은 서버 투사체 유닛이다. 타격 marker는 lease만 소비하고 로컬 트레이서를 쏘지 않는다 —
+                    //   투사체는 서버 발사 기록을 화면 소비자(ProjectilePresentationPresenter)가 그리고,
+                    //   착탄 VFX·숫자는 서버 착탄 결과로 낸다(단계 D fixture D-6·소스 게이트).
                     int hitsBefore = localHits;
                     view.OnAttackHit(hitEvent);
                     Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 1 && localHits == hitsBefore,
@@ -234,16 +215,6 @@ namespace Hexiege.Editor.Combat
                     view.OnAttackCharge(chargeEvent);
                     Require(Active(charge.VfxPrefab) == 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
                         type + " SOLO charge marker plays one charge VFX and launches nothing.");
-                    // [V-7 비활성화 — 2026-10-21 단계 D] 옛 싱글 검사(로컬 트레이서 1발 → 도착 시 피격 신호 1회) — 주석 보존:
-                    // view.OnAttackHit(hitEvent);
-                    // Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore + 1 && Active(charge.VfxPrefab) == 1,
-                    //     type + " SOLO launch fires one tracer and does not replay the charge VFX.");
-                    // TracerProjectile soloFlying = ActiveTracer(tracer.VfxPrefab);
-                    // Require(soloFlying != null, type + " SOLO launched tracer is flying.");
-                    // hitsBefore = localHits;
-                    // arrive.Invoke(soloFlying, null);
-                    // Require(localHits == hitsBefore + 1 && ActiveTracers(tracer.VfxPrefab) == tracersBefore,
-                    //     type + " SOLO tracer arrival raises one local-hit signal and returns the tracer to its pool.");
                     hitsBefore = localHits;
                     view.OnAttackHit(hitEvent);
                     Require(ActiveTracers(tracer.VfxPrefab) == tracersBefore && Active(charge.VfxPrefab) == 1 && localHits == hitsBefore,
@@ -388,13 +359,13 @@ namespace Hexiege.Editor.Combat
 
         /// <summary>
         /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
-        /// Legacy 트레이서가 "도착한 순간" 공격자 타입의 착탄 이펙트(impactPreset)를 도착 지점에서 터뜨리는지 확인한다.
         /// (a) 설정: StreamSpirit/Tank/CannonCart의 착탄 이펙트는 공격자 기준 impact 슬롯에 있고,
         ///     "맞은 유닛 타입" 기준인 hit 슬롯은 비어 있다. StreamSpirit 트레이서 프리팹 루트에는
         ///     TracerProjectile이 미리 붙어 있어 프리팹의 느린 속도(_speed)가 실제로 쓰인다.
-        /// (b) 실제 EffectManager 경로: 비행 중에는 착탄 이펙트 없음 → 도착하면 기존 콜백이 먼저 1회 실행되고
-        ///     그 다음 착탄 이펙트 1개가 도착 지점에 재생된다. 플래그를 안 넘긴 호출, 트레이서가 없는 타입(즉시 콜백 폴백),
-        ///     MushroomBomber(서버 확정 스냅샷 경로가 착탄을 단독 소유)는 착탄 이펙트를 만들지 않는다.
+        ///     (이 프리셋들은 서버 투사체 화면 — ProjectilePresentationPresenter — 이 그대로 꺼내 쓴다.)
+        /// (b) 실제 EffectManager의 로컬 트레이서(PlayTracer) 일반 계약: 트레이서를 날리고 도착하면 콜백을 1회 실행하며
+        ///     착탄 이펙트는 만들지 않는다. 트레이서가 없는 타입은 콜백을 즉시 실행한다(폴백).
+        ///     [P5 정리] 2026-10-19 R5 임시 동작(도착 순간 착탄 이펙트 — playImpactOnArrive) 검사는 그 코드와 함께 삭제했다.
         /// EditMode에서는 Update가 돌지 않으므로 도착(Arrive)을 리플렉션으로 직접 호출한다.
         /// </summary>
         private static void ValidateLegacyTracerArrivalImpact(UnitEffectConfig units, BuildingEffectConfig buildings)
@@ -413,10 +384,6 @@ namespace Hexiege.Editor.Combat
             // [2026-10-20 서버 권위 투사체 단계 B] Tank·CannonCart는 이제 R5 임시 경로가 아니라 서버 투사체 경로다.
             //   같은 설정 계약(착탄 = 공격자 기준 impact 슬롯, hit 슬롯 비움)에 트레이서 프리셋 연결까지 함께 확인한다 —
             //   서버 투사체 화면 소비자가 이 두 프리셋(EffectPreset_Cannon_Tracer · EffectPreset_Cannon_Impact)을 그린다.
-            //   옛 단언(R5, 기록용 — 주석 보존):
-            //   Require(units.GetImpact(UnitType.Tank) == cannonImpact && units.GetHit(UnitType.Tank) == null
-            //       && units.GetImpact(UnitType.CannonCart) == cannonImpact && units.GetHit(UnitType.CannonCart) == null,
-            //       "[R5] Tank/CannonCart impact is attacker-keyed (impact slot), victim-keyed hit slot is empty.");
             var cannonTracer = AssetDatabase.LoadAssetAtPath<EffectPreset>(
                 "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_Cannon_Tracer.asset");
             Require(cannonTracer?.VfxPrefab != null
@@ -458,67 +425,29 @@ namespace Hexiege.Editor.Combat
                     return null;
                 }
 
-                // ① StreamSpirit + 플래그 true: 비행 중엔 없음 → 도착 시 콜백 먼저, 그 다음 착탄 1개.
                 Vector3 start = new Vector3(0f, 0.5f, 0f);
                 Vector3 target = new Vector3(2f, 0f, 0f);
-                int callbackCount = 0, impactsSeenInCallback = -1;
-                manager.PlayTracer(UnitType.StreamSpirit, start, target,
-                    () => { callbackCount++; impactsSeenInCallback = ActiveImpacts(streamImpact.VfxPrefab); },
-                    playImpactOnArrive: true);
-                var tracer = ActiveTracer();
-                Require(tracer != null && callbackCount == 0 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
-                    "[R5] While the StreamSpirit tracer is flying there is no splash and no arrival callback yet.");
-                arrive.Invoke(tracer, null);
-                Require(callbackCount == 1 && impactsSeenInCallback == 0 && ActiveImpacts(streamImpact.VfxPrefab) == 1,
-                    "[R5] On arrival the existing callback runs once first, then exactly one attacker splash plays.");
-                VfxPoolItem splash = null;
-                foreach (var item in root.GetComponentsInChildren<VfxPoolItem>(true))
-                    if (item.SourcePrefab == streamImpact.VfxPrefab && item.gameObject.activeSelf) splash = item;
-                Quaternion flight = Quaternion.LookRotation(new Vector3(target.x - start.x, 0f, target.z - start.z));
-                Require(splash != null && VfxApprox(splash.transform.position, target + flight * streamImpact.LocalPositionOffset),
-                    "[R5] Splash plays at the tracer arrival point (target) with the preset offset applied.");
-                splash.Return();
 
-                // ② 플래그를 넘기지 않은 호출(기존 호출 방식)은 착탄 이펙트를 만들지 않는다.
+                // ② 로컬 트레이서 호출은 트레이서를 날리고, 도착하면 콜백을 1회 실행하며, 착탄 이펙트는 만들지 않는다.
                 int plainCallbacks = 0;
                 manager.PlayTracer(UnitType.StreamSpirit, start, target, () => plainCallbacks++);
-                tracer = ActiveTracer();
+                TracerProjectile tracer = ActiveTracer();
                 Require(tracer != null, "[R5] Plain tracer call launches a tracer.");
                 arrive.Invoke(tracer, null);
                 Require(plainCallbacks == 1 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
                     "[R5] A tracer call without the arrival-impact flag keeps the old behavior (no splash).");
 
                 // ③ 트레이서가 없는 타입: 콜백은 즉시 실행, 착탄 이펙트는 재생하지 않는다(폴백 유지).
-                //   [2026-10-20 단계 B] 옛 예시 Tank는 트레이서 프리셋이 연결돼(EffectPreset_Cannon_Tracer) 이 블록이 실행되지 않았고,
-                //   이제 서버 투사체 유닛이라 R5 경로를 쓰지 않는다. 트레이서가 없는 Pistoleer로 같은 폴백 계약을 확인한다.
-                //   옛 블록(기록용 — 주석 보존):
-                //   if (units.GetTracer(UnitType.Tank)?.VfxPrefab == null)
-                //   {
-                //       int tankCallbacks = 0;
-                //       manager.PlayTracer(UnitType.Tank, start, target, () => tankCallbacks++, playImpactOnArrive: true);
-                //       Require(tankCallbacks == 1 && ActiveImpacts(cannonImpact.VfxPrefab) == 0 && ActiveTracer() == null,
-                //           "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
-                //   }
+                //   트레이서 프리셋이 없는 비투사체 유닛 Pistoleer로 폴백 계약을 확인한다.
                 if (units.GetTracer(UnitType.Pistoleer)?.VfxPrefab == null)
                 {
                     int fallbackCallbacks = 0;
                     var pistoleerImpact = units.GetImpact(UnitType.Pistoleer);
-                    manager.PlayTracer(UnitType.Pistoleer, start, target, () => fallbackCallbacks++, playImpactOnArrive: true);
+                    manager.PlayTracer(UnitType.Pistoleer, start, target, () => fallbackCallbacks++);
                     Require(fallbackCallbacks == 1 && ActiveTracer() == null
                         && (pistoleerImpact?.VfxPrefab == null || ActiveImpacts(pistoleerImpact.VfxPrefab) == 0),
                         "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
                 }
-
-                // ④ MushroomBomber: 플래그가 true여도 Legacy 도착 착탄을 만들지 않는다(스냅샷 경로가 단독 소유).
-                var mushroomImpact = units.GetImpact(UnitType.MushroomBomber);
-                Require(mushroomImpact?.VfxPrefab != null && units.GetTracer(UnitType.MushroomBomber)?.VfxPrefab != null,
-                    "[R5] Mushroom impact/tracer presets exist for the exclusion check.");
-                manager.PlayTracer(UnitType.MushroomBomber, start, target, null, playImpactOnArrive: true);
-                tracer = ActiveTracer();
-                Require(tracer != null, "[R5] Mushroom tracer launches through the generic call for the exclusion check.");
-                arrive.Invoke(tracer, null);
-                Require(ActiveImpacts(mushroomImpact.VfxPrefab) == 0,
-                    "[R5] MushroomBomber never gets a Legacy arrival impact (confirmed snapshot path owns its impact).");
             }
             finally
             {
@@ -969,7 +898,6 @@ namespace Hexiege.Editor.Combat
                     current = VfxUnit(nextId++);
                     // [2026-10-27 단계 E] 독(MushroomBomber)도 화면 착탄 정렬 대상이 됐으므로 "시작 보류 → 바로잡힌 pose로 시작" 경로를
                     //   독에도 똑같이 돌린다. 판단은 운영 코드와 같은 함수(IsProjectileAligned)를 쓴다.
-                    //   옛 줄(기록용): bool holdable = kind == TimedDamageVisual.Burn && ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.InfernoSpirit);
                     bool holdable = ProjectileAlignedTimedDamageStart.IsProjectileAligned(kind);
                     clock = holdable ? 99d : 1000d;
                     channel.Upsert(current, 1, kind, 3f);
@@ -1805,7 +1733,7 @@ namespace Hexiege.Editor.Combat
                 typeof(EffectManager).GetMethod("Awake", VfxFields).Invoke(manager, null);
                 Require(EffectManager.Instance == manager, "Writer snapshot fixture registers its actual manager lifecycle.");
                 Require(units.GetTracer(UnitType.MushroomBomber)?.VfxPrefab != null,
-                    "Writer snapshot fixture resolves the actual Mushroom tracer prefab before the event.");
+                    "The actual Mushroom tracer prefab is wired (the server projectile presentation draws it).");
                 queue = root.AddComponent<HitPresentationQueue>(); queue.Initialize(null, null, null, null, null, null);
                 double now = 100d; queue.SetAttackEffectClock(() => now);
                 var spawn = new UnitSpawnUseCase(null);
@@ -1818,41 +1746,19 @@ namespace Hexiege.Editor.Combat
                 capture = GameEvents.OnAttackEffectConfirmed.Subscribe(s => snapshot = s);
                 typeof(UnitCombatUseCase).GetMethod("ExecuteAttack", VfxFields).Invoke(combat, new object[] { attacker, target, true, default(AttackResultKey) });
                 // ────────────────────────────────────────────────────────────────
-                // [RM-8 — 2026-10-27 서버 권위 투사체 단계 E, 결정 E-D (가)] MushroomBomber가 서버 투사체 스위치에 켜졌으므로
-                //   ExecuteAttack(= 서버 착탄 순간)은 옛 "피해 순간 스냅샷"을 발행하지 않는다. 포자 비행·착탄 이펙트는 서버 발사/착탄 기록
+                // [RM-8 — 2026-10-27 서버 권위 투사체 단계 E, 결정 E-D (가)] MushroomBomber는 서버 투사체 유닛이라
+                //   ExecuteAttack(= 서버 착탄 순간)은 "피해 순간 스냅샷"을 발행하지 않는다. 포자 비행·착탄 이펙트는 서버 발사/착탄 기록
                 //   경로(ProjectilePresentationPresenter)가 그리고, 그 경로는 ServerProjectiles 검증 E-2가 확인한다.
-                //   그래서 이 fixture의 Mushroom 부분은 "스냅샷 0건 · 옛 트레이서/착탄 0건 · 독 출처(origin)는 그대로 채워짐"으로 바꾼다.
+                //   그래서 이 fixture의 Mushroom 부분은 "스냅샷 발행 0건 · 독 출처(origin)는 그대로 채워짐"을 본다
+                //   (발행 0건은 옛 발행이 다시 들어오는 것을 막는 재발 방지 단언이다).
                 //   스냅샷 큐 자체(중복 거부 · 잘못된 값 거부 · 수명 종료 뒤 무시)는 Spirit RuneSpire Tower 스냅샷이 계속 쓰므로
-                //   아래 타워 공격 뒤로 옮겨 Tower 스냅샷으로 확인한다.
-                //   옛 단언(기록용 — 주석 보존, P5 삭제 대상):
-                //   Require(snapshot.IsValid && !snapshot.ResultKey.IsValid && snapshot.ImpactTime == now, "Unresolved writer owns LegacyIndependent immutable snapshot, no fake C3 key.");
-                //   var tracers = root.GetComponentsInChildren<TracerProjectile>(true);
-                //   Require(tracers.Length == 1 && tracers[0].gameObject.activeSelf, "Actual Unresolved writer event reaches actual tracer play, no committedSchedule dependency.");
-                //   int hp = target.Hp;
-                //   typeof(TracerProjectile).GetMethod("Arrive", VfxFields).Invoke(tracers[0], null);
-                //   Require(target.Hp == hp && root.GetComponentsInChildren<VfxPoolItem>(true).Length == 0, "Tracer callback only returns object, no HP/impact release authority.");
-                //   now += AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
-                //   typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields).Invoke(queue, null);
-                //   Require(root.GetComponentsInChildren<VfxPoolItem>(true).Length == 1 && target.Hp == hp, "Same immutable snapshot emits due impact without changing HP.");
-                //   var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
-                //   GameEvents.OnAttackEffectConfirmed.OnNext(snapshot);
-                //   Require(pending.Count == 0, "Duplicate snapshot emits neither flight nor impact twice.");
-                //   var bad = snapshot; bad.Visual = (AttackEffectVisual)255; bad.Sequence++;
-                //   Require(!bad.IsValid, "Invalid attack enum rejected.");
-                //   bad = snapshot; bad.Visual = AttackEffectVisual.Tower; bad.Race = (RaceId)255;
-                //   Require(!bad.IsValid, "Invalid tower race rejected.");
-                //   Require(combat.TimedDamageEffects.TryGet(target, out var effect) && effect.Visual == TimedDamageVisual.Poison
-                //       && effect.AttackSequence == snapshot.Sequence && effect.AttackMatch == snapshot.Match, "Actual Damage writer provenance joins exact attack snapshot.");
+                //   아래 타워 공격 뒤에서 Tower 스냅샷으로 확인한다.
+                //   [P5 정리] 큐의 MushroomImpact 재생 갈래(옛 0.1초 트레이서 · 옛 due 착탄)를 코드에서 삭제해 그 재생 단언도 지웠다.
                 // ────────────────────────────────────────────────────────────────
                 Require(ServerProjectileDeliveryPolicy.IsServerProjectile(UnitType.MushroomBomber),
                     "[E-2 RM-8] Fixture precondition: MushroomBomber is on the server projectile switch.");
                 Require(!snapshot.IsValid, "[E-2 RM-8] A switched-on Mushroom impact publishes no legacy writer snapshot (no double impact VFX).");
                 var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
-                now += AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds;
-                typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields).Invoke(queue, null);
-                Require(pending.Count == 0 && root.GetComponentsInChildren<TracerProjectile>(true).Length == 0
-                        && root.GetComponentsInChildren<VfxPoolItem>(true).Length == 0,
-                    "[E-2 RM-8] No legacy 0.1 s Mushroom tracer and no legacy due impact are played from the snapshot queue.");
                 // 독 출처: 발행은 끊었지만 스냅샷 "생성"(damageOrigin)은 그대로라, 독 상태가 공격 출처 키를 그대로 가진다.
                 Require(combat.TimedDamageEffects.TryGet(target, out var effect) && effect.Visual == TimedDamageVisual.Poison
                         && effect.AttackSequence != 0UL && effect.AttackMatch != 0UL,

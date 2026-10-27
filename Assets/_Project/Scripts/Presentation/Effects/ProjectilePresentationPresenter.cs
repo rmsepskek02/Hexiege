@@ -279,7 +279,6 @@ namespace Hexiege.Presentation
                     LastCenter = ViewConverter.ToView(launch.TargetCenter)
                 };
                 UnitView attackerView = ResolveAttackerView(launch);
-                // 옛 줄(기록용): visual.Start = ResolveLaunchPoint(launch);  — 같은 규칙을 아래 두 줄로 나눴다(공격자 화면을 한 번만 찾는다).
                 // [단계 C] 건물 공격자(타워)는 서버가 보낸 포구 위치(높이 포함)를 그대로 출발점으로 쓴다.
                 //   Red 화면은 ToView가 XZ를 반전한다 — 타워도 그 화면에서 180° 돌아 놓여 있어 같은 포구에 맞는다.
                 //   유닛 공격자 줄은 예전과 같다(공격자 화면이 있으면 총구, 없으면 서버 위치 + 대체 높이).
@@ -295,7 +294,6 @@ namespace Hexiege.Presentation
                 // [2026-10-27 단계 E] 팀별 트레이서(EagleArcher 화살 Blue/Red 머티리얼)를 고르도록 서버 발사 기록의 Team을 넘기고,
                 //   메시 화살이 첫 프레임부터 대상 쪽을 보도록 처음 바라볼 지점(바로 위에서 정한 표면점)도 넘긴다.
                 //   Team은 서버가 채운 실제 팀이다(Red 관점 Client의 화면 뒤집기와 무관) → 양쪽 화면에서 같은 팀 색이 나온다.
-                //   옛 줄(기록용): visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, visual.Start);
                 if (effects != null && launch.AttackerIsUnit)
                     visual.Tracer = effects.BeginServerProjectile(visual.AttackerType, launch.Team, visual.Start, visual.LastEndpoint);
                 // [단계 C] 타워 투사체 — CannonCart 트레이서 프리셋(BuildingEffectConfig 종족별 줄).
@@ -368,7 +366,6 @@ namespace Hexiege.Presentation
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).
                 //   [2026-10-21 제안 A] 화면 착탄 지점도 함께 넘긴다. 사망타는 이 순간 대상 오브젝트가 이미 디스폰돼 있을 수 있어
                 //   (Client는 0.10초 늦게 그린다) 큐가 이 지점에 숫자 "0"을 낸다. 대상이 살아 있으면 큐는 이 지점을 쓰지 않는다.
-                //   옛 줄(기록용): _hits?.ReleaseProjectileImpact(slot.Key);
                 if (withResult && slot.Result.Outcome == ProjectileImpactOutcome.Hit)
                     _hits?.ReleaseProjectileImpact(slot.Key, NumberFallbackPoint(slot, visual));
             }
@@ -388,10 +385,6 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         // [단계 B] 옛 ResolveLaunchPoint를 "공격자 화면 찾기"와 "출발점 계산"으로 나눴다(발사 신호도 같은 화면에 내기 위해).
-        //   옛 메서드(기록용 — 같은 규칙):
-        //     if (launch.AttackerIsUnit && _unitFactory != null) { go = GetUnitObject(id); view = go.GetComponent<UnitView>();
-        //         if (view != null && view.Data != null && view.Data.Id == launch.AttackerId && go.activeInHierarchy) return view.ProjectileLaunchPoint; }
-        //     return ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
         private UnitView ResolveAttackerView(ProjectileLaunchPresentation launch)
         {
             if (!launch.AttackerIsUnit || _unitFactory == null) return null;
@@ -524,8 +517,7 @@ namespace Hexiege.Presentation
             _view.BeginLag.Add(beginLag);
             if (!tracer) _view.TracerMissing++;
             string cue;
-            // [단계 C] 옛 줄(기록용): if (!slot.Launch.AttackerIsUnit) cue = "not-unit";
-            //   건물 공격자(타워)의 발사 신호를 따로 센다. 유닛 공격자 칸(played/vfxStarted/...)에는 섞지 않는다.
+            // [단계 C] 건물 공격자(타워)의 발사 신호를 따로 센다. 유닛 공격자 칸(played/vfxStarted/...)에는 섞지 않는다.
             if (!slot.Launch.AttackerIsUnit)
             {
                 if (midFlight) { cue = "tower-skipped-mid-flight"; _view.TowerCueSkippedMidFlight++; }
@@ -591,7 +583,6 @@ namespace Hexiege.Presentation
             // [2026-10-21] 기기 logcat은 한 줄을 약 1024자에서 자른다(2026-10-21 실기에서 Host END 뒷부분 유실 확인).
             //   그래서 END를 2줄(part=1/2 · part=2/2)로 나눈다. 두 줄 모두 같은 머리(role·epoch·reason)를 달아 짝을 맞출 수 있다.
             //   형식이 바뀌었으므로 v=1 → v=2. 1줄째 = 개수(받음·그림·착탄·일정표·보관함·숫자 결과), 2줄째 = 시간 분포·marker·verdict.
-            //   옛 1줄 형식(기록용): "side=view v=1 role=.. epoch=.. reason=.. switch=.. launch=.. ... hold=.. markers=.. verdict=.."
             string head = FormattableString.Invariant(
                 $"side=view v=2 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
             string part1 = head + "part=1/2 "

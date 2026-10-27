@@ -70,7 +70,6 @@ namespace Hexiege.Application
             UnitData attacker = ctx.Attacker;
             // [2026-10-20 서버 권위 투사체 — Q3 · 위험 3] 이미 발사된 투사체의 착탄(ctx.AttackerMayBeInactive)이면
             //   공격자가 비행 중 죽었어도 진행한다. 그 밖의 공격은 예전처럼 공격자가 죽었으면 아무것도 하지 않는다.
-            //   옛 조건(기록용): if (attacker == null || !attacker.IsAlive) return;
             if (attacker == null || (!attacker.IsAlive && !ctx.AttackerMayBeInactive)) return;
             if (ctx.Units == null) return;
 

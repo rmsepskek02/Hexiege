@@ -1765,9 +1765,11 @@ namespace Hexiege.Application
             bool updateLegacyDomainFacing = true,
             AttackResultKey presentationResultKey = default)
         {
-            AttackEffectPresentation mushroomVisual = default;
+            // [공격 출처(origin) 값] MushroomBomber의 독 · InfernoSpirit의 화상(지속 피해)은 "어느 공격이 건 상태인가"를
+            //   기록해야 한다(AttackMatch · AttackLifetime · AttackSequence). 그 값을 공격 표현 스냅샷 생성기로 만든다.
+            //   이 스냅샷은 지속 피해의 출처 기록 전용이며 화면으로 발행하지 않는다 — 두 유닛의 비행 · 착탄 화면은
+            //   서버 투사체 기록(ProjectilePresentationPresenter)이 맡는다. 열거형 값 MushroomImpact는 이 출처 값 때문에 남아 있다.
             AttackEffectPresentation damageOrigin = default;
-            int visualHpBefore = target.Hp;
             if (attacker.Type == UnitType.MushroomBomber || attacker.Type == UnitType.InfernoSpirit)
             {
                 try
@@ -1775,7 +1777,6 @@ namespace Hexiege.Application
                     damageOrigin = _attackEffects.Create(attacker, target, AttackEffectVisual.MushroomImpact,
                         default, ResolveWorldPosition(attacker), ResolveWorldPosition(target), WaveServerTime);
                     damageOrigin.ResultKey = presentationResultKey;
-                    if (attacker.Type == UnitType.MushroomBomber) mushroomVisual = damageOrigin;
                 }
                 catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactSnapshot:" + ex.Message); }
             }
@@ -1800,25 +1801,14 @@ namespace Hexiege.Application
             bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
             if (!replacesPrimary)
             {
-                // 여우마법사의 charge 표식(1초)은 VFX 시작이며 피해 확정(30fps의 2:25)보다 먼저다.
-                // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
-                // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
-                // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.
-                // ────────────────────────────────────────────────────────────────
-                // [RM-5 비활성화 — 2026-10-21 서버 권위 투사체 단계 D, 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]
-                //   위 설명은 Fox가 "피해 순간 = 타이머 시각"이던 시절의 예외다(투사체 VFX가 없어 숫자를 기다릴 표식이 없었다).
-                //   이제 Fox는 서버 투사체 유닛이라 이 피해는 "착탄 순간"에만 일어나고, 피해 이벤트에 투사체 번호표가 붙어
-                //   화면 투사체가 닿는 순간 숫자가 1회 나온다(Q7 · Q8). 그래서 즉시 표시 예외를 끈다 — 모든 유닛 false.
-                //   옛 줄(기록용 — 주석 보존, C 사용자 테스트 PASS 뒤 삭제 대상):
-                //   bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
-                //       && !presentationResultKey.IsValid;
-                // ────────────────────────────────────────────────────────────────
-                const bool immediatePrimaryPresentation = false;
-                if (attacker.Type == UnitType.FoxMagician)   // [단계 D 진단] RM-5 확인 계수(판정 무관)
-                    DiagFoxPrimaryPresentation(ProjectileImpactInProgress, immediatePrimaryPresentation,
+                // 주 타깃 피해의 숫자는 즉시 표시하지 않는다(immediatePresentation: false) — 모든 유닛 공통.
+                //   투사체 유닛(FoxMagician 포함)은 이 피해가 "서버 착탄 순간"에만 일어나고 피해 이벤트에 투사체 번호표가 붙어,
+                //   화면 투사체가 닿는 순간 숫자가 1회 나온다(규칙 19 · 20). 예전의 Fox 즉시 표시 예외는 2026-10-21에 없앴다.
+                if (attacker.Type == UnitType.FoxMagician)   // [진단] Fox 주 타깃 피해 표시 방식 계수(판정 무관)
+                    DiagFoxPrimaryPresentation(ProjectileImpactInProgress, false,
                         oldRuleImmediate: !presentationResultKey.IsValid);
                 ApplyDamageToVictim(
-                    attacker, target, immediatePresentation: immediatePrimaryPresentation,
+                    attacker, target, immediatePresentation: false,
                     presentationResultKey: presentationResultKey);
             }
 
@@ -1840,33 +1830,11 @@ namespace Hexiege.Application
                     attackerMayBeInactive: ProjectileImpactInProgress);
                 special.Apply(ctx);
             }
-            // ────────────────────────────────────────────────────────────────
-            // [RM-8 비활성화 — 2026-10-27 서버 권위 투사체 단계 E, 사용자 결정 E-D (가)]
-            //   MushroomBomber가 서버 투사체 유닛이 되면 이 메서드는 "서버 착탄 순간"에만 불린다(발사 예약 → 비행 → 착탄).
-            //   그 착탄의 화면 표현(포자 투사체 비행 · 착탄 이펙트 · 숫자)은 이미 서버 발사/착탄 기록 경로
+            // [MushroomBomber 착탄 화면] 이 메서드는 MushroomBomber에게 "서버 착탄 순간"에만 불린다(발사 예약 → 비행 → 착탄).
+            //   그 착탄의 화면 표현(포자 비행 · 착탄 이펙트 · 숫자)은 서버 발사/착탄 기록 경로
             //   (ProjectilePresentationPresenter → EffectManager.BeginServerProjectile / PlayServerProjectileImpact)가 맡는다.
-            //   여기서 옛 "피해 순간 스냅샷"까지 발행하면 Host·Client 모두
-            //     ① 공격자의 "착탄 순간" 위치에서 0.1초짜리 옛 트레이서가 한 번 더 날고(HitPresentationQueue → PlayConfirmedMushroomTracer),
-            //     ② ImpactTime + 0.10초에 옛 착탄 이펙트가 또 터져(PlayAttackEffect의 MushroomImpact) 착탄 이펙트가 두 번 나온다(Plan 위험 2).
-            //   그래서 스위치가 켜진 유닛이면 "발행"만 하지 않는다 — 인간 타워 단계 C(TowerCombatUseCase.ExecuteTowerAttack)의
-            //   "서버 투사체면 Tower 발사 스냅샷을 내지 않는다"와 같은 방식이다.
-            //   🔴 위쪽의 스냅샷 "생성"(damageOrigin)은 그대로 둔다: 같은 값이 독 부여(ApplyDamageOverTime)의 origin으로 넘어가
-            //      지속 피해 상태의 공격 출처(AttackMatch · AttackLifetime · AttackSequence)를 채운다. Inferno 화상도 같은 값을 쓴다.
-            //   스위치가 꺼진 경우(이론상 — 지금은 켜져 있다)는 아래 옛 발행이 그대로 돈다(RM-9 스위치 제거 때 함께 정리, P5).
-            //   옛 블록(기록용 — 조건만 바뀌었고 본문은 그대로다):
-            //   if (mushroomVisual.IsValid)
-            //   {
-            //       mushroomVisual.AppliedDamage = Mathf.Max(0, visualHpBefore - target.Hp); mushroomVisual.ResultHp = target.Hp;
-            //       try { AttackEffectIdentity.Record("ServerConfirm", mushroomVisual, now: mushroomVisual.ImpactTime); GameEvents.OnAttackEffectConfirmed.OnNext(mushroomVisual); }
-            //       catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactPublish:" + ex.Message); }
-            //   }
-            // ────────────────────────────────────────────────────────────────
-            if (mushroomVisual.IsValid && !ServerProjectileDeliveryPolicy.IsServerProjectile(attacker.Type))
-            {
-                mushroomVisual.AppliedDamage = Mathf.Max(0, visualHpBefore - target.Hp); mushroomVisual.ResultHp = target.Hp;
-                try { AttackEffectIdentity.Record("ServerConfirm", mushroomVisual, now: mushroomVisual.ImpactTime); GameEvents.OnAttackEffectConfirmed.OnNext(mushroomVisual); }
-                catch (System.Exception ex) { TimedDamageEffects.Record("Fault", default, "ImpactPublish:" + ex.Message); }
-            }
+            //   그래서 여기서는 공격 표현 스냅샷(OnAttackEffectConfirmed)을 발행하지 않는다 — 발행하면 착탄 이펙트가 두 번 나온다.
+            //   (인간 타워가 서버 투사체일 때 Tower 발사 스냅샷을 내지 않는 것과 같은 원칙 — TowerCombatUseCase.ExecuteTowerAttack.)
         }
 
         /// <summary>

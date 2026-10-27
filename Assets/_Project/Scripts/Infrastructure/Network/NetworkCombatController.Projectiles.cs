@@ -116,7 +116,6 @@ namespace Hexiege.Infrastructure
                     var rpc = new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { client } } };
                     combat.CopyActiveProjectileLaunches(_projectileSnapshotBuffer);
                     // [단계 B] 스냅샷 알림에 "바로 뒤에 올 발사 기록 수"를 싣는다(Client 진단이 스냅샷 수신 수를 센다).
-                    //   옛 줄(기록용): BeginProjectileEpochClientRpc(combat.ProjectileEpoch, rpc);  — 목록 복사보다 먼저 보냈다.
                     BeginProjectileEpochClientRpc(combat.ProjectileEpoch, _projectileSnapshotBuffer.Count, rpc);
                     foreach (var launch in _projectileSnapshotBuffer)
                         SendProjectileLaunchRpc(launch, rpc);
@@ -200,8 +199,6 @@ namespace Hexiege.Infrastructure
             //   예전에는 writerResult=Applied로 찍어 "발사 때 피해가 적용됐다"로 읽힐 수 있었다. 이제는
             //   writerResult=NotInvoked(server-projectile-launch; damage-at-impact)로 실제 의미를 적는다.
             //   타이머 매칭·계수(timer-impact 단계 수)는 예전과 같다 — 시간축 진단의 완료 판정은 바꾸지 않는다.
-            //   옛 호출(기록용): RecordStreamSpiritTimerImpact(launch.AttackerId, UnitType.StreamSpirit,
-            //                   launch.TargetId, launch.TargetIsUnit, AttackDamageApplyStatus.Applied);
             if (launch.AttackerIsUnit && launch.AttackerKind == (int)UnitType.StreamSpirit)
                 UnitAttackShadowObserver.RecordStreamSpiritTimerImpact(
                     launch.AttackerId, UnitType.StreamSpirit, launch.TargetId, launch.TargetIsUnit,
@@ -274,7 +271,6 @@ namespace Hexiege.Infrastructure
         // ── RPC ─────────────────────────────────────────────────────────────
 
         // [2026-10-20 단계 B] snapshotLaunches 인자 추가(-1 = 일반 알림, 0 이상 = 늦은 접속 스냅샷 발사 기록 수).
-        //   옛 시그니처(기록용): private void BeginProjectileEpochClientRpc(ulong epoch, ClientRpcParams rpc = default)
         [ClientRpc]
         private void BeginProjectileEpochClientRpc(ulong epoch, int snapshotLaunches, ClientRpcParams rpc = default)
         {

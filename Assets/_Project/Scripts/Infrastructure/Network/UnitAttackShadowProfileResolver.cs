@@ -18,13 +18,10 @@ namespace Hexiege.Infrastructure
     {
         // [2026-10-20 서버 권위 투사체] 3 → 4. 새 전송 계약(발사/착탄 ClientRpc, HP 동기화 RPC의 투사체 번호표,
         //   MushroomBomber 행 TargetLocked)이 생겼으므로 구버전 빌드와의 경기를 handshake에서 거부한다(Plan 위험 5).
-        //   옛 값(기록용): public const int PresentationContractSchemaRevision = 3;
         // [2026-10-20 단계 B] 4 → 5. 투사체 epoch 알림 RPC(BeginProjectileEpochClientRpc)에 "늦은 접속 스냅샷 발사 기록 수"
         //   인자가 추가돼 RPC 모양이 바뀌었다. 단계 A 빌드(스키마 4)와 섞인 경기는 handshake에서 거부한다.
-        //   옛 값(기록용, 단계 A): public const int PresentationContractSchemaRevision = 4;
         // [2026-10-21 단계 D] 5 → 6. 발사 전 취소 통보 RPC(ProjectileLaunchCancelClientRpc)가 새로 생겼다.
         //   단계 B·C 빌드(스키마 5)와 섞인 경기는 handshake에서 거부한다(스위치 토큰도 바뀌어 해시가 다르지만, 전송 모양 변경은 스키마로도 막는다).
-        //   옛 값(기록용, 단계 B·C): public const int PresentationContractSchemaRevision = 5;
         public const int PresentationContractSchemaRevision = 6;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
@@ -81,9 +78,6 @@ namespace Hexiege.Infrastructure
                 //   ⚠️ 사유 문자열은 handshake 해시에 들어간다(아래 ComputeHash의 profile.Reason). 같은 커밋에서 스위치 토큰도 바뀌므로
                 //      다른 빌드끼리는 어차피 경기가 거부된다. RPC 모양은 그대로라 스키마(6)는 올리지 않는다(선례: 스키마는 RPC 모양 변경 때만).
                 //   C3 축 분류(Unresolved · TargetLocked · 기대 타격 수 1 · secondary 여부)는 바뀌지 않는다.
-                //   옛 줄(기록용 — 주석 보존):
-                //   case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-animation-selection-unresolved", out profile);
-                //   case UnitType.MushroomBomber: return UnresolvedProjectile(type, true, "locked-point-projectile-and-periodic-result-unresolved", out profile);
                 case UnitType.EagleArcher: return UnresolvedProjectile(type, false, "projectile-system-unresolved", out profile);
                 case UnitType.MushroomBomber: return UnresolvedProjectile(type, true, "projectile-and-periodic-result-unresolved", out profile);
 
@@ -185,7 +179,6 @@ namespace Hexiege.Infrastructure
             // [2026-10-20 U-16 — 스키마 4와 같은 변경] 사용자 결정(3차)으로 MushroomBomber도 다른 투사체처럼
             //   대상을 따라가 맞힌다(Homing). 그래서 이 행의 LockedPoint는 실제 게임플레이와 어긋난 값이 됐다 →
             //   모든 투사체 행을 TargetLocked로 통일한다. 25종 manifest 해시가 바뀌므로 스키마 상향과 함께 바꾼다.
-            //   옛 식(기록용): type == UnitType.MushroomBomber ? AttackTargetMode.LockedPoint : AttackTargetMode.TargetLocked,
             profile = Create(
                 type,
                 AttackTargetMode.TargetLocked,

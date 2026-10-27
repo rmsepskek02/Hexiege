@@ -7761,7 +7761,7 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// 공통 주 피해 writer의 이벤트를 구독해 스코프 없는 여우마법사만 즉시 표시하는지 검사한다.
+        /// 공통 주 피해 writer의 이벤트를 구독해 어떤 유닛(여우마법사 포함)의 주 피해도 즉시 표시하지 않는지 검사한다.
         /// 실제 경기를 실행하거나 피해 타이머를 당기지 않는다.
         /// </summary>
         private static void ValidateFoxMagicianPrimaryPresentation()
@@ -7798,10 +7798,7 @@ namespace Hexiege.Editor.Combat
                     events++;
                     Require(evt.CurrentHp == victim.Hp && evt.CurrentHp == 990,
                         "Presentation must observe already-applied damage, not apply it again.");
-                    // [V-4 비활성화 — 2026-10-21 서버 권위 투사체 단계 D, RM-5 · 사용자 승인 F-4(규칙 19 Fox 예외 삭제)]
-                    //   옛 검사(Fox만 결과 키 없으면 즉시 표시)는 반대 검사가 됐다. 지우지 않고 주석으로 남긴다:
-                    // Require(evt.ImmediatePresentation == (type == UnitType.FoxMagician && !scoped),
-                    //     "Only unscoped FoxMagician primary damage may bypass the next marker.");
+                    // 규칙 19 Fox 즉시 표시 예외는 2026-10-21에 없앴다 — 어떤 유닛의 주 피해도 즉시 표시하지 않는다.
                     Require(!evt.ImmediatePresentation,
                         "[RM-5] No primary damage bypasses presentation anymore: the Fox rule-19 immediate exception is removed (Fox numbers show at the projectile impact).");
                     Require(evt.PresentationResultKey.Equals(key)
@@ -8133,11 +8130,8 @@ namespace Hexiege.Editor.Combat
                     "FoxMagician UnitEffectConfig row must retain explicit unitType=21.");
                 Require(row.FindPropertyRelative("attackPreset").objectReferenceValue == expectedAttackPreset,
                     "FoxMagician must retain the verified production attack preset.");
-                // [V-3 비활성화 — 2026-10-19 차지 유닛 발사 시점, 사용자 승인] 예전에는 「Fox 트레이서 미구현」을 고정했다.
-                //   이제 Fox도 InfernoSpirit(R5 임시)과 같은 방식으로 화면 표현용 Legacy 트레이서(마법탄)와 착탄 이펙트를 연결한다.
-                //   서버 판정은 여전히 85/30초 TimerImpact이며 실제 권위 투사체(C 방식)는 아니다. 원래 검사는 주석으로 남긴다.
-                // Require(row.FindPropertyRelative("tracerPreset").objectReferenceValue == null,
-                //     "FoxMagician tracer is not implemented; wiring one requires a separate authoritative projectile design.");
+                // Fox 행에는 트레이서(마법탄)와 착탄 이펙트 프리셋이 연결돼 있다 — 서버 투사체 화면(ProjectilePresentationPresenter)이
+                //   이 두 프리셋을 그대로 꺼내 쓴다(2026-10-21 단계 D부터).
                 // [T-2] 트레이서 = 마법탄 프리셋, 착탄 = 공격자 기준 impact 슬롯. 피격(hit) 슬롯은 「맞은 유닛 타입」 기준이라 비워 둔다.
                 //   프리셋 파일 이름만 맞고 GUID가 다른 사본을 연결하는 실수를 막으려고 GUID도 확인한다(사용자 커밋 683e1566의 에셋).
                 const string foxTracerPresetPath = "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_FoxMagician_Tracer.asset";
@@ -8220,29 +8214,8 @@ namespace Hexiege.Editor.Combat
                     && Math.Abs(attacker.HitFrameTimes[0] - 85f / 30f) <= 0.000001d,
                     "Production Fox asset/Factory input must select the serialized 85/30 marker.");
                 var combat = new UnitCombatUseCase(grid, spawn, new BuildingPlacementUseCase(grid), null, new SoloTimingMapper());
-                // [V-5 — 2026-10-21 서버 권위 투사체 단계 D] Fox는 이제 서버 투사체 유닛이다.
+                // [2026-10-21 서버 권위 투사체 단계 D] Fox는 서버 투사체 유닛이다.
                 //   85/30초(= 직렬화된 float marker)는 "피해 시각"이 아니라 "발사 시각"이고, 피해는 착탄 시각에 투사체 번호표와 함께 1회다.
-                //   옛 본문(PendingHit 타이머가 85/30초에 즉시 표시 피해를 주던 검사)은 반대 검사가 되어 아래에 주석으로 보존한다:
-                // double now = 0; int events = 0; bool immediate = false;
-                // damage = GameEvents.OnEntityDamaged.Subscribe(e => {
-                //     if (!ReferenceEquals(e.Entity, victim)) return;
-                //     events++; immediate = e.ImmediatePresentation;
-                //     Require(Math.Abs(now - 85f / 30f) <= 0.000001d,
-                //         "Authority compares serialized float due, not the exact rational double.");
-                // });
-                // int hpBefore = victim.Hp;
-                // Require(combat.TryAttack(attacker, now).HasValue, "Actual Fox TryAttack must reserve once.");
-                // now = 2.25d; combat.TickCooldowns(2.25f, now); combat.TickPendingHits(2.25f, now);
-                // Require(victim.Hp == hpBefore && events == 0, "Old decimal 2.25 must not apply Fox damage.");
-                // double due = attacker.HitFrameTimes[0];
-                // now = due - 0.000002d;
-                // combat.TickPendingHits((float)(now - 2.25d), now);
-                // Require(victim.Hp == hpBefore && events == 0, "Fox cannot hit before the serialized due.");
-                // now = due; combat.TickPendingHits(0.000002f, now);
-                // Require(victim.Hp < hpBefore && events == 1 && immediate,
-                //     "Actual writer applies one captured-target hit and keeps default-key immediate presentation.");
-                // combat.TickPendingHits(0f, now);
-                // Require(events == 1, "Repeated due processing must not duplicate authoritative damage.");
                 var launches = new List<ProjectileLaunchPresentation>();
                 combat.ProjectileLaunched += launches.Add;
                 double now = 0; int events = 0; double damageAt = double.NaN; EntityDamagedEvent hit = default;
@@ -8349,29 +8322,6 @@ namespace Hexiege.Editor.Combat
                     Commit(1UL, AttackPresentationImpactMode.LegacyFallback);
                     chargeRevisionField.SetValue(view, 0UL);
                     rotationProperty.GetSetMethod(true).Invoke(view, new object[] { seed });
-                    // [V-1 비활성화 — 2026-10-19 차지 유닛 발사 시점] 옛 기준(Fox 타격은 lease를 보존하고 아무것도 방출하지 않음).
-                    //   새 기준에서 Fox 타격은 lease를 소비하고 투사체를 쏜다. 원래 검사는 지우지 않고 주석으로 남긴다.
-                    // int remainingBefore = ((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount;
-                    // var scopeBefore = view.AttackPhaseLastEmissionScope;
-                    // int targetBefore = view.AttackPhaseLastEmissionTarget;
-                    // Vector3 positionBefore = view.AttackPhaseLastEmissionTargetPosition;
-                    // Quaternion before = view.AttackPhaseLastEmissionRotation;
-                    // view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                    // // 2026-10-19 Fox fixture: zero Quaternion에도 정확한 성분 불변을 검사한다.
-                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == remainingBefore,
-                    //     "Fox impact must preserve the charge lease count.");
-                    // Require(view.AttackPhaseLastEmissionScope.Equals(scopeBefore)
-                    //         && view.AttackPhaseLastEmissionTarget == targetBefore
-                    //         && view.AttackPhaseLastEmissionTargetPosition.Equals(positionBefore)
-                    //         && view.AttackPhaseLastEmissionRotation.Equals(before),
-                    //     "Fox impact must preserve emission metadata components.");
-                    // view.OnAttackCharge(new AnimationEvent { time = 1f });
-                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0
-                    //         && view.AttackPhaseLastEmissionTarget == -1,
-                    //     "Fox charge consumes its existing Host/Client source lease without a recipient.");
-                    // view.OnAttackCharge(new AnimationEvent { time = 1f });
-                    // Require(((AttackPresentationSourceMarkerLease)sourceField.GetValue(view)).RemainingMarkerCount == 0,
-                    //     "Repeated charge cannot reacquire a consumed lease.");
 
                     // ① 차지: 확인만 한다(소비 없음) — 그래도 charge emitter까지는 도달한다(recipient -1).
                     SeedTarget();
@@ -8393,30 +8343,23 @@ namespace Hexiege.Editor.Combat
                             && view.AttackPhaseLastEmissionTargetPosition.Equals(positionBefore)
                             && view.AttackPhaseLastEmissionRotation.Equals(seed),
                         "A second charge in the same revision emits nothing and consumes nothing.");
-                    // ③ 타격: lease를 소비하고 발사 경로로 들어간다.
-                    // [V-2 비활성화 — 2026-10-19] 옛 기준 「localHits == 0」(Fox 타격은 피격 신호 없음)은 아래 루프 밖에 주석으로 남겼다.
-                    //   EffectManager가 격리돼 트레이서를 만들 수 없으므로, production은 같은 타격 순간 즉시 로컬 피격 신호로 폴백한다.
-                    //   이 신호가 1회 나온 것이 「source-only return을 지나 발사 경로에 진입했다」는 증거다.
+                    // ③ 타격: lease를 소비한다. Fox는 서버 투사체 유닛이라 타격 marker가 lease만 소비하고
+                    //   로컬 트레이서·피격 신호를 내지 않는다(투사체는 서버 발사 기록이, 숫자는 서버 착탄 결과가 낸다).
                     int hitsBefore = localHits;
                     view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
                     Require(Source().RemainingMarkerCount == 0 && !Source().IsArmed,
                         "Fox launch consumes the commit's single source allowance.");
-                    // [V-6 비활성화 — 2026-10-21 서버 권위 투사체 단계 D] Fox는 서버 투사체 유닛이라 타격 marker가 lease만 소비하고
-                    //   로컬 트레이서·피격 신호를 내지 않는다(투사체는 서버 발사 기록이, 숫자는 서버 착탄 결과가 낸다). 옛 검사(주석 보존):
-                    // Require(localHits == hitsBefore + 1,
-                    //     "Fox launch enters the tracer/local-hit path once (EffectManager absent: immediate signal fallback).");
                     Require(localHits == hitsBefore,
                         "Fox launch marker (server projectile) consumes the lease but emits no local tracer/hit signal.");
                     // ④ 소비된 lease로는 다음 루프의 차지도 타격도 통과하지 못한다.
                     SeedTarget();
                     view.OnAttackCharge(new AnimationEvent { time = 1f });
                     view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                    // [V-6] 옛 조건 localHits == hitsBefore + 1(위 ③에서 1회 냈던 것)을 서버 투사체 기준 hitsBefore로 바꿨다.
                     Require(localHits == hitsBefore && view.AttackPhaseLastEmissionTarget == unreachedTarget,
                         "A consumed lease admits neither another charge nor another launch.");
                 }
 
-                // ⑤ Scoped(정규 scope) 경로에서도 차지는 impact lease를 소비하지 않는다 — R-3에서 확인한 두 번째 소비 지점.
+                // ⑤ Scoped(정규 scope) 경로에서도 차지는 impact lease를 소비하지 않는다 — UnitView P2-3에서 확인한 두 번째 소비 지점.
                 //   현재 두 차지 유닛은 LegacyFallback이라 impact lease를 쓰지 않지만, 나중에 Supported가 돼도 깨지지 않게 고정한다.
                 NetworkContext.Set(false, true);
                 Commit(2UL, AttackPresentationImpactMode.Scoped);
@@ -8431,7 +8374,7 @@ namespace Hexiege.Editor.Combat
                     "Charge leaves both the source and the impact lease unconsumed (Scoped).");
                 int scopedHitsBefore = localHits;
                 view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                // [V-6] 옛 조건 localHits == scopedHitsBefore + 1 → 서버 투사체 유닛은 로컬 피격 신호 없음(scopedHitsBefore).
+                // 서버 투사체 유닛은 로컬 피격 신호가 없다(scopedHitsBefore 그대로).
                 Require(!Impact().IsArmed && Impact().Status == AttackPresentationImpactLeaseStatus.Consumed
                         && Source().RemainingMarkerCount == 0 && localHits == scopedHitsBefore,
                     "The launch, not the charge, consumes the Scoped impact HitIndex and the source allowance.");
@@ -8454,12 +8397,6 @@ namespace Hexiege.Editor.Combat
                 int soloHitsBefore = localHits;
                 view.OnAttackCharge(new AnimationEvent { time = 1f });
                 view.OnAttackHit(new AnimationEvent { time = 85f / 30f });
-                // [V-2 비활성화 — 2026-10-19 차지 유닛 발사 시점] 옛 검사: Fox 콜백은 피격 신호를 전혀 내지 않는다.
-                // Require(localHits == 0 && hpEvents == 0 && unit.Hp == 200,
-                //     "Actual SOLO/Host/Client callbacks never publish recipient/local-hit or apply HP.");
-                // [V-6 비활성화 — 2026-10-21 단계 D] 옛 검사(주석 보존):
-                // Require(localHits == soloHitsBefore + 1,
-                //     "SOLO Fox launch (no lease) also enters the launch path at the hit marker, not at the charge.");
                 Require(localHits == soloHitsBefore,
                     "SOLO Fox (server projectile) charge/hit markers emit no local hit signal; the server launch record draws the projectile.");
                 Require(hpEvents == 0 && unit.Hp == 200,

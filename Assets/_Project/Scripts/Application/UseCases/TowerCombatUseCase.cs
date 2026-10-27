@@ -163,7 +163,6 @@ namespace Hexiege.Application
                 // [단계 C] 투사체 타워는 여기서 "발사"만 하고 피해는 착탄 때 준다. 발사를 못 했으면(투사체 용량 초과·
                 //   서비스 닫힘) 공격 자체가 없었던 것이므로 쿨다운을 시작하지 않는다(유닛 투사체 커밋 거절과 같은 원칙).
                 //   즉발 타워(RuneSpire·VineTower)는 항상 true라 동작이 예전과 같다.
-                //   옛 줄(기록용): ExecuteTowerAttack(building, target);
                 if (!ExecuteTowerAttack(building, target)) continue;
 
                 // 규칙 5: 공격 직후 쿨다운 시작.

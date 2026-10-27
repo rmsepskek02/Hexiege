@@ -322,7 +322,7 @@ namespace Hexiege.Application
         public static bool ShouldWait(TimedDamageVisual visual, double effectStart, double presentationNow,
             bool heldProjectileHit, double waitedSeconds)
         {
-            // [단계 E] 옛 줄(기록용 — 화상만 미뤘다): if (visual != TimedDamageVisual.Burn) return false;
+            // [단계 E] 화상과 독(MushroomBomber) 둘 다 미룬다(단계 D까지는 화상만이었다).
             if (visual != TimedDamageVisual.Burn && visual != TimedDamageVisual.Poison) return false;
             if (double.IsNaN(waitedSeconds) || waitedSeconds >= MaxHoldSeconds) return false;
             if (heldProjectileHit) return true;
@@ -338,8 +338,6 @@ namespace Hexiege.Application
     ///
     /// [2026-10-27 단계 E — 독 보류 추가] 화상(burn)과 독(poison)을 따로 센다. 독도 같은 보류 장치를 타므로
     ///   한 계수에 섞으면 "Client 독 held = released, cap 0" 같은 실기 확인을 할 수 없다.
-    ///   옛 계수(기록용 — 화상만 있었다): private static int _held, _releasedInTime, _releasedCap, _immediate;
-    ///   옛 기록 함수(기록용): RecordHeld() · RecordReleased(bool capExceeded) · RecordImmediate() — 인자 없이 화상만 셌다.
     /// </summary>
     public static class ProjectileAlignedTimedDamageDiagnostics
     {
@@ -392,7 +390,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 로그 조각 — "burn=held:N|released:N|cap:N|immediate:N poison=held:N|released:N|cap:N|immediate:N".
-        /// [단계 E] 옛 형식(기록용): "burn=held:N|released:N|cap:N|immediate:N" — 뒤에 poison 칸을 더했다.
+        /// [단계 E] 뒤의 poison 칸은 단계 E에서 더했다.
         /// </summary>
         public static string Describe()
             => string.Format(CultureInfo.InvariantCulture,

@@ -161,7 +161,6 @@ namespace Hexiege.Application
         public bool AcceptLaunch(ProjectileLaunchPresentation launch, double local)
         {
             // [2026-10-20 단계 B] 거부 판단 순서·결과는 그대로 두고, 사유별 계수만 함께 센다(진단).
-            //   옛 첫 줄(기록용): if (!launch.IsValid || launch.Key.Epoch != _epoch || _finished.Contains(launch.Key.Id)) { Rejected++; return false; }
             if (!launch.IsValid) { Rejected++; RejectedInvalid++; return false; }
             if (launch.Key.Epoch != _epoch) { Rejected++; RejectedEpoch++; return false; }
             if (_finished.Contains(launch.Key.Id)) { Rejected++; RejectedFinishedLaunch++; return false; }
@@ -183,7 +182,6 @@ namespace Hexiege.Application
         public bool AcceptResult(ProjectileImpactPresentation result, double local)
         {
             // [2026-10-20 단계 B] 판단은 그대로, 사유별 계수만 함께 센다(진단).
-            //   옛 첫 줄(기록용): if (!result.IsValid || result.Key.Epoch != _epoch || _finished.Contains(result.Key.Id)) { Rejected++; return false; }
             if (!result.IsValid) { Rejected++; RejectedInvalid++; return false; }
             if (result.Key.Epoch != _epoch) { Rejected++; RejectedEpoch++; return false; }
             if (_finished.Contains(result.Key.Id)) { Rejected++; RejectedFinishedResult++; return false; }

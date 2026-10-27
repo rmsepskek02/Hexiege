@@ -6,7 +6,6 @@
 //   · 유닛 종류별 투사체 속도(월드 미터/초) — 2026-10-20 사용자 결정 Q2 「Inspector에서 조절, 서버 권위 데이터」.
 //       초기값: StreamSpirit 4 · Tank 4 · CannonCart 4 · InfernoSpirit 5 · FoxMagician 5 · EagleArcher 6 · MushroomBomber 5.
 //   · 인간 방어타워 투사체 속도(초기 4) — 2026-10-21 단계 C(인간 타워 전환)부터 실제로 쓴다.
-//     (옛 줄, 기록용: 「다음 단계(인간 타워 전환)에서 사용한다. 지금은 보관만 한다.」)
 //   · 인간 방어타워 포구 위치(발사 원점, 단계 C) — 타워 루트 기준 "타워 정면" 좌표계 오프셋.
 //       서버 발사 위치와 화면 발사 이펙트·투사체 출발점이 모두 이 한 값을 쓴다(사용자 결정 「대포 입구에서 발사」).
 //       초기값 (0, 0.405, 0.17)은 CannonTower 메시 포신 끝을 측정한 값이다(ProjectileSettings.DefaultHumanTowerMuzzleOffset 주석).
@@ -77,7 +76,6 @@ namespace Hexiege.Infrastructure
         [Tooltip("유닛 종류별 투사체 속도. 표에 없는 유닛은 코드 안전값(4)을 쓴다")]
         [SerializeField] private List<UnitSpeedEntry> _unitSpeeds = new List<UnitSpeedEntry>();
 
-        // [단계 C] 옛 Tooltip(기록용): "인간 방어타워(CannonTower) 투사체 속도 — 다음 단계(인간 타워 전환)에서 사용. 지금은 보관만 한다"
         [Tooltip("인간 방어타워(CannonTower) 투사체 속도(월드 미터/초). 0 이하면 코드 안전값(4)을 쓴다")]
         [SerializeField] private float _humanTowerSpeed = 4f;
 
@@ -118,7 +116,6 @@ namespace Hexiege.Infrastructure
         /// <returns>서버 비행 계산용 값 묶음.</returns>
         public ProjectileSettings ToSettings()
         {
-            // [단계 C] 옛 줄(기록용): new ProjectileSettings(_defaultUnitRadius, _defaultBuildingRadius, _humanTowerSpeed);
             var settings = new ProjectileSettings(_defaultUnitRadius, _defaultBuildingRadius, _humanTowerSpeed,
                 _humanTowerMuzzleOffset);
             // 표가 비어 있어도 결정된 초기 속도는 유지되도록 코드 기본값을 먼저 깔고 Inspector 값으로 덮는다.

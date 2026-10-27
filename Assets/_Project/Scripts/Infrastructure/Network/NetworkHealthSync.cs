@@ -369,7 +369,7 @@ namespace Hexiege.Infrastructure
                 // [개발] 피격마다 찍히는 고빈도 로그다(LogRules 1.14 금지 8 — 매 틱 로깅 금지).
                 //   Dev 라서 릴리스에서는 [Conditional] 로 호출과 문자열 보간까지 통째로 사라진다(1.7).
                 // [2026-10-20 단계 B 진단] 투사체 착탄 피해면 그 번호표(epoch:id)를 함께 남긴다 — 서버 [PROJECTILE] stage=hit 줄과
-                //   같은 id로 짝을 맞출 수 있다. 투사체가 아니면 Projectile=none. 옛 data(기록용): $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}"
+                //   같은 id로 짝을 맞출 수 있다. 투사체가 아니면 Projectile=none.
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "유닛 HP 동기화",
                                  $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
 
@@ -511,8 +511,7 @@ namespace Hexiege.Infrastructure
             {
                 building.TakeDamage(diff);
                 // [개발] 건물 피격마다 찍히는 고빈도 로그. 위와 같은 이유로 Dev.
-                // [2026-10-20 단계 B 진단] 투사체 번호표(epoch:id)를 함께 남긴다(위 유닛 줄과 같은 이유). 옛 data(기록용):
-                //   $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}"
+                // [2026-10-20 단계 B 진단] 투사체 번호표(epoch:id)를 함께 남긴다(위 유닛 줄과 같은 이유).
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "건물 HP 동기화",
                                  $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
 

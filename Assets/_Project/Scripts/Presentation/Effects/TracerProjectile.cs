@@ -151,7 +151,7 @@ namespace Hexiege.Presentation
         //   스스로 속도(_speed)로 날지 않고, 화면 소비자(ProjectilePresentationPresenter)가 매 프레임
         //   위치를 직접 넣어 준다(Homing — 움직이는 대상을 따라가며 착탄 시각에 정확히 닿는다).
         //   이 모드에서는 _speed를 쓰지 않는다(Plan 위험 15 — 프리팹 속도는 서버 판정·Client 비행 계산에 쓰지 않는다).
-        //   기존 Launch()/Update() 경로는 그대로 두어 아직 옮기지 않은 유닛의 옛 트레이서는 예전과 같다.
+        //   기존 Launch()/Update() 경로는 그대로 두어 비투사체 유닛의 로컬 트레이서(EffectManager.PlayTracer)는 예전과 같다.
         // ====================================================================
 
         /// <summary>외부 구동 중인가(화면 소비자가 위치를 넣어 주는 상태).</summary>
