@@ -1,0 +1,15 @@
+{
+    "asset": "f1a187a4d43686549a96e6688e63441c",
+    "fileName": "01a17e5f-ffd8-75b6-8689-5e35b378445e.wav",
+    "prompt": "A single heavy wooden shield slam impact. Dense weighty solid wood thunk with a deep hollow knock centered in low-mids, short muffled dull wooden resonance tail, punchy, dry, zero reverb, no swing swoosh, no metal, no sharp high crack, no stone, no boom.",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}
