@@ -495,7 +495,7 @@ namespace Hexiege.Presentation
         //
         // [다음 실기 분석에서 grep할 태그]
         //   [PROJECTILE-VIEW] stage=begin|finish  — 맵당 처음 24발의 꺼냄/착탄 시각 표본(서버 시각·화면 시각·지연).
-        //   [PROJECTILE-END] side=view            — 경기 종료 때 2줄(v=2 part=1/2 · part=2/2, 싱글·Host·Client 각각).
+        //   [PROJECTILE-END] side=view            — 경기 종료 때 2줄(v=3 part=1/2 · part=2/2, 싱글·Host·Client 각각 — 2026-10-27 P5에서 v=2 → v=3).
         //     ※ 2026-10-21부터 logcat 줄 잘림(약 1024자) 때문에 2줄로 나눴다. 아래 목록 중 displayLag~verdict가 2줄째다.
         //     text=played:N|fallback:N|missing:N|missingDead:N — 투사체 피해 숫자 표시 결과(1줄째, hold= 바로 뒤).
         //     launch=recv:N|accepted:N  result=recv:N|accepted:N  begins=all:N|midFlight:N|tracerMissing:N
@@ -504,7 +504,7 @@ namespace Hexiege.Presentation
         //     aborts=N  rejected=...|order=...|timeouts=N  (ProjectilePresentationCoordinator)
         //     displayLag=...(화면 착탄 − 서버 착탄)  resultLag=...(결과 수신 − 서버 착탄)  beginLag=...(꺼냄 − 서버 발사)
         //     hold=held:N|atImpact:N|immediateAfterRelease:N|immediateCapacity:N|timeout:N|emptyRelease:N|heldNow:N|ownerNotReady:N
-        //     markers=...|path=...|legacyTracer=...  (ServerProjectileDiagnostics — UnitView marker 계수)
+        //     markers=...|path=...  (ServerProjectileDiagnostics — UnitView marker 계수)
         //     chargeCancel=recv:N|stopped:N|nothingActive:N|stale:N|notCharge:N|noView:N|suppressedAfterCancel:N
         //       ([2026-10-21 단계 D] 2줄째 markers 뒤 — 서버 발사 취소 통보로 차지 VFX를 끈 수 · 취소 뒤 차지 신호를 막은 수)
         // ====================================================================
@@ -583,10 +583,11 @@ namespace Hexiege.Presentation
             // [2026-10-21] 기기 logcat은 한 줄을 약 1024자에서 자른다(2026-10-21 실기에서 Host END 뒷부분 유실 확인).
             //   그래서 END를 2줄(part=1/2 · part=2/2)로 나눈다. 두 줄 모두 같은 머리(role·epoch·reason)를 달아 짝을 맞출 수 있다.
             //   형식이 바뀌었으므로 v=1 → v=2. 1줄째 = 개수(받음·그림·착탄·일정표·보관함·숫자 결과), 2줄째 = 시간 분포·marker·verdict.
+            //   [2026-10-27 P5 정리] v=2 → v=3: 1줄째 switch= 칸(고정 토큰) 삭제, 2줄째 markers 조각의 path= /l 칸 · legacyTracer= 칸 삭제
+            //   (ServerProjectileDiagnostics.DescribeView). 투사체 유닛은 항상 서버 경로라 그 칸들은 늘 같은 값이었다.
             string head = FormattableString.Invariant(
-                $"side=view v=2 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
+                $"side=view v=3 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
             string part1 = head + "part=1/2 "
-                + FormattableString.Invariant($"switch={ServerProjectileDeliveryPolicy.ManifestToken} ")
                 + FormattableString.Invariant(
                 $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
                 + FormattableString.Invariant(

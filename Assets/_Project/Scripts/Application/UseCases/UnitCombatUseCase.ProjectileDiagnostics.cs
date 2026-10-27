@@ -18,7 +18,9 @@
 //   cancel=... 은 취소 사유별 개수다(attacker-dead = 발사 전 공격자 사망, target-dead = 발사 전 대상 사망 등).
 //   flight=... 은 서버 비행 시간 분포(초), dist=... 은 발사 순간 중심 거리 분포(월드 미터)다.
 //   attackerDead=... 은 "발사 뒤 공격자가 죽었는데 착탄"한 발의 수와 사망~착탄 간격(초)이다.
-//   path=... 은 투사체 유닛 종류별 "새 경로(s)/기존 경로(l)" 타격 수다(스위치 off 유닛이 기존 경로를 지켰는가).
+//   path=... 은 투사체 유닛 종류별 서버 투사체 경로 타격 수다: "17:s12|24:s5" = StreamSpirit 12회 · EagleArcher 5회.
+//     [2026-10-27 P5 정리 — v=1 → v=2] 이행 스위치가 없어져 투사체 유닛은 항상 서버 경로라 옛 "기존 경로(l)" 칸과
+//     switch= 칸(고정 토큰)을 지웠다. 유닛별 s(새 경로 타격 수)는 유닛별로 나눠 볼 수 있는 유일한 칸이라 남긴다.
 //   [2026-10-21 단계 C — 건물 공격자 구분]
 //     path=... 끝에 방어 타워 공격이 종족별로 붙는다: "tower-Human:s3/l0|tower-Spirit:s0/l5".
 //       타워의 s = 서버 투사체 경로(인간 CannonTower), l = 기존 즉발 경로(RuneSpire·VineTower — 즉발 유지가 설계).
@@ -31,7 +33,9 @@
 //       towerPath=Human:sN/lN|Spirit:sN/lN|Transcendence:sN/lN — 종족별 타워 공격 경로(공격 0회 종족도 0으로 찍는다).
 //   [2026-10-21 단계 D — 차지 유닛] 세 번째 줄 [PROJECTILE-END] side=server-charge:
 //       inferno=/fox= reserved·launched·hit·targetLost, cancel12=/cancel21= 차지 중 취소 사유별 수(target-dead = 차지 중 대상 사망 등),
-//       foxPrimary=all:N|projectileKeyed:N|immediate:N|oldRuleImmediate:N — immediate가 0이면 규칙 19 Fox 즉시 표시 예외가 꺼졌다.
+//       balance=ok|mismatch, verdict=PASS|ATTENTION|FAIL.
+//     [2026-10-27 P5 정리 — v=1 → v=2] 이행 확인용 foxPrimary= 칸(Fox 규칙 19 즉시 표시 예외가 꺼졌는가 — 코드에서 예외 자체를
+//       지웠으므로 늘 0)을 지우고, verdict를 차지 유닛 수 맞춤(balance)과 이상 취소 사유 기준으로 바꿨다(BuildProjectileChargeEndLine).
 // ============================================================================
 
 using System;
@@ -72,13 +76,9 @@ namespace Hexiege.Application
             public readonly int[] ChargeReserved = new int[2], ChargeLaunched = new int[2];
             public readonly int[] ChargeHit = new int[2], ChargeTargetLost = new int[2];
             public readonly int[][] ChargeCancels = { new int[ProjectileCancelCauses.Length], new int[ProjectileCancelCauses.Length] };
-            // [단계 D] Fox 규칙 19 즉시 표시 예외 제거 확인(RM-5): 주 타깃 피해 수 / 그중 투사체 번호표가 붙은 수 /
-            //   실제로 즉시 표시(immediate=true)로 나간 수(0이어야 한다) / 옛 규칙이었다면 즉시 표시였을 수(결과 키 없음).
-            public int FoxPrimary, FoxProjectileKeyed, FoxImmediate, FoxOldRuleImmediate;
             public double LaunchLagMax, ImpactLagMax;
             public readonly int[] Cancels = new int[ProjectileCancelCauses.Length];
             public readonly int[] ServerPathByType = new int[32];
-            public readonly int[] LegacyPathByType = new int[32];
             public readonly ProjectileTimeDistribution Flight = new ProjectileTimeDistribution(0.1d, 0.2d, 0.4d, 0.7d);
             public readonly ProjectileTimeDistribution Distance = new ProjectileTimeDistribution(0.5d, 1d, 2d, 3d);
             public readonly ProjectileTimeDistribution AttackerDeathGap = new ProjectileTimeDistribution(0.1d, 0.3d);
@@ -125,19 +125,18 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// [진단] 투사체 유닛(Q11 분류)의 공격 타격 1건이 새 경로(서버 발사 예약)와 기존 경로(타격 순간 피해) 중
-        /// 어디로 갔는지 센다. 싱글 TryAttack과 멀티 서버 ExecuteAttack의 타격 분기에서 부른다. 비투사체 유닛은 무시한다.
+        /// [진단] 투사체 유닛(Q11 분류)의 공격 커밋 1건(서버 발사 예약 경로)을 유닛 종류별로 센다.
+        /// 싱글 TryAttack과 멀티 서버 ExecuteAttack의 타격 분기에서 부른다. 비투사체 유닛은 무시한다.
+        /// [2026-10-27 P5 정리] 이행 스위치가 없어져 투사체 유닛은 항상 서버 경로라 "새/기존 경로" 구분 인자를 지웠다.
         /// </summary>
         /// <param name="type">공격 유닛 종류.</param>
-        /// <param name="serverPath">새 경로(이행 스위치 ON)면 true.</param>
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
-        public void RecordProjectileUnitAttackPath(UnitType type, bool serverPath)
+        public void RecordProjectileUnitAttackPath(UnitType type)
         {
             if (!ServerProjectileDeliveryPolicy.IsProjectileUnit(type)) return;
             int slot = (int)type;
             if (slot < 0 || slot >= _projectileDiag.ServerPathByType.Length) return;
-            if (serverPath) _projectileDiag.ServerPathByType[slot]++;
-            else _projectileDiag.LegacyPathByType[slot]++;
+            _projectileDiag.ServerPathByType[slot]++;
         }
 
         /// <summary>
@@ -180,21 +179,6 @@ namespace Hexiege.Application
             if (slot < 0) return;
             int index = Array.IndexOf(ProjectileCancelCauses, cause);
             _projectileDiag.ChargeCancels[slot][index >= 0 ? index : ProjectileCancelCauses.Length - 1]++;
-        }
-
-        /// <summary>
-        /// [진단 — 단계 D, RM-5 확인] FoxMagician 주 타깃 피해 1건의 표시 방식을 센다. ExecuteAttack 주 타깃 분기에서 부른다.
-        /// </summary>
-        /// <param name="projectileKeyed">투사체 착탄 피해인가(번호표가 붙어 착탄 순간에 숫자가 나온다).</param>
-        /// <param name="immediate">실제로 즉시 표시로 나갔는가(규칙 19 예외 제거 뒤 항상 false여야 한다).</param>
-        /// <param name="oldRuleImmediate">옛 규칙(결과 키 없는 Fox = 즉시 표시)이었다면 즉시 표시였는가.</param>
-        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
-        private void DiagFoxPrimaryPresentation(bool projectileKeyed, bool immediate, bool oldRuleImmediate)
-        {
-            _projectileDiag.FoxPrimary++;
-            if (projectileKeyed) _projectileDiag.FoxProjectileKeyed++;
-            if (immediate) _projectileDiag.FoxImmediate++;
-            if (oldRuleImmediate) _projectileDiag.FoxOldRuleImmediate++;
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
@@ -303,7 +287,7 @@ namespace Hexiege.Application
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileEndLine(reason));
             // [단계 C] 건물 공격자(타워) 합계 줄 — server 줄 바로 뒤, 같은 epoch·reason 머리로 짝을 맞춘다.
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileTowerEndLine(reason));
-            // [단계 D] 차지 유닛 합계 줄(사유별 취소 · Fox 즉시 표시 제거 확인) — 같은 머리로 짝을 맞춘다.
+            // [단계 D] 차지 유닛 합계 줄(사유별 취소 · 수 맞춤) — 같은 머리로 짝을 맞춘다.
             GameLog.Dev.Info("Combat", nameof(UnitCombatUseCase), "[PROJECTILE-END]", BuildProjectileChargeEndLine(reason));
         }
 
@@ -334,11 +318,11 @@ namespace Hexiege.Application
             bool flightBalanced = d.Launched == d.Hit + d.TargetLost + d.ClosedInFlight;
             bool authority = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
             var text = new StringBuilder(900);
-            text.Append("side=server v=1 role=").Append(ServerProjectileDiagnostics.RoleName)
+            // [2026-10-27 P5 정리] v=1 → v=2: switch= 칸 삭제 · path= 유닛 칸의 /l(기존 경로) 삭제(파일 머리 설명).
+            text.Append("side=server v=2 role=").Append(ServerProjectileDiagnostics.RoleName)
                 .Append(" authority=").Append(authority ? "local" : "remote")
                 .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))
                 .Append(" reason=").Append(string.IsNullOrEmpty(reason) ? "unknown" : reason)
-                .Append(" switch=").Append(ServerProjectileDeliveryPolicy.ManifestToken)
                 .Append(" reserved=").Append(d.Reserved)
                 .Append(" reserveRefused=").Append(d.ReserveRefused)
                 .Append(" launched=").Append(d.Launched)
@@ -367,10 +351,10 @@ namespace Hexiege.Application
             bool first = true;
             for (int slot = 0; slot < d.ServerPathByType.Length; slot++)
             {
-                if (d.ServerPathByType[slot] == 0 && d.LegacyPathByType[slot] == 0) continue;
+                if (d.ServerPathByType[slot] == 0) continue;
                 if (!first) text.Append('|');
                 first = false;
-                text.Append(slot).Append(":s").Append(d.ServerPathByType[slot]).Append("/l").Append(d.LegacyPathByType[slot]);
+                text.Append(slot).Append(":s").Append(d.ServerPathByType[slot]);
             }
             // [단계 C] 방어 타워 공격 경로(종족별) — 공격이 있었던 종족만 붙인다(유닛 칸과 같은 "0이면 생략" 규칙).
             for (int race = 0; race < d.TowerServerPathByRace.Length; race++)
@@ -432,25 +416,33 @@ namespace Hexiege.Application
 
         /// <summary>
         /// [진단 — 2026-10-21 단계 D] 차지 유닛 합계 END 1줄을 만든다. 검증(fixture)도 같은 형식을 확인한다.
-        /// 형식: "side=server-charge v=1 role=.. epoch=.. reason=..
+        /// 형식: "side=server-charge v=2 role=.. epoch=.. reason=..
         ///        inferno=reserved:N|launched:N|hit:N|targetLost:N cancel12=attacker-dead:N|...|other:N
         ///        fox=reserved:N|launched:N|hit:N|targetLost:N cancel21=attacker-dead:N|...|other:N
-        ///        foxPrimary=all:N|projectileKeyed:N|immediate:N|oldRuleImmediate:N verdict=PASS|ATTENTION".
+        ///        balance=ok|mismatch verdict=PASS|ATTENTION|FAIL".
         /// 읽는 법: cancel12/cancel21의 target-dead = "차지 중 대상 사망으로 발사 취소", attacker-dead = "차지 중 공격자 사망",
-        ///   move-command = 이동·정지 명령. foxPrimary.immediate가 0이면 규칙 19 즉시 표시 예외가 실제로 꺼졌다는 뜻이고,
-        ///   oldRuleImmediate는 "옛 규칙이었다면 착탄 전에 숫자가 먼저 떴을" 피해 수다.
-        /// verdict ATTENTION = Fox 즉시 표시가 1건이라도 나갔다(RM-5 회귀). 차지 유닛 수 맞춤은 server 줄 balance가 본다.
+        ///   move-command = 이동·정지 명령.
+        /// balance(차지 유닛마다): 발사 + 발사 전 취소 ≤ 예약, 명중 + 대상 소실 ≤ 발사이면 ok.
+        ///   등호가 아닌 이유 — 경기가 닫힐 때 남아 있던 예약·비행 중 투사체는 차지 유닛별로 따로 세지 않는다
+        ///   (그 수는 server 줄 closedReserved / closedInFlight에 함께 들어 있다). 진단 전용 — 판정 무관.
+        /// verdict: balance가 어긋나면 FAIL, 차지 유닛 취소 중 "other"(분류되지 않은 사유) · "invalid-launch-geometry"(좌표 비정상)가
+        ///   1건이라도 있으면 ATTENTION(server 줄 verdict와 같은 기준), 그 밖은 PASS.
+        /// [2026-10-27 P5 정리 — v=1 → v=2] 옛 verdict는 이행 확인용 foxPrimary.immediate(Fox 즉시 표시 수)만 봤다.
+        ///   그 예외 코드를 지워 값이 늘 0이 되었으므로 foxPrimary 칸을 지우고 위 기준으로 바꿨다.
         /// </summary>
         /// <param name="reason">닫은 이유(server 줄과 같은 값).</param>
         public string BuildProjectileChargeEndLine(string reason)
         {
             ProjectileDiagnosticCounters d = _projectileDiag;
             var text = new StringBuilder(640);
-            text.Append("side=server-charge v=1 role=").Append(ServerProjectileDiagnostics.RoleName)
+            text.Append("side=server-charge v=2 role=").Append(ServerProjectileDiagnostics.RoleName)
                 .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))
                 .Append(" reason=").Append(string.IsNullOrEmpty(reason) ? "unknown" : reason);
             string[] names = { "inferno", "fox" };
             int[] types = { (int)UnitType.InfernoSpirit, (int)UnitType.FoxMagician };
+            int otherIndex = Array.IndexOf(ProjectileCancelCauses, "other");
+            int geometryIndex = Array.IndexOf(ProjectileCancelCauses, "invalid-launch-geometry");
+            bool balanced = true, attention = false;
             for (int slot = 0; slot < 2; slot++)
             {
                 text.Append(' ').Append(names[slot]).Append("=reserved:").Append(d.ChargeReserved[slot])
@@ -458,17 +450,19 @@ namespace Hexiege.Application
                     .Append("|hit:").Append(d.ChargeHit[slot])
                     .Append("|targetLost:").Append(d.ChargeTargetLost[slot])
                     .Append(" cancel").Append(types[slot]).Append('=');
+                int cancelled = 0;
                 for (int i = 0; i < ProjectileCancelCauses.Length; i++)
                 {
                     if (i > 0) text.Append('|');
                     text.Append(ProjectileCancelCauses[i]).Append(':').Append(d.ChargeCancels[slot][i]);
+                    cancelled += d.ChargeCancels[slot][i];
                 }
+                if (d.ChargeLaunched[slot] + cancelled > d.ChargeReserved[slot]
+                    || d.ChargeHit[slot] + d.ChargeTargetLost[slot] > d.ChargeLaunched[slot]) balanced = false;
+                if (d.ChargeCancels[slot][otherIndex] > 0 || d.ChargeCancels[slot][geometryIndex] > 0) attention = true;
             }
-            text.Append(" foxPrimary=all:").Append(d.FoxPrimary)
-                .Append("|projectileKeyed:").Append(d.FoxProjectileKeyed)
-                .Append("|immediate:").Append(d.FoxImmediate)
-                .Append("|oldRuleImmediate:").Append(d.FoxOldRuleImmediate)
-                .Append(" verdict=").Append(d.FoxImmediate == 0 ? "PASS" : "ATTENTION");
+            text.Append(" balance=").Append(balanced ? "ok" : "mismatch")
+                .Append(" verdict=").Append(!balanced ? "FAIL" : attention ? "ATTENTION" : "PASS");
             return text.ToString();
         }
 

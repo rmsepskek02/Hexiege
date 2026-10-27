@@ -15,7 +15,8 @@
 //   · 메모리는 상한이 있다(공격자 표 2048행). 넘치면 "넘쳤다"는 사실만 센다(조용히 버리지 않는다).
 //
 // [로그 태그 — 다음 실기 분석에서 grep할 이름]
-//   · [PROJECTILE-END] side=view ... 줄의 markers=/path=/legacyTracer= 조각이 이 파일의 값이다.
+//   · [PROJECTILE-END] side=view ... 줄의 markers=/path= 조각이 이 파일의 값이다.
+//     [2026-10-27 P5 정리] 이행 확인용 legacyTracer= 칸과 path= 의 /l(기존 경로) 칸은 지웠다(투사체 유닛은 항상 서버 경로).
 //
 // Application 레이어 — 순수 C#(UnityEngine 타입 없음). Domain의 UnitType만 읽는다.
 // ============================================================================
@@ -103,7 +104,7 @@ namespace Hexiege.Application
     ///
     /// [무엇을 확인하려는가 — 단계 A 분석의 미확인 항목]
     ///   · 의심 1: Client에서 서버가 발사를 취소한 공격에도 총구 VFX가 났는가 → 공격자별 "marker 수 − 서버 발사 수".
-    ///   · 항목 7: 스위치가 꺼진 투사체 유닛이 기존 경로(로컬 트레이서)를 그대로 썼는가 → 종류별 server/legacy 개수.
+    ///   · 종류별 투사체 유닛 타격 marker 수(path=).
     /// 화면 소비자(ProjectilePresentationPresenter)가 맵을 열 때 ResetView, 경기 종료 때 DescribeView로 END 줄에 싣는다.
     /// </summary>
     public static class ServerProjectileDiagnostics
@@ -118,8 +119,6 @@ namespace Hexiege.Application
 
         private static readonly Dictionary<int, AttackerRow> Attackers = new Dictionary<int, AttackerRow>();
         private static readonly int[] ServerMarkersByType = new int[TypeSlots];
-        private static readonly int[] LegacyMarkersByType = new int[TypeSlots];
-        private static readonly int[] LegacyTracersByType = new int[TypeSlots];
         private static int _serverMarkers, _serverSourceOnlyMarkers, _serverMarkerMuzzle;
         private static int _attackerOverflow, _typeOutOfRange;
 
@@ -129,8 +128,6 @@ namespace Hexiege.Application
         {
             Attackers.Clear();
             Array.Clear(ServerMarkersByType, 0, TypeSlots);
-            Array.Clear(LegacyMarkersByType, 0, TypeSlots);
-            Array.Clear(LegacyTracersByType, 0, TypeSlots);
             _serverMarkers = _serverSourceOnlyMarkers = _serverMarkerMuzzle = 0;
             _attackerOverflow = _typeOutOfRange = 0;
             ResetCharge();   // [단계 D]
@@ -141,17 +138,15 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="type">쏜 유닛 종류.</param>
         /// <param name="attackerId">쏜 유닛 Id(공격자별 marker − 발사 비교용).</param>
-        /// <param name="serverPath">이행 스위치가 켜진 새 경로인가.</param>
         /// <param name="sourceOnly">멀티 Client에서 정지/대상 사망 통보가 marker보다 먼저 온 SourceOnly marker인가.</param>
         /// <param name="muzzleAtMarker">이 marker 자리에서 총구 VFX를 냈는가(단계 B 이후 새 경로는 항상 false여야 한다).</param>
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
-        public static void RecordProjectileUnitMarker(UnitType type, int attackerId, bool serverPath,
+        public static void RecordProjectileUnitMarker(UnitType type, int attackerId,
             bool sourceOnly, bool muzzleAtMarker)
         {
             if (!ServerProjectileDeliveryPolicy.IsProjectileUnit(type)) return;
             int slot = (int)type;
             if (slot < 0 || slot >= TypeSlots) { _typeOutOfRange++; return; }
-            if (!serverPath) { LegacyMarkersByType[slot]++; return; }
             ServerMarkersByType[slot]++;
             _serverMarkers++;
             if (sourceOnly) _serverSourceOnlyMarkers++;
@@ -169,20 +164,10 @@ namespace Hexiege.Application
             if (row != null) row.Launches++;
         }
 
-        /// <summary>스위치가 꺼진 투사체 유닛이 기존 로컬 트레이서(UnitView 원거리 분기)를 쏜 1건을 센다.</summary>
-        /// <param name="type">쏜 유닛 종류.</param>
-        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
-        public static void RecordLegacyTracer(UnitType type)
-        {
-            if (!ServerProjectileDeliveryPolicy.IsProjectileUnit(type)) return;
-            int slot = (int)type;
-            if (slot < 0 || slot >= TypeSlots) { _typeOutOfRange++; return; }
-            LegacyTracersByType[slot]++;
-        }
-
         /// <summary>
         /// END 줄 조각 — "markers=server:N|sourceOnly:N|muzzleAtMarker:N|withoutLaunch:N|launchWithoutMarker:N|attackers:N|overflow:N
-        /// path=6:s12/l0|7:s3/l0|... legacyTracer=12:5|...".
+        /// path=6:s12|7:s3|...".
+        /// [2026-10-27 P5 정리] 옛 형식의 path= /l 칸과 legacyTracer= 칸은 지웠다(파일 머리 설명).
         /// withoutLaunch = 공격자마다 max(0, marker − 받은 발사)를 더한 값(= 서버가 발사하지 않은 공격의 marker 추정 수).
         /// </summary>
         public static string DescribeView()
@@ -205,20 +190,10 @@ namespace Hexiege.Application
             bool first = true;
             for (int slot = 0; slot < TypeSlots; slot++)
             {
-                if (ServerMarkersByType[slot] == 0 && LegacyMarkersByType[slot] == 0) continue;
+                if (ServerMarkersByType[slot] == 0) continue;
                 if (!first) text.Append('|');
                 first = false;
-                text.Append(slot).Append(":s").Append(ServerMarkersByType[slot]).Append("/l").Append(LegacyMarkersByType[slot]);
-            }
-            if (first) text.Append("none");
-            text.Append(" legacyTracer=");
-            first = true;
-            for (int slot = 0; slot < TypeSlots; slot++)
-            {
-                if (LegacyTracersByType[slot] == 0) continue;
-                if (!first) text.Append('|');
-                first = false;
-                text.Append(slot).Append(':').Append(LegacyTracersByType[slot]);
+                text.Append(slot).Append(":s").Append(ServerMarkersByType[slot]);
             }
             if (first) text.Append("none");
             if (_typeOutOfRange > 0) text.Append(" typeOutOfRange=").Append(_typeOutOfRange);

@@ -76,7 +76,7 @@ namespace Hexiege.Editor.Combat
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
             ValidateCasterOwnedChargeVfx(units, buildings);
-            ValidateLegacyTracerArrivalImpact(units, buildings); // [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+            ValidateProjectilePresetsAndLocalTracer(units, buildings); // [P5 정리] 옛 이름 ValidateLegacyTracerArrivalImpact(R5 검사)
             ValidateChargeUnitLaunchTiming(units, buildings);    // [T-1 보강 — 2026-10-19 차지 유닛 발사 시점]
         }
 
@@ -358,7 +358,8 @@ namespace Hexiege.Editor.Combat
         }
 
         /// <summary>
-        /// [R5 임시 — C 방식(서버 투사체) 구현 시 교체]
+        /// [P5 정리 — 결정 P5-F (가)] 서버 투사체가 쓰는 프리셋 연결 계약 + 로컬 트레이서(PlayTracer) 일반 계약.
+        ///   옛 이름 ValidateLegacyTracerArrivalImpact(2026-10-19 R5 임시 검사)에서 R5 동작 부분을 지우고 이름을 바꿨다.
         /// (a) 설정: StreamSpirit/Tank/CannonCart의 착탄 이펙트는 공격자 기준 impact 슬롯에 있고,
         ///     "맞은 유닛 타입" 기준인 hit 슬롯은 비어 있다. StreamSpirit 트레이서 프리팹 루트에는
         ///     TracerProjectile이 미리 붙어 있어 프리팹의 느린 속도(_speed)가 실제로 쓰인다.
@@ -368,7 +369,7 @@ namespace Hexiege.Editor.Combat
         ///     [P5 정리] 2026-10-19 R5 임시 동작(도착 순간 착탄 이펙트 — playImpactOnArrive) 검사는 그 코드와 함께 삭제했다.
         /// EditMode에서는 Update가 돌지 않으므로 도착(Arrive)을 리플렉션으로 직접 호출한다.
         /// </summary>
-        private static void ValidateLegacyTracerArrivalImpact(UnitEffectConfig units, BuildingEffectConfig buildings)
+        private static void ValidateProjectilePresetsAndLocalTracer(UnitEffectConfig units, BuildingEffectConfig buildings)
         {
             // (a) 설정 계약
             var streamImpact = AssetDatabase.LoadAssetAtPath<EffectPreset>(
@@ -378,10 +379,10 @@ namespace Hexiege.Editor.Combat
             Require(streamImpact?.VfxPrefab != null && cannonImpact?.VfxPrefab != null
                 && AssetDatabase.GetAssetPath(streamImpact.VfxPrefab).EndsWith("vfx_streamspirit_impact.prefab")
                 && AssetDatabase.GetAssetPath(cannonImpact.VfxPrefab).EndsWith("vfx_cannon_impact.prefab"),
-                "[R5] StreamSpirit/Cannon impact presets point to the actual impact prefabs.");
+                "[SERVER-PROJECTILE] StreamSpirit/Cannon impact presets point to the actual impact prefabs.");
             Require(units.GetImpact(UnitType.StreamSpirit) == streamImpact && units.GetHit(UnitType.StreamSpirit) == null,
-                "[R5] StreamSpirit splash is attacker-keyed (impact slot), not victim-keyed (hit slot).");
-            // [2026-10-20 서버 권위 투사체 단계 B] Tank·CannonCart는 이제 R5 임시 경로가 아니라 서버 투사체 경로다.
+                "[SERVER-PROJECTILE] StreamSpirit splash is attacker-keyed (impact slot), not victim-keyed (hit slot).");
+            // [2026-10-20 서버 권위 투사체 단계 B] Tank·CannonCart는 서버 투사체 경로다.
             //   같은 설정 계약(착탄 = 공격자 기준 impact 슬롯, hit 슬롯 비움)에 트레이서 프리셋 연결까지 함께 확인한다 —
             //   서버 투사체 화면 소비자가 이 두 프리셋(EffectPreset_Cannon_Tracer · EffectPreset_Cannon_Impact)을 그린다.
             var cannonTracer = AssetDatabase.LoadAssetAtPath<EffectPreset>(
@@ -392,23 +393,23 @@ namespace Hexiege.Editor.Combat
                 && units.GetTracer(UnitType.Tank) == cannonTracer && units.GetTracer(UnitType.CannonCart) == cannonTracer,
                 "[SERVER-PROJECTILE] Tank/CannonCart draw EffectPreset_Cannon_Tracer in flight and EffectPreset_Cannon_Impact (attacker-keyed impact slot) on impact; victim-keyed hit slot stays empty.");
             var streamTracer = units.GetTracer(UnitType.StreamSpirit);
-            Require(streamTracer?.VfxPrefab != null, "[R5] StreamSpirit interim tracer preset is wired.");
+            Require(streamTracer?.VfxPrefab != null, "[SERVER-PROJECTILE] StreamSpirit tracer preset is wired.");
             var tracerComponent = streamTracer.VfxPrefab.GetComponent<TracerProjectile>();
             Require(tracerComponent != null,
-                "[R5] StreamSpirit tracer prefab root carries TracerProjectile (EffectManager reuses it instead of adding a default 14 speed).");
+                "[SERVER-PROJECTILE] StreamSpirit tracer prefab root carries TracerProjectile (EffectManager reuses it instead of adding a default 14 speed).");
             float speed = new SerializedObject(tracerComponent).FindProperty("_speed").floatValue;
             Require(speed > 0f && speed < 14f,
-                "[R5] StreamSpirit tracer prefab speed is positive and slower than the default so the flight is visible: " + speed);
+                "[SERVER-PROJECTILE] StreamSpirit tracer prefab speed is positive and slower than the default so the flight is visible: " + speed);
 
             // (b) 실제 EffectManager 경로
-            var root = new GameObject("LegacyTracerArrivalImpactFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var root = new GameObject("LocalTracerContractFixture") { hideFlags = HideFlags.HideAndDontSave };
             try
             {
                 var manager = root.AddComponent<EffectManager>();
                 typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
                 manager.Initialize(units, buildings, null);
                 var arrive = typeof(TracerProjectile).GetMethod("Arrive", VfxFields);
-                Require(arrive != null, "[R5] TracerProjectile arrival method exists for the fixture.");
+                Require(arrive != null, "[LOCAL-TRACER] TracerProjectile arrival method exists for the fixture.");
                 // 지금 활성 상태인, 특정 프리팹에서 만든 착탄 이펙트 개수.
                 int ActiveImpacts(GameObject prefab)
                 {
@@ -432,10 +433,10 @@ namespace Hexiege.Editor.Combat
                 int plainCallbacks = 0;
                 manager.PlayTracer(UnitType.StreamSpirit, start, target, () => plainCallbacks++);
                 TracerProjectile tracer = ActiveTracer();
-                Require(tracer != null, "[R5] Plain tracer call launches a tracer.");
+                Require(tracer != null, "[LOCAL-TRACER] A local tracer call launches a tracer.");
                 arrive.Invoke(tracer, null);
                 Require(plainCallbacks == 1 && ActiveImpacts(streamImpact.VfxPrefab) == 0,
-                    "[R5] A tracer call without the arrival-impact flag keeps the old behavior (no splash).");
+                    "[LOCAL-TRACER] On arrival the callback runs once and no impact VFX is played (impact VFX belongs to the server projectile path).");
 
                 // ③ 트레이서가 없는 타입: 콜백은 즉시 실행, 착탄 이펙트는 재생하지 않는다(폴백 유지).
                 //   트레이서 프리셋이 없는 비투사체 유닛 Pistoleer로 폴백 계약을 확인한다.
@@ -446,7 +447,7 @@ namespace Hexiege.Editor.Combat
                     manager.PlayTracer(UnitType.Pistoleer, start, target, () => fallbackCallbacks++);
                     Require(fallbackCallbacks == 1 && ActiveTracer() == null
                         && (pistoleerImpact?.VfxPrefab == null || ActiveImpacts(pistoleerImpact.VfxPrefab) == 0),
-                        "[R5] No tracer prefab: callback runs immediately and no arrival impact is played.");
+                        "[LOCAL-TRACER] No tracer prefab: callback runs immediately and no arrival impact is played.");
                 }
             }
             finally

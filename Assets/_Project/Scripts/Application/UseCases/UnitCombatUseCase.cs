@@ -732,9 +732,9 @@ namespace Hexiege.Application
             // HitFrameTimes가 null이거나 비어 있으면 안전망으로 즉시 1회 데미지를 적용한다
             // (Inspector 미설정 대비).
             float[] hitTimes = attacker.HitFrameTimes;
-            // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(커밋)가 새 경로/기존 경로 중 어디로 갔는지 센다(읽기 전용).
+            // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(커밋)를 유닛 종류별로 센다(읽기 전용 — END path= 칸).
             //   비투사체 유닛은 세지 않는다.
-            if (!torrentReserved) RecordProjectileUnitAttackPath(attacker.Type, serverProjectile);
+            if (!torrentReserved) RecordProjectileUnitAttackPath(attacker.Type);
             if (torrentReserved)
             {
                 // Torrent는 공통 예약 owner가 실제 wave를 발사한다.
@@ -1804,9 +1804,6 @@ namespace Hexiege.Application
                 // 주 타깃 피해의 숫자는 즉시 표시하지 않는다(immediatePresentation: false) — 모든 유닛 공통.
                 //   투사체 유닛(FoxMagician 포함)은 이 피해가 "서버 착탄 순간"에만 일어나고 피해 이벤트에 투사체 번호표가 붙어,
                 //   화면 투사체가 닿는 순간 숫자가 1회 나온다(규칙 19 · 20). 예전의 Fox 즉시 표시 예외는 2026-10-21에 없앴다.
-                if (attacker.Type == UnitType.FoxMagician)   // [진단] Fox 주 타깃 피해 표시 방식 계수(판정 무관)
-                    DiagFoxPrimaryPresentation(ProjectileImpactInProgress, false,
-                        oldRuleImmediate: !presentationResultKey.IsValid);
                 ApplyDamageToVictim(
                     attacker, target, immediatePresentation: false,
                     presentationResultKey: presentationResultKey);

@@ -3,19 +3,19 @@
 // [2026-10-20 서버 권위 투사체 — 단계 A] 회귀 검증(fixture). 메뉴 「Hexiege/Combat/Run Full Regression Suite」에서 함께 돈다.
 //
 // 무엇을 확인하는가 (Plan 6절 fixture 중 단계 A 해당분 — 번호는 Plan 6절 목록 번호):
-//   1·15  싱글: 스위치가 켜진 StreamSpirit은 발사 때 피해 0, 착탄 때 1회. 꺼진 Tank는 예전처럼 타격 순간 피해.
+//   1     싱글: 투사체 유닛 StreamSpirit은 발사 때 피해 0, 착탄 때 1회.
 //   3     비행 중 대상 사망 / 발사 후 공격자 사망(Persist) / 닫기(게임 종료) / ID 재사용 다른 객체 미적중.
 //   4·17  Homing 착탄: 비행 시간은 발사 때 (중심 거리 − 대상 반경) ÷ 속도로 고정, 대상이 움직여도 따라가 맞는다.
 //   6     중복 거부·늦은 접속 중간 시작(화면 일정표).
 //   7     화면: 결과 전 숫자 없음 → 착탄 때 1회, 순서 역전·시간 초과 방출(피격 표현 보관함).
 //   8     건물 반경 표·누락 시 대체값.
-//   9     스키마 4 · Mushroom TargetLocked · 스위치 토큰이 handshake 해시에 들어감.
+//   9     스키마(현재 6) · Mushroom TargetLocked · 투사체 분류 토큰이 handshake 해시에 들어감.
 //   10    발사 전 공격자 사망 / 대상 사망 / 이동 명령(취소 API) → 발사 0건, 사거리 이탈 → 원래 대상에게 발사 1건.
 //   11    비행 중 대상 소실 → 피해 0, 결과 TargetLost 1건.
 //   14    속도 값이 서버 착탄 시각을 바꾼다.
 //   16    발사 전 예약이 남아 있는 동안 "대기 중"으로 보고(멀티 서버의 표현 닫기 유예 판단 입력).
 // [2026-10-20 단계 B 추가]
-//   B-1   스위치: Tank · CannonCart · StreamSpirit ON(토큰 "6,7,17"), 스키마 5. 스위치 OFF 예시는 Tank → EagleArcher로 교체.
+//   B-1   Tank · CannonCart를 투사체 경로로(당시 이행 스위치 — P5에서 삭제).
 //   B-2   Tank(유닛 대상)·CannonCart(건물 대상, 건물 2배) — 발사 때 피해 0, 착탄 때 같은 writer로 1회.
 //   B-3   진단 END 형식: 서버 [PROJECTILE-END] side=server 합계·취소 사유·balance·verdict, 분포 상자, 화면 일정표 거부 사유·
 //         도착 순서, 피해 숫자 보관함 방출 경로, UnitView marker 계수(공격자별 marker − 발사).
@@ -24,7 +24,7 @@
 //   B-4   의심 1: 새 경로 marker는 총구 VFX·발사음을 내지 않고, 발사 신호는 서버 발사 기록을 화면에 꺼낼 때만 낸다(소스 게이트).
 //         진단 오표기 C: 발사 시점 StreamSpirit timer-impact가 writerResult=NotInvoked로 찍힌다(소스 게이트).
 // [2026-10-21 단계 C — 인간 방어타워(CannonTower)]
-//   C-1   스위치 토큰 "6,7,17;tower:human" · 투사체 타워 분류(Human AutoTower만, RuneSpire·VineTower 제외).
+//   C-1   투사체 타워 분류(Human AutoTower만, RuneSpire·VineTower 제외).
 //   C-2   인간 타워: 공격 순간 발사(피해 0) → 착탄 때 타워 writer로 1회(투사체 번호표, 공격자=건물), Tower 스냅샷 없음,
 //         발사 원점 = 포구(Blue +Z · Red −Z), 착탄 시각 = 발사 + (포구→대상 중심 XZ 거리 − 반경) ÷ 타워 속도, 쿨다운 시작.
 //   C-3   비행 중 타워 파괴 → 그래도 피해(byTower destroyedThenHit), 비행 중 대상 사망 → TargetLost·피해 0,
@@ -33,9 +33,9 @@
 //   C-5   RuneSpire(Spirit) 회귀: 즉발 피해·번호표 없음·Tower 스냅샷 1건, 서버 END path tower-Spirit:s0/l1.
 //   C-6   화면 소비자 소스 게이트: 건물 공격자 출발점 = 서버 포구 위치, 타워 트레이서·발사 신호·착탄 프리셋 경로.
 // [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician]
-//   D-1   스위치 토큰 "6,7,12,17,21;tower:human" · 스키마 6(발사 전 취소 통보 RPC).
+//   D-1   스키마 6(발사 전 취소 통보 RPC).
 //   D-2   Inferno: 차지 구간 피해·화상 0 → 1.5초 발사(피해 0) → 착탄 때 직격 1회 + 화상 시작. 차지 END 줄.
-//   D-3   Fox: 85/30초 발사 → 착탄 때 1회(번호표, 즉시 표시 없음 — RM-5), foxPrimary 계수.
+//   D-3   Fox: 85/30초 발사 → 착탄 때 1회(번호표, 즉시 표시 없음 — RM-5), 차지 END 줄 수 맞춤.
 //   D-4   차지 중 대상 사망 / 공격자 사망 / 이동 명령 → 발사·피해 0 + 사유별 취소 통보 1건 + 차지 표현 취소 질문 true,
 //         새 커밋이면 다시 false, 차지 중 사거리 이탈 → 원래 대상 발사, 발사 순간 대상 사망 → 발사 0.
 //   D-5   발사 뒤 대상 사망 → TargetLost(피해·화상 0), 발사 뒤 공격자 사망 → 피해 + 화상.
@@ -43,14 +43,20 @@
 //         (lease 미소비), Host 서버 게이트, 비차지 유닛 무동작, 서버 투사체 차지 유닛 타격 marker는 로컬 트레이서 없음.
 //   D-7   소스 게이트: 취소 RPC(회차 포함)·화면 연결·RM-5 주석 처리·Fox 시간축 발사 기록.
 // [2026-10-27 단계 E — EagleArcher · MushroomBomber (두 유닛 한 번에 — 사용자 「두 유닛 모두 한 번에 테스트」)]
-//   E-0   스위치 토큰 "6,7,12,17,21,24,26;tower:human" · 투사체 유닛 7종 모두 ON · 스키마 6 유지 · 두 유닛 resolver 사유 갱신(E-E).
+//   E-0   투사체 유닛 7종 분류 · 스키마 6 유지 · 두 유닛 resolver 사유 갱신(E-E).
 //   E1-1  EagleArcher: 0.2초 발사(피해 0) → 착탄 때 단일 writer 1회(번호표), 착탄 시각 = 발사 + (중심 거리 − 반경) ÷ 속도 6.
 //   E1-2  EagleArcher 화살 트레이서 에셋 계약: 팀별 프리셋 2개(Blue = tracerPreset, Red = redTeamTracerPreset), 프리팹 메시 머티리얼이
 //         그 팀 유닛의 손 화살 머티리얼과 같음, 착탄·공격·피격 프리셋 비어 있음(U-10), 실제 EffectManager가 팀으로 프리팹을 고름.
 //   E2-1  MushroomBomber: 1.0초 발사(피해·독 0) → 착탄 때 주 타깃 직접 피해 1회 + 반경 안 적에게 독(주 타깃 위치 중심), 반경 밖 0.
-//   E2-2  스위치 켜진 Mushroom 착탄에서 옛 스냅샷(OnAttackEffectConfirmed) 발행 0건(RM-8 — 이중 착탄 VFX 금지).
+//   E2-2  Mushroom 착탄에서 옛 스냅샷(OnAttackEffectConfirmed) 발행 0건(RM-8 — 이중 착탄 VFX 금지).
 //   E2-3  비행 중 공격자 사망 → 피해·독 진행(Persist), 비행 중 대상 소실 → 피해·독 0, TargetLost.
 //   E2-4  독 VFX 시작 보류(ProjectileDeathHold E-2) — 독도 화상처럼 화면 착탄까지(상한 0.3초).
+// [2026-10-27 P5 마무리 정리]
+//   P5-A  handshake 토큰을 분류 목록에서 계산 — 값 "6,7,12,17,21,24,26;tower:human"이 단계 E와 한 글자도 같다(해시 불변).
+//   P5-B  이행 스위치(RM-9) 삭제 — 분류 질문(IsProjectileUnit · IsProjectileTower)만 남았다(소스 게이트 C-6도 분류 질문으로).
+//   P5-E  END 진단 이행 전용 칸 삭제: 서버 v=2(switch= · path /l 없음), 화면 v=3(switch= · /l · legacyTracer= 없음),
+//         차지 v=2(foxPrimary= 없음, verdict = 차지 유닛 수 맞춤 balance 기준).
+//   RM-13 스위치 OFF 예시 fixture(주석 보존본)는 P5에서 삭제했다.
 // 실제 Animator·VFX·NGO 전송·화면 픽셀은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 7절).
 // ============================================================================
 
@@ -217,7 +223,7 @@ namespace Hexiege.Editor.Combat
                 idField.SetValue(null, oldId);
                 NetworkContext.Set(oldServer, oldActive);
             }
-            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: stage-E EagleArcher and MushroomBomber (switch token 6,7,12,17,21,24,26;tower:human, all seven projectile units on, schema 6 kept, C3 reasons updated, EagleArcher 0.2 s launch then one single-writer impact at speed 6, team arrow tracer assets (Blue tracerPreset / Red redTeamTracerPreset, unit arrow mesh and team material, no impact preset) and team selection with first-frame facing in the actual EffectManager, MushroomBomber 1.0 s launch then one direct hit plus blast-radius poison centred on the primary target, no legacy writer snapshot at impact (RM-8) with poison provenance kept, attacker-dead Persist hit and poison, in-flight target loss with no poison, poison VFX start held like the burn with separate counters, switch-off legacy fixture retired RM-13), projectile kill-shot death presentation hold (deferred until the kill shot's screen impact, two keys, 0.3 s cap, immediate for melee/non-lethal/ID-reuse/no-visual-root/impact-first, rematch discard, game-end release, diagnostic line), burn VFX start alignment, death-hold source gates (server/domain timing unchanged), particle velocity curve modes, stage-D charge units (switch token 6,7,12,17,21;tower:human, schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation and foxPrimary counters, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 commented out, Fox timeline launch record), stage-C Human CannonTower (switch token 6,7,17;tower:human, muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), stage-B switch (Tank, CannonCart, StreamSpirit; EagleArcher etc. off), schema 5 + Mushroom TargetLocked + switch token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, switch-off legacy timing, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
+            Debug.Log("[UAS-DIAG][SERVER-PROJECTILE] self-validation PASS: P5 cleanup (handshake token computed from the projectile classification and byte-identical 6,7,12,17,21,24,26;tower:human, migration switch removed, schema 6 kept, END v2/v3 without the migration-only fields, charge END balance verdict), stage-E EagleArcher and MushroomBomber (all seven projectile units, schema 6 kept, C3 reasons updated, EagleArcher 0.2 s launch then one single-writer impact at speed 6, team arrow tracer assets (Blue tracerPreset / Red redTeamTracerPreset, unit arrow mesh and team material, no impact preset) and team selection with first-frame facing in the actual EffectManager, MushroomBomber 1.0 s launch then one direct hit plus blast-radius poison centred on the primary target, no legacy writer snapshot at impact (RM-8) with poison provenance kept, attacker-dead Persist hit and poison, in-flight target loss with no poison, poison VFX start held like the burn with separate counters), projectile kill-shot death presentation hold (deferred until the kill shot's screen impact, two keys, 0.3 s cap, immediate for melee/non-lethal/ID-reuse/no-visual-root/impact-first, rematch discard, game-end release, diagnostic line), burn VFX start alignment, death-hold source gates (server/domain timing unchanged), particle velocity curve modes, stage-D charge units (schema 6, InfernoSpirit launch at 1.5 s and FoxMagician at 85/30 s with no damage at launch, one impact hit through the single writer, Inferno burn DoT starting at impact even after the attacker died, Fox number at impact with no rule-19 immediate presentation, charge-time target death / attacker death / move command cancel with one cause-tagged notice and no launch or damage, out-of-range charge still launches at the original target, dead-at-launch never shot, in-flight target loss TargetLost, charge END line), charge VFX stops on the server cancel notice (single same frame, Client same revision only, late charge after cancel blocked without consuming the lease, Host authority gate, non-charge no-op), stage-D source gates (cancel RPC with revision, presenter routing, RM-5 branch deleted, Fox timeline launch record), stage-C Human CannonTower (muzzle launch Blue +Z / Red -Z, no damage at launch, one tower-writer hit at impact with projectile key and building attacker, no Tower snapshot, cooldown at launch, destroyed-in-flight still hits, target lost in flight, dead target / closed service no launch and no cooldown, never targets buildings), RuneSpire stays instant with its Tower snapshot, tower presenter source gates, kill-shot numbers (unit/building kill shot shows 0 once at the screen impact point after despawn, living target unchanged, timeout uses remembered position, reversed order once, duplicate release once, later projectile on a dead target shows none, text result counters), projectile classification (seven units, Human tower only), Mushroom TargetLocked + classification token in handshake hash, Tank unit-target and CannonCart building-target (x2) launch-then-impact through the single writer, diagnostic END formats (server totals/cancel causes/balance, view schedule rejects/order, impact-hold release paths, marker-minus-launch counters, time distributions), suspicion-1 launch cue only on server launch records and NotInvoked timer label (source gates), single launch-without-damage then one surface-timed impact through the single writer with projectile-keyed damage events, fixed homing flight time and speed dependency, target-lost/attacker-dead Persist/close/ID-reuse outcomes, pre-launch attacker/target/move-command cancellation versus out-of-range launch, presentation schedule (begin/progress/duplicate/late-join/orphan/timeout/abort) and impact-hold release ordering, config asset contract.");
         }
 
         // ── 분류·handshake ───────────────────────────────────────────
@@ -334,12 +340,13 @@ namespace Hexiege.Editor.Combat
                 Require(!f.Combat.WasLatestProjectileLaunchCancelled(f.Attacker),
                     "A launched attack is not reported as a cancelled cue.");
                 // [단계 B — B-3] 서버 END 1줄 형식: 전 경기 합계 · 수 맞춤(balance) · 판정.
+                //   [2026-10-27 P5 정리 — 결정 P5-E] v=2: 이행 전용 switch= 칸과 유닛 path= 의 /l(기존 경로) 칸이 없다.
                 string end = f.Combat.BuildProjectileEndLine("fixture");
-                Require(end.StartsWith("side=server v=1 role=Single authority=local ") && end.Contains(" reason=fixture ")
-                        && end.Contains(" switch=6,7,12,17,21,24,26;tower:human ") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
+                Require(end.StartsWith("side=server v=2 role=Single authority=local ") && end.Contains(" reason=fixture ")
+                        && !end.Contains(" switch=") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")
                         && end.Contains(" hit=1 ") && end.Contains(" targetLost=0 ") && end.Contains(" cancelled=0 ")
                         && end.Contains(" cancel=attacker-dead:0|attacker-replaced:0|target-dead:0|target-missing:0|target-replaced:0|move-command:0|invalid-launch-geometry:0|other:0 ")
-                        && end.Contains(" flight=n:1|") && end.Contains(" path=17:s1/l0 ")
+                        && end.Contains(" flight=n:1|") && end.Contains(" path=17:s1 ")
                         && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
                     "Server END line carries whole-match totals, every cancel cause, path counts, balance and verdict: " + end);
                 // [단계 C] 건물 공격자 합계 줄 — 유닛만 쏜 경기에서는 모두 0이고 PASS다.
@@ -1092,24 +1099,20 @@ namespace Hexiege.Editor.Combat
             Require(distribution.Format() == "n:0|min:na|max:na|mean:na|lt0.1:0|ge0.1:0", "An empty distribution prints na.");
 
             // marker 계수: StreamSpirit 공격자 5가 marker 2 · 받은 발사 1 → "서버 발사 없이 나온 marker" 1.
-            //   EagleArcher(스위치 OFF)는 기존 경로 marker·로컬 트레이서로, Pistoleer(비투사체)는 세지 않는다.
-            //   [2026-10-27 단계 E] EagleArcher는 이제 스위치 ON이라 실제 경기에서는 아래 "옛 경로" 입력이 나오지 않는다.
-            //     이 검사는 END 줄 칸(path=..|..:s0/l1 · legacyTracer=)의 "형식"을 보는 것이고, 계수 함수는 스위치를 보지 않으므로
-            //     (ServerProjectileDiagnostics — 투사체 분류만 확인) 가상 입력으로 그대로 둔다. 옛 경로 칸은 RM-9 스위치 제거 때 함께 정리한다.
+            //   EagleArcher 공격자 6은 marker 1 · 발사 0(같은 칸 규칙), Pistoleer(비투사체)는 세지 않는다.
+            //   [2026-10-27 P5 정리 — 결정 P5-E] path= 는 종류별 marker 수만 찍는다(옛 /l 칸 · legacyTracer= 칸 삭제).
             ServerProjectileDiagnostics.ResetView();
             try
             {
-                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.StreamSpirit, 5, true, false, false);
-                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.StreamSpirit, 5, true, true, false);
+                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.StreamSpirit, 5, false, false);
+                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.StreamSpirit, 5, true, false);
                 ServerProjectileDiagnostics.RecordServerLaunchAccepted(5);
                 ServerProjectileDiagnostics.RecordServerLaunchAccepted(8);
-                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.EagleArcher, 6, false, false, false);
-                ServerProjectileDiagnostics.RecordLegacyTracer(UnitType.EagleArcher);
-                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.Pistoleer, 7, false, false, false);
-                ServerProjectileDiagnostics.RecordLegacyTracer(UnitType.Pistoleer);
+                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.EagleArcher, 6, false, false);
+                ServerProjectileDiagnostics.RecordProjectileUnitMarker(UnitType.Pistoleer, 7, false, false);
                 string view = ServerProjectileDiagnostics.DescribeView();
-                Require(view == "markers=server:2|sourceOnly:1|muzzleAtMarker:0|withoutLaunch:1|launchWithoutMarker:1|attackers:2|overflow:0 path=17:s2/l0|24:s0/l1 legacyTracer=24:1",
-                    "[B-3] View marker counters: per-attacker marker-minus-launch and per-type server/legacy path: " + view);
+                Require(view == "markers=server:3|sourceOnly:1|muzzleAtMarker:0|withoutLaunch:2|launchWithoutMarker:1|attackers:3|overflow:0 path=17:s2|24:s1",
+                    "[B-3] View marker counters: per-attacker marker-minus-launch and per-type projectile-unit markers (no legacy fields): " + view);
                 Require(ServerProjectileDiagnostics.ServerMarkerMuzzleCount == 0, "No muzzle VFX is counted at a server-path marker.");
             }
             finally { ServerProjectileDiagnostics.ResetView(); }
@@ -1189,7 +1192,7 @@ namespace Hexiege.Editor.Combat
         /// <summary>
         /// 실제 UnitCombatUseCase(TryAttack → 발사 예약 → TickProjectiles)로 차지 유닛의 서버 판정을 확인한다.
         ///   D-2 Inferno: 차지 구간(커밋~1.5초)에는 발사·피해 없음 → 1.5초 발사(피해 0, 화상 없음) → 착탄 때 직격 1회 + 화상 DoT 시작.
-        ///   D-3 Fox: 85/30초 발사 → 착탄 때 1회, 피해 이벤트에 투사체 번호표·즉시 표시 없음(규칙 19 예외 제거 RM-5), foxPrimary 계수.
+        ///   D-3 Fox: 85/30초 발사 → 착탄 때 1회, 피해 이벤트에 투사체 번호표·즉시 표시 없음(규칙 19 예외 제거 RM-5), 차지 END 줄 수 맞춤(balance).
         ///   D-4 차지 중 끊김: 대상 사망 / 공격자 사망 / 이동 명령 → 발사 0 · 피해 0 · 취소 통보 1건(사유별) · 차지 표현 취소 질문 true.
         ///       차지 중 사거리 이탈 → 원래 대상에게 발사·피해, 통보 0. 발사 순간 대상 사망 → 발사 0.
         ///   D-5 발사 뒤 대상 사망 → TargetLost(피해·화상 없음), 발사 뒤 공격자 사망 → 피해 + 화상.
@@ -1233,10 +1236,11 @@ namespace Hexiege.Editor.Combat
                 Require(cancels.Count == 0 && !f.Combat.IsChargePresentationCancelled(f.Attacker),
                     "[D-2] A launched Inferno attack sends no cancel notice and is not reported as a cancelled charge.");
                 string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
-                Require(charge.StartsWith("side=server-charge v=1 role=Single epoch=") && charge.Contains(" reason=fixture ")
+                // [2026-10-27 P5 정리 — 결정 P5-E] v=2: 이행 확인용 foxPrimary= 칸 삭제, verdict = 차지 유닛 수 맞춤(balance) 기준.
+                Require(charge.StartsWith("side=server-charge v=2 role=Single epoch=") && charge.Contains(" reason=fixture ")
                         && charge.Contains(" inferno=reserved:1|launched:1|hit:1|targetLost:0 cancel12=attacker-dead:0|")
                         && charge.Contains(" fox=reserved:0|launched:0|hit:0|targetLost:0 cancel21=")
-                        && charge.EndsWith(" foxPrimary=all:0|projectileKeyed:0|immediate:0|oldRuleImmediate:0 verdict=PASS"),
+                        && !charge.Contains("foxPrimary") && charge.EndsWith(" balance=ok verdict=PASS"),
                     "[D-2] Server charge END line counts the Inferno reservation, launch and hit: " + charge);
             }
 
@@ -1259,8 +1263,8 @@ namespace Hexiege.Editor.Combat
                     "[D-3] RM-5: Fox damage is applied at impact with the projectile key and without the rule-19 immediate presentation.");
                 string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
                 Require(charge.Contains(" fox=reserved:1|launched:1|hit:1|targetLost:0 ")
-                        && charge.EndsWith(" foxPrimary=all:1|projectileKeyed:1|immediate:0|oldRuleImmediate:1 verdict=PASS"),
-                    "[D-3] Server charge END confirms the Fox immediate presentation is off (immediate 0, old rule would have been 1): " + charge);
+                        && charge.EndsWith(" balance=ok verdict=PASS"),
+                    "[D-3] Server charge END counts the Fox reservation, launch and hit with a balanced PASS verdict: " + charge);
             }
 
             // D-4 차지 중 끊김 3종 — 대상 사망 / 공격자 사망 / 이동 명령.
@@ -1293,8 +1297,9 @@ namespace Hexiege.Editor.Combat
                     "[D-4] " + type + " " + cut + " before launch: no launch, no result, no damage.");
                 string charge = f.Combat.BuildProjectileChargeEndLine("fixture");
                 string slot = type == UnitType.InfernoSpirit ? "cancel12=" : "cancel21=";
-                Require(charge.Contains(slot) && charge.Substring(charge.IndexOf(slot, StringComparison.Ordinal)).Contains(cut + ":1"),
-                    "[D-4] Server charge END counts the charge-time cancel under its own cause (" + cut + "): " + charge);
+                Require(charge.Contains(slot) && charge.Substring(charge.IndexOf(slot, StringComparison.Ordinal)).Contains(cut + ":1")
+                        && charge.EndsWith(" balance=ok verdict=PASS"),
+                    "[D-4] Server charge END counts the charge-time cancel under its own cause (" + cut + ") and stays balanced: " + charge);
                 Require(f.Combat.BuildProjectileEndLine("fixture").Contains(" balance=ok "), "[D-4] Server END balance stays ok after the cancel.");
             }
 
@@ -1605,9 +1610,9 @@ namespace Hexiege.Editor.Combat
                 f.Tick(expectedImpact + 2d);
                 Require(f.Impacts.Count == 1 && f.VictimDamage.Count == 1, "[E1-1] Repeated ticks never duplicate the arrow impact.");
                 string end = f.Combat.BuildProjectileEndLine("fixture");
-                Require(end.Contains(" switch=6,7,12,17,21,24,26;tower:human ") && end.Contains(" path=24:s1/l0 ")
+                Require(end.Contains(" path=24:s1 ")
                         && end.Contains(" launched=1 ") && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
-                    "[E1-1] Server END counts the EagleArcher attack on the server path (24:s1/l0): " + end);
+                    "[E1-1] Server END counts the EagleArcher attack on the server path (24:s1): " + end);
             }
         }
 
@@ -1684,8 +1689,8 @@ namespace Hexiege.Editor.Combat
                     f.Combat.TickTimedEffects(1f);
                     Require(f.Victim.Hp < afterImpact, "[E2-1] The poison DoT ticks after the impact.");
                     string end = f.Combat.BuildProjectileEndLine("fixture");
-                    Require(end.Contains(" path=26:s1/l0 ") && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
-                        "[E2-1] Server END counts the MushroomBomber attack on the server path (26:s1/l0): " + end);
+                    Require(end.Contains(" path=26:s1 ") && end.Contains(" hit=1 ") && end.Contains(" balance=ok ") && end.EndsWith(" verdict=PASS"),
+                        "[E2-1] Server END counts the MushroomBomber attack on the server path (26:s1): " + end);
                 }
             }
 

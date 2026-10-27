@@ -3056,7 +3056,7 @@ _slot = _nextEviction;
                 && ServerProjectileDeliveryPolicy.IsProjectileUnit(_unitData.Type);
             if (!chargeOnly)
                 ServerProjectileDiagnostics.RecordProjectileUnitMarker(_unitData.Type, _unitData.Id,
-                    serverProjectileMarker, sourceOnlyPresentation, muzzleAtMarker: false);
+                    sourceOnlyPresentation, muzzleAtMarker: false);
             // [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician도 여기서 끝난다]
             //   · 타격(OnAttackHit) marker: 위에서 lease를 소비했고(차지 marker는 확인만 — 규칙 17 차지 계약 그대로),
             //     차지 VFX를 다시 켜지 않으며(P2-4), 트레이서·발사음도 여기서 내지 않는다.

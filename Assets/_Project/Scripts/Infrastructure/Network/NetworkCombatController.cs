@@ -1611,12 +1611,11 @@ namespace Hexiege.Infrastructure
                 //   피해 시각과 같은 값(서버 시각 + 오버슈트 보정된 hitTime)이다. 피해는 착탄 시각에 같은 단일 writer가 준다.
                 //   투사체 유닛은 C3 축에서 Unresolved라 attackShadowToken이 없으므로(토큰 검사·due 대기 대상 아님) 잃는 것이 없다.
                 //   🔴 비투사체 유닛(근접·총잡이 등)은 아래 기존 코루틴 경로(DelayedAttackDamage)를 그대로 탄다 — 그 유닛들의 유일한 피해 경로다.
-                // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(첫 타격 = 커밋 1회)가 새/기존 경로 중 어디로 갔는지 센다.
+                // [2026-10-20 단계 B 진단] 투사체 유닛 공격 1회(첫 타격 = 커밋 1회)를 유닛 종류별로 센다(END path= 칸).
                 //   읽기 전용 관측이며 릴리스 빌드에서는 호출이 사라진다([Conditional]). 비투사체 유닛은 세지 않는다.
                 UnitCombatUseCase pathDiagnosticsCombat = hitIndex == 0 ? _services?.GetCombatUseCase() : null;
                 if (pathDiagnosticsCombat != null)
-                    pathDiagnosticsCombat.RecordProjectileUnitAttackPath(
-                        unit.Type, ServerProjectileDeliveryPolicy.IsProjectileUnit(unit.Type));
+                    pathDiagnosticsCombat.RecordProjectileUnitAttackPath(unit.Type);
                 if (ServerProjectileDeliveryPolicy.IsProjectileUnit(unit.Type))
                 {
                     bool projectileReserved = _services?.GetCombatUseCase()?.TryReserveProjectileLaunch(
