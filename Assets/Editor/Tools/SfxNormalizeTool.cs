@@ -26,6 +26,10 @@
 //
 // 건너뛰는 경우(경고 로그):
 //   44100Hz 가 아님 / 16bit PCM 이 아님(변환하지 않는다) / 무음·너무 작음 / wav 형식이 아님.
+//
+// 길이 상한 경고 (2026-11-02 추가 — 효과음 task Plan 4절):
+//   처리 뒤 길이가 파일 이름별 공격음 길이 상한을 넘으면 경고 로그만 남긴다(자르지 않는다).
+//   어떤 이름에 어떤 상한이 붙는지는 SfxNormalizeCore 「공격음 길이 상한」 절 참고.
 // ============================================================================
 
 using System;
@@ -141,6 +145,7 @@ namespace Hexiege.EditorTools
             sb.AppendLine();
             sb.AppendLine("원본은 " + BackupFolder + "/ 에 시각이 붙은 이름으로 백업합니다.");
             sb.AppendLine("44100Hz·16bit PCM 이 아닌 파일과 무음 파일은 건너뜁니다.");
+            sb.AppendLine("공격음은 처리 뒤 길이가 파일 이름별 상한을 넘으면 경고만 남깁니다(자르지 않음).");
             sb.AppendLine();
             sb.Append("진행할까요?");
             return sb.ToString();
@@ -157,6 +162,7 @@ namespace Hexiege.EditorTools
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var written = new List<string>();
             int unchanged = 0, skipped = 0, limited = 0, failed = 0;
+            int tooLong = 0; // 2026-11-02: 길이 상한 초과 경고 수(파일은 자르지 않는다)
 
             try
             {
@@ -164,7 +170,7 @@ namespace Hexiege.EditorTools
                 {
                     string path = targets[i];
                     EditorUtility.DisplayProgressBar(DialogTitle, Path.GetFileName(path), (float)i / targets.Count);
-                    switch (ProcessOne(path, stamp, out bool peakLimited))
+                    switch (ProcessOne(path, stamp, out bool peakLimited, out bool lengthExceeded))
                     {
                         case FileStatus.Written: written.Add(path); break;
                         case FileStatus.Unchanged: unchanged++; break;
@@ -172,6 +178,7 @@ namespace Hexiege.EditorTools
                         default: failed++; break;
                     }
                     if (peakLimited) limited++;
+                    if (lengthExceeded) tooLong++;
                 }
             }
             finally
@@ -182,20 +189,24 @@ namespace Hexiege.EditorTools
             ReimportWritten(written);
 
             string summary = $"Targets={targets.Count}, Written={written.Count}, Unchanged={unchanged}, Skipped={skipped}, "
-                             + $"PeakLimited={limited}, Failed={failed}, BackupStamp={stamp}";
+                             + $"PeakLimited={limited}, LengthOverLimit={tooLong}, Failed={failed}, BackupStamp={stamp}";
             GameLog.Dev.Info(LogSystem, LogClass, "효과음 정규화 실행 완료", summary);
             EditorUtility.DisplayDialog(DialogTitle,
                 $"완료: 대상 {targets.Count}개\n  · 덮어씀 {written.Count}개\n  · 이미 기준에 맞음(변경 없음) {unchanged}개\n"
-                + $"  · 건너뜀 {skipped}개\n  · 피크 제한 경고 {limited}개\n  · 실패 {failed}개\n\n"
+                + $"  · 건너뜀 {skipped}개\n  · 피크 제한 경고 {limited}개\n  · 길이 상한 초과 경고 {tooLong}개(자르지 않음)\n  · 실패 {failed}개\n\n"
                 + "파일별 처리 전/후 수치는 Console 로그를 확인하세요.", "확인");
         }
 
         private enum FileStatus { Written, Unchanged, Skipped, Failed }
 
-        /// <summary>파일 하나를 읽고 정규화하고, 필요하면 백업 후 덮어쓴다. 결과를 로그로 남긴다.</summary>
-        private static FileStatus ProcessOne(string assetPath, string stamp, out bool peakLimited)
+        /// <summary>
+        /// 파일 하나를 읽고 정규화하고, 필요하면 백업 후 덮어쓴다. 결과를 로그로 남긴다.
+        /// 2026-11-02: 정규화 뒤 길이가 공격음 길이 상한을 넘으면 경고만 남긴다(lengthExceeded — 파일은 자르지 않는다).
+        /// </summary>
+        private static FileStatus ProcessOne(string assetPath, string stamp, out bool peakLimited, out bool lengthExceeded)
         {
             peakLimited = false;
+            lengthExceeded = false;
             string fullPath = ToFullPath(assetPath);
             byte[] input;
             try
@@ -224,6 +235,9 @@ namespace Hexiege.EditorTools
                     + $"AfterLoudnessDb={SfxNormalizeCore.Fmt(r.After.LoudnessDb)}");
             }
 
+            // 길이 상한 검사 — 이미 기준에 맞는 파일(NoChange)도 길이는 확인한다. 실패·건너뜀은 위에서 이미 끝났다.
+            lengthExceeded = WarnIfTooLong(assetPath, r.After.DurationSec);
+
             if (r.Outcome == SfxNormalizeCore.Outcome.NoChange)
             {
                 GameLog.Dev.Info(LogSystem, LogClass, "효과음이 이미 기준에 맞아 변경하지 않았다", BuildDetail(assetPath, r, null));
@@ -244,6 +258,26 @@ namespace Hexiege.EditorTools
             }
             GameLog.Dev.Info(LogSystem, LogClass, "효과음 정규화 완료", BuildDetail(assetPath, r, backupPath));
             return FileStatus.Written;
+        }
+
+        /// <summary>
+        /// 파일 이름으로 공격음 길이 상한을 찾아(SfxNormalizeCore.TryGetAttackLengthLimit), 넘으면 경고 로그를 남긴다.
+        /// 상한이 없는 파일(공격음이 아닌 이름)은 검사하지 않는다. 파일 내용은 바꾸지 않는다.
+        /// </summary>
+        /// <returns>상한을 넘었으면 true.</returns>
+        private static bool WarnIfTooLong(string assetPath, double durationSec)
+        {
+            if (!SfxNormalizeCore.TryGetAttackLengthLimit(assetPath, out double limitSec, out string rule))
+                return false;
+            if (!SfxNormalizeCore.ExceedsLengthLimit(durationSec, limitSec))
+                return false;
+
+            // [개발] Warn + 개발 — 도구 사용자에게 「줄여야 할 수 있다」를 알리는 경고(에디터 전용 도구).
+            GameLog.Dev.Warn(LogSystem, LogClass,
+                "정규화 뒤 길이가 공격음 길이 상한을 넘는다 — 자르지 않았다, 청취 뒤 다시 만들거나 줄일지 판단",
+                $"Path={assetPath}, AfterSec={durationSec.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)}, "
+                + $"LimitSec={limitSec.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}, Rule={rule}");
+            return true;
         }
 
         /// <summary>

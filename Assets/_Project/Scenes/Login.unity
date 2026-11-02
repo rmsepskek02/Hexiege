@@ -12574,6 +12574,9 @@ MonoBehaviour:
   _bgmSourceB: {fileID: 1692833069}
   _sfxContainer: {fileID: 2096585237}
   _maxConcurrentSfx: 8
+  _maxSameClipConcurrent: 3
+  _minSameClipIntervalSec: 0.05
+  _evictFadeOutSec: 0.03
   _uiSoundEntries: []
 --- !u!4 &1584208767
 Transform:

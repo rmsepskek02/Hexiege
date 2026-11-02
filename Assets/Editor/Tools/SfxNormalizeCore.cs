@@ -111,6 +111,87 @@ namespace Hexiege.EditorTools
         private const int WaveFormatExtensible = 0xFFFE;
 
         // ─────────────────────────────────────────────────────────────────
+        //  공격음 길이 상한 (2026-11-02 추가 — 효과음 task Plan 4절 · Q-13, 「경고만, 자르지 않음」)
+        // ─────────────────────────────────────────────────────────────────
+        //
+        // 왜 필요한가:
+        //   큰 전투에서는 공격음이 한꺼번에 쏟아지므로 소리마다 길이 상한을 둔다(Plan 4절, 값은 기획 초안 · 테스트로 조정).
+        //   정규화 뒤 파일 길이가 상한을 넘으면 경고 로그만 남긴다. 파일을 자르지는 않는다(자를지는 사람이 듣고 정한다).
+        //
+        // 이 도구는 파일이 어느 묶음(총기 · 날붙이 · 타격 · 활 · 전용)인지 모른다. 그래서 「파일 이름」으로 상한을 찾는다:
+        //   ① 아래 표의 이름으로 시작하는 파일 → 그 상한 (이름은 Plan 2-5 「제안」 이름 규칙 — Q-11 승인 전.
+        //      이름 규칙이 바뀌면 이 표도 함께 고쳐야 한다).
+        //   ② 표에 없지만 이름에 "_attack" 이 들어간 파일(예: 기존 샘플 sfx_bearguard_attack) → 공격음 전체 최대 상한 1.0초.
+        //      기존 샘플은 아직 어느 묶음 · 등급에 쓸지 미정(Plan Q-6)이라 유닛별 상한을 붙이지 않는다.
+        //   ③ 그 밖(사망음 · UI 등) → 검사하지 않는다(상한이 정해지지 않았다).
+        // 비교하는 길이는 「정규화 뒤 파일 전체 길이」다(앞 5ms · 뒤 30ms 여유 포함 — 게임에서 자리를 차지하는 길이와 같은 기준).
+
+        /// <summary>표에 없는 공격음 파일에 쓰는 최대 상한(초) — Plan 4절 상한 중 가장 큰 값.</summary>
+        public const double MaxAttackLengthSec = 1.0;
+
+        /// <summary>파일 이름(소문자, 확장자 제외) 앞부분 → 길이 상한(초). Plan 2-5 제안 이름 · 4절 상한표.</summary>
+        private static readonly (string Prefix, double LimitSec)[] AttackLengthLimits =
+        {
+            ("sfx_gun_light_attack", 0.20),        // 총기 약(Assault)
+            ("sfx_gun_medium_attack", 0.40),       // 총기 중(Pistoleer)
+            ("sfx_gun_heavy_attack", 0.70),        // 총기 강(Sniper)
+            ("sfx_blade_light_attack", 0.45),      // 날붙이 약
+            ("sfx_blade_medium_attack", 0.45),     // 날붙이 중
+            ("sfx_strike_light_attack", 0.20),     // 타격 약(FlameSpirit)
+            ("sfx_strike_medium_attack", 0.45),    // 타격 중
+            ("sfx_strike_heavy_attack", 0.70),     // 타격 강
+            ("sfx_bow_attack", 0.35),              // 활
+            ("sfx_cannon_attack", 1.0),            // 포격 공용(Tank · CannonCart · Human 타워)
+            ("sfx_infernospirit_attack", 0.9),
+            ("sfx_torrentspirit_attack", 1.0),
+            ("sfx_quakespirit_attack", 1.0),
+            ("sfx_foxmagician_attack", 0.8),
+            ("sfx_bloomfairy_cast", 0.8),          // 힐 발동음(치료받는 쪽 지속음 sfx_bloomfairy_heal 과 다름)
+            ("sfx_runespire_attack", 0.8),         // 2단계 방어 타워
+            ("sfx_battleaxe_attack", 0.6),
+            ("sfx_mushroombomber_attack", 0.5),
+            ("sfx_streamspirit_attack", 0.5),
+        };
+
+        /// <summary>
+        /// 파일 이름으로 공격음 길이 상한을 찾는다(위 머리 주석 ①②③ 규칙).
+        /// </summary>
+        /// <param name="fileName">파일 이름(경로 · 확장자가 붙어 있어도 된다).</param>
+        /// <param name="limitSec">찾은 상한(초). 없으면 0.</param>
+        /// <param name="rule">어느 규칙으로 찾았는지(로그용 — 표의 이름 또는 "AttackDefault").</param>
+        /// <returns>검사 대상이면 true, 상한이 없는 파일이면 false.</returns>
+        public static bool TryGetAttackLengthLimit(string fileName, out double limitSec, out string rule)
+        {
+            limitSec = 0;
+            rule = null;
+            if (string.IsNullOrEmpty(fileName)) return false;
+
+            string stem = System.IO.Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
+            foreach (var (prefix, limit) in AttackLengthLimits)
+            {
+                if (!stem.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                limitSec = limit;
+                rule = prefix;
+                return true;
+            }
+            if (stem.Contains("_attack"))
+            {
+                limitSec = MaxAttackLengthSec;
+                rule = "AttackDefault";
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 길이가 상한을 넘는지 판단한다. 16bit 샘플 단위 오차로 경계값에서 경고가 튀지 않게 0.5ms 여유를 둔다.
+        /// </summary>
+        /// <param name="durationSec">파일 길이(초).</param>
+        /// <param name="limitSec">상한(초).</param>
+        /// <returns>상한을 넘으면 true.</returns>
+        public static bool ExceedsLengthLimit(double durationSec, double limitSec) => durationSec > limitSec + 0.0005;
+
+        // ─────────────────────────────────────────────────────────────────
         //  결과 타입
         // ─────────────────────────────────────────────────────────────────
 
