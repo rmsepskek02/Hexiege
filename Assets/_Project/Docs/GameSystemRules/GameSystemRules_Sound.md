@@ -22,6 +22,7 @@
 **규칙 1. 역할 분리 원칙**
 EffectManager는 VFX(파티클)만 담당하며 오디오 코드가 한 줄도 포함되어서는 안 된다.
 BGM과 SFX 전체는 AudioManager가 전담한다.
+VFX 프리팹에는 AudioSource를 두지 않는다. VFX와 함께 나는 소리는 규칙 15에 따라 AudioManager로만 재생한다. *(2026-11-02 추가 — 사용자 승인. VFX 프리팹 4개에 붙어 있던 AudioSource의 정리는 [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) RM-1에서 진행 중)*
 
 **규칙 2. AudioManager 레이어 및 생명주기**
 AudioManager는 Presentation 레이어에 배치하며 `SingletonMonoBehaviour<AudioManager>`를 상속한다.
@@ -96,9 +97,18 @@ V1에서는 싱글/멀티플레이 구분 없이 `GameEvents.OnGameEnd` 발생 �
 헥스 그리드를 위에서 내려다보는 시점 특성상 거리감 기반 3D 오디오는 적용하지 않는다.
 
 **규칙 13. SFX 동시 재생 한도**
-동시에 재생 가능한 최대 SFX 개수는 8개다.
-한도 초과 시 새 SFX 재생 요청을 무시한다(드랍).
-이 값은 AudioManager Inspector의 `_maxConcurrentSfx`에서 조정한다.
+동시에 재생 가능한 최대 SFX 개수는 16개다(AudioManager Inspector `_maxConcurrentSfx`, 테스트로 조정).
+같은 클립은 동시에 최대 3개까지 재생하고, 같은 클립의 직전 재생 시작 뒤 약 0.05초 안에 온 요청은 재생하지 않는다. 같은 클립 판정은 오디오 파일 기준이라 같은 파일을 나눠 쓰는 유닛들은 이 한도를 함께 쓴다.
+SFX는 「일반」과 「우선」으로 나뉜다. 특수 공격 유닛의 공격음과 방어 타워 공격음이 「우선」이며, 유닛별 우선 여부는 SoundConfig 항목에서 정한다. 전체 한도가 찬 상태에서 우선 요청이 오면 재생 중인 일반 SFX 가운데 가장 먼저 시작한 것을 멈추고 재생한다. 일반 요청이거나 재생 중인 SFX가 모두 우선이면 새 요청을 재생하지 않는다.
+위 판단은 각 화면이 로컬에서 한다(규칙 14).
+
+승인된 세부(2026-11-02):
+- 「우선」 SFX도 같은 클립 최대 3개 · 최소 간격 약 0.05초 제한을 똑같이 받는다. 우선은 전체 한도에서만 앞선다.
+- 일반 SFX를 멈출 때는 「딱」 소리가 나지 않도록 아주 짧은 페이드(수십 ms — 값은 청취로 정한다)로 줄인 뒤 멈춘다.
+- UI 효과음은 「일반」이다. UI 소리를 새로 만들 때 다시 정한다.
+- 요청을 재생하지 않거나 일반 SFX를 멈춘 판단은 개발용 로그로 남긴다(형식은 [LogRules](../LogRules.md)).
+
+*(2026-11-02 개정 — 사용자 승인([효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) 9-1 · Q-15~Q-18 · Q-20). 종전: 「동시에 재생 가능한 최대 SFX 개수는 8개다. 한도 초과 시 새 SFX 재생 요청을 무시한다(드랍). 이 값은 AudioManager Inspector의 `_maxConcurrentSfx`에서 조정한다.」 위 문장은 승인된 목표 동작이며, AudioManager 코드 · 씬 값 반영은 같은 task에서 구현 진행 중이다.)*
 
 **규칙 14. 멀티플레이 SFX 동기화 금지**
 SFX는 각 클라이언트가 자신의 화면에서 발생하는 이벤트에 맞춰 로컬에서만 재생한다.

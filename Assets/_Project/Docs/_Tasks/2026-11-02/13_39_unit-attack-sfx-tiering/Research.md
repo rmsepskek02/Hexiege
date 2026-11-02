@@ -113,6 +113,7 @@
 
 - 동시에 재생할 수 있는 효과음은 최대 8개이고 넘으면 새 요청을 버린다(사운드 규칙 13, `AudioManager.cs` 155행 기본값 8, `Login.unity` 저장값 8).
 - 재생 한 번이 그 클립 길이만큼 자리를 차지한다(`AudioManager.cs` 569행 — 클립 길이 뒤 반환). 그래서 **뒤 무음이 남은 1.04초 파일은 실제 소리보다 오래 자리를 잡는다.** 다회 타격 유닛(FlameSpirit 6타)이나 주기가 짧은 유닛(Assault 0.333초)이 많을수록 영향이 크다. 묶음 방식에서도 이 사실은 같다(같은 파일을 나눠 써도 재생은 유닛마다 따로 일어난다).
+- *(4차 2026-11-02: 이 한도 동작을 바꾸기로 결정 — 11-14. 위 문단은 현재 코드 기준 기록이다.)*
 
 ### 3-4. 지금 `SoundConfig.asset` 연결 상태 [확인]
 
@@ -297,9 +298,9 @@
 | # | 결정할 것 | 이 문서에서 모은 관련 사실 | 상태(2026-11-02 추가 열 — 종전: 전부 미결) |
 |---|---|---|---|
 | D-1 | 무기 종류 묶음 목록 | 4-2 무기 파일 · 5절 확인 결과에 따라 달라짐 | 방향 확인됨(사용자, 2026-11-02) — 「무기 종류 × 강중약」 공용 소리 · 종전: 미결. **구체 묶음 목록은 아직 없음(Plan에서 제안)**. **3차 답변: 등급(강중약) 기준은 공격력이 아니라 유닛의 특성과 모션, 모르는 부분은 사용자에게 묻고 제작 전에 반드시 먼저 언급(11-13)** |
-| D-2 | 특수 공격 유닛 범위 | Matrix 특수 처리 유닛 6종(4-1 아래 문단), 차지 유닛 2종, 파도(Torrent) · 힐(Bloom)의 별도 재생 경로 | 확인됨(사용자, 2026-11-02) — 특수 공격 유닛은 모두 전용 SFX: Tank · CannonCart(같은 포격 소리 가능, Human 방어 타워도 Tank와 같은 SFX) · InfernoSpirit · QuakeSpirit · TorrentSpirit · FoxMagician · MushroomBomber · BloomFairy · BattleAxe · 종전: 미결. RuneSpire 전용(번개)은 **메인 세션 제안 — 사용자 확정 전(미확인)**, VineTower는 **보류**(11-1). **2차 답변(2026-11-02): RuneSpire 전용 확정 · 종전: 제안. VineTower는 기존 컨셉 기준 설계 결정, 공격음은 그 설계 확정 후(11-12)** |
+| D-2 | 특수 공격 유닛 범위 | Matrix 특수 처리 유닛 6종(4-1 아래 문단), 차지 유닛 2종, 파도(Torrent) · 힐(Bloom)의 별도 재생 경로 | 확인됨(사용자, 2026-11-02) — 특수 공격 유닛은 모두 전용 SFX: Tank · CannonCart(같은 포격 소리 가능, Human 방어 타워도 Tank와 같은 SFX) · InfernoSpirit · QuakeSpirit · TorrentSpirit · FoxMagician · MushroomBomber · BloomFairy · BattleAxe · 종전: 미결. RuneSpire 전용(번개)은 **메인 세션 제안 — 사용자 확정 전(미확인)**, VineTower는 **보류**(11-1). **2차 답변(2026-11-02): RuneSpire 전용 확정 · 종전: 제안. VineTower는 기존 컨셉 기준 설계 결정, 공격음은 그 설계 확정 후(11-12)**. **4차: VineTower 공격 VFX = 작은 정적 덩굴 모델 파티클(B안), 공격음은 VFX 확정 후(11-14)** |
 | D-3 | 강중약 음량 차등 여부 — 같은 -26dB + 음색 차이만 vs 등급별 기준(예: 강 -23 / 중 -26 / 약 -29 → 보정 도구 수정 필요) | 보정 도구의 기준값은 상수 하나(`SfxNormalizeCore.cs` 59행 -26.0). 항목별 볼륨 칸(`attackVolume`)도 따로 있다(3-1) | 확인됨(사용자, 2026-11-02) — 강중약 모두 같은 -26dB로 시작, 테스트하며 필요 시 조정 · 종전: 미결 |
-| D-4 | 다회 타격 유닛 처리 | LittleKnight 2 · LionKnight 2 · FlameSpirit 6타, 타격마다 재생, 동시 8개 한도 · 클립 길이만큼 점유(3-3) | 확인됨(사용자, 2026-11-02) — 다른 유닛과 동일하게 진행 후 테스트로 조정 · 종전: 미결 |
+| D-4 | 다회 타격 유닛 처리 | LittleKnight 2 · LionKnight 2 · FlameSpirit 6타, 타격마다 재생, 동시 8개 한도 · 클립 길이만큼 점유(3-3) | 확인됨(사용자, 2026-11-02) — 다른 유닛과 동일하게 진행 후 테스트로 조정 · 종전: 미결. **4차: 동시 재생 한도 개편 채택(같은 클립 최대 3개 · 최소 간격 약 0.05초 · 특수 · 타워 소리 우선 · 전체 8→16) — 사운드 규칙 13 개정 + AudioManager 수정, Plan에 포함(11-14)** |
 | D-5 | 기존 샘플 재사용 여부 | 6종 샘플(3개 보정 · 3개 미보정) + 옛 Tank 파일(2-2, 7절) | 확인됨(사용자, 2026-11-02) — 사용할 수 있으면 재사용(듣기 싫은 소리이거나 배정과 안 맞을 때만 새로 제작). Pistoleer 1차본은 「듣기 싫음」 · 종전: 미결. **2차 답변: 사용하지 않을 기존 SFX 삭제 지시 — 진행 중(11-12)**. **3차: 목록 확정 · 삭제 실행(git rm, 커밋 전) — eaglearcher · bearguard · boulderspirit · emberspirit은 같은 음량으로 맞춘 뒤 재테스트로 결정, littleknight 유지(11-13)** |
 | D-6 | 작업 범위(공격음만인지) | 사망음 경로도 같은 구조(`PlayUnitDeathSfx`, `UnitView.cs` 2077행 · `NetworkUnit.cs` 1162행)이나 항목의 사망 클립은 6항목 모두 비어 있다(`SoundConfig.asset` `deathClip: {fileID: 0}`). 차지 효과음 미구현(7절) | 확인됨(사용자, 2026-11-02) — 공격음 + 방어 타워 공격음(코드 추가 포함), 원거리는 발사음만(착탄음 제외), 차징 소리 제외, 사망음 제외(나중에) · 종전: 미결. **3차: 타워 공격음 코드는 「임시 코드, 개편할 것」 — 개편 범위 · 시점 미결. 우선순위는 제작보다 문서 정리 · 작성 먼저(11-13)** |
 | D-7 | `.backups` git 무시 여부 | 현재 git 추적 중(7절) | 확인됨(사용자, 2026-11-02) — git 무시. 메인 세션이 `.gitignore`에 추가 · 추적 해제(11-6) · 종전: 미결 |
@@ -368,7 +369,7 @@
 | InfernoSpirit · QuakeSpirit · TorrentSpirit · FoxMagician · MushroomBomber · BloomFairy | 전용 | — |
 | BattleAxe | 전용(베는 소리) | **특수로 분류** — 특수 역할 유닛이라 전용 베는 소리 |
 | RuneSpire(Spirit 방어 타워) | **확정 — 전용**(2차 답변 11-12) · 종전: 제안 — 사용자 명시 확인 전 | 메인 세션이 전용(번개) 제안. 종전: 확정 전이므로 미확인으로 둔다 |
-| VineTower(Transcendence 방어 타워) | **공격음 보류** | 사용자는 촉수 공격을 원하나 모션 · VFX가 미정. 설계는 별도 작업으로 제안됨. **2차 답변: 기존 컨셉 기준 설계로 결정 — 공격음은 설계 확정 후(11-12)** |
+| VineTower(Transcendence 방어 타워) | **공격음 보류** | 사용자는 촉수 공격을 원하나 모션 · VFX가 미정. 설계는 별도 작업으로 제안됨. **2차 답변: 기존 컨셉 기준 설계로 결정 — 공격음은 설계 확정 후(11-12)**. **4차: 공격 VFX를 「작은 정적 덩굴 모델 파티클(B안)」로 만들기로 결정, 공격음은 그 VFX 확정 후(11-14)** |
 
 - 위 목록에 없는 유닛은 공용 묶음 대상이다. **구체적인 묶음 목록(무기 종류 · 강중약 배정)은 아직 정하지 않았다 — Plan에서 제안한다.**
 - 참고: 4-1 아래 문단의 Matrix 특수 처리 6종(BattleAxe · Inferno · Quake · Torrent · Mushroom · Bloom)은 모두 전용에 들어갔고, 여기에 Tank · CannonCart · FoxMagician이 더해졌다.
@@ -515,7 +516,7 @@
 - 남은 오디오 [전달]: `SFX/Units`의 bearguard · boulderspirit · eaglearcher · emberspirit · littleknight 공격음 5개 + `GameAudioMixer.mixer`, PC 전용 `.backups/` 3개.
 - 이 때문에 2-2 측정표의 Pistoleer(현재 파일) · Tank 행과 3-4 연결표의 Pistoleer 행은 **삭제된 파일 기준의 작성 당시 기록**이 됐다(본문은 그대로 둔다).
 - 삭제 영향 [전달 — 메인 세션 확인]: `SoundConfig.asset`의 BGM 4칸(Login · Lobby · Battle · GameEnd — 임시 효과음이 들어 있던 칸), Pistoleer 공격음 · 사망음 칸, EagleArcher 사망음 칸이 「찾을 수 없음」 참조로 남아 **무음**이다(사운드 규칙 10). **참조 정리는 미실행.**
-  - [확인] 이 갱신 중 디스크의 `SoundConfig.asset`과 삭제 파일의 HEAD meta GUID를 대조했다: BGM 4칸(15~18행)은 `sfx_healing_magic`(Login) · `sfx_healing_magic_soft`(Lobby) · `sfx_healing_magic_v3_organic`(Battle) · `sfx_gold_collect`(GameEnd)를, Pistoleer 공격음 칸(22행)은 `sfx_pistoleer_attack`을 가리킨다 — 모두 삭제 대상이라 전달 내용과 일치. **그러나 사망음 칸은 6항목 모두 `deathClip: {fileID: 0}`(24 · 29 · 34 · 39 · 44 · 49행)으로 비어 있어**, 「Pistoleer 사망음 칸 · EagleArcher 사망음 칸이 찾을 수 없음 참조로 남음」은 디스크 상태와 **다르다**(1차 조사 3-4 · D-6과 같음). `sfx_unit_death`(GUID `271d925c…`)를 참조하는 곳은 `vfx_unit_death.prefab`과 `EffectPreset_Unit_Death_Common.asset` 두 곳뿐이다(`Assets` 아래 .asset · .prefab · .unity 검색). 메인 세션이 어느 칸을 가리켰는지는 **[미확인]** — 메인 세션 확인 필요.
+  - [확인] 이 갱신 중 디스크의 `SoundConfig.asset`과 삭제 파일의 HEAD meta GUID를 대조했다: BGM 4칸(15~18행)은 `sfx_healing_magic`(Login) · `sfx_healing_magic_soft`(Lobby) · `sfx_healing_magic_v3_organic`(Battle) · `sfx_gold_collect`(GameEnd)를, Pistoleer 공격음 칸(22행)은 `sfx_pistoleer_attack`을 가리킨다 — 모두 삭제 대상이라 전달 내용과 일치. **그러나 사망음 칸은 6항목 모두 `deathClip: {fileID: 0}`(24 · 29 · 34 · 39 · 44 · 49행)으로 비어 있어**, 「Pistoleer 사망음 칸 · EagleArcher 사망음 칸이 찾을 수 없음 참조로 남음」은 디스크 상태와 **다르다**(1차 조사 3-4 · D-6과 같음). `sfx_unit_death`(GUID `271d925c…`)를 참조하는 곳은 `vfx_unit_death.prefab`과 `EffectPreset_Unit_Death_Common.asset` 두 곳뿐이다(`Assets` 아래 .asset · .prefab · .unity 검색). 메인 세션이 어느 칸을 가리켰는지는 **[미확인]** — 메인 세션 확인 필요. *(4차 2026-11-02 해소: 메인 세션이 디스크를 확인 — 사망음 6칸은 이미 모두 비어 있고, 종전 전달은 옛 변경 내역을 본 오판이었다. 11-14)*
 
 #### 11-13-3. 새 발견 — VFX 프리팹이 옛 소리를 직접 재생하던 상태(메인 세션 정정)
 
@@ -523,17 +524,44 @@
   - [확인] 네 프리팹 모두 `m_audioClip: {fileID: 0}`, `m_PlayOnAwake: 1`, `m_Resource`의 GUID는 pistoleer · streamspirit = `cf0be5aa…`(HEAD의 `sfx_pistoleer_attack.wav.meta`와 같음), tank = `44888c9c…`(`sfx_tank_attack.wav.meta`와 같음), unit_death = `271d925c…`(`sfx_unit_death.wav.meta`와 같음). `m_Enabled` · 믹서 그룹 칸은 이 갱신에서 따로 보지 않았다.
 - 의미 [전달]: 이 VFX가 재생될 때 옛 소리가 **AudioManager와 믹서를 거치지 않고**(볼륨 설정 무시) 재생되던 상태였다 — 사운드 규칙 1(EffectManager는 VFX만, 오디오는 AudioManager 전담) · 규칙 17 위반 상태.
 - 메인 세션 정정: 첫날 「클립이 빈 오디오 컴포넌트라 소리가 나지 않는다」고 보고한 것은 `m_audioClip`만 보고 `m_Resource`를 보지 않은 **오판**이었다.
-- 이번 삭제로 클립이 사라져 이 AudioSource들은 무음이 된다. **컴포넌트 자체 제거는 미실행(사용자 확인 대기).**
+- 이번 삭제로 클립이 사라져 이 AudioSource들은 무음이 된다. **컴포넌트 자체 제거는 미실행(사용자 확인 대기).** *(4차: 사용자 결정 — 제거하고 AudioManager로만 재생. Plan에 포함, 승인 후 실행 · 종전: 사용자 확인 대기. 11-14)*
 - 사용자의 이전 실기 청취에 이 옛 소리가 섞였을 가능성이 있다 — **확인 불가**. 2-3 「한계」(샘플 비교 판단의 조건)에 더해 읽을 것.
 - `EffectPreset_Pistoleer_Attack.asset` · `EffectPreset_Unit_Death_Common.asset`의 `_sfxClip`은 코드에서 주석 처리된 옛 필드의 잔존 직렬화 값이다 [전달].
 
 #### 11-13-4. 3차 뒤 남은 미확인 · 미결
 
 - 방어 타워 공격음 코드 개편 범위 · 시점(메인 세션 확인 중)과 재생 코드 경로(조사 안 함)
-- VFX 프리팹 4개의 AudioSource 컴포넌트 제거 여부(사용자 확인 대기)
-- `SoundConfig.asset`의 「찾을 수 없음」 참조 정리(미실행) · 「사망음 칸」 전달 내용과 디스크 상태의 차이(11-13-2)
+- ~~VFX 프리팹 4개의 AudioSource 컴포넌트 제거 여부(사용자 확인 대기)~~ → 4차: 제거로 결정, Plan에 포함(11-14)
+- `SoundConfig.asset`의 「찾을 수 없음」 참조 정리(미실행) · ~~「사망음 칸」 전달 내용과 디스크 상태의 차이(11-13-2)~~ → 4차 해소(11-14)
 - 유지 샘플 4종(eaglearcher · bearguard · boulderspirit · emberspirit) 동일 음량 보정 뒤 재테스트 결과
-- 삭제 커밋 · 푸시(메인 세션 예정, 이 갱신 시점 미실행)
+- ~~삭제 커밋 · 푸시(메인 세션 예정, 이 갱신 시점 미실행)~~ → 4차: 커밋 `323dd454` · 푸시 완료(11-14)
+- TideSpirit 몸 재질, StreamSpirit 발사 동작 · 몸 재질
+- 보정 도구의 `WORKFLOW.md` [5-2] 등록 여부
+- 답변에 없던 세부(11-12 끝 목록의 마지막 항목과 같음)
+
+### 11-14. 4차 결정 · 사실 (2026-11-02)
+
+출처: 메인 세션 전달 **[전달]**. [확인]은 이 갱신 중 직접 다시 확인한 것. 위 3-3 · 8(D-2 · D-4) · 11-1 · 11-13-2 · 11-13-3 · 11-13-4의 해당 칸에 「4차」로 반영했다.
+
+| 항목 | 결정 · 사실 | 실행 상태 |
+|---|---|---|
+| 사망음 칸 차이(11-13-2) | 메인 세션이 디스크를 확인 — 사망음 6칸은 이미 모두 비어 있다. 종전 「Pistoleer · EagleArcher 사망음 칸이 찾을 수 없음으로 남음」은 옛 변경 내역을 본 **오판** | **해소** · 종전: 미확인 |
+| VFX 프리팹 4개의 AudioSource(11-13-3) | 사용자 「소리 관리자와 볼륨 설정을 거치도록 수정하도록 해」 → 4개 VFX 프리팹의 AudioSource를 **제거**하고, 소리는 사운드 규칙 15(VFX+SFX 짝 호출)로 **AudioManager에서만** 재생 | **Plan에 포함, 승인 후 실행** · 종전: 사용자 확인 대기 |
+| 동시 재생 한도 | 메인 세션 제안을 사용자가 채택(「권장대로 진행, 특수 소리는 우선권」): ① 같은 클립 동시 최대 3개 ② 같은 클립 최소 간격 약 0.05초 ③ 특수 · 타워 소리 우선 — 한도가 차면 가장 오래된 일반 소리를 끊고 재생 ④ 전체 한도 8 → 16(테스트로 조정) | **사운드 규칙 13 개정 + AudioManager 코드 수정 — Plan에 포함**, 미실행 |
+| 커밋 · 푸시 | 삭제 · `.gitignore` · 이 Research가 커밋 `323dd454`에 들어갔고, 원격 커밋 `dce9e9e4`와 머지 `9c5b8885`로 `origin/claude/vfx-code-followups`에 푸시 완료. 폴더 meta `_Tasks/2026-11-02.meta` 충돌은 원격 GUID로 해소 [전달] | **완료** · 종전: 커밋 전 |
+| VineTower | 공격 VFX를 「작은 정적 덩굴 모델 파티클(B안)」로 만들기로 결정(별도 task 14_40) | 공격음은 그 VFX 확정 후 |
+
+- [확인] 현재 한도 동작: `AudioManager.cs` 155행 `_maxConcurrentSfx = 8`, 559행 `if (clip == null || _activeSfxCount >= _maxConcurrentSfx) return;` — 한도에 닿으면 새 요청을 버리며, 우선순위 · 같은 클립 제한은 없다(3-3과 같음).
+- [확인] 커밋: `git show --stat 323dd454`에 이 Research.md(539행)와 meta가 들어 있다. `9c5b8885`는 `origin/claude/vfx-code-followups`에 포함돼 있다(`git branch -r --contains`). 이 갱신 시점 로컬 HEAD는 그 뒤의 `7368d7f1`(= `origin/claude/vfx-code-followups`)이다. **이 4차 갱신 내용은 아직 커밋되지 않았다.**
+- 위 3-3 「동시 8개 한도 · 새 요청 버림」, D-4 · 11-5의 「동시 8개 한도」 언급은 개편 전 현재 코드 기준이다.
+
+**4차 뒤 남은 미확인 · 미결**
+
+- 방어 타워 공격음 코드 개편 범위 · 시점(메인 세션 확인 중)과 재생 코드 경로(조사 안 함)
+- `SoundConfig.asset`의 「찾을 수 없음」 참조 정리(BGM 4칸 · Pistoleer 공격음 칸) — 미실행
+- 유지 샘플 4종(eaglearcher · bearguard · boulderspirit · emberspirit) 동일 음량 보정 뒤 재테스트 결과
+- VFX AudioSource 제거 · 동시 재생 한도 개편 — 결정됨, Plan · 승인 대기(미실행)
+- VineTower 공격음 — VFX 확정 대기
 - TideSpirit 몸 재질, StreamSpirit 발사 동작 · 몸 재질
 - 보정 도구의 `WORKFLOW.md` [5-2] 등록 여부
 - 답변에 없던 세부(11-12 끝 목록의 마지막 항목과 같음)

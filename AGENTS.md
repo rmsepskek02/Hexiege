@@ -67,6 +67,7 @@
 | `Assets/_Project/Docs/Assets/UIAssetGuide.md` | UI 제작·초상화·Sprite import 지침 |
 | `Assets/_Project/Docs/Assets/VFXSFXGuide.md` | VFX/SFX 제작·폴더·명명 지침 |
 | `Assets/_Project/Docs/Assets/VFXSFXList.md` | VFX/SFX 에셋 목록 (보류 항목 포함) |
+| `Assets/_Project/Docs/Assets/UnitAttackProfile.md` | 유닛·방어 타워 공격 외형(동작·무기·재질) 프로필과 효과음 묶음·등급 배정 근거 |
 
 ### 프로젝트 관리
 

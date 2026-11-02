@@ -31,6 +31,8 @@
 | **Spirit** | 마법 파티클, 빛 에너지, 크리스탈, 오러 | 신비로운 마법음, 크리스탈 울림, 에너지 방출음 | magic, glowing, crystal, ethereal |
 | **Transcendence** | 자연, 식물, 흙, 유기물, 동물 | 자연음, 동물 소리, 나뭇잎/흙 소리 | nature, organic, vines, earth, wild |
 
+> **공격음 예외 (2026-11-02 추가):** 유닛 공격음의 **묶음 소리**(총기 · 날붙이 · 타격 · 활)는 여러 종족이 한 파일을 나눠 쓰므로 위 「사운드 스타일」 열을 쓰지 않고 **종족 색 없이 중립**으로 만든다. ⚠️ 전용 소리(특수 공격)에 종족 스타일을 넣을지는 **미정** — 해당 프롬프트를 쓰기 전에 사용자에게 확인한다. 상세: 「SFX 카테고리별 가이드」의 「1. 유닛 공격 사운드」.
+
 ---
 
 ## 폴더 구조
@@ -59,7 +61,7 @@ Assets/_Project/
     ├── BGM/                    ← 배경음악
     ├── SFX/
     │   ├── Units/              ← 유닛 공격/사망
-    │   ├── Buildings/          ← 건물 파괴/업그레이드
+    │   ├── Buildings/          ← 건물 파괴/업그레이드 · 방어 타워 공격음(2026-11-02 추가)
     │   ├── UI/                 ← UI 효과음
     │   ├── Tiles/              ← 타일 점령
     │   └── Game/               ← 게임 시작/승리/패배
@@ -110,6 +112,19 @@ sfx_[에셋명]_[이벤트].wav
 | `sfx_ui_button_click.wav` | 버튼 클릭 사운드 |
 | `sfx_tile_capture.wav` | 타일 점령 사운드 |
 | `sfx_game_victory.wav` | 승리 사운드 |
+
+**공격음 묶음 파일 (2026-11-02 추가)** — 유닛 공격음은 여러 유닛이 한 파일을 나눠 쓴다(「1. 유닛 공격 사운드」). 이름은 아래를 따른다. 누가 어느 파일을 쓰는지는 [VFXSFXList](VFXSFXList.md) 「유닛 공격 사운드」.
+
+| 종류 | 이름 | 예 |
+|---|---|---|
+| 일반 묶음 | `sfx_<묶음>_<등급>_attack.wav` — 묶음 `gun` · `blade` · `strike` · `bow`, 등급 `light` · `medium` · `heavy`(한 등급뿐인 활은 등급 생략) | `sfx_gun_light_attack.wav` · `sfx_blade_medium_attack.wav` · `sfx_strike_heavy_attack.wav` · `sfx_bow_attack.wav` |
+| 전용(유닛) | 종전 규칙 그대로 `sfx_<유닛>_attack.wav` | `sfx_infernospirit_attack.wav` |
+| 포격 공용 | `sfx_cannon_attack.wav` | Tank · CannonCart · Human 방어 타워가 공유 |
+| BloomFairy 힐 시전 | `sfx_bloomfairy_cast.wav` | 치료받는 아군에 붙는 힐 지속음 `sfx_bloomfairy_heal.wav`와 겹치지 않게 |
+| 방어 타워 전용 | `sfx_<타워>_attack.wav` | `sfx_runespire_attack.wav` |
+
+- 저장 위치: 유닛 공격음은 `Audio/SFX/Units/`, 방어 타워 공격음은 `Audio/SFX/Buildings/`.
+- 이미 있는 샘플(`sfx_littleknight_attack.wav` 등)은 **이름을 그대로 둔다** — 묶음 파일로 쓰게 돼도 바꾸지 않는다. 바꿔야 할 때는 Unity 안에서 바꿔야 `.meta` GUID가 유지돼 SoundConfig 연결이 끊기지 않는다.
 
 ### BGM 파일
 
@@ -170,12 +185,16 @@ Unity AI가 게임 스타일에 맞는 에셋을 생성하도록 간략한 컨�
 이 게임은 카툰 스타일 이소메트릭 모바일 RTS 게임입니다. (Clash of Clans 레퍼런스)
 ```
 
+> **공격음 프롬프트에는 게임 이름을 쓰지 않는다 (2026-11-02 추가)** — 원하는 느낌은 특징으로 풀어 쓴다(사용자 결정). 위 예시와 「게임 컨텍스트」의 레퍼런스 게임 이름은 유닛 · 방어 타워 공격음 프롬프트에 옮기지 않는다. ⚠️ 다른 프롬프트(VFX 등)의 게임 이름 처리는 **미정**이다.
+
 **원칙 3 — 종족 스타일 명시**
 유닛/건물이 어느 종족 소속인지, 해당 종족의 시각/청각 스타일을 함께 명시한다.
 
 ```
 Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 주세요.
 ```
+
+> **예외 (2026-11-02 추가):** 유닛 공격음의 묶음 소리에는 종족 스타일을 넣지 않는다(위 「종족별 스타일 가이드」 아래 공격음 예외).
 
 **원칙 4 — 에셋 타입 명확히 지정**
 - VFX: "파티클 시스템 프리팹으로 생성해주세요" 또는 "스프라이트 시트로 생성해주세요"
@@ -285,6 +304,13 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - **착탄은 대상 표면 지점에서 재생된다** — 서버 경로에서는 비행 거리를 「중심 거리 − 대상 반경」으로 계산해 착탄 이펙트도 그 표면 지점에서 낸다(규칙 20 「서버 착탄 시각·표면 지점」, 반경은 `ProjectileConfig`의 유닛·건물 반경 표). 첫 StreamSpirit 착탄은 「작고 짧다」는 지적이 있었고 키우는 값은 제안만 했다(Research 15-3 2번 — 적용 여부 사용자).
 - 투사체 유닛 7종(StreamSpirit · Tank · CannonCart · InfernoSpirit · FoxMagician · EagleArcher · MushroomBomber)은 모두 서버 경로다 — InfernoSpirit·FoxMagician은 단계 D `a0a23423`부터, EagleArcher·MushroomBomber는 단계 E `5b8fb82e`부터(분류 `ProjectileDeliveryContracts.cs` `ProjectileUnitTypes`). 이행 기간에 쓰던 로컬 트레이서 경로의 R5 임시 연결(트레이서 도착 지점에서 착탄)은 P5-1 `9cefe80d`에서 삭제됐다. *(2026-10-27 P5 갱신 — 종전 「서버 경로로 옮기기 전 유닛은 로컬 트레이서 경로의 R5 임시 연결(`UnitView.cs` `playImpactOnArrive: true`)대로 트레이서 도착 지점에서 착탄이 나온다(`impactPreset`이 없는 종류는 변화 없음). 지금 서버 경로가 아닌 투사체 유닛은 없다 — … (스위치 `ProjectileDeliveryContracts.cs` `EnabledUnitTypes`).」)* EagleArcher는 팀별 화살 tracer(Red 팀은 `UnitEffectConfig` `redTeamTracerPreset`)를 쓰고 착탄 이펙트가 없다. *(2026-10-27 갱신 — 종전 「지금 서버 경로가 아닌 투사체 유닛은 EagleArcher · MushroomBomber이며, MushroomBomber는 로컬 트레이서 호출이 꺼져 있어 서버 writer 공격 표현 스냅샷이 트레이서·착탄을 맡는다([유닛 규칙 27](../GameSystemRules/GameSystemRules_Units.md) 아래 블록). InfernoSpirit·FoxMagician은 단계 D `a0a23423`부터 서버 경로다.」)* 연결 상태는 [VFX 목록](VFXSFXList.md)이 관리한다. *(2026-10-26 교정 — 사용자 승인 「지금 동작에 맞춰서 수정」. 종전: 「서버 경로로 옮기기 전 유닛(InfernoSpirit·FoxMagician — 단계 D 진행 중)은 R5 임시 연결대로 트레이서 도착 지점에서 착탄이 나온다.」)*
 
+**9. VFX 프리팹에 소리 부품(AudioSource)을 넣지 않는다 (2026-11-02 추가)**
+
+출처: [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) RM-1 · 9-3(사용자 승인 2026-11-02). 규칙: [사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md) 규칙 1 「역할 분리 원칙」.
+
+- VFX 프롬프트에 「AudioSource 컴포넌트를 넣지 말 것」을 적는다. VFX와 함께 나는 소리는 AudioManager로만 재생한다(같은 문서 규칙 15).
+- VFX 프리팹 4개(`vfx_pistoleer_attack` · `vfx_streamspirit_attack` · `vfx_tank_attack` · `vfx_unit_death`)에 AudioSource가 붙어 볼륨 설정을 거치지 않고 옛 소리를 직접 내던 상태가 발견됐다. 어떻게 붙었는지(Unity AI가 넣었는지)는 **확인되지 않았다.** 네 컴포넌트는 효과음 task에서 먼저 끄고 테스트 뒤 삭제한다 — 진행 중.
+
 #### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
 
 화상·독·힐처럼 유닛에 붙는 이펙트의 크기를 유닛 몸집에 맞추려면 먼저 유닛별 몸 크기 표가 있어야 한다. 이 표를 채우는 에디터 도구다.
@@ -305,12 +331,23 @@ wav 파일, 모노(Mono), 44100Hz, 16bit
 ```
 > 배경음악(BGM)만 스테레오(Stereo)로 지정.
 
+**Unity AI는 오디오 사양 · 길이 · 음량 지시를 지키지 않는다 — 생성 뒤 반드시 보정한다 (2026-11-02 추가)**
+
+유닛 공격음 샘플을 만들 때 프롬프트에 「모노 · 짧은 길이 · 음량」을 적었지만 생성물은 **스테레오 · 1.045초 고정 · 뒤쪽 무음**이었고, 음역 지시(「200~800Hz」)도 반영되지 않았다(출처: [효과음 task Research](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Research.md) 1-3 · 2절). 위 사양 문구는 계속 넣되, **결과는 보정 도구로 맞춘다.**
+
+- **메뉴:** `Hexiege/Audio/Normalize Selected SFX` — Project 창에서 wav 파일을 선택하고 실행한다. 파일: `Assets/Editor/Tools/SfxNormalizeTool.cs`(메뉴) · `SfxNormalizeCore.cs`(처리 · 기준값 상수).
+- **처리:** 모노로 합치기 → 앞 · 뒤 무음 자르기(끝 짧은 페이드아웃) → 체감 크기 -26dB → 피크 -1dBFS 이하 → 44100Hz 16bit 모노로 덮어쓰기.
+- **원본 백업:** 덮어쓰기 직전에 `Assets/_Project/Audio/.backups/`에 「원래이름_시각.wav」로 복사한다. 이 폴더는 **PC 전용**이다 — git에서 제외(`.gitignore`)했고, 이름이 점으로 시작해 Unity도 가져오지 않는다.
+- **음량:** 강 · 중 · 약 모두 같은 -26dB로 시작한다. 등급별 음량 차이가 필요해지면 그때 도구를 고친다.
+- **길이 확인:** 보정 뒤 길이가 「1. 유닛 공격 사운드」 상한표를 넘으면 도구가 경고한다 — 파일 이름(아래 「SFX 파일」의 묶음 이름)으로 묶음 · 등급을 읽는다. **경고 기능은 사용자 승인(2026-11-02) · 구현 진행 중**이며, 구현 전에는 보정 결과의 길이를 사람이 상한표와 비교한다.
+- **도구 유지:** WORKFLOW [5-2] 「에디터 스크립트 최소 유지 기준」 진입점 표에 등록돼 있다.
+
 **오디오 길이 가이드**
 
 | 카테고리 | 권장 길이 |
 |---------|---------|
 | UI 효과음 | 0.5초 이내 |
-| 유닛 공격음 | 0.3초 ~ 1.0초 |
+| 유닛 · 방어 타워 공격음 | 하한 없음 · 묶음 · 등급별 상한(「1. 유닛 공격 사운드」 상한표) — 0.20초 ~ 1.0초 *(2026-11-02 개정 — 종전 「유닛 공격음: 0.3초 ~ 1.0초」. 하한 0.3초는 연사 · 연타 소리의 상한 0.20초와 충돌해 삭제)* |
 | 유닛 사망음 | 0.5초 ~ 1.5초 |
 | 건물 파괴음 | 1.0초 ~ 2.0초 |
 | 건물 업그레이드음 | 0.8초 ~ 1.5초 |
@@ -549,6 +586,84 @@ Gold Mine에서 금이 채집되는 루프 이펙트 파티클 시스템 프리�
 
 ### 1. 유닛 공격 사운드
 
+> 유닛 · 방어 타워 공격음은 **무기 종류별 묶음 소리를 여러 유닛이 나눠 쓰고, 묶음 안을 강 · 중 · 약으로 나눈다. 특수 공격만 전용 소리를 준다.** (사용자 결정 2026-11-02 — [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) 2~4절, 사용자 승인 「추천대로 승인」) *(2026-11-02 개정 — 종전 머리말 「각 유닛의 공격 방식에 맞는 사운드. 같은 근접 공격이라도 종족별로 다르게.」와 유닛별 키워드 표는 이 절 끝 「종전 기록」에 보존)*
+>
+> **누가 어느 묶음 · 등급인가와 그 근거(공격 동작 · 무기 · 재질 · 몸집)는 [UnitAttackProfile](UnitAttackProfile.md)이 원본이다.** 프롬프트에 넣을 유닛 동작은 반드시 그 문서(또는 그 문서가 가리키는 사용자 답변 원문)에서 가져온다. 아래 「종전 기록」의 옛 키워드 표로 공격 방식을 정하지 않는다(`.claude/mistakes.md` 2026-10-27 항목 — 옛 키워드로 원거리 발사음을 잘못 만든 실수).
+
+**묶음 규칙**
+
+| 항목 | 규칙 |
+|---|---|
+| 일반 묶음 | **총기**(옛날 화약총) · **날붙이**(검 · 단검 · 창) · **타격**(팔 · 주먹 · 방패) · **활** 네 가지. 총기 · 타격은 강 · 중 · 약, 날붙이는 약 · 중 두 등급, 활은 한 등급 |
+| 등급 기준 | **공격력이 아니라** 그 유닛의 동작 · 무기 · 몸집 · 역할로 정한다. 판단이 갈리면 제작 전에 사용자에게 묻는다 |
+| 전용 소리(특수 공격) | Tank · CannonCart · Human 방어 타워(셋이 포격 공용 1개) · InfernoSpirit · QuakeSpirit · TorrentSpirit · FoxMagician · MushroomBomber · StreamSpirit · BattleAxe · BloomFairy(힐 시전 순간 1회) · RuneSpire(번개). VineTower는 덩굴 이펙트 확정 뒤 정한다. 목록의 원본은 [UnitAttackProfile](UnitAttackProfile.md) 3-2 |
+| 같은 파일 공유 | 같은 묶음 · 등급의 유닛들은 **같은 파일**을 쓴다. 볼륨은 유닛 항목마다 따로 준다([사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md) 규칙 16). 같은 파일을 쓰는 유닛들은 「같은 클립 동시 3개」 한도를 함께 쓴다(같은 문서 규칙 13) |
+| 재질이 섞인 묶음 | 같은 묶음 · 등급 안에 재질이 다른 유닛(예: 불 몸과 바위 몸)이 있어도 **먼저 하나로 만들고, 청취 뒤 어색하면 나눈다** |
+| 음량 | 강 · 중 · 약 모두 같은 기준(-26dB, 아래 보정 도구)으로 시작하고 테스트로 조정한다 |
+
+**재생 사실 — 언제 소리가 나는가** (현재 코드 기준. 재생 순간은 이번 작업에서 바꾸지 않는다)
+
+- 근접 · 히트스캔 유닛은 공격 애니메이션의 **타격 신호마다** 한 번 낸다. 여러 번 때리는 유닛(LittleKnight · LionKnight · FlameSpirit)은 **타격마다** 같은 소리를 낸다 — 연타 속 한 번으로 들리도록 짧게 만든다.
+- 원거리 유닛은 **발사음만** 낸다(서버 발사 기록이 화면에 나오는 순간). 착탄음은 만들지 않는다.
+- **차징**(InfernoSpirit · FoxMagician의 기 모으기)에는 소리가 없다 — [유닛 규칙](../GameSystemRules/GameSystemRules_Units.md) 규칙 17 「차지 유닛 typed marker 계약」. 발사음 프롬프트에 차징 소리를 넣지 않는다.
+- TorrentSpirit은 파도가 생기는 순간, BloomFairy는 힐 발동 순간(코드상 공격음 경로에 닿는 것으로 읽힘 — 실행 미확인)에 낸다.
+
+**등급별 음색 방향** — 공통 톤은 **「카툰 + 묵직함」**(카툰 비주얼에 맞추되 장난감 같은 가벼움은 빼고 묵직 · 단단하게). 여러 소리가 겹쳐도 각 소리가 들리는 명료함이 기본 전제다. BloomFairy 힐만 예외(맑고 부드러운 쪽).
+
+| 묶음 | 약 | 중 | 강 |
+|---|---|---|---|
+| 총기(옛날 화약총) | 짧고 건조한 「탁」 — 연사 중 한 발, 꼬리 거의 없음 | 화약이 터지는 한 발 + 짧은 꼬리 | 무거운 한 발 + 화약 울림 꼬리, 저음 비중 큼 |
+| 날붙이 | 가볍고 빠른 찌르기 · 휘두름의 바람 소리 + 작은 금속감 | 긴 날의 휘두름 · 베기, 금속 울림이 조금 더 | (등급 없음) |
+| 타격 | 짧은 잽 — 연타 중 하나로 들려야 함 | 한 번 내려치는 둔탁한 타격 | 큰 몸 · 방패 · 훅의 묵직한 충돌, 저음 |
+| 활 | 시위 튕김 + 화살이 나가는 짧은 바람(시위 소리 위주인지는 미확인 — 제작 전 확인) | — | — |
+
+- **묶음 소리에는 종족 색을 넣지 않는다(중립).** 한 묶음에 여러 종족이 섞이기 때문이다(예: 타격 중 = Spirit 유닛 셋). 위 「종족별 스타일 가이드」의 사운드 열은 묶음 소리에 쓰지 않는다. ⚠️ **전용 소리에 종족 스타일을 넣을지는 미정 — 해당 전용 소리의 프롬프트를 쓰기 전에 사용자에게 확인한다.**
+- 전용 소리의 방향(포격 · 화염구 발사 · 땅 내려치기 · 파도 · 구체 발사 · 독포자 투척 · 물폭탄 · 반원 휘두르기 · 힐 · 번개)은 [UnitAttackProfile](UnitAttackProfile.md) 3-2를 따른다.
+
+**길이 상한** — 큰 전투에서 공격음이 한꺼번에 쏟아지므로 소리마다 상한을 둔다. 하한은 없다. 값은 승인된 초안이며 **테스트로 조정**한다(효과음 task Plan 4절). 상한은 「소리가 들리는 길이」 기준이다.
+
+| 대상 | 상한(초) |
+|---|---|
+| 총기 약 · 중 · 강 | 0.20 · 0.40 · 0.70 |
+| 날붙이 약 · 중 | 0.45 · 0.45 |
+| 타격 약 · 중 · 강 | 0.20 · 0.45 · 0.70 |
+| 활 | 0.35 |
+| 포격 공용(Tank · CannonCart · Human 타워) | 1.0 |
+| InfernoSpirit | 0.9 |
+| QuakeSpirit · TorrentSpirit | 1.0 · 1.0 |
+| FoxMagician · BloomFairy | 0.8 · 0.8 |
+| BattleAxe | 0.6 |
+| MushroomBomber · StreamSpirit | 0.5 · 0.5 |
+| RuneSpire | 0.8 |
+
+- 각 상한은 그 유닛의 공격 간격 안에 들어가도록 잡았다(간격의 원본은 [StatsReference](../StatsReference.md) — 이 가이드에 복사하지 않는다). 타격 약 0.20초는 FlameSpirit 연타의 가장 짧은 간격과 같아, 한 유닛 안에서 자기 소리끼리 겹치지 않는 최대값이다.
+- 기존 EagleArcher 샘플(약 0.45초)은 활 상한 0.35초를 넘는다 — 재사용하려면 줄여야 한다(청취 뒤 결정).
+- 보정 뒤 길이가 상한을 넘는지는 보정 도구가 경고한다(아래 「SFX 프롬프트 추가 원칙」 — 경고 기능은 승인됐고 구현 진행 중).
+
+**프롬프트 공통 블록** — 영어 프롬프트 + 한글 요약(원칙 0). `<…>`는 채워 넣는다.
+
+```
+Create a short game sound effect as a wav file for a cartoon-style isometric mobile RTS.
+- Sound: <weapon group and tier, or the special attack>, <the unit's attack motion taken from UnitAttackProfile.md>
+- Tone: cartoon visuals but weighty and solid, not toy-like. Clear and punchy so it stays
+  audible when many sounds overlap. Short tail.
+- Length: under <length cap> seconds of audible sound. No leading silence.
+- Do not include charge-up / wind-up sound. Launch (firing) sound only for ranged units.
+- Neutral: no race-specific color (for weapon-group sounds).
+- wav, mono, 44100 Hz, 16-bit.
+- Save path: Assets/_Project/Audio/SFX/Units/
+- File name: <file name — see "SFX 파일" naming rule>
+```
+
+- **게임 이름을 쓰지 않는다.** 원하는 느낌은 특징(무게감 · 짧은 꼬리 · 명료함 등)으로 풀어 쓴다(사용자 결정 2026-11-02). 위 「게임 컨텍스트」와 원칙 2 예시에 있는 레퍼런스 게임 이름은 공격음 프롬프트에 옮기지 않는다.
+- 출처는 실제 출처만 적는다(예: 「사용자 확인 2026-11-02」). 사용자가 말하지 않은 동작을 「사용자 설명」으로 적지 않는다(`.claude/mistakes.md` 2026-10-27 항목의 2회째 블록).
+- 모노 · 길이 지시는 Unity AI가 지키지 않는 경우가 많다 — 생성 뒤 반드시 보정 도구를 거친다(아래 「SFX 프롬프트 추가 원칙」).
+
+<details>
+<summary>종전 기록 — 유닛별 키워드 표 · Pistoleer 예시 (2026-11-02 대체, 공격 방식의 근거로 쓰지 않는다)</summary>
+
+> 아래는 2026-11-02 개정 전 원문이다. 여러 행이 실제 공격 방식과 다르다 — 예: EmberSpirit 「fire whoosh」(실제는 근접 팔 내려치기), BoulderSpirit 「heavy rock throw」(실제는 근접 팔 내려치기), BearGuard 「bear growl」(실제는 나무 방패 휘두르기), LionKnight 「claw slash」(실제는 장검), RhinoBreaker 「charge stomp」(실제는 제자리 훅). 현재 기준은 위 묶음 규칙과 [UnitAttackProfile](UnitAttackProfile.md)이다. 아래 첫 줄이 종전 머리말이다.
+
 > 각 유닛의 공격 방식에 맞는 사운드. 같은 근접 공격이라도 종족별로 다르게.
 
 **유닛별 공격 사운드 참고 키워드**
@@ -593,6 +708,8 @@ Pistoleer(권총병) 유닛의 공격 사운드를 생성해주세요.
 - 저장 경로: Assets/_Project/Audio/SFX/Units/
 - 파일명: sfx_pistoleer_attack.wav
 ```
+
+</details>
 
 ---
 
