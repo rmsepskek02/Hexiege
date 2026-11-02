@@ -4,7 +4,7 @@
 //
 // 무엇을 담는가:
 //   1. BGM 클립 4종 (로그인 / 로비 / 전투 / 게임종료) + 크로스페이드 시간
-//   2. 유닛 타입별 SFX (공격음 / 사망음) + 클립별 볼륨
+//   2. 유닛 타입별 SFX (공격음 / 사망음) + 클립별 볼륨 + 공격음 「우선 재생」 표시(2026-11-02 추가)
 //   3. 건물 타입별 SFX (배치음 / 파괴음 / 업그레이드음) + 클립별 볼륨
 //
 // 무엇을 담지 않는가:
@@ -52,6 +52,16 @@ namespace Hexiege.Infrastructure
         [Tooltip("공격음 기준 볼륨 (0~1). SFX 채널 볼륨과 곱해져 최종 볼륨이 됨")]
         [Range(0f, 1f)]
         public float attackVolume;
+
+        // 2026-11-02 추가 (효과음 task 1-C, _Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md 6-2):
+        //   "우선 재생" 표시 칸. 체크한 유닛의 공격음은 효과음이 동시에 너무 많이 울려
+        //   전체 한도(AudioManager의 _maxConcurrentSfx)가 꽉 찼을 때도 들리도록,
+        //   지금 울리고 있는 「일반」 효과음 중 가장 먼저 시작한 것을 짧게 줄여 끄고 그 자리에서 재생된다.
+        //   어느 유닛이 「특수 공격」인지는 소리 설계 결정이라 코드에 유닛 목록을 박지 않고 여기(데이터)에 둔다.
+        //   bool 하나라 Domain 타입 외 키를 쓰지 않는다(GameSystemRules_Sound 규칙 3 준수).
+        //   옛 SoundConfig.asset에는 이 칸이 없으므로 처음 읽을 때 false(일반)로 들어온다 — 기존 동작과 같다.
+        [Tooltip("체크하면 공격음이 「우선」 효과음이 된다. 효과음 전체 한도가 찼을 때 가장 오래된 「일반」 효과음을 끊고 재생한다. 특수 공격 유닛에만 체크")]
+        public bool attackIsPriority;
 
         [Header("사망 SFX")]
         [Tooltip("사망 시 재생할 효과음. 없으면 비워둠")]
@@ -222,6 +232,19 @@ namespace Hexiege.Infrastructure
             if (_unitCache != null && _unitCache.TryGetValue(type, out UnitSoundEntry entry))
                 return entry.attackVolume;
             return 1f;
+        }
+
+        /// <summary>
+        /// 지정 유닛 타입의 공격음이 「우선」 효과음인지 반환한다. 항목이 없으면 false(일반).
+        /// 우선 효과음은 효과음 전체 한도가 찼을 때 가장 오래된 일반 효과음을 끊고 재생된다(AudioManager).
+        /// </summary>
+        /// <param name="type">조회할 유닛 타입.</param>
+        /// <returns>우선 효과음이면 true, 일반이거나 항목이 없으면 false.</returns>
+        public bool IsUnitAttackPriority(UnitType type)
+        {
+            if (_unitCache != null && _unitCache.TryGetValue(type, out UnitSoundEntry entry))
+                return entry.attackIsPriority;
+            return false;
         }
 
         /// <summary>

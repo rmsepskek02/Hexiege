@@ -1,0 +1,141 @@
+# Unit Attack Profile — 유닛·방어 타워 공격 외형과 효과음 묶음
+
+> **목적·답하는 질문:** 각 유닛과 방어 타워가 **눈에 보이는 공격을 어떻게 하는가**(동작·무기·재질·몸집)와, 그 근거로 **어느 공격 효과음 묶음·등급을 쓰는가**를 찾는다. 효과음·이펙트 프롬프트를 쓸 때 공격 동작은 이 문서에서 가져온다.
+> **포함:** 유닛 25종 + 방어 타워 3종의 사용자 확인 공격 동작, 무기 모델 파일(파일명 기준)과 사용자 확인 무기, 재질, 몸집의 상대 근거, 특수 공격(전용 효과음) 여부, 효과음 묶음·등급과 등급 근거, 소리가 나는 순간. 확인되지 않은 칸은 「미확인」으로 둔다.
+> **제외·담당 문서:** 공격력·HP·사거리·주기·타격 시점 같은 **수치는 이 문서에 복사하지 않는다** — [StatsReference](../StatsReference.md). 공격 구조·타격 수·구현 이행·개별 수용은 [전투 감사표](UnitCombatAssetMatrix.md), 효과음 제작 방법·묶음 규칙·길이 상한·프롬프트는 [VFXSFXGuide](VFXSFXGuide.md) 「1. 유닛 공격 사운드」, 효과음 파일 배정·제작 상태는 [VFXSFXList](VFXSFXList.md) 「유닛 공격 사운드」, 재생·동시 재생 동작은 [사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md)이 담당한다.
+> **권위원본·주요 참조:** 공격 동작·무기·재질의 원본은 사용자 답변이다 — [효과음 task Research](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Research.md) 4-2절과 11절(11-10 · 11-12 · 11-13 · 11-14). 묶음·등급 배정의 원본은 [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) 2절(사용자 승인 2026-11-02). 무기 파일명은 프리팹 참조 기준이며 모델을 눈으로 확인한 것이 아니다. 효과음 가이드의 옛 「유닛별 키워드」 표는 공격 방식의 근거가 아니다(`.claude/mistakes.md` 2026-10-27 항목).
+> **갱신 조건·방법:** 사용자가 공격 동작·무기·재질을 새로 확인하거나, 청취 뒤 묶음·등급이 바뀌거나, 방어 타워 공격음(효과음 task 2단계)이 정해지면 해당 행을 제자리 고친다. 고친 칸에는 날짜와 종전 값을 짧게 남긴다. 「미확인」 칸은 사용자 답이 있을 때만 채우고 추정으로 채우지 않는다.
+
+**현재 상태 (2026-11-02):** 묶음·등급 배정은 사용자 승인(「추천대로 승인」)을 받았고 **효과음 제작·연결은 진행 중**이다. 이 문서의 배정은 「앞으로 만들 소리의 계획」이며, 지금 게임에서 실제로 나는 소리는 [VFXSFXList](VFXSFXList.md) 「유닛 공격 사운드」의 상태 칸을 본다.
+
+---
+
+## 1. 읽는 법
+
+- **사용자 확인** = 사용자가 직접 답한 내용(메인 세션 전달, 2026-11-02). 원문은 효과음 task Research 4-2 · 11절.
+- **파일명 기준** = 유닛 프리팹이 참조하는 무기·부속 모델 파일의 이름. 「파일 없음」은 무기를 들지 않는다는 뜻이 아니다(본체 모델에 붙어 있을 수 있다 — 미확인).
+- **속성 라벨** = 에셋 목록 비고(불정령 · 흙정령 · 물정령)의 이름. 몸이 실제로 불·바위·물로 보이는지와는 다르다.
+- **몸집** = `Assets/_Project/Resources/Config/UnitEffectConfig.asset` 「상태 이펙트 크기 맞춤」 표(`_recipientFits`)의 몸통 반경(radius)·키(height). 값은 그 표에서 읽고 여기에는 **25종 안에서의 상대 위치**만 적는다 — 「키 작음 · 중간 · 큼」은 25종을 키 순서로 세운 하위 8 · 가운데 9 · 상위 8이고(2026-11-02 표 기준), 반경은 양 끝만 적는다. 측정 도구는 [VFXSFXGuide](VFXSFXGuide.md) 「상태 이펙트 크기 측정 도구」.
+- **등급(강 · 중 · 약)은 공격력이 아니라** 그 유닛의 동작 · 무기 · 몸집 · 역할로 정한다(사용자 결정 2026-11-02).
+
+---
+
+## 2. 공격 외형 프로필
+
+### 2-1. Human
+
+| 유닛 | 공격 동작 (사용자 확인) | 무기 — 파일명 기준 / 사용자 확인 | 재질 | 몸집 (상대) |
+|---|---|---|---|---|
+| Pistoleer | 미확인 | `Human/Pistoleer/Pistol.fbx` / 권총 | 옛날 총(화약식) — 사용자 확인 | 키 작음 · 반경 25종 중 두 번째로 작음 |
+| Assault | 미확인 | `Human/Assault/Rifle.fbx` / 연사 소총 | 옛날 총(화약식) — 사용자 확인 | 키 큼 |
+| Sniper | 미확인 | `Human/Sniper/Sniper Rifle.fbx` / 저격총 | 옛날 총(화약식) — 사용자 확인 | 키 큼 |
+| LittleKnight | 찌르고 휘두르는 2타 — 공격음은 하나로 충분(구분 불필요) | `Human/HumanBlade/HumanBlade.fbx`(유닛 폴더 밖) / 미확인(파일명은 칼날) | 미확인 | 키 작음(작은 보병) |
+| SpearMan | 창으로 찌르기 | `Human/HumanSpear/HumanSpear.fbx`(유닛 폴더 밖) / 창 | 미확인 | 키 중간(25종 가운데값) |
+| BattleAxe | 큰 반원을 그리며 휘두르기 | `Human/HumanAxe/HumanAxe.fbx`(유닛 폴더 밖) / 미확인(파일명은 도끼) | 미확인 | 키 중간 |
+| Tank | 미확인 — CannonCart와 차이는 거의 없고 스탯 차이뿐(사용자 확인) | 별도 파일 없음(`Human/Tank/Tank.fbx`만) / 큰 전차포 느낌 | 미확인 | 키 큼 · 반경 25종 중 가장 큼 |
+| CannonCart | 미확인 — Tank와 차이는 거의 없고 스탯 차이뿐(사용자 확인). **단일 대상 포격**(범위 포격 아님 — 전투 감사표) | 별도 파일 없음(`Human/Cannon/Cannon.fbx`만) / 큰 전차포 느낌 | 미확인 | 키 큼 · 반경 25종 중 두 번째로 큼 |
+
+### 2-2. Spirit
+
+| 유닛 | 공격 동작 (사용자 확인) | 무기 — 파일명 기준 / 사용자 확인 | 재질 | 몸집 (상대) |
+|---|---|---|---|---|
+| EmberSpirit | 팔로 내려치기 1타 | 없음 / — | 몸 = 불 — 사용자 확인 | 키 작음 |
+| FlameSpirit | 격투선수가 연속 주먹질하는 연속 공격(공격 1회에 여러 타) | 없음 / — | 미확인(속성 라벨 불) | 키 중간 |
+| InfernoSpirit | 자기 앞에 불덩이를 모은 뒤 화염구 발사 | 없음 / — | 미확인(속성 라벨 불) | 키 중간 |
+| DustSpirit | 특별한 액션 없이 양손을 머리 위로 들었다가 내려치기 1타 | 없음 / — | 몸 = 바위 — 사용자 확인 | **키 25종 중 가장 작음** |
+| BoulderSpirit | 팔로 내려치기 1타 | 없음 / — | 몸 = 바위 — 사용자 확인 | 키 작음(하위 3분의 1의 끝) |
+| QuakeSpirit | 하늘로 뛰어올라 땅을 내려치기 | 없음 / — | 미확인(속성 라벨 흙) | 키 큼 |
+| TideSpirit | EmberSpirit과 같은 팔로 내려치기 1타 — 물 속성이지만 별도 속성 공격이 아님 | 없음 / — | 미확인(속성 라벨 물) | 키 작음 |
+| StreamSpirit | 물폭탄을 발사하는 컨셉(발사 동작 자체는 미확인) | 없음 / — | 미확인(속성 라벨 물) | 키 중간 |
+| TorrentSpirit | 양팔을 벌려 뒤로 젖히며 기를 모으듯 하다가 앞으로 뻗으며 파도 발사 | 없음 / — | 미확인(속성 라벨 물) | 키 중간 |
+
+### 2-3. Transcendence
+
+| 유닛 | 공격 동작 (사용자 확인) | 무기 — 파일명 기준 / 사용자 확인 | 재질 | 몸집 (상대) |
+|---|---|---|---|---|
+| FoxMagician | 지팡이를 대상 방향으로 뻗어 차징한 뒤 차징된 구체 발사 | `Transcendence/FoxMagician/FoxStaff.fbx` / 지팡이 | 미확인 | 키 작음 |
+| BearGuard | 나무 방패를 옆으로 휘둘러 때림 | `Transcendence/BearGuard/BearShield.fbx` / 방패 | 방패 = 나무 — 사용자 확인 | **키 25종 중 가장 큼**(곰탱커) |
+| LionKnight | 장검 연속 베기(공격 1회에 2타) | `Transcendence/LionKnight/LionSword.fbx` / 장검(발톱 아님) | 미확인 | 키 중간 |
+| RhinoBreaker | 제자리에서 주먹질 — 복싱의 훅 같은 모션(돌진 아님) | 없음 / — | 미확인 | 키 큼 |
+| EagleArcher | 미확인 | `EagleArcher/EagleBow/EagleBow.fbx` · `EagleArcher/EagleArrow/EagleArrow.fbx` / 활 | 나무 활, 화살촉만 금속 — 사용자 확인 | 키 큼 |
+| RabbitTrickster | 단검으로 찌르기 | `RabbitTrickster/RabbitSword/RabbitSword.fbx` / 단검 | 미확인 | 키 작음 · **반경 25종 중 가장 작음**(가장 가는 몸) |
+| MushroomBomber | 공을 던지듯 독포자를 던짐 | 없음 / — | 미확인 | 키 중간 |
+| BloomFairy | 하늘로 무언가를 던지는 듯한 모션(힐 발동) | 없음 / — | 미확인 | 키 중간 |
+
+### 2-4. 방어 타워
+
+| 타워 | 공격 모습 | 출처 | 무기 · 재질 |
+|---|---|---|---|
+| Human CannonTower (AutoTower + Human) | 포구에서 포탄을 쏘아 날린다(투사체) | 현행 연출 — [VFXSFXList](VFXSFXList.md) 「건물 공격 이펙트」 | 미확인 |
+| Spirit RuneSpire (AutoTower + Spirit) | 크리스털 높이에서 대상에게 번개 | 현행 연출 — 같은 표 | 미확인 |
+| Transcendence VineTower (AutoTower + Transcendence) | 대상 발밑 땅에서 가시 덩굴이 솟구침 — **이펙트 제작 전**(지금은 공격 연출 없음) | 사용자 결정 — [VineTower task Plan](../_Tasks/2026-11-02/14_40_vinetower-attack-design/Plan.md) 2-1 | 덩굴(초록·갈색 자연색) |
+
+---
+
+## 3. 효과음 묶음 · 등급
+
+묶음 규칙(무기 종류 × 강중약, 특수 공격은 전용 소리)과 등급별 음색 · 길이 상한은 [VFXSFXGuide](VFXSFXGuide.md) 「1. 유닛 공격 사운드」가 원본이다. 이 절은 **누가 어느 칸인가와 그 이유**만 적는다.
+
+### 3-1. 일반 묶음
+
+| 묶음 | 등급 | 유닛 | 등급 근거 (동작 · 무기 · 몸집 · 역할) | 청취 뒤 정할 것 |
+|---|---|---|---|---|
+| 총기(옛날 화약총) | 약 | Assault | 연사 소총 — 연사 속에서 한 발씩 들려야 하므로 가장 짧고 가벼운 발사음 | — |
+| 총기 | 중 | Pistoleer | 권총 한 발 | — |
+| 총기 | 강 | Sniper | 저격총 한 발 — 한 발의 무게가 큰 총 | — |
+| 날붙이(검 · 단검 · 창) | 약 | RabbitTrickster | 단검 찌르기 · 가장 가는 몸 · 민첩 근접 | LittleKnight 샘플이 단검 찌르기에도 맞는지 |
+| 날붙이 | 약 | LittleKnight | 찌르고 휘두르는 2타 · 키 작음(작은 보병) · 무기 파일명은 칼날 | — |
+| 날붙이 | 중 | LionKnight | 장검 연속 베기 2타 · 무기가 긴 쪽 | — |
+| 날붙이 | 중 | SpearMan | 창 찌르기 — 동작은 RabbitTrickster와 같은 찌르기지만 무기가 길다 | 중으로 승인, 청취 뒤 조정 가능 |
+| 타격(팔 · 주먹 · 방패) | 약 | FlameSpirit | 연속 주먹질 — 연타 중 하나로 들려야 하는 짧은 잽 | — |
+| 타격 | 중 | EmberSpirit | 불 몸, 팔로 내려치기 1타 | 기존 샘플을 쓸지 |
+| 타격 | 중 | TideSpirit | EmberSpirit과 같은 팔 내려치기 1타 | — |
+| 타격 | 중 | DustSpirit | 바위 몸 · 양손 내려치기지만 키가 25종 중 가장 작다 | — |
+| 타격 | 강 | BoulderSpirit | 바위 몸, 팔로 내려치기 1타 · 몸통 반경은 25종 중 위쪽(키는 작음) — 같은 동작의 EmberSpirit(불 몸)과 갈린 근거는 바위 몸 | 기존 샘플을 쓸지 |
+| 타격 | 강 | BearGuard | 나무 방패를 옆으로 휘둘러 때림 · 키 25종 중 가장 큼 · 곰탱커 · 사용자 「더 강하게」 | 기존 샘플을 쓸지 |
+| 타격 | 강 | RhinoBreaker | 제자리 복싱 훅 · 키 큼 · 돌진 탱커 | — |
+| 활 | 단일 | EagleArcher | 나무 활 · 화살촉만 금속. 발사음만 | 기존 샘플을 쓸지 · 활 소리를 다시 만들지 |
+
+- 같은 묶음 · 등급 안에 재질이 다른 유닛이 섞인다(예: 타격 중 = 불 몸 · 바위 몸 · 재질 미확인, 타격 강 = 바위 몸 · 나무 방패 · 주먹). **먼저 묶음 하나로 만들고 청취 뒤 어색하면 나눈다**(사용자 승인 2026-11-02 — 청취 뒤 결정).
+- 「기존 샘플을 쓸지」 4종(EagleArcher · BearGuard · BoulderSpirit · EmberSpirit)은 같은 음량 기준으로 보정한 뒤 다시 들어서 정한다.
+
+### 3-2. 전용 소리 (특수 공격)
+
+| 대상 | 소리 방향 | 소리 나는 순간 | 단계 |
+|---|---|---|---|
+| Tank · CannonCart · **Human CannonTower** | **포격 공용 1개** — 큰 전차포 느낌. 셋이 같은 파일 | 유닛: 서버 투사체 발사가 화면에 나오는 순간 / 타워: 2단계 | 유닛 1단계 · 타워 2단계 |
+| InfernoSpirit | 화염구 **발사**(불덩이 모으기 = 차지에는 소리 없음) | 서버 투사체 발사 | 1단계 |
+| QuakeSpirit | 하늘로 뛰어올라 **땅을 내려치기** | 타격 신호 | 1단계 |
+| TorrentSpirit | 양팔을 앞으로 뻗으며 **파도 발사** | 파도가 생기는 순간 | 1단계 |
+| FoxMagician | 차징된 **구체 발사**(차징에는 소리 없음) | 서버 투사체 발사 | 1단계 |
+| MushroomBomber | 공을 던지듯 **독포자 투척** | 서버 투사체 발사 | 1단계 |
+| StreamSpirit | **물폭탄 발사** — 전용 소리(사용자 승인 2026-11-02) | 서버 투사체 발사 | 1단계 |
+| BattleAxe | **큰 반원을 그리며 휘두르는** 베는 소리 | 타격 신호 | 1단계 |
+| BloomFairy | **힐 시전 순간 1회** — 부드럽게 올라가는 맑은 종소리 3~4음 + 꽃잎 바람, 너무 길지 않게. 「카툰 + 묵직함」 톤의 예외 | 힐 발동(공격음 경로로 닿는 것으로 코드를 읽었다 — 실행 미확인) | 1단계 |
+| Spirit RuneSpire | 번개 — 전용 | 2단계(타워 공격음 경로) | 2단계 |
+| Transcendence VineTower | **보류** — 덩굴 이펙트가 확정된 뒤 정한다 | — | 2단계 이후 |
+
+- 전용 소리는 [사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md) 규칙 13의 「우선」 소리다(방어 타워 공격음도 우선).
+- BloomFairy의 이 소리는 **시전 순간 1회**다. 치료받는 아군에 붙는 힐 지속음(`sfx_bloomfairy_heal.wav`, VFXSFXList 「유닛 특수 효과 사운드」)은 이번 범위가 아니다(사용자 승인 2026-11-02).
+
+### 3-3. 소리가 나지 않는 순간
+
+- **차징**(InfernoSpirit · FoxMagician의 기 모으기)에는 공격음을 내지 않는다 — [유닛 규칙](../GameSystemRules/GameSystemRules_Units.md) 규칙 17 「차지 유닛 typed marker 계약」.
+- 원거리 유닛은 **발사음만** 낸다. 착탄음은 이번 범위가 아니다.
+- 여러 번 때리는 유닛(LittleKnight · LionKnight · FlameSpirit)은 **타격마다** 같은 공격음을 한 번씩 낸다. 타격별로 다른 소리를 주지 않는다(사용자 결정 — 다른 유닛과 같게 진행한 뒤 테스트로 조정).
+- 사망음은 이번 범위가 아니다.
+
+---
+
+## 4. 아직 확인되지 않은 것
+
+해당 소리의 프롬프트를 쓸 때 필요하면 **제작 전에 사용자에게 먼저 묻는다.** 추정으로 채우지 않는다.
+
+| 항목 | 대상 |
+|---|---|
+| 공격 동작 | Pistoleer · Assault · Sniper · EagleArcher · Tank · CannonCart, StreamSpirit의 발사 동작 |
+| 무기 종류 · 재질 | LittleKnight 무기 종류와 재질(파일명은 칼날) · BattleAxe 무기 종류와 재질(파일명은 도끼) · SpearMan 창 재질 · FoxMagician 지팡이 · LionKnight 장검 · RabbitTrickster 단검 |
+| 몸 재질 | FlameSpirit · InfernoSpirit · QuakeSpirit · TideSpirit · StreamSpirit · TorrentSpirit · RhinoBreaker · MushroomBomber · BloomFairy |
+| 활 소리 | EagleArcher가 시위 소리 위주인지 |
+| 방어 타워 | Human CannonTower · RuneSpire의 재질, VineTower 공격음 |
+| 기타 | QuakeSpirit Blue 프리팹만 중첩 폴더의 `QuakeSpirit.fbx`를 추가로 참조한다 — 용도 미확인(효과음과 직접 관계 없음) |

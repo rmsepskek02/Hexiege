@@ -233,7 +233,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 
 #### 에디터 스크립트 최소 유지 기준
 
-현재 필요한 로그 저장·로그 보관본 생성·네트워크 강제 실패·전투 검사 두 진입점과 실제 내부 의존만 유지한다. 미래 재사용/복구 가능성이나 Tools 경로만으로 영구 보존하지 않고 필요할 때 다시 작성한다. runtime 생성·검증·기존 자산은 도구 정리와 구분하며 옛 Setup/Apply/Register/Wire를 확인 목적으로 재실행하지 않는다.
+현재 필요한 로그 저장·로그 보관본 생성·네트워크 강제 실패·전투 검사 두 진입점·SFX 보정과 실제 내부 의존만 유지한다. 미래 재사용/복구 가능성이나 Tools 경로만으로 영구 보존하지 않고 필요할 때 다시 작성한다. runtime 생성·검증·기존 자산은 도구 정리와 구분하며 옛 Setup/Apply/Register/Wire를 확인 목적으로 재실행하지 않는다.
 
 이동 때 `.cs.meta`/GUID·namespace·partial·직접 호출을 보존하고, 퇴역은 [4]의 비활성화·검증·최종 삭제 승인 경계를 따른다. 이미 명시된 결정을 재승인받지 않으며 삭제 지시를 테스트 PASS로 해석하지 않는다.
 
@@ -244,6 +244,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 | `Debug/ForceRematchMapFailureMenu.cs` | 네트워크 강제 실패. [TDD 사용법](TechnicalDesignDocument.md#개발용-강제-실패-플래그-에디터-전용--2026-09-24-신설) |
 | `Tools/Combat/RunUnitActionSelfValidation.cs` | 전투 전체 검사·Bloom 순수 검증. `Hexiege/Combat/Run Full Regression Suite` |
 | `Tools/Combat/RunUnitRootPoseCrossAudit.cs` | `Hexiege/Combat/Logs/Analyze Latest Root Pose` 및 `Hexiege/Combat/Diagnostics/Self Validate Root Pose Audit` |
+| `Tools/SfxNormalizeTool.cs` (+ 내부 의존 `Tools/SfxNormalizeCore.cs`) | 생성된 SFX 보정(모노·무음 자르기·음량 기준). `Hexiege/Audio/Normalize Selected SFX`. 사용법 [VFXSFXGuide](Assets/VFXSFXGuide.md) 「SFX 프롬프트 추가 원칙」 *(2026-11-02 등록 — 사용자 승인. 길이 상한 경고 추가는 구현 진행 중)* |
 
 Action의 VfxConnections·ServerProjectiles·ProjectileDeathHold partial·Authoritative·TorrentProduction은 검사 내부 의존으로만 남긴다. *(2026-10-26 갱신: 서버 권위 투사체 회귀 검증 partial 2개 — ServerProjectiles(`d09cc4a9`)·ProjectileDeathHold(`fb77548c`) — 를 목록에 반영)* 과거 배치·최종 삭제·검증 경계는 [도구 정리 원문](History/ImplementationVerificationHistory.md#role-maintenance-20261016-core-workflow-tools-01)과 [기존 Task](_Tasks/2026-10-15/23_18_editor-script-organization/Research.md)에 둔다. 도구 존재·정적 검사를 실제 컴파일/메뉴/실기 PASS로 보고하지 않는다.
 
