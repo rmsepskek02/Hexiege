@@ -950,6 +950,32 @@ namespace Hexiege.Application
     {
         public static readonly Subject<AttackEffectPresentation> OnAttackEffectConfirmed = new Subject<AttackEffectPresentation>();
         public static readonly Subject<AttackEffectPresentation> OnAttackEffectReceived = new Subject<AttackEffectPresentation>();
+
+        // ====================================================================
+        // 스킬 발동 표현(C-1 발동 연출 동기화 — 2026-11-03 지원 스킬 Task 커밋 3)
+        //   위 공격 표현 두 채널(Confirmed / Received)과 같은 방식이다.
+        //   - 「확정」: 서버 권위 쪽(싱글 = 로컬 서버, 멀티 = 서버/Host)에서 발동이 성공한 순간 발행.
+        //   - 「수신」: 멀티 순수 클라이언트가 서버의 ClientRpc를 받았을 때 발행.
+        //   화면 구독자는 두 채널을 모두 구독한다. Host는 「확정」만, 순수 클라이언트는 「수신」만 받으므로
+        //   (수신부 ClientRpc의 IsServer 가드) 어떤 화면에서도 같은 발동이 두 번 재생되지 않는다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 권위 쪽에서 스킬 발동이 확정됐을 때 발행(표현 전용 — 피해 · 쿨다운 판정과 무관).
+        /// 발행: SkillActivationUseCase.Activate(성공 직후, 쿨다운 설정 뒤)
+        /// 구독: NetworkSkillController(멀티 서버 — ClientRpc 브로드캐스트), 화면 VFX 구독자
+        /// </summary>
+        public static readonly Subject<SkillActivationPresentation> OnSkillActivationConfirmed =
+            new Subject<SkillActivationPresentation>();
+
+        /// <summary>
+        /// 멀티 순수 클라이언트가 서버의 스킬 발동 알림(ClientRpc)을 받았을 때 발행(표현 전용).
+        /// 발행: NetworkSkillController.SkillActivatedClientRpc(IsServer 가드 뒤 — Host는 발행하지 않음)
+        /// 구독: 화면 VFX 구독자
+        /// </summary>
+        public static readonly Subject<SkillActivationPresentation> OnSkillActivationReceived =
+            new Subject<SkillActivationPresentation>();
+
         // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================

@@ -33,7 +33,7 @@
 //   C-5   RuneSpire(Spirit) 회귀: 즉발 피해·번호표 없음·Tower 스냅샷 1건, 서버 END path tower-Spirit:s0/l1.
 //   C-6   화면 소비자 소스 게이트: 건물 공격자 출발점 = 서버 포구 위치, 타워 트레이서·발사 신호·착탄 프리셋 경로.
 // [2026-10-21 단계 D — 차지 유닛 InfernoSpirit · FoxMagician]
-//   D-1   스키마 6(발사 전 취소 통보 RPC).
+//   D-1   스키마 6(발사 전 취소 통보 RPC). 2026-11-03부터 기대값 7 — 지원 스킬 C-1의 스킬 발동 알림 RPC 모양 변경.
 //   D-2   Inferno: 차지 구간 피해·화상 0 → 1.5초 발사(피해 0) → 착탄 때 직격 1회 + 화상 시작. 차지 END 줄.
 //   D-3   Fox: 85/30초 발사 → 착탄 때 1회(번호표, 즉시 표시 없음 — RM-5), 차지 END 줄 수 맞춤.
 //   D-4   차지 중 대상 사망 / 공격자 사망 / 이동 명령 → 발사·피해 0 + 사유별 취소 통보 1건 + 차지 표현 취소 질문 true,
@@ -254,8 +254,10 @@ namespace Hexiege.Editor.Combat
                 "Q11 projectile-unit classification is exactly the seven projectile units (Torrent and non-projectile Pistoleer excluded).");
             // [단계 E] 스키마는 6 그대로다 — 사유 문자열만 바뀌고 RPC 모양은 그대로다(결정 E-E).
             //   [P5 정리] 스위치 제거도 RPC 모양을 바꾸지 않으므로 6 그대로다(결정 P5-A).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 6,
-                "[D-1] The stage D launch-cancel RPC raises the presentation schema to 6 (stage E keeps 6 — no RPC shape change).");
+            //   [2026-11-03 지원 스킬 C-1] 6 → 7 — 스킬 발동 알림 RPC(SkillActivatedClientRpc) 모양이 바뀌었다.
+            //   이 줄은 "스키마 값이 의도한 값인지"만 본다. 투사체 쪽 계약은 바뀌지 않았다.
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 7,
+                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raises it to 7.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved
@@ -270,7 +272,7 @@ namespace Hexiege.Editor.Combat
                 "[E-0] EagleArcher / MushroomBomber C3 reasons are updated (E-E) while their C3 classification is unchanged.");
             Require(UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(out string hash, out _)
                     && hash.Length == 64,
-                "Handshake hash still computes with the schema 6 manifest and the projectile classification token.");
+                "Handshake hash still computes with the current schema (7) manifest and the projectile classification token.");
         }
 
         // ── 계약 값 검사 ────────────────────────────────────────────────────

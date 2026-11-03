@@ -9,9 +9,21 @@
 //   2. 서버: 서비스/UseCase null → 발신자 팀 소유권 + 건물 소유 → SkillActivationUseCase.Activate
 //        (Activate 내부에서 건물 생존·쿨다운·유효 타일 재검증 — 클라 입력 불신뢰).
 //        - 실패: 아무것도 하지 않음(조용히 무시. 필요 시 향후 실패 토스트 추가).
-//        - 성공: 쿨다운 총량을 읽어 SkillActivatedClientRpc를 **양 클라 브로드캐스트**.
+//        - 성공: Activate가 GameEvents.OnSkillActivationConfirmed(발동 표현 값)를 발행한다.
+//          이 컨트롤러는 서버에서 그 이벤트를 구독하고 있다가, 발동 표현 값 + 쿨다운 총량을 실어
+//          SkillActivatedClientRpc를 **양 클라 브로드캐스트**한다.
 //   3. 클라이언트: 브로드캐스트를 받아 SkillActivationUseCase.StartCooldownLocal로 쿨다운 미러를 세운다
-//        (오버레이가 서버와 같은 남은 시간을 표시하도록). 서버(호스트)는 Activate에서 이미 세웠으므로 스킵.
+//        (오버레이가 서버와 같은 남은 시간을 표시하도록). 그리고 같은 값을
+//        GameEvents.OnSkillActivationReceived로 발행해 화면이 같은 자리에 VFX를 재생하게 한다.
+//        서버(호스트)는 Activate에서 쿨다운을 이미 세웠고 화면도 「확정」 이벤트로 이미 재생했으므로 스킵한다.
+//
+// 2026-11-03 변경(지원 스킬 Task 커밋 3 — C-1 발동 연출 동기화):
+//   종전 SkillActivatedClientRpc(buildingId, cooldown)는 "쿨다운 몇 초"만 전했다.
+//   이제 "어느 건물(팀)이 몇 번 칸 스킬을 어디에 썼고 몇 번째 발동이며 착탄까지 몇 초"까지 전한다
+//   (RPC 이름은 그대로, 인자 모양만 교체 — 순수 클라의 쿨다운 미러 동작은 그대로 유지).
+//   RPC 모양이 바뀌었으므로 전투 표현 스키마(UnitAttackShadowProfileResolver)를 6 → 7로 올려
+//   구버전 빌드와 섞인 경기는 접속 확인 단계에서 거절된다.
+//   요청 RPC(클라 → 서버)는 바꾸지 않았다(스킬 규칙 26 — 좌표만 전송 + 서버 재검증).
 //
 // 참고 패턴 = NetworkUpgradeController(main 병합 최신 관례):
 //   래퍼 → ServerRpc, 팀 소유권(SenderClientId), 브로드캐스트 ClientRpc,
@@ -27,6 +39,7 @@
 
 using Unity.Netcode;
 using UnityEngine;
+using UniRx; // GameEvents(Subject) 구독용 Subscribe(Action) 확장 메서드.
 using Hexiege.Domain;
 using Hexiege.Application;
 
@@ -44,6 +57,10 @@ namespace Hexiege.Infrastructure
         // 타입 C 전역 상태 부여 구독 핸들러(해제용). 서버에서만 구독한다.
         //   UnitCombatUseCase.OnGlobalStatusApplied → 이 핸들러 → StatusAppliedClientRpc 브로드캐스트.
         private System.Action<TeamId, StatusEffectKind, float, float> _statusHandler;
+
+        // 발동 표현 「확정」 이벤트 구독 핸들(해제용). 서버에서만 구독한다(2026-11-03 C-1).
+        //   GameEvents는 정적 허브라 IGameServices 없이도 구독할 수 있다 → 스폰 레이스와 무관하게 OnNetworkSpawn에서 바로 건다.
+        private System.IDisposable _activationConfirmedSubscription;
 
         // ====================================================================
         // 생명주기
@@ -71,6 +88,16 @@ namespace Hexiege.Infrastructure
             //   스폰 레이스로 services가 아직 null이면 여기선 건너뛰고, 첫 발동 시 EnsureStatusSubscription이 복구한다.
             EnsureStatusSubscription();
 
+            // 서버만 발동 표현 「확정」을 구독해 순수 클라이언트에 브로드캐스트한다(C-1).
+            //   클라이언트는 Activate를 돌리지 않으므로 「확정」이 발행되지 않는다 — 구독해도 받을 것이 없지만,
+            //   의도를 분명히 하려고 서버에서만 건다. 재스폰 대비로 기존 구독이 남아 있으면 먼저 정리한다.
+            if (IsServer)
+            {
+                _activationConfirmedSubscription?.Dispose();
+                _activationConfirmedSubscription = GameEvents.OnSkillActivationConfirmed
+                    .Subscribe(OnSkillActivationConfirmedOnServer);
+            }
+
             // [개발] 스폰 진입 흔적 → Info / 개발.
             GameLog.Dev.Info("Network", nameof(NetworkSkillController), "네트워크 스폰", $"IsServer={IsServer}");
         }
@@ -84,6 +111,9 @@ namespace Hexiege.Infrastructure
                 if (combat != null) combat.OnGlobalStatusApplied -= _statusHandler;
                 _statusHandler = null;
             }
+            // 발동 표현 「확정」 구독 해제(재경기/씬 전환 시 중복 브로드캐스트 방지 — C-1).
+            _activationConfirmedSubscription?.Dispose();
+            _activationConfirmedSubscription = null;
             base.OnNetworkDespawn();
         }
 
@@ -164,12 +194,30 @@ namespace Hexiege.Infrastructure
             // 조준 좌표 구성(지점 지정만). 서버 Activate가 맵 경계 안 점인지 재확인한다(규칙 26).
             Vector3? aim = hasAim ? aimWorld : (Vector3?)null;
 
-            // 서버 권위 발동(재검증 포함). 성공 시 쿨다운 총량을 읽어 양 클라 브로드캐스트.
-            bool activated = skill.Activate(buildingId, skillSlot, aim);
-            if (!activated) return;
+            // 서버 권위 발동(재검증 포함).
+            //   성공하면 Activate 안에서 OnSkillActivationConfirmed가 발행되고, 이 컨트롤러의
+            //   OnSkillActivationConfirmedOnServer가 그것을 받아 양 클라 브로드캐스트를 보낸다.
+            //   (종전에는 여기서 직접 SkillActivatedClientRpc(buildingId, cooldown)를 보냈다 —
+            //    2026-11-03 C-1에서 브로드캐스트 자리를 「확정」 이벤트 구독으로 옮겼다. 보내는 조건 "발동 성공"은 같다.)
+            skill.Activate(buildingId, skillSlot, aim);
+        }
 
-            float cooldown = skill.GetCooldownTotal(buildingId);
-            SkillActivatedClientRpc(buildingId, cooldown);
+        /// <summary>
+        /// (서버 전용) 발동 표현 「확정」 이벤트를 받아 모든 클라이언트에 SkillActivatedClientRpc를 보낸다(C-1).
+        /// 쿨다운 총량은 Activate가 쿨다운을 세운 뒤에 이벤트를 발행하므로 여기서 읽으면 이번 발동 값이다.
+        /// </summary>
+        /// <param name="p">서버가 확정한 발동 표현 값.</param>
+        private void OnSkillActivationConfirmedOnServer(SkillActivationPresentation p)
+        {
+            // 스폰이 풀린 뒤(경기 정리 중)에 늦게 들어온 발동이면 RPC를 보낼 수 없다 — NGO 오류 방지.
+            if (!IsServer || !IsSpawned) return;
+
+            SkillActivationUseCase skill = ResolveServices()?.GetSkillActivationUseCase();
+            float cooldown = skill != null ? skill.GetCooldownTotal(p.BuildingId) : 0f;
+
+            // 팀은 정수로 보낸다(StatusAppliedClientRpc 선례). 좌표는 도메인 좌표 그대로(NGO Vector3 기본 직렬화).
+            SkillActivatedClientRpc(p.BuildingId, (int)p.Team, p.Slot, p.HasAim, p.AimWorld,
+                                    p.Sequence, p.ImpactDelay, cooldown);
         }
 
         // ====================================================================
@@ -177,18 +225,44 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 스킬 발동 성공을 모든 클라이언트에 알려 건물 글로벌 쿨다운을 로컬 미러로 세운다.
-        /// 서버(호스트)는 Activate에서 이미 쿨다운을 세웠으므로 스킵한다(이중 설정 방지).
-        /// 순수 클라이언트는 이 값으로 오버레이가 서버와 같은 남은 시간을 표시할 수 있다.
-        /// (VFX 등 연출은 플레이스홀더이므로 이번 범위에서는 쿨다운 미러만 동기화한다.)
+        /// 스킬 발동 성공을 모든 클라이언트에 알린다.
+        /// ① 건물 글로벌 쿨다운을 로컬 미러로 세운다(오버레이가 서버와 같은 남은 시간을 표시).
+        /// ② 같은 발동 표현 값을 GameEvents.OnSkillActivationReceived로 발행해 화면이 같은 자리에 VFX를 재생하게 한다.
+        /// 서버(호스트)는 Activate에서 쿨다운을 이미 세웠고 화면도 「확정」 이벤트로 이미 재생했으므로 스킵한다
+        /// (이중 설정 · 이중 재생 방지 — 공격 표현 AttackEffectClientRpc와 같은 IsServer 가드).
         /// </summary>
+        /// <param name="buildingId">발동한 건물 Id.</param>
+        /// <param name="teamInt">발동한 팀(정수 — TeamId).</param>
+        /// <param name="slot">발동한 슬롯 번호(0-based).</param>
+        /// <param name="hasAim">조준 좌표 유효 여부.</param>
+        /// <param name="aimWorld">조준 좌표(도메인 월드 — 화면 변환은 받는 화면이 한다).</param>
+        /// <param name="sequence">서버 발동 순번.</param>
+        /// <param name="impactDelay">착탄 지연(초).</param>
+        /// <param name="cooldown">이번 발동의 쿨다운 총량(초) — 쿨다운 미러용.</param>
         [ClientRpc]
-        private void SkillActivatedClientRpc(int buildingId, float cooldown)
+        private void SkillActivatedClientRpc(int buildingId, int teamInt, int slot, bool hasAim, Vector3 aimWorld,
+                                             int sequence, float impactDelay, float cooldown)
         {
-            if (IsServer) return; // 호스트는 서버 Activate에서 이미 쿨다운을 세웠다.
+            if (IsServer) return; // 호스트는 서버 Activate에서 이미 쿨다운을 세웠고 「확정」으로 이미 재생했다.
 
+            // ① 쿨다운 미러(종전과 같은 동작).
             SkillActivationUseCase skill = ResolveServices()?.GetSkillActivationUseCase();
             skill?.StartCooldownLocal(buildingId, cooldown);
+
+            // ② 발동 표현 「수신」 발행. 화면 구독자 예외가 쿨다운 미러나 다른 RPC 처리를 깨지 않게 감싼다.
+            var presentation = new SkillActivationPresentation(
+                buildingId, (TeamId)teamInt, slot, hasAim, aimWorld, sequence, impactDelay);
+            try
+            {
+                GameEvents.OnSkillActivationReceived.OnNext(presentation);
+            }
+            catch (System.Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 게임 결과(피해 · HP · 쿨다운)에는 영향이 없다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "스킬 발동 수신 이벤트 구독자 예외 — 쿨다운 미러는 유지",
+                                 $"BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, Error={ex.Message}");
+            }
         }
 
         // ====================================================================
