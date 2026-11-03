@@ -252,6 +252,32 @@ the main session) and §13 (user-test PASS 2026-10-27).
   ROADMAP (candidates: colour/brightness contrast, preset scale, ground ring/glow, emphasis at the moment the effect starts).
   Poison/heal v2 remakes are a candidate there (user: consider them if the burn result is good).
 
+## Unity AI SFX prompt lessons — unit / tower attack sounds (2026-11-02~03)
+
+> **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「SFX 카테고리별 가이드」 → 「1. 유닛 공격 사운드」
+> (bundle rule, tier tone table, length caps, and the **「프롬프트 공통 블록」** code block to copy for every attack SFX)
+> and 「SFX 프롬프트 추가 원칙」 (normalizer). Bundle / tier per unit: `Assets/_Project/Docs/Assets/UnitAttackProfile.md`.
+> Those documents win over this note.
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/` Research §1-3 · §2 · §11, Plan §2~4 · §7 · §17.
+
+- **Unity AI ignores audio specs.** Prompts asked for mono, short length and loudness; the output was stereo, a fixed
+  1.045 s with trailing silence, and the frequency hint was not followed. Keep the spec lines in the prompt anyway, but
+  tell the user the file must go through `Hexiege/Audio/Normalize Selected SFX` (mono, trim, -26 dB, peak -1 dBFS;
+  length-cap warning by file name). Do not promise a length or level the tool has not produced.
+- **Attack motion comes only from documents or the user.** Take each unit's motion / weapon / material from
+  `UnitAttackProfile.md` (or the combat audit `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`). If the motion is
+  not there (「미확인」), **ask the user before writing the prompt** — never infer it from the old per-unit keyword table
+  (it was wrong for 6+ units: e.g. EmberSpirit / BoulderSpirit are melee arm slams, not fire / rock throws) and never
+  label a guess as "user description" (`.claude/mistakes.md` 2026-10-27 entry).
+- **Tone:** "cartoon + weighty" — cartoon visuals but solid, not toy-like, clear when many sounds overlap, short tail.
+  BloomFairy heal cast is the exception (clear, soft chimes). **No game names in prompts** — describe the feel by its
+  traits. Weapon-bundle sounds are race-neutral.
+- **Scope facts:** ranged units get a launch sound only (no impact); charge-up is silent; multi-hit units use the same
+  sound per hit. Shared bundle files are used by several units (same-clip limit 3 applies to all of them together).
+- Prompt writing (stage 1-D) proceeds after the 2026-11-03 user test; ask the Plan §14 「제작 전」 questions first
+  (e.g. Q-7 EagleArcher motion / bowstring focus).
+
 ## 알려진 제약사항
 - **Meshy.ai 생성 모델은 리메시 후 약 3,000 tri로 제작** (건물/오브젝트 공통 기준)
 - 모바일 최적화: 3,000 tri 이하 유지 (유닛 포함 동일 기준)

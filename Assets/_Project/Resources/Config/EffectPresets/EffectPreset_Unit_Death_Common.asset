@@ -13,5 +13,12 @@ MonoBehaviour:
   m_Name: EffectPreset_Unit_Death_Common
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
   _vfxPrefab: {fileID: 3165347916702902398, guid: d4479632ec8a4394e974cb2671013fce, type: 3}
-  _sfxClip: {fileID: 8300000, guid: 271d925c26f6d8e45b5e650a33895446, type: 3}
-  _sfxVolume: 1
+  _localPositionOffset: {x: 0, y: 0, z: 0}
+  _eulerRotationOffset: {x: 0, y: 0, z: 0}
+  _scaleMultiplier: {x: 1, y: 1, z: 1}
+  _forwardTravelDistance: 0
+  _forwardTravelDuration: 0
+  _stopWhenCasterDies: 0
+  _widthFitEnabled: 0
+  _widthFitMaxCount: 3
+  _viewPullRadiusRatio: 0

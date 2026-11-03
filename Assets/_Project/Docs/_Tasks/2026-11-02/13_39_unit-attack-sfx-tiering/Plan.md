@@ -1,7 +1,7 @@
 # Plan — 유닛·타워 공격 효과음 재편(무기 묶음 × 강중약 + 특수 공격 전용 소리 + 동시 재생 한도 개편)
 
 **작성일:** 2026-11-02
-**상태:** **승인됨(사용자 2026-11-02, 추천안) · 구현 진행 중** — 1-B 문서 반영(2026-11-02~03, 16절 변경 이력) · 1-C 코드·에셋은 game-programmer 진행 중 · 1-D 이후 미착수. 14절의 `[사용자 확인]`·`[제안]` 표시에 대한 결정 값은 **14절 「결정」 열 · 15절 「승인」 열이 단일 소스**다(본문의 질문 표시는 작성 당시 기록으로 둔다). *(2026-11-02 갱신 — 종전 「계획 초안 · 사용자 승인 전 — 구현·에셋 수정·규칙 문서 수정 모두 미착수」)*
+**상태:** **승인됨(사용자 2026-11-02, 추천안) · 1단계 1-B · 1-C 완료 · 사용자 테스트 PASS(범위 한정, 2026-11-03 — [17절](#17-stage1-user-test))** — 1-B 문서 반영(2026-11-02~03, 16절 변경 이력) · 1-C 코드(커밋 `167410e8`) · 1회성 메뉴와 보정 도구 길이 경고(커밋 `ee7049cd`) · 메뉴 실행 결과 에셋 · 씬 값(2026-11-03, **미커밋**). **큰 전투 청취는 사용자 결정으로 연기 — 새 동시 재생 판단은 실기 미검증**, 그 통과 뒤 옛 코드 · 꺼 둔 AudioSource 삭제와 1회성 메뉴 퇴역. 1-D 프롬프트 작성 · 보관 완료([Prompts.md](Prompts.md)), 1-E 생성은 Unity AI 크레딧 대기. *(2026-11-03 2차 갱신 — 직전 「1-D 이후 미착수.」)* *(2026-11-03 갱신 — 종전 「구현 진행 중 — … 1-C 코드·에셋은 game-programmer 진행 중 · 1-D 이후 미착수」)* 14절의 `[사용자 확인]`·`[제안]` 표시에 대한 결정 값은 **14절 「결정」 열 · 15절 「승인」 열이 단일 소스**다(본문의 질문 표시는 작성 당시 기록으로 둔다). *(2026-11-02 갱신 — 종전 「계획 초안 · 사용자 승인 전 — 구현·에셋 수정·규칙 문서 수정 모두 미착수」)*
 **근거 문서:** 같은 폴더 [Research.md](Research.md) 1~11-14절(사용자 결정·답변의 원본). 이 Plan은 결정을 다시 정하지 않고 실행 순서와 파일별 변경으로 옮긴다.
 
 **표기:** `[확정]` = 사용자 결정(Research 11절, 메인 세션 전달) · `[확인]` = 이 Plan 작성 중 원본 파일·코드를 직접 다시 읽음 · `[전달 — 기획 초안]` = 메인 세션이 전달한 기획 담당 배정 초안(2026-11-02, 공격력 기준이라 이 Plan에서 재배정함) · `[제안]` = 문서 담당 제안(결정 아님) · `[사용자 확인]` = 제작·구현 전에 사용자가 정해야 하는 것(14절 번호 Q-n)
@@ -31,6 +31,8 @@
 > | RM-3 | `SoundConfig.asset`의 「찾을 수 없음」 참조 5칸 — BGM 4칸(15~18행, 삭제된 임시 효과음 GUID) · Pistoleer 공격음 칸(22행 `cf0be5aa…`) `[확인]` | 다섯 GUID 모두 디스크의 `.meta`에 없다 `[확인]`. 실행 중에는 이미 「클립 없음」과 같아 무음이다(사운드 규칙 10 — BGM 클립이 비면 무음, 유닛 공격음은 `AudioManager.cs` 559행 null 검사로 재생 안 함). 칸을 비워도 동작이 바뀌지 않는다 | 데이터 정리라 비활성화 단계가 없다 — 칸을 None으로 비운다(방법은 Q-2). Pistoleer 항목 자체는 지우지 않고 클립만 비운다(나중에 총기 「중」 파일을 넣을 자리) |
 > | RM-4 | 문서: `VFXSFXGuide.md` 「1. 유닛 공격 사운드」의 유닛별 키워드 표(554~582행 부근)와 머리말 「같은 근접 공격이라도 종족별로 다르게」 · 「오디오 길이 가이드」의 유닛 공격음 행 「0.3초 ~ 1.0초」(313행) · `VFXSFXList.md` 「유닛 공격 사운드」 표(304~331행)의 유닛별 파일명 · 비고 `[확인]` | 사용자 결정으로 대체된다(Research 1-8 · 11-5 · 11-9). 키워드 표는 감사표와 어긋나는 행이 6개 이상이다(Research 6-1) | 원문은 지우지 않고 프로젝트 문서 관례(원문 보존 · 대체 위치 포인터)대로 옮겨 남긴다. 옮기는 방식은 문서 반영 단계에서 document-manager가 기존 관례(`History/ImplementationVerificationHistory.md`)를 따라 정한다 |
 > | RM-5 | 규칙 문서: `GameSystemRules_Sound.md` 규칙 13 본문(98~101행) `[확인]` | 사용자 결정 11-14로 규칙 내용이 바뀐다. **규칙 번호 13은 그대로 둔다** | 9절 개정 초안을 사용자 승인 뒤 반영. 종전 문장은 문서 관례대로 보존 |
+>
+> **진행 상태 (2026-11-03, 상세 [17절](#17-stage1-user-test)):** RM-1 ① 끄기 완료(4개 모두 `m_Enabled: 0`) · ② 컴포넌트 삭제는 **큰 전투 테스트 통과 뒤로 연기** · RM-2 옛 줄은 주석으로 남아 있고 최종 삭제는 같은 시점으로 연기 · RM-3 완료(BGM 4칸 · Pistoleer 공격음 칸 비움) · RM-4 · RM-5 1-B에서 반영. 옛 코드 · 컴포넌트 최종 삭제 시점을 사용자 테스트 PASS 직후(WORKFLOW [4])가 아니라 큰 전투 테스트 뒤로 둔 것은 그 테스트가 연기됐기 때문이다(메인 세션 전달).
 >
 > **이 Plan에서 빼지 않는 것:** `EffectPreset_Pistoleer_Attack.asset` 16행 · `EffectPreset_Unit_Death_Common.asset` 16행의 `_sfxClip` 값은 코드에서 이미 주석 처리된 옛 필드(`EffectPreset.cs` 177 · 184행)의 남은 직렬화 값이라 동작에 영향이 없다 `[확인]`. 사용자 결정 범위에 없으므로 이번에 고치지 않는다 — 정리 여부는 Q-14. *(2026-11-02 갱신: Q-14 승인 — **두 값을 정리한다**(1-C, 방식은 Q-2 결정대로 1회성 에디터 메뉴). 종전 결론 「이번에 고치지 않는다」는 Plan [제안]이었다)*
 
@@ -123,7 +125,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 | 타격 | 강 | BoulderSpirit | 바위 몸, 팔로 내려치기 1타(4-2), 몸집 0.221 / 0.378 | `sfx_boulderspirit_attack.wav` — 보정 뒤 재청취(11-13) | Q-6 |
 | 타격 | 강 | BearGuard | 나무 방패를 옆으로 휘둘러 때림(4-2), 몸집 0.220 / 0.530, 「곰탱커」 · 사용자 「더 강하게」(1-6) | `sfx_bearguard_attack.wav` — 보정 뒤 재청취(11-13) | Q-6 |
 | 타격 | 강 | RhinoBreaker | 제자리 주먹질 · 복싱 훅(11-10), 몸집 0.249 / 0.509, 「돌진 탱커」 | 없음 | **Q-3** |
-| **활** | 단일 | EagleArcher | 나무 활 · 화살촉만 금속(11-10). 발사음만(원거리) | `sfx_eaglearcher_attack.wav` — 보정됨 · 0.451초(2-2) | **Q-7**(공격 동작 · 시위 소리 위주 여부 미답) |
+| **활** | 단일 | EagleArcher | 나무 활 · 화살촉만 금속(11-10). 발사음만(원거리) | `sfx_eaglearcher_attack.wav` — 보정됨 · 0.451초(2-2) | **Q-7**(공격 동작 · 시위 소리 위주 여부 미답) *(2026-11-03 사용자 결정 「EagleArcher 약으로」 — 이 행은 **타격 약 공용 `sfx_strike_light_attack.wav`**(FlameSpirit과 같은 파일)로 바뀌었다, 쏘는 순간 재생. 현행 배정: [UnitAttackProfile](../../../Assets/UnitAttackProfile.md) 3-1, 근거 [Research 11-17](Research.md#11-17-eaglearcher-decision))* |
 
 **기획 초안과 달라진 점** `[전달 — 기획 초안]` 대비:
 
@@ -169,7 +171,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 
 | 종류 | 제안 이름 | 예 |
 |---|---|---|
-| 일반 묶음 | `sfx_<묶음>_<등급>_attack.wav` | `sfx_gun_light_attack.wav` · `sfx_blade_medium_attack.wav` · `sfx_strike_heavy_attack.wav` · `sfx_bow_attack.wav` |
+| 일반 묶음 | `sfx_<묶음>_<등급>_attack.wav` | `sfx_gun_light_attack.wav` · `sfx_blade_medium_attack.wav` · `sfx_strike_heavy_attack.wav` · `sfx_bow_attack.wav`  *(2026-11-03: 활 묶음 폐지 — 가이드에서 삭제, Research 11-17)* |
 | 전용(유닛) | 종전 규칙 그대로 `sfx_<유닛>_attack.wav` | `sfx_infernospirit_attack.wav` |
 | 포격 공용 | `sfx_cannon_attack.wav` | Tank · CannonCart · Human 타워가 공유 |
 | BloomFairy 힐 발동 | `sfx_bloomfairy_cast.wav` | 목록의 기존 행 `sfx_bloomfairy_heal.wav`(치료받는 아군에 붙는 지속 효과음, `VFXSFXList.md` 「유닛 특수 효과 사운드」)와 이름이 겹치지 않게 |
@@ -189,7 +191,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 | 총기(옛날 화약총) | 짧고 건조한 「탁」 — 연사 중 한 발, 꼬리 거의 없음 | 화약이 터지는 한 발 + 짧은 꼬리 | 무거운 한 발 + 화약 울림 꼬리, 저음 비중 큼 |
 | 날붙이 | 가볍고 빠른 찌르기 · 휘두름의 바람 소리 + 작은 금속감 | 긴 날의 휘두름 · 베기, 금속 울림이 조금 더 | (등급 없음 — 2등급) |
 | 타격 | 짧은 잽 — 연타 중 하나로 들려야 함 | 한 번 내려치는 둔탁한 타격 | 큰 몸 · 방패 · 훅의 묵직한 충돌, 저음 |
-| 활 | 시위 튕김 + 화살이 나가는 짧은 바람(시위 위주 여부는 Q-7) | — | — |
+| 활 | 시위 튕김 + 화살이 나가는 짧은 바람(시위 위주 여부는 Q-7) | — | —  *(2026-11-03: 활 묶음 폐지 — 가이드에서 삭제, Research 11-17)* |
 
 - 종족별 사운드 스타일(가이드 「종족별 스타일 가이드」 — Human 화약 · 금속, Spirit 마법 · 크리스털, Transcendence 자연 · 동물)과 묶음 방식이 충돌한다 — 예를 들어 「타격 중」에 Spirit(Ember · Tide · Dust)이 함께 있다(Research 6-4). **이 표는 묶음 소리에 종족 스타일을 넣지 않는다**를 전제로 썼다. 전용 소리에만 종족 스타일을 남길지는 **Q-12**.
 - 가이드의 「게임 컨텍스트」와 「원칙 2」에는 프롬프트에 함께 넣으라는 문장 안에 게임 이름(Clash of Clans / Clash Royale)이 있다 `[확인]`(VFXSFXGuide 21행 · 「원칙 2」 코드 블록). 사용자 결정 「게임명은 프롬프트에 쓰지 않음」(11-5)이 이 문장까지 해당하는지는 **Q-12**에 함께 묻는다.
@@ -208,7 +210,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 | 날붙이 약 · 중 | 0.45 | 다회 타격 간격: LittleKnight 0.9초(0.25 → 1.15) · LionKnight 약 0.83초(0.6 → 1.4333) 안. 기존 LittleKnight 샘플 0.432초(Research 2-2)는 상한 안 |
 | 타격 약(Flame) | 0.20 | Flame 6타의 가장 짧은 간격 0.2초(1.9 → 2.1)와 같다 — 한 유닛 안에서 겹치지 않는 최대값 |
 | 타격 중 · 강 | 0.45 · 0.70 | 주기 1.6667초(BearGuard)~4초(Boulder) 안 |
-| 활 | 0.35 | 주기 「1」(StatsReference 원문 표기 그대로, Research 4-1) 안. **기존 Eagle 샘플 0.451초는 넘는다** — 재사용하면 줄여야 함(Q-6 · Q-7) |
+| 활 | 0.35 | 주기 「1」(StatsReference 원문 표기 그대로, Research 4-1) 안. **기존 Eagle 샘플 0.451초는 넘는다** — 재사용하면 줄여야 함(Q-6 · Q-7) *(2026-11-03: 활 묶음 폐지 — 가이드에서 삭제, Research 11-17)* |
 | 포격 공용 | 1.0 | 유닛 주기 4초 안. 타워 주기는 2단계에서 타워 task 값으로 확인 |
 | InfernoSpirit | 0.9 | 주기 3초 안 |
 | TorrentSpirit · QuakeSpirit | 1.0 · 1.0 | 주기 4초 · 5초 안 |
@@ -349,7 +351,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 
 ## 10. 2단계 — 방어 타워 공격음 연결
 
-시작 조건: 타워 task(②)가 끝나 `SoundConfig`의 타워 공격음 칸(`TowerAttackSoundEntry` — 건물 종류 + 종족 키)과 `AudioManager.PlayTowerAttackSfx` · 호출 지점이 있다 · VineTower는 VFX task(③)가 끝났다. 칸 · API · 호출 지점은 ②가 만든다([타워 Plan](../15_48_tower-attack-presentation-restructure/Plan.md) 6-1 · 6-3 · 12-1-1) — 이 단계(④)는 **클립과 볼륨을 넣는 일만** 한다.
+*(2026-11-03: ② 완료 — 칸 · API · 호출 지점이 있고 목록은 비어 있다. [타워 Plan 15절](../15_48_tower-attack-presentation-restructure/Plan.md#15-implementation-and-user-test). 남은 시작 조건은 VineTower의 ③뿐이고 Human · RuneSpire 행은 그와 무관하게 넣을 수 있다)* 시작 조건: 타워 task(②)가 끝나 `SoundConfig`의 타워 공격음 칸(`TowerAttackSoundEntry` — 건물 종류 + 종족 키)과 `AudioManager.PlayTowerAttackSfx` · 호출 지점이 있다 · VineTower는 VFX task(③)가 끝났다. 칸 · API · 호출 지점은 ②가 만든다([타워 Plan](../15_48_tower-attack-presentation-restructure/Plan.md) 6-1 · 6-3 · 12-1-1) — 이 단계(④)는 **클립과 볼륨을 넣는 일만** 한다.
 
 | 타워 | 소리 | 연결 |
 |---|---|---|
@@ -431,7 +433,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 | Q-4 | **SpearMan**(창 찌르기)은 날붙이 중인가 약인가 — 동작은 Rabbit과 같은 찌르기, 무기는 길다 | 중 | 문서 전 | 승인 — 날붙이 중(청취 뒤 조정 가능) |
 | Q-5 | LittleKnight 샘플(날붙이 약)이 RabbitTrickster의 단검 찌르기에도 맞는지 | 청취로 결정 | 청취 뒤 | 청취 뒤 결정(제작 단계) — 그대로 |
 | Q-6 | 기존 샘플 4종(Eagle · Bear · Boulder · Ember)을 같은 -26dB로 보정한 뒤 어느 칸에 쓸지(또는 버릴지) — 기획 초안은 「타격 묶음 후보」 | 청취로 결정 | 청취 뒤 | 청취 뒤 결정(제작 단계) — 그대로 |
-| Q-7 | **EagleArcher** 공격 동작(미답) · 시위 소리 위주인지(미답) · 활 소리를 기존 샘플로 할지 새로 만들지(초안 「재생성」 ↔ 결정 D-5 「사용 가능하면 재사용」), 샘플 0.451초는 상한 초안 0.35초 초과 | 동작 · 시위 여부를 먼저 묻고, 샘플은 Q-6 청취에서 | 제작 전 | 활을 다시 만들지는 청취 뒤(제작 단계). 동작 · 시위 소리 여부는 미답 — 제작 전 질문 유지 |
+| Q-7 | **EagleArcher** 공격 동작(미답) · 시위 소리 위주인지(미답) · 활 소리를 기존 샘플로 할지 새로 만들지(초안 「재생성」 ↔ 결정 D-5 「사용 가능하면 재사용」), 샘플 0.451초는 상한 초안 0.35초 초과 | 동작 · 시위 여부를 먼저 묻고, 샘플은 Q-6 청취에서 | 제작 전 | 활을 다시 만들지는 청취 뒤(제작 단계). 동작 · 시위 소리 여부는 미답 — 제작 전 질문 유지 *(2026-11-03 결정: 활 전용 파일 없이 타격 약 공용 소리를 쏘는 순간 낸다(「EagleArcher 약으로」 — Research 11-17). 활 재생성 · 시위 소리 질문은 필요 없어졌다. 공격 동작은 미답 그대로)* |
 | Q-8 | 같은 묶음 · 등급 안 재질 차이(2-3 표) — 하나로 만든 뒤 청취해 나눌지 | 하나로 먼저 | 청취 뒤 | 청취 뒤 결정(타격 묶음 분리 포함) — 그대로 |
 | Q-9 | BloomFairy 힐 소리 = **힐 발동 순간 1회**(공격음 경로, Research 3-2)로 이해하면 맞는지. 목록의 기존 행 `sfx_bloomfairy_heal.wav`(치료받는 아군의 지속 효과음, 미제작)는 이번 범위가 아니라고 보면 맞는지 | 둘 다 그렇게 이해 | 제작 전 | 승인 — 힐 **시전 순간 1회**. 힐 지속음 `sfx_bloomfairy_heal`은 이번 범위 밖 |
 | Q-10 | **StreamSpirit** 물폭탄 발사 — 전용인가, 새 일반 묶음(「던지기 · 발사」 등)인가. 사용자 전용 목록(11-1)에는 없다. 발사 동작 · 몸 재질도 미답 | 고르지 않음 | 제작 전 | **전용 소리** |
@@ -453,13 +455,13 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 
 | # | 문서 · 위치 | 개정 | 초안 | 승인 · 반영 (2026-11-02~03) |
 |---|---|---|---|---|
-| R-1 | `GameSystemRules_Sound.md` 규칙 13 | 동시 재생 한도 8 → 16, 같은 클립 3개 · 0.05초, 우선 끊기 | 9-1 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(9-1 문장 그대로 + 「승인된 세부」 Q-15~Q-18 · Q-20). 코드 반영은 1-C 진행 중 |
+| R-1 | `GameSystemRules_Sound.md` 규칙 13 | 동시 재생 한도 8 → 16, 같은 클립 3개 · 0.05초, 우선 끊기 | 9-1 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(9-1 문장 그대로 + 「승인된 세부」 Q-15~Q-18 · Q-20). 코드 반영됨(`167410e8`, 씬 값 16은 2026-11-03 메뉴 실행 · 미커밋) · 큰 전투 실기 미검증(17절) *(2026-11-03 갱신 — 종전 「코드 반영은 1-C 진행 중」)* |
 | R-2 | `GameSystemRules_Sound.md` 규칙 1(Q-19) | VFX 프리팹 AudioSource 금지 한 문장 | 9-3 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(규칙 1 끝 한 문장) |
 | R-3 | `VFXSFXGuide.md` 「오디오 길이 가이드」 유닛 공격음 행 | 하한 0.3초 삭제 · 상한표 참조 | 9-2 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(9-2 초안 문장) |
 | R-4 | `VFXSFXGuide.md` 「1. 유닛 공격 사운드」 | 유닛별 키워드 표 → 묶음 규칙 · 등급별 음색 · 길이 상한 · 프롬프트 공통 블록 | 2~4절 · 5절 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨 — 종전 표 · 예시는 같은 절 끝 접힌 「종전 기록」에 보존 |
 | R-5 | `VFXSFXGuide.md` 「SFX 파일」 이름 규칙(Q-11) | 묶음 파일 이름 추가 | 2-5 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(「SFX 파일」 아래 묶음 파일 표, 폴더 구조 주석) |
 | R-6 | `VFXSFXGuide.md` 종족 스타일 표 사운드 열 · 「종족별로 다르게」 머리말 · 게임 이름 문장(Q-12) | 묶음 방식과의 관계 정리 | Q-12 답 뒤 | 승인됨(사용자 2026-11-02, 추천안) · 부분 반영 — 묶음 소리 중립(A7), 공격음 프롬프트의 게임 이름 금지. ⚠️ 전용 소리 종족 스타일 · 다른 프롬프트의 게임 이름은 미정 표시 |
-| R-7 | `VFXSFXGuide.md` 「SFX 프롬프트 추가 원칙」 | Unity AI 사양 미준수 사실 · 보정 도구 절차 추가 | 5절 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(「SFX 프롬프트 추가 원칙」). 길이 경고는 「구현 진행 중」으로 표기 |
+| R-7 | `VFXSFXGuide.md` 「SFX 프롬프트 추가 원칙」 | Unity AI 사양 미준수 사실 · 보정 도구 절차 추가 | 5절 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(「SFX 프롬프트 추가 원칙」). 길이 경고는 구현됨(`ee7049cd`) · 실기 확인은 기존 샘플 재청취 단계로 연기(17절) *(2026-11-03 갱신 — 종전 「길이 경고는 「구현 진행 중」으로 표기」)* |
 | R-8 | `WORKFLOW.md` [5-2] 표(Q-13) | 보정 도구 등록 — 사용자가 원할 때만 | Q-13 답 뒤 | 승인됨(사용자 2026-11-02, 추천안) · 반영됨(진입점 표 행 + 머리 문장 「SFX 보정」) |
 
 `VFXSFXList.md` · `UnitAttackProfile.md` · `AGENTS.md`는 규칙 문서가 아니라 목록 · 프로필 · 인덱스라 위 표에 넣지 않았다 — 그러나 내용은 2-2 배정표(사용자 승인 대상)를 따른다.
@@ -474,3 +476,77 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)와 �
 | 2026-11-02 | 타워 Plan(`15_48_tower-attack-presentation-restructure/Plan.md` 6-2 · 6-3 · 12-1 · 12-1-1) 완성에 맞춤. ① 10절: 타워 공격음 연결 자리를 `EffectManager.PlayBuildingAttack`(②가 비활성화 — 타워 Plan RM-2)에서 타워 Plan 6-3의 호출 지점 P-1 · P-2로 바꾸고, ④에서 새 타워 행을 만들 때 **클립과 함께 볼륨도 입력**(새 행 볼륨 0 → 무음) 항목 추가. 종전 문장은 같은 자리에 날짜 조각으로 남김. ② 12절: 타워 task 폴더 「작성 중, 폴더 미생성」 → 「Research · Plan 있음」, 역할 분담 표(① 재생 입구 · 우선 인자 / ② `TowerAttackSoundEntry` · `PlayTowerAttackSfx` · 호출 지점, 항상 우선 / ④ 클립 · 볼륨 연결)를 타워 Plan 12-1-1과 일치시켜 추가. ③ 14절 확인 목록에 TC · QA 관련 항목이 있는지 확인 — 없음(WORKFLOW [5] 「사용자 명시 지시 때만, 먼저 제안 · 질문 금지」), 변경 없음 |
 | 2026-11-02 | **사용자 승인 「추천대로 승인」**(메인 세션 전달). 세 Plan 전체 승인, 14절 Q-1~Q-20 · 15절 R-1~R-8의 결정을 각 표의 새 열에 기록(종전 칸은 그대로). [제안]과 다르게 정해진 것: Q-2(1회성 에디터 메뉴) · Q-14(정리) · Q-20(개발용 로그). 청취 뒤 결정으로 남은 것: Q-5 · Q-6 · Q-7(활 재생성) · Q-8. 상단 상태 줄 갱신 |
 | 2026-11-02~03 | **1-B 문서 반영**(document-manager). 신설 `Docs/Assets/UnitAttackProfile.md`(유닛 25 + 타워 3 외형 프로필 · 묶음 · 등급 · 미확인 목록, 수치 없음 — StatsReference 링크). 개정: `VFXSFXGuide.md`(R-3~R-7 + Q-19 VFX 계약 9번), `VFXSFXList.md`(유닛 공격 사운드 표 → 배정 · 파일 · 상태, BloomFairy 행 추가, CannonCart 단일 대상 · BattleAxe 큰 반원 휘두르기 등 비고 정정, 「완성된 SFX」 사실 상태 · 삭제된 옛 SFX, RuneSpire · VineTower SFX 「2단계 대상」 포인터, 종전 표는 접힌 「종전 기록」), `GameSystemRules_Sound.md`(R-1 규칙 13 · R-2 규칙 1), `WORKFLOW.md` [5-2](R-8), `AGENTS.md` 한 줄. VineTower 블록의 옛 행 번호 · CommonAssetGuide 인용 정정은 VineTower Plan G-5~G-8 시점으로 남김. 주의: 이 반영 도중 사용자 커밋 `167410e8`에 일부 중간 상태가 들어갔다 |
+| 2026-11-03 | **1-C 결과 · [6] 사용자 테스트 · [7] 승인 뒤 문서 · 메모리 업데이트**(document-manager, 사용자 지시 「문서 갱신하고…」). 17절 신설(구현 · 1회성 메뉴 실행 · 사용자 테스트 · 연기 항목 · 계획과 달라진 것). 상단 상태 줄 · 최상단 표 아래 진행 상태 · 15절 R-1 · R-7 칸을 제자리 갱신. 1회성 메뉴 스크립트 경로 사건(`Editor/Setup` → `Editor/Tools`)을 17-4에 기록 — 이 폴더 문서에는 옛 경로가 적힌 곳이 없어(`SfxTiering` 검색 0건) 정정할 문장은 없었다. Testcase.md는 사용자 지시가 없어 만들지 않았다([8] 해당 없음) |
+| 2026-11-03 | **5차 사용자 답변 기록**(document-manager, 메인 세션 전달). Research 11-16 신설, `UnitAttackProfile.md` 2절 해당 칸 · 4절 미확인 목록 갱신(종전 값은 날짜 조각으로 보존). 이 Plan 본문은 고치지 않았다 — 결정 두 가지가 본문과 다르게 읽히는 곳: ① **순서** — 타워 개편(1-2 ②)을 효과음 1단계 제작(1-E)보다 먼저 진행(1-2 표 · 17-5의 「① → ②」는 작성 당시 순서) ② **생성 불가** — Unity AI 크레딧 소진으로 1-D 프롬프트만 먼저, 1-E 생성은 크레딧 확보 뒤. EagleArcher 「타격음만」 해석(Q-7 관련)은 미결 — 메인 세션 재확인 중 |
+| 2026-11-03 | **1-D 프롬프트 보관 — 같은 폴더 [Prompts.md](Prompts.md) 신설**(document-manager, 사용자 승인 「나머지는 추천대로」 — 메인 세션 추천 「프롬프트 전문을 task 폴더 Prompts.md로 저장」). asset-prompt-crafter가 쓴 유닛 · 타워 공격음 Unity AI 프롬프트 18개(묶음 8 · 전용 10, `File name:` 18개)를 서두 자연어 설명과 함께 옮김 — 영어 프롬프트 블록은 원문과 바이트 단위 일치 확인. 원문 맨 끝 「확정 사항」의 EagleArcher 항목만 「활 전용 파일 없이 타격 약 공용 소리(`sfx_strike_light_attack.wav`) 사용 — 메인 세션 제안, 사용자 확인 대기」로 표기(원문 표기는 Prompts.md 안에 보존). 소리 생성(1-E)은 크레딧 확보 뒤, 생성 뒤 순서는 7절. 이 Plan 본문은 고치지 않았다 |
+| 2026-11-03 | **EagleArcher 결정 · 타워 개편 완료 반영**(document-manager, 메인 세션 전달). 사용자 「EagleArcher 약으로」 → Research 11-17 신설, 2-2 활 행 · 14절 Q-7 · Prompts.md 확정 사항 · `UnitAttackProfile.md` · VFXSFXList EagleArcher 행 · VFXSFXGuide EagleArcher 샘플 줄에 날짜 조각. ② 타워 개편 완료(타워 Plan 15절)에 맞춰 10절 시작 조건 · 17-5 순서 행 갱신 |
+
+---
+
+<a id="17-stage1-user-test"></a>
+
+## 17. 1단계 1-C 결과와 사용자 테스트 (2026-11-03)
+
+표기: [확인] = 이 기록 중 파일 · `git` 읽기로 직접 확인 · [전달] = 메인 세션 전달(사용자 보고 포함) · [관측] = 에디터 런타임 로그를 직접 읽음.
+
+### 17-1. 구현된 것 — 어디에 들어갔나
+
+| 내용 | 파일 | 커밋 · 상태 |
+|---|---|---|
+| 동시 재생 개편 — 같은 클립 최대 3개 · 같은 클립 최소 간격 0.05초 · 전체 한도 16 · 한도가 차면 「우선」이 가장 먼저 시작한 「일반」을 짧은 페이드로 끊음 · 판단 요약 개발 로그(1초 간격, 릴리스 빌드에서는 컴파일 제외) | `Scripts/Presentation/Audio/AudioManager.cs` | `167410e8` [확인] |
+| 재생 등급 `SfxPriority`(`Normal` / `High`) · 재생 입구 `PlaySfxClip(AudioClip clip, float volume = 1f, SfxPriority priority = SfxPriority.Normal)` — 유닛 공격음만 항목 표시를 넘기고 사망 · 건물 · UI 효과음은 기본값 「일반」 | 같은 파일 88 · 686 · 595~601행 | `167410e8` [확인] |
+| Inspector 조정 칸 3개 — `_maxSameClipConcurrent` 3 · `_minSameClipIntervalSec` 0.05 · `_evictFadeOutSec` 0.03 (`_maxConcurrentSfx` 기본값 8 → 16) | 같은 파일 196~205행 · `Login.unity` 저장값 | 코드 `167410e8` · 씬 저장값 3칸 `ee7049cd` · 씬 `_maxConcurrentSfx: 16`은 메뉴 실행 결과 **미커밋** [확인] |
+| 「우선 재생」 표시 칸 `attackIsPriority` + 읽기 메서드 `IsUnitAttackPriority(UnitType)` | `Scripts/Infrastructure/Config/SoundConfig.cs` 64 · 243행 | `167410e8` [확인] |
+| RM-2 — 옛 한도 줄과 옛 기본값 8은 주석으로 남김(사유 · 날짜 · Plan 경로 표기) | `AudioManager.cs` — 「[비활성화 2026-11-02 …]」 표시 6곳(186 · 234 · 377 · 598 · 648 · 966행) | `167410e8` [확인] |
+| 1회성 메뉴 `Hexiege/Setup/SFX Tiering - Apply One-time Asset Changes` — ① VFX 프리팹 4개 AudioSource 끄기(RM-1 ①) ② SoundConfig 「찾을 수 없음」 참조 비우기(RM-3) ③ `Login.unity` `_maxConcurrentSfx` 16 ④ EffectPreset 2개 남은 `_sfxClip` 지우기(Q-14) | `Assets/Editor/Tools/SfxTieringOneTimeSetup.cs` (네임스페이스 `Hexiege.EditorTools`) | 첫 위치 `Assets/Editor/Setup/`로 `ee7049cd`에 커밋 → 지금 작업 트리에서 `Tools/`로 옮겨짐 · **미커밋**(17-4) [확인 — 두 파일 내용 동일] |
+| 보정 도구 길이 상한 경고(Q-13 (다) — 파일 이름 앞부분으로 상한을 찾고, 넘으면 경고만 · 자르지 않음. 표에 없는 `_attack` 파일은 최대 1.0초) | `Assets/Editor/Tools/SfxNormalizeCore.cs` · `SfxNormalizeTool.cs` | `ee7049cd` [확인] |
+
+### 17-2. 1회성 메뉴 실행 결과 (2026-11-03)
+
+사용자가 메뉴를 실행했고 결과 창 AnyProblem=False [전달]. 메인 세션이 파일로 확인한 결과를 이 기록 중 `git diff`로 다시 봤다 [확인] — 작업 트리 변경 8파일 +34 / −14(옮겨진 메뉴 스크립트 제외):
+
+| 대상 | 결과 |
+|---|---|
+| VFX 프리팹 4개(`vfx_pistoleer_attack` · `vfx_streamspirit_attack` · `vfx_tank_attack` · `vfx_unit_death`) | AudioSource `m_Enabled: 1` → `0` (각 1줄) |
+| `SoundConfig.asset` | BGM 4칸 · Pistoleer `attackClip` → `{fileID: 0}`. 나머지 5개 공격음 칸(EagleArcher · BearGuard · LittleKnight · BoulderSpirit · EmberSpirit) 연결 유지. 6개 유닛 항목에 `attackIsPriority: 0`이 새로 적힘(새 칸이 처음 저장된 것 — 지금 항목이 있는 6종은 모두 일반 묶음 유닛이라 「우선」 켤 대상이 없다) |
+| `Login.unity` | `_maxConcurrentSfx: 8` → `16` |
+| `EffectPreset_Pistoleer_Attack.asset` · `EffectPreset_Unit_Death_Common.asset` | `_sfxClip` · `_sfxVolume` 줄 삭제. **부수 효과:** 다시 저장하면서 지금 코드에 있는 칸 9개(`_localPositionOffset` · `_eulerRotationOffset` · `_scaleMultiplier` · `_forwardTravelDistance` · `_forwardTravelDuration` · `_stopWhenCasterDies` · `_widthFitEnabled` · `_widthFitMaxCount` 3 · `_viewPullRadiusRatio`)가 기본값으로 새로 적혔다. 메뉴 머리 주석이 예고한 동작이며, 실행 중 쓰던 값도 같은 기본값이었다는 것은 그 주석의 설명이다(이 기록에서 코드 기본값을 하나씩 대조하지는 않았다) |
+
+### 17-3. 사용자 테스트 [6] (2026-11-03)
+
+| 항목 | 결과 | 근거 · 범위 |
+|---|---|---|
+| 메뉴 실행 · 파일 결과 | 확인 | 17-2 |
+| LittleKnight 공격음 재생 | **정상**(사용자 확인) | 사용자 보고 [전달]. 묶음 칸 결정(Q-5)이 아니라 「재생된다」는 확인이다 |
+| 회귀 스위트 `Hexiege/Combat/Run Full Regression Suite` | **PASS** | 사용자 「문제없음」 [전달] — 결과 파일 없음(Console에만 나옴), 에이전트가 메뉴 실행이나 결과를 직접 확인하지 않았다(WORKFLOW [6]) |
+| 개발 로그 | 판단 요약 3줄 · 오디오 경고 0 | [관측] `_Logs/_editor/2026-11-03/RuntimeLog.txt`(이 파일은 `.gitignore` 812행으로 git 제외) 05:13:50 · 05:13:53 · 05:13:56 — 모두 `Last=DroppedSameClipInterval, LastClip=sfx_littleknight_attack`, `Max=16`, `SameClipDrop=0 · GlobalDrop=0 · AllPriorityDrop=0 · Evicted=0`. 즉 이 짧은 세션(약 1분)에서 실행된 판단은 「같은 클립 0.05초 간격 버림」뿐이고 씬 한도 16이 적용됐다. 같은 클립 3개 한도 · 전체 한도 · 우선 끊기 경로는 **실행되지 않았다** |
+| 큰 전투 청취(같은 클립 다수 · 여러 소리 혼합 · 장시간) | **연기 — 미검증** | 사용자 결정: 「SFX를 여러 가지 추가한 뒤에 해 봐도 된다」 [전달]. 따라서 11절의 「같은 클립 3개 · 0.05초」 「우선 끊기」 「끊은 소리의 반환 안전성」 「한도 16 적용(컨테이너 자식 16개)」 청취 · 확인 행은 **판정 없음**. 지금 「우선」으로 표시된 유닛이 없어 우선 끊기는 전용 소리 연결 전에는 실기로 일어날 수 없다 |
+| 보정 도구 길이 경고 | **연기 — 실기 미확인** | 기존 샘플 재청취 단계(7절 ⑤)로 연기 — 지금 돌리면 EmberSpirit 파일을 덮어쓰게 돼서(사용자 동의) [전달] |
+| VFX 프리팹 정리 · SoundConfig 정리(11절 해당 행) | 파일 결과 확인 · 실기 「이중 소리 · Missing 표시」 별도 확인 기록 없음 | 17-2. 사용자 보고에 이 두 행을 따로 확인했다는 말은 없다 — 위 회귀 · 재생 확인과 같은 테스트 범위로만 기록한다 |
+
+**판정:** 1-C의 구현 · 메뉴 실행 · 재생 · 회귀 스위트 범위에서 사용자 테스트 PASS. 새 동시 재생 판단의 큰 전투 실기는 **미검증**이며 이 PASS에 포함되지 않는다. [8] Testcase.md는 사용자 지시가 없어 만들지 않았다.
+
+### 17-4. 사건 — 1회성 메뉴가 `Assets/Editor/Setup/`에서 보이지 않았다
+
+- 메뉴 스크립트는 처음 `Assets/Editor/Setup/SfxTieringOneTimeSetup.cs`(+ 폴더 `Setup.meta`)로 만들어져 `ee7049cd`에 커밋됐다 [확인]. Unity가 이 폴더의 스크립트를 가져오지 않았다 — Project 창에서 선택되지 않고 컴파일 목록에 없었다 [전달].
+- 메인 세션이 스크립트를 `Assets/Editor/Tools/SfxTieringOneTimeSetup.cs`로 옮기고(옛 `.cs.meta` · `Setup.meta` · 폴더 삭제, 새 `.cs.meta`는 Unity가 생성) 그 뒤 메뉴가 나타났다 [전달]. 옛 파일과 새 파일 내용은 같다 [확인 — `diff` 0]. 이 이동은 **미커밋**이다(`git status`: `Setup` 3개 삭제 · `Tools` 2개 새 파일).
+- **원인은 확인되지 않았다.** 사실만: `Assets/Editor/Setup.meta`는 2026-10-16 `58614539`(사용 안 하는 도구 · 폴더 정리)에서 지워졌고, 2026-10-27 `5b8fb82e`에서 다른 GUID로 다시 생겨 EagleArcher 1회성 메뉴가 그 폴더에서 정상 실행된 뒤 `0ded0999`에서 다시 지워졌다. 이번 `ee7049cd`의 `Setup.meta`는 또 다른 GUID다 [확인 — `git log -- Assets/Editor/Setup.meta`]. 같은 폴더가 10-27에는 동작했으므로 「`Setup` 폴더는 항상 안 된다」라고 결론 내리지 않는다.
+- 문서 정정: 이 폴더 문서와 상시 문서에 옛 경로가 적힌 곳은 없었다(검색 `SfxTiering` 0건) — 위 표의 경로가 처음 기록이다.
+
+### 17-5. 연기된 일과 남은 일
+
+| 일 | 시점 · 조건 | 근거 |
+|---|---|---|
+| 큰 전투 청취 테스트(같은 클립 다수 · 혼합 · 장시간, 우선 끊기 포함) | SFX를 여러 가지 추가한 뒤 | 사용자 결정(17-3) |
+| 옛 코드 주석 삭제(RM-2 · 옛 기본값 8) · 꺼 둔 AudioSource 4개 삭제(RM-1 ②) · 1회성 메뉴 퇴역 | 큰 전투 테스트 통과 뒤 · [7] 전(WORKFLOW [4]) | 메인 세션 전달. 메뉴 퇴역도 WORKFLOW [5-2]의 [4] 절차를 따른다 |
+| 보정 도구 길이 경고 실기 확인 | 기존 샘플 재청취 때(7절 ⑤) | 17-3 |
+| 1-D 프롬프트 → 1-E 생성 · 보정 · 청취 · 연결 | 「제작 전」 질문(14절 Q-7 · Q-9 등) 먼저. **1-D는 진행한다**(사용자 2026-11-03, 메인 세션 전달) | 1-3절 · 7절 |
+| 전용 소리 연결 때 `attackIsPriority` 켜기 | 1-E ⑥ | 6-2 · 7절 ⑥ |
+| ② 타워 표현 · 소리 개편 → ③ VineTower VFX → ④ 2단계 타워 공격음 연결 | **② 완료 — 사용자 테스트 PASS 2026-11-03**([타워 Plan 15절](../15_48_tower-attack-presentation-restructure/Plan.md#15-implementation-and-user-test)) *(2026-11-03 갱신)*. 1-2절 순서. ③의 덩굴 모델 제작은 **Unity AI 크레딧 소진으로 보류**(사용자 2026-11-03 — [VineTower Plan](../14_40_vinetower-attack-design/Plan.md) 상태 줄) → VineTower 공격음도 그만큼 뒤로 | ②는 이 단계가 만든 `PlaySfxClip(..., SfxPriority.High)`를 쓴다(12절 역할 분담) |
+
+### 17-6. 계획과 달라진 것
+
+- 1회성 메뉴 위치: Plan은 위치를 정하지 않았다(Q-2 「1회성 에디터 메뉴」). 실제는 `Assets/Editor/Tools/`(17-4).
+- 최종 삭제 시점: WORKFLOW [4]의 기본(사용자 테스트 통과 뒤 · [7] 전) 대신 연기된 큰 전투 테스트 통과 뒤.
+- EffectPreset 2개는 `_sfxClip` 줄만 지워진 것이 아니라 다시 저장되며 칸 9개가 새로 적혔다(17-2).
+- 끊기 페이드 0.03초는 구현 초기값이다 — 사운드 규칙 13 「승인된 세부」의 「값은 청취로 정한다」는 아직 청취 전이다.

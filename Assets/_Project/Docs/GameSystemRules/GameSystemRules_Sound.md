@@ -22,7 +22,7 @@
 **규칙 1. 역할 분리 원칙**
 EffectManager는 VFX(파티클)만 담당하며 오디오 코드가 한 줄도 포함되어서는 안 된다.
 BGM과 SFX 전체는 AudioManager가 전담한다.
-VFX 프리팹에는 AudioSource를 두지 않는다. VFX와 함께 나는 소리는 규칙 15에 따라 AudioManager로만 재생한다. *(2026-11-02 추가 — 사용자 승인. VFX 프리팹 4개에 붙어 있던 AudioSource의 정리는 [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) RM-1에서 진행 중)*
+VFX 프리팹에는 AudioSource를 두지 않는다. VFX와 함께 나는 소리는 규칙 15에 따라 AudioManager로만 재생한다. *(2026-11-02 추가 — 사용자 승인. VFX 프리팹 4개에 붙어 있던 AudioSource는 2026-11-03 모두 꺼졌고(1회성 메뉴, 미커밋) 컴포넌트 삭제는 큰 전투 테스트 통과 뒤다 — [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) RM-1 · 17절. 2026-11-03 갱신, 종전 「… RM-1에서 진행 중」)*
 
 **규칙 2. AudioManager 레이어 및 생명주기**
 AudioManager는 Presentation 레이어에 배치하며 `SingletonMonoBehaviour<AudioManager>`를 상속한다.
@@ -30,7 +30,7 @@ DontDestroyOnLoad를 통해 Login → Lobby → Game 씬 전반에 걸쳐 유지
 Login.unity 씬의 `[Audio]` 오브젝트에 컴포넌트로 부착한다.
 
 **규칙 3. SoundConfig 레이어 의존 범위**
-SoundConfig는 Infrastructure/Config 레이어에 배치하며, Domain 레이어 타입(UnitType, BuildingType)만 키로 사용할 수 있다.
+SoundConfig는 Infrastructure/Config 레이어에 배치하며, Domain 레이어 타입(UnitType, BuildingType, RaceId)만 키로 사용할 수 있다. *(2026-11-03 개정 — 사용자 승인([타워 공격 표현·소리 개편 Plan](../_Tasks/2026-11-02/15_48_tower-attack-presentation-restructure/Plan.md) 9절 S-1). 괄호가 전체 목록인지 예시인지 문구로 정해지지 않아 타워 공격음 칸의 종족 키(`RaceId` — `Domain/Common/RaceId.cs`)를 명시했다. 종전: 「… Domain 레이어 타입(UnitType, BuildingType)만 키로 사용할 수 있다.」)*
 Presentation 레이어 타입(UiEffectKey 등)을 SoundConfig에서 참조하는 것은 레이어 위반이다.
 
 **규칙 4. UI SFX 관리 위치**
@@ -107,8 +107,9 @@ SFX는 「일반」과 「우선」으로 나뉜다. 특수 공격 유닛의 공
 - 일반 SFX를 멈출 때는 「딱」 소리가 나지 않도록 아주 짧은 페이드(수십 ms — 값은 청취로 정한다)로 줄인 뒤 멈춘다.
 - UI 효과음은 「일반」이다. UI 소리를 새로 만들 때 다시 정한다.
 - 요청을 재생하지 않거나 일반 SFX를 멈춘 판단은 개발용 로그로 남긴다(형식은 [LogRules](../LogRules.md)).
+- 조정 칸(AudioManager Inspector): 같은 클립 수 `_maxSameClipConcurrent`(3) · 같은 클립 최소 간격 `_minSameClipIntervalSec`(초, 0.05) · 끊을 때 페이드 `_evictFadeOutSec`(초, 0.03 — 구현 초기값, 청취 전). *(2026-11-03 추가 — 코드에 노출된 칸 이름. 동작 변경 없음)*
 
-*(2026-11-02 개정 — 사용자 승인([효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) 9-1 · Q-15~Q-18 · Q-20). 종전: 「동시에 재생 가능한 최대 SFX 개수는 8개다. 한도 초과 시 새 SFX 재생 요청을 무시한다(드랍). 이 값은 AudioManager Inspector의 `_maxConcurrentSfx`에서 조정한다.」 위 문장은 승인된 목표 동작이며, AudioManager 코드 · 씬 값 반영은 같은 task에서 구현 진행 중이다.)*
+*(2026-11-02 개정 — 사용자 승인([효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) 9-1 · Q-15~Q-18 · Q-20). 종전: 「동시에 재생 가능한 최대 SFX 개수는 8개다. 한도 초과 시 새 SFX 재생 요청을 무시한다(드랍). 이 값은 AudioManager Inspector의 `_maxConcurrentSfx`에서 조정한다.」 코드 반영은 커밋 `167410e8`, 씬 저장값 16은 2026-11-03 1회성 메뉴 실행(미커밋). 사용자 테스트 PASS(범위 한정 — 짧은 전투에서 같은 클립 간격 판단만 실행 관측)이며 **큰 전투(같은 클립 다수 · 혼합 · 우선 끊기) 실기는 미검증**이다 — 같은 Plan 17절. 2026-11-03 갱신, 종전 「위 문장은 승인된 목표 동작이며, AudioManager 코드 · 씬 값 반영은 같은 task에서 구현 진행 중이다.」)*
 
 **규칙 14. 멀티플레이 SFX 동기화 금지**
 SFX는 각 클라이언트가 자신의 화면에서 발생하는 이벤트에 맞춰 로컬에서만 재생한다.
@@ -128,10 +129,11 @@ EffectManager.Instance?.PlayUnitAttack(type, pos, rot);   // SFX 누락
 
 VFX가 있는 모든 이펙트에는 대응하는 SFX 호출이 바로 아래 줄에 있어야 한다.
 VFX 또는 SFX 중 하나만 재생하는 경우에도 나머지를 주석으로 명시한다.
+EffectManager는 오디오를 모르므로(규칙 1) 짝 호출은 EffectManager를 부르는 쪽에서 한다. 방어 타워 공격음: 서버 투사체 타워는 `ProjectilePresentationPresenter`의 발사 신호 자리, 즉발 타워는 `HitPresentationQueue`의 공격 스냅샷 재생 자리. 클립이 아직 없으면 호출 줄 위 주석에 「미제작」을 적는다. *(2026-11-03 추가 — 사용자 승인(타워 개편 Plan 9절 S-2). 현재 타워 공격음 칸은 비어 있어 두 자리 모두 무음이다)*
 
 **규칙 16. SFX 클립별 볼륨 조절**
 SFX 클립은 글로벌 SFX 채널 볼륨과 별개로 클립별 기준 볼륨(`volume`, 0~1)을 가진다.
-SoundConfig의 각 SFX 엔트리(UnitSoundEntry, BuildingSoundEntry 등)에 `attackVolume`, `deathVolume` 등 항목별 볼륨 필드를 포함한다.
+SoundConfig의 각 SFX 엔트리(UnitSoundEntry, BuildingSoundEntry, TowerAttackSoundEntry 등)에 `attackVolume`, `deathVolume` 등 항목별 볼륨 필드를 포함한다. *(2026-11-03 — 엔트리 예시에 `TowerAttackSoundEntry` 추가, 타워 개편 Plan 9절 S-3. 종전 괄호: 「UnitSoundEntry, BuildingSoundEntry 등」)*
 UI SFX 엔트리(UiSoundEntry)도 동일하게 `volume` 필드를 포함한다.
 실제 재생 시 `AudioSource.volume = clipVolume`으로 적용하며, AudioMixer SFX 채널 볼륨과 곱해진 최종 볼륨으로 출력된다.
 이 방식으로 SFX 제작 단계에서 에셋별 밸런스를 Inspector에서 직접 조정할 수 있다.

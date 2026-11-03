@@ -1,4 +1,4 @@
-# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units, server projectiles, EagleArcher hand arrow
+# VFX presentation — contracts, recipient fitting, tower bolt, caster-owned VFX, charge units, server projectiles, EagleArcher hand arrow, tower attack profile
 
 Lessons verified against the code on branch `claude/vfx-code-followups` (commit `84b6ff2a`, 2026-10-15)
 and confirmed by the user's field tests (3 rounds, 2026-10-13~15). Task record:
@@ -60,6 +60,8 @@ All of this is presentation only — no server damage / target / HP / RPC path c
 - Target resolved **once** at play (UnitView + UnitData reference + VisualRootProjector); `LateUpdate` re-reads the
   rendered position; on dead / replaced data / inactive / unreadable pose it freezes at the last endpoint and never
   re-tracks (no ID re-lookup — ID reuse safe). Human tower and Mushroom impact never enter this mode.
+  *(2026-11-03: the bolt branch and the queue's target resolution are now chosen by the tower attack profile kind
+  `Beam` (`EffectManager.TowerAttackNeedsTargetTracking`), not `Race == Spirit` — §12. Behaviour unchanged.)*
 - Source = tower + preset offset rotated by **yaw only**, so the offset Y is a world height (RuneSpire preset Y 0.65 =
   crystal). Root aims in **3D** at endpoint; `Bolt` local Z scale = 3D distance (divided by root scale).
   `Impact_Sparks` is a child of `Bolt` at local Z 1 — do not move it separately (distance would apply twice).
@@ -279,3 +281,47 @@ Fix A `2de0ed28` · fix C `5510b175`, both user-test PASS 2026-10-28. Presentati
 - **Not covered:** the end point height is still at the feet (Plan 10-11 R-A2) and fix B (hide the held arrow at launch) is not done —
   both, with R-A1 / R-A3, will not be done by user decision 2026-10-28 (「됐어 이대로 유지하도록 하자」, Plan §12-8; old: "follow-up
   candidate only"), and no log line records the launch coordinate — "starts at the hand" is the user's visual verdict.
+
+## 12. Tower attack profile — presentation chosen by attack kind, not race (2026-11-03)
+
+Task: `Assets/_Project/Docs/_Tasks/2026-11-02/15_48_tower-attack-presentation-restructure/` (Plan §3 design, §15 result).
+User test PASS 2026-11-03 (build multiplayer: Human cannon tower and RuneSpire unchanged on both screens, VineTower damage
+only; regression suite PASS before the final deletion and again after it — user report 2026-11-03, no result file).
+*(2026-11-03 updated — old: "the re-run after deletion was not yet reported")* Presentation and
+sound only — server damage path, `ProjectileDeliveryContracts` tower classification, handshake token and the C-6 source
+gate strings are unchanged. Rules: Buildings 「방어 타워 시스템」 rule 12 (rewritten 2026-11-03), Sound rules 3 · 15 · 16.
+
+- **Data:** `Presentation/Effects/TowerAttackProfile.cs` — `TowerAttackKind { Unset=0, Projectile=1, Beam=2, GroundBurst=3 }`,
+  `TowerAttackAnchor { Source=0, Impact=1, Muzzle=2 }`, struct `TowerAttackProfile { race, kind, anchor, launchPreset,
+  tracerPreset, impactPreset }`; `IsEmpty` = all three presets null. `BuildingEffectConfig._towerAttackProfiles`
+  (first row per race wins) with `TryGetTowerProfile(race, out profile)` (false when empty) and `GetTowerAttackKind(race)`.
+  The old public lookups `GetAttack(BuildingType, RaceId)` · `GetTowerTracer` · `GetTowerImpact` kept their signatures
+  (the editor validation and the server-projectile presenter call them) — only their bodies read the profile.
+- **Asset:** two rows — race 0 Human = Projectile / Muzzle / launch+tracer+impact (Pistoleer attack, Cannon tracer, Cannon
+  impact); race 1 Spirit = Beam / Source / launch only. **No Transcendence row** — VineTower is filled later by the
+  VineTower task (GroundBurst / Impact / `launchPreset`); putting its preset in another slot makes the row non-empty
+  without a launch preset → `MissingConfiguredPreset` (counted as failure).
+- **Snapshot path (`EffectManager.PlayAttackEffect`):** no profile → `TowerProfileEmpty` (not a failure —
+  `HitPresentationQueue` excludes it; old token `UnspecifiedTranscendence`, so old and new logs differ); presets but
+  `kind == Unset` → `UnsetAttackKind` (failure, programmer's own call); config asset null → `MissingConfiguredPreset`.
+  Play position = `ResolveSnapshotAnchor` (Source → tower, Impact → snapshot Impact once, never re-read, Muzzle → tower
+  because the snapshot has no muzzle). Rotation = tower→target horizontal for every kind. Only `Beam` calls
+  `BeginTowerBolt`. GroundBurst has no data yet — covered by the editor fixture V-5 (temporary config instance).
+- **Keep the two Beam checks on one predicate.** The queue decides whether to resolve the original target and the
+  manager decides whether to start the bolt; both call `TowerAttackNeedsTargetTracking` (risk K-1 in the Plan).
+- **Server-projectile path:** `BeginServerTowerProjectile` · `PlayServerTowerLaunchCue` · `PlayServerTowerProjectileImpact`
+  names/arguments are pinned by the C-6 source-string gate (`RunUnitActionSelfValidation.ServerProjectiles.cs`) — the
+  presenter only got **added** lines.
+- **Tower attack sound:** `SoundConfig.TowerAttackSoundEntry { buildingType, race, attackClip, attackVolume }`,
+  `_towerAttackSoundEntries` (empty; the asset has no key line yet), `GetTowerAttackClip/Volume` (missing → null / 1.0).
+  `AudioManager.PlayTowerAttackSfx(BuildingType, RaceId)` → `PlaySfxClip(..., SfxPriority.High)` always. Call sites
+  (Sound rule 1: `EffectManager` has no audio, so the caller pairs it): `ProjectilePresentationPresenter` right under the
+  tower launch cue (`!launch.AttackerIsUnit && !midFlight`) and `HitPresentationQueue.EmitAttackEffects` right under
+  `PlayAttackEffect` (Tower snapshots); both regardless of VFX success, like unit launch SFX. No double play: the Human
+  tower does not publish a snapshot when the projectile launcher is wired. No impact SFX (comment, Sound rule 15).
+  When adding rows, enter clip **and** volume — a new row's volume is 0 → silent.
+- **One-time migration menu:** `TowerAttackProfileOneTimeSetup.cs` moved the asset values and was deleted after the user
+  test **without ever being committed** — `git log --all` has no trace of it. The old fields (`_autoTowerAttacks`,
+  `_autoTowerProjectiles`, `RaceAttack`, `RaceProjectile`), their asset YAML, `attackPreset`, `PlayBuildingAttack` and
+  `PlayTowerAttackVfx` are gone; old asset values remain in commit `7368d7f1`.
+

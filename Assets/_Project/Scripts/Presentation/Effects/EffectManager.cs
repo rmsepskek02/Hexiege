@@ -515,37 +515,28 @@ namespace Hexiege.Presentation
             Play(_buildingConfig?.GetUpgrade(type), pos, Quaternion.identity);
         }
 
-        /// <summary>
-        /// 건물 공격(발사) 이펙트 재생. 방어 타워(AutoTower)가 적을 공격하는 순간 재생한다.
-        /// HitPresentationQueue의 "타워 즉시 방출 경로"에서 각 클라이언트 로컬로 호출된다.
-        /// 총구 화염처럼 방향성이 있는 VFX를 위해 회전(rot)을 함께 받는다(PlayUnitAttack과 동일 패턴).
-        /// 프리셋이 미설정(GetAttack == null)이면 Play(null)이 조용히 스킵한다.
-        /// </summary>
-        /// <param name="type">공격한 건물(타워)의 타입.</param>
-        /// <param name="pos">재생할 월드 좌표 (보통 타워 위치).</param>
-        /// <param name="rot">재생할 월드 회전 (타워 → 타겟 발사 방향). 방향성이 없는 VFX는 영향 없음.</param>
-        public void PlayBuildingAttack(BuildingType type, Vector3 pos, Quaternion rot)
-        {
-            Play(_buildingConfig?.GetAttack(type), pos, rot);
-
-            // 타워 발사 SFX 없음 — SoundConfig/AudioManager에 타워 발사 효과음 엔트리가 아직 없어
-            //   이번 작업에서 추가하지 않는다. 추후 발사 효과음 에셋 확보 시, 이 줄 바로 아래에
-            //   AudioManager.Instance?.PlayBuildingAttackSfx(type) 짝을 추가한다
-            //   (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
-        }
+        // (옛 PlayBuildingAttack은 호출처가 없어 2026-11-03 타워 공격 표현 개편에서 삭제 — 타워 발사 이펙트는
+        //  PlayAttackEffect(즉발 타워 스냅샷)와 PlayServerTowerLaunchCue(투사체 타워 발사 기록) 두 경로만 낸다.)
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.
         /// 피해·HP와 무관한 화면 표현 전용이다.
         /// MushroomBomber 착탄은 이 스냅샷이 아니라 서버 투사체 기록(PlayServerProjectileImpact)이 재생한다.
+        ///
+        /// [2026-11-03 타워 공격 표현 개편] 재생 방법은 종족이 아니라 그 종족 타워의 「공격 프로필」(BuildingEffectConfig)의
+        /// 공격 방식으로 고른다(Plan 3-3 (가)):
+        ///   - 프로필 비어 있음 → 재생하지 않음. outcome = "TowerProfileEmpty"(실패로 세지 않는다 — 덩굴 타워의 현재 상태)
+        ///   - 번개(Beam)       → 기준점에서 발사 프리셋 재생 + 번개 길이 맞춤 · 원래 맞은 유닛 추적(정령 룬 첨탑)
+        ///   - 지면 분출(GroundBurst) → 기준점(보통 공격 순간 대상 발밑)에 한 번 재생. 추적하지 않는다
+        ///   - 투사체(Projectile) → 타워 위치에서 발사 프리셋 재생(서버 투사체 발사기가 연결되지 않은 경우에만 이 경로로 온다)
         /// </summary>
         /// <param name="s">서버 확정 스냅샷.</param>
         /// <param name="source">시작점(화면 좌표).</param>
         /// <param name="impact">공격 순간 대상 위치(화면 좌표).</param>
         /// <param name="outcome">진단 기록용 결과 문자열.</param>
         /// <param name="boltTarget">
-        /// [2026-10-13 B] 정령(Spirit) 타워 번개가 따라갈 "원래 맞은 유닛". Spirit 타워일 때만 쓰인다.
-        /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. Human 타워는 무시한다.
+        /// [2026-10-13 B] 번개 타워가 따라갈 "원래 맞은 유닛". 공격 방식이 번개(Beam)일 때만 쓰인다.
+        /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. 다른 공격 방식은 무시한다.
         /// </param>
         /// <param name="boltUntrackedReason">boltTarget이 default인 이유(진단용). null 허용.</param>
         public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome,
@@ -555,31 +546,74 @@ namespace Hexiege.Presentation
             // 화면으로 발행되는 스냅샷은 Tower(타워 발사)뿐이다. MushroomImpact 값은 지속 피해 출처 기록 전용이라 여기 오지 않는다
             //   (UnitCombatUseCase.ExecuteAttack — 발행하지 않음). 혹시 오더라도 재생하지 않고 false로 돌려준다.
             if (!s.IsValid || s.Visual != Hexiege.Application.AttackEffectVisual.Tower) return false;
-            if (s.Race == RaceId.Transcendence) { outcome = "UnspecifiedTranscendence"; return false; }
-            EffectPreset preset = _buildingConfig?.GetAttack(BuildingType.AutoTower, s.Race);
+            // 설정 에셋 자체가 없으면 옛 코드와 같이 「설정된 프리셋 없음」 실패로 센다(빈 프로필과 구분).
+            if (_buildingConfig == null) { outcome = "MissingConfiguredPreset"; return false; }
+            // 이 종족 타워의 프로필이 비어 있으면(줄 없음 · 세 프리셋 모두 비어 있음) 공격 표현을 재생하지 않는다.
+            //   다른 종족 프로필로 대체(fallback)하지 않는다. 진단 토큰은 TowerProfileEmpty(Plan 13절 A-12) —
+            //   HitPresentationQueue는 이 토큰을 실패로 세지 않는다(옛 UnspecifiedTranscendence와 같은 취급).
+            if (!_buildingConfig.TryGetTowerProfile(s.Race, out TowerAttackProfile profile)) { outcome = "TowerProfileEmpty"; return false; }
+            // 프리셋은 있는데 공격 방식이 비어 있는(Unset) 줄은 「어떻게 재생할지 모르는」 설정 오류다 → 실패로 센다.
+            if (profile.kind == TowerAttackKind.Unset) { outcome = "UnsetAttackKind"; return false; }
+            EffectPreset preset = profile.launchPreset;
             if (preset?.VfxPrefab == null) { outcome = "MissingConfiguredPreset"; return false; }
+            // 회전은 공격 방식과 무관하게 「타워 → 대상」 수평 방향이다(옛 코드와 같은 계산).
             Vector3 direction = impact - source; direction.y = 0f;
             var rotation = direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
             var item = GetOrCreateVfx(preset.VfxPrefab);
             var systems = item.GetComponentsInChildren<ParticleSystem>(true);
             if (systems.Length == 0) { outcome = "ParticleSystemUnavailable"; item.RejectTimedDamageAcquire(); return false; }
             foreach (var ps in systems) { var main = ps.main; main.stopAction = ParticleSystemStopAction.None; }
-            // 타워 발사 이펙트는 타워 위치(source)에서 낸다.
-            item.Play(source, rotation,
+            // 재생 위치는 프로필의 기준점(anchor)으로 정한다: 타워 위치(번개 · 투사체) 또는 공격 순간 대상 발밑(지면 분출).
+            //   지면 분출은 스냅샷 Impact에 한 번 놓고 끝이다 — 이후 대상의 화면 위치를 다시 읽지 않는다.
+            Vector3 playAt = ResolveSnapshotAnchor(profile.anchor, source, impact);
+            item.Play(playAt, rotation,
                 preset.LocalPositionOffset, preset.EulerRotationOffset, preset.ScaleMultiplier, preset.ForwardTravelDistance, preset.ForwardTravelDuration);
             bool started = false; foreach (var ps in systems) started |= ps.isPlaying;
             outcome = started ? "AuthoritySnapshotStarted" : "PlaybackInactive";
-            // [2026-10-13 B] 정령 타워만: 번개 길이를 실제 거리에 맞추고 원래 맞은 유닛을 끝점으로 추적한다.
-            //   Human 타워(현행 유지)는 이 분기를 타지 않아 동작이 이전과 같다.
-            //   Type+Race 선택(위 preset 조회)과 Transcendence 미지정 no-fallback은 그대로다.
+            // [2026-10-13 B] 번개 타워만: 번개 길이를 실제 거리에 맞추고 원래 맞은 유닛을 끝점으로 추적한다.
+            //   다른 공격 방식(투사체 · 지면 분출)은 이 분기를 타지 않는다.
             // [R2-2] 끝점 높이 = 맞은 유닛의 가슴 높이(UnitEffectConfig 크기 표의 키 × 비율, 표에 없으면 0.6m).
             //   대상 데이터를 모르면(해석 실패) 같은 대체값 0.6m를 쓴다. 화면 표현 전용 값이다.
-            if (s.Race == RaceId.Spirit)
+            // 공격 방식이 번개면 번개. HitPresentationQueue가 「대상을 해석할지」 정할 때도 같은 판단
+            //   (TowerAttackNeedsTargetTracking = 프로필 공격 방식 Beam)을 쓰므로 두 곳이 어긋나지 않는다(Plan 10절 K-1).
+            //   번개 시작점 인자(source)는 옛 호출 그대로다.
+            if (profile.kind == TowerAttackKind.Beam)
                 outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
                     preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
-            // Sound15: impact and tower SFX are unspecified, no additional sound fallback.
+            // [2026-11-03 정리] 옛 주석 「Sound15: impact and tower SFX are unspecified, no additional sound fallback.」
+            //   EffectManager는 오디오를 모른다(사운드 규칙 1). 타워 공격음은 이 메서드를 부르는 쪽
+            //   (HitPresentationQueue.EmitAttackEffects)이 바로 아래 줄에서 짝으로 호출한다(사운드 규칙 15).
+            //   착탄음은 지정되지 않았다.
             return started;
         }
+
+        /// <summary>
+        /// [2026-11-03 타워 공격 표현 개편] 스냅샷 경로에서 프로필 기준점(anchor)을 실제 재생 위치로 바꾼다.
+        /// 타워 위치 → source, 대상 발밑 → impact, 서버 포구 → source(스냅샷에는 포구 값이 없어 타워 위치로 대신한다).
+        /// </summary>
+        /// <param name="anchor">프로필의 재생 기준점.</param>
+        /// <param name="source">스냅샷 Source(타워 위치, 화면 좌표).</param>
+        /// <param name="impact">스냅샷 Impact(공격 순간 대상 발밑, 화면 좌표).</param>
+        /// <returns>재생 위치(화면 좌표).</returns>
+        private static Vector3 ResolveSnapshotAnchor(TowerAttackAnchor anchor, Vector3 source, Vector3 impact)
+        {
+            switch (anchor)
+            {
+                case TowerAttackAnchor.Impact: return impact;
+                case TowerAttackAnchor.Muzzle: return source;
+                default: return source;
+            }
+        }
+
+        /// <summary>
+        /// [2026-11-03 타워 공격 표현 개편] 이 종족 타워의 공격 표현이 「원래 맞은 유닛을 따라가야 하는가」.
+        /// 공격 방식이 번개(Beam)일 때만 true. HitPresentationQueue가 재생 전에 대상 유닛을 해석할지 정할 때 쓴다.
+        /// PlayAttackEffect의 번개 분기와 같은 판단이라 두 곳이 어긋나지 않는다.
+        /// </summary>
+        /// <param name="race">타워 종족.</param>
+        /// <returns>번개 타워면 true. 설정이 없거나 다른 공격 방식이면 false.</returns>
+        public bool TowerAttackNeedsTargetTracking(RaceId race)
+            => _buildingConfig != null && _buildingConfig.GetTowerAttackKind(race) == TowerAttackKind.Beam;
 
         /// <summary>
         /// [2026-10-13 R2-2] 타워 번개가 맞을 가슴 높이(발밑 기준 월드 미터)를 정한다.
@@ -704,8 +738,10 @@ namespace Hexiege.Presentation
         // ====================================================================
         // [2026-10-21 서버 권위 투사체 단계 C] 투사체 타워(인간 CannonTower) 화면 표현
         //   ProjectilePresentationPresenter가 서버 발사 기록(건물 공격자)을 꺼낼 때·착탄할 때 부른다.
-        //   프리셋은 BuildingEffectConfig에서 고른다: 발사(총구) = _autoTowerAttacks(EffectPreset_HumanAutoTower_Attack),
-        //   투사체·착탄 = _autoTowerProjectiles(CannonCart의 EffectPreset_Cannon_Tracer / _Impact 재사용 — Q10 ①).
+        //   프리셋은 BuildingEffectConfig의 그 종족 「타워 공격 프로필」에서 고른다(2026-11-03 개편 — 옛 종족별 목록 2개에서 옮김):
+        //   발사(총구) = launchPreset(EffectPreset_HumanAutoTower_Attack),
+        //   투사체·착탄 = tracerPreset · impactPreset(CannonCart의 EffectPreset_Cannon_Tracer / _Impact 재사용 — Q10 ①).
+        //   아래 세 메서드의 이름·인자는 서버 투사체 검증(C-6 소스 게이트)이 문자열로 확인하므로 바꾸지 않는다.
         //   피해·HP와 무관한 표현 전용이다.
         // ====================================================================
 
@@ -730,9 +766,10 @@ namespace Hexiege.Presentation
         /// <summary>
         /// [단계 C] 투사체 타워의 "발사 신호"(포구 발사 이펙트)를 포구 위치에서 1회 재생한다.
         /// 사용자 결정 「발사 이펙트도 대포 입구 위치로」 — 위치는 서버가 보낸 포구(발사 기록 Source)를 그대로 쓴다.
-        /// 회전은 기존 타워 발사 이펙트(PlayAttackEffect · PlayBuildingAttack)와 같이 "타워 → 대상" 수평 방향이다.
+        /// 회전은 기존 타워 발사 이펙트(PlayAttackEffect)와 같이 "타워 → 대상" 수평 방향이다.
         /// 프리셋의 Local Position Offset은 회전된 정면 기준으로 더해진다(지금 값 0,0,0 — 포구 그 자리).
-        /// 타워 발사 SFX는 아직 지정되지 않았다(사운드 규칙 15 — 추가하지 않는다).
+        /// 공격음은 이 메서드를 부르는 쪽(ProjectilePresentationPresenter의 발사 신호 자리)에서 짝으로 호출한다
+        /// (사운드 규칙 1 · 15 — EffectManager는 오디오를 모른다). 2026-11-03 갱신, 옛 문장: 「타워 발사 SFX는 아직 지정되지 않았다」.
         /// </summary>
         /// <param name="towerType">타워 건물 종류.</param>
         /// <param name="race">타워 종족.</param>

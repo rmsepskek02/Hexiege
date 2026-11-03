@@ -315,6 +315,14 @@ namespace Hexiege.Presentation
                 if (!launch.AttackerIsUnit && !midFlight && effects != null)
                     towerCue = effects.PlayServerTowerLaunchCue(visual.TowerType, visual.TowerRace, visual.Start,
                         visual.LastCenter - visual.Start);
+                // [2026-11-03 타워 공격 표현·소리 개편 — Plan 6-3 P-1] 타워 공격음: 발사 신호 VFX 바로 아래에서 짝으로 호출한다(사운드 규칙 15).
+                //   클립은 SoundConfig 「타워 공격 SFX」 칸(건물 종류 + 종족)에서 고른다 — 비어 있으면 무음.
+                //   Human · RuneSpire 클립은 효과음 2단계에서, VineTower 클립은 덩굴 VFX 확정 뒤에 넣는다(2026-11-03 현재 칸 비어 있음).
+                //   비행 중간부터 복원한 투사체는 이미 쏜 뒤라 발사 VFX처럼 소리도 생략한다(!midFlight).
+                //   VFX 재생 성공 여부(towerCue)와 무관하게 부른다 — 유닛 발사음과 같은 방식(Plan 13절 A-5).
+                //   위 게이트 줄들(C-6 소스 검증이 문자열로 확인)은 한 글자도 바꾸지 않고 이 두 줄만 덧붙였다.
+                if (!launch.AttackerIsUnit && !midFlight)
+                    AudioManager.Instance?.PlayTowerAttackSfx(visual.TowerType, visual.TowerRace);
                 DiagBegin(slot, beginLag, midFlight, visual.Tracer != null, cueResult.Status,
                     attackerView != null, attackerView != null && attackerView.HasAttackChargeMarker, towerCue);
             }
@@ -361,6 +369,8 @@ namespace Hexiege.Presentation
                     // [단계 C] 타워 투사체 착탄 — CannonCart 착탄 프리셋(BuildingEffectConfig 종족별 줄), 같은 표면 지점.
                     if (!visual.AttackerIsUnit && effects != null)
                         impactVfx = effects.PlayServerTowerProjectileImpact(visual.TowerType, visual.TowerRace, point, point - visual.Start);
+                // [2026-11-03 — Plan 6-3 P-3] 타워 착탄 SFX 없음 — 미지정(사운드 규칙 15: VFX와 SFX 중 하나만 재생하면 나머지를 주석으로 명시).
+                //   타워 소리는 발사 순간의 공격음 하나뿐이다(위 Begin의 PlayTowerAttackSfx).
                 }
                 DiagFinish(slot, withResult, impactVfx);
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).

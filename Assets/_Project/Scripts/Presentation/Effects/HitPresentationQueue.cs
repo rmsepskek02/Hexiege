@@ -404,16 +404,31 @@ namespace Hexiege.Presentation
                 string outcome = "ManagerUnavailable";
                 try
                 {
-                    // [2026-10-13 B] 정령 타워만 "원래 맞은 유닛"의 화면 오브젝트를 재생 1회 시점에 해석해 넘긴다.
+                    // [2026-10-13 B] 번개 타워만 "원래 맞은 유닛"의 화면 오브젝트를 재생 1회 시점에 해석해 넘긴다.
                     //   해석 실패면 default → 추적 없이 스냅샷 Impact까지 길이만 맞춘다(NET-PRESENT-003).
-                    //   Human 타워는 해석하지 않으며 PlayAttackEffect도 이 인자를 무시한다.
+                    //   다른 공격 방식(투사체 · 지면 분출)은 해석하지 않으며 PlayAttackEffect도 이 인자를 무시한다.
+                    //   지면 분출은 공격 순간 대상 발밑(스냅샷 Impact)에 한 번 놓고 끝이라 대상을 찾을 필요가 없다.
                     TowerBoltTarget boltTarget = default;
                     string boltUntracked = null;
-                    if (s.Visual == AttackEffectVisual.Tower && s.Race == RaceId.Spirit)
+                    // 그 종족 타워의 공격 프로필이 「번개(Beam)」면 해석한다. EffectManager의 번개 분기와
+                    //   같은 판단(TowerAttackNeedsTargetTracking)을 써서 두 곳이 어긋나지 않게 한다(Plan 10절 K-1).
+                    if (s.Visual == AttackEffectVisual.Tower && EffectManager.Instance != null
+                        && EffectManager.Instance.TowerAttackNeedsTargetTracking(s.Race))
                         boltTarget = ResolveTowerBoltTarget(s.TargetId, out boltUntracked);
                     bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
                         boltTarget, boltUntracked);
-                    if (!played && outcome != "UnspecifiedTranscendence") _attackEffectFailures++;
+                    // [2026-11-03 — Plan 6-3 P-2] 타워 공격음: 발사 VFX를 부른 바로 이 자리에서 짝으로 호출한다(사운드 규칙 15).
+                    //   클립은 SoundConfig 「타워 공격 SFX」 칸(건물 종류 + 종족)에서 고른다 — 비어 있으면 무음.
+                    //   Human · RuneSpire 클립은 효과음 2단계에서, VineTower 클립은 덩굴 VFX 확정 뒤에 넣는다(2026-11-03 현재 칸 비어 있음).
+                    //   VFX 재생 성공 여부와 무관하게 부른다(유닛 발사음과 같은 방식 — Plan 13절 A-5).
+                    //   각 화면이 자기 표현 시점에 로컬로 낸다 — 네트워크로 소리를 보내지 않는다(사운드 규칙 14).
+                    //   이중 재생 없음: 인간 대포 타워는 서버 투사체 발사기가 연결돼 있으면 이 스냅샷을 내지 않으므로
+                    //   (TowerCombatUseCase) 공격음은 ProjectilePresentationPresenter의 발사 신호 자리에서만 난다.
+                    if (s.Visual == AttackEffectVisual.Tower)
+                        AudioManager.Instance?.PlayTowerAttackSfx(BuildingType.AutoTower, s.Race);
+                    // 프로필이 비어 있는 타워(지금은 덩굴 타워)는 「재생할 것이 없음」이라 실패로 세지 않는다.
+                    //   이 토큰을 빼지 않으면 덩굴 타워가 공격할 때마다 진단 END 줄의 실패 수가 늘어난다(Plan 10절 K-5).
+                    if (!played && outcome != "TowerProfileEmpty") _attackEffectFailures++;
                     AttackEffectIdentity.Record(played ? "Play" : "Skip", s, outcome, now);
                 }
                 catch (Exception ex) { _attackEffectFailures++; AttackEffectIdentity.Record("Fault", s, "Impact:" + ex.Message, now); }
@@ -646,11 +661,11 @@ namespace Hexiege.Presentation
             // ⓒ 공격자가 유닛이 아니면(타워) 타격 애니메이션 프레임이 없다 → 보류 없이 즉시 방출.
             if (!evt.AttackerIsUnit)
             {
-                // 타워 발사 연출(3-1): 타워가 즉발로 데미지를 주는 순간, 각 클라이언트 로컬에서
-                //   발사 VFX(총구 화염 등)를 재생한다. 데미지 흐름은 그대로 두고 연출만 얹는다.
-                //   (이 OnEntityDamaged는 호스트=UseCase 발행 1회, 클라=NetworkHealthSync 재발행 1회로
-                //    각 머신에서 정확히 1번씩만 도달하므로 이중 재생이 없다.)
-                // Tower VFX has a sole emitter from the confirmed authority snapshot, not this HP event.
+                // 타워 발사 이펙트는 이 HP 이벤트에서 내지 않는다. 발사 이펙트를 내는 곳은 두 곳뿐이다:
+                //   ① 즉발 타워(번개 등) = 서버가 확정한 공격 스냅샷(아래 EmitAttackEffects → EffectManager.PlayAttackEffect)
+                //   ② 투사체 타워(인간 대포) = 서버 투사체 발사 기록(ProjectilePresentationPresenter → PlayServerTowerLaunchCue)
+                //   여기서는 HP 텍스트 · 피격 VFX 같은 피격 표현만 보류 없이 즉시 방출한다.
+                //   (2026-11-03 정리 — 이 자리의 옛 「타워 발사 연출(3-1)」 설명은 꺼진 옛 설계라 지웠다. Plan RM-5.)
 
                 ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
                 Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
@@ -1481,52 +1496,6 @@ namespace Hexiege.Presentation
                     default,
                     hit.PresentationScope,
                     hit.ReplicatedSnapshot));
-        }
-
-        /// <summary>
-        /// 타워(건물) 공격 시 발사 VFX를 재생한다(3-1). 타워 위치에서, 타겟 방향을 바라보게 재생한다.
-        ///
-        /// 재생 위치: 타워 GameObject 위치(BuildingFactory 조회). 없으면 재생을 스킵한다.
-        /// 재생 회전: 타워 → 타겟 방향(XZ 평면 기준 LookRotation). 타겟 GameObject가 없으면 회전 없음(identity).
-        /// BuildingType: BuildingPlacementUseCase에서 해석. 해석 실패 시 스킵(어떤 발사 프리셋을 쓸지 알 수 없음).
-        /// </summary>
-        /// <param name="evt">피격 이벤트(AttackerId=타워 Id, Entity=피격 유닛).</param>
-        private void PlayTowerAttackVfx(EntityDamagedEvent evt)
-        {
-            // 타워 GameObject 조회 — 없으면(스폰 전/파괴 등) 발사 VFX를 스킵한다.
-            GameObject towerGo = _buildingFactory != null ? _buildingFactory.GetBuildingObject(evt.AttackerId) : null;
-            if (towerGo == null) return;
-
-            // 타워 타입 해석 — 어떤 발사 프리셋을 쓸지 결정하는 데 필요. 해석 실패 시 스킵.
-            BuildingData tower = _buildingPlacement != null ? _buildingPlacement.GetBuilding(evt.AttackerId) : null;
-            if (tower == null) return;
-
-            Transform towerPresentation =
-                _presentationPoseProvider?.GetBuildingTransform(evt.AttackerId);
-            Vector3 towerPos = towerPresentation != null
-                ? towerPresentation.position
-                : towerGo.transform.position;
-
-            // 회전 = 타워 → 타겟 방향(XZ 평면). 타겟 GameObject가 있으면 그 방향을 바라보게,
-            //   없으면 회전 없이(identity) 재생한다.
-            Quaternion rot = Quaternion.identity;
-            Transform targetPresentation = evt.Entity != null && evt.IsUnit
-                ? _presentationPoseProvider?.GetUnitTransform(evt.Entity.Id)
-                : null;
-            if (targetPresentation == null && evt.Entity != null && evt.IsUnit && _unitFactory != null)
-            {
-                GameObject targetGo = _unitFactory.GetUnitObject(evt.Entity.Id);
-                targetPresentation = targetGo != null ? targetGo.transform : null;
-            }
-            if (targetPresentation != null)
-            {
-                Vector3 dir = targetPresentation.position - towerPos;
-                dir.y = 0f; // XZ 평면 기준 — 높이 차이는 발사 방향에서 제외(수평 조준).
-                if (dir.sqrMagnitude > 0.0001f)
-                    rot = Quaternion.LookRotation(dir);
-            }
-
-            EffectManager.Instance?.PlayBuildingAttack(tower.Type, towerPos, rot);
         }
 
         /// <summary>

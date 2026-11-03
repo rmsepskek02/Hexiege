@@ -1,7 +1,7 @@
 # Plan — 방어 타워 공격 표현·소리 개편 (C 작업)
 
 > **작성일:** 2026-11-02 · **작성:** document-manager · **기준 커밋:** `7368d7f1` (브랜치 `claude/vfx-code-followups`)
-> **상태:** **승인됨(사용자 2026-11-02, 추천안)** — 13절 「결정」 열. 이 기록 시점 구현 착수 기록 없음 — 순서상 ① 효과음 1단계 뒤에 착수한다(12절 · K-7). *(2026-11-02 갱신 — 종전 「🔴 사용자 승인 대기. 구현하지 않았다. 승인 전에는 game-programmer에게 코드·에셋 작업을 맡기지 않는다(WORKFLOW [4]).」)*
+> **상태:** **완료 — 구현 · 사용자 테스트 PASS(2026-11-03) · 옛 코드 최종 삭제 완료 · 규칙 B-1~B-4 · S-1~S-3 반영** — [15절](#15-implementation-and-user-test). 최종 삭제 뒤 회귀 스위트 재실행도 **PASS**(사용자 「회귀 테스트는 정상이야」 2026-11-03 — 결과 파일 없음(Console만) · 에이전트 미관측). *(2026-11-03 2차 갱신 — 직전 「최종 삭제 뒤 회귀 스위트 재실행 결과는 **미확인**(사용자 실행 예정).」)* 승인: 사용자 2026-11-02 추천안(13절 「결정」 열). *(2026-11-03 갱신 — 직전 「**승인됨(사용자 2026-11-02, 추천안)** — 13절 「결정」 열. 이 기록 시점 구현 착수 기록 없음 — 순서상 ① 효과음 1단계 뒤에 착수한다(12절 · K-7).」)* *(2026-11-02 갱신 — 종전 「🔴 사용자 승인 대기. 구현하지 않았다. 승인 전에는 game-programmer에게 코드·에셋 작업을 맡기지 않는다(WORKFLOW [4]).」)*
 > **근거 문서:** 같은 폴더 [Research.md](Research.md). 사용자 결정(2026-11-02 「추천대로」)은 Research 1절이 원본이며 이 Plan은 그 결정을 바꾸지 않는다. 결정이 정하지 않은 세부는 **[제안]** 으로 표시했고 13절에서 승인을 받는다.
 > **표기:** [확인] = 이 Plan 작성 중 파일을 직접 열어 확인 · [전달] = 메인 세션 전달 · [제안] = 이 Plan의 제안(사용자 확인 전) · [미확인] = 확인하지 못함.
 > **최상단 기재 규칙:** WORKFLOW [4] 「기존 로직 제거 규칙」에 따라 제거·비활성화 목록을 1절(자연어 설명 바로 다음, 본문 맨 앞)에 둔다.
@@ -373,3 +373,67 @@
 | 2026-11-02 | 최초 작성(사용자 결정 「추천대로」 반영, VineTower Plan 0·4·5-6절 경계 대조). 승인 대기 |
 | 2026-11-02 | 효과음 Plan(`13_39` Plan 6·8·10·12절) 대조 반영: 6-3 `PlayTowerAttackSfx`가 ①의 `PlaySfxClip`(우선 인자 추가형)을 「항상 우선」으로 부른다고 확정(인자 이름·타입은 ① 구현 서명을 따름) · 12-1 표의 `SoundConfig.cs`·`ProjectilePresentationPresenter.cs` ① 칸 확정, `SoundConfig.asset`·`AudioManager.cs` ① · ④ 칸 구체화, `vfx_pistoleer_attack.prefab` 행 추가 · 12-1-1 역할 분담과 보고 3건(④ 볼륨 칸, 효과음 Plan 10절의 옛 자리 서술, 12절 폴더 표기) 추가 · K-7 보강 · 승인 목록과 11절에서 A-11(Testcase.md 작성 여부)을 삭제 — WORKFLOW [5-1]·[5]의 「TC 작성은 사용자 명시 지시가 있을 때만, 먼저 제안·질문도 금지」에 어긋남(번호는 비워 둠). 같은 이유로 12절 담당 표의 「QA(필요 시)」를 「사용자 명시 지시 때만」으로 고침 |
 | 2026-11-02 | **사용자 승인 「추천대로 승인」**(메인 세션 전달) — 13절에 「결정」 열 추가(종전 칸 그대로): A-1~A-10 · A-12 · A-13 모두 Plan 제안대로, A-7(제안 「사용자 선택」)은 1회성 에디터 메뉴. 9절 B-1~B-4 · S-1~S-3 문구도 승인 — 반영은 구현 · 테스트 뒤 [11]. 상단 상태 줄 갱신 |
+| 2026-11-03 | **구현 · 사용자 테스트 · 최종 삭제 · [11] 문서 반영**(document-manager, 메인 세션 전달) — 15절 신설. 9절 B-1~B-4 · S-1~S-3을 `GameSystemRules_Buildings.md` 규칙 12 · `GameSystemRules_Sound.md` 규칙 3 · 15 · 16에 반영(종전 문장은 날짜 조각으로 보존). 상단 상태 줄 갱신 |
+
+---
+
+<a id="15-implementation-and-user-test"></a>
+## 15. 구현 결과 · 사용자 테스트 · 최종 삭제 (2026-11-03)
+
+> **출처:** 구현 사실은 game-programmer 보고(2026-11-03, 메인 세션 전달) **[전달]**이며, 아래 [확인] 표시 줄은 이 기록 중 document-manager가 작업 트리 파일을 직접 읽어 대조했다. 사용자 테스트 결과는 메인 세션 전달 **[전달]**. 이 시점 이 작업의 코드 · 에셋 변경은 **미커밋**이다(`git status` — 새 파일 `TowerAttackProfile.cs` 미추적, 나머지 수정).
+
+### 15-1. 들어간 것 — 어디에
+
+| 계획 | 실제 | 확인 |
+|---|---|---|
+| 4-1 프로필 데이터 | `Assets/_Project/Scripts/Presentation/Effects/TowerAttackProfile.cs` — `TowerAttackKind { Unset, Projectile, Beam, GroundBurst }` · `TowerAttackAnchor { Source, Impact, Muzzle }` · 구조체 `TowerAttackProfile`(`race` · `kind` · `anchor` · `launchPreset` · `tracerPreset` · `impactPreset`, 비어 있음 = 세 프리셋이 모두 없음) | [확인] |
+| 4-2 설정 · 조회 | `BuildingEffectConfig` `_towerAttackProfiles` · `TryGetTowerProfile` · `GetTowerAttackKind`. 기존 공개 조회 `GetAttack(BuildingType, RaceId)` · `GetTowerTracer` · `GetTowerImpact` 서명 유지(속만 프로필) | [확인] |
+| 4-3 재생 분기 | `EffectManager.PlayAttackEffect` — 프로필 없음 → `TowerProfileEmpty`, 공격 방식에 따라 기준점 재생, 번개만 `BeginTowerBolt`. 새 조회 `TowerAttackNeedsTargetTracking`(Beam). 서버 투사체 세 메서드는 이름 · 인자 그대로 | [확인] |
+| 4-4 큐 | `HitPresentationQueue` — 대상 해석 조건 = `TowerAttackNeedsTargetTracking`, 실패 제외 토큰 = `TowerProfileEmpty`, P-2 공격음 호출 | [확인] |
+| 4-5 Presenter | P-1 공격음 호출 · P-3 「착탄 SFX 없음」 주석 — 줄 추가만(삭제 줄 0, 전달) | [확인 — 호출 · 주석 존재] / 삭제 줄 0은 [전달] |
+| 6 공격음 | `SoundConfig` `TowerAttackSoundEntry { buildingType, race, attackClip, attackVolume }` · `_towerAttackSoundEntries`(비어 있음) · `GetTowerAttackClip/Volume`. `AudioManager.PlayTowerAttackSfx(BuildingType, RaceId)` → `PlaySfxClip(..., SfxPriority.High)` | [확인]. `SoundConfig.asset`에는 아직 `_towerAttackSoundEntries` 키 줄이 없다(에셋이 새 필드로 다시 저장되지 않음 — 코드 기본값 빈 목록) |
+| 5 에셋 이전 | `BuildingEffectConfig.asset` `_towerAttackProfiles` 2행 — race 0: kind 1(Projectile) · anchor 2(Muzzle) · 프리셋 GUID 3개(`1ddf58ca…` · `d6770727…` · `f1b34352…`), race 1: kind 2(Beam) · anchor 0(Source) · `a01e8a0e…` 1개. 3-2 표와 같다 | [확인 — 에셋 15~27행] |
+| 7 검증 | `RunUnitActionSelfValidation.VfxConnections.cs` V-2 · V-3(데이터 기준) · K-1 · (g) · V-5 GroundBurst 임시 fixture · V-6 | [확인 — 표시 문자열 존재] |
+| 8 바꾸지 않는 것 | 서버 파일 · C-6 게이트 문자열 무변경 | [전달] |
+
+**계획 밖 판단(game-programmer, 2026-11-03):**
+- 새 실패 토큰 `UnsetAttackKind` — 프리셋은 있는데 공격 방식이 `Unset`인 줄은 「어떻게 재생할지 모르는」 설정 오류로 보고 실패로 센다. 3-1의 「비어 있음」 정의(세 프리셋이 모두 없음)는 그대로이고, 그 정의에 들지 않는 `Unset` 줄을 위한 토큰이다 [확인 — `EffectManager.cs` `PlayAttackEffect`].
+- 설정 에셋 자체가 없으면(`_buildingConfig == null`) `MissingConfiguredPreset`(실패) — 빈 프로필과 구분 [확인].
+- 에셋 이전(E-1)은 13절 A-7 결정대로 **1회성 에디터 메뉴**로 했다. 그 메뉴 파일 `TowerAttackProfileOneTimeSetup.cs`는 사용자 테스트 뒤 퇴역(삭제)됐고 **한 번도 커밋되지 않았다** — `git log --all`에 그 이름의 기록이 없다 [확인]. 그래서 저장소에는 그 메뉴의 흔적이 남지 않는다.
+- 진단 토큰 변경: `UnspecifiedTranscendence` → `TowerProfileEmpty`(A-12 승인). 옛 로그와 새 로그의 표기가 다르다(K-6). `LogRules.md`에는 이 토큰 목록이 없다(Research 11절 4).
+
+### 15-2. 사용자 테스트 [6] (2026-11-03) [전달]
+
+| 축 | 결과 |
+|---|---|
+| 1회성 메뉴 실행 결과 | 모두 ✓ — 메인 세션이 에셋의 `_towerAttackProfiles` 2줄을 직접 확인(race 0 Projectile/Muzzle GUID 3개, race 1 Beam/Source GUID 1개) |
+| 회귀 스위트(`Hexiege/Combat/Run Full Regression Suite`) | **PASS — 최종 삭제 전 실행.** 결과 파일 없음(Console만), 에이전트 미관측(WORKFLOW [6]) |
+| 빌드 멀티 실기(S-4) | **PASS** — Human 대포 타워 · RuneSpire가 양쪽 화면에서 개편 전과 같음. VineTower는 연출 없이 피해만(S-3과 같은 기대) |
+| 싱글 S-1~S-3 | 따로 보고 없음 — 위 멀티 실기에서 같은 장면을 봤다 |
+| 타워 공격음 | 클립이 없어 무음 — 정상(A-10, 11절 5) |
+| **최종 삭제 뒤 회귀 스위트 재실행** | **PASS** — 사용자 「회귀 테스트는 정상이야」(2026-11-03, 명시 보고). 결과 파일 없음(Console만) · 에이전트 미관측 *(2026-11-03 갱신 — 직전 「**미확인** — 사용자가 진행 예정. 결과를 받으면 이 줄을 고친다」)* |
+
+### 15-3. 최종 삭제 (WORKFLOW [4] — 사용자 테스트 통과 뒤, [7] 전) [전달]
+
+1절 RM-1~RM-10의 옛 주석 블록 전부, RM-7의 `_autoTowerAttacks` · `_autoTowerProjectiles` 필드와 `RaceAttack` · `RaceProjectile` 구조체, `BuildingEffectConfig.asset`의 두 YAML 블록, 1회성 메뉴(15-1). 옛 값은 커밋 `7368d7f1`의 에셋에 남아 있다. 지금 코드에는 `BuildingEffectConfig.cs` 44 · 54~55행, `EffectManager.cs` 518행에 「삭제했다」는 안내 주석만 있다 [확인]. 컴파일은 Unity 밖 Roslyn으로 오류 0 [전달] — 삭제 뒤 회귀 스위트는 PASS(15-2), 그 실행이 Unity Editor 컴파일을 거쳤다. *(2026-11-03 갱신 — 직전 「Unity Editor 컴파일 · 삭제 뒤 회귀 스위트는 15-2의 미확인 줄.」)*
+
+### 15-4. [11] 문서 반영 (이 기록과 같은 회차)
+
+| 문서 | 반영 |
+|---|---|
+| `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 | B-1 · B-2(첫 문단) · B-3(2026-10-20 개정 문단 + 공격음 문장) · B-4(2026-10-13 블록 적용 범위). 2026-10-21 괄호의 `_autoTowerProjectiles` 언급 뒤에 이동 사실 조각 |
+| `GameSystemRules_Sound.md` | S-1(규칙 3 키에 `RaceId`) · S-2(규칙 15 끝) · S-3(규칙 16 엔트리 예시) |
+| `Assets/VFXSFXList.md` | 「건물 공격 이펙트」 Human · RuneSpire · VineTower 행, 「신규 프리팹 연결 실측」 RuneSpire 칸, VineTower 계획 블록의 옛 `EffectManager.cs` 529행 문장(VineTower Plan 9절 G-5 · G-7 중 이 시점 해당분 — 행 번호 정정 · 분기 소멸), 「유닛 공격 사운드」 끝 타워 공격음 줄 |
+| `Assets/UnitAttackProfile.md` | 3-2 타워 행의 「소리 나는 순간」, 머리 현재 상태 |
+| VineTower Plan · 효과음 Plan | 상태 줄 · 접점 서술 날짜 조각(그쪽 변경 이력) |
+| `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` | 현재 상태 행 · 남은 일 · 완료 행 |
+
+Research.md 본문의 행 번호는 기준 커밋 `7368d7f1` 기준이며 구현 뒤 옛 기준이다 — 고치지 않는다(이력).
+
+### 15-5. 남은 일 (이 task 범위 밖)
+
+- **③ VineTower 공격 VFX:** 지면 분출(GroundBurst) 재생 경로와 V-3 · V-5 검증은 있고 VineTower 프로필 행은 없다. 덩굴 모델 제작은 Unity AI 크레딧 소진으로 보류 — [VineTower Plan](../14_40_vinetower-attack-design/Plan.md). 행을 채우면 코드 변경 없이 재생된다(V-3이 데이터 기준).
+- **④ 타워 공격음 클립 연결:** `SoundConfig` 타워 공격 SFX 목록에 Human(`sfx_cannon_attack`) · RuneSpire(전용) 행 — 클립과 볼륨을 함께([효과음 Plan](../13_39_unit-attack-sfx-tiering/Plan.md) 10절).
+- **효과음 1단계의 연기된 일**(① — 큰 전투 청취 · 옛 코드 삭제)은 이 task와 별개 — 효과음 Plan 17-5.
+- RuneSpire 번개 끝점 OPEN(결정 7 — 제외)은 그대로다.
+

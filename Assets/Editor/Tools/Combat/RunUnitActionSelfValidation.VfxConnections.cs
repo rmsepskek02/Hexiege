@@ -45,8 +45,33 @@ namespace Hexiege.Editor.Combat
                 "Assault and Human tower share the actual Assault prefab.");
             Require(human != assault && human != tank && human != cannonCart,
                 "Human tower preserves its separate preset from all three unit attack presets.");
-            Require(rune != null && AssetDatabase.GetAssetPath(rune.VfxPrefab).EndsWith("vfx_runespire_attack.prefab")
-                && buildings.GetAttack(BuildingType.AutoTower, RaceId.Transcendence) == null, "Race selector preserves unspecified tower.");
+            // [2026-11-03 타워 공격 표현 개편 — Plan 7절 V-2] 타워 공격 프로필(공격 방식 · 재생 기준점)과
+            //   Human 투사체 타워의 트레이서·착탄 프리셋이 1회성 이전 뒤에도 옛 값(Cannon 프리셋)을 그대로 가리키는지 경로로 대조한다.
+            Require(buildings.TryGetTowerProfile(RaceId.Human, out TowerAttackProfile humanProfile)
+                    && humanProfile.kind == TowerAttackKind.Projectile && humanProfile.anchor == TowerAttackAnchor.Muzzle,
+                "[V-2] Human tower profile is Projectile with the server muzzle anchor.");
+            Require(AssetDatabase.GetAssetPath(buildings.GetTowerTracer(BuildingType.AutoTower, RaceId.Human))
+                        == "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_Cannon_Tracer.asset"
+                    && AssetDatabase.GetAssetPath(buildings.GetTowerImpact(BuildingType.AutoTower, RaceId.Human))
+                        == "Assets/_Project/Resources/Config/EffectPresets/EffectPreset_Cannon_Impact.asset",
+                "[V-2] Human tower tracer/impact keep the CannonCart tracer and impact presets.");
+            Require(buildings.TryGetTowerProfile(RaceId.Spirit, out TowerAttackProfile spiritProfile)
+                    && spiritProfile.kind == TowerAttackKind.Beam && spiritProfile.anchor == TowerAttackAnchor.Source,
+                "[V-2] RuneSpire tower profile is Beam anchored at the tower.");
+            Require(rune != null && AssetDatabase.GetAssetPath(rune.VfxPrefab).EndsWith("vfx_runespire_attack.prefab"),
+                "RuneSpire tower launch preset uses the actual RuneSpire prefab.");
+            // [V-3] 데이터 기준: VineTower(초월) 프로필이 비어 있으면 발사 프리셋이 없어야 하고(다른 종족으로 대체 금지),
+            //   비어 있지 않으면(③ 덩굴 연결 뒤) 지면 분출 · 대상 발밑 기준 · 파티클이 있는 발사 프리팹이어야 한다.
+            //   이렇게 두면 ③이 VineTower 줄을 채워도 이 검증을 고칠 필요가 없다. 재생 결과(TowerProfileEmpty)는 번개 fixture (g)가 본다.
+            if (!buildings.TryGetTowerProfile(RaceId.Transcendence, out TowerAttackProfile vineProfile))
+                Require(buildings.GetAttack(BuildingType.AutoTower, RaceId.Transcendence) == null
+                        && buildings.GetTowerAttackKind(RaceId.Transcendence) == TowerAttackKind.Unset,
+                    "[V-3] Empty VineTower profile has no launch preset and no fallback to another race.");
+            else
+                Require(vineProfile.kind == TowerAttackKind.GroundBurst && vineProfile.anchor == TowerAttackAnchor.Impact
+                        && vineProfile.launchPreset != null && vineProfile.launchPreset.VfxPrefab != null
+                        && vineProfile.launchPreset.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true).Length > 0,
+                    "[V-3] A filled VineTower profile is GroundBurst at the impact anchor with a particle launch prefab.");
             var impact = units.GetImpact(UnitType.MushroomBomber);
             Require(impact != null && units.GetTracer(UnitType.MushroomBomber) != null, "Mushroom split configured.");
             foreach (var ps in impact.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true))
@@ -75,6 +100,7 @@ namespace Hexiege.Editor.Combat
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
+            ValidateGroundBurstTowerProfile(units, buildings); // [2026-11-03 Plan 7절 V-5] 데이터가 아직 없는 지면 분출 경로
             ValidateCasterOwnedChargeVfx(units, buildings);
             ValidateProjectilePresetsAndLocalTracer(units, buildings); // [P5 정리] 옛 이름 ValidateLegacyTracerArrivalImpact(R5 검사)
             ValidateChargeUnitLaunchTiming(units, buildings);    // [T-1 보강 — 2026-10-19 차지 유닛 발사 시점]
@@ -1706,11 +1732,107 @@ namespace Hexiege.Editor.Combat
                     && !outcome.Contains("Endpoint"), "Human tower attack effect ignores endpoint tracking.");
                 foreach (var pooled in root.GetComponentsInChildren<VfxPoolItem>(true))
                     Require(!pooled.TowerBoltTracking, "No pooled item tracks after the Human tower play.");
+
+                // [2026-11-03 타워 공격 표현 개편 — Plan 10절 K-1] 큐의 「대상 해석」 판단과 번개 분기는 같은 데이터(공격 방식 Beam)를 쓴다.
+                Require(manager.TowerAttackNeedsTargetTracking(RaceId.Spirit) && !manager.TowerAttackNeedsTargetTracking(RaceId.Human),
+                    "[K-1] Only the Beam tower profile asks the queue to resolve the original target.");
+
+                // (g) [2026-11-03 — Plan 7절 V-4] VineTower(초월) 프로필이 비어 있으면 스냅샷은 재생되지 않고 TowerProfileEmpty로 끝난다.
+                //   새 풀 아이템을 만들지 않고, 어떤 아이템도 대상을 추적하지 않는다. 프로필이 채워진 뒤(③)에는 V-3이 데이터 기준으로 본다.
+                if (!buildings.TryGetTowerProfile(RaceId.Transcendence, out _))
+                {
+                    var vine = s; vine.Sequence = 5; vine.Race = RaceId.Transcendence;
+                    int pooledBefore = root.GetComponentsInChildren<VfxPoolItem>(true).Length;
+                    Require(!manager.PlayAttackEffect(vine, vine.Source, vine.Impact, out outcome, target)
+                            && outcome == "TowerProfileEmpty"
+                            && root.GetComponentsInChildren<VfxPoolItem>(true).Length == pooledBefore
+                            && !manager.TowerAttackNeedsTargetTracking(RaceId.Transcendence),
+                        "[V-4 g] Empty VineTower profile plays nothing and reports TowerProfileEmpty.");
+                    foreach (var pooled in root.GetComponentsInChildren<VfxPoolItem>(true))
+                        Require(!pooled.TowerBoltTracking, "[V-4 g] No pooled item tracks after the empty VineTower snapshot.");
+                }
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
                 UnityEngine.Object.DestroyImmediate(targetGo);
+            }
+        }
+
+        /// <summary>
+        /// [2026-11-03 타워 공격 표현 개편 — Plan 7절 V-5] 지면 분출(GroundBurst) 재생 경로를 실제 에셋을 바꾸지 않고 확인한다.
+        /// 아직 지면 분출 데이터(덩굴 타워 줄)가 없으므로, 메모리 전용 임시 설정 객체에 GroundBurst 줄 1개를 만들고
+        /// 발사 프리셋은 파티클이 있는 실제 RuneSpire 프리셋을 빌려 쓴다.
+        /// 확인: 재생 위치 = 스냅샷 Impact + 프리셋 위치 보정, 번개 추적 없음, 대상을 옮긴 뒤에도 위치가 그대로.
+        /// 임시 객체(설정 · 오브젝트)는 끝나면 모두 지운다.
+        /// </summary>
+        private static void ValidateGroundBurstTowerProfile(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            var borrowed = buildings.GetAttack(BuildingType.AutoTower, RaceId.Spirit);
+            Require(borrowed != null && borrowed.VfxPrefab != null
+                    && borrowed.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true).Length > 0,
+                "[V-5] GroundBurst fixture borrows a real particle preset (RuneSpire launch preset).");
+            var temp = ScriptableObject.CreateInstance<BuildingEffectConfig>();
+            temp.hideFlags = HideFlags.HideAndDontSave;
+            var root = new GameObject("GroundBurstTowerFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var targetGo = new GameObject("GroundBurstTowerTarget") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                // 임시 설정의 private 목록에 GroundBurst 줄 1개를 넣는다(실제 BuildingEffectConfig.asset은 건드리지 않는다).
+                var profilesField = typeof(BuildingEffectConfig).GetField("_towerAttackProfiles", VfxFields);
+                Require(profilesField != null, "[V-5] BuildingEffectConfig keeps the tower attack profile list.");
+                profilesField.SetValue(temp, new List<TowerAttackProfile>
+                {
+                    new TowerAttackProfile
+                    {
+                        race = RaceId.Transcendence, kind = TowerAttackKind.GroundBurst, anchor = TowerAttackAnchor.Impact,
+                        launchPreset = borrowed
+                    }
+                });
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, temp, null);
+                Require(temp.GetTowerAttackKind(RaceId.Transcendence) == TowerAttackKind.GroundBurst
+                        && !manager.TowerAttackNeedsTargetTracking(RaceId.Transcendence),
+                    "[V-5] GroundBurst profile is read and never asks for target tracking.");
+
+                var view = targetGo.AddComponent<UnitView>();
+                var data = VfxUnit(98020, UnitType.LittleKnight, TeamId.Red);
+                typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, data);
+                targetGo.transform.position = new Vector3(-4f, 0f, 5f); // 스냅샷 Impact와 일부러 다른 자리
+                var target = new TowerBoltTarget(targetGo.transform, view, data, null);
+                var s = new AttackEffectPresentation { Match = 1, Lifetime = 1, Sequence = 1, AttackerId = 98021, TargetId = data.Id,
+                    Visual = AttackEffectVisual.Tower, Race = RaceId.Transcendence, Source = Vector3.zero, Impact = new Vector3(2f, 0f, 3f), ImpactTime = 1d };
+
+                // 대상 객체를 넘겨도(큐는 넘기지 않지만) 지면 분출은 그것을 쓰지 않는다.
+                bool played = manager.PlayAttackEffect(s, s.Source, s.Impact, out string outcome, target);
+                Require(played && outcome == "AuthoritySnapshotStarted",
+                    "[V-5] GroundBurst snapshot starts its launch particles (no endpoint/bolt suffix).");
+                var items = root.GetComponentsInChildren<VfxPoolItem>(true);
+                Require(items.Length == 1, "[V-5] GroundBurst plays exactly one pooled effect.");
+                var item = items[0];
+                // 기대 위치 = 스냅샷 Impact + 회전(타워 → 대상 수평) × 프리셋 위치 보정(VfxPoolItem.Play와 같은 계산).
+                Vector3 flat = s.Impact - s.Source; flat.y = 0f;
+                Quaternion rotation = Quaternion.LookRotation(flat);
+                Vector3 expected = s.Impact + rotation * borrowed.LocalPositionOffset;
+                Require(VfxApprox(item.transform.position, expected) && !item.TowerBoltTracking,
+                    "[V-5] GroundBurst plays once at the snapshot Impact plus the preset offset, without bolt tracking.");
+
+                // 대상을 옮기고 한 프레임을 돌려도(LateUpdate) 지면 분출은 따라가지 않는다.
+                //   빌린 프리셋에 앞으로 이동(ForwardTravel)이 있으면 이동 자체로 위치가 바뀌므로 그때는 추적 여부만 본다.
+                targetGo.transform.position = new Vector3(6f, 1f, -2f);
+                typeof(VfxPoolItem).GetMethod("LateUpdate", VfxFields)?.Invoke(item, null);
+                Require(!item.TowerBoltTracking, "[V-5] GroundBurst never starts tracking after the target moves.");
+                if (borrowed.ForwardTravelDistance <= 0f)
+                    Require(VfxApprox(item.transform.position, expected),
+                        "[V-5] GroundBurst position stays fixed after the target moves.");
+                item.Return();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(targetGo);
+                UnityEngine.Object.DestroyImmediate(temp); // 메모리 전용 임시 설정(에셋 아님) 정리
             }
         }
 
@@ -1814,6 +1936,27 @@ namespace Hexiege.Editor.Combat
                         "Actual tower power after defense is lethal before the throwing-subscriber death test.");
                     typeof(TowerCombatUseCase).GetMethod("ExecuteTowerAttack", VfxFields).Invoke(tower, new object[] { towerData, dead });
                     Require(!dead.IsAlive && !dictionary.ContainsKey(dead.Id), "Expression subscriber exception cannot prevent death/remove workflow.");
+                }
+                // [2026-11-03 타워 공격 표현 개편 — Plan 7절 V-6 · 10절 K-5] 프로필이 빈 타워(VineTower) 스냅샷은
+                //   실제 큐의 재생 단계(EmitAttackEffects)에서 실패 수(_attackEffectFailures)를 늘리지 않는다.
+                //   먼저 대기 중인 스냅샷을 한 번 비워(재생) 기준을 잡은 뒤, 초월 스냅샷 1건만 넣고 실패 수 변화를 본다.
+                //   프로필이 채워진 뒤(③)에는 이 확인이 뜻이 없으므로 데이터 기준으로 건너뛴다.
+                if (!buildings.TryGetTowerProfile(RaceId.Transcendence, out _))
+                {
+                    var emit = typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields);
+                    var failuresField = typeof(HitPresentationQueue).GetField("_attackEffectFailures", VfxFields);
+                    Require(emit != null && failuresField != null, "[V-6] Queue emit step and failure counter exist for the fixture.");
+                    emit.Invoke(queue, null);
+                    Require(pending.Count == 0, "[V-6] Pending tower snapshots are flushed before the VineTower check.");
+                    int failuresBefore = (int)failuresField.GetValue(queue);
+                    var keptSnapshot = snapshot; // 아래 OnNext가 capture 구독으로 snapshot을 덮어쓰므로 끝나고 되돌린다
+                    var vine = snapshot; vine.Race = RaceId.Transcendence; vine.Sequence += 1000;
+                    GameEvents.OnAttackEffectConfirmed.OnNext(vine);
+                    snapshot = keptSnapshot;
+                    Require(pending.Count == 1, "[V-6] The VineTower snapshot is queued by the actual queue.");
+                    emit.Invoke(queue, null);
+                    Require(pending.Count == 0 && (int)failuresField.GetValue(queue) == failuresBefore,
+                        "[V-6] An empty-profile VineTower snapshot is consumed without counting a presentation failure.");
                 }
                 queue.Dispose();
                 GameEvents.OnAttackEffectReceived.OnNext(snapshot);

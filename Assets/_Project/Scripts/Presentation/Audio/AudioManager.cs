@@ -78,7 +78,7 @@ namespace Hexiege.Presentation
     // 효과음 하나의 재생 등급. PlaySfxClip(clip, volume, priority)의 세 번째 인자로 넘긴다.
     // 효과음 전체 한도(_maxConcurrentSfx)가 꽉 찼을 때만 차이가 난다.
     //   - 유닛 공격음: SoundConfig 유닛 항목의 「우선 재생」 체크(attackIsPriority)로 정해진다.
-    //   - 방어 타워 공격음: 타워 task가 만들 API가 항상 High로 부를 예정이다.
+    //   - 방어 타워 공격음: PlayTowerAttackSfx가 항상 High로 부른다(2026-11-03 타워 task에서 추가).
     //   - 그 밖(사망음·건물음·UI 효과음)은 Normal이다.
     // ========================================================================
 
@@ -631,6 +631,22 @@ namespace Hexiege.Presentation
         {
             if (_config == null) return;
             PlaySfxClip(_config.GetBuildingUpgradeClip(type), _config.GetBuildingUpgradeVolume(type));
+        }
+
+        /// <summary>
+        /// 방어 타워 공격 효과음 재생(2026-11-03 추가 — 타워 공격 표현·소리 개편 Plan 6-3).
+        /// 클립 · 볼륨은 SoundConfig 「타워 공격 SFX」 칸(건물 종류 + 종족)에서 꺼내고,
+        /// 항상 「우선(High)」 등급으로 재생한다 — 효과음 전체 한도가 차 있어도 가장 먼저 시작한 일반 효과음을 끊고 들리게
+        /// (사운드 규칙 13, 효과음 task Plan 6-2 「타워 공격음은 항상 우선」). 같은 클립 3개 · 최소 간격 제한은 우선 소리에도 적용된다.
+        /// 칸이 비어 있으면(클립 null) PlaySfxClip이 소리 없이 끝난다 — 2026-11-03 현재 모든 타워 칸이 비어 있다.
+        /// 호출처: ProjectilePresentationPresenter(투사체 타워 발사 신호) · HitPresentationQueue(즉발 타워 공격 스냅샷 재생).
+        /// </summary>
+        /// <param name="type">공격한 건물 타입(방어 타워 = AutoTower).</param>
+        /// <param name="race">공격한 타워의 종족.</param>
+        public void PlayTowerAttackSfx(BuildingType type, RaceId race)
+        {
+            if (_config == null) return;
+            PlaySfxClip(_config.GetTowerAttackClip(type, race), _config.GetTowerAttackVolume(type, race), SfxPriority.High);
         }
 
         /// <summary>

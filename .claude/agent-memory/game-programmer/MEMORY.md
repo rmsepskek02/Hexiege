@@ -90,7 +90,7 @@
 
 ## 토픽 파일 인덱스
 
-> 아래 20개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외). *(2026-10-15: 19 → 20, `vfx-presentation.md` 추가)*
+> 아래 21개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외). *(2026-10-15: 19 → 20, `vfx-presentation.md` 추가; 2026-11-03: 20 → 21, `audio-sfx.md` 추가)*
 
 ### 먼저 읽어야 하는 것
 
@@ -134,7 +134,13 @@
   re-project a cached VisualRoot Transform (`ProjectNow()`) before reading it on the flipped Client, `PoseCorrected` diagnostic.
   (§11, 2026-10-28) EagleArcher hand arrow: weapon-child prefab default must equal the clip value (Write Defaults blend jump),
   `ArrowLaunchPoint` under the hand arrow as `_vfxSpawnPoint`, read `_vfxSpawnPoint` only after `ProjectNow()`, `[EAGLE-ARROW]` log probe (deleted `6971072d`, user decision 2026-10-28 — the lesson stays).
+  (§12, 2026-11-03) tower attack profile: `TowerAttackKind`/`TowerAttackAnchor`, `_towerAttackProfiles`, tokens `TowerProfileEmpty` /
+  `UnsetAttackKind`, one Beam predicate `TowerAttackNeedsTargetTracking`, `PlayTowerAttackSfx` (High) call sites, retired uncommitted one-time menu.
   🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX / projectile presentation.**
+- [audio-sfx.md](audio-sfx.md) — SFX playback (2026-11-02~03): `PlaySfxClip(clip, volume, SfxPriority)` entry, `SoundConfig.attackIsPriority`
+  / `IsUnitAttackPriority`, same-clip 3 · 0.05 s · global 16 · priority eviction with per-play id, Inspector knobs
+  (scene value wins), dev decision log, deferred deletions, one-time menu `SfxTieringOneTimeSetup`, normalizer length warning.
+  🔴 **Read before touching `AudioManager` / `SoundConfig` / SFX editor tools.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료
@@ -426,7 +432,7 @@
 
 
 ### 전투 타격 타이밍 동기화 (Phase 1~3 + 수정 1~3) (2026-07-10) — ✅ 검증 완료(4차 로그+실기 PASS, 2026-07-12)
-- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. **이중재생 없음**: 호스트=UseCase 1회, 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
+- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. *(2026-11-03: 이 경로는 없다 — `attackPreset` · `PlayBuildingAttack` · `HitPresentationQueue.PlayTowerAttackVfx`는 타워 공격 표현 개편에서 삭제. 현행은 [vfx-presentation.md §12](vfx-presentation.md#12-tower-attack-profile--presentation-chosen-by-attack-kind-not-race-2026-11-03))* 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. **이중재생 없음**: 호스트=UseCase 1회, 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
 - **원거리 트레이서(3-2)**: `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 미러). **핵심 설계**: 큐 무변경, UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연 → 비행시간=피격연출 지연 자동 동기화. 사망flush는 트레이서 대기 없이 즉시 방출(착탄 콜백은 빈 큐 discard). 판정 상수 `UnitView.RangedAttackThreshold=1.0f`.
 - **HitPresentationQueue 안전망**: ⓐ타임아웃(쿨다운×1.5), ⓑ타겟사망 FlushTarget, ⓒ즉시방출(타워/GO없음), ⓓ공격자소멸 FlushAttacker(수정2·3 — 공격자사망/전투중단 시 잔여 큐 즉시 방출). 이 flush 경로들은 순수 기능이므로 로그 제거와 무관하게 보존.
 - **핵심 교훈 — Tick 경과 시간 이월분 이중 계산 버그(수정1)**: 타이머 이월 패턴에서 elapsed에 이월분을 포함시키면서 타이머에도 잔존분을 남기면 쿨다운이 15~25% 조기 소진된다. **실제 경과 시간과 타이머 잔량을 반드시 분리**할 것.

@@ -16,7 +16,7 @@
 - 레이어 구조/제약, 정적 홀더(**`MapHandoff` 「읽고 비운다」 +
   `Clear()` 배선 정정 · `MapRootSeed`(Domain) 를 왜 Domain 에 뒀는가 포함**),
   GameBootstrapper, SO Config 패턴,
-  DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
+  DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Tools/`·`Hexiege.EditorTools` — 2026-11-03 갱신, 종전 `Setup/`)
   와 저장 반영(`SetDirty`+`MarkSceneDirty`)**,
   🔴 **기존 프리팹 '에셋' 을 여는 스크립트(2026-09-21 첫 사례) — `LoadPrefabContents`→`SaveAsPrefabAsset`
   순서 · `SetDirty` 가 필요 없는 이유 · Ctrl+Z 가 안 되므로 멱등 + 「다 찾은 뒤에 고치기」 두 겹 ·
@@ -145,9 +145,15 @@ Domain → Application → Core → Infrastructure → Presentation → Bootstra
 > 2026-08-17 `675203ae` 로 `MEMORY.md` 에서 소실됐던 내용. 아래 4개 항목은
 > `Assets/_Project/Docs/**` · `.claude/**` 어디에도 남아 있지 않아 여기로 복구한다.
 
-- **에디터 1회성 셋업 스크립트 위치 = `Assets/Editor/Setup/`, 네임스페이스 `Hexiege.EditorTools`**
+- **에디터 1회성 셋업 스크립트 위치 = `Assets/Editor/Tools/`, 네임스페이스 `Hexiege.EditorTools`** *(2026-11-03 갱신 — 종전 `Assets/Editor/Setup/`; 사유는 아래 2026-11-03 항목)*
   (asmdef 없음 → Assembly-CSharp-Editor). 메뉴 접두사 관례는 `Hexiege/Setup/`.
   예외: 스킬 셋업 2종만 코디네이터 지시로 `Assets/_Project/Scripts/Editor/` + `Hexiege/Skill/` 에 있다.
+  **[2026-11-03 — new one-time menus go in `Assets/Editor/Tools/`]** The `Setup/` folder was deleted in the
+  2026-10-16 tool cleanup (`58614539`); it was re-created for the EagleArcher tracer menu on 2026-10-27 (`5b8fb82e`,
+  worked, removed again `0ded0999`). On 2026-11-03 a re-created `Assets/Editor/Setup/` (`ee7049cd`) was **not imported
+  by Unity** (script not selectable in Project window, not compiled); moving the same file to `Assets/Editor/Tools/`
+  fixed it. Cause unconfirmed — do not claim `Setup/` never works; just use `Tools/` (main-session lesson).
+  Details: [audio-sfx.md](audio-sfx.md) 「One-time menu」.
 - **저장 반영 필수**: `EditorUtility.SetDirty(obj)` **+** `EditorSceneManager.MarkSceneDirty(scene)`.
   **둘 중 하나라도 빠지면 씬에 저장되지 않는다** — 스크립트는 성공 로그를 찍고 변경은 사라진다.
 - **멱등 헬퍼 `FindOrCreateChild(parent, name)`** 로 이름/컴포넌트를 찾아 재사용한다.
