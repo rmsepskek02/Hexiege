@@ -22,7 +22,11 @@ namespace Hexiege.Infrastructure
         //   인자가 추가돼 RPC 모양이 바뀌었다. 단계 A 빌드(스키마 4)와 섞인 경기는 handshake에서 거부한다.
         // [2026-10-21 단계 D] 5 → 6. 발사 전 취소 통보 RPC(ProjectileLaunchCancelClientRpc)가 새로 생겼다.
         //   단계 B·C 빌드(스키마 5)와 섞인 경기는 handshake에서 거부한다(스위치 토큰도 바뀌어 해시가 다르지만, 전송 모양 변경은 스키마로도 막는다).
-        public const int PresentationContractSchemaRevision = 6;
+        // [2026-11-03 지원 스킬 C-1] 6 → 7. 스킬 발동 표현 RPC 모양 변경 — NetworkSkillController.SkillActivatedClientRpc가
+        //   (건물 Id, 쿨다운) 2개 인자에서 (건물 Id, 팀, 슬롯, 조준 여부, 조준 좌표, 발동 순번, 착탄 지연, 쿨다운)으로 바뀌었다.
+        //   받는 쪽은 팀 · 슬롯으로 자기 빌드의 로드아웃에서 VFX · 반경을 다시 찾으므로 두 기기의 빌드가 같아야 한다.
+        //   스키마 6 빌드와 섞인 경기는 handshake에서 거부한다(요청 RPC 모양은 그대로다).
+        public const int PresentationContractSchemaRevision = 7;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

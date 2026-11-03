@@ -23,6 +23,11 @@
 //   Activate는 서버(싱글=로컬 서버/멀티=서버)에서만 호출된다. 클라이언트는 발동을 직접 하지 않고,
 //   쿨다운 표시용 로컬 미러(StartCooldownLocal)만 브로드캐스트로 받는다.
 //
+// 발동 표현(C-1, 2026-11-03 지원 스킬 Task 커밋 3):
+//   발동이 성공하면 GameEvents.OnSkillActivationConfirmed(SkillActivationPresentation)를 발행한다.
+//   싱글은 화면 구독자가 이것으로 VFX를 재생하고, 멀티 서버는 NetworkSkillController가 이것을 받아
+//   ClientRpc로 순수 클라이언트에 전한다. 피해 · 쿨다운 판정과는 무관한 "표현 전용" 이벤트다.
+//
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
 
@@ -154,7 +159,60 @@ namespace Hexiege.Application
 
             // ⑧ 글로벌 쿨다운 설정(규칙 3).
             StartCooldownLocal(buildingId, skill.Cooldown);
+
+            // ⑨ 발동 표현 「확정」 발행(C-1 — 2026-11-03 지원 스킬 Task 커밋 3).
+            //   쿨다운을 세운 "뒤"에 발행한다 — 멀티 서버의 NetworkSkillController가 이 이벤트 안에서
+            //   GetCooldownTotal(buildingId)을 읽어 클라 쿨다운 미러 값으로 함께 보내기 때문이다.
+            //   발동 판정은 이미 끝났으므로, 화면 구독자에서 예외가 나도 발동 결과(true)는 바뀌지 않게 감싼다.
+            PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay);
             return true;
+        }
+
+        // ====================================================================
+        // 발동 표현(C-1) — 화면 연출용 「확정」 이벤트
+        // ====================================================================
+
+        // 이 경기에서 성공한 발동 수(발동 순번의 원천). UseCase는 맵을 불러올 때마다 새로 만들어지므로
+        //   경기마다 0부터 다시 센다. 첫 발동의 순번은 1이다(0은 "순번 없음"으로 남겨 둔다).
+        private int _activationSequence;
+
+        /// <summary>
+        /// 발동 표현 값을 만들어 GameEvents.OnSkillActivationConfirmed로 발행한다.
+        /// 구독자(멀티 서버 브로드캐스트 · 화면 VFX)에서 예외가 나도 서버 발동 흐름은 계속되게 한다.
+        /// </summary>
+        private void PublishActivationConfirmed(TeamId team, int buildingId, int slot, bool hasAim, Vector3 aim, float impactDelay)
+        {
+            _activationSequence++;
+            var presentation = new SkillActivationPresentation(
+                buildingId, team, slot, hasAim, aim, _activationSequence, impactDelay);
+            try
+            {
+                GameEvents.OnSkillActivationConfirmed.OnNext(presentation);
+            }
+            catch (Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 피해 · 쿨다운(게임 결과)에는 영향이 없다.
+                //   어떤 발동에서 났는지 다시 찾을 수 있게 건물 · 슬롯 · 순번을 key=value로 남긴다.
+                GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase),
+                                 "스킬 발동 확정 이벤트 구독자 예외 — 발동 결과는 유지",
+                                 $"BuildingId={buildingId}, Slot={slot}, Sequence={_activationSequence}, Error={ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 팀 · 슬롯으로 그 팀 종족 로드아웃의 스킬 데이터를 찾는다(화면 연출이 반경 · VFX를 얻을 때 사용).
+        /// 발동 판정과 같은 팀 → 종족 변환(_teamToRace)과 같은 로드아웃 제공자를 쓰므로,
+        /// 서버와 클라이언트(같은 빌드)가 같은 SkillData를 찾는다.
+        /// </summary>
+        /// <param name="team">스킬을 쓴 팀.</param>
+        /// <param name="slot">슬롯 번호(0-based).</param>
+        /// <returns>스킬 데이터. 제공자가 없거나 슬롯이 범위 밖이면 null.</returns>
+        public SkillData FindSkillData(TeamId team, int slot)
+        {
+            if (_dataProvider == null || _teamToRace == null) return null;
+            IReadOnlyList<SkillData> loadout = _dataProvider.GetLoadout(_teamToRace(team));
+            if (loadout == null || slot < 0 || slot >= loadout.Count) return null;
+            return loadout[slot];
         }
 
         // 실행기 → UnitCombatUseCase 다리(델리게이트). 건물/스킬 출처 전용 피해 경로를 호출한다.
