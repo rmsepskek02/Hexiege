@@ -305,6 +305,17 @@ namespace Hexiege.Presentation
 
             int buildingId = _currentBuilding.Id;
 
+            // 「사용 가능」이 꺼진 스킬(기능 미구현 — 이름만 등록)은 아무 반응 없이 끝낸다
+            //   (2026-11-03 추가, 사용자 결정 Q3 — 지원 스킬 Task 커밋 1, 규칙 16·25).
+            //   조준 모드에 들어가지 않고, 즉시 발동 요청도 보내지 않는다. 서버 발동(SkillActivationUseCase.Activate)도
+            //   같은 값으로 거부하므로 이 가드는 "헛조준 화면"을 막는 화면 쪽 편의 장치다.
+            //   쿨다운 가드보다 앞에 둔 이유: 다른 스킬의 쿨다운이 돌고 있을 때 사용 불가 버튼을 누르면
+            //   "쿨다운 중" 토스트가 떠서, 쿨다운만 끝나면 쓸 수 있는 스킬처럼 보이기 때문이다.
+            //   안내 토스트·「준비 중」 표시 방식은 추후 별도 UI 작업 범위라 여기서는 조용히 return한다.
+            //   (null 슬롯 처리는 아래 기존 흐름 그대로 둔다 — 이 가드는 null이 아닌 사용 불가 스킬만 본다.)
+            SkillData pressedSkill = _currentLoadout[slotIndex];
+            if (pressedSkill != null && !pressedSkill.IsAvailable) return;
+
             // 글로벌 쿨다운 중이면 발동 불가(규칙 3).
             //   🔴 버튼을 누르는 순간 쿨다운 중의 입력을 막는 것은 이 가드 하나뿐이다(화면 쪽 기준).
             //      버튼 위에 얹히는 쿨다운 오버레이는 포인터를 가로채지 못한다 — 전투 씬에 들어가 있는

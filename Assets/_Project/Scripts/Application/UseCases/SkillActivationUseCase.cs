@@ -108,6 +108,16 @@ namespace Hexiege.Application
             SkillData skill = loadout[skillSlot];
             if (skill == null) return false;
 
+            // ③-1 「사용 가능」 재검증(2026-11-03 추가 — 지원 스킬 Task 커밋 1, 규칙 25 서버 판정).
+            //   기능 코드가 아직 없는 스킬은 데이터에서 「사용 가능」을 꺼 둔다. 그런 스킬이 자리표시로
+            //   타입 A 값을 갖고 있으면, 이 검사가 없을 때 A 실행기가 실제로 돌아 폭탄처럼 피해를 주고
+            //   쿨다운까지 돈다(Research 5-3). 그래서 실행기 조회 · 쿨다운 설정보다 "앞"에서 거부한다.
+            //   여기서 false를 돌려주면 호출자(싱글 패널 / 멀티 NetworkSkillController)는 아무것도 하지 않는다
+            //   — 쿨다운이 걸리지 않고, 멀티에서는 성공 알림 ClientRpc도 보내지 않는다.
+            //   화면 쪽 패널도 같은 값으로 조준 진입을 막지만(BuildingSkillPanelUI), 클라 입력은 믿지 않으므로
+            //   서버에서도 반드시 다시 막는다.
+            if (!skill.IsAvailable) return false;
+
             // ④ 글로벌 쿨다운 만료 재검증(규칙 3·26).
             if (GetCooldownRemaining(buildingId) > 0f) return false;
 
