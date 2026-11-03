@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 481bb32f24e95304ca0d1e9c0c0f3cb0, type: 3}
+  m_Name: Skill_Human_Emp
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.SkillDefinition
+  _icon: {fileID: 0}
+  _displayName: EMP
+  _description: "\uC9C0\uC815\uD55C \uBC94\uC704 \uC548\uC758 \uC801 \uBC29\uC5B4\uD0D1\uC744
+    \uC7A0\uC2DC \uBB34\uB825\uD654\uD55C\uB2E4."
+  _isAvailable: 0
+  _aimType: 1
+  _cooldown: 10
+  _mechanic: 0
+  _radius: 2
+  _duration: 0
+  _totalDamage: 150
+  _damagePerSecond: 0
+  _statusKind: 0
+  _magnitude: 0
+  _targetsAllies: 0
+  _impactDelay: 0
+  _activationVfxPrefab: {fileID: 0}
+  _vfxReferenceRadius: 2
