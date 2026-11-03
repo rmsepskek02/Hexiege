@@ -82,13 +82,15 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 발동부터 착탄(피해)까지의 시간(초). 0이면 즉발. 음수 · NaN은 0으로 고쳐 보관한다.
-        /// 지금은 읽는 코드가 없다 — 서버 지연 판정은 같은 Task 다음 단계에서 연결된다.
+        /// 0보다 크면 SkillActivationUseCase가 타입 A 피해를 "착탄 예약"으로 저장했다가 이 시간 뒤 서버 틱에서 준다
+        /// (2026-11-03 커밋 4에서 연결). 발동 표현(SkillActivationPresentation)에도 같은 값이 실린다.
         /// </summary>
         public float ImpactDelay { get; }
 
         /// <summary>
         /// 발동 지점에 재생할 VFX 프리팹(null 허용 — 연출 없음). 아이콘(Sprite)과 같은 "연출 참조" 선례.
-        /// 지금은 재생 코드가 없다 — 화면 재생 연결은 같은 Task 다음 단계.
+        /// 화면 쪽 SkillActivationVfxPresenter가 발동 표현 이벤트를 받으면 조준 지점에 재생한다(2026-11-03 커밋 4에서 연결).
+        /// 실행기 · 서버 판정은 이 값을 읽지 않는다.
         /// </summary>
         public GameObject ActivationVfxPrefab { get; }
 

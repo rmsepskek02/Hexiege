@@ -763,6 +763,15 @@ namespace Hexiege.Infrastructure
             _services?.GetSkillActivationUseCase()?.TickCooldowns(elapsed);
 
             // ────────────────────────────────────────────────────────────────
+            // [스킬 - 착탄 예약] 착탄 지연이 있는 스킬(포격 0.4초 등)의 지연 피해 — 권위 전용 틱(2026-11-03 포격, Plan D1-d).
+            //   쿨다운 틱 바로 뒤. 이 자리는 Update 진입부 가드(IsSpawned · IsServer · _combatStopped)를 통과한 뒤라
+            //   서버에서만, 그리고 경기가 끝나기 전까지만 돈다 → 순수 클라이언트 · 경기 종료 뒤에는 피해가 나지 않는다.
+            //   싱글은 GameBootstrapper.Update가 호출한다(이중 틱 금지 — 같은 착탄이 두 번 터지지 않게).
+            //   착탄 오차: 이 틱은 _attackInterval(씬 값 0.1초) 주기라 착탄 피해가 최대 그만큼 늦을 수 있다(Plan 6절).
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetSkillActivationUseCase()?.TickPendingImpacts(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
             // [MistShrine] 물안개 진행(1초 회복) + 자동 시전 + 시전 쿨다운 — 서버 권위(규칙 8·18·21·22).
             //   싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 돈다(이중 틱 금지 — 회복량 2배 방지).
             //   멀티 순수 클라는 회복/자동 시전을 아예 돌리지 않고, 쿨다운 미러만

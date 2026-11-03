@@ -533,6 +533,58 @@ namespace Hexiege.Presentation
             //   AudioManager.Instance?.PlayBuildingAttackSfx(type) 짝을 추가한다
             //   (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
         }
+        // ====================================================================
+        // [2026-11-03 지원 스킬 커밋 4] 스킬 발동 VFX
+        //   SkillActivationVfxPresenter가 발동 표현 이벤트(확정 · 수신)를 받으면 이 메서드로 재생한다.
+        //   프리팹 · 반경은 스킬 데이터(SkillDefinition 자산)에 있다 — EffectPreset/Config를 거치지 않는다(Plan P1).
+        //   피해 · HP와 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 스킬 발동 VFX를 화면 좌표에 1회 재생한다(회전 없음 · 루트 균일 배율).
+        /// 프리팹이 원형(포격 착탄 링 등)이라 회전은 항등이다. 오프셋 · 전진 이동도 쓰지 않는다.
+        /// 스킬 SFX는 아직 없다(Plan Q5 ① — 효과음을 받으면 이 호출 바로 아래에서 짝으로 부른다, 사운드 규칙 15).
+        /// </summary>
+        /// <param name="prefab">재생할 VFX 프리팹(스킬 데이터의 발동 VFX). null이면 아무것도 하지 않고 false.</param>
+        /// <param name="viewPosition">재생 위치(화면 좌표 — 호출 측이 ViewConverter.ToView로 변환한 값).</param>
+        /// <param name="uniformScale">루트에 곱할 균일 배율(X · Y · Z 같은 값). <see cref="ComputeSkillVfxScale"/>로 구한다.</param>
+        /// <returns>프리팹이 있어 재생했으면 true.</returns>
+        public bool PlaySkillActivationVfx(GameObject prefab, Vector3 viewPosition, float uniformScale)
+        {
+            if (prefab == null) return false;
+            // 잘못된 배율(0 이하 · NaN · 무한대)이면 원본 크기로 재생한다 — 안 보이는 것보다 낫다.
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            // VfxPoolItem.Play는 루트 localScale = 프리팹 원본 스케일 × 배율로 매번 다시 세팅한다(풀 재사용 잔여 없음).
+            //   포격 프리팹의 파티클은 scalingMode = Hierarchy라 루트 배율이 파티클 크기 · 위치에 함께 먹는다(Research 4-1).
+            item.Play(
+                viewPosition,
+                Quaternion.identity,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.one * uniformScale,
+                0f,
+                0f);
+            return true;
+        }
+
+        /// <summary>
+        /// 스킬 VFX 배율 = 판정 반경 ÷ VFX 기준 반경(프리팹이 만들어진 반경).
+        /// 기준 반경이 0 이하(또는 NaN)면 1. 판정 반경이 0 이하(또는 NaN)여도 1(지점 피해가 없는 스킬 방어).
+        /// 예) 포격: 반경 2.0 ÷ 기준 2.0 = 1.0(원본 크기). 반경을 3.0으로 바꾸면 1.5배로 커진다.
+        /// </summary>
+        /// <param name="radius">스킬 판정 반경(월드 단위).</param>
+        /// <param name="referenceRadius">VFX 기준 반경(월드 단위).</param>
+        /// <returns>루트에 곱할 균일 배율(항상 0보다 큼).</returns>
+        public static float ComputeSkillVfxScale(float radius, float referenceRadius)
+        {
+            if (!(referenceRadius > 0f)) return 1f;
+            if (!(radius > 0f)) return 1f;
+            float scale = radius / referenceRadius;
+            return float.IsInfinity(scale) ? 1f : scale;
+        }
+
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.

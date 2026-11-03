@@ -268,6 +268,14 @@ namespace Hexiege.Bootstrap
             if (_effectManager != null)
                 _effectManager.Initialize(_unitEffectConfig, _buildingEffectConfig, _uiEffectConfig);
 
+            // 10-3-1. [2026-11-03 지원 스킬 커밋 4] 스킬 발동 VFX 화면 구독자.
+            //   발동 표현 이벤트(확정 · 수신)를 받아 조준 지점에 스킬 데이터의 발동 VFX를 재생한다(표현 전용).
+            //   씬 배치 없이 이 GameObject에 AddComponent하고, 맵을 다시 불러오면 재사용 + Initialize만 다시 부른다
+            //   (Initialize가 이전 구독을 먼저 해제하므로 중복 재생이 없다). _skillActivation은 4번 CreateUseCases에서 이번 맵 것으로 만들어졌다.
+            var skillVfxPresenter = GetComponent<SkillActivationVfxPresenter>();
+            if (skillVfxPresenter == null) skillVfxPresenter = gameObject.AddComponent<SkillActivationVfxPresenter>();
+            skillVfxPresenter.Initialize(_skillActivation, _effectManager);
+
             var wavePresenter = GetComponent<WavePresentationPresenter>();
             if (wavePresenter == null) wavePresenter = gameObject.AddComponent<WavePresentationPresenter>();
             wavePresenter.Initialize(_unitCombat, _floatingHpTextSpawner);

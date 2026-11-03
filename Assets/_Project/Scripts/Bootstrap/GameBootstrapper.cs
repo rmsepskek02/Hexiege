@@ -539,6 +539,9 @@ namespace Hexiege.Bootstrap
             GameEvents.OnGameEnd.Subscribe(_ => _unitCombat?.CloseTorrentLaunches("game-end")).AddTo(this);
             // [2026-10-20 서버 권위 투사체] 게임 종료 뒤에는 남은 투사체 예약·비행이 피해를 주지 않게 닫는다(싱글/멀티 공통).
             GameEvents.OnGameEnd.Subscribe(_ => _unitCombat?.CloseProjectiles("game-end")).AddTo(this);
+            // [2026-11-03 포격 지원] 경기가 끝나면 아직 떨어지지 않은 스킬 착탄 예약을 버린다(싱글/멀티 서버 공통 — Plan Q1-b).
+            //   람다가 호출 시점의 _skillActivation을 읽으므로 맵을 다시 불러와 UseCase가 바뀌어도 현재 것을 닫는다.
+            GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.ClosePendingImpacts()).AddTo(this);
         }
 
         /// <summary>
@@ -712,6 +715,18 @@ namespace Hexiege.Bootstrap
                 (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
             {
                 _skillActivation.TickCooldowns(Time.deltaTime);
+            }
+
+            // [스킬 - 착탄 예약] 착탄 지연이 있는 스킬(포격 0.4초 등)의 지연 피해 — 권위 전용 틱(2026-11-03 포격, Plan D1-d).
+            //   - 싱글: 여기서 처리(권위). 매 프레임이라 착탄이 프레임 하나만큼만 늦는다.
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 처리 → 여기선 스킵(이중 착탄 금지).
+            //   - 멀티 순수 클라: 절대 돌리지 않는다(피해는 서버에서만 — 스킬 규칙 25. HP는 동기화로 받는다).
+            //   ⚠️ 그래서 가드가 바로 위 쿨다운 틱(싱글 "또는 순수 클라")과 다르다 — !IsNetworkMode() 하나뿐이다. 합치지 말 것.
+            //   경기 종료 가드: 싱글 Update는 경기가 끝난 뒤에도 돌지만, Awake의 OnGameEnd 구독이
+            //   ClosePendingImpacts()로 남은 예약을 버리고 닫으므로 종료 뒤 피해가 들어가지 않는다(Plan Q1-b).
+            if (!IsNetworkMode() && _skillActivation != null)
+            {
+                _skillActivation.TickPendingImpacts(Time.deltaTime);
             }
 
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소.

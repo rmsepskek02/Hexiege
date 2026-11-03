@@ -28,6 +28,10 @@
 //   싱글은 화면 구독자가 이것으로 VFX를 재생하고, 멀티 서버는 NetworkSkillController가 이것을 받아
 //   ClientRpc로 순수 클라이언트에 전한다. 피해 · 쿨다운 판정과는 무관한 "표현 전용" 이벤트다.
 //
+// 착탄 지연(포격 지원, 2026-11-03 커밋 4):
+//   스킬 데이터의 「착탄 지연」이 0보다 크면 타입 A 피해를 바로 주지 않고 "착탄 예약"으로 저장했다가,
+//   권위 전용 틱(TickPendingImpacts)이 그 시간이 지난 순간 기존 피해 경로를 1회 호출한다. 0이면 지금처럼 즉발.
+//
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
 
@@ -145,26 +149,37 @@ namespace Hexiege.Application
             ISkillExecutor executor = _registry.TryGet(skill.Mechanic);
             if (executor == null) return false;
 
+            // ── 여기부터는 실패할 수 있는 검사가 없다 → 이번 발동은 "성공"으로 확정된다.
+            //   발동 순번을 지금 매긴다(착탄 예약과 「확정」 이벤트가 같은 순번을 쓰도록 — 커밋 4).
+            int sequence = ++_activationSequence;
+
             // ⑦ 실행 — 피해/DoT의 실제 적용은 UnitCombatUseCase가 담당(델리게이트 주입).
+            //   타입 A 즉발 피해 다리는 「착탄 지연」에 따라 둘 중 하나를 넘긴다(2026-11-03 포격 — 커밋 4, Plan D1).
+            //     - 지연 0(기존 스킬 · 기본값): 지금까지와 같은 즉시 피해 다리 → 동작 변화 없음.
+            //     - 지연 > 0(포격 0.4초 · 이후 메테오 1.5초): 피해를 바로 주지 않고 "착탄 예약"만 저장한다.
+            //       예약은 권위 전용 틱(TickPendingImpacts)이 남은 시간을 줄여 0 이하가 되는 순간
+            //       기존 ApplySkillInstantAreaDamage를 1회 호출한다 → "착탄 순간 범위 안 대상"이 맞는다.
+            //   실행기(InstantAreaDamageExecutor)는 바뀌지 않는다 — 실행기는 "피해를 줘"라고만 하고,
+            //   "언제 줄지"는 이 UseCase가 고른 다리가 정한다.
             var ctx = new SkillActivationContext(
                 skill,
                 building.Team,
                 buildingId,
                 aim,
                 hasAim,
-                ApplyInstantAreaDamageBridge,
+                SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge);
             executor.Execute(ctx);
 
-            // ⑧ 글로벌 쿨다운 설정(규칙 3).
+            // ⑧ 글로벌 쿨다운 설정(규칙 3). 착탄이 늦어도 쿨다운은 "발동 순간" 시작한다(Plan Q1-c).
             StartCooldownLocal(buildingId, skill.Cooldown);
 
             // ⑨ 발동 표현 「확정」 발행(C-1 — 2026-11-03 지원 스킬 Task 커밋 3).
             //   쿨다운을 세운 "뒤"에 발행한다 — 멀티 서버의 NetworkSkillController가 이 이벤트 안에서
             //   GetCooldownTotal(buildingId)을 읽어 클라 쿨다운 미러 값으로 함께 보내기 때문이다.
             //   발동 판정은 이미 끝났으므로, 화면 구독자에서 예외가 나도 발동 결과(true)는 바뀌지 않게 감싼다.
-            PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay);
+            PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence);
             return true;
         }
 
@@ -174,17 +189,18 @@ namespace Hexiege.Application
 
         // 이 경기에서 성공한 발동 수(발동 순번의 원천). UseCase는 맵을 불러올 때마다 새로 만들어지므로
         //   경기마다 0부터 다시 센다. 첫 발동의 순번은 1이다(0은 "순번 없음"으로 남겨 둔다).
+        //   Activate가 모든 검사를 통과한 직후 1 올리고, 그 값을 착탄 예약과 「확정」 이벤트에 함께 쓴다.
         private int _activationSequence;
 
         /// <summary>
         /// 발동 표현 값을 만들어 GameEvents.OnSkillActivationConfirmed로 발행한다.
         /// 구독자(멀티 서버 브로드캐스트 · 화면 VFX)에서 예외가 나도 서버 발동 흐름은 계속되게 한다.
         /// </summary>
-        private void PublishActivationConfirmed(TeamId team, int buildingId, int slot, bool hasAim, Vector3 aim, float impactDelay)
+        private void PublishActivationConfirmed(TeamId team, int buildingId, int slot, bool hasAim, Vector3 aim,
+                                                float impactDelay, int sequence)
         {
-            _activationSequence++;
             var presentation = new SkillActivationPresentation(
-                buildingId, team, slot, hasAim, aim, _activationSequence, impactDelay);
+                buildingId, team, slot, hasAim, aim, sequence, impactDelay);
             try
             {
                 GameEvents.OnSkillActivationConfirmed.OnNext(presentation);
@@ -195,7 +211,7 @@ namespace Hexiege.Application
                 //   어떤 발동에서 났는지 다시 찾을 수 있게 건물 · 슬롯 · 순번을 key=value로 남긴다.
                 GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase),
                                  "스킬 발동 확정 이벤트 구독자 예외 — 발동 결과는 유지",
-                                 $"BuildingId={buildingId}, Slot={slot}, Sequence={_activationSequence}, Error={ex.Message}");
+                                 $"BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, Error={ex.Message}");
             }
         }
 
@@ -221,6 +237,129 @@ namespace Hexiege.Application
         {
             _combat?.ApplySkillInstantAreaDamage(team, center, radius, rawDamage, sourceBuildingId);
         }
+
+        // ====================================================================
+        // 착탄 예약(지연 판정) — 2026-11-03 포격 지원(커밋 4, Plan D1 · Q1 a~d)
+        // ====================================================================
+        //
+        // 왜 필요한가(초급자용 설명):
+        //   포격 VFX는 포탄 7발이 하늘에서 떨어져 0.4초 뒤에 땅에 닿는다. 피해를 발동 순간에 바로 주면
+        //   포탄이 닿기도 전에 피해 숫자 · 사망이 먼저 보인다. 그래서 서버가 "0.4초 뒤에 이 지점에 피해"라는
+        //   예약만 저장해 두고, 시간이 다 되면 그때 범위 안에 있는 대상에게 피해를 준다.
+        //   (0.4초 사이 범위 밖으로 나간 유닛은 안 맞고, 들어온 유닛은 맞는다 — 「착탄 순간 범위 안」 의도.)
+        //
+        // 지킨 결정(사용자 「추천대로 진행하자」, Plan 7-1 Q1):
+        //   a. 착탄 전에 시전 건물이 파괴돼도 착탄은 그대로 일어난다(CannonTower 투사체 선례).
+        //      → 착탄 처리에서 건물 생존을 다시 보지 않는다. 시전 건물 Id는 피해 출처 표기에만 쓴다.
+        //   b. 경기가 끝나면 남은 예약은 버린다 → ClosePendingImpacts(조합 루트가 OnGameEnd에서 부른다).
+        //   c. 쿨다운은 발동 순간 시작한다(Activate ⑧ — 이 예약과 무관).
+        //   d. 예약은 이 UseCase 안 순수 C# 목록이고, 처리는 "권위 전용 틱"(TickPendingImpacts)에서만 한다.
+        //      쿨다운 틱(TickCooldowns)은 멀티 순수 클라이언트의 표시용 미러에서도 돌기 때문에,
+        //      거기에 얹으면 클라이언트도 피해를 주게 된다 → 메서드를 따로 둔다.
+        //
+        // 대상 범위: 타입 A(즉발 범위 피해) 다리에만 지연을 건다. 타입 B(장판) · C(전역 상태)는
+        //   지금처럼 즉시 적용된다(이번 Task는 포격 — 타입 A — 만 다룬다. 메테오도 타입 A로 이 장치를 재사용).
+
+        // 착탄 예약 1건. 값 타입(struct)이라 목록에 넣고 빼도 쓰레기(GC)가 생기지 않는다.
+        private struct PendingImpact
+        {
+            public TeamId Team;           // 시전 팀(아군/적 판정 기준)
+            public Vector3 Center;        // 착탄 중심(도메인 월드 좌표)
+            public float Radius;          // 피해 반경(월드 단위)
+            public int RawDamage;         // 감쇄 전 원본 피해(×10 스케일)
+            public int SourceBuildingId;  // 시전 건물 Id(피해 출처 표기 — 착탄 때 건물 생존은 보지 않는다, 결정 a)
+            public int Sequence;          // 발동 순번(화면의 발동 표현과 같은 값 — 이후 착탄 연출 짝짓기용)
+            public float Remaining;       // 착탄까지 남은 시간(초). 0 이하가 되면 착탄.
+        }
+
+        // 아직 착탄하지 않은 예약 목록(예약된 순서대로 들어 있다).
+        private readonly List<PendingImpact> _pendingImpacts = new List<PendingImpact>(4);
+        // 이번 틱에 착탄할 예약을 잠시 옮겨 담는 재사용 버퍼(피해 적용 중 목록이 바뀌어도 안전하도록 분리).
+        private readonly List<PendingImpact> _dueImpactBuffer = new List<PendingImpact>(4);
+        // 경기 종료로 예약이 닫혔는지. 닫힌 뒤에는 새 예약도 받지 않고 남은 예약도 처리하지 않는다(결정 b).
+        private bool _impactsClosed;
+
+        /// <summary>
+        /// 이번 발동이 쓸 타입 A 즉발 피해 다리를 고른다.
+        /// 착탄 지연이 0이면 기존 즉시 다리, 0보다 크면 착탄 예약 다리를 돌려준다.
+        /// </summary>
+        /// <param name="impactDelay">스킬 데이터의 착탄 지연(초). SkillData가 음수 · NaN을 이미 0으로 고쳐 둔 값.</param>
+        /// <param name="sequence">이번 발동 순번.</param>
+        private Action<TeamId, Vector3, float, int, int> SelectInstantAreaDamageBridge(float impactDelay, int sequence)
+        {
+            if (!(impactDelay > 0f)) return ApplyInstantAreaDamageBridge; // 기존 즉발 그대로(동작 무변경)
+
+            // 지연이 있는 스킬만 작은 람다를 하나 만든다(발동은 드문 사건이라 할당 1회는 무시할 수준).
+            return (team, center, radius, rawDamage, sourceBuildingId) =>
+                ScheduleImpact(team, center, radius, rawDamage, sourceBuildingId, impactDelay, sequence);
+        }
+
+        /// <summary>
+        /// 착탄 예약 1건을 저장한다. 경기 종료로 닫힌 뒤라면 저장하지 않는다(결정 b).
+        /// </summary>
+        private void ScheduleImpact(TeamId team, Vector3 center, float radius, int rawDamage, int sourceBuildingId,
+                                    float delay, int sequence)
+        {
+            if (_impactsClosed) return;
+            _pendingImpacts.Add(new PendingImpact
+            {
+                Team = team,
+                Center = center,
+                Radius = radius,
+                RawDamage = rawDamage,
+                SourceBuildingId = sourceBuildingId,
+                Sequence = sequence,
+                Remaining = delay
+            });
+        }
+
+        /// <summary>
+        /// (권위 전용 틱) 착탄 예약의 남은 시간을 줄이고, 다 된 예약마다 기존 즉발 범위 피해를 1회 적용한다.
+        /// 반드시 서버 권위 쪽에서만 호출한다 — 싱글 = GameBootstrapper.Update, 멀티 서버 = NetworkCombatController.TickCombat.
+        /// 멀티 순수 클라이언트에서는 호출하지 않는다(클라이언트는 예약 자체가 없고, 피해는 서버 HP 동기화로 받는다).
+        /// </summary>
+        /// <param name="dt">경과 시간(초). 0 이하 · NaN이면 아무것도 하지 않는다.</param>
+        public void TickPendingImpacts(float dt)
+        {
+            if (_impactsClosed || !(dt > 0f) || _pendingImpacts.Count == 0) return;
+
+            // ① 남은 시간을 줄이고, 다 된 예약은 버퍼로 옮긴다(남은 예약은 순서를 지키며 앞으로 당긴다).
+            _dueImpactBuffer.Clear();
+            int keep = 0;
+            for (int i = 0; i < _pendingImpacts.Count; i++)
+            {
+                PendingImpact p = _pendingImpacts[i];
+                p.Remaining -= dt;
+                if (p.Remaining <= 0f) _dueImpactBuffer.Add(p);
+                else _pendingImpacts[keep++] = p;
+            }
+            _pendingImpacts.RemoveRange(keep, _pendingImpacts.Count - keep);
+
+            // ② 착탄 — 예약된 순서대로 기존 피해 경로를 1회씩 호출한다(피해 계산 · 이벤트 · 사망 처리는 그대로).
+            //   착탄 피해로 성이 무너지면 그 자리에서 OnGameEnd → ClosePendingImpacts가 불릴 수 있다.
+            //   그래서 매 착탄 직전에 닫혔는지 다시 보고, 닫혔으면 나머지는 버린다(결정 b).
+            for (int i = 0; i < _dueImpactBuffer.Count; i++)
+            {
+                if (_impactsClosed) break;
+                PendingImpact p = _dueImpactBuffer[i];
+                ApplyInstantAreaDamageBridge(p.Team, p.Center, p.Radius, p.RawDamage, p.SourceBuildingId);
+            }
+            _dueImpactBuffer.Clear();
+        }
+
+        /// <summary>
+        /// 경기 종료 시 남은 착탄 예약을 모두 버리고, 이후 새 예약 · 처리를 막는다(결정 b — 멱등).
+        /// 조합 루트(GameBootstrapper)가 GameEvents.OnGameEnd에서 호출한다(싱글 · 멀티 서버 공통).
+        /// 다음 경기는 맵을 다시 불러오며 이 UseCase가 새로 만들어지므로 다시 열 필요가 없다.
+        /// </summary>
+        public void ClosePendingImpacts()
+        {
+            _impactsClosed = true;
+            _pendingImpacts.Clear();
+        }
+
+        /// <summary> 아직 착탄하지 않은 예약 수(확인 · 검증용). </summary>
+        public int PendingImpactCount => _pendingImpacts.Count;
 
         private void ApplyAreaDotBridge(TeamId team, Vector3 center, float radius, float dps, float duration)
         {
@@ -260,6 +399,8 @@ namespace Hexiege.Application
         /// <summary>
         /// 매 서버 틱(싱글=GameBootstrapper.Update / 멀티 서버=NetworkCombatController.TickCombat,
         /// 멀티 클라=로컬 미러 감소)에서 호출되어 모든 건물 쿨다운을 감소시킨다.
+        /// ⚠️ 착탄 예약은 여기서 처리하지 않는다 — 이 틱은 순수 클라이언트 미러에서도 돌기 때문이다.
+        ///    착탄은 권위 전용 틱 <see cref="TickPendingImpacts"/>가 따로 처리한다.
         /// </summary>
         /// <param name="dt">경과 시간(초).</param>
         public void TickCooldowns(float dt)
@@ -314,11 +455,13 @@ namespace Hexiege.Application
             return GetCooldownRemaining(buildingId) > 0f;
         }
 
-        /// <summary> 게임 재시작/맵 전환 시 쿨다운 상태를 전부 초기화한다. </summary>
+        /// <summary> 게임 재시작/맵 전환 시 쿨다운 상태를 전부 초기화한다(남은 착탄 예약도 함께 버린다). </summary>
         public void ClearAll()
         {
             _cooldownRemaining.Clear();
             _cooldownTotal.Clear();
+            // 2026-11-03: 초기화 뒤에 이전 경기의 포탄이 떨어지지 않도록 착탄 예약도 비운다(닫힘 여부는 바꾸지 않는다).
+            _pendingImpacts.Clear();
         }
 
         // ====================================================================
