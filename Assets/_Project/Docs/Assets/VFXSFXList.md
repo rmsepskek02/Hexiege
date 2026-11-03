@@ -140,7 +140,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | 종족 | 건물명 | 파일명 | 비고 |
 |------|--------|--------|------|
 | Human | CannonTower (AutoTower + Human) | actual Assault production `vfx_pistoleer_attack` 재사용 | 별도 preset의 prefab 참조만 교체. Tank/Cannon=actual Tank, SFX/offset 불변. *(2026-10-21 갱신: 서버 권위 투사체 단계 C `b819dc51`부터 이 발사 VFX를 포구(`ProjectileConfig` `_humanTowerMuzzleOffset` (0, 0.405, 0.17), Red는 반전 — preset `_localPositionOffset`은 (0,0,0) 그대로)에서 내고, 포탄 tracer·착탄은 `BuildingEffectConfig` `_autoTowerProjectiles` Human(race 0) 행 → `EffectPreset_Cannon_Tracer`·`EffectPreset_Cannon_Impact`(CannonCart와 같은 프리팹). 사용자 「테스트 완료 · 육안상 특별한 문제 없음」, 포구 좌표 직접 로그 없음 — [Research 15절](../_Tasks/2026-10-19/13_30_server-authoritative-projectile/Research.md#15-stage-c-human-cannon-tower-check-20261021). 종전 끝 문장 「정적 검증과 이전 세대 native를 구분하며 새 native·실기 visual 미확인.」은 2026-10-10 연결 단계 기준)* [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-06) |
-| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_RuneSpire_Attack` → `BuildingEffectConfig` AutoTower Spirit 행). **크리스털 시작점 사용자 확인 PASS(2026-10-13 2차 실기) · 살아 있는 대상 가슴 높이 조준 PASS(2026-10-15 3차 실기) / ⚠️ OPEN: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋남(원인 미검증 — [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10-4)** *(2026-10-15 갱신: 종전 「가슴 높이 조준은 R3 재측정 뒤 판정」. 2026-10-19 병합 반영: 종전 「원래 피격 대상 endpoint 추적 … 별도 후속/보류」는 2026-10-13 구현으로 해소)* — 타워 공격 번개. 2026-10-13부터 번개가 보이는 동안 **원래 맞은 유닛만** 화면 표현으로 따라가고(사망·제거·교체 시 마지막 지점에 고정, 다른 유닛으로 옮겨 가지 않음), 시작점 = 타워 + preset 위치 보정(현재 Y 0.65 = 크리스털 높이), 끝점 = 맞은 유닛 발밑 + 가슴 높이(크기 표의 키 × 0.6, 표에 없으면 0.6m), 조준·길이는 3D. 규칙: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12의 2026-10-13 블록. 기존 즉발 서버 피해·타겟 선택 불변. 정밀 시각 수용은 위 OPEN 포함 별도이며 SFX 미제작. [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-06) |
+| Spirit | RuneSpire | `vfx_runespire_attack.prefab` | 연결 구현됨(2026-10-13 실측: `EffectPreset_RuneSpire_Attack` → `BuildingEffectConfig` AutoTower Spirit 행). **크리스털 시작점 사용자 확인 PASS(2026-10-13 2차 실기) · 살아 있는 대상 가슴 높이 조준 PASS(2026-10-15 3차 실기) / ⚠️ OPEN: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋남(원인 미검증 — [Research](../_Tasks/2026-10-13/13_53_vfx-code-followups/Research.md) 10-4)** *(2026-10-15 갱신: 종전 「가슴 높이 조준은 R3 재측정 뒤 판정」. 2026-10-19 병합 반영: 종전 「원래 피격 대상 endpoint 추적 … 별도 후속/보류」는 2026-10-13 구현으로 해소)* — 타워 공격 번개. 2026-10-13부터 번개가 보이는 동안 **원래 맞은 유닛만** 화면 표현으로 따라가고(사망·제거·교체 시 마지막 지점에 고정, 다른 유닛으로 옮겨 가지 않음), 시작점 = 타워 + preset 위치 보정(현재 Y 0.65 = 크리스털 높이), 끝점 = 맞은 유닛 발밑 + 가슴 높이(크기 표의 키 × 0.6, 표에 없으면 0.6m), 조준·길이는 3D. 규칙: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12의 2026-10-13 블록. 기존 즉발 서버 피해·타겟 선택 불변. 정밀 시각 수용은 위 OPEN 포함 별도이며 SFX 미제작(전용 번개 소리 — 효과음 task 2단계 대상, 아래 「유닛 공격 사운드」 끝). [근거](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-assets-vfx-06) |
 | Transcendence | VineTower (AutoTower + Transcendence) | 미지정 → **계획: `vfx_vinetower_attack.prefab` (제안 파일명, 미착수 — 아래 블록)** | 타 종족 fallback 금지. VFX 미지정이 기존 서버 피해를 차단·변경하지 않음. *(2026-10-15 실측: `BuildingEffectConfig.asset` `_autoTowerAttacks`에는 race 0(Human)·1(Spirit) 두 행뿐이고, `EffectManager.cs` 529행이 Transcendence 타워를 `UnspecifiedTranscendence`로 재생하지 않는다. `Prefabs/VFX/Buildings/`에 vinetower 공격 프리팹 없음 — 현재 공격 VFX 연결 0건)* |
 
 > **VineTower 공격 VFX 계획 (2026-10-15 사용자 아이디어 기록 — 계획만, 미착수·미승인 구현):**
@@ -148,7 +148,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 > - **구성:** 덩굴은 **애니메이션되는 메시 오브젝트**(솟구침 → 휘감기 → 들어감) + 흙·파편 **파티클**. 착탄형 이펙트이므로 대상 위치 지면에 놓는다(같은 가이드의 착탄 배치 원칙 — [VFXSFXGuide](VFXSFXGuide.md) 「Unity AI 프롬프트 작성 규칙 — 코드 계약」).
 > - ⚠️ **코드 선행 조건:** 현재 풀은 **파티클이 모두 사라지면** 아이템을 반환한다(`VfxPoolItem.cs` 548행 `AnyAlive()` 기준, 494행 반환 판정). 애니메이션 메시가 파티클보다 오래 보여야 하면 그 전에 반환돼 잘리므로, **애니메이션 길이를 반환 시점에 반영하는 방법**(예: 애니메이션 종료 신호 또는 고정 수명)이 코드에 필요하다 — 설계·승인 대상. 같은 494행의 파도 경로(`_waveDriven`이면 `_wave.Duration`이 지날 때까지 반환하지 않음)가 「정해진 수명만큼 유지」의 기존 선례다. 또 Transcendence 타워 행을 `BuildingEffectConfig`에 추가하면 `EffectManager.cs` 529행의 「Transcendence 미지정」 분기와 「방어 타워 시스템」 규칙 12의 Transcendence 미지정 서술도 함께 바뀐다(규칙 변경은 사용자 승인 후).
 > - **기각안 (B) 가시 씨앗 투사체:** 타워에서 가시 씨앗을 쏘아 날리는 방식 — 덩굴 지하 공격 컨셉과 맞지 않아 채택하지 않았다.
-> - SFX(`sfx_vinetower_attack` 계열)는 아직 정하지 않았다(`GameSystemRules_Sound.md` 규칙 15 — VFX 연결 시 SFX 쌍 또는 「미제작」 주석).
+> - SFX(`sfx_vinetower_attack` 계열)는 아직 정하지 않았다(`GameSystemRules_Sound.md` 규칙 15 — VFX 연결 시 SFX 쌍 또는 「미제작」 주석). *(2026-11-02: 효과음 task 2단계 대상 — 덩굴 이펙트 확정 뒤 정한다)*
 
 #### 건물 파괴 이펙트
 
@@ -295,13 +295,67 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 
 ### 1. 완성된 SFX
 
-> 현재 없음
+> 청취 승인까지 끝난 「완성」 SFX는 **아직 없다.** 아래는 파일이 있고 게임에 연결된 것의 사실 상태다(2026-11-02 디스크 · `SoundConfig.asset` 대조). *(2026-11-02 갱신 — 종전 「현재 없음」. 그때도 샘플 6종이 연결돼 재생되던 상태였다)*
+
+| 파일 (`Assets/_Project/Audio/SFX/Units/`) | 상태 | 연결 |
+|---|---|---|
+| `sfx_littleknight_attack.wav` | 보정됨(모노 0.432초) | `SoundConfig` LittleKnight 공격음 칸 |
+| `sfx_eaglearcher_attack.wav` | 보정됨(모노 0.451초) | `SoundConfig` EagleArcher 공격음 칸 |
+| `sfx_bearguard_attack.wav` | 생성됨 · 미보정(스테레오 1.045초) | `SoundConfig` BearGuard 공격음 칸 |
+| `sfx_boulderspirit_attack.wav` | 생성됨 · 미보정(스테레오 1.045초) | `SoundConfig` BoulderSpirit 공격음 칸 |
+| `sfx_emberspirit_attack.wav` | 생성됨 · 미보정(스테레오 1.045초) | `SoundConfig` EmberSpirit 공격음 칸 |
+
+- 이 다섯 파일을 앞으로 어느 묶음 칸에 쓸지(또는 버릴지)는 같은 음량으로 보정한 뒤 다시 들어서 정한다(아래 「유닛 공격 사운드」).
+- **삭제된 옛 SFX (커밋 `323dd454`, 2026-11-02 사용자 결정):** `sfx_pistoleer_attack.wav`(1차본 「듣기 싫음」) · `sfx_tank_attack.wav` · `sfx_unit_death.wav`(사망음은 나중에 새로 제작), 임시 효과음 `Audio/Effects/` 6개(`sfx_assault_fire` · `sfx_bullet_hit` · `sfx_healing_magic` · `sfx_healing_magic_soft` · `sfx_healing_magic_v3_organic` · `sfx_gold_collect`), `Audio/SFX_GunShot.wav` · `Audio/SFX_TankBlast.wav`. 그 결과 `SoundConfig.asset`의 BGM 4칸과 Pistoleer 공격음 칸은 「찾을 수 없음」 참조로 **무음**이다 — 칸 정리는 [효과음 task Plan](../_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md) RM-3에서 진행 중.
+- VFX 프리팹 4개(`vfx_pistoleer_attack` · `vfx_streamspirit_attack` · `vfx_tank_attack` · `vfx_unit_death`)에 붙어 옛 소리를 AudioManager를 거치지 않고 직접 내던 AudioSource는 위 삭제로 무음이 됐고, 컴포넌트 정리(먼저 끄고 테스트 뒤 삭제)는 같은 Plan RM-1에서 진행 중이다.
 
 ---
 
 ### 2. 제작 예정 SFX
 
 #### 유닛 공격 사운드
+
+> 유닛 공격음은 **무기 종류 묶음 × 강중약 + 특수 공격 전용 소리**로 만든다(사용자 승인 2026-11-02 — 묶음 규칙 · 파일 이름은 [VFXSFXGuide](VFXSFXGuide.md) 「1. 유닛 공격 사운드」 · 「SFX 파일」, 묶음 · 등급의 근거는 [UnitAttackProfile](UnitAttackProfile.md)). 같은 묶음 · 등급의 유닛은 **같은 파일**을 쓴다. **제작 진행 중** — 아래 「배정 파일」은 계획이고 「상태」가 지금 사실이다.
+>
+> 상태: **미제작** / **생성됨**(파일 있음, 보정 전) / **보정됨**(보정 도구 통과) / **청취 승인**(사용자가 그 칸에 쓰기로 결정) / **연결됨**(`SoundConfig` 칸에 들어감). 둘 이상이면 함께 적는다. *(2026-11-02 개편 — 종전 유닛별 파일명 · 비고 표는 이 절 끝 「종전 기록」에 보존)*
+
+| 종족 | 유닛명 | 배정 | 배정 파일 | 상태 | 비고 |
+|------|--------|------|-----------|------|------|
+| Human | Pistoleer | 총기 중 | `sfx_gun_medium_attack.wav` | 미제작 | 옛 1차본은 삭제됨. `SoundConfig` 칸은 「찾을 수 없음」 참조(정리 진행 중) |
+| Human | Assault | 총기 약 | `sfx_gun_light_attack.wav` | 미제작 | 연사 속 한 발 |
+| Human | Sniper | 총기 강 | `sfx_gun_heavy_attack.wav` | 미제작 | |
+| Human | LittleKnight | 날붙이 약 | 후보: 기존 `sfx_littleknight_attack.wav`(이름 유지) · 아니면 `sfx_blade_light_attack.wav` | 보정됨 · 연결됨(LittleKnight 칸) | 찌르고 휘두르는 2타 — 타격마다 같은 소리 |
+| Human | SpearMan | 날붙이 중 | `sfx_blade_medium_attack.wav` | 미제작 | 창 찌르기. 중으로 승인, 청취 뒤 조정 가능 |
+| Human | BattleAxe | 전용 | `sfx_battleaxe_attack.wav` | 미제작 | **큰 반원을 그리며 휘두르기**의 베는 소리 *(2026-11-02 정정 — 종전 비고 「도끼 내려치는 소리」)* |
+| Human | Tank | 전용(포격 공용) | `sfx_cannon_attack.wav` | 미제작 | 큰 전차포 느낌. CannonCart · Human 방어 타워와 같은 파일 |
+| Human | CannonCart | 전용(포격 공용) | `sfx_cannon_attack.wav` | 미제작 | **단일 대상** 포격 *(2026-11-02 정정 — 종전 비고 「범위 포격음」)* |
+| Spirit | EmberSpirit | 타격 중 | 후보: 기존 `sfx_emberspirit_attack.wav` · 아니면 `sfx_strike_medium_attack.wav` | 생성됨 · 미보정 · 연결됨(EmberSpirit 칸) | 불 몸, **근접 팔 내려치기** *(2026-11-02 정정 — 종전 비고 「불 마법음」)* |
+| Spirit | FlameSpirit | 타격 약 | `sfx_strike_light_attack.wav` | 미제작 | 연속 주먹질 — 타격마다 같은 소리 *(2026-11-02 정정 — 종전 비고 「화염 방출음」)* |
+| Spirit | InfernoSpirit | 전용 | `sfx_infernospirit_attack.wav` | 미제작 | 화염구 **발사**음. 차지(불덩이 모으기)는 무음 |
+| Spirit | DustSpirit | 타격 중 | `sfx_strike_medium_attack.wav` | 미제작 | 바위 몸, 양손 내려치기 *(2026-11-02 정정 — 종전 비고 「흙먼지 공격음」)* |
+| Spirit | BoulderSpirit | 타격 강 | 후보: 기존 `sfx_boulderspirit_attack.wav` · 아니면 `sfx_strike_heavy_attack.wav` | 생성됨 · 미보정 · 연결됨(BoulderSpirit 칸) | 바위 몸, **근접 팔 내려치기** *(2026-11-02 정정 — 종전 비고 「바위 투척음」)* |
+| Spirit | QuakeSpirit | 전용 | `sfx_quakespirit_attack.wav` | 미제작 | 뛰어올라 땅 내려치기 |
+| Spirit | TideSpirit | 타격 중 | `sfx_strike_medium_attack.wav` | 미제작 | EmberSpirit과 같은 팔 내려치기 *(2026-11-02 정정 — 종전 비고 「물 튀기는 소리」)* |
+| Spirit | StreamSpirit | 전용 | `sfx_streamspirit_attack.wav` | 미제작 | 물폭탄 발사 |
+| Spirit | TorrentSpirit | 전용 | `sfx_torrentspirit_attack.wav` | 미제작 | 파도 발사 — 파도가 생기는 순간 |
+| Transcendence | FoxMagician | 전용 | `sfx_foxmagician_attack.wav` | 미제작 | 차징된 구체 **발사**음. 차징은 무음 |
+| Transcendence | BearGuard | 타격 강 | 후보: 기존 `sfx_bearguard_attack.wav` · 아니면 `sfx_strike_heavy_attack.wav` | 생성됨 · 미보정 · 연결됨(BearGuard 칸) | **나무 방패를 옆으로 휘둘러 때림** *(2026-11-02 정정 — 종전 비고 「강타음」)* |
+| Transcendence | LionKnight | 날붙이 중 | `sfx_blade_medium_attack.wav` | 미제작 | **장검** 연속 베기 2타 — 타격마다 같은 소리 *(2026-11-02 정정 — 종전 비고 「발톱 베는 소리」)* |
+| Transcendence | RhinoBreaker | 타격 강 | `sfx_strike_heavy_attack.wav` | 미제작 | **제자리 복싱 훅** *(2026-11-02 정정 — 종전 비고 「돌진 충격음」)* |
+| Transcendence | EagleArcher | 활 | 후보: 기존 `sfx_eaglearcher_attack.wav` · 아니면 `sfx_bow_attack.wav` | 보정됨 · 연결됨(EagleArcher 칸) | 발사음만. 기존 샘플(약 0.45초)은 활 상한 0.35초를 넘는다 — 쓸지 · 다시 만들지 청취 뒤 |
+| Transcendence | RabbitTrickster | 날붙이 약 | LittleKnight와 같은 파일 | 미제작(항목 없음) | 단검 찌르기. LittleKnight 샘플이 맞는지 청취 뒤 |
+| Transcendence | MushroomBomber | 전용 | `sfx_mushroombomber_attack.wav` | 미제작 | 독포자 투척 *(2026-11-02 정정 — 종전 비고 「포자 폭발음」)* |
+| Transcendence | BloomFairy | 전용(힐 시전) | `sfx_bloomfairy_cast.wav` | 미제작(항목 없음) | **힐 시전 순간 1회** — 맑은 종소리 3~4음 + 꽃잎 바람. 아래 「유닛 특수 효과 사운드」의 힐 지속음과 다른 소리 *(2026-11-02 행 추가 — 종전 표에 없었음)* |
+
+- 「후보」 칸의 기존 샘플 4종(EmberSpirit · BoulderSpirit · BearGuard · EagleArcher)은 같은 음량으로 보정한 뒤 다시 들어서 그 칸에 쓸지 정한다. LittleKnight 샘플을 RabbitTrickster에도 쓸지, 같은 칸 안 재질 차이로 묶음을 나눌지도 청취 뒤 정한다.
+- 「상태」의 「연결됨(○○ 칸)」은 **지금 그 유닛 칸에 개별 샘플이 들어 있다**는 뜻이며 묶음 배정이 끝났다는 뜻이 아니다.
+- 원거리 유닛은 발사음만 만든다(착탄음 · 차징 소리 · 사망음은 이번 범위 밖). 특수 공격 전용 소리는 [사운드 규칙](../GameSystemRules/GameSystemRules_Sound.md) 규칙 13의 「우선」 소리다.
+- 방어 타워 공격음(Human = `sfx_cannon_attack.wav`, RuneSpire = 전용 번개, VineTower = 보류)은 효과음 task 2단계 대상이다 — 타워 공격음 칸 · 재생 경로가 먼저 만들어진다([타워 개편 Plan](../_Tasks/2026-11-02/15_48_tower-attack-presentation-restructure/Plan.md)).
+
+<details>
+<summary>종전 기록 — 유닛별 파일명 · 비고 표 (2026-11-02 대체)</summary>
+
+> 개편 전 원문이다. 비고 여러 칸이 실제 공격 방식과 다르다(위 표의 「정정」 표시). 현재 기준은 위 표와 [UnitAttackProfile](UnitAttackProfile.md)이다.
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
@@ -329,6 +383,8 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Transcendence | EagleArcher | `sfx_eaglearcher_attack.wav` | 화살 발사음 |
 | Transcendence | RabbitTrickster | `sfx_rabbittrickster_attack.wav` | 단검 베는 소리 |
 | Transcendence | MushroomBomber | `sfx_mushroombomber_attack.wav` | 포자 폭발음 |
+
+</details>
 
 #### 유닛 사망 사운드
 
@@ -366,7 +422,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 
 | 종족 | 유닛명 | 파일명 | 비고 |
 |------|--------|--------|------|
-| Transcendence | BloomFairy | `sfx_bloomfairy_heal.wav` | **미제작** — `vfx_bloomfairy_heal`과 쌍. 1회음/반복음 여부 미정; 현재 결정 불필요. VFX 연동 시 SFX 없음 주석 명시로 보류 |
+| Transcendence | BloomFairy | `sfx_bloomfairy_heal.wav` | **미제작** — `vfx_bloomfairy_heal`과 쌍. 1회음/반복음 여부 미정; 현재 결정 불필요. VFX 연동 시 SFX 없음 주석 명시로 보류. *(2026-11-02: 효과음 task가 만드는 BloomFairy 소리는 이 지속음이 아니라 힐 **시전 순간 1회** `sfx_bloomfairy_cast.wav`다 — 위 「유닛 공격 사운드」. 이 행은 그 task 범위 밖)* |
 
 #### 건물 파괴 사운드
 
