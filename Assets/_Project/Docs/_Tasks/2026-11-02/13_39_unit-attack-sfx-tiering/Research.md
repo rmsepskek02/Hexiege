@@ -615,5 +615,5 @@
 | 기존 샘플 `sfx_eaglearcher_attack.wav` | 배정 파일에서 빠진다. 지금 `SoundConfig`의 EagleArcher 칸에 연결된 이 샘플을 언제 바꿀지 · 파일을 지울지는 **결정 없음** | VFXSFXList 해당 행 상태 칸 |
 | 활 묶음(`sfx_bow_attack.wav`, 가이드의 활 행 · 상한 0.35초) | 이 결정으로 쓰는 유닛이 없다. 가이드에서 활 묶음 규칙을 지울지는 결정 없음 — 가이드 본문은 고치지 않고 EagleArcher 샘플 줄에만 날짜 조각을 붙였다 | [VFXSFXGuide](../../../Assets/VFXSFXGuide.md) 「길이 상한」 아래 EagleArcher 줄 |
 
-- 공격 동작(EagleArcher가 활을 어떻게 쏘는지)은 여전히 미답이다 — 이 결정은 소리에 대한 것뿐이다.
+- 공격 동작(EagleArcher가 활을 어떻게 쏘는지)은 여전히 미답이다 — 이 결정은 소리에 대한 것뿐이다. *(2026-11-03 같은 날 답변 [전달]: 「시위를 당겨 쏘는 모션이긴 한데 실제로 시위가 당겨지진 않아」 — `UnitAttackProfile.md` 2-3 공격 동작 칸 · 4절 「공격 동작」 해결로 반영)*
 - 타격 약 공용 프롬프트(Prompts.md 6번)는 FlameSpirit 연타 기준으로 쓰였다. EagleArcher 발사에도 어울리는지는 생성 뒤 청취로 본다.

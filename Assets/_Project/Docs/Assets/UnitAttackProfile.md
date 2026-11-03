@@ -57,7 +57,7 @@
 | BearGuard | 나무 방패를 옆으로 휘둘러 때림 | `Transcendence/BearGuard/BearShield.fbx` / 방패 | 방패 = 나무 — 사용자 확인 | **키 25종 중 가장 큼**(곰탱커) |
 | LionKnight | 장검 연속 베기(공격 1회에 2타) | `Transcendence/LionKnight/LionSword.fbx` / 장검(발톱 아님) | 미확인 | 키 중간 |
 | RhinoBreaker | 제자리에서 주먹질 — 복싱의 훅 같은 모션(돌진 아님) | 없음 / — | 미확인 | 키 큼 |
-| EagleArcher | 미확인 — 사용자 답은 소리에 대한 것뿐이다(「EagleArcher 약으로」 2026-11-03 — 3-1) *(2026-11-03 갱신 — 종전: 「… 「활은 특별히 SFX를 쓰기보다 타격음만 있어도 되지 않을까」는 동작이 아니라 소리에 대한 말이고 해석이 정해지지 않았다(3-1 · 4절)」)* | `EagleArcher/EagleBow/EagleBow.fbx` · `EagleArcher/EagleArrow/EagleArrow.fbx` / 활 | 나무 활, 화살촉만 금속 — 사용자 확인 | 키 큼 |
+| EagleArcher | **확인됨(사용자, 2026-11-03) — 시위를 당겨 쏘는 모션, 단 모델의 시위가 실제로 당겨지지는 않음** · 종전: 미확인 *(2026-11-03 갱신 — 직전 칸: 「미확인 — 사용자 답은 소리에 대한 것뿐이다(「EagleArcher 약으로」 2026-11-03 — 3-1)」)* | `EagleArcher/EagleBow/EagleBow.fbx` · `EagleArcher/EagleArrow/EagleArrow.fbx` / 활 | 나무 활, 화살촉만 금속 — 사용자 확인 | 키 큼 |
 | RabbitTrickster | 단검으로 찌르기 | `RabbitTrickster/RabbitSword/RabbitSword.fbx` / 단검 | 미확인 | 키 작음 · **반경 25종 중 가장 작음**(가장 가는 몸) |
 | MushroomBomber | 공을 던지듯 독포자를 던짐 | 없음 / — | **버섯 컨셉** — 포자 자체의 별도 컨셉은 없음 · 사용자 확인 *(2026-11-03 — 종전: 미확인)* | 키 중간 |
 | BloomFairy | 하늘로 무언가를 던지는 듯한 모션(힐 발동) | 없음 / — | 미확인 | 키 중간 |
@@ -133,7 +133,7 @@
 
 | 항목 | 대상 |
 |---|---|
-| 공격 동작 | EagleArcher *(2026-11-03 갱신 — 종전: 「Pistoleer · Assault · Sniper · EagleArcher · Tank · CannonCart, StreamSpirit의 발사 동작」. 나머지는 사용자 답으로 확인 — 2절)* |
+| 공격 동작 | **해결(2026-11-03)** — EagleArcher 동작 확인(2-3). 남은 유닛 없음. 직전 대상: EagleArcher *(2026-11-03 갱신 — 종전: 「Pistoleer · Assault · Sniper · EagleArcher · Tank · CannonCart, StreamSpirit의 발사 동작」. 나머지는 사용자 답으로 확인 — 2절)* |
 | 무기 종류 · 재질 | LittleKnight 무기 종류와 재질(파일명은 칼날) · BattleAxe 무기 종류와 재질(파일명은 도끼) · SpearMan 창 재질 · FoxMagician 지팡이(구체 색은 확인 — 2-3) · LionKnight 장검 · RabbitTrickster 단검 |
 | 몸 재질 | FlameSpirit · TideSpirit · StreamSpirit · RhinoBreaker · BloomFairy *(2026-11-03 갱신 — 종전 목록에 있던 InfernoSpirit(불) · QuakeSpirit(바위) · TorrentSpirit(물) · MushroomBomber(버섯 컨셉)은 사용자 답으로 확인)* |
 | 활 소리 | **해결(2026-11-03)** — 사용자 「EagleArcher 약으로」: ① 발사 순간에 타격 약 공용 소리를 쓴다(3-1). 종전 미결 문구: 「사용자 「활은 특별히 SFX를 쓰기보다 **타격음만 있어도 되지 않을까**」(2026-11-03)의 뜻이 정해지지 않았다: ① 발사 순간에 활 소리 대신 타격 계열 소리를 쓴다 / ② 발사음 없이 맞을 때 소리를 낸다 … 메인 세션이 사용자에게 다시 묻는 중」 *(그 전: 「EagleArcher가 시위 소리 위주인지」)* |
