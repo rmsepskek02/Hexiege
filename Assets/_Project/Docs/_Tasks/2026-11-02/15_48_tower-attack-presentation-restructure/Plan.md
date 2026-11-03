@@ -374,13 +374,14 @@
 | 2026-11-02 | 효과음 Plan(`13_39` Plan 6·8·10·12절) 대조 반영: 6-3 `PlayTowerAttackSfx`가 ①의 `PlaySfxClip`(우선 인자 추가형)을 「항상 우선」으로 부른다고 확정(인자 이름·타입은 ① 구현 서명을 따름) · 12-1 표의 `SoundConfig.cs`·`ProjectilePresentationPresenter.cs` ① 칸 확정, `SoundConfig.asset`·`AudioManager.cs` ① · ④ 칸 구체화, `vfx_pistoleer_attack.prefab` 행 추가 · 12-1-1 역할 분담과 보고 3건(④ 볼륨 칸, 효과음 Plan 10절의 옛 자리 서술, 12절 폴더 표기) 추가 · K-7 보강 · 승인 목록과 11절에서 A-11(Testcase.md 작성 여부)을 삭제 — WORKFLOW [5-1]·[5]의 「TC 작성은 사용자 명시 지시가 있을 때만, 먼저 제안·질문도 금지」에 어긋남(번호는 비워 둠). 같은 이유로 12절 담당 표의 「QA(필요 시)」를 「사용자 명시 지시 때만」으로 고침 |
 | 2026-11-02 | **사용자 승인 「추천대로 승인」**(메인 세션 전달) — 13절에 「결정」 열 추가(종전 칸 그대로): A-1~A-10 · A-12 · A-13 모두 Plan 제안대로, A-7(제안 「사용자 선택」)은 1회성 에디터 메뉴. 9절 B-1~B-4 · S-1~S-3 문구도 승인 — 반영은 구현 · 테스트 뒤 [11]. 상단 상태 줄 갱신 |
 | 2026-11-03 | **구현 · 사용자 테스트 · 최종 삭제 · [11] 문서 반영**(document-manager, 메인 세션 전달) — 15절 신설. 9절 B-1~B-4 · S-1~S-3을 `GameSystemRules_Buildings.md` 규칙 12 · `GameSystemRules_Sound.md` 규칙 3 · 15 · 16에 반영(종전 문장은 날짜 조각으로 보존). 상단 상태 줄 갱신 |
+| 2026-11-03 | 15절 끝에 「머지 뒤 확인」 한 줄(지원 스킬 머지 `5669e170` 뒤 회귀 스위트 PASS · 푸시 `da5c561b`), 15절 머리 「미커밋」 → 커밋 `d719fa53` 정정 |
 
 ---
 
 <a id="15-implementation-and-user-test"></a>
 ## 15. 구현 결과 · 사용자 테스트 · 최종 삭제 (2026-11-03)
 
-> **출처:** 구현 사실은 game-programmer 보고(2026-11-03, 메인 세션 전달) **[전달]**이며, 아래 [확인] 표시 줄은 이 기록 중 document-manager가 작업 트리 파일을 직접 읽어 대조했다. 사용자 테스트 결과는 메인 세션 전달 **[전달]**. 이 시점 이 작업의 코드 · 에셋 변경은 **미커밋**이다(`git status` — 새 파일 `TowerAttackProfile.cs` 미추적, 나머지 수정).
+> **출처:** 구현 사실은 game-programmer 보고(2026-11-03, 메인 세션 전달) **[전달]**이며, 아래 [확인] 표시 줄은 이 기록 중 document-manager가 작업 트리 파일을 직접 읽어 대조했다. 사용자 테스트 결과는 메인 세션 전달 **[전달]**. 이 작업의 코드 · 에셋 · 문서는 커밋 `d719fa53`에 들어갔다 *(2026-11-03 갱신 — 직전 「이 시점 이 작업의 코드 · 에셋 변경은 **미커밋**이다(`git status` — 새 파일 `TowerAttackProfile.cs` 미추적, 나머지 수정).」)*.
 
 ### 15-1. 들어간 것 — 어디에
 
@@ -436,4 +437,6 @@ Research.md 본문의 행 번호는 기준 커밋 `7368d7f1` 기준이며 구현
 - **④ 타워 공격음 클립 연결:** `SoundConfig` 타워 공격 SFX 목록에 Human(`sfx_cannon_attack`) · RuneSpire(전용) 행 — 클립과 볼륨을 함께([효과음 Plan](../13_39_unit-attack-sfx-tiering/Plan.md) 10절).
 - **효과음 1단계의 연기된 일**(① — 큰 전투 청취 · 옛 코드 삭제)은 이 task와 별개 — 효과음 Plan 17-5.
 - RuneSpire 번개 끝점 OPEN(결정 7 — 제외)은 그대로다.
+
+**머지 뒤 확인 (2026-11-03, [전달] — 커밋 해시는 `git log`로 확인):** 원격 지원 스킬 커밋 `56d5ab2a` · `c4cbf8ab`를 머지(`5669e170`, 충돌은 `EffectManager.cs` 1곳 — 원격에 다시 나온 옛 `PlayBuildingAttack`은 버리고 지원 스킬의 `PlaySkillActivationVfx` · `ComputeSkillVfxScale`은 유지, 메인 세션 해결 · Unity 밖 Roslyn 컴파일 오류 0)한 뒤 회귀 스위트 PASS(사용자 「PASS됐어」, 결과 파일 없음 — Console만), 푸시 `origin/claude/vfx-code-followups` = `da5c561b`. 머지로 서버 투사체 검증 파일의 스키마 기대값이 6 → 7로 바뀐 것은 지원 스킬 쪽 변경이며 타워 검증 · C-6 게이트는 바뀌지 않았다.
 
