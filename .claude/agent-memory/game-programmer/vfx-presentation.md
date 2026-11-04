@@ -198,6 +198,7 @@ human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993
   switch token so pre-P5 builds still match) and goes into the match-start handshake hash — builds with a different classification refuse
   to start (intended). The self-validation pins the token string. When an RPC's shape changes, also bump
   `PresentationContractSchemaRevision` (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC; P5 kept 6).
+  *(2026-11-03 note: now **7** — 6 → 7 by the skill activation ClientRpc shape, see [skill-system.md](skill-system.md) §1.)*
   *(2026-10-27 replaced; old bullet: "Per-unit switch: `EnabledUnitTypes` → `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the
   handshake hash …" — the switch lists and `IsServerProjectile*` no longer exist.)*
 - **Cleanup lesson (P5, 2026-10-27):** a migration plan's "delete in P5" list can name live code. RM-1 (immediate damage `ExecuteAttack` /

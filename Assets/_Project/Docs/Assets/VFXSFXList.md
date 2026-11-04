@@ -259,6 +259,16 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 > **범위 표시 반투명 원형 UI는 이 문서 대상이 아니다.** VFX가 아니라 UI/셰이더 영역이며,
 > 기존 지면 데칼 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader` 재사용을 우선 검토한다(같은 문서 규칙 27).
 
+#### 스킬 발동 이펙트
+
+> 스킬 자산(`Resources/Config/Skills/*.asset`)의 「발동 VFX 프리팹」 칸에 연결한다(EffectPreset 아님). 재생 계약은 [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 10번, 규칙은 [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 · 25. *(2026-11-03 추가 — 첫 연결)*
+
+| 종족 | 스킬 | 파일명 | 비고 |
+|------|------|--------|------|
+| Human | 포격 지원 | `Prefabs/VFX/Buildings/vfx_flightfacility_bombardment.prefab` | **연결됨** — `Skill_Human_Bombardment` 발동 VFX(기준 반경 2), 포탄 7발 동시 낙하. 싱글 · 멀티 사용자 테스트 PASS(2026-11-03, 사용자 종합 판정 — 뒤집힌 화면 무늬 · 반경 변경 크기는 따로 관측 보고 없음). SFX 없음(사용자 결정 — 효과음을 받으면 추가). [포격 Task Plan 10절](../_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md#10-implementation-and-user-test) |
+
+- 그 밖의 스킬 VFX(`Prefabs/VFX/Skills/`의 `vfx_emp_pulse` · `vfx_emp_disabled` · 다시 만들기로 한 첫 `vfx_meteor_fall`)는 **아직 어느 자산 · 프리팹 · 씬에서도 참조되지 않는다**(2026-11-03 GUID 검색 0건). 제작 목록과 순서는 [지원 스킬 기획 Plan](../_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md) 2-1 · 7절이며, 이 목록에 행을 미리 둘지는 그 Plan 6절에서 정하지 않았다.
+
 #### 골드 채집 이펙트
 
 | 오브젝트 | 파일명 | 비고 |

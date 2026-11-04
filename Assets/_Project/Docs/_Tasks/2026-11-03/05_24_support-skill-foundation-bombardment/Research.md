@@ -253,3 +253,22 @@
 | 날짜 | 내용 |
 |---|---|
 | 2026-11-03 | 최초 작성 — game-programmer 읽기 전용 조사를 사실 · 추정 · 제안 구분을 유지해 옮김. 문서 담당이 HEAD `9def81ce`에서 주요 행을 다시 읽어 `[확인]` 표시. 정정 1건: 임시 라벨 표에 C + 공격 불가(3) → 「기절」 줄 추가(`BuildingSkillPanelUI.cs` 251행). 코드 · 에셋 · 규칙 문서 무변경 |
+| 2026-11-03 | 구현 · 사용자 테스트 뒤 10절 추가 — 이 조사의 사실 중 구현으로 바뀐 것 · 그대로인 것 · 미확인으로 남은 것. 위 1~9절 본문은 조사 시점 기록이라 고치지 않았다 |
+
+---
+
+## 10. 구현 뒤 대조 (2026-11-03)
+
+이 문서 1~9절은 **구현 전**(HEAD `9def81ce`) 상태 기록이다. 구현(`03e5551d` · `56d5ab2a` · `c4cbf8ab`)과 사용자 자산 푸시(`3ff5ed60`) 뒤 바뀐 것을 여기 모은다. 결과 · 테스트 · 남은 위험의 단일 기록은 [Plan 10절](Plan.md#10-implementation-and-user-test)이다.
+
+| 조사 시점 사실 | 지금 | 근거 |
+|---|---|---|
+| 3-1 성공 알림은 `SkillActivatedClientRpc(buildingId, cooldown)` · 수신 쪽은 쿨다운 미러만 · 183행 「연출은 플레이스홀더」 주석 | 같은 이름의 RPC가 (건물 Id · 팀 · 슬롯 · 조준 여부 · 조준 좌표 · 발동 순번 · 착탄 지연 · 쿨다운)을 싣고, 순수 클라이언트는 쿨다운 미러 + 「수신」 이벤트를 낸다. Host 이중 재생 방지 `IsServer` 가드는 유지 | `NetworkSkillController.cs` 219행 · `UnitAttackShadowProfileResolver.cs` 25~28행 주석 [확인] |
+| 3-1 · 3-2 전투 표현 스키마 6, fixture `== 6`(257행) | 스키마 **7**, fixture `== 7`(259행) | `UnitAttackShadowProfileResolver.cs` 29행 · `RunUnitActionSelfValidation.ServerProjectiles.cs` 259행 [확인] |
+| 4-1 포격 프리팹 참조처 0건 | `Skill_Human_Bombardment.asset`의 발동 VFX 칸이 이 프리팹 GUID를 가리킨다 | 자산 33행 [확인] |
+| 4-2 타입 A는 발동 즉시 `ApplySkillInstantAreaDamage` | 착탄 지연 > 0이면 예약 → 권위 전용 틱에서 1회 호출. 지연 0이면 종전과 같다 | `SkillActivationUseCase.cs` 288~295행 [확인] |
+| 5-1 이름 · 설명 칸 없음 · 로드아웃은 임시 5종 | 이름 · 설명 · 사용 가능 · 착탄 지연 · 발동 VFX · VFX 기준 반경 칸이 생겼고, 로드아웃은 새 확정 스킬 15개(사용 가능은 포격 지원 1개). 기존 18개 자산은 남아 있다 | Plan 10-2 [확인] |
+| 5-2 슬롯 라벨 | 예측대로 — 인간 패널은 「폭탄 × 4 + 상태 + 철거」(Plan 7-2 사용자 보고) | 사용자 보고 |
+| 5-3 기능 없는 스킬이 폭탄처럼 동작할 위험 | 「사용 가능」 off면 서버가 슬롯 조회 직후 거부(쿨다운 안 돎) · 패널은 조준에 들어가지 않는다 | `SkillActivationUseCase.cs` 128행 [확인] |
+
+**그대로 미확인인 것(7절):** NGO RPC 식별 방식 · 프리팹 `moveWithTransform` 의미 · 뒤집힌 화면의 포탄 무늬 · 착탄 0.4초의 게임 측정값 — 사용자 테스트는 종합 판정(「특별히 문제없는 것으로 확인했어」)이라 이 넷을 따로 재지 않았다.

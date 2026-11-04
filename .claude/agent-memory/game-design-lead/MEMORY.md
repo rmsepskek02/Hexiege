@@ -1,5 +1,23 @@
 # Game Design Lead Memory — Hexiege
 
+## Support-skill VFX design lessons (2026-11-02~03)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md` §7-2 · §7-3 (decisions 27~31) and
+`_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/` Plan §10.
+
+- **Meteor redesign:** the first one-prefab `vfx_meteor_fall` failed the user's eye (square body, odd tail). The accepted
+  plan (A) splits it into **warning · body · impact** prefabs and bases the body on an **already-approved structure — the
+  InfernoSpirit tracer ×5** plus a rock sphere (the user asked for one: 「바위구체가 있는 게 더 메테오스럽지 않을까?」). When a
+  skill VFX fails, start the next design from an approved in-game effect rather than a fresh description.
+- **Fall time is a code value** (default 1.5 s, decision 29 replaced decision 24's "fixed in the prefab"); the fixed-length
+  warning ring is re-timed by code. Body size is fixed; only warning/impact follow the radius. Balancing can change the fall
+  time without touching the prefab.
+- **Impact timing reuse:** Bombardment shipped with a 0.4 s server-side impact delay (type A, damage at the impact moment to
+  whoever is in range then). Meteor is expected to reuse that reservation with a longer delay — design meteor around
+  "damage at impact, dodgeable", not "damage at cast".
+- **Unavailable slots:** 14 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown). How an
+  unavailable slot looks is a later UI task (decision 16) — do not design it inside a skill task.
+
 ## Torrent-only approved launch policy and runtime boundary (2026-10-03)
 
 - **Latest tested subset:**415 waves/VFX matched;200 lost-primary launches included37 unit damage/1 building damage/5 heals, confirming real contacts in this match. Client text1 loss does not revoke observed launch/movement acceptance or HPauthority. Clock/text defect and overallmigration remainOPEN; no new design/rule approval.23_45 Research/Plan §9 records evidence; earlier runtime-pending notes are history.

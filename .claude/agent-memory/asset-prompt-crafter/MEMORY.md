@@ -252,6 +252,29 @@ the main session) and §13 (user-test PASS 2026-10-27).
   ROADMAP (candidates: colour/brightness contrast, preset scale, ground ring/glow, emphasis at the moment the effect starts).
   Poison/heal v2 remakes are a candidate there (user: consider them if the burn result is good).
 
+## Unity AI VFX prompt lessons — meteor redesign: opaque mesh body, trails (2026-11-02~03)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md` §7-3 (decisions 27~30). The first
+`vfx_meteor_fall` (commit `0e9df53b`) was rejected by the user (「몸체가 네모난 이미지 같은 게 떨어지고 꼬리도 이상하다」); the main
+session found the cause in **our prompt**, not the user's work. Lessons for any falling/flying body:
+
+- **`Mat_VFX_Cannonball` is an opaque material** (`_Surface: 0`, blend One/Zero). It works only with Renderer **Mesh** mode +
+  built-in **Sphere** mesh (as in `vfx_cannon_tracer.prefab`). On a Billboard it renders as a **square**. Before naming a
+  material in a prompt, check whether it is opaque or transparent and which render mode its source prefab uses.
+- **Do not stretch a blob texture (fire/smoke puff) onto Trails** — it became a strange band. For a tail, use a separate
+  **World**-space particle layer emitting by **Rate over Distance** (the Inferno tracer prefab has three layers with Rate over
+  Distance 10 / 6 / 5 — checked in its YAML 2026-11-03).
+- **Transparent particles in front of an opaque mesh body:** pull the flame layers toward the camera (the redesign used
+  (0, 0.74, -0.52), along the 55° orthographic view direction) so the opaque sphere does not hide them. On the orthographic
+  camera this changes depth only, not screen size/position.
+- **Units in the Particle System UI** (handed over by the main session, not re-measured here): Trails **Lifetime is a ratio**
+  of the particle lifetime (0~1), and **Size over Lifetime is a multiplier** of Start Size — do not write them as seconds /
+  world sizes in a prompt.
+- Build a new body from an **approved structure** instead of from scratch: the meteor body is the Inferno tracer
+  (`vfx_infernospirit_tracer`) scaled ×5 plus a rock sphere (Rock_Core, mesh). Body size is fixed (root scale 1); only the
+  warning and impact scale with the skill radius. VFX production is paused (Unity AI credits, decision 30) — `vfx_meteor_body`
+  prompt delivered, not made yet.
+
 ## Unity AI SFX prompt lessons — unit / tower attack sounds (2026-11-02~03)
 
 > **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「SFX 카테고리별 가이드」 → 「1. 유닛 공격 사운드」

@@ -90,7 +90,7 @@
 
 ## 토픽 파일 인덱스
 
-> 아래 21개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외). *(2026-10-15: 19 → 20, `vfx-presentation.md` 추가; 2026-11-03: 20 → 21, `audio-sfx.md` 추가)*
+> 아래 22개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외). *(2026-10-15: 19 → 20, `vfx-presentation.md` 추가; 2026-11-03: 20 → 21, `audio-sfx.md` 추가; 2026-11-03: 21 → 22, `skill-system.md` 추가)*
 
 ### 먼저 읽어야 하는 것
 
@@ -141,6 +141,11 @@
   / `IsUnitAttackPriority`, same-clip 3 · 0.05 s · global 16 · priority eviction with per-play id, Inspector knobs
   (scene value wins), dev decision log, deferred deletions, one-time menu `SfxTieringOneTimeSetup`, normalizer length warning.
   🔴 **Read before touching `AudioManager` / `SoundConfig` / SFX editor tools.**
+- [skill-system.md](skill-system.md) — support skills (2026-11-03~): skill-asset fields (`IsAvailable` · impact delay ·
+  activation VFX + reference radius), reject-before-cooldown, two presentation channels (`OnSkillActivationConfirmed` /
+  `Received`, Host `IsServer` guard, schema 6 → 7), impact reservation on the **authoritative tick only** (not the
+  client cooldown-mirror tick), delay chosen by the type-A bridge, `ClosePendingImpacts` on game end, VFX root scale.
+  🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료
