@@ -66,13 +66,6 @@ namespace Hexiege.Presentation
         /// <summary> 정점 색이 그대로 나오게 머티리얼 틴트는 흰색으로 둔다. </summary>
         private static readonly Color MaterialTint = Color.white;
 
-        // [2026-11-10 비활성 — 사용자 피드백 「붉은색 계열 · 회색 부분은 안 나오게」. 테스트 통과 후 삭제 예정(Plan 규칙: 주석 처리 → 테스트 → 삭제)]
-        //   옛 색: 흰빛 사거리 원(타일 위에서 회색으로 보였다) + 주황 부채꼴.
-        // private static readonly Color32 RangeFillColor = new Color32(255, 255, 235, 28);   // 사거리 원 채움(아주 옅게)
-        // private static readonly Color32 RangeRingColor = new Color32(255, 255, 235, 200);  // 사거리 원 테두리
-        // private static readonly Color32 ArcFillColor = new Color32(255, 150, 50, 72);      // 전방 부채꼴 채움(주황)
-        // private static readonly Color32 ArcEdgeColor = new Color32(255, 165, 60, 230);     // 부채꼴 경계선 · 호 테두리
-
         /// <summary>
         /// 공격 범위 "채움" 색(붉은 계열, 2026-11-10). 360° 탑의 원판과 대포탑의 120° 부채꼴이 같은 색을 쓴다.
         /// 알파 64(약 25%)의 근거: 사용자가 「육안상 잘 작업됐다」고 본 1e505f3 의 부채꼴 채움 알파가 72(약 28%)였다.
@@ -136,9 +129,6 @@ namespace Hexiege.Presentation
 
             if (!Mathf.Approximately(r, _builtRadius))
             {
-                // [2026-11-10 비활성 — 회색(흰빛) 색 대신 붉은 색으로 만든다. 테스트 통과 후 삭제 예정]
-                // SetMesh(_fillFilter, BuildDisc(r, RangeFillColor));
-                // SetMesh(_ringFilter, BuildAnnulus(r, Mathf.Max(0f, r - RingThickness), 0f, 360f, RangeRingColor));
                 SetMesh(_fillFilter, BuildDisc(r, RangeFillRed));
                 SetMesh(_ringFilter, BuildAnnulus(r, Mathf.Max(0f, r - RingThickness), 0f, 360f, RangeEdgeRed));
                 _builtRadius = r;
@@ -158,9 +148,6 @@ namespace Hexiege.Presentation
             {
                 if (!Mathf.Approximately(halfAngleDeg, _builtHalfAngle))
                 {
-                    // [2026-11-10 비활성 — 주황 대신 붉은 색으로 만든다. 테스트 통과 후 삭제 예정]
-                    // SetMesh(_arcFillFilter, BuildSector(r, halfAngleDeg, ArcFillColor));
-                    // SetMesh(_arcEdgeFilter, BuildArcEdges(r, halfAngleDeg, ArcEdgeColor));
                     SetMesh(_arcFillFilter, BuildSector(r, halfAngleDeg, RangeFillRed));
                     SetMesh(_arcEdgeFilter, BuildArcEdges(r, halfAngleDeg, RangeEdgeRed));
                     _builtHalfAngle = halfAngleDeg;
