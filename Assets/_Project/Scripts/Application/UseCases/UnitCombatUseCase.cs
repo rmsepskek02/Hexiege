@@ -2537,6 +2537,29 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// [진단 전용 — 2026-11-09 EMP · 포격 테스트 진단 로그] 스킬 범위 판정과 "같은 기준"으로 원 안의 적 유닛 · 적 건물을 모은다.
+        /// 피해 · 상태를 주지 않고 목록만 채운다(읽기 전용). SkillActivationUseCase의 진단 로그 헬퍼(개발 축 [Conditional])만
+        /// 부르므로 릴리스 빌드에서는 호출 자체가 사라진다. 판정용 재사용 버퍼(_skillUnitVictims 등)는 건드리지 않는다
+        /// — 호출자가 넘긴 목록에만 담는다(판정 중간 상태를 진단이 덮어쓰지 않도록).
+        /// </summary>
+        /// <param name="casterTeam">시전 팀(이 팀은 제외).</param>
+        /// <param name="center">조준 중심(도메인 월드 — Y는 무시).</param>
+        /// <param name="radius">원형 반경(월드 단위). 0 이하 · NaN이면 아무것도 담지 않는다.</param>
+        /// <param name="units">원 안 살아 있는 적 유닛을 담을 목록(먼저 비운다). null이면 유닛은 건너뛴다.</param>
+        /// <param name="buildings">원 안 살아 있는 적 건물을 담을 목록(먼저 비운다). null이면 건물은 건너뛴다.</param>
+        public void CollectSkillAreaTargetsForDiagnostics(TeamId casterTeam, Vector3 center, float radius,
+                                                          List<UnitData> units, List<BuildingData> buildings)
+        {
+            units?.Clear();
+            buildings?.Clear();
+            if (!(radius > 0f)) return;
+            Vector3 centerWorld = Flatten(center);
+            float radiusSqr = radius * radius;
+            if (units != null && _unitSpawn != null) CollectEnemyUnitsInRadiusDomain(casterTeam, centerWorld, radiusSqr, units);
+            if (buildings != null && _buildingPlacement != null) CollectEnemyBuildingsInRadiusDomain(casterTeam, centerWorld, radiusSqr, buildings);
+        }
+
+        /// <summary>
         /// 조준 중심(도메인 월드)에서 원형 반경 안의 적 유닛을 수집한다(스킬 전용, 도메인 좌표 기준).
         /// 아군/사망 유닛은 제외한다(규칙 16). BlastAttackBehavior.CollectEnemyUnitsInRadius와 같은
         /// 알고리즘이지만, UnitData 공격자·뷰 좌표 대신 TeamId·도메인 좌표(_mapper.HexToWorld)를 쓴다.

@@ -43,6 +43,16 @@
 //   그 목록으로 무력화 「확정」 이벤트(GameEvents.OnTowersDisabledConfirmed)를 발행한다(커밋 2 — 동기화).
 //   (발동 순번은 SkillActivationUseCase만 알기 때문에 발행도 그쪽에서 한다.) 화면 이펙트는 커밋 3이 붙인다.
 //
+// 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 개발 축, 머리 [EMP-DIAG], Diag=EmpTowerDisable, DiagRev=1):
+//   탑 공격 차단은 매 틱 일어나므로 줄을 남기지 않고 "횟수만" 센다(LogRules 1.14-8). 줄은 상태가 바뀌는 순간에만 1번 남긴다.
+//     · GateFirstBlock            — 무력화된 탑이 처음으로 관문에 막힌 순간(탑 · 무력화 1회당 1줄)
+//     · TowerDisableExpired       — 만료로 다시 쏠 수 있게 된 순간(누적 차단 수 · 무력화 중 발사 수 · 무력화 중 착탄 수 포함)
+//     · TowerFirstShotAfterExpiry — 만료 뒤 그 탑의 첫 발사(만료로부터 몇 ms 뒤인가 — 쿨다운 K1 판정)
+//     · TowerDisableRemoved       — 무력화 중 탑 파괴 · 철거로 기록을 지운 순간(실제로 기록이 있었을 때만)
+//     · TowerDisableClosed        — 경기 종료로 전부 비운 순간(1회)
+//   진단용 기록 · 시계 · 메서드는 모두 [Conditional](개발 빌드 · 에디터 전용) 메서드 안에서만 바뀐다 → 릴리스 빌드에서는
+//   호출 자체가 사라져 판정(CanAttack · Tick 결과)에 아무 영향이 없다. 진단 기록은 판정 저장소(_attackDisabled)와 따로 둔다.
+//
 // Application 레이어 — Domain · Application 의존. UnityEngine은 Vector3 계산에만 쓴다(Unity 의존 허용,
 //   SkillActivationContext · MistShrineUseCase 선례). Netcode · Core · Infrastructure 참조 없음.
 // ============================================================================
@@ -109,6 +119,8 @@ namespace Hexiege.Application
                                               List<int> disabledTowerIds)
         {
             disabledTowerIds?.Clear();
+            // [진단] 이번 발동의 "갱신(이미 무력화 중이던 탑)" 집계를 비운다(개발 빌드 전용 — 판정 무관).
+            DiagBeginApplyBatch();
 
             // 경기가 끝났거나 · 값이 잘못됐거나 · 의존성이 없으면 아무것도 하지 않는다(방어적).
             //   !(x > 0f) 형태는 NaN도 함께 걸러낸다(NaN은 어떤 비교도 false).
@@ -132,7 +144,11 @@ namespace Hexiege.Application
                 float dz = tileCenter.z - centerFlat.z;
                 if (dx * dx + dz * dz > radiusSqr) continue;
 
+                // [진단] 걸기 "전"에 이미 걸려 있었는지(= 갱신) · 남은 시간을 적어 둔다(걸고 나면 새 값으로 바뀌므로 먼저).
+                DiagBeforeApply(building.Id);
                 ApplyAttackDisabled(building.Id, duration, casterTeam);
+                // [진단] 이 탑의 무력화 시각을 기록한다(만료 줄의 ElapsedMs 기준점).
+                DiagAfterApply(building.Id, duration);
                 disabledTowerIds?.Add(building.Id);
                 count++;
             }
@@ -201,6 +217,10 @@ namespace Hexiege.Application
         /// <param name="dt">경과 시간(초). 0 이하 · NaN이면 아무것도 하지 않는다.</param>
         public void Tick(float dt)
         {
+            // [진단] 진단 시계를 먼저 앞으로 돌린다 — 아래 조기 반환(무력화 0개)보다 앞이어야
+            //   "만료 뒤 첫 발사까지 걸린 시간"이 탑이 적을 기다리는 동안에도 계속 잰다(개발 빌드 전용 — 판정 무관).
+            DiagAdvanceClock(dt);
+
             if (!(dt > 0f) || _attackDisabled.Count == 0) return;
 
             // ① 키 복사 — 딕셔너리를 순회하면서 값을 바꾸거나 지우지 않기 위해서.
@@ -219,7 +239,11 @@ namespace Hexiege.Application
 
             // ③ 만료된 건물 제거 → 바로 다음 탑 틱에서 CanAttack이 true가 되어 다시 쏜다.
             for (int i = 0; i < _expiredKeyBuffer.Count; i++)
+            {
+                // [진단] 지우기 직전 1줄(TowerDisableExpired) — 무력화 동안 모은 횟수를 함께 남긴다(개발 빌드 전용).
+                DiagOnExpired(_expiredKeyBuffer[i]);
                 _attackDisabled.Remove(_expiredKeyBuffer[i]);
+            }
 
             _expiredKeyBuffer.Clear();
             _tickKeyBuffer.Clear();
@@ -236,6 +260,8 @@ namespace Hexiege.Application
         /// <param name="buildingId">파괴 · 철거된 건물 Id.</param>
         public void Remove(int buildingId)
         {
+            // [진단] 실제로 무력화 중이던 탑이면 지우기 전에 1줄(TowerDisableRemoved). 아니면 아무것도 남기지 않는다.
+            DiagBeforeRemove(buildingId);
             _attackDisabled.Remove(buildingId);
         }
 
@@ -246,8 +272,248 @@ namespace Hexiege.Application
         /// </summary>
         public void Close()
         {
+            // [진단] 처음 닫힐 때 1줄(TowerDisableClosed — 비운 수). 두 번째 이후 호출은 남기지 않는다.
+            DiagOnClose();
             _closed = true;
             _attackDisabled.Clear();
+        }
+
+        // ====================================================================
+        // 진단(개발 축) — 2026-11-09 EMP 테스트 진단 로그. 릴리스 빌드에서는 아래 [Conditional] 호출이 모두 사라진다.
+        // ====================================================================
+        //
+        // 왜 판정 저장소와 따로 두나(초급자용 설명):
+        //   _attackDisabled는 "탑이 쏴도 되나"를 정하는 진짜 상태다. 진단용 숫자(막힌 횟수 등)를 거기에 섞으면
+        //   진단 코드가 판정을 바꿀 위험이 생긴다. 그래서 탑 Id → 진단 기록을 별도 사전에 둔다.
+        //   진단 기록은 [Conditional] 메서드 안에서만 만들고 고치므로, 릴리스 빌드에서는 사전이 늘 비어 있다.
+
+        // 탑 하나의 진단 기록(무력화가 걸린 동안 모은 숫자).
+        private sealed class TowerDisableDiag
+        {
+            public int Sequence;               // 이 무력화를 건 발동 순번(마지막으로 건 발동 — 갱신되면 새 순번)
+            public float DurationSec;          // 마지막으로 건 지속 시간(초)
+            public float FirstAppliedAt;       // 처음 걸린 진단 시각(초) — 갱신이 있어도 그대로
+            public float LastAppliedAt;        // 마지막으로 걸린(갱신된) 진단 시각(초) — 만료 ElapsedMs 기준
+            public int ApplyCount;             // 걸린 횟수(1 = 처음만, 2 이상 = 갱신됨)
+            public int GateBlockedTicks;       // 관문에 막힌 탑 틱 수(매 틱 줄 대신 횟수만)
+            public int LaunchesWhileDisabled;  // 무력화 중 발사 수(관문이 정상이면 언제나 0)
+            public int ImpactsWhileDisabled;   // 무력화 중 착탄 피해 수(무력화 전에 쏜 포탄 — 시나리오 4)
+            public int OtherTowerLaunches;     // 이 탑이 멈춘 동안 "무력화되지 않은 다른 탑"이 쏜 수(원 밖 탑 계속 공격 — 시나리오 2)
+            public bool FirstBlockLogged;      // GateFirstBlock 줄을 이미 남겼는지
+        }
+
+        // 만료 뒤 첫 발사를 기다리는 탑의 기록.
+        private struct AfterExpiryWatch
+        {
+            public int Sequence;     // 만료된 무력화의 발동 순번
+            public float ExpiredAt;  // 만료된 진단 시각(초)
+        }
+
+        private readonly Dictionary<int, TowerDisableDiag> _diag = new Dictionary<int, TowerDisableDiag>();
+        private readonly Dictionary<int, AfterExpiryWatch> _diagAwaitFirstShot = new Dictionary<int, AfterExpiryWatch>();
+        // 진단 시계(초) — 권위 틱의 dt를 더한다(무력화 남은 시간과 같은 시계라 ElapsedMs가 지속 시간과 바로 비교된다).
+        private float _diagClock;
+        // 이번 발동 묶음의 갱신 집계(SkillActivationUseCase의 TowersDisabled 줄이 읽는다).
+        private int _diagBatchRefreshed;
+        private readonly System.Text.StringBuilder _diagBatchPrevRemaining = new System.Text.StringBuilder(32);
+
+        /// <summary> [진단] 마지막 범위 무력화에서 "이미 무력화 중이라 남은 시간만 새로 바꾼" 탑 수(개발 빌드에서만 값이 채워진다). </summary>
+        public int DiagLastRefreshedCount => _diagBatchRefreshed;
+
+        /// <summary> [진단] 마지막 범위 무력화에서 갱신된 탑의 「탑Id:갱신 전 남은 ms」 목록(`|` 구분, 없으면 None). </summary>
+        public string DiagLastPrevRemainingMs => _diagBatchPrevRemaining.Length == 0 ? "None" : _diagBatchPrevRemaining.ToString();
+
+        /// <summary>
+        /// [진단 전용] 범위 무력화와 같은 기준(타일 중심 · XZ 거리 · 살아 있는 AutoTower)으로 탑을 센다. 상태는 바꾸지 않는다.
+        /// SkillActivationUseCase의 진단 로그 헬퍼([Conditional])만 부르므로 릴리스에서는 불리지 않는다.
+        /// </summary>
+        /// <param name="casterTeam">시전 팀.</param>
+        /// <param name="center">조준 중심(도메인 월드).</param>
+        /// <param name="radius">반경(월드).</param>
+        /// <param name="enemyInRadius">원 안 적 탑 수.</param>
+        /// <param name="enemyOutOfRange">원 밖 적 탑 수.</param>
+        /// <param name="allyInRadius">원 안 아군 탑 수(아군 탑 무영향 확인용).</param>
+        public void CountTowersForDiagnostics(TeamId casterTeam, Vector3 center, float radius,
+                                              out int enemyInRadius, out int enemyOutOfRange, out int allyInRadius)
+        {
+            enemyInRadius = 0;
+            enemyOutOfRange = 0;
+            allyInRadius = 0;
+            if (_buildingPlacement == null || _mapper == null) return;
+            float radiusSqr = radius > 0f ? radius * radius : -1f; // 반경이 잘못됐으면 아무것도 "원 안"이 아니다
+            foreach (BuildingData building in _buildingPlacement.Buildings.Values)
+            {
+                if (building == null || !building.IsAlive || building.Type != BuildingType.AutoTower) continue;
+                Vector3 tileCenter = _mapper.HexToWorld(building.Position);
+                float dx = tileCenter.x - center.x;
+                float dz = tileCenter.z - center.z;
+                bool inside = dx * dx + dz * dz <= radiusSqr;
+                if (building.Team == casterTeam) { if (inside) allyInRadius++; }
+                else if (inside) enemyInRadius++;
+                else enemyOutOfRange++;
+            }
+        }
+
+        /// <summary> [진단] 진단 기록에 발동 순번을 붙인다(순번은 SkillActivationUseCase만 안다 — 범위 무력화 직후 호출). </summary>
+        /// <param name="towerIds">이번에 무력화(갱신 포함)된 탑 Id 목록.</param>
+        /// <param name="sequence">발동 순번.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        public void DiagBindSequence(IReadOnlyList<int> towerIds, int sequence)
+        {
+            if (towerIds == null) return;
+            for (int i = 0; i < towerIds.Count; i++)
+                if (_diag.TryGetValue(towerIds[i], out TowerDisableDiag d)) d.Sequence = sequence;
+        }
+
+        /// <summary> [진단 L7] 무력화된 탑이 관문에 막힌 탑 틱 1회를 센다. 처음 막힌 순간에만 1줄(GateFirstBlock). </summary>
+        /// <param name="towerId">관문에 막힌 탑 Id.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        public void DiagNoteGateBlocked(int towerId)
+        {
+            if (!_diag.TryGetValue(towerId, out TowerDisableDiag d)) return;
+            d.GateBlockedTicks++;
+            if (d.FirstBlockLogged) return;
+            d.FirstBlockLogged = true;
+            GameLog.Dev.Info("Combat", nameof(BuildingStatusEffectSystem), "[EMP-DIAG] GateFirstBlock",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=GateFirstBlock, Role={DiagRole()}, Sequence={d.Sequence}, TowerId={towerId}, MsAfterApply={DiagMs(_diagClock - d.LastAppliedAt)}"));
+        }
+
+        /// <summary>
+        /// [진단 L9 · L10] 탑이 실제로 공격(즉발 피해 또는 포탄 발사)한 순간. TowerCombatUseCase가 공격 성공 직후 부른다.
+        /// 무력화 중이면 LaunchesWhileDisabled(언제나 0이어야 정상), 아니면 멈춘 탑들의 OtherTowerLaunches를 올리고,
+        /// 만료 뒤 첫 공격이면 1줄(TowerFirstShotAfterExpiry)을 남긴다.
+        /// </summary>
+        /// <param name="towerId">공격한 탑 Id.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        public void DiagNoteTowerLaunch(int towerId)
+        {
+            if (_attackDisabled.ContainsKey(towerId))
+            {
+                if (_diag.TryGetValue(towerId, out TowerDisableDiag self)) self.LaunchesWhileDisabled++;
+                return;
+            }
+            // 무력화되지 않은 탑의 공격 — 지금 멈춰 있는 탑들의 「다른 탑 공격 수」에 더한다(멈춘 탑은 보통 몇 개뿐).
+            foreach (KeyValuePair<int, TowerDisableDiag> pair in _diag) pair.Value.OtherTowerLaunches++;
+
+            if (!_diagAwaitFirstShot.TryGetValue(towerId, out AfterExpiryWatch watch)) return;
+            _diagAwaitFirstShot.Remove(towerId);
+            GameLog.Dev.Info("Combat", nameof(BuildingStatusEffectSystem), "[EMP-DIAG] TowerFirstShotAfterExpiry",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerFirstShotAfterExpiry, Role={DiagRole()}, Sequence={watch.Sequence}, TowerId={towerId}, MsAfterExpiry={DiagMs(_diagClock - watch.ExpiredAt)}"));
+        }
+
+        /// <summary> [진단 L10] 탑이 쏜 포탄의 착탄 피해 1회. 그 탑이 지금 무력화 중이면 ImpactsWhileDisabled를 올린다(줄은 없음). </summary>
+        /// <param name="towerId">포탄을 쏜 탑 Id.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        public void DiagNoteTowerImpact(int towerId)
+        {
+            if (_attackDisabled.ContainsKey(towerId) && _diag.TryGetValue(towerId, out TowerDisableDiag d))
+                d.ImpactsWhileDisabled++;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagAdvanceClock(float dt)
+        {
+            if (dt > 0f) _diagClock += dt;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBeginApplyBatch()
+        {
+            _diagBatchRefreshed = 0;
+            _diagBatchPrevRemaining.Clear();
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBeforeApply(int towerId)
+        {
+            if (!_attackDisabled.TryGetValue(towerId, out StatusEffect current)) return;
+            _diagBatchRefreshed++;
+            if (_diagBatchPrevRemaining.Length > 0) _diagBatchPrevRemaining.Append('|');
+            _diagBatchPrevRemaining.Append(towerId).Append(':').Append(DiagMs(current.RemainingDuration));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagAfterApply(int towerId, float duration)
+        {
+            if (!_diag.TryGetValue(towerId, out TowerDisableDiag d))
+            {
+                d = new TowerDisableDiag { FirstAppliedAt = _diagClock };
+                _diag[towerId] = d;
+            }
+            d.DurationSec = duration;
+            d.LastAppliedAt = _diagClock;
+            d.ApplyCount++;
+            // 만료 뒤 첫 발사를 기다리던 탑이 다시 걸렸으면 그 기다림은 무효다(새 무력화가 끝난 뒤 다시 잰다).
+            _diagAwaitFirstShot.Remove(towerId);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagOnExpired(int towerId)
+        {
+            _diag.TryGetValue(towerId, out TowerDisableDiag d);
+            _diag.Remove(towerId);
+            int sequence = d != null ? d.Sequence : 0;
+            // 만료 순간 탑 쿨다운(K1: 무력화 중에도 쿨다운이 줄었으면 대개 0 — 사거리 안 적이 있으면 곧바로 쏜다).
+            BuildingData tower = _buildingPlacement?.GetBuilding(towerId);
+            float cooldown = tower != null ? tower.AttackCooldownRemaining : -1f;
+            _diagAwaitFirstShot[towerId] = new AfterExpiryWatch { Sequence = sequence, ExpiredAt = _diagClock };
+            GameLog.Dev.Info("Combat", nameof(BuildingStatusEffectSystem), "[EMP-DIAG] TowerDisableExpired",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerDisableExpired, Role={DiagRole()}, Sequence={sequence}, TowerId={towerId}, DurationMs={(d != null ? DiagMs(d.DurationSec) : -1)}, ElapsedMs={(d != null ? DiagMs(_diagClock - d.LastAppliedAt) : -1)}, TotalDisabledMs={(d != null ? DiagMs(_diagClock - d.FirstAppliedAt) : -1)}, ApplyCount={(d != null ? d.ApplyCount : 0)}, GateBlockedTicks={(d != null ? d.GateBlockedTicks : 0)}, LaunchesWhileDisabled={(d != null ? d.LaunchesWhileDisabled : 0)}, ImpactsWhileDisabled={(d != null ? d.ImpactsWhileDisabled : 0)}, OtherTowerLaunches={(d != null ? d.OtherTowerLaunches : 0)}, CooldownAtExpiryMs={(cooldown >= 0f ? DiagMs(cooldown) : -1)}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBeforeRemove(int towerId)
+        {
+            // 만료 뒤 첫 발사를 기다리던 탑이 파괴됐으면 기다림을 버린다(줄 없음 — 무력화 중이 아니었다).
+            _diagAwaitFirstShot.Remove(towerId);
+            if (!_attackDisabled.TryGetValue(towerId, out StatusEffect current))
+            {
+                _diag.Remove(towerId);
+                return;
+            }
+            _diag.TryGetValue(towerId, out TowerDisableDiag d);
+            _diag.Remove(towerId);
+            GameLog.Dev.Info("Combat", nameof(BuildingStatusEffectSystem), "[EMP-DIAG] TowerDisableRemoved",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerDisableRemoved, Role={DiagRole()}, Sequence={(d != null ? d.Sequence : 0)}, TowerId={towerId}, Reason=TowerDied, RemainingMs={DiagMs(current.RemainingDuration)}, GateBlockedTicks={(d != null ? d.GateBlockedTicks : 0)}, LaunchesWhileDisabled={(d != null ? d.LaunchesWhileDisabled : 0)}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagOnClose()
+        {
+            if (_closed) return; // 두 번째 이후 Close는 남기지 않는다(멱등 호출).
+            GameLog.Dev.Info("Combat", nameof(BuildingStatusEffectSystem), "[EMP-DIAG] TowerDisableClosed",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerDisableClosed, Role={DiagRole()}, Reason=GameEnd, ClearedCount={_attackDisabled.Count}, AwaitingFirstShot={_diagAwaitFirstShot.Count}"));
+            _diag.Clear();
+            _diagAwaitFirstShot.Clear();
+        }
+
+        /// <summary> 진단 로그 Role= 값. 이 서비스는 권위 쪽에서만 돌므로 Single 또는 Host다(Client가 찍히면 그 자체가 결함). </summary>
+        private static string DiagRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Host" : "Client";
+        }
+
+        /// <summary> 초 → 밀리초 정수(로그 값에 소수점 · 문화권 차이가 끼지 않게). </summary>
+        private static int DiagMs(float seconds)
+        {
+            return Mathf.RoundToInt(seconds * 1000f);
         }
 
         // ====================================================================

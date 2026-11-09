@@ -269,6 +269,9 @@ namespace Hexiege.Infrastructure
         {
             if (IsServer) return; // 호스트는 서버 Activate에서 이미 쿨다운을 세웠고 「확정」으로 이미 재생했다.
 
+            // [진단 L3] 순수 클라이언트 수신 1줄 — IsServer 가드 "뒤"에 둬서 Host에서는 남지 않는다(같은 사건 중복 금지, LogRules 1.14-9).
+            LogActivationReceived(buildingId, teamInt, slot, hasAim, aimWorld, sequence, impactDelay, cooldown);
+
             // ① 쿨다운 미러(종전과 같은 동작).
             SkillActivationUseCase skill = ResolveServices()?.GetSkillActivationUseCase();
             skill?.StartCooldownLocal(buildingId, cooldown);
@@ -308,7 +311,10 @@ namespace Hexiege.Infrastructure
             // 팀은 보내지 않는다 — 사용자가 확정한 RPC 모양(순번 · 지속 · 탑 Id 배열)을 그대로 따른다.
             //   받는 화면은 탑 Id로 자기 건물 데이터를 찾아 탑의 팀 · 위치를 얻는다.
             //   int[]는 NGO가 기본 직렬화한다. CopyTowerIds가 새 배열을 만들어 주므로 값 객체 내부는 바뀌지 않는다.
-            TowersDisabledClientRpc(p.Sequence, p.Duration, p.CopyTowerIds());
+            int[] towerIds = p.CopyTowerIds();
+            // [진단 L13] Host 송신 1줄 — 받는 쪽(L14)과 Sequence · TowerIds가 같아야 정상.
+            LogTowersDisabledSent(p.Sequence, p.Duration, towerIds);
+            TowersDisabledClientRpc(p.Sequence, p.Duration, towerIds);
         }
 
         /// <summary>
@@ -324,6 +330,9 @@ namespace Hexiege.Infrastructure
         private void TowersDisabledClientRpc(int sequence, float duration, int[] towerIds)
         {
             if (IsServer) return; // 호스트는 서버 쪽 「확정」 이벤트로 화면이 이미 시작했다.
+
+            // [진단 L14] 순수 클라이언트 수신 1줄 — IsServer 가드 "뒤"라 Host에서는 남지 않는다.
+            LogTowersDisabledReceived(sequence, duration, towerIds);
 
             // 전송 값 방어 — 배열이 비었으면 띄울 탑이 없다. 지속 시간 음수 · NaN은 값 객체가 0으로 고친다.
             if (towerIds == null || towerIds.Length == 0) return;
@@ -341,6 +350,52 @@ namespace Hexiege.Infrastructure
                                  "방어탑 무력화 수신 이벤트 구독자 예외 — 게임 결과 무영향",
                                  $"Sequence={sequence}, Duration={duration}, TowerCount={towerIds.Length}, Error={ex.Message}");
             }
+        }
+
+        // ====================================================================
+        // 진단 로그(개발 축 — 2026-11-09 EMP · 포격 테스트 진단 로그, WORKFLOW [4])
+        //   [Conditional] 두 개라 릴리스 빌드에서는 호출 · 문자열 조립까지 사라진다(LogRules 1.7).
+        // ====================================================================
+
+        /// <summary> 초 · 월드 단위 실수 → 밀리 단위 정수(로그 값에 소수점 · 문화권 차이가 끼지 않게). </summary>
+        private static int DiagMilli(float value)
+        {
+            return Mathf.RoundToInt(value * 1000f);
+        }
+
+        /// <summary> 탑 Id 배열 → `a|b|c`(값 안에 `, `를 넣지 않는다 — LogRules 1.4). 비었으면 None. </summary>
+        private static string DiagJoinIds(int[] ids)
+        {
+            if (ids == null || ids.Length == 0) return "None";
+            return string.Join("|", ids);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogActivationReceived(int buildingId, int teamInt, int slot, bool hasAim, Vector3 aimWorld,
+                                                  int sequence, float impactDelay, float cooldown)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[SKILL-VFX] ActivationReceived",
+                System.FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationReceived, Role=Client, Team={(TeamId)teamInt}, BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aimWorld.x)}, AimZmm={DiagMilli(aimWorld.z)}, CooldownMs={DiagMilli(cooldown)}, ImpactDelayMs={DiagMilli(impactDelay)}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowersDisabledSent(int sequence, float duration, int[] towerIds)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[EMP-DIAG] TowersDisabledSent",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowersDisabledSent, Role=Host, Sequence={sequence}, DurationMs={DiagMilli(duration)}, TowerCount={(towerIds != null ? towerIds.Length : 0)}, TowerIds={DiagJoinIds(towerIds)}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowersDisabledReceived(int sequence, float duration, int[] towerIds)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[EMP-DIAG] TowersDisabledReceived",
+                System.FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowersDisabledReceived, Role=Client, Sequence={sequence}, DurationMs={DiagMilli(duration)}, TowerCount={(towerIds != null ? towerIds.Length : 0)}, TowerIds={DiagJoinIds(towerIds)}"));
         }
 
         // ====================================================================

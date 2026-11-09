@@ -43,6 +43,11 @@
 // 배치: 씬에 수동 배치하지 않는다. GameBootstrapper(LoadMap)가 자기 GameObject에 AddComponent하고
 //   맵을 불러올 때마다 Initialize를 부른다(재호출 안전 — 이전 구독 · 이펙트를 먼저 정리한다).
 //
+// 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 개발 축, 머리 [EMP-DIAG], Diag=EmpTowerDisable, DiagRev=1):
+//   TowerVfxStarted(처음 시작 — 실제 루트 위치 · 배율) · TowerVfxExtended(재적용 — 재시작 없이 끝 시각만 연장) ·
+//   TowerVfxStopped(정지 — 경로 Expire/TowerDied/GameEnd/Reinit/Destroy) · TowerVfxResolveFallback/TowerVfxSkipped(Warn — 탑 GO · 프리셋 없음).
+//   모두 상태가 바뀌는 순간 1줄이고, 매 프레임 Update에는 줄이 없다(LogRules 1.14-8).
+//
 // Presentation 레이어 — Application(이벤트 · 값 객체 · IBuildingObjectProvider) + Core(ViewConverter · HexMetrics) + Domain.
 //   탑 공격 판정 · HP · 쿨다운에는 손대지 않는 "표현 전용" 컴포넌트다.
 // ============================================================================
@@ -69,6 +74,8 @@ namespace Hexiege.Presentation
             public VfxPoolItem Item;   // 재생 중인 풀 항목(VFX 컨테이너 아래 — 탑의 자식 아님)
             public ulong Lease;        // 시작할 때 받은 확인 번호(정지 때 이 번호로만 멈춘다)
             public float EndTime;      // 꼬리 정지할 게임 시간(Time.time 기준)
+            public float StartTime;    // [진단] 처음 시작한 게임 시간(정지 줄의 ActiveMs 계산용 — 동작에는 쓰지 않는다)
+            public int Sequence;       // [진단] 마지막으로 시작 · 연장시킨 발동 순번(동작에는 쓰지 않는다)
         }
 
         // VFX 시작 · 정지 담당(풀 관리 포함).
@@ -110,7 +117,7 @@ namespace Hexiege.Presentation
         {
             DisposeSubscriptions();
             // 이전 맵(경기)의 V6가 남아 있으면 지운다 — 그 탑들은 맵 정리 때 이미 사라졌으므로 탑 파괴와 같게 입자까지 즉시.
-            StopAll(immediate: true);
+            StopAll(immediate: true, path: "Reinit");
 
             _effects = effects;
             _findBuilding = findBuilding;
@@ -118,8 +125,9 @@ namespace Hexiege.Presentation
             _raceOfTeam = raceOfTeam;
             _gameEnded = false;
 
-            _confirmedSubscription = GameEvents.OnTowersDisabledConfirmed.Subscribe(OnTowersDisabled);
-            _receivedSubscription = GameEvents.OnTowersDisabledReceived.Subscribe(OnTowersDisabled);
+            // 채널 이름을 진단 로그에 남기려고 블록 본문 람다로 감싼다(처리 자체는 두 채널이 같다).
+            _confirmedSubscription = GameEvents.OnTowersDisabledConfirmed.Subscribe(p => { OnTowersDisabled(p, "Confirmed"); });
+            _receivedSubscription = GameEvents.OnTowersDisabledReceived.Subscribe(p => { OnTowersDisabled(p, "Received"); });
             _buildingDiedSubscription = GameEvents.OnBuildingDied.Subscribe(OnBuildingDied);
             _gameEndSubscription = GameEvents.OnGameEnd.Subscribe(OnGameEnd);
         }
@@ -129,7 +137,7 @@ namespace Hexiege.Presentation
         {
             DisposeSubscriptions();
             // 씬 정리 중이면 풀 항목도 함께 파괴되는 중일 수 있다 — StopTowerStatusVfx가 파괴된 항목은 건너뛴다.
-            StopAll(immediate: true);
+            StopAll(immediate: true, path: "Destroy");
         }
 
         private void DisposeSubscriptions()
@@ -148,7 +156,8 @@ namespace Hexiege.Presentation
         /// 무력화 표현 1건을 받아 탑마다 V6를 시작하거나(처음) 끝나는 시각만 늦춘다(이미 재생 중). 두 채널이 같은 처리를 쓴다.
         /// </summary>
         /// <param name="p">서버가 확정한(또는 클라이언트가 받은) 무력화 표현 값.</param>
-        private void OnTowersDisabled(TowersDisabledPresentation p)
+        /// <param name="channel">들어온 채널 이름(진단 로그용 — Confirmed 또는 Received).</param>
+        private void OnTowersDisabled(TowersDisabledPresentation p, string channel)
         {
             // 컴포넌트가 이미 파괴됐거나(정적 이벤트가 늦게 들어오는 경우) 경기가 끝났으면 아무것도 하지 않는다.
             if (this == null || _gameEnded) return;
@@ -158,7 +167,7 @@ namespace Hexiege.Presentation
             float endTime = Time.time + p.Duration;
             IReadOnlyList<int> ids = p.TowerIds;
             for (int i = 0; i < ids.Count; i++)
-                StartOrExtend(ids[i], endTime);
+                StartOrExtend(ids[i], endTime, p.Sequence, p.Duration, channel);
         }
 
         /// <summary>
@@ -166,7 +175,10 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="towerId">무력화된 탑의 건물 Id.</param>
         /// <param name="endTime">꼬리 정지할 게임 시간(Time.time 기준).</param>
-        private void StartOrExtend(int towerId, float endTime)
+        /// <param name="sequence">발동 순번(진단 로그용).</param>
+        /// <param name="duration">무력화 지속 시간(초 — 진단 로그용).</param>
+        /// <param name="channel">들어온 채널 이름(진단 로그용).</param>
+        private void StartOrExtend(int towerId, float endTime, int sequence, float duration, string channel)
         {
             // 재적용: 같은 확인 번호의 재생이 아직 살아 있으면 끝나는 시각만 "지금 + 새 지속 시간"으로 교체한다.
             //   (서버가 남은 시간을 새 지속 시간으로 교체하는 것과 같은 규칙 — 이펙트는 끊기지 않는다.)
@@ -175,20 +187,40 @@ namespace Hexiege.Presentation
                 if (current.Item != null && current.Item.IsStatusLoopActive(current.Lease))
                 {
                     current.EndTime = endTime;
+                    current.Sequence = sequence;
+                    // [진단 L15] 재적용 — 재시작 없이 끝 시각만 바꿨다는 1줄(EMP 시나리오 6 「끊김 없음」).
+                    LogTowerVfxExtended(towerId, sequence, duration, channel, endTime - current.StartTime);
                     return;
                 }
                 // 기록은 있는데 재생이 이미 끝났다(비정상 — 항목 파괴 등). 기록을 버리고 아래에서 새로 시작한다.
                 _active.Remove(towerId);
             }
 
-            if (!TryResolveTower(towerId, out RaceId race, out Vector3 viewPosition)) return;
+            if (!TryResolveTower(towerId, out RaceId race, out Vector3 viewPosition, out bool usedTileCenter))
+            {
+                // [진단 L15w] 살아 있는 방어탑을 찾지 못해 띄우지 않았다(늦게 도착한 알림 · 배선 누락).
+                LogTowerVfxSkipped(towerId, sequence, channel, "TowerNotResolved");
+                return;
+            }
             if (_effects == null) return;
+            // [진단 L15w] 탑 GO가 없어 타일 중심으로 대신 띄운다(건물 높이 오프셋이 빠진다) — Warn 1줄.
+            if (usedTileCenter) LogTowerVfxFallback(towerId, sequence, channel);
 
             VfxPoolItem item = _effects.StartTowerStatusVfx(race, viewPosition, out ulong lease);
             // 프리셋이 비어 있으면(에셋 값을 아직 넣지 않은 상태 포함) 재생 없음 — 기록도 남기지 않는다.
-            if (item == null || lease == 0) return;
+            if (item == null || lease == 0)
+            {
+                // [진단 L15w] 종족 프리셋 · 프리팹이 비어 V6를 못 냈다 — Warn 1줄(EMP 시나리오 8 「Preset=Missing」).
+                LogTowerVfxSkipped(towerId, sequence, channel, "PresetMissing");
+                return;
+            }
 
-            _active[towerId] = new ActiveTowerVfx { Item = item, Lease = lease, EndTime = endTime };
+            _active[towerId] = new ActiveTowerVfx
+            {
+                Item = item, Lease = lease, EndTime = endTime, StartTime = Time.time, Sequence = sequence
+            };
+            // [진단 L15] 시작 1줄 — 넘긴 탑 위치와 실제 풀 항목 루트 위치 · 배율(EMP 시나리오 2 · 8).
+            LogTowerVfxStarted(towerId, sequence, duration, channel, race, viewPosition, item.transform, lease);
             // EMP SFX 없음(사용자 결정 Q7). 생기면 V5(발동 고리) 재생 바로 아래에서 짝으로 부른다(사운드 규칙 15).
         }
 
@@ -198,11 +230,13 @@ namespace Hexiege.Presentation
         /// <param name="towerId">건물 Id.</param>
         /// <param name="race">탑 자신의 팀으로 정한 종족.</param>
         /// <param name="viewPosition">탑 위치(이 화면 좌표).</param>
+        /// <param name="usedTileCenter">탑 GameObject가 없어 타일 중심으로 대신했으면 true(진단 로그용).</param>
         /// <returns>재생할 수 있는 탑이면 true.</returns>
-        private bool TryResolveTower(int towerId, out RaceId race, out Vector3 viewPosition)
+        private bool TryResolveTower(int towerId, out RaceId race, out Vector3 viewPosition, out bool usedTileCenter)
         {
             race = default;
             viewPosition = default;
+            usedTileCenter = false;
             if (_findBuilding == null || _raceOfTeam == null) return false;
 
             // 이 화면의 건물 데이터 — 서버 · 클라이언트 모두 같은 Id로 갖고 있다(NetworkBuildingController가 같은 Id로 생성).
@@ -218,6 +252,7 @@ namespace Hexiege.Presentation
             viewPosition = towerObject != null
                 ? towerObject.transform.position
                 : ViewConverter.ToView(HexMetrics.HexToWorld(building.Position));
+            usedTileCenter = towerObject == null;
             return true;
         }
 
@@ -232,7 +267,7 @@ namespace Hexiege.Presentation
             int id = e.Building.Id;
             if (!_active.TryGetValue(id, out ActiveTowerVfx entry)) return;
             _active.Remove(id);
-            StopEntry(entry, immediate: true);
+            StopEntry(id, entry, immediate: true, path: "TowerDied");
         }
 
         /// <summary>
@@ -244,7 +279,7 @@ namespace Hexiege.Presentation
         {
             if (this == null) return;
             _gameEnded = true;
-            StopAll(immediate: false);
+            StopAll(immediate: false, path: "GameEnd");
         }
 
         /// <summary>
@@ -271,7 +306,7 @@ namespace Hexiege.Presentation
                 _active.Remove(id);
                 // 꼬리 정지 — 새 입자만 멈추고, 남은 입자(최대 수명 0.8초)가 사라지면 풀 항목이 스스로 돌아간다.
                 //   재가동 연출은 없다(사용자 결정 Q11). 이미 끝난 재생이면 확인 번호가 맞지 않아 아무 일도 없다.
-                StopEntry(entry, immediate: false);
+                StopEntry(id, entry, immediate: false, path: "Expire");
             }
             _expiredBuffer.Clear();
         }
@@ -280,11 +315,12 @@ namespace Hexiege.Presentation
         /// 재생 중인 V6를 모두 멈추고 기록을 비운다.
         /// </summary>
         /// <param name="immediate">true = 입자까지 즉시 지움(맵 재초기화 · 파괴), false = 꼬리 정지(경기 종료).</param>
-        private void StopAll(bool immediate)
+        /// <param name="path">정지 경로 이름(진단 로그용 — GameEnd · Reinit · Destroy).</param>
+        private void StopAll(bool immediate, string path)
         {
             if (_active.Count == 0) return;
             foreach (KeyValuePair<int, ActiveTowerVfx> pair in _active)
-                StopEntry(pair.Value, immediate);
+                StopEntry(pair.Key, pair.Value, immediate, path);
             _active.Clear();
         }
 
@@ -293,13 +329,84 @@ namespace Hexiege.Presentation
         /// EffectManager는 Unity 오브젝트라 ?. 대신 == null 검사(파괴된 객체도 null로 보는 Unity 방식)를 쓴다.
         /// 씬 정리 중 EffectManager가 먼저 파괴됐어도 항목에 직접 멈춤을 요청한다 — 항목까지 파괴됐으면 건너뛴다.
         /// </summary>
+        /// <param name="towerId">탑 Id(진단 로그용).</param>
         /// <param name="entry">멈출 기록.</param>
         /// <param name="immediate">true = 입자까지 즉시 지움, false = 꼬리 정지.</param>
-        private void StopEntry(ActiveTowerVfx entry, bool immediate)
+        /// <param name="path">정지 경로 이름(진단 로그용 — Expire · TowerDied · GameEnd · Reinit · Destroy).</param>
+        private void StopEntry(int towerId, ActiveTowerVfx entry, bool immediate, string path)
         {
             if (entry == null) return;
-            if (_effects != null) _effects.StopTowerStatusVfx(entry.Item, entry.Lease, immediate);
-            else if (entry.Item != null) entry.Item.StopStatusLoop(entry.Lease, immediate);
+            // 정지 결과(확인 번호가 맞아 실제로 멈췄는가)를 진단 줄에 싣는다 — 멈추는 동작 자체는 종전과 같다.
+            bool stopped = false;
+            if (_effects != null) stopped = _effects.StopTowerStatusVfx(entry.Item, entry.Lease, immediate);
+            else if (entry.Item != null) stopped = entry.Item.StopStatusLoop(entry.Lease, immediate);
+            // [진단 L16] 정지 1줄(EMP 시나리오 5 · 7 · 9).
+            LogTowerVfxStopped(towerId, entry, immediate, path, stopped);
+        }
+
+        // ====================================================================
+        // 진단 로그(개발 축 — 릴리스 빌드에서는 호출 · 문자열 조립까지 통째로 사라진다, LogRules 1.7)
+        // ====================================================================
+
+        /// <summary> 현재 화면의 역할(Single · Host · Client). </summary>
+        private static string DiagRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Host" : "Client";
+        }
+
+        /// <summary> 월드 단위 · 초 단위 실수 → 밀리 단위 정수. </summary>
+        private static int DiagMilli(float value)
+        {
+            return Mathf.RoundToInt(value * 1000f);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerVfxStarted(int towerId, int sequence, float duration, string channel, RaceId race,
+                                               Vector3 towerPosition, Transform root, ulong lease)
+        {
+            Vector3 rootPos = root != null ? root.position : towerPosition;
+            float rootScale = root != null ? root.localScale.x : 0f;
+            GameLog.Dev.Info("Skill", nameof(TowerDisableVfxPresenter), "[EMP-DIAG] TowerVfxStarted",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerVfxStarted, Role={DiagRole()}, Channel={channel}, Sequence={sequence}, TowerId={towerId}, Race={race}, Preset=Found, DurationMs={DiagMilli(duration)}, ViewFlipped={ViewConverter.IsFlipped}, TowerXmm={DiagMilli(towerPosition.x)}, TowerYmm={DiagMilli(towerPosition.y)}, TowerZmm={DiagMilli(towerPosition.z)}, RootXmm={DiagMilli(rootPos.x)}, RootYmm={DiagMilli(rootPos.y)}, RootZmm={DiagMilli(rootPos.z)}, OffsetYmm={DiagMilli(rootPos.y - towerPosition.y)}, RootScale={rootScale:F2}, Lease={lease}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerVfxExtended(int towerId, int sequence, float duration, string channel, float newEndAfterStart)
+        {
+            GameLog.Dev.Info("Skill", nameof(TowerDisableVfxPresenter), "[EMP-DIAG] TowerVfxExtended",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerVfxExtended, Role={DiagRole()}, Channel={channel}, Sequence={sequence}, TowerId={towerId}, DurationMs={DiagMilli(duration)}, NewEndAfterStartMs={DiagMilli(newEndAfterStart)}, Restarted=False"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerVfxFallback(int towerId, int sequence, string channel)
+        {
+            GameLog.Dev.Warn("Skill", nameof(TowerDisableVfxPresenter), "[EMP-DIAG] TowerVfxResolveFallback",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerVfxResolveFallback, Role={DiagRole()}, Channel={channel}, Sequence={sequence}, TowerId={towerId}, Reason=TowerObjectMissing, UsedTileCenter=True"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerVfxSkipped(int towerId, int sequence, string channel, string reason)
+        {
+            GameLog.Dev.Warn("Skill", nameof(TowerDisableVfxPresenter), "[EMP-DIAG] TowerVfxSkipped",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerVfxSkipped, Role={DiagRole()}, Channel={channel}, Sequence={sequence}, TowerId={towerId}, Reason={reason}, Preset={(reason == "PresetMissing" ? "Missing" : "Unknown")}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerVfxStopped(int towerId, ActiveTowerVfx entry, bool immediate, string path, bool stopped)
+        {
+            GameLog.Dev.Info("Skill", nameof(TowerDisableVfxPresenter), "[EMP-DIAG] TowerVfxStopped",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowerVfxStopped, Role={DiagRole()}, Sequence={entry.Sequence}, TowerId={towerId}, Path={path}, Immediate={immediate}, ActiveMs={DiagMilli(Time.time - entry.StartTime)}, LeaseMatched={stopped}"));
         }
     }
 }

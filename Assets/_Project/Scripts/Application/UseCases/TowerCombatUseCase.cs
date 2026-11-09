@@ -184,7 +184,13 @@ namespace Hexiege.Application
                 //   규칙 5 「쿨다운 중에도 탐색 계속」 문장과 충돌 없음). 그래서 풀리는 순간 쿨다운이 0이면 사거리 안 적에게 바로 쏜다.
                 //   이미 날아가는 포탄은 이 관문과 무관하다 — 관문은 "새 발사 결정"에만 있고 착탄 피해(ApplyTowerProjectileImpact)는
                 //   탑 상태를 보지 않는다(Research 4-3). 서비스 미주입(null)이면 항상 통과(회귀 fixture 결과 무변경).
-                if (_buildingStatus != null && !_buildingStatus.CanAttack(building.Id)) continue;
+                if (_buildingStatus != null && !_buildingStatus.CanAttack(building.Id))
+                {
+                    // [진단 — 2026-11-09 EMP 테스트 진단 로그] 막힌 틱 수만 센다(매 틱 줄을 남기지 않는다 — LogRules 1.14-8).
+                    //   처음 막힌 순간 1줄 · 만료 때 누적 횟수 1줄은 서비스가 남긴다. 개발 빌드 전용 호출이라 릴리스에서는 사라진다.
+                    _buildingStatus.DiagNoteGateBlocked(building.Id);
+                    continue;
+                }
 
                 // 규칙 1/2/3: 사거리 내 가장 가까운 적 유닛 탐색 (월드 좌표 기준).
                 UnitData target = FindNearestEnemyUnit(building);
@@ -195,6 +201,11 @@ namespace Hexiege.Application
                 //   서비스 닫힘) 공격 자체가 없었던 것이므로 쿨다운을 시작하지 않는다(유닛 투사체 커밋 거절과 같은 원칙).
                 //   즉발 타워(RuneSpire·VineTower)는 항상 true라 동작이 예전과 같다.
                 if (!ExecuteTowerAttack(building, target)) continue;
+
+                // [진단 — 2026-11-09 EMP 테스트 진단 로그] 실제 공격(즉발 피해 · 포탄 발사) 1회를 서비스에 알린다.
+                //   무력화 중 발사 수(정상 0) · 원 밖 탑 공격 수 · 만료 뒤 첫 발사 시각을 서비스가 센다. 개발 빌드 전용 호출.
+                //   (식이 아니라 문(statement)이라 [Conditional]로 릴리스에서 통째로 사라진다 — LogRules 1.7.)
+                if (_buildingStatus != null) _buildingStatus.DiagNoteTowerLaunch(building.Id);
 
                 // 규칙 5: 공격 직후 쿨다운 시작.
                 // 종족별 쿨다운 값을 조회하여 리셋.
@@ -381,6 +392,9 @@ namespace Hexiege.Application
             int hpBefore = target.Hp;
             target.TakeDamage(damage);
             int applied = Math.Max(0, hpBefore - target.Hp);
+            // [진단 — 2026-11-09 EMP 테스트 진단 로그] 이 착탄을 낸 탑이 지금 무력화 중이면 "무력화 중 착탄" 수를 센다
+            //   (무력화 전에 이미 쏜 포탄은 맞아야 한다 — EMP Plan 시나리오 4). 판정 무관 · 개발 빌드 전용 호출.
+            if (_buildingStatus != null) _buildingStatus.DiagNoteTowerImpact(tower.Id);
 
             // 공격 이벤트(공격자=타워 — 파괴된 타워 객체여도 그대로 싣는다. 구독자는 Id·종류만 읽는다).
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(tower, target));

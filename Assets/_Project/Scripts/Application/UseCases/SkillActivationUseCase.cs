@@ -38,6 +38,12 @@
 //   커밋 2(동기화): 실제로 멈춘 탑이 1개 이상이면 GameEvents.OnTowersDisabledConfirmed(팀 · 발동 순번 · 지속 · 탑 Id 목록)를
 //   발행한다. 멀티 서버에서는 NetworkSkillController가 이것을 TowersDisabledClientRpc로 순수 클라이언트에 전한다.
 //
+// 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 모두 개발 축 · 상태가 바뀌는 순간 1줄):
+//   머리 [SKILL-VFX] · Diag=SkillVfx — ActivationConfirmed(발동 확정) · ActivationRejected(사용 불가 거부) ·
+//     ImpactScheduled(착탄 예약) · ImpactApplied(실제 착탄 피해 — 시각 · 대상 수 · 사망 수) · ImpactDropped(경기 종료로 버림).
+//   머리 [EMP-DIAG] · Diag=EmpTowerDisable — TowersDisabled(EMP 판정 결과 — 원 안 · 밖 탑 수, 아군 탑 수, 원 안 적 유닛 수).
+//   목록 · 계수 조립은 [Conditional] 헬퍼 안에서만 하므로 릴리스 빌드에서는 호출 · 계산 · 문자열 조립이 모두 사라진다.
+//
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
 
@@ -146,7 +152,12 @@ namespace Hexiege.Application
             //   — 쿨다운이 걸리지 않고, 멀티에서는 성공 알림 ClientRpc도 보내지 않는다.
             //   화면 쪽 패널도 같은 값으로 조준 진입을 막지만(BuildingSkillPanelUI), 클라 입력은 믿지 않으므로
             //   서버에서도 반드시 다시 막는다.
-            if (!skill.IsAvailable) return false;
+            if (!skill.IsAvailable)
+            {
+                // [진단 L2] 사용 불가 스킬 거부 1줄 — 쿨다운 · 실행기가 돌지 않았다는 증거(포격 시나리오 2).
+                LogActivationRejected(building, skillSlot, skill, "Unavailable");
+                return false;
+            }
 
             // ④ 글로벌 쿨다운 만료 재검증(규칙 3·26).
             if (GetCooldownRemaining(buildingId) > 0f) return false;
@@ -205,6 +216,8 @@ namespace Hexiege.Application
             //   쿨다운을 세운 "뒤"에 발행한다 — 멀티 서버의 NetworkSkillController가 이 이벤트 안에서
             //   GetCooldownTotal(buildingId)을 읽어 클라 쿨다운 미러 값으로 함께 보내기 때문이다.
             //   발동 판정은 이미 끝났으므로, 화면 구독자에서 예외가 나도 발동 결과(true)는 바뀌지 않게 감싼다.
+            // [진단 L1] 발동 확정 1줄(화면 VFX 줄보다 먼저 남도록 「확정」 발행 바로 앞에 둔다).
+            LogActivationConfirmed(building.Team, buildingId, skillSlot, skill, hasAim, aim, sequence);
             PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence);
             return true;
         }
@@ -296,6 +309,7 @@ namespace Hexiege.Application
             public int SourceBuildingId;  // 시전 건물 Id(피해 출처 표기 — 착탄 때 건물 생존은 보지 않는다, 결정 a)
             public int Sequence;          // 발동 순번(화면의 발동 표현과 같은 값 — 이후 착탄 연출 짝짓기용)
             public float Remaining;       // 착탄까지 남은 시간(초). 0 이하가 되면 착탄.
+            public float Delay;           // 예약할 때의 지연(초). 진단 로그가 "발동 뒤 실제로 몇 ms 만에 맞았나"(Delay − Remaining)를 계산할 때만 쓴다.
         }
 
         // 아직 착탄하지 않은 예약 목록(예약된 순서대로 들어 있다).
@@ -335,8 +349,11 @@ namespace Hexiege.Application
                 RawDamage = rawDamage,
                 SourceBuildingId = sourceBuildingId,
                 Sequence = sequence,
-                Remaining = delay
+                Remaining = delay,
+                Delay = delay
             });
+            // [진단 L17] 착탄 예약 1줄(포격 시나리오 1 — 예약 지연 값).
+            LogImpactScheduled(team, center, radius, rawDamage, sourceBuildingId, delay, sequence);
         }
 
         /// <summary>
@@ -366,9 +383,18 @@ namespace Hexiege.Application
             //   그래서 매 착탄 직전에 닫혔는지 다시 보고, 닫혔으면 나머지는 버린다(결정 b).
             for (int i = 0; i < _dueImpactBuffer.Count; i++)
             {
-                if (_impactsClosed) break;
+                if (_impactsClosed)
+                {
+                    // [진단] 같은 틱의 앞선 착탄으로 경기가 끝나 남은 착탄을 버렸다는 1줄(버린 수).
+                    LogImpactDropped(_dueImpactBuffer.Count - i, "ClosedDuringTick");
+                    break;
+                }
                 PendingImpact p = _dueImpactBuffer[i];
+                // [진단 L18] 착탄 "직전" 원 안 대상을 판정과 같은 기준으로 붙잡아 둔다(피해 뒤 사망 수를 세기 위해).
+                DiagCaptureImpactTargets(p);
                 ApplyInstantAreaDamageBridge(p.Team, p.Center, p.Radius, p.RawDamage, p.SourceBuildingId);
+                // [진단 L18] 실제 착탄 피해 1줄 — 발동 뒤 몇 ms · 맞은 수 · 죽은 수 · 시전 건물 생존 여부.
+                LogImpactApplied(p);
             }
             _dueImpactBuffer.Clear();
         }
@@ -380,6 +406,8 @@ namespace Hexiege.Application
         /// </summary>
         public void ClosePendingImpacts()
         {
+            // [진단] 처음 닫힐 때 아직 남은 예약이 있었으면 버린 수를 1줄로 남긴다(경기 종료가 착탄을 막았다는 증거).
+            if (!_impactsClosed && _pendingImpacts.Count > 0) LogImpactDropped(_pendingImpacts.Count, "GameEnd");
             _impactsClosed = true;
             _pendingImpacts.Clear();
         }
@@ -419,9 +447,18 @@ namespace Hexiege.Application
         {
             // 서비스가 주입되지 않았으면(조합 루트 미배선 · 테스트) 아무것도 하지 않는다 — 기존 동작과 같다.
             //   이때는 이벤트도 내지 않는다(멈춘 탑이 없으므로 보여 줄 것도 없다).
-            if (_buildingStatus == null) return;
+            if (_buildingStatus == null)
+            {
+                // [진단] 배선 누락으로 EMP가 아무 탑도 멈추지 못했다는 Warn 1줄(조용한 무효과를 로그로 드러낸다).
+                LogTowerDisableUnwired(team, sequence);
+                return;
+            }
 
             int count = _buildingStatus.DisableEnemyTowersInRadius(team, center, radius, duration, _disabledTowerIdBuffer);
+            // [진단] 서비스의 진단 기록에 이번 발동 순번을 붙인다(만료 · 파괴 줄이 같은 Sequence를 갖도록).
+            _buildingStatus.DiagBindSequence(_disabledTowerIdBuffer, sequence);
+            // [진단 L5] EMP 판정 결과 1줄 — 대상이 0개여도 남긴다(빈 땅 EMP · 아군 탑 위 EMP 시나리오의 판정 근거).
+            LogTowersDisabled(team, center, radius, duration, sequence, count);
 
             // 원 안에 적 탑이 하나도 없었으면(또는 경기가 닫혀 거부됐으면) 알릴 것이 없다 — 빈 RPC를 보내지 않는다.
             if (count <= 0 || _disabledTowerIdBuffer.Count == 0) return;
@@ -540,6 +577,143 @@ namespace Hexiege.Application
             _cooldownTotal.Clear();
             // 2026-11-03: 초기화 뒤에 이전 경기의 포탄이 떨어지지 않도록 착탄 예약도 비운다(닫힘 여부는 바꾸지 않는다).
             _pendingImpacts.Clear();
+        }
+
+        // ====================================================================
+        // 진단 로그(개발 축) — 2026-11-09 EMP · 포격 테스트 진단 로그
+        //   모든 메서드에 [Conditional] 두 개를 붙여 릴리스 빌드에서는 호출 · 인자 계산 · 문자열 조립이 통째로 사라진다(LogRules 1.7).
+        //   이 UseCase는 서버 권위 쪽(싱글 · Host)에서만 도므로 Role은 Single 또는 Host다.
+        // ====================================================================
+
+        // 착탄 직전 원 안 대상(진단 전용 재사용 버퍼 — 판정 버퍼와 따로 둔다).
+        private readonly List<UnitData> _diagImpactUnits = new List<UnitData>(16);
+        private readonly List<BuildingData> _diagImpactBuildings = new List<BuildingData>(8);
+        private readonly System.Text.StringBuilder _diagIds = new System.Text.StringBuilder(64);
+
+        /// <summary> 진단 로그 Role= 값(Single · Host · Client). </summary>
+        private static string DiagRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Host" : "Client";
+        }
+
+        /// <summary> 월드 단위 · 초 단위 실수를 밀리 단위 정수로(로그 값에 소수점 · 문화권 차이가 끼지 않게). </summary>
+        private static int DiagMilli(float value)
+        {
+            return Mathf.RoundToInt(value * 1000f);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogActivationConfirmed(TeamId team, int buildingId, int slot, SkillData skill, bool hasAim,
+                                                   Vector3 aim, int sequence)
+        {
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ActivationConfirmed",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationConfirmed, Role={DiagRole()}, Team={team}, BuildingId={buildingId}, Slot={slot}, Mechanic={skill.Mechanic}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aim.x)}, AimZmm={DiagMilli(aim.z)}, RadiusMm={DiagMilli(skill.Radius)}, CooldownMs={DiagMilli(skill.Cooldown)}, ImpactDelayMs={DiagMilli(skill.ImpactDelay)}, DurationMs={DiagMilli(skill.Duration)}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogActivationRejected(BuildingData building, int slot, SkillData skill, string reason)
+        {
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ActivationRejected",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationRejected, Role={DiagRole()}, Team={building.Team}, BuildingId={building.Id}, Slot={slot}, Mechanic={skill.Mechanic}, Reason={reason}, CooldownStarted=False"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogImpactScheduled(TeamId team, Vector3 center, float radius, int rawDamage, int sourceBuildingId,
+                                               float delay, int sequence)
+        {
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ImpactScheduled",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ImpactScheduled, Role={DiagRole()}, Team={team}, BuildingId={sourceBuildingId}, Sequence={sequence}, DelayMs={DiagMilli(delay)}, AimXmm={DiagMilli(center.x)}, AimZmm={DiagMilli(center.z)}, RadiusMm={DiagMilli(radius)}, RawDamage={rawDamage}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCaptureImpactTargets(PendingImpact p)
+        {
+            if (_combat == null) { _diagImpactUnits.Clear(); _diagImpactBuildings.Clear(); return; }
+            _combat.CollectSkillAreaTargetsForDiagnostics(p.Team, p.Center, p.Radius, _diagImpactUnits, _diagImpactBuildings);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogImpactApplied(PendingImpact p)
+        {
+            // 피해 "뒤" 사망 수를 센다(착탄 직전에 붙잡은 대상 중 지금 죽은 것).
+            int unitKills = 0, buildingKills = 0;
+            _diagIds.Clear();
+            for (int i = 0; i < _diagImpactUnits.Count; i++)
+            {
+                UnitData u = _diagImpactUnits[i];
+                if (!u.IsAlive) unitKills++;
+                if (_diagIds.Length > 0) _diagIds.Append('|');
+                _diagIds.Append('U').Append(u.Id);
+            }
+            for (int i = 0; i < _diagImpactBuildings.Count; i++)
+            {
+                BuildingData b = _diagImpactBuildings[i];
+                if (!b.IsAlive) buildingKills++;
+                if (_diagIds.Length > 0) _diagIds.Append('|');
+                _diagIds.Append('B').Append(b.Id);
+            }
+            BuildingData caster = _buildingPlacement?.GetBuilding(p.SourceBuildingId);
+            bool casterAlive = caster != null && caster.IsAlive;
+            string hitIds = _diagIds.Length == 0 ? "None" : _diagIds.ToString();
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ImpactApplied",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ImpactApplied, Role={DiagRole()}, Team={p.Team}, BuildingId={p.SourceBuildingId}, Sequence={p.Sequence}, DelayMs={DiagMilli(p.Delay)}, MsAfterActivation={DiagMilli(p.Delay - p.Remaining)}, UnitHits={_diagImpactUnits.Count}, UnitKills={unitKills}, BuildingHits={_diagImpactBuildings.Count}, BuildingKills={buildingKills}, HitIds={hitIds}, CasterAlive={casterAlive}, RawDamage={p.RawDamage}"));
+            _diagImpactUnits.Clear();
+            _diagImpactBuildings.Clear();
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogImpactDropped(int count, string reason)
+        {
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ImpactDropped",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ImpactDropped, Role={DiagRole()}, Reason={reason}, DroppedCount={count}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogTowersDisabled(TeamId team, Vector3 center, float radius, float duration, int sequence, int disabled)
+        {
+            // 원 안 · 밖 탑 수(판정과 같은 기준) — 「원 밖 탑은 계속 쏜다」 · 「아군 탑 무영향」 판정 근거.
+            _buildingStatus.CountTowersForDiagnostics(team, center, radius,
+                out int enemyInRadius, out int enemyOutOfRange, out int allyInRadius);
+            // 원 안 적 유닛 수 — 「원 안 적 유닛은 그대로」 판정 근거(EMP는 유닛 상태를 건드리지 않는다).
+            int enemyUnits = 0;
+            if (_combat != null)
+            {
+                _combat.CollectSkillAreaTargetsForDiagnostics(team, center, radius, _diagImpactUnits, null);
+                enemyUnits = _diagImpactUnits.Count;
+                _diagImpactUnits.Clear();
+            }
+            _diagIds.Clear();
+            for (int i = 0; i < _disabledTowerIdBuffer.Count; i++)
+            {
+                if (i > 0) _diagIds.Append('|');
+                _diagIds.Append(_disabledTowerIdBuffer[i]);
+            }
+            string towerIds = _diagIds.Length == 0 ? "None" : _diagIds.ToString();
+            GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[EMP-DIAG] TowersDisabled",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowersDisabled, Role={DiagRole()}, Team={team}, Sequence={sequence}, DurationMs={DiagMilli(duration)}, RadiusMm={DiagMilli(radius)}, AimXmm={DiagMilli(center.x)}, AimZmm={DiagMilli(center.z)}, Disabled={disabled}, Refreshed={_buildingStatus.DiagLastRefreshedCount}, PrevRemainingMs={_buildingStatus.DiagLastPrevRemainingMs}, TowerIds={towerIds}, EnemyTowersInRadius={enemyInRadius}, EnemyTowersOutOfRange={enemyOutOfRange}, AllyTowersInRadius={allyInRadius}, EnemyUnitsInRadius={enemyUnits}, EventPublished={disabled > 0}"));
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTowerDisableUnwired(TeamId team, int sequence)
+        {
+            GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase), "[EMP-DIAG] TowersDisabled",
+                FormattableString.Invariant(
+                    $"Diag=EmpTowerDisable, DiagRev=1, Event=TowersDisabled, Role={DiagRole()}, Team={team}, Sequence={sequence}, Disabled=0, Reason=BuildingStatusSystemMissing"));
         }
 
         // ====================================================================

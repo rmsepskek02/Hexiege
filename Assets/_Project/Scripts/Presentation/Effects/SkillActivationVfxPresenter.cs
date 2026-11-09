@@ -27,7 +27,18 @@
 // 배치: 씬에 수동 배치하지 않는다. GameBootstrapper(LoadMap)가 자기 GameObject에 AddComponent하고
 //   Initialize를 부른다(WavePresentationPresenter · BloomHealEffectPresenter와 같은 방식).
 //
-// Presentation 레이어 — Application(이벤트 · UseCase · 값 객체) + Core(ViewConverter) 의존.
+// 지면 높이 보정(2026-11-09 EMP 발사 이펙트 「타일에 절반 잘림」 수정):
+//   조준 좌표의 높이는 0(땅 평면)인데 타일 윗면은 +0.05이고 불투명 + 깊이 기록이다. 그래서 Y = 0에서 재생하면
+//   바닥에 눕는 고리 · 빛은 타일에 통째로 가려지고, 카메라를 보는 섬광은 아래 절반이 잘려 보였다.
+//   → 재생 직전에 Y에 「스킬 VFX 지면 높이」(GameConfig.SkillVfxGroundYOffset, 기본 0.06 = 윗면 0.05 + 여유 0.01)를 더한다.
+//   이 한 곳에서 더하므로 포격 · EMP · 앞으로의 스킬 발동 VFX에 모두 적용된다(EMP 탑 무력화 V6는 탑 위치 기준이라 무관).
+//   X · Z는 건드리지 않으므로 빨강(뒤집힌) 화면 결과도 같다(ToView는 Y를 바꾸지 않는다).
+//
+// 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 개발 축, 머리 [SKILL-VFX], Diag=SkillVfx):
+//   재생 1회마다 ActivationVfxPlayed 1줄(루트 높이 · 타일 윗면 높이 · 「윗면 위인가」 포함 — 잘림 수정의 로그 판정),
+//   재생하지 못하면 ActivationVfxSkipped 1줄. 같은 발동이 Host에서 두 줄이 되지 않는 이유는 위 「두 채널」 설명과 같다.
+//
+// Presentation 레이어 — Application(이벤트 · UseCase · 값 객체 · GameLog · NetworkContext) + Core(ViewConverter) 의존.
 //   피해 · HP · 쿨다운에는 손대지 않는 "표현 전용" 컴포넌트다.
 // ============================================================================
 
@@ -49,6 +60,18 @@ namespace Hexiege.Presentation
         // VFX 재생 담당(풀 관리 포함).
         private EffectManager _effects;
 
+        // 스킬 발동 VFX 루트에 더할 높이(월드). 조합 루트가 GameConfig.SkillVfxGroundYOffset을 Initialize로 넘긴다.
+        //   초기값은 Initialize가 불리기 전 방어용이며 GameConfig 기본값과 같은 0.06이다.
+        private float _groundYOffset = DefaultGroundYOffset;
+
+        /// <summary> 지면 높이의 기본값(GameConfig.SkillVfxGroundYOffset 초기값과 같다 — 값이 잘못됐을 때 대신 쓴다). </summary>
+        public const float DefaultGroundYOffset = 0.06f;
+
+        // 타일 메시 윗면 높이(월드). HexTile 프리팹의 ProBuilder 정점 Y가 ±0.05 두 값뿐이라는 실측값이다
+        //   (HexGridRenderer의 금지 빗금 높이 주석에도 같은 실측이 있다). 코드에 이 값을 가진 상수가 따로 없어서
+        //   진단 로그의 비교 기준(TileTopYmm · AboveTileTop)으로만 여기 둔다 — 재생 위치 계산에는 쓰지 않는다.
+        private const float TileTopSurfaceY = 0.05f;
+
         // 두 채널 구독 핸들. 맵을 다시 불러와 Initialize가 또 불리면 먼저 해제해 중복 재생을 막는다.
         private IDisposable _confirmedSubscription;
         private IDisposable _receivedSubscription;
@@ -58,16 +81,29 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="skillActivation">이번 맵의 스킬 발동 UseCase(SkillData 조회용). null이면 재생하지 않는다.</param>
         /// <param name="effects">VFX 재생 매니저. null이면 재생하지 않는다.</param>
-        public void Initialize(SkillActivationUseCase skillActivation, EffectManager effects)
+        /// <param name="groundYOffset">
+        /// 스킬 발동 VFX 루트에 더할 높이(월드 — GameConfig.SkillVfxGroundYOffset). NaN · 무한대면 기본값 0.06을 쓴다.
+        /// 0이나 음수도 그대로 받는다(Inspector에서 일부러 내린 값 존중 — 그 경우 진단 로그 AboveTileTop=False로 드러난다).
+        /// </param>
+        public void Initialize(SkillActivationUseCase skillActivation, EffectManager effects, float groundYOffset)
         {
             DisposeSubscriptions();
 
             _skillActivation = skillActivation;
             _effects = effects;
+            // NaN · 무한대는 Inspector 입력 실수로 보고 기본값으로 되돌린다(이펙트가 화면 밖으로 날아가지 않게).
+            _groundYOffset = float.IsNaN(groundYOffset) || float.IsInfinity(groundYOffset)
+                ? DefaultGroundYOffset
+                : groundYOffset;
 
-            _confirmedSubscription = GameEvents.OnSkillActivationConfirmed.Subscribe(OnSkillActivation);
-            _receivedSubscription = GameEvents.OnSkillActivationReceived.Subscribe(OnSkillActivation);
+            // 채널 이름을 진단 로그에 남기려고 블록 본문 람다로 감싼다(처리 자체는 두 채널이 같다).
+            _confirmedSubscription = GameEvents.OnSkillActivationConfirmed.Subscribe(p => { OnSkillActivation(p, ChannelConfirmed); });
+            _receivedSubscription = GameEvents.OnSkillActivationReceived.Subscribe(p => { OnSkillActivation(p, ChannelReceived); });
         }
+
+        // 진단 로그의 Channel= 값(확정 = 싱글 · Host 화면, 수신 = 순수 클라이언트 화면).
+        private const string ChannelConfirmed = "Confirmed";
+        private const string ChannelReceived = "Received";
 
         /// <summary> 파괴(씬 언로드) 시 정적 이벤트 허브 구독을 해제한다 — 해제하지 않으면 파괴된 객체가 계속 불린다. </summary>
         private void OnDestroy()
@@ -87,26 +123,91 @@ namespace Hexiege.Presentation
         /// 발동 표현 1건을 받아 VFX를 재생한다. 두 채널이 같은 처리를 쓴다(채널 구분은 위 머리말 참고).
         /// </summary>
         /// <param name="p">서버가 확정한(또는 클라이언트가 받은) 발동 표현 값.</param>
-        private void OnSkillActivation(SkillActivationPresentation p)
+        /// <param name="channel">들어온 채널 이름(진단 로그용 — Confirmed 또는 Received).</param>
+        private void OnSkillActivation(SkillActivationPresentation p, string channel)
         {
             // 컴포넌트가 이미 파괴됐거나 의존성이 없으면 아무것도 하지 않는다.
             //   (this == null 은 Unity의 "파괴된 객체" 검사 — 정적 이벤트가 늦게 들어오는 경우 방어.)
             if (this == null || _skillActivation == null || _effects == null) return;
 
             // 즉시 발동(조준 없음)은 이번 범위에서 재생 위치가 없다 — 머리말 참고.
-            if (!p.HasAim) return;
+            if (!p.HasAim)
+            {
+                LogVfxSkipped(p, channel, "NoAim", isWarning: false);
+                return;
+            }
 
             // 팀 · 슬롯으로 이 화면 빌드의 스킬 데이터를 찾는다(두 기기 빌드가 같다는 것은 스키마 7 일치 확인이 보장).
             SkillData skill = _skillActivation.FindSkillData(p.Team, p.Slot);
-            if (skill == null || skill.ActivationVfxPrefab == null) return;
+            if (skill == null || skill.ActivationVfxPrefab == null)
+            {
+                LogVfxSkipped(p, channel, skill == null ? "NoSkillData" : "NoPrefab", isWarning: true);
+                return;
+            }
 
             // 도메인 좌표 → 이 화면 좌표(빨강 화면이면 맵 중심 기준 X · Z 반전). 높이(Y)는 그대로.
             Vector3 viewPosition = ViewConverter.ToView(p.AimWorld);
+            // 지면 높이 보정 — 타일 윗면(0.05) 위로 루트를 올린다(머리말 「지면 높이 보정」). X · Z는 그대로.
+            //   조준 좌표의 Y는 맵 경계 보정에서 항상 0으로 맞춰지므로 결과는 "지면 높이 그 자체"가 된다
+            //   (유닛 · 건물이 HexToWorld 결과에 높이 오프셋을 "더하는" 방식과 같게 더하기로 쓴다).
+            viewPosition.y += _groundYOffset;
             // 판정 반경에 맞게 VFX 크기를 맞춘다(반경 ÷ 기준 반경, 기준이 0 이하면 1).
             float scale = EffectManager.ComputeSkillVfxScale(skill.Radius, skill.VfxReferenceRadius);
 
-            _effects.PlaySkillActivationVfx(skill.ActivationVfxPrefab, viewPosition, scale);
+            bool played = _effects.PlaySkillActivationVfx(skill.ActivationVfxPrefab, viewPosition, scale);
             // 스킬 SFX 없음(Plan Q5 ①). 효과음이 생기면 위 VFX 호출 바로 아래에서 짝으로 부른다(사운드 규칙 15).
+
+            LogVfxPlayed(p, channel, skill.ActivationVfxPrefab.name, played, scale, viewPosition);
+        }
+
+        // ====================================================================
+        // 진단 로그(개발 축 — 릴리스 빌드에서는 호출 · 문자열 조립까지 통째로 사라진다, LogRules 1.7)
+        // ====================================================================
+
+        /// <summary> 현재 화면의 역할(Single · Host · Client) — 진단 로그 Role= 값. </summary>
+        private static string CurrentRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Host" : "Client";
+        }
+
+        /// <summary> 월드 단위 실수를 밀리 단위 정수로 바꾼다(로그 값에 소수점 · 문화권 차이가 끼지 않게). </summary>
+        private static int ToMm(float value)
+        {
+            return Mathf.RoundToInt(value * 1000f);
+        }
+
+        /// <summary>
+        /// [진단 L4] 스킬 발동 VFX를 재생한 순간 1줄. RootYmm(루트 높이) · TileTopYmm(타일 윗면) · AboveTileTop으로
+        /// 「타일에 잘리지 않는 높이에서 재생했는가」를 로그만으로 판정한다(모든 스킬 공통).
+        /// RootY는 풀 항목에 넘긴 재생 위치의 Y다 — 스킬 VFX는 오프셋 0 · 회전 항등이라 루트 Transform 높이와 같다(VfxPoolItem.Play).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogVfxPlayed(SkillActivationPresentation p, string channel, string prefabName, bool played,
+                                         float scale, Vector3 viewPosition)
+        {
+            bool aboveTileTop = viewPosition.y > TileTopSurfaceY;
+            GameLog.Dev.Info("Skill", nameof(SkillActivationVfxPresenter),
+                "[SKILL-VFX] ActivationVfxPlayed",
+                FormattableString.Invariant(
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationVfxPlayed, Role={CurrentRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, BuildingId={p.BuildingId}, Slot={p.Slot}, Prefab={prefabName}, Played={played}, Scale={scale:F2}, ViewFlipped={ViewConverter.IsFlipped}, AimXmm={ToMm(p.AimWorld.x)}, AimZmm={ToMm(p.AimWorld.z)}, ViewXmm={ToMm(viewPosition.x)}, ViewZmm={ToMm(viewPosition.z)}, RootYmm={ToMm(viewPosition.y)}, TileTopYmm={ToMm(TileTopSurfaceY)}, AboveTileTop={aboveTileTop}"));
+        }
+
+        /// <summary>
+        /// [진단 L4w] 스킬 발동 VFX를 재생하지 못한 경우 1줄. 조준 없음(즉시 발동)은 정상 경로라 Info,
+        /// 스킬 데이터 · 프리팹이 없어 못 낸 경우는 연출 누락이라 Warn이다(LogRules 축 A).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogVfxSkipped(SkillActivationPresentation p, string channel, string reason, bool isWarning)
+        {
+            string data = FormattableString.Invariant(
+                $"Diag=SkillVfx, DiagRev=1, Event=ActivationVfxSkipped, Role={CurrentRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, Slot={p.Slot}, HasAim={p.HasAim}, Reason={reason}");
+            if (isWarning)
+                GameLog.Dev.Warn("Skill", nameof(SkillActivationVfxPresenter), "[SKILL-VFX] ActivationVfxSkipped", data);
+            else
+                GameLog.Dev.Info("Skill", nameof(SkillActivationVfxPresenter), "[SKILL-VFX] ActivationVfxSkipped", data);
         }
     }
 }

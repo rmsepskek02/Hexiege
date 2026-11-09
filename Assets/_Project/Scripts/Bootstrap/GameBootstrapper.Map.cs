@@ -274,7 +274,12 @@ namespace Hexiege.Bootstrap
             //   (Initialize가 이전 구독을 먼저 해제하므로 중복 재생이 없다). _skillActivation은 4번 CreateUseCases에서 이번 맵 것으로 만들어졌다.
             var skillVfxPresenter = GetComponent<SkillActivationVfxPresenter>();
             if (skillVfxPresenter == null) skillVfxPresenter = gameObject.AddComponent<SkillActivationVfxPresenter>();
-            skillVfxPresenter.Initialize(_skillActivation, _effectManager);
+            //   (2026-11-09) 셋째 인자 = 스킬 발동 VFX 지면 높이(타일 윗면 0.05 위로 올려 이펙트가 타일에 잘리지 않게).
+            //   값의 출처는 GameConfig 한 곳이다(UnitYOffset · BuildingYOffset 선례). Config가 없으면 같은 기본값 0.06.
+            skillVfxPresenter.Initialize(
+                _skillActivation,
+                _effectManager,
+                _config != null ? _config.SkillVfxGroundYOffset : SkillActivationVfxPresenter.DefaultGroundYOffset);
 
             // 10-3-2. [EMP — 2026-11-04 EMP Task 커밋 3] 방어탑 무력화 VFX(V6) 화면 구독자.
             //   무력화 표현 이벤트(확정 · 수신)를 받아 멈춘 탑 위에 합선 · 연기 이펙트를 지속 시간 동안 띄운다(표현 전용).
