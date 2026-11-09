@@ -562,6 +562,9 @@ namespace Hexiege.Presentation
             // [2026-10-13 R2-1] 시전자 귀속 상태도 재생별 상태다. 새 재생·풀 반환 때 옛 시전자 참조를 비운다.
             //   (BeginCasterOwnership은 Play 뒤에 호출되므로, Play 안의 이 초기화가 새 귀속을 지우지 않는다.)
             ResetCasterOwnership();
+            // [2026-11-04 EMP 커밋 3] 건물 상태 루프(탑 무력화 V6) 표시도 재생별 상태다. 새 재생 · 풀 반환 때 비운다.
+            //   (BeginStatusLoop는 Play 뒤에 호출되므로, Play 안의 이 초기화가 새 표시를 지우지 않는다 — VfxPoolItem.StatusLoop.cs.)
+            ResetStatusLoop();
         }
 
         /// <summary>

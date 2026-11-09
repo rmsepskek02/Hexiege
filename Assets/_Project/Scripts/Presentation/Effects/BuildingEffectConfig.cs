@@ -14,6 +14,11 @@
 //   다른 종족 프로필로 대체(fallback)하지 않는다.
 //   계획 원본: Assets/_Project/Docs/_Tasks/2026-11-02/15_48_tower-attack-presentation-restructure/Plan.md 3·4-2절
 //
+// 방어탑 무력화 상태 VFX (2026-11-04 추가 — EMP Task 커밋 3):
+//   _towerDisabledPresets 목록의 한 줄 = 한 종족 방어탑이 EMP로 멈췄을 때 탑 위에 띄울 상태 VFX(V6) 프리셋.
+//   공격 프로필과는 별도 칸이다(TowerDisabledPresetEntry 주석 참조).
+//   계획 원본: Assets/_Project/Docs/_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md 3-5절(P1)
+//
 // 에셋 경로: Assets/_Project/Resources/Config/BuildingEffectConfig.asset
 //
 // Presentation 레이어 — Unity 의존 허용 (ScriptableObject).
@@ -42,6 +47,38 @@ namespace Hexiege.Presentation
         public EffectPreset upgradePreset;
 
         // (옛 attackPreset 칸은 2026-11-03 타워 공격 표현 개편에서 삭제 — 타워 발사 프리셋은 BuildingEffectConfig._towerAttackProfiles 담당.)
+    }
+
+    // ========================================================================
+    // TowerDisabledPresetEntry (2026-11-04 EMP Task 커밋 3 — Plan 3-5 P1, 사용자 결정 Q9)
+    // 한 종족 방어탑이 EMP로 무력화됐을 때 탑 위에 띄울 상태 VFX(V6) 프리셋 한 줄.
+    //
+    // 왜 종족마다 한 줄인가(초급자용 설명):
+    //   V6 프리팹(vfx_emp_disabled)은 하나지만 탑 모델은 종족마다 크기 · 높이가 다르다
+    //   (인간 대포 타워 · 정령 룬 첨탑 · 초월 덩굴 타워). 그래서 같은 프리팹을 담은 EffectPreset을 종족마다 하나씩 두고,
+    //   프리셋의 Scale Multiplier(크기)와 Local Position Offset(높이)만 종족별로 맞춘다.
+    //
+    // 모양의 출처:
+    //   2026-11-03 개편에서 삭제된 옛 _autoTowerProjectiles(종족 한 줄마다 프리셋, 초월이라고 비우는 분기 없음)와
+    //   "같은 모양의 새 칸"이다. 삭제된 칸을 되살린 것이 아니다(사용자 결정 Q9). 공격 프로필(_towerAttackProfiles)과도
+    //   섞지 않는다 — VineTower 공격 프로필 줄이 "없는 것" 자체가 「공격 연출 없음」의 뜻이라, 무력화 칸을 넣으려고
+    //   그 줄을 만들면 공격 연출 판정과 얽히기 때문이다(Plan P2 비추천 이유).
+    //
+    // 값 규칙(EffectManager.StartTowerStatusVfx가 읽는 방식):
+    //   - 위치 보정은 Y(높이)만 쓴다. X · Z는 무시한다 — 상대 인간 대포탑은 Y축 180° 회전돼 있어
+    //     X · Z 보정을 넣으면 모델과 어긋나기 때문이다(「방어 타워 시스템」 규칙 11 · 위험 R-6).
+    //   - 회전 보정도 쓰지 않는다(회전 항등 — 원형 프리팹이라 두 화면 모두 같은 모양).
+    //   - 탑 높이 측정 결과가 오기 전에는 세 종족 모두 배율 1 · 보정 0으로 둔다(값만 바꾸면 되고 코드는 그대로).
+    // ========================================================================
+    [System.Serializable]
+    public struct TowerDisabledPresetEntry
+    {
+        [Tooltip("이 줄이 적용되는 방어탑 종족")]
+        public RaceId race;
+
+        [Tooltip("이 종족 방어탑이 무력화됐을 때 탑 위에 띄울 상태 VFX 프리셋(반복 재생 프리팹). " +
+                 "Scale Multiplier = 크기, Local Position Offset의 Y = 높이(X · Z · 회전 보정은 쓰지 않는다). 비우면 이 종족은 재생 없음")]
+        public EffectPreset preset;
     }
 
     // ========================================================================
@@ -158,6 +195,35 @@ namespace Hexiege.Presentation
         private void OnValidate()
         {
             _towerProfileCache = null;
+        }
+
+        // ====================================================================
+        // 방어탑 무력화 상태 VFX (2026-11-04 EMP Task 커밋 3 — Plan 3-5 P1)
+        // ====================================================================
+
+        [Header("방어탑 무력화 상태 VFX (EMP)")]
+        [Tooltip("종족별 방어탑(AutoTower)이 EMP로 무력화됐을 때 탑 위에 띄울 상태 VFX 프리셋 한 줄씩. " +
+                 "종족 줄이 없거나 프리셋이 비어 있으면 그 종족 탑에는 아무것도 띄우지 않는다(다른 종족으로 대체하지 않음). " +
+                 "같은 종족 줄이 둘 이상이면 위의 첫 줄만 쓴다. 위치 보정은 Y(높이)만 쓴다")]
+        [SerializeField] private List<TowerDisabledPresetEntry> _towerDisabledPresets = new List<TowerDisabledPresetEntry>();
+
+        /// <summary>
+        /// 이 종족 방어탑의 무력화 상태 VFX 프리셋. 줄이 없거나 프리셋이 비어 있으면 null(다른 종족으로 대체하지 않는다).
+        /// 옛 _autoTowerProjectiles 조회와 같은 방식 — 목록에서 race가 같은 첫 줄을 그대로 찾고, 종족별로 비우는 분기는 없다.
+        /// 줄이 많아야 3개(종족 수)이고 무력화가 걸릴 때만 불리므로 사전(Dictionary) 캐시 없이 목록을 바로 훑는다
+        /// (캐시가 없으니 Inspector에서 값을 바꿔도 다음 조회에 바로 반영된다).
+        /// </summary>
+        /// <param name="race">방어탑 종족.</param>
+        /// <returns>무력화 상태 EffectPreset 또는 null.</returns>
+        public EffectPreset GetTowerDisabled(RaceId race)
+        {
+            if (_towerDisabledPresets == null) return null;
+            for (int i = 0; i < _towerDisabledPresets.Count; i++)
+            {
+                if (_towerDisabledPresets[i].race == race)
+                    return _towerDisabledPresets[i].preset; // 첫 줄만 쓴다(비어 있으면 null 그대로)
+            }
+            return null;
         }
 
         // ====================================================================

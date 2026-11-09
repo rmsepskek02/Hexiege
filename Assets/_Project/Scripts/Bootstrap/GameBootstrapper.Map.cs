@@ -276,6 +276,27 @@ namespace Hexiege.Bootstrap
             if (skillVfxPresenter == null) skillVfxPresenter = gameObject.AddComponent<SkillActivationVfxPresenter>();
             skillVfxPresenter.Initialize(_skillActivation, _effectManager);
 
+            // 10-3-2. [EMP — 2026-11-04 EMP Task 커밋 3] 방어탑 무력화 VFX(V6) 화면 구독자.
+            //   무력화 표현 이벤트(확정 · 수신)를 받아 멈춘 탑 위에 합선 · 연기 이펙트를 지속 시간 동안 띄운다(표현 전용).
+            //   위 발동 VFX 구독자와 같은 방식 — AddComponent(없을 때만) + 맵마다 Initialize(이전 구독 · 이펙트를 먼저 정리).
+            //   · 건물 데이터 조회: 이번 맵의 건물 배치 UseCase(클라이언트도 같은 Id로 건물 데이터를 갖는다).
+            //   · 탑 위치: BuildingFactory(IBuildingObjectProvider) — 탑 GO가 이미 이 화면 좌표에 있다.
+            //   · 팀 → 종족: TowerCombatUseCase에 넣은 것과 같은 규칙(Blue → BlueRace, Red → RedRace).
+            //     Presentation이 Infrastructure의 GameRaceContext를 직접 부르지 않도록 조합 루트인 여기서 주입한다.
+            //   ⚠️ IGameServices에는 아무것도 추가하지 않는다(Editor fixture 대역 구현 보호).
+            var towerDisablePresenter = GetComponent<TowerDisableVfxPresenter>();
+            if (towerDisablePresenter == null) towerDisablePresenter = gameObject.AddComponent<TowerDisableVfxPresenter>();
+            var towerDisablePlacement = _buildingPlacement; // 이번 맵의 인스턴스를 붙잡아 둔다(람다가 다음 맵 것을 읽지 않게).
+            towerDisablePresenter.Initialize(
+                _effectManager,
+                id => towerDisablePlacement?.GetBuilding(id),
+                // Inspector 연결이 빠진 직렬화 필드는 C# null이 아닌 "가짜 null" 객체일 수 있다 → Unity 방식으로 검사해 진짜 null로 넘긴다
+                //   (구독자 쪽 ?. 호출이 파괴된 객체를 부르지 않게). null이면 구독자가 타일 좌표로 위치를 대신한다.
+                _buildingFactory != null ? _buildingFactory : null,
+                team => team == TeamId.Blue
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace);
+
             var wavePresenter = GetComponent<WavePresentationPresenter>();
             if (wavePresenter == null) wavePresenter = gameObject.AddComponent<WavePresentationPresenter>();
             wavePresenter.Initialize(_unitCombat, _floatingHpTextSpawner);

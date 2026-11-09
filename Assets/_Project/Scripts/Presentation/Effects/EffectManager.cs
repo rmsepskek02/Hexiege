@@ -570,6 +570,74 @@ namespace Hexiege.Presentation
             return float.IsInfinity(scale) ? 1f : scale;
         }
 
+        // ====================================================================
+        // [2026-11-04 EMP Task 커밋 3] 방어탑 상태 VFX(무력화 V6) — 시작 · 정지
+        //   TowerDisableVfxPresenter가 무력화 표현 이벤트(확정 · 수신)를 받으면 탑마다 이 메서드로 시작하고,
+        //   지속 시간이 끝나거나(꼬리 정지) 탑이 사라지면(즉시 정지) 아래 정지 메서드를 부른다.
+        //   프리셋은 BuildingEffectConfig._towerDisabledPresets(종족 한 줄씩)에 있다.
+        //   지금까지 건물 VFX는 1회성(파괴 · 업그레이드)뿐이었다 — 이것이 첫 "건물 지속 VFX" 경로다.
+        //   탑 공격 판정과 무관한 화면 표현 전용이다. EMP SFX는 없다(사용자 결정 Q7).
+        // ====================================================================
+
+        /// <summary>
+        /// 이 종족 방어탑 위에 무력화 상태 VFX(반복 재생)를 시작하고 확인 번호(lease)를 돌려준다.
+        /// 위치 = 탑 위치 + 프리셋 높이 보정(Y만), 회전 = 항등, 크기 = 프리팹 원본 × 프리셋 배율.
+        /// 항목은 VFX 컨테이너 아래에 둔다(탑의 자식으로 붙이지 않는다 — 탑 파괴 때 함께 파괴되지 않도록).
+        /// </summary>
+        /// <param name="race">방어탑 종족(프리셋 줄 선택).</param>
+        /// <param name="towerViewPosition">탑 위치(이 화면 좌표 — 탑 GameObject 위치를 그대로 넘긴다. 빨강 화면 변환이 이미 끝난 값).</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <returns>시작한 풀 항목. 프리셋 · 프리팹이 비어 있으면 null(재생 없음 — 다른 종족으로 대체하지 않는다).</returns>
+        public VfxPoolItem StartTowerStatusVfx(RaceId race, Vector3 towerViewPosition, out ulong lease)
+        {
+            lease = 0;
+            EffectPreset preset = _buildingConfig?.GetTowerDisabled(race);
+            if (preset == null || preset.VfxPrefab == null) return null;
+
+            VfxPoolItem item = GetOrCreateVfx(preset.VfxPrefab);
+            if (item == null) return null;
+
+            // 위치 보정은 높이(Y)만 쓴다 — 상대 인간 대포탑은 Y축 180° 회전돼 있어 X · Z 보정은 모델과 어긋난다
+            //   (「방어 타워 시스템」 규칙 11 · 위험 R-6). 회전도 항등이라 Play의 "회전 × 보정"은 보정 그대로다.
+            //   프리셋의 회전 보정 · 전진 이동은 쓰지 않는다(상태 VFX는 탑 위에 가만히 있는 원형 이펙트다).
+            Vector3 heightOnly = new Vector3(0f, preset.LocalPositionOffset.y, 0f);
+            item.Play(
+                towerViewPosition,
+                Quaternion.identity,
+                heightOnly,
+                Vector3.zero,
+                preset.ScaleMultiplier,
+                0f,
+                0f);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                // 재생이 시작되지 않은 비정상 상황 — 반복 재생이 원점에 남지 않게 즉시 지우고 돌려보낸다.
+                item.Return();
+                return null;
+            }
+            return item;
+        }
+
+        /// <summary>
+        /// 방어탑 상태 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartTowerStatusVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartTowerStatusVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">
+        /// true = 즉시 정지(남은 입자까지 지움 — 탑 파괴 · 철거, 사용자 결정 Q4).
+        /// false = 꼬리 정지(새 입자만 멈춤 — 입자 최대 수명 0.8초 안에 사라지고 스스로 풀에 반환. 무력화 끝 · 경기 종료).
+        /// </param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopTowerStatusVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            // Unity 오브젝트는 파괴되면 == null 이 참이 된다(씬 정리 중 늦은 정지 방어).
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.
