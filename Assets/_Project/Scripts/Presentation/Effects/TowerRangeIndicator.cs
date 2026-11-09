@@ -4,9 +4,13 @@
 // 2026-11-09 Task `_Tasks/2026-11-09/22_19_cannon-tower-front-arc/` 커밋 3(추가 범위 (가) — 사용자 승인)에서 새로 만들었다.
 //
 // 무엇을 하나(유니티 초급자용 설명):
-//   · 탑 3종 모두 : 사거리 원(반투명 채움 + 진한 테두리)을 그린다.
-//   · 인간 대포탑  : 그 위에 "정면 좌우 60°(합 120°)" 부채꼴을 주황색으로 강조하고, 부채꼴 양옆 경계선을 긋는다.
-//                    인간 대포탑은 이 부채꼴 안의 적만 쏜다(서버 판정 — TowerFrontArc).
+//   · 정령 · 초월 탑(360°) : 사거리 원(붉은 반투명 채움 + 진한 붉은 테두리)만 그린다.
+//   · 인간 대포탑(120°)    : "정면 좌우 60°(합 120°)" 부채꼴(붉은 채움 + 양옆 경계선 + 호 테두리)만 그린다.
+//                            부채꼴 밖의 원 부분(원판 · 원 테두리)은 그리지 않는다 — 쏘지 못하는 곳을 범위처럼 보이지 않게.
+//                            인간 대포탑은 이 부채꼴 안의 적만 쏜다(서버 판정 — TowerFrontArc).
+//   2026-11-10 사용자 피드백으로 바뀌었다: 「공격 범위 색상은 붉은색 계열, 포탑의 경우 120도만 나오도록,
+//   그 외에 다른 회색으로 보이는 부분은 안 나오면 좋겠어」. 그 전(1e505f3)은 모든 탑에 흰빛(화면에서 회색으로 보임)
+//   사거리 원을 깔고, 대포탑은 그 위에 주황 부채꼴을 겹쳐 그렸다.
 //   패널이 닫히면(닫기 버튼 · 바깥 탭 · 철거 · 탑 파괴 · 경기 시작/종료) 즉시 사라진다.
 //   화면 전용이다 — 공격 판정에는 아무 영향이 없다.
 //
@@ -34,7 +38,8 @@ using Hexiege.Application;
 namespace Hexiege.Presentation
 {
     /// <summary>
-    /// 방어탑 공격 범위(사거리 원 + 인간 대포탑 전방 120° 부채꼴)를 지면에 그리는 화면 전용 표시물.
+    /// 방어탑 공격 범위를 지면에 붉은색으로 그리는 화면 전용 표시물.
+    /// 360° 탑은 사거리 원만, 인간 대포탑은 전방 120° 부채꼴만 그린다(둘을 겹쳐 그리지 않는다 — 2026-11-10).
     /// 런타임에 코드로 메시를 만들어 그린다(씬 · 프리팹 배선 불필요).
     /// </summary>
     public sealed class TowerRangeIndicator : MonoBehaviour
@@ -61,10 +66,27 @@ namespace Hexiege.Presentation
         /// <summary> 정점 색이 그대로 나오게 머티리얼 틴트는 흰색으로 둔다. </summary>
         private static readonly Color MaterialTint = Color.white;
 
-        private static readonly Color32 RangeFillColor = new Color32(255, 255, 235, 28);   // 사거리 원 채움(아주 옅게)
-        private static readonly Color32 RangeRingColor = new Color32(255, 255, 235, 200);  // 사거리 원 테두리
-        private static readonly Color32 ArcFillColor = new Color32(255, 150, 50, 72);      // 전방 부채꼴 채움(주황)
-        private static readonly Color32 ArcEdgeColor = new Color32(255, 165, 60, 230);     // 부채꼴 경계선 · 호 테두리
+        // [2026-11-10 비활성 — 사용자 피드백 「붉은색 계열 · 회색 부분은 안 나오게」. 테스트 통과 후 삭제 예정(Plan 규칙: 주석 처리 → 테스트 → 삭제)]
+        //   옛 색: 흰빛 사거리 원(타일 위에서 회색으로 보였다) + 주황 부채꼴.
+        // private static readonly Color32 RangeFillColor = new Color32(255, 255, 235, 28);   // 사거리 원 채움(아주 옅게)
+        // private static readonly Color32 RangeRingColor = new Color32(255, 255, 235, 200);  // 사거리 원 테두리
+        // private static readonly Color32 ArcFillColor = new Color32(255, 150, 50, 72);      // 전방 부채꼴 채움(주황)
+        // private static readonly Color32 ArcEdgeColor = new Color32(255, 165, 60, 230);     // 부채꼴 경계선 · 호 테두리
+
+        /// <summary>
+        /// 공격 범위 "채움" 색(붉은 계열, 2026-11-10). 360° 탑의 원판과 대포탑의 120° 부채꼴이 같은 색을 쓴다.
+        /// 알파 64(약 25%)의 근거: 사용자가 「육안상 잘 작업됐다」고 본 1e505f3 의 부채꼴 채움 알파가 72(약 28%)였다.
+        ///   붉은색은 주황보다 조금 진하게 보이므로 한 단계 낮춘 64로 둔다 — 아래 타일 색 · 유닛이 그대로 비쳐 보이는 수준.
+        ///   (더 올리면 붉은 팀 타일과 구분이 흐려지고 유닛이 덮여 보인다. 아트 단계에서 바꿀 수 있는 임시값.)
+        /// </summary>
+        private static readonly Color32 RangeFillRed = new Color32(235, 45, 35, 64);
+
+        /// <summary>
+        /// 공격 범위 "테두리" 색(붉은 계열, 2026-11-10). 360° 탑의 원 테두리, 대포탑의 좌우 경계선 · 호 테두리에 쓴다.
+        /// 채움보다 밝은 빨강 + 알파 220(약 86%)으로, 채움이 옅어도 "어디까지가 범위인지" 경계는 또렷하게 읽히게 한다.
+        ///   (1e505f3 의 테두리 알파 200~230 범위 안의 값.)
+        /// </summary>
+        private static readonly Color32 RangeEdgeRed = new Color32(255, 70, 55, 220);
 
         /// <summary> Resources 의 지면 데칼 머티리얼 경로(HexGridRenderer 와 같은 에셋 — 복사해서 쓴다). </summary>
         private const string OverlayMaterialResourcePath = "Materials/NoBuildHatch";
@@ -114,19 +136,33 @@ namespace Hexiege.Presentation
 
             if (!Mathf.Approximately(r, _builtRadius))
             {
-                SetMesh(_fillFilter, BuildDisc(r, RangeFillColor));
-                SetMesh(_ringFilter, BuildAnnulus(r, Mathf.Max(0f, r - RingThickness), 0f, 360f, RangeRingColor));
+                // [2026-11-10 비활성 — 회색(흰빛) 색 대신 붉은 색으로 만든다. 테스트 통과 후 삭제 예정]
+                // SetMesh(_fillFilter, BuildDisc(r, RangeFillColor));
+                // SetMesh(_ringFilter, BuildAnnulus(r, Mathf.Max(0f, r - RingThickness), 0f, 360f, RangeRingColor));
+                SetMesh(_fillFilter, BuildDisc(r, RangeFillRed));
+                SetMesh(_ringFilter, BuildAnnulus(r, Mathf.Max(0f, r - RingThickness), 0f, 360f, RangeEdgeRed));
                 _builtRadius = r;
                 _builtHalfAngle = -1f; // 부채꼴도 반경이 바뀌었으니 다시 만든다
             }
+
+            // 모양 고르기(2026-11-10): 원 층(원판 · 원 테두리)과 부채꼴 층 중 "한쪽만" 켠다.
+            //   · 대포탑(showFrontArc = true)  → 부채꼴만. 원 층을 끄므로 부채꼴 밖 원 부분은 화면에 전혀 그려지지 않는다.
+            //   · 360° 탑(showFrontArc = false) → 원만.
+            //   층을 지우지 않고 GameObject 를 껐다 켜는 이유: 같은 표시물을 다른 종류의 탑에 다시 쓸 때(패널이 다른 탑으로
+            //   바로 열림) 메시를 새로 만들 필요 없이 켜고 끄기만 하면 된다.
+            _fillFilter.gameObject.SetActive(!showFrontArc);
+            _ringFilter.gameObject.SetActive(!showFrontArc);
 
             _arcRoot.gameObject.SetActive(showFrontArc);
             if (showFrontArc)
             {
                 if (!Mathf.Approximately(halfAngleDeg, _builtHalfAngle))
                 {
-                    SetMesh(_arcFillFilter, BuildSector(r, halfAngleDeg, ArcFillColor));
-                    SetMesh(_arcEdgeFilter, BuildArcEdges(r, halfAngleDeg, ArcEdgeColor));
+                    // [2026-11-10 비활성 — 주황 대신 붉은 색으로 만든다. 테스트 통과 후 삭제 예정]
+                    // SetMesh(_arcFillFilter, BuildSector(r, halfAngleDeg, ArcFillColor));
+                    // SetMesh(_arcEdgeFilter, BuildArcEdges(r, halfAngleDeg, ArcEdgeColor));
+                    SetMesh(_arcFillFilter, BuildSector(r, halfAngleDeg, RangeFillRed));
+                    SetMesh(_arcEdgeFilter, BuildArcEdges(r, halfAngleDeg, RangeEdgeRed));
                     _builtHalfAngle = halfAngleDeg;
                 }
                 // 부채꼴 메시는 로컬 +Z 를 정면으로 만들어 두었다 → 부모를 화면 정면 방향으로 Y축 회전하면 된다.
@@ -157,6 +193,7 @@ namespace Hexiege.Presentation
 
         // ====================================================================
         // 구성 — 층 4개(아래 → 위): 사거리 채움 · 사거리 테두리 · 부채꼴 채움 · 부채꼴 경계선
+        //   2026-11-10 부터 한 번에 켜지는 것은 "원 2층" 또는 "부채꼴 2층" 중 한쪽뿐이다(Show 참조).
         // ====================================================================
 
         /// <summary> 자식 층 GameObject 4개와 공용 머티리얼을 만든다(1회). </summary>
