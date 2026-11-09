@@ -61,7 +61,8 @@ namespace Hexiege.Application
     /// 방어 타워(AutoTower)의 자동 공격을 처리하는 UseCase.
     /// 매 Tick마다 모든 타워를 순회하며 사거리 내 가장 가까운 적 유닛에게 데미지를 준다.
     /// </summary>
-    public class TowerCombatUseCase : IBuildingProjectileImpactWriter
+    // [2026-11-09] partial: 전방 120° 진단 로그([TOWER-ARC])를 TowerCombatUseCase.ArcDiagnostics.cs 로 분리했다(판정 코드와 섞지 않기 위해).
+    public partial class TowerCombatUseCase : IBuildingProjectileImpactWriter
     {
         // 부동소수점 경계 오차 방지용 여유값. UnitCombatUseCase와 동일한 의도.
         private const float Epsilon = 0.05f;
@@ -167,6 +168,10 @@ namespace Hexiege.Application
 
             if (_buildingPlacement == null || _unitSpawn == null) return;
 
+            // [진단 — 2026-11-09 전방 120° [TOWER-ARC]] 진단 시계를 dt만큼 진행하고, 대기 중이던 탑이 사라졌으면 HoldEnd를 남긴다.
+            //   개발 빌드 · 에디터 전용([Conditional]) 호출이라 릴리스에서는 이 줄이 통째로 사라진다. 판정 무관.
+            DiagArcBeginTick(dt);
+
             // 순회 도중 적 유닛 사망으로 _buildings가 직접 변하지는 않지만,
             // 방어적으로 건물 Id 목록을 미리 복사하여 안전하게 순회한다.
             // (적 유닛 사망 시 _unitSpawn.Units만 변하고 _buildings는 그대로지만,
@@ -203,6 +208,9 @@ namespace Hexiege.Application
 
                 // 규칙 1/2/3: 사거리 내 가장 가까운 적 유닛 탐색 (월드 좌표 기준).
                 UnitData target = FindNearestEnemyUnit(building);
+                // [진단 — [TOWER-ARC]] 인간 대포탑이 "사거리 안 적은 있는데 전부 범위 밖"이라 쏘지 못하는 대기의 시작 · 끝을 잰다.
+                //   상태가 바뀔 때만 1줄(HoldBegin / HoldEnd) — 매 Tick 줄은 남기지 않는다(LogRules 1.14-8). 개발 빌드 전용 호출.
+                DiagArcAfterScan(building, target);
                 if (target == null) continue;
 
                 // 데미지 적용 + 이벤트 발행 + 사망 처리.
@@ -215,6 +223,8 @@ namespace Hexiege.Application
                 //   무력화 중 발사 수(정상 0) · 원 밖 탑 공격 수 · 만료 뒤 첫 발사 시각을 서비스가 센다. 개발 빌드 전용 호출.
                 //   (식이 아니라 문(statement)이라 [Conditional]로 릴리스에서 통째로 사라진다 — LogRules 1.7.)
                 if (_buildingStatus != null) _buildingStatus.DiagNoteTowerLaunch(building.Id);
+                // [진단 — [TOWER-ARC]] 실제 공격 1회(인간 = 발사 Fire 줄, 다른 종족 = End 합계에만). 판정 무관 · 개발 빌드 전용 호출.
+                DiagArcNoteFire(building, target);
 
                 // 규칙 5: 공격 직후 쿨다운 시작.
                 // 종족별 쿨다운 값을 조회하여 리셋.
@@ -243,6 +253,10 @@ namespace Hexiege.Application
         /// <returns>사거리 내(인간 대포탑은 전방 범위 안) 가장 가까운 적 유닛. 없으면 null.</returns>
         private UnitData FindNearestEnemyUnit(BuildingData tower)
         {
+            // [진단 — [TOWER-ARC]] 이번 탐색의 후보 집계(사거리 안 수 · 범위 밖 수 · 가장 가까운 범위 밖 후보)를 비운다.
+            //   아래 조기 반환(사거리 0)보다 먼저 비워야 앞 탑의 집계가 남지 않는다. 개발 빌드 전용 호출.
+            DiagArcBeginScan();
+
             RaceId race = ResolveRace(tower.Team);
             float rangeTiles = BuildingStats.GetAttackRange(tower.Type, race);
 
@@ -301,7 +315,10 @@ namespace Hexiege.Application
                 if (frontArc && dist <= maxWorldDist)
                 {
                     Vector3 unitDomainPos = unitFromProvider ? _mapper.NormalizeToDomainPosition(unitPos) : unitPos;
-                    if (!TowerFrontArc.IsInFrontArc(towerDomainPos, unitDomainPos, tower.Team, out _)) continue;
+                    bool inArc = TowerFrontArc.IsInFrontArc(towerDomainPos, unitDomainPos, tower.Team, out float frontDot);
+                    // [진단 — [TOWER-ARC]] 사거리 안 후보 1명을 센다(범위 안/밖 · 거리 · 각도). 줄은 남기지 않는다. 개발 빌드 전용 호출.
+                    DiagArcNoteCandidate(inArc, dist, frontDot);
+                    if (!inArc) continue;
                 }
 
                 // 규칙 2/3: 사거리 안 + 현재까지 최단 거리면 타겟 후보로 갱신.

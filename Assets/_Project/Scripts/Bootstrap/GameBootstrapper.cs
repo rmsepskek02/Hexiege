@@ -553,6 +553,11 @@ namespace Hexiege.Bootstrap
             //   위 착탄 예약 닫기와 같은 방식 — 람다가 호출 시점의 필드를 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
             //   (싱글은 경기 종료 뒤에도 탑 틱이 돌므로, 비운 뒤 결과 화면 뒤에서 탑이 다시 쏘는 것은 다른 탑과 같은 기존 동작이다 — R-8.)
             GameEvents.OnGameEnd.Subscribe(_ => _buildingStatusEffectSystem?.Close()).AddTo(this);
+            // [진단 — 2026-11-09 인간 대포탑 전방 120° [TOWER-ARC] End] 경기가 끝나면 탑 판정 합계 1줄(종족별 발사 · 대기 · Verdict).
+            //   싱글 · 멀티 서버 공통으로 이 구독 한 곳에서 부른다(위 무력화 닫기와 같은 자리 — 멀티 Host 에도 이 Bootstrapper 가 있다).
+            //   경기당 1회만 남기는 중복 방지와 "Client 에서는 남기지 않음"은 DiagArcWriteEnd 안에서 처리한다.
+            //   🔴 반드시 블록 본문 람다({ })로 쓴다 — 식 본문이면 [Conditional] 호출이 릴리스에서 지워지지 않는다(LogRules 1.7).
+            GameEvents.OnGameEnd.Subscribe(_ => { _towerCombat?.DiagArcWriteEnd("GameEnd"); }).AddTo(this);
         }
 
         /// <summary>
