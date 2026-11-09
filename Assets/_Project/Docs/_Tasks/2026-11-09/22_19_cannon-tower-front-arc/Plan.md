@@ -328,6 +328,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 | 2026-11-09 | 작성. game-programmer 읽기 전용 조사의 추천안 · 커밋 분할 · 진단 로그 설계 · 테스트 시나리오 · 위험 · 질문을 옮김. 대응표에 로그로 판정할 수 없는 항목 T10(회귀 스위트) · T11(화면 궤적)을 이유와 함께 추가 | 원자료(scratchpad `cannon120-research.md`) `[전달 — 메인 세션]` · [Research 10절](Research.md) |
 | 2026-11-09 | **사용자 결정 반영 · 범위 추가.** 7-1 결정 표 신설(Q1~Q14 전부 추천안, Q6은 문구 정정 — 쿨다운은 공격하지 않는 동안에도 계속 줄어 0에서 대기 · 현행 유지, 종전 문구는 날짜 조각으로 보존). 범위 추가: 탑 선택 시 공격 범위 표시(탑 3종 원 + Human 앞 120° 부채꼴, 화면 전용) — 머리말 · 0절 선례 행 · 1절 · 2절 6~9 · 3-5 · 4절 S8~S12 · 5절 `[TOWER-RANGE-UI]` T12~T16 · 6절 R10~R13 · 8절 8~9 · 9절 커밋 3(종전 3 → 4) · 10절. 구현 중 열린 항목 U-1~U-4. 상태 「구현 승인 — 진행 중」, 로그 업로드 작업명 `cannon-tower-front-arc`. 문서 담당이 `TowerCombatUseCase.cs` 170~216 · 226~234행, `MistShrinePanelUI.cs` 240~300행, `BuildingActionPanelUI.cs` 14~22 · 160행, `GameSystemRules_BuildingPanelsUI.md` 「MistShrine 패널 UI」 제목, WORKFLOW 282~285행을 다시 읽음 | 사용자 원문 2건 `[전달 — 메인 세션]` |
 | 2026-11-10 | **구현 · 사용자 테스트 PASS · 문서 반영.** 머리 「현재 상태」 → 완료, 12절 신설(커밋 · 계획과 달라진 것 · 로그 판정 · 결정 · 문서 반영 · 미관측), Q14 · 8절 · 10절에 날짜 조각. 규칙 반영: Buildings 「방어 타워 시스템」 2 · 10 · 11 문장 추가 · 14 신설, BuildingPanelsUI 「방어탑 패널 UI」 1~3 신설, TDD ViewConverter 「관점 설정 시점」, GDD · StatsReference 각도 언급, ROADMAP 해당 행 삭제, 서버 권위 투사체 Plan F-120 · Research 15-9 상태 갱신. 문서 담당이 `df3a949` · `07a14c2` · `1e505f3` · `43b7863` · `5af1ae4` · `1c13d96` 의 `git show`와 `TowerFrontArc.cs` 전문, `TowerCombatUseCase.cs` 표적 탐색 · 사거리 메서드, `BuildingActionPanelUI.cs` 범위 표시 · 진단, `TowerRangeIndicator.cs` 머리 · 색 상수, `SinglePlayerPerspective.Apply`, `InputHandler.cs` 365~390행을 다시 읽음 | 커밋 · 로그 판정 · 사용자 원문 `[전달 — 메인 세션]` |
+| 2026-11-10 | 문서 끝에 「main 병합 전 확인」 한 줄(회귀 스위트 PASS · HEAD `1210e85` · fast-forward 47커밋). 문서 담당이 `git log origin/main..HEAD` · `HEAD..origin/main` 수와 `git diff --stat origin/main...HEAD`를 다시 셈 | 사용자 「PASS」 `[전달 — 메인 세션]` |
 
 ---
 
@@ -428,3 +429,5 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 ---
 
 완료 후 main 병합(사용자 지시 — 2026-11-09 「작업 완료되면 병합할 거니까 알고 있어」). *(2026-11-10 — 구현 · 테스트 · 문서 반영 완료. 병합 실행은 사용자 지시에 따른다. 종전 이 줄 뒷부분 「구현이 끝나면 푸시하고 테스트 절차를 안내한다 — 로그 올리기: 작업명 `cannon-tower-front-arc`」는 실행됐고, 사용자는 로그를 `vfx-test3` · `vfx-test4`로 올렸다 — 12-3)*
+
+**main 병합 전 확인 (2026-11-10, [전달 — 메인 세션]):** 브랜치 HEAD `1210e85`에서 `Hexiege > Combat > Run Full Regression Suite` 실행 → 사용자 「PASS」(결과 파일 없음 — Console만, 에이전트 미관측). 브랜치는 `origin/main` `6e1d316`에 없는 커밋 47개 · main 쪽 새 커밋 0개(fast-forward) · 239파일이며, 이 기록 커밋 직후 메인 세션이 main에 병합 · 푸시한다(지원 스킬 기반 · EMP · 스킬 VFX 높이 · 이 작업 · 탑 공격 연출 재구성 · 효과음 1단계 포함).
