@@ -45,6 +45,13 @@
 - 구현·정적 검사·native 메뉴·기기/멀티·사용자 수용·빌드 시작/완료는 서로 다른 확인 범위다.
 - 밸런싱+AI 시나리오는 추후 별건이며 추가 기획은 낮은 우선으로 보류한다. 마법 타워·상태머신 확장·서든데스·튜토리얼·카드/IAP 등 미완 기획을 구현 완료로 옮기지 않는다.
 
+## 작업 완료 후 정리할 항목
+
+지금은 남겨 두고, 아래 조건의 작업이 끝나면 지우는 일회용 에디터 파일이다. 두 줄 모두 **해당 작업이 끝나 마무리할 때 메인 세션이 사용자에게 제거 여부를 확인한 뒤 진행하며, 그 전에는 이 항목으로 사용자에게 다시 묻지 않는다**. 근거: 사용자 원문(2026-11-10) 「작업완료후에 진행하는거니까 그때 물어보면되지 왜 자꾸 반복해서 물어보냐는 뜻인데」.
+
+- **지원 스킬 작업 전체가 끝나면** → 일회용 설정 스크립트 `Assets/Editor/Setup/SupportSkillLoadoutSetup.cs`(메뉴 `Hexiege/Setup/Skills/Create Support Skill Assets And Replace Loadout`) 제거. 근거: 사용자 결정(2026-11-03, 원문 「작업이 모두 완료된 후에 제거하도록 하자」) — [포격 Task Plan](_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md#10-implementation-and-user-test) 284행(「남은 일」) · 359행(10-5).
+- **지원 스킬 VFX 작업이 끝나면** → 방어탑 크기 측정 에디터 메뉴 `Hexiege/Effects/Measure Tower Bounds`(`Assets/Editor/Tools/TowerBoundsMeasureTool.cs`, 커밋 `4c2f41c`) 제거. 근거: 사용자 결정(2026-11-02, 원문 「측정메뉴는 vfx 작업이 모두 끝날 때까지는 삭제 보류」) — [측정 메뉴 Task Plan 6-1](_Tasks/2026-11-02/20_45_tower-bounds-measure-tool/Plan.md#6-1-사용자-결정-2026-11-02) U-1.
+
 ## 상세 원본과 작업 목록
 
 | 확인할 내용 | 담당 원본 |
