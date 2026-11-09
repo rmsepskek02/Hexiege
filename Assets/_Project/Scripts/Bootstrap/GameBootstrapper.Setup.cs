@@ -682,6 +682,11 @@ namespace Hexiege.Bootstrap
                 Hexiege.Infrastructure.NetworkBuildingController controller =
                     isNetworkMode ? _networkBuildingController : null;
                 _buildingActionPanelUI.Initialize(_buildingPlacement, _resource, controller);
+                // [2026-11-09 탑 공격 범위 표시 — Task 22_19_cannon-tower-front-arc 커밋 3] 탑 패널이 열릴 때 그릴 사거리 원 · 전방 부채꼴의
+                //   반경을 판정과 같은 원본(TowerCombatUseCase)에서 읽도록 공급 함수를 넣는다. 람다가 "호출 시점의" _towerCombat 을 읽으므로
+                //   맵을 다시 불러와 UseCase 가 새로 만들어져도 항상 현재 것을 쓴다(이 메서드가 UseCase 생성보다 먼저 불려도 안전).
+                //   IGameServices 에 메서드를 늘리지 않으려고 조합 루트에서 직접 넣는다(그 인터페이스는 Editor fixture 대역 구현이 있다).
+                _buildingActionPanelUI.SetTowerRangeSource(() => _towerCombat);
             }
 
             // ────────────────────────────────────────────────────────────

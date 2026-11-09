@@ -258,13 +258,11 @@ namespace Hexiege.Application
             DiagArcBeginScan();
 
             RaceId race = ResolveRace(tower.Team);
-            float rangeTiles = BuildingStats.GetAttackRange(tower.Type, race);
 
-            // 사거리가 0 이하면 공격 불가 — Config 미설정 방어.
-            if (rangeTiles <= 0f) return null;
-
-            // 타일 단위 사거리 → 월드 단위로 환산 (+Epsilon: 경계 오차 방지).
-            float maxWorldDist = rangeTiles * _mapper.TileHeight + Epsilon;
+            // 사거리(타일) → 월드 단위 환산. 사거리가 0 이하면 공격 불가 — Config 미설정 방어.
+            // [2026-11-09 커밋 3] 환산식을 TryResolveAttackRangeWorld 한 곳으로 옮겼다(식 · 값은 그대로).
+            //   탑을 눌렀을 때 그리는 사거리 원(GetTowerRangeDisplay)도 같은 메서드를 읽어 "보이는 원 = 판정 사거리"가 보장된다.
+            if (!TryResolveAttackRangeWorld(tower, race, out _, out float maxWorldDist)) return null;
 
             // 타워의 월드 위치 취득. positionProvider가 없거나 미등록(zero)이면
             // HexCoord → 월드 좌표 변환으로 폴백한다(타워는 고정이므로 폴백이 정확).
@@ -330,6 +328,51 @@ namespace Hexiege.Application
             }
 
             return closest;
+        }
+
+        /// <summary>
+        /// 탑의 사거리를 타일 단위와 월드 단위로 구한다 — 표적 탐색(FindNearestEnemyUnit)과 화면 사거리 표시가 함께 쓰는 단일 원본.
+        /// 월드 사거리 = 종족별 AttackRange(타일) × TileHeight + Epsilon(0.05, 경계 오차 방지). 2026-11-09 커밋 3에서 탐색 본문의 식을 옮겨 왔다.
+        /// </summary>
+        /// <param name="tower">대상 탑.</param>
+        /// <param name="race">탑 소유 팀의 종족.</param>
+        /// <param name="rangeTiles">사거리(타일 단위, BuildingStats 값 그대로).</param>
+        /// <param name="maxWorldDist">사거리(월드 단위). 실패 시 0.</param>
+        /// <returns>사거리가 양수면 true. 0 이하(설정 누락)면 false — 그 탑은 공격하지 않는다.</returns>
+        private bool TryResolveAttackRangeWorld(BuildingData tower, RaceId race, out float rangeTiles, out float maxWorldDist)
+        {
+            rangeTiles = BuildingStats.GetAttackRange(tower.Type, race);
+            maxWorldDist = 0f;
+
+            // 사거리가 0 이하면 공격 불가 — Config 미설정 방어.
+            if (rangeTiles <= 0f) return false;
+
+            // 타일 단위 사거리 → 월드 단위로 환산 (+Epsilon: 경계 오차 방지).
+            maxWorldDist = rangeTiles * _mapper.TileHeight + Epsilon;
+            return true;
+        }
+
+        /// <summary>
+        /// [2026-11-09 커밋 3 — 화면 사거리 표시용, 판정 무관] 탑을 눌렀을 때 그릴 범위 정보를 판정과 같은 원본에서 돌려준다.
+        ///   · 원 반경 = 표적 탐색이 쓰는 월드 사거리 그대로(TryResolveAttackRangeWorld).
+        ///   · 부채꼴 여부 = 전방 120° 제한을 받는 탑인지(TowerFrontArc.AppliesTo — 지금은 인간 대포탑만).
+        /// 상태를 바꾸지 않는 읽기 전용 질의라 Client 화면에서 불러도 안전하다(이 UseCase는 Client에도 만들어진다 — Tick만 서버 전용).
+        /// </summary>
+        /// <param name="tower">표시할 탑(AutoTower). 호출자(BuildingActionPanelUI)는 AutoTower일 때만 부른다.</param>
+        /// <param name="rangeTiles">사거리(타일 단위).</param>
+        /// <param name="rangeWorld">사거리(월드 단위) — 화면 원 반경.</param>
+        /// <param name="hasFrontArc">전방 사격 범위(부채꼴)를 함께 그려야 하는지.</param>
+        /// <returns>그릴 사거리가 있으면 true.</returns>
+        public bool GetTowerRangeDisplay(BuildingData tower, out float rangeTiles, out float rangeWorld, out bool hasFrontArc)
+        {
+            rangeTiles = 0f;
+            rangeWorld = 0f;
+            hasFrontArc = false;
+            if (tower == null || _mapper == null) return false;
+
+            RaceId race = ResolveRace(tower.Team);
+            hasFrontArc = TowerFrontArc.AppliesTo(tower.Type, race);
+            return TryResolveAttackRangeWorld(tower, race, out rangeTiles, out rangeWorld);
         }
 
         /// <summary>
