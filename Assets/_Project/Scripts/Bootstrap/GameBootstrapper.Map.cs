@@ -180,11 +180,19 @@ namespace Hexiege.Bootstrap
             // 싱글플레이: LocalPlayerTeam 기반으로 ViewConverter 초기화.
             // ApplyConfig() 이후에 호출해야 HexMetrics가 준비되어 GridCenter 계산이 정확함.
             // 멀티플레이는 StartNetworkGame()에서 LoadMap() 전에 이미 설정하므로 여기서는 건너뜀.
+            //
+            // [2026-11-10 버그 수정 — 멀티 Client(Red) 뒤 싱글이 Red·뒤집힘으로 시작되던 문제]
+            //   LocalPlayerTeam 은 static 이라 멀티 Client 경기에서 Set(Red) 된 값이 로비로 돌아와도 남는다
+            //   (Reset 호출처가 없었다). 예전에는 여기서 그 남은 Red 를 그대로 읽어 화면을 뒤집었다.
+            //   이제 SinglePlayerPerspective.Apply 가 ① 팀을 Blue 로 되돌린 뒤 ② 기존과 같은 규칙
+            //   ("Red 면 뒤집기")으로 ViewConverter 를 설정한다. 기존 두 줄(isRed 계산 · Setup)은 Apply 안으로 옮겼다.
+            //   싱글 진입(Start) · 맵 준비 실패 재시도 · 결과 화면 재경기가 모두 이 LoadMap 을 거치므로 한 자리로 충분하다.
+            //   멀티(isNetworkMode=true)는 이 분기를 타지 않으므로 다음 멀티 Client 가 Red 로 다시 설정되는 흐름은 그대로다.
             if (!isNetworkMode)
             {
                 Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
-                bool isRed = (LocalPlayerTeam.Current == TeamId.Red);
-                ViewConverter.Setup(isRed, mapCenter);
+                SinglePlayerPerspective.Result perspective = SinglePlayerPerspective.Apply(mapCenter);
+                DiagLocalTeamSingleMatchStart(perspective);
             }
 
             // 3. 그리드 생성
@@ -1342,6 +1350,30 @@ namespace Hexiege.Bootstrap
 
             // ── 싱글플레이: 매 판 다른 값 ───────────────────────────────────
             return MapRootSeed.Create();
+        }
+
+        // ====================================================================
+        // [진단 — [LOCAL-TEAM] MatchStart (싱글)] 2026-11-10 로컬 팀 잔존 버그 수정 확인용
+        // ====================================================================
+
+        /// <summary>
+        /// [진단 — [LOCAL-TEAM] MatchStart] 싱글 경기 맵 로드 시 1줄.
+        /// 이전 경기(멀티 Client=Red)의 팀 · 화면 뒤집힘이 남아 있었는지(Prev*) 와,
+        /// 되돌린 뒤의 최종 값(LocalTeam=Blue, ViewFlipped=false 가 정상)을 함께 남긴다.
+        /// Reset 은 싱글에서 항상 수행되며, Reason 으로 "실제로 남아 있던 값을 되돌렸는지" 를 구분한다.
+        /// 개발 빌드 · 에디터 전용(릴리스에서는 호출째 사라진다).
+        /// </summary>
+        /// <param name="r">SinglePlayerPerspective.Apply 의 결과.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void DiagLocalTeamSingleMatchStart(SinglePlayerPerspective.Result r)
+        {
+            // StaleFromPreviousMatch = 이전 멀티 경기의 값이 남아 있어 이번에 되돌림(버그 상황이 재현됐고 고쳐짐)
+            // AlreadyDefault         = 원래 Blue · 뒤집힘 없음이라 바뀐 것이 없음(정상 첫 싱글)
+            string reason = r.WasStale ? "StaleFromPreviousMatch" : "AlreadyDefault";
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[LOCAL-TEAM] MatchStart",
+                System.FormattableString.Invariant(
+                    $"Diag=LocalTeam, DiagRev=1, Event=MatchStart, Mode=Single, Reset=true, Reason={reason}, PrevTeam={r.PreviousTeam}, PrevAssigned={(r.PreviousAssigned ? "true" : "false")}, PrevFlipped={(r.PreviousFlipped ? "true" : "false")}, LocalTeam={r.CurrentTeam}, ViewFlipped={(r.CurrentFlipped ? "true" : "false")}"));
         }
     }
 }

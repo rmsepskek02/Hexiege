@@ -1049,6 +1049,7 @@ namespace Hexiege.Editor.Combat
             ValidateStreamSpiritProductionTimeline();
             ValidateStreamSpiritProductionTimelineDiagnostics();
             ValidateServerAuthoritativeProjectiles(); // [2026-10-20 서버 권위 투사체 — 단계 A]
+            ValidateSinglePlayerPerspectiveReset(); // [2026-11-10 멀티 Client 뒤 싱글 Red·뒤집힘 잔존 버그 — 회귀]
             ValidateFoxMagicianProductionTimeline();
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();

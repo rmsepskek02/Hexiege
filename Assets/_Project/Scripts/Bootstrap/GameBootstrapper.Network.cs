@@ -94,10 +94,34 @@ namespace Hexiege.Bootstrap
                                  $"IsRed={isRed}, MapCenter={mapCenter}");
             }
 
+            // [진단 — [LOCAL-TEAM] MatchStart (멀티)] 2026-11-10 로컬 팀 잔존 버그 수정 확인용.
+            //   싱글 경기가 팀을 Blue 로 되돌린 뒤에도 멀티 Client 가 다시 Red · 뒤집힘으로 시작하는지 판정한다.
+            //   멀티에서는 팀을 되돌리지 않는다(Reset=false) — NetworkGameFlow 가 방금 이번 경기 팀을 Set 했다.
+            DiagLocalTeamNetworkMatchStart(localTeam);
+
             // 맵 로드 (FlatTop 고정) — ViewConverter 설정 완료 후 실행
             // LoadMap() 내부의 SetupCamera()가 카메라를 맵 중심에 배치함.
             // 싱글플레이와 동일하게 맵 중심에서 시작하도록 팀별 카메라 이동은 수행하지 않음.
             LoadMap(HexOrientation.FlatTop);
+        }
+
+        /// <summary>
+        /// [진단 — [LOCAL-TEAM] MatchStart] 멀티 경기 진입(StartNetworkGame) 시 1줄.
+        /// Host 는 LocalTeam=Blue · ViewFlipped=false, Client 는 LocalTeam=Red · ViewFlipped=true 가 정상이다.
+        /// ArgTeam(NetworkGameFlow 가 넘긴 팀) 과 LocalTeam(정적 홀더) 이 다르면 팀 전달 경로가 어긋난 것이다.
+        /// 개발 빌드 · 에디터 전용(릴리스에서는 호출째 사라진다).
+        /// </summary>
+        /// <param name="localTeam">StartNetworkGame 이 받은 이번 경기 로컬 팀.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void DiagLocalTeamNetworkMatchStart(TeamId localTeam)
+        {
+            // NetworkContext 가 아직 주입되지 않은 순간이면(스폰 순서 차이) Host/Client 를 단정하지 않고 Unknown 으로 남긴다.
+            string role = !NetworkContext.IsNetworkActive ? "Unknown"
+                        : NetworkContext.IsNetworkServer ? "Host" : "Client";
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "[LOCAL-TEAM] MatchStart",
+                System.FormattableString.Invariant(
+                    $"Diag=LocalTeam, DiagRev=1, Event=MatchStart, Mode=Network, Role={role}, Reset=false, Reason=NetworkAssigned, ArgTeam={localTeam}, LocalTeam={LocalPlayerTeam.Current}, Assigned={(LocalPlayerTeam.IsAssigned ? "true" : "false")}, ViewFlipped={(ViewConverter.IsFlipped ? "true" : "false")}"));
         }
 
         // ====================================================================
