@@ -30,6 +30,15 @@
 //   - 나머지 14개: 사용 가능 = false(사용자 결정 Q4 — 이번엔 포격만 사용 가능).
 //     수치는 밸런싱 전 "자리표시"다. 조준이 지점이면 기존 Bomb 값(타입 A), 즉시(맵 전체)면
 //     상태 종류 None인 타입 C(쿨 15)로 넣었다 — 사용 불가라 실제로는 발동되지 않는다.
+//   - [2026-11-04 EMP Task 커밋 4 — 사용자 결정 Q10 「EMP 줄만 새 값으로」] EMP(인간 슬롯 3)는 자리표시에서
+//     실제 값으로 바뀌었다: 사용 가능 = true, 타입 = 지점 범위 적 방어탑 무력화(AreaTowerDisable = 3),
+//     무력화 시간 5초(Q1 — 시험용 임시 값, 최종 값은 밸런싱), 피해 0, 발동 VFX = vfx_emp_pulse.prefab.
+//     반경 2 · VFX 기준 반경 2 · 착탄 지연 0(Q3 동시 시작) · 지점 조준 · 쿨 10은 자리표시 값 그대로 유지.
+//     → 이 메뉴를 다시 실행해도 EMP가 자리표시(타입 A · 피해 150 · 사용 불가)로 되돌아가지 않는다(Plan 위험 R-9).
+//     따라서 "사용 가능" 스킬은 이제 2개(포격 지원 · EMP)이고, 자리표시는 13개다.
+//     Task: Assets/_Project/Docs/_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md 4절 커밋 4 · 7-1.
+//   - 실행하면 값을 쓰기 전에 "표와 다른 칸"을 자산마다 로그로 먼저 남긴다(값이 바뀌는 자산 · 그대로인 자산 개수).
+//     EMP 줄만 바꾼 뒤 처음 다시 실행하면 Skill_Human_Emp 하나만 "바뀜"으로 나와야 정상이다.
 //   - 가칭 이름(화염의 축복 · 대지의 갑주)은 사용자 결정 Q6대로 그대로 쓴다.
 //
 // 사용 후 정리:
@@ -67,6 +76,15 @@ namespace Hexiege.EditorTools
         // 같은 이름의 다른 파일을 잘못 연결하지 않게 한다.
         private const string BombardmentVfxPath = "Assets/_Project/Prefabs/VFX/Buildings/vfx_flightfacility_bombardment.prefab";
         private const string BombardmentVfxGuid = "8d261a35773d38c449b73148b79cfa01";
+
+        // [EMP 커밋 4] EMP 발동 VFX(V5 — 조준점에서 퍼지는 고리) 프리팹과 그 GUID(vfx_emp_pulse.prefab.meta 에서 확인).
+        //   포격 VFX와 같은 이유로 경로 + GUID를 함께 확인한다.
+        private const string EmpPulseVfxPath = "Assets/_Project/Prefabs/VFX/Skills/vfx_emp_pulse.prefab";
+        private const string EmpPulseVfxGuid = "e246a9e13f016bd4196db7e80a16e362";
+
+        // 표에서 "사용 가능"이어야 하는 스킬 수. [EMP 커밋 4] 1(포격 지원) → 2(포격 지원 · EMP).
+        //   표를 고치다 실수로 다른 자리표시가 켜지거나 EMP가 꺼지면 ValidateSpecs 가 쓰기 전에 멈춘다.
+        private const int ExpectedAvailableCount = 2;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -134,6 +152,7 @@ namespace Hexiege.EditorTools
             public bool TargetsAllies;
             public float ImpactDelay;      // 착탄 지연(초).
             public bool UseBombardmentVfx; // true면 포격 VFX 프리팹을 연결.
+            public bool UseEmpPulseVfx;    // [EMP 커밋 4] true면 EMP 고리 VFX 프리팹을 연결(포격 VFX와 동시에 켜면 ValidateSpecs가 멈춘다).
         }
 
         // 자리표시 값 — 지점 조준 스킬용(기존 Skill_Human_Bomb 값: 타입 A · 반경 2 · 피해 150 · 쿨 10).
@@ -191,14 +210,36 @@ namespace Hexiege.EditorTools
                 ImpactDelay = 0.4f, UseBombardmentVfx = true
             };
 
+            // EMP — [2026-11-04 EMP Task 커밋 4, 사용자 결정 Q10] 자리표시에서 실제 값으로 바꾼 두 번째 "사용 가능" 스킬.
+            //   타입 3(AreaTowerDisable): 조준 지점 반경 안의 적 방어탑을 Duration 초 동안 공격 못 하게 한다
+            //   (실행기 AreaTowerDisableExecutor 는 Duration ≤ 0 이거나 Radius ≤ 0 이면 아무것도 하지 않으므로 둘 다 0보다 커야 한다).
+            //   피해 0 — EMP는 탑을 멈추기만 하고 체력을 깎지 않는다(타입 3 실행기는 피해 칸을 읽지 않지만,
+            //   자산을 보는 사람이 "피해가 있는 스킬"로 오해하지 않게 0으로 둔다).
+            //   착탄 지연 0 — V5 고리와 V6 탑 무력화를 동시에 시작한다(Q3). 지연 예약은 타입 A만 쓰므로 어차피 영향 없다.
+            //   반경 2 · VFX 기준 반경 2 · 지점 조준 · 쿨 10 은 자리표시 시절 값 그대로(자산 GUID도 그대로 — 같은 파일을 갱신).
+            var emp = new SkillSpec
+            {
+                FileName = "Skill_Human_Emp", Race = h, Slot = 2,
+                DisplayName = "EMP",
+                Description = "지정한 범위 안의 적 방어탑을 잠시 무력화한다.",
+                IsAvailable = true,
+                AimType = SkillAimType.PointTarget,
+                Mechanic = SkillMechanicType.AreaTowerDisable,
+                Cooldown = 10f, Radius = 2f, Duration = 5f, TotalDamage = 0, DamagePerSecond = 0f,
+                StatusKind = (int)StatusEffectKind.None, Magnitude = 0f, TargetsAllies = false,
+                ImpactDelay = 0f, UseBombardmentVfx = false, UseEmpPulseVfx = true
+            };
+
             return new List<SkillSpec>
             {
                 // ── 인간(race 0) — FlightFacility ──
                 bombardment,
                 PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
                     "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
-                PointPlaceholder("Skill_Human_Emp", h, 2, "EMP",
-                    "지정한 범위 안의 적 방어탑을 잠시 무력화한다."),
+                // [EMP 커밋 4] 자리표시 줄 비활성화(WORKFLOW [4] — 최종 삭제는 사용자 테스트 통과 후). 바로 아래 emp 로 대체.
+                // PointPlaceholder("Skill_Human_Emp", h, 2, "EMP",
+                //     "지정한 범위 안의 적 방어탑을 잠시 무력화한다."),
+                emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
                 InstantPlaceholder("Skill_Human_TacticalOrder", h, 4, "전술 지령",
@@ -256,6 +297,10 @@ namespace Hexiege.EditorTools
             GameObject bombardmentVfx = LoadBombardmentVfx();
             if (bombardmentVfx == null) return;
 
+            // [EMP 커밋 4] EMP 고리 VFX도 쓰기 전에 경로 + GUID 확인.
+            GameObject empPulseVfx = LoadEmpPulseVfx();
+            if (empPulseVfx == null) return;
+
             SkillLoadoutConfig loadout = AssetDatabase.LoadAssetAtPath<SkillLoadoutConfig>(LoadoutPath);
             if (loadout == null)
             {
@@ -268,6 +313,8 @@ namespace Hexiege.EditorTools
             // ② 자산 15개 생성 또는 값 갱신.
             int created = 0;
             int updated = 0;
+            int changed = 0;   // [EMP 커밋 4] 이미 있던 자산 중 값이 표와 달라 실제로 바뀐 자산 수.
+            int unchanged = 0; // [EMP 커밋 4] 이미 있던 자산 중 값이 표와 이미 같았던 자산 수.
             var defsBySpec = new Dictionary<SkillSpec, SkillDefinition>();
             foreach (SkillSpec spec in specs)
             {
@@ -279,9 +326,27 @@ namespace Hexiege.EditorTools
                 }
                 if (wasCreated) created++; else updated++;
 
-                WriteValues(def, spec, bombardmentVfx);
+                // [EMP 커밋 4] 쓰기 전에 "지금 값 → 표 값"이 다른 칸을 남긴다. 재실행 때 EMP 외의 자산이
+                //   바뀌지 않았다는 것을 Console에서 바로 확인하기 위해서다(Q10 확인 항목).
+                if (!wasCreated)
+                {
+                    string diff = DescribeChanges(def, spec, bombardmentVfx, empPulseVfx);
+                    if (diff.Length > 0)
+                    {
+                        changed++;
+                        Debug.Log($"{LogPrefix} 값이 바뀌는 자산: {spec.FileName} — {diff}");
+                    }
+                    else
+                    {
+                        unchanged++;
+                    }
+                }
+
+                // WriteValues(def, spec, bombardmentVfx); // [EMP 커밋 4] EMP VFX 인자 추가로 아래 줄로 대체.
+                WriteValues(def, spec, bombardmentVfx, empPulseVfx);
                 defsBySpec[spec] = def;
             }
+            Debug.Log($"{LogPrefix} 기존 자산 비교 — 값이 바뀐 자산 {changed}개 · 이미 표와 같던 자산 {unchanged}개 · 새로 만든 자산 {created}개.");
 
             // ③ 로드아웃 교체(교체 전 GUID를 먼저 로그로 남긴다 — 되돌리기용).
             if (!ReplaceLoadout(loadout, specs, defsBySpec)) return;
@@ -290,12 +355,14 @@ namespace Hexiege.EditorTools
             AssetDatabase.Refresh();
 
             // ④ 다시 읽어 확인(런타임과 같은 GetLoadout 경로로 읽는다).
-            bool verified = VerifyLoadout(loadout, specs);
+            // bool verified = VerifyLoadout(loadout, specs); // [EMP 커밋 4] VFX 프리팹까지 비교하도록 인자 추가 — 아래 줄로 대체.
+            bool verified = VerifyLoadout(loadout, specs, bombardmentVfx, empPulseVfx);
 
             if (verified)
             {
+                // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
-                          $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 1개(포격 지원). " +
+                          $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개(포격 지원 · EMP). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
@@ -328,11 +395,20 @@ namespace Hexiege.EditorTools
                     return false;
                 }
                 if (spec.IsAvailable) availableCount++;
+
+                // [EMP 커밋 4] 발동 VFX 칸은 하나뿐이라 두 VFX를 동시에 고를 수 없다.
+                if (spec.UseBombardmentVfx && spec.UseEmpPulseVfx)
+                {
+                    Debug.LogError($"{LogPrefix} 중단 — 표의 {spec.FileName} 에 포격 VFX와 EMP VFX가 둘 다 켜져 있다(하나만 고를 것).");
+                    return false;
+                }
             }
 
-            if (slotKeys.Count != 3 * SlotsPerRace || availableCount != 1)
+            // [EMP 커밋 4] 사용 가능 기대 수를 1 → ExpectedAvailableCount(2)로 바꿨다. 종전 조건은 아래 주석.
+            // if (slotKeys.Count != 3 * SlotsPerRace || availableCount != 1)
+            if (slotKeys.Count != 3 * SlotsPerRace || availableCount != ExpectedAvailableCount)
             {
-                Debug.LogError($"{LogPrefix} 중단 — 표가 3종족 × {SlotsPerRace}슬롯이 아니거나 사용 가능 스킬이 1개가 아니다 " +
+                Debug.LogError($"{LogPrefix} 중단 — 표가 3종족 × {SlotsPerRace}슬롯이 아니거나 사용 가능 스킬이 {ExpectedAvailableCount}개가 아니다 " +
                                $"(슬롯 {slotKeys.Count}개, 사용 가능 {availableCount}개).");
                 return false;
             }
@@ -399,6 +475,34 @@ namespace Hexiege.EditorTools
             return prefab;
         }
 
+        // [EMP 커밋 4] EMP 고리 VFX 프리팹을 경로로 읽고, GUID까지 기대값과 같은지 확인한다(LoadBombardmentVfx 와 같은 방식).
+        private static GameObject LoadEmpPulseVfx()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EmpPulseVfxPath);
+            if (prefab == null)
+            {
+                Debug.LogError($"{LogPrefix} 중단 — EMP VFX 프리팹을 찾지 못했다: {EmpPulseVfxPath}");
+                return null;
+            }
+
+            string guid = AssetDatabase.AssetPathToGUID(EmpPulseVfxPath);
+            if (guid != EmpPulseVfxGuid)
+            {
+                Debug.LogError($"{LogPrefix} 중단 — EMP VFX 프리팹의 GUID가 기대값과 다르다 " +
+                               $"(기대 {EmpPulseVfxGuid}, 실제 {guid}). 다른 파일일 수 있어 연결하지 않는다.");
+                return null;
+            }
+            return prefab;
+        }
+
+        // [EMP 커밋 4] 표의 VFX 선택을 실제 프리팹으로 바꾼다(포격 · EMP · 없음). 쓰기와 확인이 같은 규칙을 쓰게 한 곳에 둔다.
+        private static GameObject ResolveActivationVfx(SkillSpec spec, GameObject bombardmentVfx, GameObject empPulseVfx)
+        {
+            if (spec.UseBombardmentVfx) return bombardmentVfx;
+            if (spec.UseEmpPulseVfx) return empPulseVfx;
+            return null;
+        }
+
         // 만들 자리에 "SkillDefinition 이 아닌 다른 파일"이 이미 있으면 덮어쓰지 않고 멈춘다.
         private static bool ValidateTargetPaths(List<SkillSpec> specs)
         {
@@ -444,7 +548,8 @@ namespace Hexiege.EditorTools
 
         // 표의 값을 자산의 private 칸에 써 넣는다(SerializedObject — Inspector에서 입력한 것과 같은 효과).
         //   아이콘은 비워 둔다(아이콘 그림은 추후 UI 작업 — 상위 결정 16). 매번 모든 칸을 다시 쓰므로 멱등이다.
-        private static void WriteValues(SkillDefinition def, SkillSpec spec, GameObject bombardmentVfx)
+        //   [EMP 커밋 4] empPulseVfx 인자 추가 — 발동 VFX 칸을 ResolveActivationVfx 로 고른다.
+        private static void WriteValues(SkillDefinition def, SkillSpec spec, GameObject bombardmentVfx, GameObject empPulseVfx)
         {
             var so = new SerializedObject(def);
 
@@ -464,11 +569,73 @@ namespace Hexiege.EditorTools
             so.FindProperty(F_Magnitude).floatValue = spec.Magnitude;
             so.FindProperty(F_TargetsAllies).boolValue = spec.TargetsAllies;
             so.FindProperty(F_ImpactDelay).floatValue = spec.ImpactDelay;
-            so.FindProperty(F_ActivationVfx).objectReferenceValue = spec.UseBombardmentVfx ? bombardmentVfx : null;
+            // so.FindProperty(F_ActivationVfx).objectReferenceValue = spec.UseBombardmentVfx ? bombardmentVfx : null;
+            //   ↑ [EMP 커밋 4] 포격 VFX만 고르던 종전 줄. EMP VFX도 고를 수 있게 아래 줄로 대체(포격 결과는 같다).
+            so.FindProperty(F_ActivationVfx).objectReferenceValue = ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx);
             so.FindProperty(F_VfxReferenceRadius).floatValue = DefaultVfxReferenceRadius;
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def); // 저장 대상으로 표시(빠지면 SaveAssets가 파일에 쓰지 않는다).
+        }
+
+        // [EMP 커밋 4] 자산의 지금 값과 표 값을 칸마다 비교해, 다른 칸만 "칸: 지금 → 표" 목록 문자열로 만든다(로그용).
+        //   아무것도 다르지 않으면 빈 문자열. 값을 쓰지 않는다(읽기만) — WriteValues 바로 앞에서 부른다.
+        //   실수 비교는 Mathf.Approximately(아주 작은 반올림 차이는 같은 값으로 본다).
+        private static string DescribeChanges(SkillDefinition def, SkillSpec spec, GameObject bombardmentVfx, GameObject empPulseVfx)
+        {
+            var so = new SerializedObject(def);
+            var sb = new StringBuilder();
+
+            void Note(string field, string before, string after)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append($"{field} {before} → {after}");
+            }
+            void CheckFloat(string field, float expected)
+            {
+                float v = so.FindProperty(field).floatValue;
+                if (!Mathf.Approximately(v, expected)) Note(field, v.ToString("0.###"), expected.ToString("0.###"));
+            }
+            void CheckInt(string field, int expected)
+            {
+                int v = so.FindProperty(field).intValue;
+                if (v != expected) Note(field, v.ToString(), expected.ToString());
+            }
+            void CheckBool(string field, bool expected)
+            {
+                bool v = so.FindProperty(field).boolValue;
+                if (v != expected) Note(field, v ? "1" : "0", expected ? "1" : "0");
+            }
+            void CheckString(string field, string expected)
+            {
+                string v = so.FindProperty(field).stringValue ?? string.Empty;
+                if (v != (expected ?? string.Empty)) Note(field, $"'{v}'", $"'{expected}'");
+            }
+            void CheckRef(string field, Object expected)
+            {
+                Object v = so.FindProperty(field).objectReferenceValue;
+                if (v != expected) Note(field, v != null ? v.name : "(없음)", expected != null ? expected.name : "(없음)");
+            }
+
+            CheckRef(F_Icon, null);
+            CheckString(F_DisplayName, spec.DisplayName);
+            CheckString(F_Description, spec.Description);
+            CheckBool(F_IsAvailable, spec.IsAvailable);
+            CheckInt(F_AimType, (int)spec.AimType);
+            CheckFloat(F_Cooldown, spec.Cooldown);
+            CheckInt(F_Mechanic, (int)spec.Mechanic);
+            CheckFloat(F_Radius, spec.Radius);
+            CheckFloat(F_Duration, spec.Duration);
+            CheckInt(F_TotalDamage, spec.TotalDamage);
+            CheckFloat(F_DamagePerSecond, spec.DamagePerSecond);
+            CheckInt(F_StatusKind, spec.StatusKind);
+            CheckFloat(F_Magnitude, spec.Magnitude);
+            CheckBool(F_TargetsAllies, spec.TargetsAllies);
+            CheckFloat(F_ImpactDelay, spec.ImpactDelay);
+            CheckRef(F_ActivationVfx, ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx));
+            CheckFloat(F_VfxReferenceRadius, DefaultVfxReferenceRadius);
+
+            return sb.ToString();
         }
 
         // ====================================================================
@@ -565,7 +732,10 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         // 런타임이 쓰는 GetLoadout(SkillDefinition → SkillData 변환)으로 다시 읽어 표와 비교한다.
-        private static bool VerifyLoadout(SkillLoadoutConfig loadout, List<SkillSpec> specs)
+        //   [EMP 커밋 4] 두 VFX 프리팹 인자를 받아, 발동 VFX가 "있다/없다"가 아니라 "표가 고른 바로 그 프리팹"인지 본다.
+        //   또 타입 · 조준 · 쿨다운 · 반경 · 지속 · 피해 · 착탄 지연도 표와 같은지 본다(재실행 때 15개 값이 그대로인지 확인).
+        private static bool VerifyLoadout(SkillLoadoutConfig loadout, List<SkillSpec> specs,
+            GameObject bombardmentVfx, GameObject empPulseVfx)
         {
             bool ok = true;
             loadout.ClearCache();
@@ -588,19 +758,35 @@ namespace Hexiege.EditorTools
                 {
                     SkillSpec spec = FindSpec(specs, race, slot);
                     SkillData data = list[slot];
+                    // 종전 비교(포격 VFX 유무만 봤다 — EMP VFX가 생겨 그대로 두면 EMP 슬롯이 틀렸다고 나온다):
+                    // bool match = data != null
+                    //              && data.DisplayName == spec.DisplayName
+                    //              && data.IsAvailable == spec.IsAvailable
+                    //              && (data.ActivationVfxPrefab != null) == spec.UseBombardmentVfx;
+                    GameObject expectedVfx = ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx);
                     bool match = data != null
                                  && data.DisplayName == spec.DisplayName
                                  && data.IsAvailable == spec.IsAvailable
-                                 && (data.ActivationVfxPrefab != null) == spec.UseBombardmentVfx;
+                                 && data.ActivationVfxPrefab == expectedVfx
+                                 && data.Mechanic == spec.Mechanic
+                                 && data.AimType == spec.AimType
+                                 && Mathf.Approximately(data.Cooldown, spec.Cooldown)
+                                 && Mathf.Approximately(data.Radius, spec.Radius)
+                                 && Mathf.Approximately(data.Duration, spec.Duration)
+                                 && data.TotalDamage == spec.TotalDamage
+                                 && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay);
                     if (!match)
                     {
                         Debug.LogError($"{LogPrefix} race {(int)race} 슬롯 {slot + 1} 이 표와 다르다 " +
-                                       $"(기대 '{spec.DisplayName}', 사용 가능 {spec.IsAvailable}).");
+                                       $"(기대 '{spec.DisplayName}', 사용 가능 {spec.IsAvailable}, 타입 {spec.Mechanic}).");
                         ok = false;
                     }
 
                     if (slot > 0) line.Append(" | ");
                     line.Append($"{slot + 1}:{data?.DisplayName}({(data != null && data.IsAvailable ? "사용 가능" : "사용 불가")}");
+                    // [EMP 커밋 4] 타입 3(탑 무력화)이면 무력화 시간도 보여 준다.
+                    if (data != null && data.Mechanic == SkillMechanicType.AreaTowerDisable)
+                        line.Append($", 탑 무력화 {data.Duration:0.##}초");
                     if (data != null && data.ImpactDelay > 0f) line.Append($", 착탄 지연 {data.ImpactDelay:0.##}초");
                     if (data != null && data.ActivationVfxPrefab != null) line.Append($", VFX {data.ActivationVfxPrefab.name}");
                     line.Append(")");
