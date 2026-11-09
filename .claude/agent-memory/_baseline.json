@@ -34,11 +34,11 @@
   "folders": {
     "asset-prompt-crafter": {
       "files": 1,
-      "lines": 312
+      "lines": 336
     },
     "document-manager": {
       "files": 2,
-      "lines": 4987
+      "lines": 4989
     },
     "game-design-lead": {
       "files": 3,
@@ -46,7 +46,7 @@
     },
     "game-programmer": {
       "files": 23,
-      "lines": 9351
+      "lines": 9417
     },
     "project-orchestrator": {
       "files": 3,

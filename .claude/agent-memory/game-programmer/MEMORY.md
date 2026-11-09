@@ -136,6 +136,7 @@
   `ArrowLaunchPoint` under the hand arrow as `_vfxSpawnPoint`, read `_vfxSpawnPoint` only after `ProjectNow()`, `[EAGLE-ARROW]` log probe (deleted `6971072d`, user decision 2026-10-28 — the lesson stays).
   (§12, 2026-11-03) tower attack profile: `TowerAttackKind`/`TowerAttackAnchor`, `_towerAttackProfiles`, tokens `TowerProfileEmpty` /
   `UnsetAttackKind`, one Beam predicate `TowerAttackNeedsTargetTracking`, `PlayTowerAttackSfx` (High) call sites, retired uncommitted one-time menu.
+  (§13, 2026-11-09) skill VFX ground height 0.06 (tile top Y 0.05 is opaque), `Core_Flash` lift, diagnostic log pattern `[SKILL-VFX]` / `[EMP-DIAG]`.
   🔴 **Read before touching `VfxPoolItem*` / `EffectManager` / status or tower VFX / projectile presentation.**
 - [audio-sfx.md](audio-sfx.md) — SFX playback (2026-11-02~03): `PlaySfxClip(clip, volume, SfxPriority)` entry, `SoundConfig.attackIsPriority`
   / `IsUnitAttackPriority`, same-clip 3 · 0.05 s · global 16 · priority eviction with per-play id, Inspector knobs
@@ -145,6 +146,8 @@
   activation VFX + reference radius), reject-before-cooldown, two presentation channels (`OnSkillActivationConfirmed` /
   `Received`, Host `IsServer` guard, schema 6 → 7), impact reservation on the **authoritative tick only** (not the
   client cooldown-mirror tick), delay chosen by the type-A bridge, `ClosePendingImpacts` on game end, VFX root scale.
+  §2 (2026-11-09) EMP: `AreaTowerDisable = 3`, `BuildingStatusEffectSystem` (building-id keys, authoritative tick before the
+  tower tick), tower gate via setter (K1), one list RPC + schema 7 → 8, status-loop VFX lease, race preset rows.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

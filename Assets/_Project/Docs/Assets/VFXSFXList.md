@@ -265,9 +265,11 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 
 | 종족 | 스킬 | 파일명 | 비고 |
 |------|------|--------|------|
-| Human | 포격 지원 | `Prefabs/VFX/Buildings/vfx_flightfacility_bombardment.prefab` | **연결됨** — `Skill_Human_Bombardment` 발동 VFX(기준 반경 2), 포탄 7발 동시 낙하. 싱글 · 멀티 사용자 테스트 PASS(2026-11-03, 사용자 종합 판정 — 뒤집힌 화면 무늬 · 반경 변경 크기는 따로 관측 보고 없음). SFX 없음(사용자 결정 — 효과음을 받으면 추가). [포격 Task Plan 10절](../_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md#10-implementation-and-user-test) |
+| Human | 포격 지원 | `Prefabs/VFX/Buildings/vfx_flightfacility_bombardment.prefab` | **연결됨** — `Skill_Human_Bombardment` 발동 VFX(기준 반경 2), 포탄 7발 동시 낙하. 싱글 · 멀티 사용자 테스트 PASS(2026-11-03, 사용자 종합 판정 — 뒤집힌 화면 무늬 · 반경 변경 크기는 따로 관측 보고 없음). SFX 없음(사용자 결정 — 효과음을 받으면 추가). *(2026-11-09: 스킬 VFX 지면 높이 0.06(`0d5d43a3`)과 착탄층(`Impact_Flash` · `Fireball` · `Smoke`) 높이 수정(`0cd23ea7`) — 착탄층 수정은 사용자 육안 테스트 대기, [EMP Task Plan 11-6](../_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md#11-implementation-and-user-test))* [포격 Task Plan 10절](../_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md#10-implementation-and-user-test) |
+| Human | EMP — 사용 표시(V5) | `Prefabs/VFX/Skills/vfx_emp_pulse.prefab` | **연결됨** — `Skill_Human_Emp` 발동 VFX(기준 반경 2). 타일에 가려지던 결함은 스킬 VFX 지면 높이 0.06 · `Core_Flash` · `Static_Sparks` 위치 수정으로 고침(`0d5d43a3`). 싱글 · 멀티 사용자 테스트 PASS(2026-11-09, 메인 세션 로그 · 육안 판정 승인). SFX 없음(EMP Q7). [EMP Task Plan 11절](../_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md#11-implementation-and-user-test) |
+| Human | EMP — 탑 무력화 상태(V6) | `Prefabs/VFX/Skills/vfx_emp_disabled.prefab` | **연결됨** — 스킬 자산이 아니라 `BuildingEffectConfig` `_towerDisabledPresets` 3줄(`EffectPreset_EmpDisabled_Human` · `_Spirit` · `_Transcendence`, 무력화된 **상대 종족 탑**에 재생). 보정 0 · 배율 1(탑 높이 측정 전). 멀티 3종 탑 프리셋 찾음 · 양쪽 화면 같은 탑 · 재적용 재시작 없음 · 파괴 즉시 제거 — 사용자 테스트 PASS(2026-11-09). 재생 계약 [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 11번 |
 
-- 그 밖의 스킬 VFX(`Prefabs/VFX/Skills/`의 `vfx_emp_pulse` · `vfx_emp_disabled` · 다시 만들기로 한 첫 `vfx_meteor_fall`)는 **아직 어느 자산 · 프리팹 · 씬에서도 참조되지 않는다**(2026-11-03 GUID 검색 0건). 제작 목록과 순서는 [지원 스킬 기획 Plan](../_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md) 2-1 · 7절이며, 이 목록에 행을 미리 둘지는 그 Plan 6절에서 정하지 않았다.
+- 그 밖의 스킬 VFX(`Prefabs/VFX/Skills/`의 다시 만들기로 한 첫 `vfx_meteor_fall`)는 **아직 어느 자산 · 프리팹 · 씬에서도 참조되지 않는다**. *(2026-11-09 갱신 — EMP 두 프리팹이 위 두 행으로 연결됨. 직전 「`vfx_emp_pulse` · `vfx_emp_disabled` · … 참조되지 않는다(2026-11-03 GUID 검색 0건)」)* 제작 목록과 순서는 [지원 스킬 기획 Plan](../_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md) 2-1 · 7절이며, 이 목록에 행을 미리 둘지는 그 Plan 6절에서 정하지 않았다.
 
 #### 골드 채집 이펙트
 

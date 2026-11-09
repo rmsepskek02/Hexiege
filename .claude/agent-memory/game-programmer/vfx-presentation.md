@@ -199,6 +199,7 @@ human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993
   to start (intended). The self-validation pins the token string. When an RPC's shape changes, also bump
   `PresentationContractSchemaRevision` (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC; P5 kept 6).
   *(2026-11-03 note: now **7** — 6 → 7 by the skill activation ClientRpc shape, see [skill-system.md](skill-system.md) §1.)*
+  *(2026-11-09 note: now **8** — 7 → 8 by the EMP `TowersDisabledClientRpc`, see [skill-system.md](skill-system.md) §2.)*
   *(2026-10-27 replaced; old bullet: "Per-unit switch: `EnabledUnitTypes` → `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the
   handshake hash …" — the switch lists and `IsServerProjectile*` no longer exist.)*
 - **Cleanup lesson (P5, 2026-10-27):** a migration plan's "delete in P5" list can name live code. RM-1 (immediate damage `ExecuteAttack` /
@@ -326,3 +327,26 @@ gate strings are unchanged. Rules: Buildings 「방어 타워 시스템」 rule 
   `_autoTowerProjectiles`, `RaceAttack`, `RaceProjectile`), their asset YAML, `attackPreset`, `PlayBuildingAttack` and
   `PlayTowerAttackVfx` are gone; old asset values remain in commit `7368d7f1`.
 
+
+## 13. Skill VFX ground height and diagnostic logs (2026-11-09)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-04/03_54_emp-tower-disable/` Plan §11-3 (`0d5d43a3`). Contract text:
+`Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「코드 계약」 10 · 11 (wins over this note).
+
+- **Symptom → cause:** user: 「발사 이펙트는 타일에 절반이 잘리는 느낌」. Skill aim points are Y 0, the hex tile mesh top is
+  Y +0.05 (programmer measured the HexTile vertices) and the tile is opaque with ZWrite, so ground rings at local 0.02~0.04
+  vanished and camera-facing flashes lost their lower half. Fix in one place: `SkillActivationVfxPresenter` adds
+  `GameConfig.SkillVfxGroundYOffset` (default 0.06 = tile top + 0.01, same height as the forbidden-hatch overlay in
+  `HexGridRenderer`); passed in by `GameBootstrapper.Map.cs`, NaN/∞ → default. Applies to **every** skill activation VFX
+  (Bombardment too). Presentation only.
+- Prefab side: `vfx_emp_pulse` `Core_Flash` local Y 0.05 → 0.35 (billboard size 1.2), `Static_Sparks` shape Y 0.05 → 0.1.
+  Bombardment impact layers are Death sub-emitters of the shells (they spawn where the shell dies, at the root 0.06), so
+  they were lifted via the sub-emitter **Shape position** (`0cd23ea7`: `Impact_Flash` Shape on · Sphere r 0 · Y 0.35,
+  `Fireball` / `Smoke` Y 0.45; billboard bottom = size × ~0.287 below centre on the 55° camera). User visual test pending;
+  unverified: Shape position really applies to sub-emitters, shell may die up to ~0.17 lower in one 60 fps frame.
+- **Check any new ground-level VFX against Y 0.05**, not against Y 0 — tower / building VFX sit on the building GO
+  (which already carries `BuildingYOffset`), skill VFX on the aim point.
+- **Diagnostic log pattern (WORKFLOW [4], user rule 2026-11-09):** `GameLog.Dev`, one line per state change, prefix
+  `[SKILL-VFX]` / `[EMP-DIAG]`, keys `Diag=…, DiagRev=1, Event=…`, millimetre ints (`RootYmm`, `TileTopYmm`,
+  `AboveTileTop`), counters for per-tick events. This let the main session judge 55 activation plays, 23 sent/received
+  list matches, 5001~5005 ms durations and `Restarted=False` from logs alone. Kept as `개발` by user decision.

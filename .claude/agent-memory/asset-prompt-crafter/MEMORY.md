@@ -275,6 +275,30 @@ session found the cause in **our prompt**, not the user's work. Lessons for any 
   warning and impact scale with the skill radius. VFX production is paused (Unity AI credits, decision 30) — `vfx_meteor_body`
   prompt delivered, not made yet.
 
+## Unity AI VFX prompt lessons — ground height above the tile top, billboard height (2026-11-09)
+
+> **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「Unity AI 프롬프트 작성 규칙 — 코드 계약」 item 10
+> (「지면 높이 0.06」) and item 11 (tower status VFX). That guide wins if it differs from these notes.
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md` §11-3 (`0d5d43a3`). User: 「발사 이펙트는 타일에
+절반이 잘리는 느낌」 on `vfx_emp_pulse`.
+
+- **The ground is not Y 0 for visuals — the hex tile top is Y 0.05 and opaque (ZWrite).** Anything below it is hidden. Skill
+  activation VFX are now played with the root at **Y 0.06** by code, so a ground-hugging layer (ring, glow, decal) at local
+  Y ≥ 0 shows; the old EMP rings at 0.02~0.04 with the root at 0 were invisible. Tower/building VFX start from the building
+  GameObject (already raised), not from Y 0. In prompts, give heights relative to the root and say the root sits just above the tile.
+- **Camera-facing billboards need half their height above the tile top.** With the 55° tilted orthographic camera, keep the
+  centre ≥ 0.05 + (size ÷ 2) × cos 55° (≈ 0.29 × size above the tile top). `Core_Flash` (size 1.2) was raised from local
+  0.05 to 0.35 (0.41 with the root — the formula gives ≈ 0.39; doc-side calculation, not measured in game).
+- **Sub-emitters spawn where the parent particle dies, not at their Transform.** Bombardment shells die at the root
+  height (0.06) and every impact layer is a Death sub-emitter, so flash/fireball/smoke were clipped. Fix `0cd23ea7`: raise
+  them through the sub-emitter **Shape position** (`Impact_Flash` Shape on, Sphere radius 0, Y 0.35; `Fireball` / `Smoke`
+  Y 0.45) — user visual test pending, Shape-position effect not yet seen on screen. In prompts for impact layers, state the
+  Shape position height (≥ 0.05 + size × 0.287 above the death point's world height), or use a top-level layer.
+- **Looping status VFX on towers (`vfx_emp_disabled`):** all particles Looping ON; code stops emission at the end, so the
+  visible tail = the max particle lifetime (0.8 s now). Size/height per race is tuned later through EffectPreset Y offset
+  and scale only (X/Z offsets are ignored) — tower heights are not measured yet.
+
 ## Unity AI SFX prompt lessons — unit / tower attack sounds (2026-11-02~03)
 
 > **Standing rule source:** `Assets/_Project/Docs/Assets/VFXSFXGuide.md` 「SFX 카테고리별 가이드」 → 「1. 유닛 공격 사운드」

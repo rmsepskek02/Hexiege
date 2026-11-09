@@ -316,10 +316,25 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 출처: [포격 Task Plan](../_Tasks/2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md) 3-4 · 10절(구현 `c4cbf8ab`, 사용자 테스트 PASS 2026-11-03). 규칙: [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 「발동 VFX」 · 규칙 25. 이 항목은 **지금 코드가 하는 일**을 적은 것이며 새로 정한 제작 기준이 아니다.
 
 - 스킬 발동 VFX는 EffectPreset이 아니라 **스킬 자산**(`SkillDefinition`)의 「발동 VFX 프리팹」 칸에 연결한다. 같은 자산의 「VFX 기준 반경」 = 그 프리팹이 만들어진 판정 반경이다(포격 = 2).
-- 게임은 조준 지점에 **회전 없이** 재생하고, 루트에 **「판정 반경 ÷ 기준 반경」 한 배율**을 X · Y · Z 똑같이 곱한다(`EffectManager.PlaySkillActivationVfx` · `ComputeSkillVfxScale` — 기준 반경이 0 이하면 1). 오프셋 · 회전 칸이 없다. 그래서 프리팹은 **기준 반경에서 맞는 크기로** 만들고, 반경을 바꿨을 때 전체가 함께 커지도록 모든 파티클 시스템을 **Scaling Mode Hierarchy**로 둔다(포격 프리팹은 전부 Hierarchy — 위 5번과 같은 이유).
+- 게임은 조준 지점에 **회전 없이** 재생하고, 루트에 **「판정 반경 ÷ 기준 반경」 한 배율**을 X · Y · Z 똑같이 곱한다(`EffectManager.PlaySkillActivationVfx` · `ComputeSkillVfxScale` — 기준 반경이 0 이하면 1). 스킬 자산에는 오프셋 · 회전 칸이 없다. 그래서 프리팹은 **기준 반경에서 맞는 크기로** 만들고, 반경을 바꿨을 때 전체가 함께 커지도록 모든 파티클 시스템을 **Scaling Mode Hierarchy**로 둔다(포격 프리팹은 전부 Hierarchy — 위 5번과 같은 이유).
 - 피해 시각은 프리팹이 아니라 스킬 자산의 「착탄 지연」이 정한다. 포격은 프리팹의 착탄(포탄 수명 0.4초)과 데이터 착탄 지연 0.4초를 **따로** 맞춰 두었다 — 한쪽만 바꾸면 폭발과 피해가 어긋난다(코드 검사 없음).
 - 조준이 없는 즉시 발동 스킬은 지금 발동 VFX를 재생하지 않는다(재생 위치 미정 — 규칙 25).
 - 상대 화면에서도 같은 자리에 재생되며(뒤집힌 화면은 좌표만 바뀐다), 아군 · 적 색 구분이 없다.
+- **지면 높이 0.06 (2026-11-09 추가):** 조준 좌표는 Y = 0이지만 타일 윗면은 **Y = 0.05**이고 불투명 · 깊이 기록이라, 그보다 낮은 입자는 타일에 가려진다(바닥에 눕는 고리 · 빛은 통째로, 카메라를 보는 섬광은 아래 절반). 그래서 게임은 모든 스킬 발동 VFX 루트에 `GameConfig.SkillVfxGroundYOffset`(기본 **0.06** = 윗면 + 여유 0.01)을 더해 재생한다(`SkillActivationVfxPresenter` 한 곳). 프롬프트 · 프리팹 기준:
+  - 바닥에 눕는 레이어(고리 · 지면 빛)는 루트 기준 로컬 Y **0 이상**이면 타일 위에 보인다(`vfx_emp_pulse`의 `Pulse_Ring` 0.03 · `Pulse_Ring_2` 0.04 · `Ground_Glow` 0.02는 루트 0이던 때 가려졌다).
+  - 카메라를 보는 빌보드(섬광 등)는 아래 가장자리가 타일 아래로 내려가지 않게 **중심 높이 ≥ 0.05 + (크기 ÷ 2) × cos 55°**(카메라 X축 55° 기울기)로 잡는다. `vfx_emp_pulse` `Core_Flash`(크기 1.2)는 로컬 Y 0.05 → **0.35**로 올렸다 — 루트 0.06과 합쳐 0.41로, 이 식의 약 0.39보다 높다(문서 담당 계산 — 게임 화면 실측 아님). `Static_Sparks` 방출 모양 위치도 0.05 → 0.1.
+  - **서브 이미터는 Transform 위치가 아니라 부모 입자가 죽은 자리에서 생긴다.** 포격은 포탄(Shell)이 루트 높이(0.06)에서 사라지고 착탄층이 모두 그 소멸(Death) 서브 이미터라 섬광 · 불덩이 · 연기 아래가 가려졌다. 그래서 서브 이미터의 **방출 모양(Shape) 위치**로 올렸다 — `Impact_Flash` 방출 모양 켜기 · Sphere 반경 0 · Y 0.35, `Fireball` · `Smoke` Y 0.45(`0cd23ea7`, 크기 0.5~1.5 그대로). 이 위치가 실제로 적용되는지는 화면 미확인 — 사용자 육안 테스트 대기([EMP Task Plan 11절](../_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md#11-implementation-and-user-test) 11-6). 바닥층(`Shock_Ring` · `Scorch` · `Target_Marker`)은 0.06 이상이라 그대로, `Sparks` · `Debris`는 중력으로 땅에 떨어져 사라지는 것이 현재 모양이다.
+  - 출처: [EMP Task Plan 11절](../_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md#11-implementation-and-user-test) 11-3(`0d5d43a3`). 판정 · 피해 · 동기화와 무관한 화면 전용 값이다.
+
+**11. 방어탑 상태 VFX — EMP 무력화(V6) 재생 계약 (2026-11-09 추가)**
+
+출처: [EMP Task Plan 11절](../_Tasks/2026-11-04/03_54_emp-tower-disable/Plan.md#11-implementation-and-user-test)(`6c97c6f1`, 사용자 테스트 PASS 2026-11-09). 규칙: [건물 규칙](../GameSystemRules/GameSystemRules_Buildings.md) 「방어 타워 시스템」 규칙 13 · [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 27. 이 항목은 **지금 코드가 하는 일**을 적은 것이다.
+
+- 연결 칸은 스킬 자산이 아니라 `BuildingEffectConfig`의 **「방어탑 무력화 상태 VFX」 목록**(`_towerDisabledPresets` — 종족 한 줄마다 EffectPreset)이다. 지금 세 종족 모두 같은 프리팹 `vfx_emp_disabled`를 담은 프리셋 3개(`EffectPreset_EmpDisabled_Human` · `_Spirit` · `_Transcendence`)다. 탑 공격 프로필(`_towerAttackProfiles`)과는 별개 칸이다.
+- 재생 위치 = **탑 GameObject 위치**(이미 그 화면 좌표, 건물 높이 오프셋 포함) + 프리셋 위치 보정의 **Y만**, 회전 없음, 배율 = 프리셋 `Scale Multiplier`. X · Z 보정은 쓰지 않는다 — 상대 Human CannonTower는 180° 돌아가 있어 어긋나기 때문이다(건물 규칙 「방어 타워 시스템」 규칙 11). 지금 값은 세 프리셋 모두 보정 0 · 배율 1(탑 높이 측정 전 — 측정 뒤 값만 바꾼다).
+- 프리팹은 **모든 파티클 Looping ON**이어야 한다 — 코드가 무력화 시간 동안 켜 두고 끝에 멈춘다. 정지는 둘: 시간 끝 · 경기 종료 = **새 입자만 멈춤**(이미 나온 입자는 제 수명대로 사라진다 — `vfx_emp_disabled` 최대 수명 0.8초라 꼬리 ≤ 0.8초), 무력화 중 탑 파괴 · 철거 = **입자까지 즉시 지움**. 그래서 입자 수명을 늘리면 꼬리도 길어진다.
+- 같은 탑에 다시 걸리면 이펙트를 다시 시작하지 않고 끝 시각만 늘린다(끊김 없음). 탑이 다시 가동될 때의 연출은 없다.
+- 풀 항목은 탑의 자식으로 붙지 않는다(탑 파괴 때 함께 사라지지 않게). 양쪽 화면 같은 탑에 재생되며, 순수 Client 화면은 전송 지연만큼 늦게 시작 · 끝난다.
 
 #### 상태 이펙트 크기 측정 도구 (2026-10-19 추가)
 

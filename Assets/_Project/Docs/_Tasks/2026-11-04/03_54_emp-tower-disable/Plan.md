@@ -12,7 +12,7 @@
 
 현재 코드 상태와 근거(파일 · 행)는 [Research.md](Research.md)에 있다. 추천안은 game-programmer가 코드를 읽고 낸 것이며, **사용자 결정이 아니다.** 7절의 사용자 확인 Q1~Q12를 정한 뒤, 이 Plan을 사용자가 승인해야 구현을 시작한다(WORKFLOW [4]).
 
-> **현재 상태 (2026-11-04):** **구현 승인 — game-programmer 진행 중(커밋 단위별 즉시 커밋).** 사용자 「추천안대로 진행해 보자」(2026-11-04)로 Q1~Q12 추천안을 모두 채택했다 — [7-1 결정 표](#7-1-사용자-결정-2026-11-04-확정). 탑 높이 측정은 사용자 결과 대기(그 전엔 배율 1 · 보정 0). *(2026-11-04 갱신 — 직전 「**사용자 확인 Q1~Q12 대기, 구현 승인 전.** 코드 · 에셋 · 규칙 문서 무변경.」)*
+> **현재 상태 (2026-11-09):** **완료 — 구현 4단위 + 스킬 VFX 지면 높이 보정, 사용자 테스트 PASS**(메인 세션의 로그 · 육안 판정을 사용자가 승인 — 「그렇게 진행하고 나중에 문제 있으면 다시 살펴보자」). 미관측 항목 · 남은 사용자 결정은 [11절](#11-implementation-and-user-test). 탑 높이 측정 메뉴는 실행되지 않아 V6는 3종 모두 배율 1 · 보정 0 그대로다. *(2026-11-09 갱신 — 직전 「**구현 승인 — game-programmer 진행 중(커밋 단위별 즉시 커밋).** 사용자 「추천안대로 진행해 보자」(2026-11-04)로 Q1~Q12 추천안을 모두 채택했다 — 7-1 결정 표. 탑 높이 측정은 사용자 결과 대기(그 전엔 배율 1 · 보정 0).」)*
 
 > **🔴 먼저 알릴 사실:** 상위 기획이 정한 「프리셋은 `_autoTowerProjectiles` 구조를 따른다」의 그 칸은 커밋 `d719fa53`에서 **삭제됐다.** 이 계획은 그 칸을 되살리지 않고, **같은 모양(종족 한 줄마다 프리셋)의 새 칸**을 만든다(P1, 3-5). 이렇게 이해해도 되는지 → **Q9**. 근거: [Research 6-3](Research.md#6-3-종족별-프리셋-칸--확정-사항과-어긋난-곳).
 
@@ -274,6 +274,8 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 | 같은 문서 규칙 25 | 「EMP 대상은 발동 순간 스냅샷, 무력화 만료는 서버 권위 틱」(상위 R-11) |
 | `GameSystemRules_UnitCombatSynchronization.md` 등 스키마 값을 적은 문서 | Q6에서 8로 올리면 |
 
+> **2026-11-09 반영:** 구현 · 사용자 테스트 PASS 뒤 사용자 「그렇게 진행하고 나중에 문제 있으면 다시 살펴보자」(문서/메모리 업데이트 진행)로 위 7행을 모두 반영했다 → [11-7](#11-implementation-and-user-test). 위 표 칸은 그대로 둔다.
+
 ---
 
 ## 9. 하지 않는 것
@@ -294,3 +296,107 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 |---|---|
 | 2026-11-04 | 첫 판. 사용자 지시(2026-11-03) 「진행해」(EMP task 문서 작성 질문에 대한 승인)로 작성. game-programmer 읽기 전용 조사의 추천안 M1 · B1 · K1 · N1 · S8 · P1, 변경 파일 15행, 커밋 4단위, 테스트 시나리오 11개, 사용자 확인 Q1~Q12를 옮겼다. 상태: 사용자 확인 Q1~Q12 대기, 구현 승인 전. 코드 · 에셋 · 규칙 문서 · 다른 Task 문서 · 메모리 무변경 |
 | 2026-11-04 | 사용자 결정 기록 — 「추천안대로 진행해 보자」: Q1 5초(임시) · Q2 K1 · Q3 동시(지연 0) · Q4 즉시 지움 · Q5 상태 비움 + V6 정지 · Q6 7 → 8 · Q7 SFX 없음 · Q8 「?」 그대로 · Q9 P1 · Q10 EMP 줄만(퇴역은 작업 전체 완료 후 — 포격 Task 10-5) · Q11 제외 · Q12 B1 · M1 · N1 → 7-1 결정 표 추가(질문 표는 원문 유지). 서두 현재 상태 줄 · 9절 재가동 연출 줄 갱신. 상위 Plan 5절 O-22 · O-23 닫힘 · 7-2 남은 미답 메모. **상태: 구현 승인 — game-programmer 진행 중(커밋 단위별 즉시 커밋).** 탑 높이 측정은 사용자 결과 대기(그 전엔 배율 1 · 보정 0). 규칙 문서 무변경. **경위:** 이 기록은 2026-11-04에 처음 적었으나 커밋 전 2026-11-09 작업 환경 초기화로 유실되어 2026-11-09에 다시 작성했다 |
+| 2026-11-09 | 구현 · 사용자 테스트 완료 기록(WORKFLOW [7]~[11]) — 사용자 「그렇게 진행하고 나중에 문제 있으면 다시 살펴보자」(메인 세션 판정 승인 + 문서/메모리 업데이트 진행). 서두 현재 상태 줄 갱신, 8절 표 밑 반영 메모, **11절 추가**(커밋 · 사용자 자산 · 계획과 달라진 점 · 테스트 결과 · 로그 보관 · 남은 위험과 결정 · 규칙/상시 문서 반영 · 다음). 같은 날 사용자 「추천대로 해」 결정(진단 로그 `개발` 유지 · 프리셋 메뉴 삭제 · 옛 EMP 주석 줄 최종 삭제 · 포격 착탄 섬광 수정 · 측정 메뉴 유지)을 11-6에 기록 — 메뉴 · 주석 줄 삭제와 착탄 섬광 수정은 `0cd23ea7`(착탄 섬광은 사용자 육안 테스트 대기). 11-1에 `0cd23ea7` 행 추가. 문서 담당은 코드 · 에셋 무변경 |
+
+<a id="11-implementation-and-user-test"></a>
+## 11. 구현 결과 · 사용자 테스트 (2026-11-09)
+
+**한 줄 요약:** EMP를 쓰면 이제 조준한 원 안의 적 방어탑이 **5초 동안 공격을 멈추고**, 그 탑 위에 합선 · 연기 이펙트(V6)가 **양쪽 화면 같은 탑에** 보인다. 같은 탑에 다시 쓰면 멈춤 시간이 새로 시작되고 이펙트는 끊기지 않는다. 시험 중 「발사 이펙트가 타일에 절반 잘린다」는 결함이 나와, **모든 스킬 발동 이펙트를 타일 윗면보다 조금 위(0.06)에서 재생하도록** 고쳤다. 메인 세션이 로그와 사용자 육안 보고로 판정을 제안했고 사용자가 승인했다.
+
+> **출처:** 구현 사실은 game-programmer 보고 **[전달]**이며, [확인] 표시는 document-manager가 이 기록 중 작업 트리(HEAD `665174df`)의 파일을 직접 읽어 대조한 것이다. 테스트 · 로그 판정은 메인 세션 전달 **[전달]**이다 — 에이전트(document-manager)가 화면이나 원시 로그를 직접 본 것이 아니다.
+
+### 11-1. 커밋
+
+| 커밋 | 내용 | 확인 |
+|---|---|---|
+| `aea11d3a` | 단위 1 판정 — `SkillMechanicType.AreaTowerDisable = 3` · `AreaTowerDisableExecutor` + 레지스트리 등록 · 컨텍스트 다리 · 새 서비스 `BuildingStatusEffectSystem`(건물 Id 키, 걸기 · 묻기 · 권위 틱 · 파괴 시 빼기 · 경기 종료 닫기) · `TowerCombatUseCase` 설정자 주입 + 관문 1줄(쿨다운 감소 뒤 · 적 탐색 앞, K1) · 권위 틱 2곳 · 조합 루트 배선 | 관문 `TowerCombatUseCase.cs` 187행, 싱글 틱 `GameBootstrapper.cs` 760~762행(`!IsNetworkMode()`), 멀티 틱 `NetworkCombatController.cs` 735행, 경기 종료 닫기 `GameBootstrapper.cs` 555행 [확인] |
+| `28dfc9a8` | 단위 2 동기화 — 값 객체 `TowersDisabledPresentation`(새 파일) · `GameEvents.OnTowersDisabledConfirmed` / `OnTowersDisabledReceived` · `NetworkSkillController.TowersDisabledClientRpc(발동 순번, 지속, 탑 Id 배열)` · 전투 표현 스키마 7 → 8 · fixture `== 8` | 스키마 `UnitAttackShadowProfileResolver.cs` 33행, fixture `RunUnitActionSelfValidation.ServerProjectiles.cs` 260행, RPC 호출 `NetworkSkillController.cs` 317행 [확인] |
+| `6c97c6f1` | 단위 3 화면 — `VfxPoolItem.StatusLoop.cs`(lease · 꼬리 정지 / 즉시 정지) · `EffectManager.StartTowerStatusVfx` / `StopTowerStatusVfx`(프리셋의 위치 보정 **Y만** · 배율) · 화면 구독자 `TowerDisableVfxPresenter` · `BuildingEffectConfig._towerDisabledPresets`(P1) | `EffectManager.cs` 591행 · `BuildingEffectConfig.cs` 208행 · `GameBootstrapper.Map.cs` 292~293행 [확인] |
+| `d7cce131` | 단위 4 — 1회성 메뉴 새 파일 `Assets/Editor/Tools/EmpTowerDisabledPresetSetup.cs`(`Hexiege/Setup/Skills/Create EMP Tower Disabled Presets` — 프리셋 3개 + 설정 3줄, 재실행해도 높이 · 크기를 되돌리지 않음) · `SupportSkillLoadoutSetup.cs` EMP 줄 새 값(Q10 — 옛 자리표시 줄은 주석 처리로 남김, 사용 가능 기대 수 1 → 2) | 두 파일 머리 주석 · `SupportSkillLoadoutSetup.cs` 213~231행 [확인] *(2026-11-09 갱신 — 직전 「213~231 · 239~240행」. 239~240행의 주석 처리된 옛 줄은 사용자 결정으로 삭제됐고, `EmpTowerDisabledPresetSetup.cs`도 삭제됐다 — 11-6)* |
+| `ff879f56` · `654683ce` | WORKFLOW 문서만 — [4] 「테스트 항목 진단 로그 규칙」(사용자 결정 2026-11-09), [6] 「테스트 로그 올리기」 작업명 · 매달 첫 업로드 | `git show --stat` [확인] |
+| `0d5d43a3` | **계획 밖 수정** — 스킬 발동 VFX 지면 높이 보정 `GameConfig.SkillVfxGroundYOffset`(기본 0.06), `vfx_emp_pulse` 프리팹 2곳, 진단 로그 `[EMP-DIAG]`(`Diag=EmpTowerDisable`) · `[SKILL-VFX]`(`Diag=SkillVfx`), `DiagRev=1` — 11-3 | `GameConfig.cs` 202~222행 · `SkillActivationVfxPresenter.cs` 33 · 192행 · `GameBootstrapper.Map.cs` 282행 · 프리팹 diff [확인] |
+| `665174df` | **사용자 커밋** — 메뉴 실행 결과 자산(아래 11-2)과 새 코드 · 폴더의 `.meta` | `git show --stat` [확인] |
+| `0cd23ea7` | **사용자 결정 뒤 후속(11-6)** — 포격 프리팹 `vfx_flightfacility_bombardment` 착탄층 높이(`Impact_Flash` 방출 모양 켜기 · Sphere 반경 0 · 위치 Y 0.35, `Fireball` · `Smoke` 서브 이미터 방출 모양 위치 Y 0.45) · `EmpTowerDisabledPresetSetup.cs`(+ `.meta`) 삭제 · `SupportSkillLoadoutSetup.cs` 옛 EMP 주석 3줄 삭제 | `git show --stat` · 프리팹 diff 6줄 [확인] |
+
+### 11-2. 사용자 자산 (`665174df`) `[확인]`
+
+- `Skill_Human_Emp.asset`(GUID 유지): 타입 3 · 사용 가능 · 쿨다운 10 · 반경 2 · **지속 5**(Q1 임시 값) · 피해 0 · 착탄 지연 0 · 발동 VFX = `vfx_emp_pulse`(GUID `e246a9e1…`) · 기준 반경 2. 사용 가능 스킬은 이제 포격 지원 · EMP 2개다.
+- `BuildingEffectConfig.asset` `_towerDisabledPresets` 3줄: race 0 / 1 / 2 → `EffectPreset_EmpDisabled_Human` / `_Spirit` / `_Transcendence`(GUID 대조 일치). 세 프리셋 모두 `vfx_emp_disabled`(GUID `32e68fa5…`) · 위치 보정 (0, 0, 0) · 배율 1 — **탑 높이 측정 전 값 그대로**(R-11).
+- 두 VFX 프리팹을 참조하는 자산은 위 4개뿐이다(GUID 검색).
+
+### 11-3. 계획과 달라진 점
+
+| # | 계획 | 실제 | 영향 |
+|---|---|---|---|
+| 1 | 4절 — 프리셋 3개는 커밋 3에서 에디터 스크립트로, 자산 값은 커밋 4에서 | 프리셋은 **별도 1회성 메뉴**(`EmpTowerDisabledPresetSetup.cs`, 커밋 4)로 만들었다. `SupportSkillLoadoutSetup`에 합치면 재실행마다 나중에 맞출 탑 높이 · 크기가 되돌아갈 위험이 있어서다(그 파일 머리 주석). 자산은 사용자가 메뉴를 실행해 커밋했다(`665174df`) | 메뉴는 실행 · 확인 뒤 사용자 결정으로 **삭제됨**(11-6) *(2026-11-09 갱신 — 직전 「메뉴 파일 1개가 더 남아 있다 — 삭제는 승인 대기」)* |
+| 2 | 계획에 없음 | **스킬 발동 VFX 지면 높이 보정**(`0d5d43a3`). 조준 좌표는 Y = 0인데 타일 윗면은 Y = 0.05(불투명 · 깊이 기록)라 바닥에 눕는 고리 · 빛은 통째로, 카메라를 보는 섬광은 아래 절반이 가려졌다(`GameConfig.cs` 주석). 모든 스킬 발동 VFX 루트에 0.06(= 윗면 0.05 + 여유 0.01)을 더한다 — 포격 VFX도 함께 올라간다. `vfx_emp_pulse`는 `Core_Flash` 위치 Y 0.05 → 0.35, `Static_Sparks` 방출 모양 위치 Y 0.05 → 0.1 | 화면 전용(판정 · 피해 · 동기화 무관). VFXSFXGuide 「코드 계약」 10번의 「오프셋 칸이 없다」가 거짓이 되어 고쳤다(11-7) |
+| 3 | 5절 — 로그 확인 언급 없음 | WORKFLOW [4] 새 규칙(사용자 결정 2026-11-09)으로 **테스트 항목마다 진단 로그**를 넣었다 — 상태가 바뀌는 순간에만 1줄, 탑 관문 차단은 매 틱이라 횟수만 센다 | 존속 `개발`로 유지 — 사용자 결정(11-6) |
+| 4 | 2절 7번 「값 객체 새 파일 가능」 | `TowersDisabledPresentation.cs` 새 파일. 「수신」 채널은 RPC에 팀이 없어 시전 팀이 Neutral이므로, 화면은 종족 · 위치를 **탑 자신의 팀 · 위치**로 정한다(`TowerDisableVfxPresenter.cs` 머리 주석) | 없음 |
+
+### 11-4. 사용자 테스트 · 로그 판정
+
+**판정: PASS** — 메인 세션의 판정 제안(로그 · 육안)을 사용자가 승인했다(원문 「그렇게 진행하고 나중에 문제 있으면 다시 살펴보자」). 아래 「미관측」 · 「전달된 판정에 없음」 항목은 이 PASS의 범위 밖이다.
+
+첫 시험(사용자 원문): 「타워에 적용되는 EMP 효과는 적절하게 적용되는 것 같으나 발사 이펙트는 타일에 절반이 잘리는 느낌」 → 원인 = 스킬 VFX 루트 Y 0 < 타일 윗면 0.05 → `0d5d43a3`로 수정한 뒤 다시 시험했다.
+
+| 5절 # | 시나리오 | 결과 | 근거 |
+|---|---|---|---|
+| 1 | 싱글 — 빈 땅에 EMP | 전달된 판정에 싱글 EMP 항목이 따로 없다 | 로그 1의 싱글 기록은 포격 3회(착탄 401~403ms) |
+| — | 발동 VFX 높이(수정 확인) | PASS | 로그 1: 사용 표시 VFX 55건 모두 루트 높이 60mm · 타일 윗면 위(`AboveTileTop=True`) |
+| 2 | 원 안 탑만 멈춤 · 양쪽 화면 같은 탑 V6 | PASS | 육안: 범위 밖 탑은 무력화 안 됨. 로그: 송신 · 수신 탑 목록 23회 일치 |
+| 3 | 원 안 적 유닛 무영향 | 전달된 판정에 없음 | — |
+| 4 | 날던 포탄은 맞음 · 다음 발사 없음 | PASS(육안 — 로그 장면 없음) / 다음 발사 없음은 로그 | 육안: 날아가던 포탄 그대로 맞음. 로그: 무력화 중 발사 0(`LaunchesWhileDisabled 0`) |
+| 5 | 무력화 끝 | 길이 PASS | 로그: 무력화 5001~5005ms. 만료 뒤 첫 발사 시각(K1)과 V6 꼬리 길이는 전달된 판정에 없다 |
+| 6 | 무력화 중 같은 탑에 다시 EMP | PASS | 로그: 시간 갱신, V6 재시작 없음(`Restarted=False`, 최대 적용 4회 · 17.5초) |
+| 7 | 무력화 중 탑 파괴 / 철거 | 파괴 PASS | 로그: 탑 파괴 4회 모두 V6 즉시 제거. 철거만의 장면은 전달에 따로 없다 |
+| 8 | 상대 종족 3종 탑 | PASS(측정 전 값 기준) | 멀티 3판 — A 에디터 Host / 정령 RuneSpire, B 기기 Host / 인간 CannonTower, C 에디터 Host / 초월 VineTower — 3종 프리셋 찾음(`Preset=Found`). 위치 · 크기는 배율 1 · 보정 0 그대로(측정 메뉴 미실행) |
+| 9 | 무력화 중 경기 종료 | PASS | 로그: 양쪽 화면 `GameEnd`로 V6 정지 |
+| 10 | 내 탑(아군)에 EMP | PASS | 로그: 아군 탑 무영향 |
+| 11 | 회귀 스위트 | **PASS** | WORKFLOW 「[6] 사용자 테스트」 규칙 — 사용자 FAIL 언급 없음. 결과 파일 없음(Console만), 에이전트 미관측 |
+| — | 사용 불가 버튼(다른 스킬) | 간접 | 서버 요청이 없으면 로그가 없다 — 발동 슬롯이 0 · 2뿐이었다 |
+| — | 멀티 포격(로그 2) | PASS | Host 포격 1회 — Client가 받은 조준 좌표 일치 · 뒤집힌 화면 · 루트 60mm · 착탄 500ms(0.4초 + 서버 틱 0.1초) · 건물 4개 명중 |
+
+**미관측 — 이번 회차:**
+- **Client가 쓴 스킬** — 멀티 전 회차 모두 Host가 썼다. 요청 RPC는 이번 작업에서 바뀌지 않았고, 이전 포격 Task는 종합 판정만 있다 → 「이번 회차 미관측」.
+- **착탄 전 시전 건물 철거(포격)** — 「실기 미확인(코드 확인)」.
+
+### 11-5. 로그 보관 (LogRules §1.10)
+
+| 회차 | 보관 위치 | 대조 |
+|---|---|---|
+| 로그 1 | `rmsepskek02/Hexiege-Logs` Release `logs-2026-11` · `2026-11-09_18_43_vfx-test_01` | 메인 세션이 다운로드해 ZIP SHA256 `32af9c29…` · manifest `cce1f07d…` 일치 |
+| 로그 2 | 같은 Release · `2026-11-09_19_07_vfx-test2_01` | ZIP `0a2fd671…` · manifest `2e75b2dc…` 일치 |
+
+- 작업명이 안내(`emp-tower-disable`, WORKFLOW [6])와 다른 `vfx-test` / `vfx-test2`로 올라갔다 — 기록만 한다.
+
+### 11-6. 남은 위험 · 결정
+
+**사용자 결정 (2026-11-09, 원문 「추천대로 해」 — 메인 세션 추천안 채택):**
+
+| 항목 | 결정 | 상태 |
+|---|---|---|
+| 진단 로그 `[EMP-DIAG]` · `[SKILL-VFX]`(`GameLog.Dev`) | **존속 `개발`로 유지**(WORKFLOW [4] 「테스트 항목 진단 로그 규칙」, LogRules §1.2 존속 축) | 코드 변경 없음 |
+| `Assets/Editor/Tools/EmpTowerDisabledPresetSetup.cs`(+ `.meta`) | **삭제** — 실행 완료 · 참조 없음(WORKFLOW [5-2] 최소 유지 기준) | **삭제됨**(game-programmer — 프리셋 3개 GUID가 `BuildingEffectConfig.asset`에 연결된 것과 코드 참조 0을 확인한 뒤. `0cd23ea7`) |
+| `SupportSkillLoadoutSetup.cs`의 주석 처리된 옛 EMP 자리표시 줄 | **최종 삭제**(WORKFLOW [4] 「기존 로직 제거 규칙」 — 사용자 테스트 통과 뒤). 파일 자체의 퇴역은 기존 결정대로 지원 스킬 작업 전체가 끝난 뒤([포격 Task](../../2026-11-03/05_24_support-skill-foundation-bombardment/Plan.md#10-implementation-and-user-test) 10-5) | **삭제됨**(주석 3줄, 구 239~241행 — `0cd23ea7`) |
+| 포격 프리팹 `Impact_Flash`(서브 이미터) 착탄 섬광이 타일에 가려짐 | **고친다** — 사용자 「3번 고쳐」 | **수정 커밋 `0cd23ea7` — 사용자 육안 테스트 대기.** 원인(game-programmer): 포탄(Shell) 착지점 = 루트 0.06이고 착탄층이 모두 포탄 소멸(Death) 서브 이미터라 그 높이에서 생겨, 55° 카메라 빌보드의 아래 끝이 크기 × 약 0.287만큼 낮아 타일에 가려졌다. 수정: `Impact_Flash` 방출 모양 켜기 · Sphere 반경 0 · 위치 Y 0.35, `Fireball` · `Smoke` 방출 모양 위치 Y 0.45 → 아래 끝이 타일 윗면 0.05 위(계산, 크기 0.5~1.5 유지). 그대로: 타이밍 · 7발 · 낙하 반경 1.35 · 1.6초 · 바닥층(`Shock_Ring` · `Scorch` · `Target_Marker`, 0.06 이상) · `Sparks` · `Debris`(중력으로 떨어져 땅에서 사라짐 — 바꾸려면 별도 결정). 미확인: 서브 이미터 방출 모양 위치가 실제로 적용되는지(Unity 동작 이해 — 화면 미확인), 포탄이 한 프레임 더 내려가 사라질 가능성(60fps 최대 약 0.17). 진단 로그: 루트 높이는 기존 `ActivationVfxPlayed`로 판정, 층 높이는 육안 항목(프리팹 고정값 · GPU 깊이라 로그로 못 잰다, 매 틱 로그 금지) |
+| 탑 높이 측정 메뉴(`Assets/Editor/Tools/TowerBoundsMeasureTool.cs`) | **유지**(메인 세션 전달 「U-1대로 유지」) — 측정을 하지 않아 V6 배율 1 · 높이 0 그대로 | 변경 없음 |
+
+**관찰 — 범위 밖, 보고만(새 할 일이 아니다):**
+- 판 A가 끝날 때 에디터 Host에서 `[UAS-MOVE-AUTH] END verdict=FAIL`(18:38:04). 다른 판은 `EVIDENCE`. 원인은 조사하지 않았다.
+- 만료 0.09초 뒤 다시 EMP를 쓴 장면 — 서버는 그 사이 탑이 1회 쐈고, Client의 V6는 이어졌다. 전송 지연(0.1초 미만)으로 생기는 표시 차이이며 R-7(알려진 한계)의 범위다.
+
+**남은 위험(기록):** R-7 Client 시작 · 끝 지연(위 관찰), R-13 타일 중심 판정, 늦은 접속 스냅샷 없음, NGO 두 RPC의 도착 순서 `[추정]` 그대로(목록 일치 23회는 순서를 증명하지 않는다), R-8 싱글 결과 화면 뒤 탑 재사격(기존 동작).
+
+### 11-7. 규칙 · 상시 문서 반영 (2026-11-09)
+
+| 자리 | 반영 |
+|---|---|
+| `GameSystemRules_Skills.md` 「스킬 메커니즘 타입」 머리 · **새 규칙 27 「지점 범위 적 방어탑 무력화(EMP)」** · 규칙 7 요소 표 「타입」 · 14 · 16 · 25 | 8절 2~6행. 새 타입은 새 번호(상위 Plan 6절 「새 규칙은 27~」). 코드 이름(`AreaTowerDisable`)에 A · B · C 같은 글자 이름이 없어 규칙에도 글자를 붙이지 않았다. 자연어 설명 끝 문단의 「기능이 붙은 것은 포격 지원 하나」가 거짓이 되어 고쳤다 |
+| `GameSystemRules_Buildings.md` 「방어 타워 시스템」 **새 규칙 13 「무력화」** | 8절 1행 — 공격 불가 · 쿨다운 계속 감소(K1) · 비행 중 투사체 유지 · 파괴 시 해제 · 경기 종료 · 서버 권위 |
+| `TechnicalDesignDocument_Network.md` 「경기 시작 호환 확인」 | 8절 7행 — 스키마 7 → 8, 선례에 「7 → 8 EMP 탑 무력화 RPC」 추가. `GameSystemRules_UnitCombatSynchronization.md`에는 스키마 **값**이 적혀 있지 않다(「10.」 5항은 `CombatSchemaRevision` 이름만) — 고칠 곳 없음 |
+| `VFXSFXGuide.md` 「코드 계약」 10번 · 새 11번 · `VFXSFXList.md` 「스킬 발동 이펙트」 | 지면 높이 0.06 계약, 탑 상태 VFX(V6) 재생 계약, EMP V5 · V6 연결 행 |
+| `PROJECT_STATUS.md` · `WORK_HISTORY.md` | 현황 행 · 완료 행. `ROADMAP.md`는 바꾸지 않았다 — 지시 없는 행을 더하지 않고, 「확정 스킬 15개의 수치는 임시값」 행이 EMP 5초(임시)에도 그대로 맞다 |
+
+### 11-8. 다음 작업
+
+상위 Plan 5-1 **결정 31**이 정한 순서(첫 코드 task → 탑 높이 측정 메뉴 + EMP)는 여기서 끝난다. **다음 코드 task는 아직 정해지지 않았다** — 2차 내부 순서(O-12)가 열려 있고, 1차 나머지(전술 지령 공격력 · 화염의 축복 · 숲의 포효 · 숲의 순풍)와 2-Z · 2-D 등의 순서를 정한 결정 기록이 없다(상위 Plan 3-2). 이 Task가 새로 정한 것은 없다.

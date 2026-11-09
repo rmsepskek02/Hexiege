@@ -24,7 +24,7 @@ user asset push `3ff5ed60`. User test PASS (single + multi, user's overall verdi
   One screen subscriber (`SkillActivationVfxPresenter`) listens to both — the `IsServer` guard is what stops the Host
   from playing twice. Payload = building id · team · **slot** · has-aim · aim (domain coords) · sequence · impact delay;
   the receiver re-finds VFX/radius from **its own build's** loadout by team + slot, so both builds must match →
-  `PresentationContractSchemaRevision` 6 → 7 and the fixture line `== 7`. No `IGameServices` method was added (the
+  `PresentationContractSchemaRevision` 6 → 7 and the fixture line `== 7` *(2026-11-09 note: now 8 / `== 8` — §2)*. No `IGameServices` method was added (the
   regression fixture has a stand-in implementation).
 - **Impact reservation is not on the cooldown tick.** `TickCooldowns` also runs on the pure client as a mirror
   (`GameBootstrapper.Update` guard `!IsNetworkMode() || !IsNetworkServer`); putting strikes there would make clients deal
@@ -47,3 +47,42 @@ user asset push `3ff5ed60`. User test PASS (single + multi, user's overall verdi
   cooldown number (user: leave it for the later icon UI).
 - **Meteor (2-D) should reuse the reservation** — it is a type-A strike with a longer delay; what is new there is the
   warning playback speed, the moving body and burn.
+
+## 2. EMP — area tower disable (2026-11-04~09)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-04/03_54_emp-tower-disable/` Plan §3 · §7-1 (user decisions Q1~Q12) · §11.
+Commits `aea11d3a` (judgment) · `28dfc9a8` (sync, schema 8) · `6c97c6f1` (screen) · `d7cce131` (one-time menus) ·
+`0d5d43a3` (skill VFX ground height, pulse prefab, diagnostic logs); user asset commit `665174df`. User test PASS
+(main session's log + visual verdict, approved by the user). Rules: Skills 25 · 27, Buildings 「방어 타워 시스템」 13.
+
+- **New type = new executor + one registry line.** `SkillMechanicType.AreaTowerDisable = 3` (appended last — serialized
+  assets), `AreaTowerDisableExecutor` only reads radius / duration and calls a context bridge; it ignores `TotalDamage` and
+  `ImpactDelay` (the delay bridge exists only for type A). Guard `!(x > 0)` also rejects NaN.
+- **Building state is a separate service, not `StatusEffectSystem`.** Unit ids and building ids come from different
+  counters and can collide, and the unit status tick also runs as a pure-client mirror. `BuildingStatusEffectSystem`
+  (Application, building-id keys, one `StatusEffect` per tower) — `DisableEnemyTowersInRadius` (enemy · alive · AutoTower,
+  tile centre ↔ aim ≤ radius, same as type-A building hits), re-apply = replace remaining time, `Remove` on
+  `OnBuildingDied`, `Close()` on `OnGameEnd` (clears and refuses later applies). Empty dictionary → `CanAttack` returns
+  true without lookup (regression safety). Reusable for the other 2-B skills (building shield / regen).
+- **Tower gate:** one line in `TowerCombatUseCase.Tick` **after** the cooldown decrement and **before** target search
+  (K1: cooldown keeps ticking). Injected by a **setter** (`SetBuildingStatusSystem`) — changing the constructor breaks two
+  regression fixtures; null = always pass. In-flight server shells need no code: the gate is only on the launch decision.
+- **Expiry tick is authoritative only and placed right before the tower tick in both modes** (single
+  `GameBootstrapper.Update` under `!IsNetworkMode()`, multi `NetworkCombatController.TickCombat` before `tower?.Tick`) so
+  "expire → gate" order matches. Never on the client cooldown-mirror tick.
+- **Sync = one list RPC, no end RPC, no client mirror.** `OnTowersDisabledConfirmed` (server) →
+  `TowersDisabledClientRpc(sequence, duration, towerIds)` → pure client `OnTowersDisabledReceived` (after `IsServer`
+  guard). The received payload has no caster team (Neutral) — the presenter resolves race/position from **the tower's own
+  team and GameObject**. New RPC ⇒ schema 7 → 8 + fixture `== 8`. Known limit: client starts/ends late by transport delay.
+- **Status-loop VFX with a lease** (`VfxPoolItem.StatusLoop.cs`): `BeginStatusLoop()` after `Play`, stop only when the
+  lease matches — tail stop (emission off, Update returns the item when particles die, ≤ 0.8 s) for expiry / game end,
+  clear stop for tower death. Pool item stays under the VFX container, never a tower child (tower Destroy would take it).
+  Re-apply only extends the end time (no restart). Position = tower GO position + preset offset **Y only** (enemy Human
+  CannonTower is rotated 180°) · preset scale. Presets: `BuildingEffectConfig._towerDisabledPresets` (race rows).
+- **One-time preset menu kept separate from `SupportSkillLoadoutSetup`** — that tool rewrites all 15 skills on every
+  run, so later-tuned heights would be reset. The preset menu keeps existing offset/scale on re-run. User decision
+  2026-11-09: the preset menu (+ `.meta`) and the 3 commented-out old EMP lines were deleted after confirming the 3 preset GUIDs are wired in `BuildingEffectConfig.asset` and code references are 0. `SupportSkillLoadoutSetup` itself retires after the whole support-skill work.
+- **Lessons:** (1) tile top is Y 0.05 and opaque — a VFX root at aim Y 0 is hidden/half-cut → see
+  [vfx-presentation.md §13](vfx-presentation.md#13-skill-vfx-ground-height-and-diagnostic-logs-2026-11-09).
+  (2) WORKFLOW [4] now requires a diagnostic log for every user test item: log once on each state change, count per-tick
+  events (gate blocks) and report the count at expiry; prefix + `Diag=` + `DiagRev=` keys. The user kept them as `개발`.
