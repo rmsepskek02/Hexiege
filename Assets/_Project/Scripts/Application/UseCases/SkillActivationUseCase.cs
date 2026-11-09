@@ -35,6 +35,8 @@
 // 방어탑 무력화(EMP, 2026-11-04 EMP Task 커밋 1):
 //   새 타입 AreaTowerDisable의 실행기가 컨텍스트의 무력화 다리를 부르면, 이 UseCase가 주입받은
 //   BuildingStatusEffectSystem(SetBuildingStatusSystem)에 "발동 순간 원 안의 적 방어탑"을 바로 건다(지연 없음).
+//   커밋 2(동기화): 실제로 멈춘 탑이 1개 이상이면 GameEvents.OnTowersDisabledConfirmed(팀 · 발동 순번 · 지속 · 탑 Id 목록)를
+//   발행한다. 멀티 서버에서는 NetworkSkillController가 이것을 TowersDisabledClientRpc로 순수 클라이언트에 전한다.
 //
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
@@ -182,6 +184,8 @@ namespace Hexiege.Application
             //   "언제 줄지"는 이 UseCase가 고른 다리가 정한다.
             //   마지막 인자(2026-11-04 EMP Task 커밋 1)는 「범위 안 적 방어탑 무력화」 다리다 — EMP 타입 실행기만 부른다.
             //   다른 타입(A · B · C)의 실행기는 이 다리를 부르지 않으므로 기존 스킬 동작은 그대로다.
+            //   (커밋 2) 이 다리는 무력화 「확정」 이벤트에 이번 발동 순번을 실어야 하므로, 순번을 붙잡은 람다로 넘긴다
+            //   — 바로 위 타입 A 착탄 예약 다리(SelectInstantAreaDamageBridge)가 순번을 붙잡는 것과 같은 방식이다.
             var ctx = new SkillActivationContext(
                 skill,
                 building.Team,
@@ -191,7 +195,7 @@ namespace Hexiege.Application
                 SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge,
-                ApplyTowerDisableBridge);
+                (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence));
             executor.Execute(ctx);
 
             // ⑧ 글로벌 쿨다운 설정(규칙 3). 착탄이 늦어도 쿨다운은 "발동 순간" 시작한다(Plan Q1-c).
@@ -405,14 +409,47 @@ namespace Hexiege.Application
         //   그래서 타입 A처럼 착탄 예약을 거치지 않고 바로 서비스에 건다(ImpactDelay를 보지 않는다).
         //   Activate는 서버(싱글 = 로컬 서버 / 멀티 = 서버)에서만 불리므로 이 다리도 서버에서만 돈다(스킬 규칙 25).
         //
-        //   무력화된 탑 Id 목록은 지금 이 버퍼에 담기기만 한다. 클라이언트 알림(확정 이벤트 · ClientRpc)은
-        //   다음 커밋(동기화)이 이 목록을 써서 붙인다 — 이 커밋에서는 아무 이벤트도 내지 않는다.
+        //   서비스가 실제로 무력화(또는 남은 시간 갱신)한 탑 Id를 이 버퍼에 채워 돌려준다(커밋 1).
+        //   커밋 2(동기화 — Plan 3-4 N1)부터는 그 목록으로 무력화 「확정」 이벤트(GameEvents.OnTowersDisabledConfirmed)를
+        //   발행한다. 화면(V6)과 멀티 서버의 NetworkSkillController(TowersDisabledClientRpc)가 이 이벤트를 받는다.
+        //   버퍼는 발동마다 재사용하므로, 이벤트 값(TowersDisabledPresentation)은 생성자에서 새 배열로 복사해 둔다.
         private readonly List<int> _disabledTowerIdBuffer = new List<int>(4);
 
-        private void ApplyTowerDisableBridge(TeamId team, Vector3 center, float radius, float duration)
+        private void ApplyTowerDisableBridge(TeamId team, Vector3 center, float radius, float duration, int sequence)
         {
             // 서비스가 주입되지 않았으면(조합 루트 미배선 · 테스트) 아무것도 하지 않는다 — 기존 동작과 같다.
-            _buildingStatus?.DisableEnemyTowersInRadius(team, center, radius, duration, _disabledTowerIdBuffer);
+            //   이때는 이벤트도 내지 않는다(멈춘 탑이 없으므로 보여 줄 것도 없다).
+            if (_buildingStatus == null) return;
+
+            int count = _buildingStatus.DisableEnemyTowersInRadius(team, center, radius, duration, _disabledTowerIdBuffer);
+
+            // 원 안에 적 탑이 하나도 없었으면(또는 경기가 닫혀 거부됐으면) 알릴 것이 없다 — 빈 RPC를 보내지 않는다.
+            if (count <= 0 || _disabledTowerIdBuffer.Count == 0) return;
+
+            PublishTowersDisabledConfirmed(team, sequence, duration, _disabledTowerIdBuffer);
+        }
+
+        /// <summary>
+        /// 무력화 표현 값을 만들어 GameEvents.OnTowersDisabledConfirmed로 발행한다(커밋 2).
+        /// 탑 무력화 판정은 이미 끝났으므로, 구독자(멀티 서버 브로드캐스트 · 화면)에서 예외가 나도
+        /// 무력화 상태와 발동 흐름(쿨다운 설정 · 발동 「확정」 발행)은 그대로 이어지게 감싼다(PublishActivationConfirmed 선례).
+        /// </summary>
+        private static void PublishTowersDisabledConfirmed(TeamId team, int sequence, float duration, List<int> towerIds)
+        {
+            // 생성자가 목록을 새 배열로 복사한다 → 다음 발동이 버퍼를 덮어써도 이 값은 바뀌지 않는다.
+            var presentation = new TowersDisabledPresentation(team, sequence, duration, towerIds);
+            try
+            {
+                GameEvents.OnTowersDisabledConfirmed.OnNext(presentation);
+            }
+            catch (Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 탑 무력화 판정(게임 결과)에는 영향이 없다.
+                //   어떤 발동에서 났는지 다시 찾을 수 있게 팀 · 순번 · 탑 수를 key=value로 남긴다.
+                GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase),
+                                 "방어탑 무력화 확정 이벤트 구독자 예외 — 무력화 결과는 유지",
+                                 $"Team={team}, Sequence={sequence}, TowerCount={presentation.TowerCount}, Error={ex.Message}");
+            }
         }
 
         // ====================================================================

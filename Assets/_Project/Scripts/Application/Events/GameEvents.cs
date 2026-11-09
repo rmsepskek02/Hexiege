@@ -977,6 +977,34 @@ namespace Hexiege.Application
             new Subject<SkillActivationPresentation>();
 
         // ====================================================================
+        // EMP 방어탑 무력화 표현(2026-11-04 EMP Task 커밋 2 — Plan 3-4 N1)
+        //   바로 위 스킬 발동 표현 두 채널과 같은 「확정 / 수신」 방식이다.
+        //   - 「확정」: 서버 권위 쪽(싱글 = 로컬 서버, 멀티 = 서버/Host)에서 EMP가 적 탑을 실제로 멈추게 한 순간 발행.
+        //   - 「수신」: 멀티 순수 클라이언트가 서버의 TowersDisabledClientRpc를 받았을 때 발행.
+        //   화면 구독자(다음 커밋의 V6 화면)는 두 채널을 모두 구독한다. Host는 「확정」만, 순수 클라이언트는
+        //   「수신」만 받으므로(수신부 ClientRpc의 IsServer 가드) 같은 무력화가 한 화면에서 두 번 시작되지 않는다.
+        //   종료 이벤트는 없다 — 화면이 Duration으로 스스로 끝낸다(사용자 결정 N1).
+        //   대상 탑이 하나도 없던 EMP(원 안에 적 탑 없음)는 두 채널 모두 발행하지 않는다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 권위 쪽에서 EMP가 적 방어탑을 무력화(또는 남은 시간 갱신)했을 때 발행(표현 전용 — 탑 공격 판정과 무관).
+        /// 발행: SkillActivationUseCase의 EMP 다리(BuildingStatusEffectSystem에 건 직후, 대상 탑이 1개 이상일 때만)
+        /// 구독: NetworkSkillController(멀티 서버 — TowersDisabledClientRpc 브로드캐스트), 화면 V6 구독자(커밋 3)
+        /// </summary>
+        public static readonly Subject<TowersDisabledPresentation> OnTowersDisabledConfirmed =
+            new Subject<TowersDisabledPresentation>();
+
+        /// <summary>
+        /// 멀티 순수 클라이언트가 서버의 방어탑 무력화 알림(TowersDisabledClientRpc)을 받았을 때 발행(표현 전용).
+        /// 이 채널의 CasterTeam은 RPC에 팀이 없으므로 항상 TeamId.Neutral이다.
+        /// 발행: NetworkSkillController.TowersDisabledClientRpc(IsServer 가드 뒤 — Host는 발행하지 않음)
+        /// 구독: 화면 V6 구독자(커밋 3)
+        /// </summary>
+        public static readonly Subject<TowersDisabledPresentation> OnTowersDisabledReceived =
+            new Subject<TowersDisabledPresentation>();
+
+        // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================
 

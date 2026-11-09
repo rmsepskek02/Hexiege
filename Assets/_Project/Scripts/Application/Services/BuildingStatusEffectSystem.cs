@@ -37,9 +37,11 @@
 //   걸린 탑이 하나도 없으면 CanAttack은 딕셔너리 조회도 하지 않고 바로 true를 돌려준다.
 //   → EMP를 쓰기 전에는 방어탑 동작이 이 클래스가 없던 때와 완전히 같다.
 //
-// 이 단계(커밋 1)에서 하지 않는 것:
-//   클라이언트 알림(확정 / 수신 이벤트 · ClientRpc)과 화면 이펙트(V6)는 다음 커밋(2 · 3)이 붙인다.
-//   그래서 DisableEnemyTowersInRadius는 "실제로 무력화한 탑 Id 목록"을 호출자에게 채워 돌려주기만 한다.
+// 이 클래스가 하지 않는 것:
+//   클라이언트 알림과 화면 이펙트(V6)는 이 클래스 밖에서 한다. DisableEnemyTowersInRadius는
+//   "실제로 무력화한 탑 Id 목록"을 호출자에게 채워 돌려주기만 하고, 호출자인 SkillActivationUseCase의 EMP 다리가
+//   그 목록으로 무력화 「확정」 이벤트(GameEvents.OnTowersDisabledConfirmed)를 발행한다(커밋 2 — 동기화).
+//   (발동 순번은 SkillActivationUseCase만 알기 때문에 발행도 그쪽에서 한다.) 화면 이펙트는 커밋 3이 붙인다.
 //
 // Application 레이어 — Domain · Application 의존. UnityEngine은 Vector3 계산에만 쓴다(Unity 의존 허용,
 //   SkillActivationContext · MistShrineUseCase 선례). Netcode · Core · Infrastructure 참조 없음.
@@ -100,7 +102,7 @@ namespace Hexiege.Application
         /// <param name="duration">무력화 시간(초). 0 이하 · NaN이면 아무 탑도 걸리지 않는다.</param>
         /// <param name="disabledTowerIds">
         /// 이번에 실제로 무력화(또는 갱신)한 탑 Id를 담을 목록. 호출자가 넘기면 이 메서드가 먼저 비우고 채운다.
-        /// null이면 채우지 않는다. (다음 커밋에서 클라이언트 알림에 이 목록을 쓴다.)
+        /// null이면 채우지 않는다. (호출자 SkillActivationUseCase가 이 목록으로 무력화 「확정」 이벤트를 발행한다 — 커밋 2.)
         /// </param>
         /// <returns>이번에 무력화(또는 갱신)한 탑 수.</returns>
         public int DisableEnemyTowersInRadius(TeamId casterTeam, Vector3 center, float radius, float duration,
@@ -172,7 +174,7 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 지정 건물의 남은 무력화 시간(초). 걸려 있지 않으면 0. (확인 · 다음 커밋의 알림 · 검증용)
+        /// 지정 건물의 남은 무력화 시간(초). 걸려 있지 않으면 0. (확인 · 검증용 — 클라이언트 알림은 이 값을 읽지 않고 발동 시 지속 시간을 그대로 보낸다)
         /// </summary>
         /// <param name="buildingId">확인할 건물 Id.</param>
         public float GetAttackDisabledRemaining(int buildingId)

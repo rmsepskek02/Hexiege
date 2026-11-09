@@ -255,9 +255,10 @@ namespace Hexiege.Editor.Combat
             // [단계 E] 스키마는 6 그대로다 — 사유 문자열만 바뀌고 RPC 모양은 그대로다(결정 E-E).
             //   [P5 정리] 스위치 제거도 RPC 모양을 바꾸지 않으므로 6 그대로다(결정 P5-A).
             //   [2026-11-03 지원 스킬 C-1] 6 → 7 — 스킬 발동 알림 RPC(SkillActivatedClientRpc) 모양이 바뀌었다.
+            //   [2026-11-04 EMP Task 커밋 2] 7 → 8 — EMP 탑 무력화 RPC(TowersDisabledClientRpc)가 새로 생겼다.
             //   이 줄은 "스키마 값이 의도한 값인지"만 본다. 투사체 쪽 계약은 바뀌지 않았다.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 7,
-                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raises it to 7.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
+                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raises it to 8.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved

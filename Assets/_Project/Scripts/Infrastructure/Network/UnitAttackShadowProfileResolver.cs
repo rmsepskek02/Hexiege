@@ -26,7 +26,11 @@ namespace Hexiege.Infrastructure
         //   (건물 Id, 쿨다운) 2개 인자에서 (건물 Id, 팀, 슬롯, 조준 여부, 조준 좌표, 발동 순번, 착탄 지연, 쿨다운)으로 바뀌었다.
         //   받는 쪽은 팀 · 슬롯으로 자기 빌드의 로드아웃에서 VFX · 반경을 다시 찾으므로 두 기기의 빌드가 같아야 한다.
         //   스키마 6 빌드와 섞인 경기는 handshake에서 거부한다(요청 RPC 모양은 그대로다).
-        public const int PresentationContractSchemaRevision = 7;
+        // [2026-11-04 EMP Task 커밋 2] 7 → 8. EMP 탑 무력화 RPC 신설 — NetworkSkillController.TowersDisabledClientRpc
+        //   (발동 순번, 무력화 지속 시간, 탑 Id 배열)가 새로 생겼다(5 → 6 「새 RPC가 생겼다」 선례와 같은 이유).
+        //   이 RPC를 모르는 빌드(스키마 7 — 사용자 기기에 깔린 지원 스킬 C-1 테스트 빌드)와 섞인 경기는 handshake에서 거부한다(사용자 결정 Q6).
+        //   기존 SkillActivatedClientRpc · 요청 RPC 모양은 그대로다.
+        public const int PresentationContractSchemaRevision = 8;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

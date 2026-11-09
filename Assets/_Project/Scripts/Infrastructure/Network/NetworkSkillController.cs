@@ -25,6 +25,17 @@
 //   구버전 빌드와 섞인 경기는 접속 확인 단계에서 거절된다.
 //   요청 RPC(클라 → 서버)는 바꾸지 않았다(스킬 규칙 26 — 좌표만 전송 + 서버 재검증).
 //
+// 2026-11-04 변경(EMP Task 커밋 2 — 방어탑 무력화 동기화, Plan 3-4 N1):
+//   EMP가 서버에서 적 방어탑을 멈추게 하면 SkillActivationUseCase가 GameEvents.OnTowersDisabledConfirmed를 발행한다.
+//   서버의 이 컨트롤러가 그것을 구독해 새 RPC TowersDisabledClientRpc(발동 순번, 지속 시간, 탑 Id 배열)를 1회 브로드캐스트하고,
+//   순수 클라이언트는 IsServer 가드 뒤에서 같은 값을 GameEvents.OnTowersDisabledReceived로 발행한다(화면 V6용).
+//   · 종료 RPC는 없다 — 화면이 받은 지속 시간으로 스스로 끝낸다(사용자 결정).
+//   · 클라이언트에는 무력화 상태 사본을 두지 않는다 — 탑 공격 판정은 서버만 하고, 클라가 알아야 하는 곳은 화면뿐이다.
+//   · 늦은 접속 스냅샷은 없다(타입 C 상태 동기화와 같음 — 지속 수 초).
+//   · 기존 SkillActivatedClientRpc 모양은 바꾸지 않았다(발동 고리 V5는 그대로 그 RPC로 재생된다).
+//   새 RPC가 생겼으므로 전투 표현 스키마(UnitAttackShadowProfileResolver)를 7 → 8로 올려
+//   이 RPC를 모르는 빌드(스키마 7)와 섞인 경기는 접속 확인 단계에서 거절된다(사용자 결정 Q6).
+//
 // 참고 패턴 = NetworkUpgradeController(main 병합 최신 관례):
 //   래퍼 → ServerRpc, 팀 소유권(SenderClientId), 브로드캐스트 ClientRpc,
 //   GameServicesLocator.Current 지연 해석(스폰 레이스 방지).
@@ -62,6 +73,10 @@ namespace Hexiege.Infrastructure
         //   GameEvents는 정적 허브라 IGameServices 없이도 구독할 수 있다 → 스폰 레이스와 무관하게 OnNetworkSpawn에서 바로 건다.
         private System.IDisposable _activationConfirmedSubscription;
 
+        // 방어탑 무력화 「확정」 이벤트 구독 핸들(해제용). 서버에서만 구독한다(2026-11-04 EMP Task 커밋 2).
+        //   위 발동 표현 구독과 같은 이유로 OnNetworkSpawn에서 바로 건다(정적 GameEvents라 IGameServices가 필요 없다).
+        private System.IDisposable _towersDisabledConfirmedSubscription;
+
         // ====================================================================
         // 생명주기
         // ====================================================================
@@ -96,6 +111,12 @@ namespace Hexiege.Infrastructure
                 _activationConfirmedSubscription?.Dispose();
                 _activationConfirmedSubscription = GameEvents.OnSkillActivationConfirmed
                     .Subscribe(OnSkillActivationConfirmedOnServer);
+
+                // 방어탑 무력화 「확정」도 서버에서만 구독해 순수 클라이언트에 브로드캐스트한다(EMP 커밋 2).
+                //   EMP 판정(SkillActivationUseCase.Activate → BuildingStatusEffectSystem)은 서버에서만 돌기 때문이다.
+                _towersDisabledConfirmedSubscription?.Dispose();
+                _towersDisabledConfirmedSubscription = GameEvents.OnTowersDisabledConfirmed
+                    .Subscribe(OnTowersDisabledConfirmedOnServer);
             }
 
             // [개발] 스폰 진입 흔적 → Info / 개발.
@@ -114,6 +135,9 @@ namespace Hexiege.Infrastructure
             // 발동 표현 「확정」 구독 해제(재경기/씬 전환 시 중복 브로드캐스트 방지 — C-1).
             _activationConfirmedSubscription?.Dispose();
             _activationConfirmedSubscription = null;
+            // 방어탑 무력화 「확정」 구독 해제(같은 이유 — EMP 커밋 2).
+            _towersDisabledConfirmedSubscription?.Dispose();
+            _towersDisabledConfirmedSubscription = null;
             base.OnNetworkDespawn();
         }
 
@@ -262,6 +286,60 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
                                  "스킬 발동 수신 이벤트 구독자 예외 — 쿨다운 미러는 유지",
                                  $"BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, Error={ex.Message}");
+            }
+        }
+
+        // ====================================================================
+        // EMP 방어탑 무력화 — 서버 → 클라 브로드캐스트(2026-11-04 EMP Task 커밋 2, Plan 3-4 N1)
+        // ====================================================================
+
+        /// <summary>
+        /// (서버 전용) 방어탑 무력화 「확정」 이벤트를 받아 모든 클라이언트에 TowersDisabledClientRpc를 1회 보낸다.
+        /// 같은 발동이 낸 SkillActivatedClientRpc(발동 고리 V5)와는 별개의 RPC다 — 발동 표현 RPC 모양은 바꾸지 않는다.
+        /// </summary>
+        /// <param name="p">서버가 확정한 무력화 표현 값(대상 탑이 1개 이상일 때만 발행된다).</param>
+        private void OnTowersDisabledConfirmedOnServer(TowersDisabledPresentation p)
+        {
+            // 스폰이 풀린 뒤(경기 정리 중)에 늦게 들어온 무력화면 RPC를 보낼 수 없다 — NGO 오류 방지(발동 표현과 같은 가드).
+            if (!IsServer || !IsSpawned) return;
+            // 대상 탑이 없으면 보낼 것이 없다(발행 쪽에서 이미 거르지만 한 번 더 막는다 — 빈 RPC 방지).
+            if (p.TowerCount == 0) return;
+
+            // 팀은 보내지 않는다 — 사용자가 확정한 RPC 모양(순번 · 지속 · 탑 Id 배열)을 그대로 따른다.
+            //   받는 화면은 탑 Id로 자기 건물 데이터를 찾아 탑의 팀 · 위치를 얻는다.
+            //   int[]는 NGO가 기본 직렬화한다. CopyTowerIds가 새 배열을 만들어 주므로 값 객체 내부는 바뀌지 않는다.
+            TowersDisabledClientRpc(p.Sequence, p.Duration, p.CopyTowerIds());
+        }
+
+        /// <summary>
+        /// EMP로 무력화된 방어탑 목록을 모든 클라이언트에 알린다(표현 전용 — 클라이언트는 탑 공격을 판정하지 않는다).
+        /// 순수 클라이언트는 같은 값을 GameEvents.OnTowersDisabledReceived로 발행해 화면이 같은 탑에 V6를 띄우게 한다.
+        /// 서버(호스트)는 「확정」 이벤트로 화면이 이미 시작했으므로 스킵한다(이중 시작 방지 — SkillActivatedClientRpc와 같은 IsServer 가드).
+        /// 종료 알림은 없다 — 화면이 받은 지속 시간으로 스스로 끝낸다. 클라이언트에 무력화 상태 사본도 만들지 않는다.
+        /// </summary>
+        /// <param name="sequence">서버 발동 순번(같은 발동의 SkillActivatedClientRpc 순번과 같다).</param>
+        /// <param name="duration">무력화 지속 시간(초).</param>
+        /// <param name="towerIds">무력화(또는 남은 시간 갱신)된 탑의 건물 Id 배열.</param>
+        [ClientRpc]
+        private void TowersDisabledClientRpc(int sequence, float duration, int[] towerIds)
+        {
+            if (IsServer) return; // 호스트는 서버 쪽 「확정」 이벤트로 화면이 이미 시작했다.
+
+            // 전송 값 방어 — 배열이 비었으면 띄울 탑이 없다. 지속 시간 음수 · NaN은 값 객체가 0으로 고친다.
+            if (towerIds == null || towerIds.Length == 0) return;
+
+            // 「수신」 채널은 RPC에 팀이 없으므로 CasterTeam을 Neutral로 만든다(값 객체 주석 참조).
+            var presentation = new TowersDisabledPresentation(TeamId.Neutral, sequence, duration, towerIds);
+            try
+            {
+                GameEvents.OnTowersDisabledReceived.OnNext(presentation);
+            }
+            catch (System.Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 게임 결과(탑 공격 판정은 서버)에는 영향이 없다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "방어탑 무력화 수신 이벤트 구독자 예외 — 게임 결과 무영향",
+                                 $"Sequence={sequence}, Duration={duration}, TowerCount={towerIds.Length}, Error={ex.Message}");
             }
         }
 
