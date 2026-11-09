@@ -25,6 +25,13 @@ MonoBehaviour:
     launchPreset: {fileID: 11400000, guid: a01e8a0e35619b02dcd055e935a715d7, type: 2}
     tracerPreset: {fileID: 0}
     impactPreset: {fileID: 0}
+  _towerDisabledPresets:
+  - race: 0
+    preset: {fileID: 11400000, guid: c86c111c6d806204c87796f193fa391c, type: 2}
+  - race: 1
+    preset: {fileID: 11400000, guid: 43a42deb522771149b00d069c3d3b536, type: 2}
+  - race: 2
+    preset: {fileID: 11400000, guid: 60e32fc052f9a1d4985b1018674a2444, type: 2}
   _entries:
   - buildingType: 0
     destroyPreset: {fileID: 0}
