@@ -236,9 +236,6 @@ namespace Hexiege.EditorTools
                 bombardment,
                 PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
                     "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
-                // [EMP 커밋 4] 자리표시 줄 비활성화(WORKFLOW [4] — 최종 삭제는 사용자 테스트 통과 후). 바로 아래 emp 로 대체.
-                // PointPlaceholder("Skill_Human_Emp", h, 2, "EMP",
-                //     "지정한 범위 안의 적 방어탑을 잠시 무력화한다."),
                 emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
