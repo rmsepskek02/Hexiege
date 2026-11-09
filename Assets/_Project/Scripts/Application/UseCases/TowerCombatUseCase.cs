@@ -120,6 +120,29 @@ namespace Hexiege.Application
             _projectiles = projectiles;
         }
 
+        // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소). 조합 루트가 SetBuildingStatusSystem으로 주입.
+        //   생성자에 넣지 않는 이유: 이 클래스의 5인자 생성자를 Editor 회귀 fixture 2곳
+        //   (RunUnitActionSelfValidation.VfxConnections · ServerProjectiles)이 직접 부른다. 생성자를 바꾸면 그 fixture가 깨진다.
+        //   null이면(주입 전 · fixture) 아래 Tick의 관문이 항상 통과 → 탑 동작이 이 기능이 없던 때와 완전히 같다.
+        private BuildingStatusEffectSystem _buildingStatus;
+
+        /// <summary>
+        /// 건물 상태 서비스(방어탑 무력화 저장소)를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-04 EMP Task 커밋 1).
+        /// 주입되면 Tick이 매 탑마다 "지금 쏴도 되나"(CanAttack)를 묻는 관문을 거친다. 미주입이면 관문은 항상 통과한다.
+        /// </summary>
+        /// <param name="buildingStatus">같은 경기의 건물 상태 서비스(SkillActivationUseCase에 준 것과 같은 인스턴스).</param>
+        public void SetBuildingStatusSystem(BuildingStatusEffectSystem buildingStatus)
+        {
+            _buildingStatus = buildingStatus;
+        }
+
+        /// <summary>
+        /// 주입된 건물 상태 서비스(없으면 null). 멀티 서버의 권위 틱(NetworkCombatController.TickCombat)이
+        /// 이 탑 Tick 바로 앞에서 무력화 만료 틱을 돌리려고 읽는다 — IGameServices에 새 메서드를 늘리지 않기 위한 통로다
+        /// (IGameServices는 Editor fixture에 대역 구현이 있어 메서드를 추가하면 그 fixture가 깨진다).
+        /// </summary>
+        public BuildingStatusEffectSystem BuildingStatusSystem => _buildingStatus;
+
         /// <summary>
         /// 매 프레임(싱글) 또는 서버 Tick(멀티)마다 호출.
         /// 모든 타워를 순회하며 쿨다운을 감소시키고, 쿨다운이 끝난 타워는 적을 공격한다.
@@ -154,6 +177,14 @@ namespace Hexiege.Application
 
                 // 아직 쿨다운이 남아 있으면 이번 Tick에서는 공격하지 않는다.
                 if (building.AttackCooldownRemaining > 0f) continue;
+
+                // [EMP 관문 — 2026-11-04 EMP Task 커밋 1, 사용자 결정 Q2 = K1]
+                //   무력화(EMP) 중인 탑은 여기서 이번 Tick의 공격을 건너뛴다(적 탐색 · 발사 · 쿨다운 리셋 모두 안 함).
+                //   자리가 "쿨다운 감소 뒤 · 적 탐색 앞"인 이유: 무력화 중에도 쿨다운은 계속 줄어든다(K1 — 유닛 빙결 · 기절 선례,
+                //   규칙 5 「쿨다운 중에도 탐색 계속」 문장과 충돌 없음). 그래서 풀리는 순간 쿨다운이 0이면 사거리 안 적에게 바로 쏜다.
+                //   이미 날아가는 포탄은 이 관문과 무관하다 — 관문은 "새 발사 결정"에만 있고 착탄 피해(ApplyTowerProjectileImpact)는
+                //   탑 상태를 보지 않는다(Research 4-3). 서비스 미주입(null)이면 항상 통과(회귀 fixture 결과 무변경).
+                if (_buildingStatus != null && !_buildingStatus.CanAttack(building.Id)) continue;
 
                 // 규칙 1/2/3: 사거리 내 가장 가까운 적 유닛 탐색 (월드 좌표 기준).
                 UnitData target = FindNearestEnemyUnit(building);

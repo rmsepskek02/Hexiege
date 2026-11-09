@@ -428,6 +428,32 @@ namespace Hexiege.Bootstrap
                     : GameRaceContext.RedRace);
 
             // ────────────────────────────────────────────────────────────
+            // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소, 서버 권위 — Plan 3-2 B1).
+            //   맵을 불러올 때마다 새로 만든다(위 상태 시스템 · 스킬 UseCase와 같은 수명) → 이전 경기의 무력화가 남지 않는다.
+            //   같은 인스턴스를 두 곳에 준다:
+            //     ① 스킬 UseCase — EMP 실행기가 "원 안 적 탑에 무력화를 건다"(쓰기).
+            //     ② 방어탑 UseCase — Tick이 쏘기 직전 "지금 쏴도 되나"를 묻는다(읽기 · 관문).
+            //   둘 다 설정자 주입이라 생성자는 그대로다(Editor 회귀 fixture 보호). 만료 틱은 Update(싱글) ·
+            //   NetworkCombatController.TickCombat(멀티 서버)이, 경기 종료 닫기는 Awake의 OnGameEnd 구독이 맡는다.
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — EMP 자산은 아직 「사용 불가」(커밋 4에서 켬)라 아무 탑도 무력화되지 않고,
+            //      걸린 탑이 0개면 관문은 항상 통과한다.
+            // ────────────────────────────────────────────────────────────
+            _buildingStatusEffectSystem = new BuildingStatusEffectSystem(_buildingPlacement, hexMapper);
+            _skillActivation.SetBuildingStatusSystem(_buildingStatusEffectSystem);
+            _towerCombat.SetBuildingStatusSystem(_buildingStatusEffectSystem);
+
+            // 방어탑이 파괴 · 철거되면 그 탑의 무력화 기록을 지운다(누수 방지 — Plan 3-2 「탑 파괴 · 철거」).
+            //   (파괴된 탑은 이미 탑 Tick의 생존 검사에서 건너뛰므로, 이것은 동작이 아니라 메모리 정리용이다.)
+            //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 무력화가 걸리지 않으므로(발동은 서버만) Remove가 아무 일도 하지 않는다.
+            //   람다가 호출 시점의 필드를 읽으므로 항상 이번 경기의 서비스를 정리한다. 재구독 전 Dispose(연구소 · 신전 구독과 같은 패턴).
+            _towerDisableDestroyedSub?.Dispose();
+            _towerDisableDestroyedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (e.Building == null || e.Building.Type != BuildingType.AutoTower) return;
+                _buildingStatusEffectSystem?.Remove(e.Building.Id);
+            });
+
+            // ────────────────────────────────────────────────────────────
             // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
             //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
             //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.

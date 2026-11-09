@@ -10,6 +10,7 @@
 //   타입 A(InstantAreaDamage)  → InstantAreaDamageExecutor  (Phase 1)
 //   타입 B(AreaDotDamage)      → AreaDotDamageExecutor      (Phase 1)
 //   타입 C(GlobalStatusChange) → GlobalStatusChangeExecutor (Phase 2 — 전역 상태변경)
+//   AreaTowerDisable           → AreaTowerDisableExecutor   (2026-11-04 EMP Task 커밋 1 — 지점 범위 적 방어탑 무력화)
 //
 // 왜 인스펙터 배선이 아닌 코드 등록인가:
 //   SkillMechanicType 키 매핑이라 ScriptableObject/인스펙터 배선이 필요 없다.
@@ -33,7 +34,7 @@ namespace Hexiege.Application
             = new Dictionary<SkillMechanicType, ISkillExecutor>();
 
         /// <summary>
-        /// 기본 실행기들을 등록한다(타입 A·B·C). 실행기는 상태가 없어 UseCase가 내부에서 1회 생성한다.
+        /// 기본 실행기들을 등록한다(타입 A·B·C + 방어탑 무력화). 실행기는 상태가 없어 UseCase가 내부에서 1회 생성한다.
         /// </summary>
         public SkillExecutorRegistry()
         {
@@ -47,6 +48,12 @@ namespace Hexiege.Application
             //   실제 유닛 순회·상태 부여·회복은 SkillActivationContext의 상태 부여 델리게이트를 통해
             //   UnitCombatUseCase가 담당한다(서버 권위). 실행기는 스킬 데이터만 읽는다.
             _executors[SkillMechanicType.GlobalStatusChange] = new GlobalStatusChangeExecutor();
+
+            // 지점 범위 적 방어탑 무력화(EMP — 2026-11-04 EMP Task 커밋 1). 조준 지점 원 안의 적 방어탑을 지속시간 동안 공격 불가로.
+            //   실제 탑 선정 · 상태 부여는 SkillActivationContext의 무력화 다리를 통해 BuildingStatusEffectSystem이 담당한다.
+            //   ⚠️ 등록만으로 EMP가 동작하지는 않는다 — EMP 자산은 커밋 4 전까지 「사용 불가」 · 타입 A 자리표시로 남아 있어
+            //      SkillActivationUseCase가 실행기 조회 전에 거부한다(이 실행기는 아직 어떤 자산도 부르지 않는다).
+            _executors[SkillMechanicType.AreaTowerDisable] = new AreaTowerDisableExecutor();
         }
 
         /// <summary>

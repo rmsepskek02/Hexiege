@@ -8,6 +8,7 @@
 //   - 조준 좌표(AimWorld/HasAim) — 도메인 월드 연속 좌표. 지점 지정(타입 A·B)에서만 유효.
 //   - 재사용 효과 델리게이트 — UnitCombatUseCase의 "건물/스킬 출처 전용 피해/DoT" 경로를 그대로 넘겨받는다.
 //     (SpecialAttackContext가 ApplyDamage/ApplyDot을 델리게이트로 받는 것과 같은 역할 분담.)
+//   - 2026-11-04 EMP Task 커밋 1: 「범위 안 적 방어탑 무력화」 다리 1개 추가(BuildingStatusEffectSystem 경유).
 //
 // 왜 효과 적용을 델리게이트로 주입하는가(SpecialAttackContext와 동일한 이유):
 //   실행기가 UnitCombatUseCase의 private 로직(포지션 프로바이더·좌표 매퍼·이벤트 발행)에 직접
@@ -57,6 +58,13 @@ namespace Hexiege.Application
         //   UnitCombatUseCase.ApplySkillGlobalStatus를 그대로 넘겨받는다(유닛 순회·상태 부여·회복 위임).
         private readonly Action<TeamId, StatusEffectKind, float, float> _globalStatus;
 
+        // 지점 범위 적 방어탑 무력화(EMP, SkillMechanicType.AreaTowerDisable)를 적용하는 델리게이트.
+        //   (2026-11-04 EMP Task 커밋 1 — Plan 3-1 「컨텍스트 다리 1개」.)
+        //   인자: (시전 팀, 중심 도메인 월드 좌표, 반경, 무력화 지속시간).
+        //   SkillActivationUseCase의 다리가 BuildingStatusEffectSystem.DisableEnemyTowersInRadius를 부른다.
+        //   null이면(서비스 미주입) 아무 일도 일어나지 않는다.
+        private readonly Action<TeamId, Vector3, float, float> _towerDisable;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -68,6 +76,7 @@ namespace Hexiege.Application
         /// <param name="instantAreaDamage">타입 A 즉발 범위 피해 적용 델리게이트.</param>
         /// <param name="areaDot">타입 B 범위 지속 피해 적용 델리게이트.</param>
         /// <param name="globalStatus">타입 C 전역 상태변경 적용 델리게이트.</param>
+        /// <param name="towerDisable">지점 범위 적 방어탑 무력화(EMP) 적용 델리게이트. null 허용(무효과).</param>
         public SkillActivationContext(
             SkillData skill,
             TeamId casterTeam,
@@ -76,7 +85,8 @@ namespace Hexiege.Application
             bool hasAim,
             Action<TeamId, Vector3, float, int, int> instantAreaDamage,
             Action<TeamId, Vector3, float, float, float> areaDot,
-            Action<TeamId, StatusEffectKind, float, float> globalStatus)
+            Action<TeamId, StatusEffectKind, float, float> globalStatus,
+            Action<TeamId, Vector3, float, float> towerDisable)
         {
             Skill = skill;
             CasterTeam = casterTeam;
@@ -86,6 +96,7 @@ namespace Hexiege.Application
             _instantAreaDamage = instantAreaDamage;
             _areaDot = areaDot;
             _globalStatus = globalStatus;
+            _towerDisable = towerDisable;
         }
 
         /// <summary>
@@ -124,6 +135,19 @@ namespace Hexiege.Application
         public void ApplyGlobalStatus(TeamId targetTeam, StatusEffectKind kind, float magnitude, float duration)
         {
             _globalStatus?.Invoke(targetTeam, kind, magnitude, duration);
+        }
+
+        /// <summary>
+        /// 지점 범위 적 방어탑 무력화(EMP) — 지정한 중심의 원형 반경 안에 "지금" 있는 적 방어탑을
+        /// 지속시간 동안 공격 불가로 만든다(발동 순간 스냅샷). 유닛에는 영향이 없다.
+        /// 실제 탑 선정 · 상태 부여는 BuildingStatusEffectSystem이 담당한다(서버 권위 — 스킬 규칙 25).
+        /// </summary>
+        /// <param name="center">중심 도메인 월드 좌표(보통 <see cref="AimWorld"/>).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="duration">무력화 지속시간(초).</param>
+        public void DisableEnemyTowersInArea(Vector3 center, float radius, float duration)
+        {
+            _towerDisable?.Invoke(CasterTeam, center, radius, duration);
         }
     }
 }

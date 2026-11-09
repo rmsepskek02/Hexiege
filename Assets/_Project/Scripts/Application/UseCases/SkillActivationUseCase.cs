@@ -32,6 +32,10 @@
 //   스킬 데이터의 「착탄 지연」이 0보다 크면 타입 A 피해를 바로 주지 않고 "착탄 예약"으로 저장했다가,
 //   권위 전용 틱(TickPendingImpacts)이 그 시간이 지난 순간 기존 피해 경로를 1회 호출한다. 0이면 지금처럼 즉발.
 //
+// 방어탑 무력화(EMP, 2026-11-04 EMP Task 커밋 1):
+//   새 타입 AreaTowerDisable의 실행기가 컨텍스트의 무력화 다리를 부르면, 이 UseCase가 주입받은
+//   BuildingStatusEffectSystem(SetBuildingStatusSystem)에 "발동 순간 원 안의 적 방어탑"을 바로 건다(지연 없음).
+//
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
 
@@ -67,6 +71,11 @@ namespace Hexiege.Application
         //   쿨다운 오버레이의 radial fill 비율 계산을 위해 발동 시점의 총 쿨다운도 보관한다.
         private readonly Dictionary<int, float> _cooldownTotal = new Dictionary<int, float>();
 
+        // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소). 조합 루트가 SetBuildingStatusSystem으로 주입.
+        //   생성자가 아니라 설정자로 받는 이유: TowerCombatUseCase와 같은 주입 방식으로 맞추고, 미주입(null)일 때
+        //   "무력화 다리가 아무 일도 하지 않는다"는 안전한 기본값을 두기 위해서다.
+        private BuildingStatusEffectSystem _buildingStatus;
+
         /// <summary>
         /// 스킬 발동 유스케이스 생성.
         /// </summary>
@@ -87,6 +96,16 @@ namespace Hexiege.Application
             _combat = combat;
             _dataProvider = dataProvider;
             _teamToRace = teamToRace;
+        }
+
+        /// <summary>
+        /// 건물 상태 서비스(방어탑 무력화 저장소)를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-04 EMP Task 커밋 1).
+        /// 주입하지 않으면 EMP 타입(AreaTowerDisable) 스킬은 발동돼도 탑을 멈추지 않는다(무효과 — 안전한 기본값).
+        /// </summary>
+        /// <param name="buildingStatus">같은 경기의 건물 상태 서비스. TowerCombatUseCase에도 같은 인스턴스를 주입해야 관문이 그 상태를 본다.</param>
+        public void SetBuildingStatusSystem(BuildingStatusEffectSystem buildingStatus)
+        {
+            _buildingStatus = buildingStatus;
         }
 
         // ====================================================================
@@ -161,6 +180,8 @@ namespace Hexiege.Application
             //       기존 ApplySkillInstantAreaDamage를 1회 호출한다 → "착탄 순간 범위 안 대상"이 맞는다.
             //   실행기(InstantAreaDamageExecutor)는 바뀌지 않는다 — 실행기는 "피해를 줘"라고만 하고,
             //   "언제 줄지"는 이 UseCase가 고른 다리가 정한다.
+            //   마지막 인자(2026-11-04 EMP Task 커밋 1)는 「범위 안 적 방어탑 무력화」 다리다 — EMP 타입 실행기만 부른다.
+            //   다른 타입(A · B · C)의 실행기는 이 다리를 부르지 않으므로 기존 스킬 동작은 그대로다.
             var ctx = new SkillActivationContext(
                 skill,
                 building.Team,
@@ -169,7 +190,8 @@ namespace Hexiege.Application
                 hasAim,
                 SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
                 ApplyAreaDotBridge,
-                ApplyGlobalStatusBridge);
+                ApplyGlobalStatusBridge,
+                ApplyTowerDisableBridge);
             executor.Execute(ctx);
 
             // ⑧ 글로벌 쿨다운 설정(규칙 3). 착탄이 늦어도 쿨다운은 "발동 순간" 시작한다(Plan Q1-c).
@@ -372,6 +394,25 @@ namespace Hexiege.Application
         private void ApplyGlobalStatusBridge(TeamId team, StatusEffectKind kind, float magnitude, float duration)
         {
             _combat?.ApplySkillGlobalStatus(team, kind, magnitude, duration, raiseNetworkEvent: true);
+        }
+
+        // ====================================================================
+        // 방어탑 무력화(EMP) 다리 — 2026-11-04 EMP Task 커밋 1(Plan 3-1 · 3-2)
+        // ====================================================================
+        //
+        // 실행기(AreaTowerDisableExecutor) → BuildingStatusEffectSystem 다리(델리게이트).
+        //   대상은 지금 이 순간 원 안의 적 방어탑이다(발동 순간 스냅샷 — 상위 결정 22, 사용자 Q3 「지연 0」).
+        //   그래서 타입 A처럼 착탄 예약을 거치지 않고 바로 서비스에 건다(ImpactDelay를 보지 않는다).
+        //   Activate는 서버(싱글 = 로컬 서버 / 멀티 = 서버)에서만 불리므로 이 다리도 서버에서만 돈다(스킬 규칙 25).
+        //
+        //   무력화된 탑 Id 목록은 지금 이 버퍼에 담기기만 한다. 클라이언트 알림(확정 이벤트 · ClientRpc)은
+        //   다음 커밋(동기화)이 이 목록을 써서 붙인다 — 이 커밋에서는 아무 이벤트도 내지 않는다.
+        private readonly List<int> _disabledTowerIdBuffer = new List<int>(4);
+
+        private void ApplyTowerDisableBridge(TeamId team, Vector3 center, float radius, float duration)
+        {
+            // 서비스가 주입되지 않았으면(조합 루트 미배선 · 테스트) 아무것도 하지 않는다 — 기존 동작과 같다.
+            _buildingStatus?.DisableEnemyTowersInRadius(team, center, radius, duration, _disabledTowerIdBuffer);
         }
 
         // ====================================================================

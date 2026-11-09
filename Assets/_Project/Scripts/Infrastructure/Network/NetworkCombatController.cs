@@ -726,6 +726,14 @@ namespace Hexiege.Infrastructure
             // EntityDiedClientRpc로 클라이언트에 자동 전파된다.
             // ────────────────────────────────────────────────────────────────
             TowerCombatUseCase tower = _services.GetTowerCombat();
+
+            // [EMP — 2026-11-04 EMP Task 커밋 1] 방어탑 무력화 만료 틱 — 서버 권위, "탑 틱 바로 앞"(Plan 3-2 · 위험 R-12).
+            //   이 자리는 Update 진입부 가드(IsSpawned · IsServer · _combatStopped)를 통과한 뒤라 서버에서만 돈다.
+            //   싱글은 GameBootstrapper.Update가 같은 순서(만료 → 탑 틱)로 호출한다(이중 감소 금지 — 여기는 멀티 서버 전용).
+            //   서비스는 IGameServices에 새 getter를 만들지 않고(Editor fixture 대역 구현 보호) 탑 UseCase에 주입된 것을 읽는다.
+            //   미주입이면 null이라 아무것도 하지 않는다.
+            tower?.BuildingStatusSystem?.Tick(elapsed);
+
             tower?.Tick(elapsed);
 
             // ────────────────────────────────────────────────────────────────

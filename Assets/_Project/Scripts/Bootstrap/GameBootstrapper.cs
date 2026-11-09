@@ -270,6 +270,10 @@ namespace Hexiege.Bootstrap
         private UnitUpgradeUseCase _unitUpgrade;
         private SkillActivationUseCase _skillActivation;
         private StatusEffectSystem _statusEffectSystem;
+        // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소, 서버 권위). 맵마다 Setup에서 새로 만든다.
+        //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호). 멀티 서버 틱은
+        //   TowerCombatUseCase.BuildingStatusSystem으로 같은 인스턴스에 닿는다.
+        private BuildingStatusEffectSystem _buildingStatusEffectSystem;
         // [MistShrine] 물안개 힐(시전·물안개 수명·회복·쿨다운·자동 모드). 서버 권위 UseCase.
         private MistShrineUseCase _mistShrine;
 
@@ -327,6 +331,9 @@ namespace Hexiege.Bootstrap
 
         // [MistShrine] 신전 파괴 시 물안개·자동 모드·쿨다운 정리 구독(서버/싱글 전용). ClearAll에서 정리.
         private System.IDisposable _mistShrineDestroyedSub;
+
+        // [EMP — 2026-11-04 EMP Task 커밋 1] 방어탑 파괴 · 철거 시 그 탑의 무력화 기록을 지우는 구독. ClearAll에서 정리.
+        private System.IDisposable _towerDisableDestroyedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -542,6 +549,10 @@ namespace Hexiege.Bootstrap
             // [2026-11-03 포격 지원] 경기가 끝나면 아직 떨어지지 않은 스킬 착탄 예약을 버린다(싱글/멀티 서버 공통 — Plan Q1-b).
             //   람다가 호출 시점의 _skillActivation을 읽으므로 맵을 다시 불러와 UseCase가 바뀌어도 현재 것을 닫는다.
             GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.ClosePendingImpacts()).AddTo(this);
+            // [EMP — 2026-11-04 EMP Task 커밋 1, 사용자 결정 Q5] 경기가 끝나면 남은 방어탑 무력화를 모두 비우고 이후 새로 걸지 않는다.
+            //   위 착탄 예약 닫기와 같은 방식 — 람다가 호출 시점의 필드를 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
+            //   (싱글은 경기 종료 뒤에도 탑 틱이 돌므로, 비운 뒤 결과 화면 뒤에서 탑이 다시 쏘는 것은 다른 탑과 같은 기존 동작이다 — R-8.)
+            GameEvents.OnGameEnd.Subscribe(_ => _buildingStatusEffectSystem?.Close()).AddTo(this);
         }
 
         /// <summary>
@@ -738,6 +749,17 @@ namespace Hexiege.Bootstrap
                 (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
             {
                 _statusEffectSystem.Tick(Time.deltaTime);
+            }
+
+            // [EMP — 2026-11-04 EMP Task 커밋 1] 방어탑 무력화 만료 틱 — 권위 전용, "탑 틱 바로 앞"(Plan 3-2 · 위험 R-12).
+            //   - 싱글: 여기서 처리(권위).
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 tower?.Tick 바로 앞에서 처리 → 여기선 스킵(이중 감소 금지).
+            //   - 멀티 순수 클라: 절대 돌리지 않는다(클라에는 무력화 상태가 없다 — 탑 공격은 서버만 판정).
+            //   ⚠️ 그래서 가드가 바로 위 유닛 상태 틱(싱글 "또는 순수 클라")과 다르다 — !IsNetworkMode() 하나뿐이다. 합치지 말 것.
+            //   탑 틱 바로 앞에 두는 이유: 두 모드 모두 "만료 → 관문 판정" 순서가 같아지게(멀티도 탑 틱 바로 앞).
+            if (!IsNetworkMode() && _buildingStatusEffectSystem != null)
+            {
+                _buildingStatusEffectSystem.Tick(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

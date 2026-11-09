@@ -443,6 +443,11 @@ namespace Hexiege.Bootstrap
             _mistShrineDestroyedSub = null;
             _mistShrine?.ClearAll();
 
+            // [EMP — 2026-11-04 EMP Task 커밋 1] 방어탑 파괴 시 무력화 기록 정리 구독 해제.
+            //   서비스 자체는 다음 LoadMap()의 CreateUseCases가 새로 만들고 구독도 다시 건다(이전 경기 무력화가 남지 않는다).
+            _towerDisableDestroyedSub?.Dispose();
+            _towerDisableDestroyedSub = null;
+
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
             _gameEnd = null;
