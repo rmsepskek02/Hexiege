@@ -11,6 +11,7 @@
 //   1. 모든 건물 중 AutoTower 타입만 순회
 //   2. 각 타워의 AttackCooldownRemaining을 dt만큼 감소 (규칙 5: 쿨다운 중에도 탐색 계속)
 //   3. 쿨다운이 0 이하면 → 사거리 내 가장 가까운 적 유닛 탐색 (월드 좌표 기준, 규칙 2/3)
+//      (인간 대포탑은 정면 좌우 60° 안의 적만 후보 — 아래 2026-11-09 블록)
 //   4. 적이 있으면 → 데미지 적용 + 쿨다운 리셋 + 사망 처리 (규칙 5/6)
 //   5. 타워가 파괴(IsAlive=false)되면 순회에서 건너뜀 (규칙 7)
 //
@@ -36,6 +37,14 @@
 //   분기 기준은 "투사체 타워" 분류 ServerProjectileDeliveryPolicy.IsProjectileTower다.
 //   🔴 즉발 피해 · Tower 발사 스냅샷 경로는 지우지 않는다 — RuneSpire · VineTower가 지금도 쓰는 유일한 피해 경로다
 //      (2026-10-27 P5 정리에서 지운 것은 인간 타워용 이행 스위치뿐이다).
+//
+// [2026-11-09 인간 대포탑 전방 120° 공격 제한 — Task `_Tasks/2026-11-09/22_19_cannon-tower-front-arc/`]
+//   사용자 결정(Plan 7절 Q1~Q7): Human CannonTower는 포신이 향한 정면 좌우 60°(합 120°) 안의 적 유닛만 고른다.
+//     · 바뀐 곳은 표적 탐색 FindNearestEnemyUnit 한 곳뿐이다 — "사거리 안 + 정면 범위 밖" 후보를 건너뛰는 조건을 덧붙였다.
+//     · 뒤 · 옆에만 적이 있으면 표적이 없으니(null) 기존 흐름 그대로 쏘지 않고 쿨다운도 시작하지 않는다.
+//       쿨다운은 공격하지 않는 동안에도 계속 줄어 0에서 기다리고, 적이 앞으로 들어오는 첫 Tick에 바로 쏜다(Q6).
+//     · 이미 쏜 포탄은 대상이 범위 밖으로 나가도 그대로 날아가 맞는다(착탄은 각도를 다시 보지 않는다 — Q7).
+//     · RuneSpire · VineTower는 바뀌지 않는다(Q1). 정면 · 각도 정의는 TowerFrontArc.cs 한 곳에 있다.
 //
 // Application 레이어 — Domain에 의존. Infrastructure(NetworkManager/GameRaceContext)에
 //   직접 의존하지 않기 위해 NetworkContext 정적 홀더와 race 해석 델리게이트를 사용한다.
@@ -225,9 +234,13 @@ namespace Hexiege.Application
         ///
         /// 사거리는 종족별 AttackRange(타일 단위)에 TileHeight를 곱해 월드 단위로 환산한다.
         /// UnitCombatUseCase의 원거리 유닛 사거리 계산(AttackRange × TileHeight)과 동일한 방식.
+        ///
+        /// [2026-11-09 전방 120°] 인간 대포탑(Human CannonTower)은 사거리 안 적 중 "정면 좌우 60° 안"에 있는 적만 후보다
+        /// (TowerFrontArc — 탑 중심 XZ 기준, 팀 진영 고정 정면, 60° 포함 + 허용 오차). 범위 안 후보 중 최단을 고르므로,
+        /// 뒤에 더 가까운 적이 있어도 앞의 적을 쏜다. 앞에 아무도 없으면 null(쏘지 않고 대기). 다른 탑은 360° 그대로다.
         /// </summary>
         /// <param name="tower">탐색 기준이 되는 타워.</param>
-        /// <returns>사거리 내 가장 가까운 적 유닛. 없으면 null.</returns>
+        /// <returns>사거리 내(인간 대포탑은 전방 범위 안) 가장 가까운 적 유닛. 없으면 null.</returns>
         private UnitData FindNearestEnemyUnit(BuildingData tower)
         {
             RaceId race = ResolveRace(tower.Team);
@@ -244,8 +257,24 @@ namespace Hexiege.Application
             Vector3 towerWorldPos = Vector3.zero;
             if (_positionProvider != null)
                 towerWorldPos = _positionProvider.GetBuildingWorldPosition(tower.Id);
+            // [전방 120°] 탑 위치가 공급자(화면 좌표)에서 왔는지 기억한다 — 각도 판정 전 도메인 변환 여부(아래 설명).
+            bool towerFromProvider = towerWorldPos != Vector3.zero;
             if (towerWorldPos == Vector3.zero)
                 towerWorldPos = _mapper.HexToWorld(tower.Position);
+
+            // [전방 120° — 2026-11-09 Task 22_19_cannon-tower-front-arc 커밋 1, 사용자 결정 Q1~Q5]
+            //   인간 대포탑(Human CannonTower)만 "정면 좌우 60° 안의 적"만 후보로 삼는다. 나머지 탑은 이 값이 false라
+            //   아래 반복문이 이 기능이 없던 때와 한 줄도 다르지 않게 돈다(360° 유지).
+            //   정면 · 각도 · 허용 오차의 정의는 TowerFrontArc 한 곳에 있다(화면 범위 표시도 같은 정의를 읽는다).
+            bool frontArc = TowerFrontArc.AppliesTo(tower.Type, race);
+
+            // 방향(각도)은 "도메인 좌표"로 재야 한다(R3). 「Blue 정면 = +Z」는 도메인 기준인데,
+            //   위치 공급자(_positionProvider)가 주는 값은 GameObject Transform = 화면(뷰) 좌표다.
+            //   서버(Host)는 늘 Blue라 화면 = 도메인이지만, 싱글에서 화면이 뒤집힌 채(Red 관점) 남는 경우가 있으면
+            //   변환 없이 재면 앞 · 뒤가 정반대로 판정된다. 그래서 공급자에서 온 위치만 NormalizeToDomainPosition으로 되돌린다.
+            //   (HexToWorld 폴백 위치는 이미 도메인이라 되돌리지 않는다. 거리는 점대칭이라 변환과 무관해 그대로 둔다.)
+            Vector3 towerDomainPos = towerWorldPos;
+            if (frontArc && towerFromProvider) towerDomainPos = _mapper.NormalizeToDomainPosition(towerWorldPos);
 
             UnitData closest = null;
             float minDist = float.MaxValue;
@@ -259,10 +288,21 @@ namespace Hexiege.Application
                 Vector3 unitPos = Vector3.zero;
                 if (_positionProvider != null)
                     unitPos = _positionProvider.GetUnitWorldPosition(unit.Id);
+                // [전방 120°] 이 위치가 공급자(화면 좌표)에서 왔는지 기억한다 — 아래 각도 판정 전 도메인 변환 여부.
+                bool unitFromProvider = unitPos != Vector3.zero;
                 if (unitPos == Vector3.zero)
                     unitPos = _mapper.HexToWorld(unit.Position);
 
                 float dist = Vector3.Distance(towerWorldPos, unitPos);
+
+                // [전방 120°] 사거리 안 후보 중 정면 범위 밖이면 건너뛴다(사용자 결정 Q5 — "범위 안 적 중 최단").
+                //   순서: 사거리 검사 → (Human이면) 각도 검사 → 최단 갱신. 사거리 밖 후보는 각도를 계산하지 않는다(Plan 3-1).
+                //   뒤에만 적이 있으면 결국 null을 돌려주고, Tick은 기존 흐름대로 쿨다운을 시작하지 않은 채 기다린다(Q6).
+                if (frontArc && dist <= maxWorldDist)
+                {
+                    Vector3 unitDomainPos = unitFromProvider ? _mapper.NormalizeToDomainPosition(unitPos) : unitPos;
+                    if (!TowerFrontArc.IsInFrontArc(towerDomainPos, unitDomainPos, tower.Team, out _)) continue;
+                }
 
                 // 규칙 2/3: 사거리 안 + 현재까지 최단 거리면 타겟 후보로 갱신.
                 if (dist <= maxWorldDist && dist < minDist)

@@ -601,6 +601,9 @@ namespace Hexiege.Editor.Combat
                 ValidateHumanTowerFlightOutcomes(humanPower);
                 ValidateHumanTowerNoLaunchCases();
                 ValidateSpiritTowerStaysInstant(spiritPower);
+                // [2026-11-09 전방 120° — Task 22_19_cannon-tower-front-arc 커밋 1] 인간 대포탑 전방 사격 범위 (a)~(f).
+                ValidateHumanTowerFrontArc();
+                ValidateSpiritTowerIgnoresFrontArc(spiritPower);
             }
             finally
             {
@@ -624,7 +627,11 @@ namespace Hexiege.Editor.Combat
             //   대상(2.1, 0, 0.1)까지 3D 거리 ≈ 1.81 → 실제 사거리(4타일 × 0.866 + 0.05) 안이다.
             public static readonly Vector3 TowerPosition = new Vector3(.6f, .1f, -.9f);
 
-            public TowerFixture(TeamId towerTeam, RaceId race)
+            /// <param name="towerMapper">
+            /// [2026-11-09 전방 120°] 탑 UseCase에 줄 좌표 변환기. null이면 지금까지와 같은 항등 변환기(ProjectileFixtureMapper).
+            /// 뒤집힌 화면(R3) 확인 fixture만 FrontArcFlippedMapper를 넘긴다. 투사체 UseCase의 변환기는 바꾸지 않는다.
+            /// </param>
+            public TowerFixture(TeamId towerTeam, RaceId race, IHexCoordinateMapper towerMapper = null)
             {
                 Base = new ProjectileFixture(UnitType.Tank);
                 Settings = new ProjectileSettings(humanTowerSpeed: 4f, humanTowerMuzzleOffset: ProjectileSettings.DefaultHumanTowerMuzzleOffset);
@@ -635,7 +642,7 @@ namespace Hexiege.Editor.Combat
                 TowerData = Base.BuildingsUseCase.PlaceBuildingWithId(9850, BuildingType.AutoTower, towerTeam, new HexCoord(2, 0), race);
                 Require(TowerData != null && TowerData.IsAlive, "Fixture tower is placed.");
                 Base.Positions.Buildings[TowerData.Id] = TowerPosition;
-                Tower = new TowerCombatUseCase(Base.BuildingsUseCase, Base.Spawn, new ProjectileFixtureMapper(), Base.Positions, _ => race);
+                Tower = new TowerCombatUseCase(Base.BuildingsUseCase, Base.Spawn, towerMapper ?? new ProjectileFixtureMapper(), Base.Positions, _ => race);
                 Tower.SetEffectClock(() => Now);
                 Tower.SetProjectileLauncher(Base.Combat);
                 _snapshots = GameEvents.OnAttackEffectConfirmed.Subscribe(Snapshots.Add);
@@ -709,7 +716,12 @@ namespace Hexiege.Editor.Combat
         {
             using (var t = new TowerFixture(TeamId.Red, RaceId.Human))
             {
-                // Red 타워는 Blue 유닛(fixture 공격자 자리, (0.1, 0, 0.1))을 노린다. 포구는 180° 돌아 −Z 쪽이다.
+                // Red 타워는 Blue 유닛(fixture 공격자)을 노린다. 포구는 180° 돌아 −Z 쪽이다.
+                // [2026-11-09 전방 120° — 값 변경, Plan 최상단 표] Blue 유닛 위치를 (0.1, 0, 0.1) → (0.6, 0, −2.4)로 옮긴다.
+                //   옛 위치는 Red 탑 정면(−Z)에서 153.4° = "탑 뒤"라 새 규칙에서는 쏘지 않는다(Research 6-1).
+                //   이 테스트가 보려는 것은 Red 포구 방향이지 뒤쪽 사격이 아니므로, 탑 바로 앞(−Z, 0°)으로 옮긴다.
+                //   탑 (0.6, 0.1, −0.9)에서 3D 거리 ≈ 1.50 → 실제 사거리 3.514 안. 이 fixture 객체만 바꾼다(다른 테스트는 각자 새로 만든다).
+                t.Base.Positions.Units[t.Base.Attacker.Id] = new Vector3(.6f, 0f, -2.4f);
                 t.TickTower(2d);
                 Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == t.Base.Attacker.Id,
                     "[C-2] A Red Human tower targets the enemy (Blue) unit.");
@@ -819,6 +831,153 @@ namespace Hexiege.Editor.Combat
                 Require(end.Contains(" path=tower-Spirit:s0/l1 ") && end.Contains(" reserved=0 ") && end.Contains(" launched=0 ")
                         && t.Base.Combat.BuildProjectileTowerEndLine("fixture").Contains(" towerPath=Human:s0/l0|Spirit:s0/l1|Transcendence:s0/l0 "),
                     "[C-5] Server END shows the RuneSpire attack on the instant path: " + end);
+            }
+        }
+
+        // ── [2026-11-09 전방 120° — (a)~(f) + 좌표 반전 보호] 인간 대포탑 전방 사격 범위 ─────────────────
+        //   Task `_Tasks/2026-11-09/22_19_cannon-tower-front-arc/` Plan 2절 #5 · Research 6-1 「새 fixture 제안」.
+        //   탑 위치는 TowerFixture.TowerPosition (0.6, 0.1, −0.9) 그대로이고, 대상 위치만 "탑 기준 상대 좌표"로 놓는다.
+        //   거리는 모두 실제 사거리(4타일 × 0.866 + 0.05 = 3.514) 안이라, 결과를 가르는 것은 각도뿐이다.
+
+        /// <summary>탑 중심에서 수평으로 (dx, dz)만큼 떨어진 지면 위치(Y 0 — 유닛 높이). fixture 좌표 = 도메인 좌표.</summary>
+        private static Vector3 FrontArcAt(float dx, float dz)
+        {
+            return new Vector3(TowerFixture.TowerPosition.x + dx, 0f, TowerFixture.TowerPosition.z + dz);
+        }
+
+        /// <summary>
+        /// 화면이 뒤집힌(Red 관점) 상태를 흉내 내는 좌표 변환기 — 화면 좌표 p 를 도메인 2C − p 로 되돌린다(ViewConverter.FromView와 같은 꼴).
+        /// R3(싱글에서 화면 반전이 남는 경우) 보호 확인용: 위치 공급자가 화면 좌표를 줘도 판정은 도메인 기준이어야 한다.
+        /// </summary>
+        private sealed class FrontArcFlippedMapper : IHexCoordinateMapper
+        {
+            public static readonly Vector3 Centre = new Vector3(1f, 0f, -.5f);
+            public float TileHeight => .866f;
+            public Vector3 HexToWorld(HexCoord h) => new Vector3(h.Q, 0, h.R);
+            public HexCoord WorldToHex(Vector3 p) => new HexCoord((int)p.x, (int)p.z);
+            public Vector3 NormalizeToDomainPosition(Vector3 p) => ToOther(p);
+            /// <summary>점대칭 변환(자기 자신의 역변환이라 도메인 → 화면에도 그대로 쓴다).</summary>
+            public static Vector3 ToOther(Vector3 p) => new Vector3(2f * Centre.x - p.x, p.y, 2f * Centre.z - p.z);
+        }
+
+        private static void ValidateHumanTowerFrontArc()
+        {
+            // ── 판정식 자체(TowerFrontArc) — 헥스 대각 앞 이웃 60.0007°는 앞, 61°는 뒤, Red는 정면이 −Z.
+            Vector3 origin = Vector3.zero;
+            Require(TowerFrontArc.IsInFrontArc(origin, new Vector3(.75f, 0f, .433f), TeamId.Blue, out float diagDot)
+                    && diagDot < .5f && TowerFrontArc.DotToAngleDeg(diagDot) > 60f,
+                "[ARC-c] The FlatTop diagonal-front neighbour (0.75, 0.433) is 60.0007 deg (dot < 0.5) and still counts as front (tolerance): " + diagDot);
+            float rad61 = 61f * Mathf.Deg2Rad;
+            Require(!TowerFrontArc.IsInFrontArc(origin, new Vector3(Mathf.Sin(rad61), 0f, Mathf.Cos(rad61)), TeamId.Blue, out _),
+                "[ARC-d] 61 deg off the front is outside the arc.");
+            Require(TowerFrontArc.IsInFrontArc(origin, new Vector3(0f, 0f, -1f), TeamId.Red, out _)
+                    && !TowerFrontArc.IsInFrontArc(origin, new Vector3(0f, 0f, 1f), TeamId.Red, out _)
+                    && TowerFrontArc.ResolveDomainForward(TeamId.Red).z < 0f && TowerFrontArc.ResolveDomainForward(TeamId.Blue).z > 0f,
+                "[ARC-e] Red front is domain -Z, Blue front is domain +Z (same sign rule as ResolveTowerMuzzle).");
+            Require(TowerFrontArc.IsInFrontArc(origin, new Vector3(0f, 5f, 0f), TeamId.Blue, out _),
+                "[ARC] A target on the tower centre (no horizontal direction) counts as front; height is ignored.");
+            Require(TowerFrontArc.AppliesTo(BuildingType.AutoTower, RaceId.Human)
+                    && !TowerFrontArc.AppliesTo(BuildingType.AutoTower, RaceId.Spirit)
+                    && !TowerFrontArc.AppliesTo(BuildingType.AutoTower, RaceId.Transcendence)
+                    && !TowerFrontArc.AppliesTo(BuildingType.Castle, RaceId.Human),
+                "[ARC-f] Only the Human AutoTower (CannonTower) has the front arc.");
+
+            float cooldown = BuildingStats.GetAttackCooldown(BuildingType.AutoTower, RaceId.Human);
+
+            // (a) 뒤 · 옆에만 적 → 쏘지 않고 쿨다운 0 유지 → 앞으로 들어온 첫 Tick에 바로 발사.
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                UnitData victim = t.Base.Victim;
+                t.Base.Positions.Units[victim.Id] = FrontArcAt(0f, -1.5f);   // 정뒤(180°)
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.Base.VictimDamage.Count == 0 && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[ARC-a] A Blue Human tower with the only enemy behind it does not fire and its cooldown does not start.");
+                t.Base.Positions.Units[victim.Id] = FrontArcAt(1.5f, 0f);    // 정옆(90°)
+                t.TickTower(1.05d, .05f);
+                Require(t.Base.Launches.Count == 0 && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[ARC-a] An enemy straight to the side (90 deg) is also outside the arc.");
+                t.Base.Positions.Units[victim.Id] = FrontArcAt(0f, 1.5f);    // 정면(0°)
+                t.TickTower(1.1d, .05f);
+                Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == victim.Id
+                        && Mathf.Approximately(t.TowerData.AttackCooldownRemaining, cooldown),
+                    "[ARC-a] The first tick after the enemy enters the front arc fires at once and starts the cooldown.");
+            }
+
+            // (b) 앞 · 뒤 동시(뒤가 더 가까움) → 앞의 적을 쏜다(사용자 결정 Q5 — 범위 안 적 중 최단).
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                UnitData behind = t.Base.Victim;
+                t.Base.Positions.Units[behind.Id] = FrontArcAt(0f, -.8f);    // 거리 ≈ 0.81
+                UnitData front = t.Base.Spawn.SpawnUnitWithId(9702, UnitType.LittleKnight, TeamId.Red, new HexCoord(1, 1));
+                Require(front != null, "Fixture second enemy unit is spawned.");
+                t.Base.Positions.Units[front.Id] = FrontArcAt(0f, 2f);       // 거리 ≈ 2.00
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == front.Id,
+                    "[ARC-b] With a closer enemy behind and another in front, the tower shoots the front one.");
+            }
+
+            // (c) 대각 앞 이웃(60.0007°) 좌 · 우 모두 실제 Tick에서 발사된다.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+                {
+                    t.Base.Positions.Units[t.Base.Victim.Id] = FrontArcAt(.75f * side, .433f);
+                    t.TickTower(1d);
+                    Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == t.Base.Victim.Id,
+                        "[ARC-c] The diagonal-front neighbour on side " + side + " (60.0007 deg) is fired at.");
+                }
+            }
+
+            // (d) 60° + 1° 밖은 실제 Tick에서도 발사 0.
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human))
+            {
+                t.Base.Positions.Units[t.Base.Victim.Id] = FrontArcAt(1.5f * Mathf.Sin(rad61), 1.5f * Mathf.Cos(rad61));
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[ARC-d] An enemy 61 deg off the front is not fired at.");
+            }
+
+            // (e) Red 대칭 — Red 탑의 앞은 −Z. 대각 앞(−Z 쪽) 이웃은 쏘고, +Z(Red 탑 뒤)는 쏘지 않는다.
+            using (var t = new TowerFixture(TeamId.Red, RaceId.Human))
+            {
+                t.Base.Positions.Units[t.Base.Attacker.Id] = FrontArcAt(-.75f, -.433f);
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == t.Base.Attacker.Id,
+                    "[ARC-e] A Red Human tower fires at the mirrored diagonal-front neighbour (-Z side).");
+            }
+            using (var t = new TowerFixture(TeamId.Red, RaceId.Human))
+            {
+                t.Base.Positions.Units[t.Base.Attacker.Id] = FrontArcAt(0f, 1.5f);
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.TowerData.AttackCooldownRemaining <= 0f,
+                    "[ARC-e] A Red Human tower does not fire at an enemy on its +Z side (behind it).");
+            }
+
+            // (R3) 위치 공급자가 뒤집힌 화면 좌표를 줘도, 판정은 도메인으로 되돌려 잰다.
+            //   도메인으로는 "정면 1.5"에 있는 적을 화면 좌표(2C − p)로 공급한다. 변환 없이 재면 탑 뒤로 보여 쏘지 않는다.
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Human, new FrontArcFlippedMapper()))
+            {
+                t.Base.Positions.Buildings[t.TowerData.Id] = FrontArcFlippedMapper.ToOther(TowerFixture.TowerPosition);
+                t.Base.Positions.Units[t.Base.Victim.Id] = FrontArcFlippedMapper.ToOther(FrontArcAt(0f, 1.5f));
+                // 같은 fixture에 남아 있는 Blue 공격자는 아군이라 후보가 아니다.
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 1 && t.Base.Launches[0].TargetId == t.Base.Victim.Id,
+                    "[ARC-R3] View-space positions from a flipped screen are normalised to domain before the angle check.");
+            }
+        }
+
+        private static void ValidateSpiritTowerIgnoresFrontArc(int spiritPower)
+        {
+            // (f) RuneSpire(Spirit AutoTower)는 360° 그대로 — 탑 뒤의 적에게도 즉발 피해.
+            using (var t = new TowerFixture(TeamId.Blue, RaceId.Spirit))
+            {
+                UnitData victim = t.Base.Victim;
+                int hp = victim.Hp;
+                t.Base.Positions.Units[victim.Id] = FrontArcAt(0f, -1.5f);
+                t.TickTower(1d);
+                Require(t.Base.Launches.Count == 0 && t.Base.VictimDamage.Count == 1
+                        && victim.Hp == hp - DamageCalculator.ApplyDefense(spiritPower, victim.Defense),
+                    "[ARC-f] A RuneSpire still attacks an enemy behind it (360 deg kept).");
             }
         }
 
