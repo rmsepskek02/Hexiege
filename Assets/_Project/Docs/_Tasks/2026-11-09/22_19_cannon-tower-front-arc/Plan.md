@@ -15,9 +15,9 @@
 
 현재 코드 상태와 근거(파일 · 행)는 [Research.md](Research.md)에 있다. 추천안은 game-programmer가 코드를 읽고 낸 것이며, **사용자 결정이 아니다.** 7절의 사용자 확인 Q1~Q14를 정한 뒤 이 Plan을 사용자가 승인해야 구현을 시작한다(WORKFLOW [4]). *(2026-11-09 — Q1~Q14는 전부 추천안으로 결정됐고(Q6은 문구 정정), 범위 표시 추가와 함께 구현이 승인됐다 → [7-1](#7-1-user-decisions).)*
 
-> **현재 상태 (2026-11-09):** **구현 승인 — 진행 중.** 결정 = [7-1](#7-1-user-decisions). 구현 · 푸시 뒤 메인 세션이 테스트 절차를 안내한다. **로그 올리기: 작업명 `cannon-tower-front-arc`**(WORKFLOW 「[6] 사용자 테스트」 — 폴더 이름 `22_19_cannon-tower-front-arc`에서 시각을 뺀 것). 규칙 문서는 아직 무변경(8절). *(종전 상태: 「사용자 확인 Q1~Q14 대기, 구현 승인 전. 코드 · 에셋 · 규칙 문서 무변경.」)*
+> **현재 상태 (2026-11-10):** **✅ 완료 — 구현 · 사용자 테스트 PASS · 규칙 문서 반영.** 커밋 · 계획과 달라진 것 · 로그 판정 · 미관측은 [12절](#12-implementation-and-user-test). 테스트 중 범위 표시 색 · 모양 변경(사용자 피드백)과 범위 밖 버그 수정(싱글이 Red로 시작 — 사용자 지시)이 더해졌다. *(2026-11-10 갱신 — 직전: 「**구현 승인 — 진행 중.** 결정 = 7-1. 구현 · 푸시 뒤 메인 세션이 테스트 절차를 안내한다. 로그 올리기: 작업명 `cannon-tower-front-arc` … 규칙 문서는 아직 무변경(8절).」 그 전: 「사용자 확인 Q1~Q14 대기, 구현 승인 전. 코드 · 에셋 · 규칙 문서 무변경.」)*
 
-> **🔴 게임 규칙 변경 — 사용자 승인 대상.** `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 2 · 11에 단서를 붙이고 규칙 14를 새로 만드는 안이다(8절). **규칙 문서는 사용자 테스트 통과 뒤 반영한다** — 이번 작업의 구현 커밋에서는 고치지 않는다.
+> **🔴 게임 규칙 변경 — 사용자 승인 대상.** `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 2 · 11에 단서를 붙이고 규칙 14를 새로 만드는 안이다(8절). **규칙 문서는 사용자 테스트 통과 뒤 반영한다** — 이번 작업의 구현 커밋에서는 고치지 않는다. *(2026-11-10 — 사용자 테스트 PASS 뒤 반영 완료 → [12-5](#12-implementation-and-user-test))*
 
 **연결 기록:** 처음 요청(2026-10-21, 기록만) — [ROADMAP](../../../ROADMAP.md) 29행 · [서버 권위 투사체 Plan 9절 F-120](../../2026-10-19/13_30_server-authoritative-projectile/Plan.md#9-follow-up-items-not-started) · [Research 15-9](../../2026-10-19/13_30_server-authoritative-projectile/Research.md#15-9-front-120-request). 그 Research의 행 번호는 지금 맞지 않는다 — 이 Task Research의 행 번호를 쓴다.
 
@@ -258,7 +258,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 | Q11 | 진단 로그 존속 | `개발` — 추천. `[TOWER-RANGE-UI]`도 같게 `[제안]` | 5절 |
 | Q12 | 스키마 | 올리지 않음(8 유지) — 추천 | — |
 | Q13 | 규칙 문안 | 규칙 14 신설 — 추천 | 8절 |
-| Q14 | `LocalPlayerTeam.Reset` 0건 | 보고만 — 추천 | 10절 |
+| Q14 | `LocalPlayerTeam.Reset` 0건 | 보고만 — 추천 *(2026-11-10 — 테스트 로그에서 버그가 실제로 재현돼 사용자 지시로 이 Task에서 고쳤다 → [12-2](#12-implementation-and-user-test))* | 10절 |
 | 범위 추가 | 탑 선택 시 공격 범위 표시 | **(가) 이번 작업에 포함** — 탑 3종 사거리 원 + Human 앞 120° 부채꼴 강조, 화면 전용 · 판정 무관 | 2절 6~9 · 3-5 · 4절 S8~S12 · 5절 T12~T16 · 9절 커밋 3 |
 | 진행 | 구현 · 푸시 · 테스트 안내 · 로그 · 업로드 이름 | 문서 갱신 뒤 바로 구현, 완료 뒤 푸시 · 테스트 절차 안내. 로그 업로드 작업명 **`cannon-tower-front-arc`**(WORKFLOW 「[6] 사용자 테스트」) | 머리 「현재 상태」 · 문서 끝 |
 
@@ -276,7 +276,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 <a id="8-post-test-rules"></a>
 ## 8. 사용자 테스트 통과 뒤 반영할 규칙 · 문서 `[제안 — 이번 구현에서는 고치지 않는다]`
 
-규칙 문안은 Research 5절 개정안이 출발점이며, Q13 결정과 실제 구현에 맞춰 다듬는다. **사용자 테스트 통과 뒤** 반영한다.
+규칙 문안은 Research 5절 개정안이 출발점이며, Q13 결정과 실제 구현에 맞춰 다듬는다. **사용자 테스트 통과 뒤** 반영한다. *(2026-11-10 — 반영 완료. 행별 결과는 [12-5](#12-implementation-and-user-test). 8행의 문서 위치는 `GameSystemRules_BuildingPanelsUI.md` 새 절 「방어탑 패널 UI」로 정했다 — 메인 세션 지시 「Plan이 정한 위치가 없으면 BuildingPanelsUI 규칙에 신설」)*
 
 | # | 문서 | 위치 | 할 일 |
 |---|---|---|---|
@@ -316,7 +316,7 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 - 밸런스 보정(공격력 · 사거리 · 쿨다운) — Q9.
 - RuneSpire · VineTower 동작 변경 — Q1.
 - 표현 코드 · RPC · 스키마 변경 — Q12.
-- `ResolveTowerMuzzle` 정리(R6), `LocalPlayerTeam.Reset` 호출 추가(Q14).
+- `ResolveTowerMuzzle` 정리(R6), `LocalPlayerTeam.Reset` 호출 추가(Q14). *(2026-11-10 — 뒤의 것은 사용자 지시로 이 Task에서 했다 → 12-2. `ResolveTowerMuzzle`은 그대로다)*
 - 규칙 문서 수정(8절 — 테스트 통과 뒤).
 
 ---
@@ -327,7 +327,107 @@ WORKFLOW [4]에 따라 `Assets/_Project/Docs/GameSystemRules.md`(인덱스)를 �
 |---|---|---|
 | 2026-11-09 | 작성. game-programmer 읽기 전용 조사의 추천안 · 커밋 분할 · 진단 로그 설계 · 테스트 시나리오 · 위험 · 질문을 옮김. 대응표에 로그로 판정할 수 없는 항목 T10(회귀 스위트) · T11(화면 궤적)을 이유와 함께 추가 | 원자료(scratchpad `cannon120-research.md`) `[전달 — 메인 세션]` · [Research 10절](Research.md) |
 | 2026-11-09 | **사용자 결정 반영 · 범위 추가.** 7-1 결정 표 신설(Q1~Q14 전부 추천안, Q6은 문구 정정 — 쿨다운은 공격하지 않는 동안에도 계속 줄어 0에서 대기 · 현행 유지, 종전 문구는 날짜 조각으로 보존). 범위 추가: 탑 선택 시 공격 범위 표시(탑 3종 원 + Human 앞 120° 부채꼴, 화면 전용) — 머리말 · 0절 선례 행 · 1절 · 2절 6~9 · 3-5 · 4절 S8~S12 · 5절 `[TOWER-RANGE-UI]` T12~T16 · 6절 R10~R13 · 8절 8~9 · 9절 커밋 3(종전 3 → 4) · 10절. 구현 중 열린 항목 U-1~U-4. 상태 「구현 승인 — 진행 중」, 로그 업로드 작업명 `cannon-tower-front-arc`. 문서 담당이 `TowerCombatUseCase.cs` 170~216 · 226~234행, `MistShrinePanelUI.cs` 240~300행, `BuildingActionPanelUI.cs` 14~22 · 160행, `GameSystemRules_BuildingPanelsUI.md` 「MistShrine 패널 UI」 제목, WORKFLOW 282~285행을 다시 읽음 | 사용자 원문 2건 `[전달 — 메인 세션]` |
+| 2026-11-10 | **구현 · 사용자 테스트 PASS · 문서 반영.** 머리 「현재 상태」 → 완료, 12절 신설(커밋 · 계획과 달라진 것 · 로그 판정 · 결정 · 문서 반영 · 미관측), Q14 · 8절 · 10절에 날짜 조각. 규칙 반영: Buildings 「방어 타워 시스템」 2 · 10 · 11 문장 추가 · 14 신설, BuildingPanelsUI 「방어탑 패널 UI」 1~3 신설, TDD ViewConverter 「관점 설정 시점」, GDD · StatsReference 각도 언급, ROADMAP 해당 행 삭제, 서버 권위 투사체 Plan F-120 · Research 15-9 상태 갱신. 문서 담당이 `df3a949` · `07a14c2` · `1e505f3` · `43b7863` · `5af1ae4` · `1c13d96` 의 `git show`와 `TowerFrontArc.cs` 전문, `TowerCombatUseCase.cs` 표적 탐색 · 사거리 메서드, `BuildingActionPanelUI.cs` 범위 표시 · 진단, `TowerRangeIndicator.cs` 머리 · 색 상수, `SinglePlayerPerspective.Apply`, `InputHandler.cs` 365~390행을 다시 읽음 | 커밋 · 로그 판정 · 사용자 원문 `[전달 — 메인 세션]` |
+| 2026-11-10 | 문서 끝에 「main 병합 전 확인」 한 줄(회귀 스위트 PASS · HEAD `1210e85` · fast-forward 47커밋). 문서 담당이 `git log origin/main..HEAD` · `HEAD..origin/main` 수와 `git diff --stat origin/main...HEAD`를 다시 셈 | 사용자 「PASS」 `[전달 — 메인 세션]` |
 
 ---
 
-완료 후 main 병합(사용자 지시 — 2026-11-09 「작업 완료되면 병합할 거니까 알고 있어」). 구현이 끝나면 푸시하고 테스트 절차를 안내한다 — **로그 올리기: 작업명 `cannon-tower-front-arc`**(사용자 지시 2026-11-09).
+<a id="12-implementation-and-user-test"></a>
+## 12. 구현 · 사용자 테스트 결과 (2026-11-10)
+
+### 12-1. 커밋
+
+| 커밋 | 내용 |
+|---|---|
+| `df3a949` | 판정(9절 커밋 1): 새 `Scripts/Application/Combat/TowerFrontArc.cs`, `TowerCombatUseCase.FindNearestEnemyUnit`에 「Human이면 사거리 안 · 범위 밖 후보를 건너뜀」 조건(방향 계산 전 도메인 정규화), C-2 Red fixture 유닛 위치 (0.1, 0, 0.1) → (0.6, 0, −2.4), 새 회귀 케이스 ARC-a~f · ARC-R3 |
+| `07a14c2` | 진단(커밋 2): `TowerCombatUseCase.ArcDiagnostics.cs` — `[TOWER-ARC]` Fire · HoldBegin · HoldEnd · End(`DiagRev=1`) |
+| `1e505f3` | 범위 표시(커밋 3): 새 `Scripts/Presentation/Effects/TowerRangeIndicator.cs`, `BuildingActionPanelUI.cs` 표시 · 숨김 · `[TOWER-RANGE]` 진단, `TowerCombatUseCase` 사거리 환산을 한 곳으로 옮기고 읽기 전용 `GetTowerRangeDisplay` 추가, `GameBootstrapper.Setup.cs` 공급 함수 배선 |
+| `44629c1` | 사용자 커밋 — 새 스크립트 · Task 문서 · 로그 폴더의 `.meta`만 |
+| `43b7863` (+ 병합 `67ebe81`) | 범위 표시 색 · 모양 변경(테스트 중 사용자 피드백 — 12-4). 옛 색 상수 · 메시 호출은 주석 처리(WORKFLOW [4] 비활성화 우선) |
+| `5af1ae4` | 범위 밖 버그 수정(사용자 지시 — 12-4): 새 `Scripts/Bootstrap/SinglePlayerPerspective.cs`, `GameBootstrapper.Map.cs` 싱글 분기 · `GameBootstrapper.Network.cs` `[LOCAL-TEAM] MatchStart` 진단, 회귀 `RunUnitActionSelfValidation.LocalTeamReset.cs` L-1~L-4 |
+| `da31980` | `.claude/mistakes.md` 실수 기록 — 테스트 안내에 한 판에서 불가능한 「다른 종족 탑 전환」 절차를 적음 |
+| `1c13d96` | `43b7863`에서 주석 처리한 옛 범위 표시 색 코드 최종 삭제(사용자 테스트 PASS 뒤, 이 문서 반영 전 — WORKFLOW [4] 「기존 로직 제거 규칙」) |
+| 9절 커밋 4 | 이 문서 반영(규칙 · 상시 문서 · 메모리) — 메인 세션이 커밋한다 |
+
+### 12-2. 계획과 달라진 것
+
+| 항목 | 계획 | 실제 |
+|---|---|---|
+| 정면 · 각도 정의 위치 (2절 2) | `ProjectileDeliveryContracts.cs`의 `ProjectileSettings` 옆 헬퍼 | **새 파일 `TowerFrontArc.cs`**(정적 — `AppliesTo` · `ResolveDomainForward` · `IsInFrontArc` · 상수 `HalfAngleDeg` 60 · `CosTolerance` 0.001 · `MinFrontDot` 0.499). 판정과 범위 표시가 함께 읽으므로 투사체 계약 파일에 두지 않았다(파일 머리 주석). `ResolveTowerMuzzle`은 그대로(R6) |
+| 겹친 유닛 (U-4) | 구현 때 정함 | 수평 거리² < 1e-6(0.001 m 미만)이면 **범위 안**으로 본다 |
+| 도메인 정규화 (3-2) | 방향 계산 직전 두 위치 정규화 | 위치 공급자(화면 좌표)에서 온 위치만 `NormalizeToDomainPosition`. `HexToWorld` 대체 위치는 이미 도메인이라 그대로 |
+| 경기 종료 End 줄 (2절 4) | `GameBootstrapper` · `NetworkCombatController` 두 경로 + 중복 방지 | `GameBootstrapper`의 `OnGameEnd` 구독 **한 곳**(싱글 · 멀티 Host 공통). 중복 방지 · Client 생략은 `DiagArcWriteEnd` 안 |
+| 범위 표시 배선 (U-3, 2절 8) | 씬 오브젝트 / Setup 메뉴 / 런타임 중 미정 | **런타임 생성**(`TowerRangeIndicator.CreateRuntime()`), 코드 메시 + Resources `NoBuildHatch.mat` 복사본(지면 데칼 셰이더), 높이 Y 0.06. 씬 · 프리팹 · Inspector · 새 에셋 없음 |
+| 반경 원본 (3-5) | 판정과 같은 경로 | 사거리 환산식을 `TryResolveAttackRangeWorld` 한 곳으로 옮기고(식 · 값 무변경), 표시는 `GetTowerRangeDisplay`로 읽는다 |
+| 범위 표시 진단 이름 (5절 T12~T16) | `[TOWER-RANGE-UI]`, `RadiusMatch` | **`[TOWER-RANGE]`**(`Diag=TowerRangeDisplay, DiagRev=1`) Show · Hide · ShowSkipped. Show 칸: `JudgeRange` · `DisplayRadius`(같은 값 — 일치 판정은 두 칸 비교), `FrontArc` · `HalfAngleDeg` · `DomainForward` · `ViewForward` · `ScreenForward` · `ViewFlipped` · `LocalTeam`. Hide `Reason` = PanelClosed · Demolish · TowerDied · GameEnd · GameStart · NotTower · Retarget · NoRange |
+| 상대 탑 (U-1) | 확인 후 보고 | 해당 없음 — 패널은 내 팀의 살아 있는 건물에서만 열린다(`InputHandler.cs` 사전 검사 — 문서 담당 확인) |
+| 탑 파괴 (U-2) | 확인 후 보고 | 패널이 파괴를 감지해 숨김 사유 `TowerDied`로 닫는다 |
+| 범위 표시 모양 (1절 · 3-5) | 탑 3종 사거리 원 + Human 120° 부채꼴 강조 | `1e505f3`은 계획대로(흰빛 원 RGBA 255, 255, 235 + 주황 부채꼴). 사용자 피드백으로 `43b7863`: **Human = 붉은 120° 부채꼴만, 360° 탑 = 붉은 원만, 회색(흰빛) 원 없음** — 채움 (235, 45, 35, 64) · 테두리 (255, 70, 55, 220) |
+| Q14 · 10절 「`LocalPlayerTeam.Reset` 호출 추가 안 함」 | 보고만 | 테스트 로그에서 싱글이 `LocalTeam=Red, ViewFlipped=true`로 재현돼 사용자 지시로 `5af1ae4`에서 고쳤다 — 싱글 `LoadMap`에서 Blue로 되돌림(멀티 경기 끝에서는 되돌리지 않음 — 재접속 · 결과 화면이 로컬 팀을 읽는다) |
+
+### 12-3. 사용자 테스트 판정 `[전달 — 메인 세션 로그 판정]`
+
+로그는 사용자가 이전 작업명에 숫자만 바꿔 올렸다 — 사용자 원문 「작업명을 이전에 했던 거에 숫자만 변경해서 올렸어 참고해 줘」(이 Plan 머리의 `cannon-tower-front-arc`가 아니다).
+
+| 보관본 | 판정 요지 |
+|---|---|
+| `vfx-test3_01` (ZIP `e5ebf774…`, manifest `1ffc6aa0…`) | 멀티: 인간 탑 발사 **54/54 범위 안**, 최대 55.24°, excludedCloser 15, `[TOWER-ARC] End Verdict=PASS`. Client Red 범위 표시 반경 3.514 = 판정 사거리, `ScreenForward=Up`. 숨김 `PanelClosed` · `Demolish`. 싱글(기기): `Role=Single LocalTeam=Red ViewFlipped=true` — **싱글 팀 버그 재현**(12-2 마지막 행) |
+| `vfx-test4_01` (ZIP `7c033d90…`, manifest `df513f47…`) | 에디터 Client 2판 뒤 싱글 `[LOCAL-TEAM] Reason=StaleFromPreviousMatch PrevTeam=Red` → `LocalTeam=Blue ViewFlipped=false`. 새 실행 싱글 `AlreadyDefault` 3회. 멀티 Host Blue · Client Red/뒤집힘 유지. 싱글 인간 탑 10발 전부 범위 안(최대 42°), 대기 1회(heldTicks 536), excludedCloser 13. 범위 표시 Blue 화면 `ScreenForward=Up`, 정령 · 초월 탑은 원만, 숨김 `TowerDied` 관측. 기기 최신 세션에는 새 진단이 없어 기기는 수정 전 빌드로 추정 `[추정 — 메인 세션]` — 버그 수정은 에디터에서 확인 |
+
+| 시나리오 (4절) | 판정 | 근거 |
+|---|---|---|
+| S1 앞쪽 적 공격 | PASS | 싱글 10발 · 멀티 54발 모두 범위 안 |
+| S2 뒤에만 적 → 대기 | PASS(관측 1회) | 싱글 대기 1회 heldTicks 536. 대기가 풀린 이유(`HoldEnd Reason`)는 전달된 판정에 없음 |
+| S3 앞으로 들어오면 바로 발사 | 전달된 판정에 없음 | 판정 보장은 fixture ARC-a |
+| S4 앞 · 뒤 동시 → 앞 적 | PASS | excludedCloser 15(멀티) · 13(싱글) |
+| S5 멀티 양쪽 | PASS(로그 · 육안) | 54/54 범위 안 · Verdict=PASS · 사용자 육안 정상. Red 탑 발사만 따로 센 수는 전달된 판정에 없음 |
+| S6 RuneSpire 360° | 전달된 판정에 없음 | 판정 보장은 fixture ARC-f(`ValidateSpiritTowerIgnoresFrontArc`) |
+| S7 회귀 스위트 | PASS(규칙) | 사용자 무언급 → PASS(WORKFLOW 「[6] 사용자 테스트」). 결과 파일 없음(Console만) · 에이전트 미관측 |
+| S8 선택 → 표시 · 해제 → 숨김 | PASS | Show `ScreenForward=Up` · Hide `PanelClosed` · 사용자 육안 |
+| S9 정령 · 초월 원만 | PASS | 전달된 판정 「정령 · 초월 원만」 |
+| S10 파괴 · 경기 종료 때 숨김 | 부분 PASS | `TowerDied` 관측. 경기 종료(`GameEnd`) 숨김은 전달된 판정에 없음 |
+| S11 Client Red 위치 · 방향 | PASS | 반경 3.514 = 판정 사거리, `ScreenForward=Up` · 사용자 육안 |
+| S12 다른 탑 · 건물로 전환 | 전달된 판정에 없음 | — |
+| (추가) 철거 때 숨김 | PASS | `Demolish` 관측 |
+| (추가) 싱글 팀 초기화 | PASS(에디터) | `StaleFromPreviousMatch` → Blue/비반전, `AlreadyDefault` 3회, 멀티 역할 유지. 기기는 수정 전 빌드 `[추정]` |
+
+- **사용자 판정:** 육안 「잘 작업된 것」 · 「테스트했는데 정상」. 위 로그 판정과 합쳐 **사용자 테스트 PASS**.
+- **로그로 판정할 수 없는 항목(5절 T8 · T10 · T11 · T15):** 발사 뒤 대상이 범위 밖으로 나가도 명중, 화면 궤적(Homing 휨 — R7), 원 · 부채꼴 모양은 육안 또는 미관측.
+- **범위 밖 관찰 (기록만):** `[UAS-MOVE-AUTH] verdict=FAIL` 3회 — 이동 기록 0(frames/move 0), 오류 0, 유닛을 쓰지 않은 경기 포함. 사용자 「특별히 문제없었고 유닛을 사용하지 않은 경기도 있었어. 현재 작업과 무관한 걸로 작업 진행에 방해하지 않으면 좋겠어」 → 이 Task에서 다루지 않는다.
+
+### 12-4. 테스트 중 사용자 결정 `[전달 — 메인 세션]`
+
+| 원문 | 반영 |
+|---|---|
+| 「공격 범위 색상은 붉은색 계열, 포탑의 경우 120도만 나오도록, 그 외에 다른 회색으로 보이는 부분은 안 나오면 좋겠어」 | `43b7863` → `1c13d96`(옛 코드 삭제). 규칙 BuildingPanelsUI 「방어탑 패널 UI」 규칙 2 |
+| 「버그도 같이 고쳐서 푸시해 줘」 (싱글이 Red로 시작) | `5af1ae4`. TDD ViewConverter 「관점 설정 시점」 |
+| 진단 로그 존속 | Q11 `개발` — `[TOWER-ARC]`. `[TOWER-RANGE]` · `[LOCAL-TEAM]`도 개발 빌드 · 에디터 전용(`GameLog.Dev` + `Conditional`)으로 구현됐다 `[확인 — 코드]` |
+| `[UAS-MOVE-AUTH]` FAIL 관찰 | 무시 · 기록만(12-3) |
+
+### 12-5. 문서 반영 (8절 대응)
+
+| 8절 # | 결과 |
+|---|---|
+| 1 규칙 2 | 단서 문장 추가 |
+| 2 규칙 11 | 도메인 정면(Blue +Z / Red −Z) 문단 추가 |
+| 3 규칙 14 | 신설 「Human CannonTower 전방 사격 범위」(새 소제목 「전방 사격 범위」) |
+| 4 ROADMAP 29행 | 행 삭제(ROADMAP은 이력 문서가 아니다) |
+| 5 F-120 · Research 15-9 | 상태 칸 · 제목을 완료로 갱신(날짜 조각) |
+| 6 GDD · StatsReference | GDD 「4. 방어 타워」 1문장, StatsReference 「방어 건물」 표 아래 각도 메모 |
+| 7 Status · History · 메모리 | PROJECT_STATUS 행, WORK_HISTORY 행, 공용 · game-programmer · document-manager 메모리 |
+| 8 범위 표시 규칙 | `GameSystemRules_BuildingPanelsUI.md` 새 절 「방어탑 패널 UI」 규칙 1 · 2 · 3. 「방어 타워 시스템」 규칙 10에 안내 1문장. AGENTS · GameSystemRules 인덱스 한 줄 갱신 |
+| 9 Research 1-2 | 이미 날짜 조각 있음 — 추가 변경 없음 |
+| (추가) 싱글 팀 초기화 | `TechnicalDesignDocument.md` 「ViewConverter 시스템」에 사실 1항목 |
+
+### 12-6. 남은 것 · 미관측
+
+- 기기 빌드에서 싱글 팀 초기화 — 기기 최신 세션은 수정 전 빌드로 추정, 기기 확인 기록 없음.
+- S3 · S6 · S12, 경기 종료 숨김, 발사 뒤 대상 이탈 명중, Homing 궤적 휨 — 이번 회차 미관측(판정은 fixture 또는 미판정).
+- 밸런스(인간 탑 실질 화력 감소 — Q9)는 하지 않았다.
+- `BuildingActionPanelUI.cs` 머리 주석의 2026-11-09 블록 「탑 3종 모두 사거리 원, 인간 대포탑은 그 위에 전방 120° 부채꼴」은 `43b7863` 이전 모양이다(코드 주석이라 문서 담당은 고치지 않았다 — 보고만).
+
+---
+
+완료 후 main 병합(사용자 지시 — 2026-11-09 「작업 완료되면 병합할 거니까 알고 있어」). *(2026-11-10 — 구현 · 테스트 · 문서 반영 완료. 병합 실행은 사용자 지시에 따른다. 종전 이 줄 뒷부분 「구현이 끝나면 푸시하고 테스트 절차를 안내한다 — 로그 올리기: 작업명 `cannon-tower-front-arc`」는 실행됐고, 사용자는 로그를 `vfx-test3` · `vfx-test4`로 올렸다 — 12-3)*
+
+**main 병합 전 확인 (2026-11-10, [전달 — 메인 세션]):** 브랜치 HEAD `1210e85`에서 `Hexiege > Combat > Run Full Regression Suite` 실행 → 사용자 「PASS」(결과 파일 없음 — Console만, 에이전트 미관측). 브랜치는 `origin/main` `6e1d316`에 없는 커밋 47개 · main 쪽 새 커밋 0개(fast-forward) · 239파일이며, 이 기록 커밋 직후 메인 세션이 main에 병합 · 푸시한다(지원 스킬 기반 · EMP · 스킬 VFX 높이 · 이 작업 · 탑 공격 연출 재구성 · 효과음 1단계 포함).

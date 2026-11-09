@@ -151,7 +151,7 @@
 
 ### 4. 방어 타워 (AutoTower)
 
-고정 위치에서 적을 자동 공격해 전선을 지킨다. 종족별 타워는 AutoTower를 공유하되 표현은 종족 키로 선택한다. Transcendence 타워는 **VineTower**이며 MistShrine과 별개다. 타워 단계 확장은 별도 기획 대상이다. [동작 원본](GameSystemRules/GameSystemRules_Buildings.md#방어-타워-시스템).
+고정 위치에서 적을 자동 공격해 전선을 지킨다. 종족별 타워는 AutoTower를 공유하되 표현은 종족 키로 선택한다. Transcendence 타워는 **VineTower**이며 MistShrine과 별개다. Human CannonTower는 포신이 향한 정면 120° 안의 적만 공격하고, RuneSpire · VineTower는 360°를 공격한다(2026-11-10). 타워 단계 확장은 별도 기획 대상이다. [동작 원본](GameSystemRules/GameSystemRules_Buildings.md#방어-타워-시스템).
 
 ### 5. MistShrine (물안개 신전) — 초월 전용 힐 건물
 

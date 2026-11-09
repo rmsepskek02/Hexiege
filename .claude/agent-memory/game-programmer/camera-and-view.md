@@ -11,9 +11,15 @@ type: project
 - 공식: `viewPos = 2 * mapCenter - domainPos` (자기 역함수)
 - 방향 반전: `FlipDirection(dir) = (dir + 3) % 6` (Red팀만)
 - 초기화 순서: StartNetworkGame() → ViewConverter.Setup(isRed, mapCenter) → LoadMap()
-- LoadMap() 내 싱글플레이만 ViewConverter.Reset() (네트워크는 Setup 유지)
+- 싱글: `LoadMap()` 싱글 분기에서 `SinglePlayerPerspective.Apply(mapCenter)`가 `LocalPlayerTeam.Reset()`(Blue) 뒤 `ViewConverter.Setup(false, mapCenter)` (네트워크는 Setup 유지) *(2026-11-10 갱신 — 종전 「LoadMap() 내 싱글플레이만 ViewConverter.Reset()」. 2026-03-20부터 이미 LocalPlayerTeam 기반 Setup이었고, `5af1ae4`에서 Reset 지점이 생겼다 — 아래 절)*
 - 적용 위치: HexGridRenderer, UnitFactory, BuildingFactory, UnitView, InputHandler, ProductionTicker
 - 도메인 좌표는 항상 Blue 기준 — 뷰 레이어에서만 반전
+
+## LocalPlayerTeam reset point — single start, not network end (2026-11-10, `5af1ae4`)
+- `LocalPlayerTeam` (Infrastructure) and `ViewConverter` (Core) are **static** — they survive scene reloads until the process exits. Before `5af1ae4` nothing ever called `LocalPlayerTeam.Reset()`, so a single match started after a network Client (Red) match in the same run came up as **Red with a flipped view** (device log `Role=Single, LocalTeam=Red, ViewFlipped=true`). First noted 2026-10-13 (rally Plan 86) and again in the cannon-arc Research 1-5 as "unverified" — it took a diagnostic line carrying `LocalTeam`/`ViewFlipped` to prove it.
+- Fix: reset **where the stale value is read** — the single branch of `GameBootstrapper.LoadMap` → `Bootstrap/SinglePlayerPerspective.Apply` (Reset, then Setup). Single never calls `Set`, so Blue is always right there. **Do not reset at network match end**: `ReconnectionHandler` and the result screen still read the local team after the match. Network starts re-`Set` (NetworkGameFlow) and re-`Setup` (StartNetworkGame) every match.
+- Diagnostic `[LOCAL-TEAM] MatchStart` (`Reason=StaleFromPreviousMatch` / `AlreadyDefault` / `NetworkAssigned`); regression L-1~L-4 in `Editor/Tools/Combat/RunUnitActionSelfValidation.LocalTeamReset.cs`.
+- Lesson: any judgment that compares a **Transform (view) position** with a **domain direction** (Blue +Z) must normalise through `IHexCoordinateMapper.NormalizeToDomainPosition` first — the cannon arc check does (R3) and stayed correct even while the bug existed.
 
 ## XZ 좌표계 (Phase 1)
 - HexMetrics.HexToWorld(): `new Vector3(x, 0f, z)`

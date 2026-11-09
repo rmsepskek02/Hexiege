@@ -69,6 +69,15 @@ UI/마커(전부 Presentation 로컬):
   경로만 남아 있고, GameObject 쪽 목록 필드는 **`.cs` 전체와 세 씬에서 0건**이다(2026-10-01 실측).
   「다른 패널로 복제 금지」는 그대로 유효하다 — 복제할 원본 자체가 없어진 것이다.
 
+## Human cannon front arc + tower range display (2026-11-09~10, `_Tasks/2026-11-09/22_19_cannon-tower-front-arc/` Plan §12)
+- **Single source** `Scripts/Application/Combat/TowerFrontArc.cs` (static, Application): `AppliesTo(type, race)` = AutoTower + Human only; `ResolveDomainForward(team)` Blue +Z / Red −Z (same sign rule as `ProjectileSettings.ResolveTowerMuzzle`, which was left untouched); `IsInFrontArc` uses the XZ dot ≥ `MinFrontDot` = 0.5 − 0.001. The tolerance is required: with `TileHeight` 0.866 (not √3/2) the FlatTop diagonal-front neighbour is **60.0007°** (dot 0.499989) and a strict `≥ 0.5` drops the whole diagonal. Overlap (XZ dist² < 1e-6) counts as in-arc.
+- Judgment: `TowerCombatUseCase.FindNearestEnemyUnit` — range check → (Human) arc check → nearest. Only **provider (Transform = view) positions** are normalised to domain; the `HexToWorld` fallback already is domain. Out-of-arc only → null → existing flow: no fire, cooldown keeps ticking, no recharge. C-6 source-gate lines, `ExecuteTowerAttack` signature and the 5-arg constructor were kept on purpose (Editor fixtures/reflection).
+- Range display shares the judgment source: range conversion moved into `TryResolveAttackRangeWorld`, read-only `GetTowerRangeDisplay` for the panel (safe on Client — only `Tick` is server-only). `BuildingActionPanelUI` gets it through `SetTowerRangeSource(() => _towerCombat)` in `GameBootstrapper.Setup` (lambda reads the current UseCase after map reloads; no `IGameServices` change). Forward on screen = `ToView(center + forward) − ToView(center)` so the Red screen still points up.
+- `TowerRangeIndicator` is **runtime-created** (no scene/prefab): code meshes with vertex colours on a **copy** of Resources `NoBuildHatch.mat` (SkillAimOverlay decal shader, ZTest LEqual — never Always), Y 0.06 (tile top 0.05 is opaque). User's final look: cannon = red 120° sector only, 360° towers = red ring only, no grey/white base ring — fill (235,45,35,64), edge (255,70,55,220).
+- Hide on **every** close path via `OnBeforeClose` with a pending reason (PanelClosed · Demolish · TowerDied · GameEnd · GameStart · NotTower · Retarget · NoRange). Only own living buildings open the panel (`InputHandler` pre-check), so enemy ranges never show.
+- Diagnostics (`개발`): `[TOWER-ARC]` Fire/HoldBegin/HoldEnd/End (server only; End from one `OnGameEnd` subscription in `GameBootstrapper` — block-body lambda so `[Conditional]` is stripped in release), `[TOWER-RANGE]` Show/Hide (both peers; `JudgeRange` vs `DisplayRadius`, `ScreenForward`). Regression: ARC-a~f, ARC-R3 (flipped mapper), C-2 Red unit moved to (0.6, 0, −2.4).
+- Stale comment left: `BuildingActionPanelUI.cs` header 2026-11-09 block still describes the pre-`43b7863` look (ring for all + arc on top).
+
 ## 팀별 초상화 동적 업데이트 (2026-03-14)
 - ProductionPanelUI: UpdateButtonPortraits(TeamId) — Show(barracks) 시 교체
 - BuildingPlacementUI: UpdateButtonPortraits(TeamId) — Show(coord, team) 시 교체

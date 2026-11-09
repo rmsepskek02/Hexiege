@@ -39,7 +39,7 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Network.md` | 역할에 무관한 제품 동작·이탈/승패 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI·팝업·로딩 규칙 원본 및 기존 UI 참조 안내 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_MatchFlowUI.md` | 경기 준비 실패·결과·재경기 화면의 M/D 규칙 원본 |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_BuildingPanelsUI.md` | 생산·MistShrine·건물 배치 패널 규칙 원본 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_BuildingPanelsUI.md` | 생산·MistShrine·방어탑 범위 표시·건물 배치 패널 규칙 원본 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_SettingsUI.md` | 인게임·로비 설정·프로필 UI 규칙 원본 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_MatchFlow.md` | 맵 전송·실패 복구·재경기·결과 화면/재로드 이탈 운영 규칙 원본 |
 | `Assets/_Project/Docs/TechnicalDesignDocument_Network.md` | 네트워크 상세 기술 — Netcode·동기화·맵 데이터 계약·서버 권위 투사체 전송·이탈 판정 구조·치팅 방어 |
