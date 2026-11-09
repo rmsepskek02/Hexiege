@@ -162,8 +162,8 @@
   **상태 `m_Speed`=0 이면 첫 프레임 동결**), Shader Graph, HexTileView, 팀 프리팹,
   **범위 표시 스프라이트 기준 크기는 `sprite.bounds.size`(캐시 금지)**
 - [3d-transition.md](3d-transition.md) — XZ 좌표계 전환, Phase별 수정 파일
-- [camera-and-view.md](camera-and-view.md) — 카메라 틸트, ViewConverter, 경계 클램프
-- [gameplay-systems.md](gameplay-systems.md) — 랠리포인트 구조 맵, 초상화 동적 업데이트,
+- [camera-and-view.md](camera-and-view.md) — 카메라 틸트, ViewConverter, 경계 클램프, **LocalPlayerTeam 리셋 지점 = 싱글 시작(2026-11-10)**
+- [gameplay-systems.md](gameplay-systems.md) — 랠리포인트 구조 맵, 초상화 동적 업데이트, **인간 대포탑 전방 120° `TowerFrontArc` · 탑 범위 표시 런타임 메시(2026-11-10)**,
   **MistShrine 에디터 셋업 메뉴 순서**
 - [skill-aim-coordinate.md](skill-aim-coordinate.md) — 스킬 지점 조준 좌표화(HexCoord→Vector3),
   지면 데칼 셰이더 `Hexiege/SkillAimOverlay`, 취소 판정 버그 (2026-08-04)

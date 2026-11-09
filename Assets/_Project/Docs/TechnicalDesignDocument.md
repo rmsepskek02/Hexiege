@@ -148,6 +148,7 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 - **특징**: 스프라이트/메시 자체는 뒤집히지 않음 — 위치(Position)만 반전
 - **입력 역변환**: `ScreenToWorldPoint` 결과도 `FromView()`로 역변환 필요
 - **방향 반전**: 유닛 FacingDirection도 Red팀에서 FlipDirection() 적용 (NE↔SW, E↔W, SE↔NW)
+- **관점(로컬 팀 · 반전) 설정 시점**: `LocalPlayerTeam`(Infrastructure)과 `ViewConverter`는 static이라 씬을 다시 불러와도 앱이 꺼질 때까지 값이 남는다. 멀티는 경기마다 `NetworkGameFlow`가 팀을 `Set`(Host Blue · Client Red)하고 `GameBootstrapper.StartNetworkGame`이 `ViewConverter.Setup`을 다시 한다. 싱글은 `GameBootstrapper.LoadMap` 싱글 분기에서 `SinglePlayerPerspective.Apply`(Bootstrap)가 `LocalPlayerTeam.Reset()`으로 Blue로 되돌린 뒤 비반전으로 `Setup`한다 — 싱글에는 `Set` 호출이 없으므로 싱글의 로컬 팀은 언제나 Blue다. 멀티 경기 끝에서 되돌리지 않는 이유: 재접속 처리와 결과 화면이 경기 직후에도 로컬 팀을 읽는다. 진단 로그 `[LOCAL-TEAM] MatchStart`(`Reason=StaleFromPreviousMatch` / `AlreadyDefault` / `NetworkAssigned`), 회귀 검사 L-1~L-4(`RunUnitActionSelfValidation.LocalTeamReset.cs`). *(2026-11-10 추가 — `5af1ae4`. 종전에는 `Reset()` 호출처가 0건이라 같은 실행에서 멀티 Client(Red) 경기 뒤 싱글을 시작하면 싱글이 Red · 뒤집힌 화면으로 시작했다(기기 로그 재현). 근거: [전방 120° Task Plan 12절](_Tasks/2026-11-09/22_19_cannon-tower-front-arc/Plan.md#12-implementation-and-user-test))*
 
 ---
 

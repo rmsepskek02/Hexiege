@@ -10,7 +10,7 @@
 
 > **🔴 게임 규칙이 바뀌는 작업이다.** `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 2(타겟 선택 기준)에 단서가 붙고, 규칙 11(초기 회전)에 「정면」의 도메인 정의가 붙으며, 규칙 14(전방 사격 범위)를 새로 만드는 안이다([5절](#5-related-rules)). 규칙 변경은 사용자 승인 대상이며, **규칙 문서는 사용자 테스트 통과 뒤에 반영한다**(Plan 8절). 이번에는 고치지 않았다.
 
-> **현재 상태 (2026-11-09):** **구현 승인 — 진행 중.** Q1~Q14 전부 추천안(Q6 문구 정정), 범위 추가: 탑 선택 시 공격 범위 표시 → [Plan 7-1](Plan.md#7-1-user-decisions). 규칙 문서는 아직 무변경. *(종전: 「사용자 확인 Q1~Q14 대기, 구현 승인 전. 코드 · 에셋 · 규칙 문서 무변경.」)*
+> **현재 상태 (2026-11-10):** **✅ 완료 — 구현 · 사용자 테스트 PASS · 규칙 문서 반영**(「방어 타워 시스템」 규칙 2 · 11 문장 추가 · 14 신설, 건물 패널 「방어탑 패널 UI」 신설) → [Plan 12절](Plan.md#12-implementation-and-user-test). 아래 조사 본문은 조사 당시(HEAD `1e28526`) 기록이며 바꾸지 않았다. *(2026-11-10 갱신 — 직전: 「**구현 승인 — 진행 중.** Q1~Q14 전부 추천안(Q6 문구 정정), 범위 추가: 탑 선택 시 공격 범위 표시 → Plan 7-1. 규칙 문서는 아직 무변경.」 그 전: 「사용자 확인 Q1~Q14 대기, 구현 승인 전. 코드 · 에셋 · 규칙 문서 무변경.」)*
 
 **사용자 지시 (2026-11-09, 원문 — 메인 세션 전달):** 「인간 대포탑 전방 120° 공격 제한까지 진행하고 메인에 병합 준비하자」 → 범위 확인 뒤 「(가)를 말한 것이고 task 문서 작성해서 진행할 거야. 작업 완료되면 병합할 거니까 알고 있어」 `[전달 — 메인 세션]`.
 
@@ -78,6 +78,7 @@
 - `IEntityPositionProvider` 구현은 **GameObject Transform 위치 = 화면(뷰) 좌표**를 돌려준다 `[전달]` `Scripts/Infrastructure/UnitWorldPositionProvider.cs` 35~48행.
 - 서버(Host)는 항상 Blue라 뷰 = 도메인이다 `[전달]` `Scripts/Infrastructure/Network/NetworkGameFlow.cs` 189행(`IsHost ? Blue : Red`). 싱글은 `LocalPlayerTeam.Current`(기본 Blue)로 반전 여부를 정한다 `[전달]` `GameBootstrapper.Map.cs` 184~187행.
 - ⚠️ **`LocalPlayerTeam.Reset()`을 부르는 곳이 저장소 코드에 0건이다** `[확인 — 검색: 일치는 2026-10-13 랠리 Task Plan 86행의 문서 1건뿐, 정의는 `Scripts/Infrastructure/Network/LocalPlayerTeam.cs` 60행]`. 그래서 「같은 실행 안에서 멀티 Client(Red)로 한 판 한 뒤 싱글을 시작하면 싱글 화면이 반전된 채일 수 있다」는 가능성이 있다 `[추정 — 미검증, 다른 경로에서 값이 바뀌는지 끝까지 따라가지 않았다]`. 그 경우 Transform 위치는 반전된 뷰 좌표인데 「Blue = +Z」는 도메인 기준이라 **방향이 정반대로 판정된다**(거리는 점대칭이라 그대로). 기존 포구 계산(`ResolveTowerMuzzle`)도 같은 가정을 쓴다.
+  - *(2026-11-10 — 이 가능성은 **실제로 재현됐다**: 기기 싱글 로그 `[TOWER-RANGE] Show … Role=Single, LocalTeam=Red, ViewFlipped=true`(`vfx-test3_01`). 사용자 지시로 `5af1ae4`에서 싱글 `LoadMap`이 `SinglePlayerPerspective.Apply`로 Blue · 비반전으로 되돌리게 고쳤고, 에디터에서 `[LOCAL-TEAM] Reason=StaleFromPreviousMatch PrevTeam=Red` → Blue 확인(`vfx-test4_01`) → [Plan 12-2 · 12-3](Plan.md#12-implementation-and-user-test). 방향 판정은 그와 별개로 도메인 정규화(R3)로 보호된다)*
   - *문서 담당 확인:* 같은 사실(호출처 0건 · Red 잔존 가능성 · 실행 미확인)은 [2026-10-13 랠리 Task Plan](../../2026-10-13/10_37_rally-point-fix/Plan.md) 86행에 이미 「이번 범위 밖, 수정하지 않음」으로 기록돼 있다 — 이번이 첫 발견은 아니다. 이번 작업에서도 **범위 밖 — 보고만**(Plan Q14).
 - 레이어 규칙을 지키며 이 위험을 피하는 수단이 이미 있다: `IHexCoordinateMapper.NormalizeToDomainPosition`(= `ViewConverter.FromView`) `[전달]` `Scripts/Application/Interfaces/IHexCoordinateMapper.cs` 58~66행, 선례 `UnitCombatUseCase.cs` 1315행 · `TileOwnershipService.cs` 146행. 방향을 계산하기 전에 두 위치를 도메인으로 바꾸면 반전 여부와 무관해진다 `[제안]`.
 
@@ -233,8 +234,8 @@ fixture 탑 위치 = (0.6, 0.1, −0.9) `[확인]` 625행. Blue 유닛(fixture �
 <a id="9-unverified"></a>
 ## 9. 이번 조사에서 확인하지 않은 것
 
-- 회귀 스위트 · fixture를 **실행하지 않았다** — C-2 Red 실패와 C-2 Blue 통과는 산술 판단이다.
-- `LocalPlayerTeam.Current`가 멀티 뒤 싱글에서 실제로 Red로 남는지 — 실행 미확인(1-5).
+- 회귀 스위트 · fixture를 **실행하지 않았다** — C-2 Red 실패와 C-2 Blue 통과는 산술 판단이다. *(2026-11-10 — 구현 커밋 `df3a949`에서 C-2 Red 유닛 위치를 (0.6, 0, −2.4)로 옮겼고, 사용자 테스트의 회귀 스위트는 PASS(사용자 무언급 규칙 — 결과 파일 없음))*
+- `LocalPlayerTeam.Current`가 멀티 뒤 싱글에서 실제로 Red로 남는지 — 실행 미확인(1-5). *(2026-11-10 — 테스트 로그에서 재현 확인 · `5af1ae4`로 수정 → 1-5 조각)*
 - Homing 비행 중 대상이 탑 뒤로 돌아갈 때의 궤적 모양 — 실기 미관측(3절).
 - 싱글에서 「적이 탑 뒤에 서는」 상황이 매번 재현되는지 — AI 경로에 좌우된다(Plan 4절).
 - 문서 담당이 다시 읽지 않은 행(표의 `[전달]`)은 프로그래머 보고를 그대로 옮겼다.
@@ -247,3 +248,4 @@ fixture 탑 위치 = (0.6, 0.1, −0.9) `[확인]` 625행. Blue 유닛(fixture �
 |---|---|---|
 | 2026-11-09 | 작성. game-programmer 읽기 전용 조사를 옮김. 문서 담당이 HEAD `1e28526`에서 `TowerCombatUseCase.cs` 155~160 · 185~198 · 238~250 · 262~274행, `BuildingFactory.cs` 231~248행, `ProjectileDeliveryContracts.cs` 443~460행, `ServerProjectiles.cs` 136~140 · 625 · 708~722행, `UnitAttackShadowProfileResolver.cs` 33행, `GameSystemRules_Buildings.md` 90~234행, ROADMAP 29행, 서버 투사체 Plan F-120 · Research 15-9 앵커를 다시 읽고, 각도 수치(60.0007° · 70.7° · 56.3° · 153.4° · 60.07° · 3.514 m)를 다시 계산함. 원자료와 다른 점 2건: 규칙 12 범위 193~202 → 193~215, `LocalPlayerTeam.Reset` 0건은 2026-10-13 랠리 Plan 86행에 이미 기록됨 | 원자료(scratchpad `cannon120-research.md`) `[전달 — 메인 세션]` |
 | 2026-11-09 | 사용자 결정 반영: 머리 상태 → 「구현 승인 — 진행 중」, 3절 「뒤에만 있을 때」 행에 쿨다운 표현 정정 조각(174~176 · 196~197 · 213~214행 재확인), 1-2 「사거리 표시 UI」 행에 범위 편입 조각 + 18행 `[전달]` → `[확인]`. 본문 조사 내용은 바꾸지 않음 | 사용자 원문 2건 `[전달 — 메인 세션]` · [Plan 7-1](Plan.md#7-1-user-decisions) |
+| 2026-11-10 | 완료 반영: 머리 상태 → 완료, 1-5 · 9절에 재현 · 수정 조각(`5af1ae4`), 9절 회귀 스위트 조각. 조사 본문은 바꾸지 않음 | [Plan 12절](Plan.md#12-implementation-and-user-test) |

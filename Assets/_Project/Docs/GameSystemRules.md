@@ -20,7 +20,7 @@ Plan.md 작성 전 아래 목록에서 관련 규칙 원본을 열어 읽는다.
 | [GameSystemRules_Network.md](GameSystemRules/GameSystemRules_Network.md) | 네트워크(Host–Client) 동작 규정 — 🔴 최상위 원칙(플레이어는 자신이 Host 인지 Client 인지 알 수 없다), 이탈 시 승패 기록, 인게임 이탈 처리 (구조·구현 방법은 이 문서가 아니라 `TechnicalDesignDocument_Network.md` 「🌐 네트워크 설계」) |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI·팝업·로딩 규칙 원본, 이동된 UI 규칙의 기존 참조 안내 |
 | [GameSystemRules_MatchFlowUI.md](GameSystemRules/GameSystemRules_MatchFlowUI.md) | 경기 준비 실패·결과·재경기 화면, M/D 규칙 원본 |
-| [GameSystemRules_BuildingPanelsUI.md](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) | 생산·MistShrine·건물 배치 패널 규칙 원본 |
+| [GameSystemRules_BuildingPanelsUI.md](GameSystemRules/GameSystemRules_BuildingPanelsUI.md) | 생산·MistShrine·방어탑 범위 표시·건물 배치 패널 규칙 원본 |
 | [GameSystemRules_SettingsUI.md](GameSystemRules/GameSystemRules_SettingsUI.md) | 인게임 설정·로비 설정·프로필 규칙 원본 |
 | [GameSystemRules_MatchFlow.md](GameSystemRules/GameSystemRules_MatchFlow.md) | 맵 전송·실패 복구·재경기 맵 선택·결과 화면/재로드 이탈 규칙 원본 |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동(건물 경로 차단 포함)·정렬·타겟·공격·피해 불변 규칙, 전투 연출·애니메이션 상태 동기화, 특수 공격 시스템, 방어력 데미지 감쇄 (특수 공격 확장의 목록과 개수는 「특수 공격 시스템 규칙」 절이 단일 소스) |
