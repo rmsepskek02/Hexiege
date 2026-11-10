@@ -2,7 +2,7 @@
 // LogArchiveZip.cs  (에디터 전용 · 상시 사용 도구)
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
-// │  1) Hexiege > Logs > Create Log Archive ZIP 실행 → 작은 창이 뜬다.         │
+// │  1) Hexiege/Logs/Create Log Archive ZIP 실행 → 작은 창이 뜬다.             │
 // │  2) 작업명을 입력한다(영문·숫자·하이픈만. 예: vfx-followups).             │
 // │     「시작 날짜」는 보통 기본값(창을 연 순간의 한국 시간 KST 오늘) 그대로 둔다.│
 // │     ⚠️ 자정을 넘겨 이어진 테스트면 전날 폴더가 기본 범위에서 빠지므로      │
@@ -199,7 +199,7 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>
-        /// 메뉴 Hexiege &gt; Logs &gt; Create Log Archive ZIP — 작업명 입력 창을 연다.
+        /// 메뉴 Hexiege/Logs/Create Log Archive ZIP — 작업명 입력 창을 연다.
         /// 우선순위 24 는 기존 Logs 메뉴(1, 2, 13)와 10 넘게 떨어뜨려 구분선 아래 별도 묶음으로 보이게 한 값이다.
         /// </summary>
         [MenuItem("Hexiege/Logs/Create Log Archive ZIP", false, 24)]

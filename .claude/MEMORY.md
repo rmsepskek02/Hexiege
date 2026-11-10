@@ -391,7 +391,7 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
 
 16. **When moving content into a topic file, the agent folder's total line count must not
     decrease** — this is the only way to tell a move from a deletion.
-17. `python3 Tools/check_docs.py` enforces 10 and 16 mechanically via check **[6]**
+17. `python Tools/check_docs.py` enforces 10 and 16 mechanically via check **[6]**
     (orphan topic files) and check **[7]** (agent folder total line count decrease).
     The baseline lives in `.claude/agent-memory/_baseline.json` — **never edit it directly**;
     update it only with `--update-baseline` (a decrease also requires `--reason`).

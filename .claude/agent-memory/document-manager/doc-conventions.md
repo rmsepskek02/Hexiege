@@ -36,7 +36,7 @@ next to the number.**
 - ❌ `규칙 9`
 - ✅ `방어 타워 시스템 규칙 9`
 
-Check `[4]` of `python3 Tools/check_docs.py` catches this violation: it flags a reference whose
+Check `[4]` of `python Tools/check_docs.py` catches this violation: it flags a reference whose
 line mentions one of those two documents but carries no section name from that document.
 
 **Do not memorize the section list or the ranges here.** The checker prints the live section
@@ -62,7 +62,7 @@ maximum is 6) and is then wrongly judged "a rule that does not exist".
 also how a human should read it.
 
 → **Never adjudicate these by hand. Use the `[3]` and `[4]` results of
-`python3 Tools/check_docs.py` as the evidence** (CLAUDE.md rule 10 — no guessing).
+`python Tools/check_docs.py` as the evidence** (CLAUDE.md rule 10 — no guessing).
 
 ---
 
@@ -2187,7 +2187,7 @@ separate incidents, and the checker was silent for both.
 
 ### 27-1. 🔴 0건 guarantees the **documents** are consistent — never that the writer **read** them
 
-`python3 Tools/check_docs.py` 0건 means: no rule-number gaps, no broken links, no citation of a rule that does not
+`python Tools/check_docs.py` 0건 means: no rule-number gaps, no broken links, no citation of a rule that does not
 exist, no ambiguous citation, no title mismatch, no orphan topic file, no agent-folder line loss. **That is the
 whole list.** It says nothing about whether a statement made in conversation matches the document it is about.
 - In the 2026-09-21 incident the documents were **correct**; what was violated was **the reading side**.

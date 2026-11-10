@@ -8,7 +8,7 @@
 ## 기본 사용법 · 함정 (색인에서 옮겨 온 원문)
 
 
-- 읽기 전용 검사기. 기본 실행 `python3 Tools/check_docs.py` → **0건 / 종료 코드 0** 이 기준선이다.
+- 읽기 전용 검사기. 기본 실행 `python Tools/check_docs.py` → **0건 / 종료 코드 0** 이 기준선이다.
 - 검사 **7종**: `[1]~[5]` 문서 참조 정합성(기존) · **`[6]` 고아 토픽 · `[7]` 폴더 총합 행수 감소**(2026-08-21 추가).
 - `[6]`·`[7]` 은 `.claude/agent-memory/` 를 본다. 경로 인자는 **`--memory-root`**(기본 `.claude/agent-memory`).
   🔴 **`--root` 를 메모리 폴더로 돌리지 마라** — `parse_rule_docs()` 가 하위 `GameSystemRules/` 를 전제해서
@@ -17,7 +17,7 @@
   도구는 이 파일에 **절대 쓰지 않는다**. 갱신은 `--update-baseline` 플래그로 사람이 명시적으로만 한다
   (자동이면 사고가 그대로 새 기준이 되어 도구를 한 번 돌리는 것만으로 사고가 지워진다).
 - **`--reason` 사용법 (2026-08-24 커밋 `2b3f2c6a` 신설)** — 감소를 기준값에 반영하려면
-  `python3 Tools/check_docs.py --update-baseline --reason "왜 줄었는지"` 가 필요하다.
+  `python Tools/check_docs.py --update-baseline --reason "왜 줄었는지"` 가 필요하다.
   사유 없이는 **거부(EXIT=2)** 되고 **기준값 파일은 열리지도 않는다**(불변).
   사유를 주면 `change_log` 에 날짜·폴더별 증감·사유가 **자동 기록**된다.
   - **증가만이면 `--reason` 없이 통과**한다(`change_log` 미기록. `--reason` 을 주면 opt-in 기록).
@@ -75,7 +75,7 @@ matters is the **delta**, i.e. roughly the whole `.claude/` tree minus `skills/`
 
 ### Regression technique worth reusing
 
-**Keep the opt-out flag and diff against it.** `python3 Tools/check_docs.py --no-claude-docs`
+**Keep the opt-out flag and diff against it.** `python Tools/check_docs.py --no-claude-docs`
 reproduces the pre-change output exactly, apart from the newly added `[검사 범위]` block.
 Leaving an opt-out flag behind gives a free before/after oracle for any scope widening —
 no git needed (CLAUDE.md rule 5 forbids git anyway).

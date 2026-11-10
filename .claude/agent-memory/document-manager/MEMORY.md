@@ -165,7 +165,7 @@ Rule text is `.claude/MEMORY.md` B-5 / B-6 / B-7 — **do not copy it here; this
 - **절대 재배열·신설하지 않는다.** 코드 주석과 과거 Task 문서가 번호를 참조한다.
 - 해석을 명문화할 때는 **새 번호 대신 기존 규칙 본문에 문장을 추가**한다.
 - `GameSystemRules_UI.md` · `GameSystemRules_Buildings.md` 는 섹션마다 번호가 1부터 반복 → 참조 시 **섹션명(H2) 병기 필수**.
-  섹션 목록·번호 범위는 외우지 말 것 — **`python3 Tools/check_docs.py` 의 `[4]` 블록 출력이 권위 소스**다.
+  섹션 목록·번호 범위는 외우지 말 것 — **`python Tools/check_docs.py` 의 `[4]` 블록 출력이 권위 소스**다.
   한 줄에 섹션이 둘 나오는 참조의 오독 사례와 판정 절차 → [doc-conventions.md](doc-conventions.md) §1.
 - 구현 진행 상태를 어느 문서에 적는가(기획 상태 vs 구현 상태 구분, 표준 대체 문구) → [doc-conventions.md](doc-conventions.md) §2.
 - **규칙 제목은 `**규칙 N. 제목**`(굵은 글씨)로 적는다.** `## 규칙 N.` H2 로 적으면 검사기가 규칙이 아니라 **섹션**으로 읽어
@@ -351,7 +351,7 @@ Research 문서의 append 는 **「낡은 것 / 해소된 것 / 🔴 그대로 �
 → [doc-conventions.md](doc-conventions.md) §41.
 
 ## 도구
-- `python3 Tools/check_docs.py` — 리포지토리 루트에서 실행. 읽기 전용. **0건 확인 후 보고.**
+- `python Tools/check_docs.py` — 리포지토리 루트에서 실행. 읽기 전용. **0건 확인 후 보고.**
   ⚠️ **`_Tasks/`·`_Logs/` 는 검사 범위 밖**이므로 방금 쓴 Task 문서는 이 0건이 검증한 대상이 아니다 — 보고에 그렇게 적을 것 → [doc-conventions.md](doc-conventions.md) §11.
   ⚠️ **0건은 「내가 편집한 문서」에 대한 것이고 「내가 말한 주장」에 대한 것이 아니다** — 문서가 정확한데 그것을 읽지 않아 생긴 실수는 이 도구가 영원히 0건을 낸다 → [doc-conventions.md](doc-conventions.md) §27-1.
 - Keyed heal delivery versus visual continuity: observer-run identity despite shared keys, cross-clock/revision boundaries, server-only completed subsets, sparse ROOT/MOVE versus facing, payload Aim versus expected yaw, and source limitation versus observed cause → [doc-conventions.md](doc-conventions.md) §11, “Keyed heal delivery versus visual continuity”. Match details remain in the existing task. (2026-10-13 merge note: in `doc-conventions.md` that sub-section now sits at the very end of the file, after §58, because both branches appended at the same spot; it was written as the tail of §11 on main.)
@@ -465,7 +465,7 @@ grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 
 ---
 
 ## 문서 정합성 검사기 `Tools/check_docs.py` (2026-08-13 등록)
-- 문서 수정을 마치면 리포지토리 루트에서 `python3 Tools/check_docs.py` 실행 → **0건 확인 후 보고**. 읽기 전용이라 문서를 고치지 않는다. 이 스크립트 자체는 수정 대상이 아니다.
+- 문서 수정을 마치면 리포지토리 루트에서 `python Tools/check_docs.py` 실행 → **0건 확인 후 보고**. 읽기 전용이라 문서를 고치지 않는다. 이 스크립트 자체는 수정 대상이 아니다.
 - 검사 5종: 규칙 번호 결번 / 깨진 파일 링크 / 실재하지 않는 규칙 번호 / **섹션명 없는 모호한 참조** / 괄호 병기 내용과 규칙 제목 불일치.
 - `GameSystemRules_UI.md`·`GameSystemRules_Buildings.md`는 **섹션마다 규칙 번호가 1부터 반복**된다. 참조할 때는 **H2 제목 전체**를 그대로 붙여야 검사 [4]를 통과한다
   (`MistShrine 규칙 21` ✗ → `MistShrine 물안개 힐 시스템 규칙 21` ✓ / `랠리포인트 규칙 2` ✗ → `랠리포인트 시스템 규칙 2` ✓).
@@ -506,7 +506,7 @@ grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 
 에이전트 정의 6개(`.claude/agents/*.md`)를 고치고 *"잔존 0건"* 이라고 적었지만, **`.claude/settings.json` 8행 `SessionStart` 훅**이
 `cat "d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md"` 였다 — **매 세션 시작마다 실패해 절대 규칙 자동 로딩이 죽어 있었다.**
 > **교훈:** `.md` 만 grep 하고 "정리 끝"이라고 쓰지 말 것. **`.claude/` 전체를 확장자 구분 없이** 훑는다 — `grep -rn "Dmain\|C:.Users\|D:/dev" .claude/`
-- **JSON 을 고친 뒤엔 반드시 파싱 검증**: `python3 -c "import json;json.load(open('.claude/settings.json'))"`
+- **JSON 을 고친 뒤엔 반드시 파싱 검증**: `python -c "import json;json.load(open('.claude/settings.json'))"`
 - `Edit` 의 `old_string` 끝에 **공백을 흘리면 본문 공백이 지워진다**(실제로 `-c \"import` 의 공백 1칸을 날렸다가 복구). 문자열 경계는 공백까지 확인할 것.
 - **의도적으로 남기는 `Dmain` 2건**: ① `project-orchestrator/MEMORY.md` 239행의 **금지 예시** ② 이 파일의 사고 기록. `_Tasks/` 의 `D:/Projects/...` 는 **과거 기록이라 소급 수정하지 않는다.**
 - 서브에이전트 위임 규약처럼 **"다른 에이전트에게 넘길 형식"을 지시하는 문장**은 죽은 경로의 **증식원**이다. 경로 표기 규약이 적힌 자리를 따로 찾아볼 것.
@@ -581,7 +581,7 @@ tr -cd '{' < <파일> | wc -c ; tr -cd '}' < <파일> | wc -c                   
 - 옮길 때 **본문은 한 글자도 고치지 않고**, 바꾼 것은 **오독되던 절 제목뿐**이라고 보고에 명시한다.
 
 ### 대량 이동의 안전 절차 (2026-08-24 확립 — 2026-08-17 `-378행` 과 같은 모양의 작업)
-1. **작업 전에 `python3 Tools/check_docs.py` 로 기준선(0건/EXIT=0)을 먼저 찍는다.**
+1. **작업 전에 `python Tools/check_docs.py` 로 기준선(0건/EXIT=0)을 먼저 찍는다.**
 2. 목적지 파일은 **새 파일이면 생성, 기존 파일이면 append 전용**. `MEMORY.md` 는 **`Read`→`Edit` 만**.
 3. **이관 직후 파이썬으로 대조**: 원본의 비어 있지 않은 모든 행이 목적지에 있는가 → 누락 0건 확인.
    `miss=[i for i in moved if L[i-1].strip() and L[i-1] not in set(dst.split('\n'))]`

@@ -5,13 +5,16 @@
       "mcp__mcp-unity__update_component",
       "Bash(npx:*)",
       "Bash(where claude:*)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''server'''' in k.lower\\(\\)}, indent=2\\)\\)\")"
-    ],
-    "additionalDirectories": [
-      "Assets/_Project/Docs/_Tasks"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''server'''' in k.lower\\(\\)}, indent=2\\)\\)\")"
     ],
     "ask": [
       "Bash(git push:*)"
+    ],
+    "additionalDirectories": [
+      "Assets/_Project/Docs/_Tasks"
     ]
+  },
+  "enabledPlugins": {
+    "claude-md-management@claude-plugins-official": true
   }
 }

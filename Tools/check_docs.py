@@ -84,25 +84,25 @@ Hexiege 문서 정합성 검사기
 
 사용법
 ------
-    python3 Tools/check_docs.py
+    python Tools/check_docs.py
 
     # 특정 폴더만 검사하고 싶을 때
-    python3 Tools/check_docs.py --root Assets/_Project/Docs
+    python Tools/check_docs.py --root Assets/_Project/Docs
 
     # 에이전트 메모리 폴더 위치를 바꾸고 싶을 때 (기본: .claude/agent-memory)
-    python3 Tools/check_docs.py --memory-root .claude/agent-memory
+    python Tools/check_docs.py --memory-root .claude/agent-memory
 
     # .claude 폴더 위치를 바꾸고 싶을 때 (기본: .claude)
-    python3 Tools/check_docs.py --claude-root .claude
+    python Tools/check_docs.py --claude-root .claude
 
     # .claude/ 하위 문서를 참조 검사에서 빼고 싶을 때 (기본은 '포함')
-    python3 Tools/check_docs.py --no-claude-docs
+    python Tools/check_docs.py --no-claude-docs
 
     # 검사 [7] 의 기준값을 현재 상태로 갱신 (사람이 명시적으로 실행. 아래 주의 참조)
-    python3 Tools/check_docs.py --update-baseline
+    python Tools/check_docs.py --update-baseline
 
     # 감소가 하나라도 포함된 갱신은 사유를 반드시 함께 준다 (없으면 거부된다)
-    python3 Tools/check_docs.py --update-baseline --reason "중복 절 제거, 사용자 승인 완료"
+    python Tools/check_docs.py --update-baseline --reason "중복 절 제거, 사용자 승인 완료"
 
 종료 코드: 문제가 없으면 0, 하나라도 있으면 1.
            `--update-baseline` 은 갱신에 성공하면 0, 사유 없이 감소를 반영하려다 거부되면 2.
@@ -537,7 +537,7 @@ def check_folder_line_totals(memory, baseline, baseline_error):
     if baseline is None:
         print(f"  {baseline_error}")
         print("  → 기준값이 없으면 '전보다 줄었는가'를 판정할 수 없다. 문제 1건으로 집계한다.")
-        print("  조치: python3 Tools/check_docs.py --update-baseline")
+        print("  조치: python Tools/check_docs.py --update-baseline")
         return 1
 
     recorded = baseline.get("folders", {})
@@ -610,7 +610,7 @@ def check_folder_line_totals(memory, baseline, baseline_error):
         print()
         print("  조치: 감소가 의도된 것인지 사람이 먼저 확인한다.")
         print("        의도된 것이라면 사용자 승인을 받고 사유를 붙여 갱신한다:")
-        print('          python3 Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
+        print('          python Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
         print("        🔴 감소를 기준값에 반영하는 것은 '이 삭제는 의도된 것'이라는 판단이다.")
         print("           확인 없이 갱신하면 사고가 그대로 새 기준이 된다.")
         print("           그래서 감소를 포함한 갱신은 --reason 없이는 거부되고,")
@@ -632,7 +632,7 @@ def check_folder_line_totals(memory, baseline, baseline_error):
         print("  왜 그냥 두면 안 되나: 기준값은 감소를 재는 자다. 자가 낡으면 눈금이 어긋난다.")
         print("    2026-08-24 실측 — 실제 삭제 -6행이 이 검사에는 -2행으로 보였다.")
         print("    (기준값이 2026-08-21 의 756 에 멈춰 그 사이의 증가 →760 이 빠져 있었다.)")
-        print("  조치: python3 Tools/check_docs.py --update-baseline")
+        print("  조치: python Tools/check_docs.py --update-baseline")
         print("        증가만이면 --reason 없이 통과한다(승인이 필요 없는 방향).")
     return issues
 
@@ -777,7 +777,7 @@ def update_baseline(memory_root, memory, reason=None, today=None):
         print()
         print("  조치: ① 위 감소가 의도된 것인지 사람이 확인하고 사용자 승인을 받는다.")
         print("        ② 승인받았으면 사유를 붙여 다시 실행한다:")
-        print('           python3 Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
+        print('           python Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
         print("        준 사유는 기준값 파일 change_log 에 자동으로 기록된다.")
         print("=" * 68)
         return 2

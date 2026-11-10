@@ -577,11 +577,11 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 - raw 테스트 로그 공유는 검증된 private Release ZIP 방식을 사용합니다. **신규 RuntimeLog txt 본문이 소스 Git에 재추적되지 않도록** 승인된 정확 원본 경로/파일명 pattern을 적용하며 ignore를 우회해 raw를 다시 추가하지 않습니다. 기존 추적 파일은 private 업로드·전체 다운로드 검증과 별도 사용자 승인 뒤에만 좁은 원본 목록으로 추적 해제합니다. 로컬 raw 원본은 그대로 보존하고 Git 이력은 남기며 **history rewrite는 하지 않습니다**.
 - **Log.md·Task·raw txt.meta 및 실제 코드/asset/doc/folder metadata는 소스 Git에 유지**합니다. `CrossAuditResult.txt`처럼 RuntimeLog가 아닌 결과 txt도 유지합니다. `_Logs/` 전체 또는 전체 txt ignore 금지입니다. raw txt 본문만 좁게 분리하는 pattern을 적용하며, 적용 전 확정 경로 검토와 사용자 승인을 받습니다. 로그 문서/meta를 광범위한 제외 패턴에 함께 넣거나 orphan 이름만으로 삭제하지 않습니다.
 
-#### 보관본 생성 도구 — `Hexiege > Logs > Create Log Archive ZIP`
+#### 보관본 생성 도구 — `Hexiege/Logs/Create Log Archive ZIP`
 
 도구: `Assets/Editor/Tools/LogArchiveZip.cs`. 사양은 2026-10-20 사용자 승인, 시작 날짜 기본값·KST 기준은 2026-10-21 사용자 요청으로 변경. **구현·메뉴 실행 확인 상태: 메뉴·창 동작은 사용자 실행으로 확인(ZIP 3회 정상 생성, 메인 세션이 Release에서 내려받아 manifest 대조 OK — 2026-10-21). 2026-10-21 KST 기준 변경분은 아직 미실행** — 현재 상태는 [Task Plan](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md) §8을 따르며, 아래 KST 관련 동작은 실행 확인을 뜻하지 않습니다. *(2026-10-21 갱신: 종전 표기 「확인 전」을 사용자 실행 결과로 고침.)* 이 도구는 ZIP과 manifest를 **만들기만** 하고 업로드는 사용자가 합니다(클라우드 세션은 사용자 PC 파일에 접근할 수 없고, 공개 소스 저장소를 거치면 로그가 Git 이력에 영구 공개되기 때문).
 
-1. Unity 에디터에서 메뉴 **`Hexiege > Logs > Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
+1. Unity 에디터에서 메뉴 **`Hexiege/Logs/Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
 2. 도구가 **날짜 폴더가 「시작 날짜」 이후(당일 포함, 기본 = 창을 열 때의 한국 시간(KST) 오늘 — 기억하지 않음)인** 실기기 로그 `_Logs/YYYY-MM-DD/*/RuntimeLog_device*.txt`(번호 붙은 파일 포함), 진단 세션 로그 `_Logs/YYYY-MM-DD/HH_MM_[작업명]/RuntimeLog.txt`(1.11), Editor daily `_Logs/_editor/YYYY-MM-DD/RuntimeLog.txt` 중 **`_Logs/_zip/`의 기존 manifest에 (경로, SHA256)으로 기록되지 않은 파일**만 고릅니다(2026-10-20 사용자 결정). 같은 폴더의 Log.md·meta·결과 txt는 대상이 아닙니다. 기록 중인 Editor daily는 읽는 시점의 snapshot으로 담고, 내용이 바뀌었으면 새로 포함합니다.
 3. `Assets/_Project/Docs/_Logs/_zip/YYYY-MM-DD/`에 `YYYY-MM-DD_HH_MM_<작업명>_<NN>.zip`과 같은 이름의 `.manifest.json`이 생깁니다(`NN`은 같은 날짜+작업명 기준 회차). ZIP 내부는 저장소 상대 경로이고 manifest에는 위 manifest 항목과 업로드 예정 Release, 「업로드는 사용자 수행」 표기가 들어갑니다. 빌드 상태는 `not inferred`입니다.
 4. 완료되면 저장 폴더와 Release 페이지(`https://github.com/rmsepskek02/Hexiege-Logs/releases/tag/logs-YYYY-MM`)가 열립니다. 대상이 없거나 오류이면 안내만 하고 끝납니다.
@@ -618,7 +618,7 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 **제목의 PASS는 당시 검증 이력이며 새 실행 결과가 아닙니다.** 원문 검증 표: [LogHistory H08d](LogHistory.md#h08d).
 
-자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege > Logs > Clean Old Editor Logs (Deletes Assets)`를 사용합니다. 자동/주기 실행은 없습니다. Device 버퍼 비우기·저장 메뉴와 분리합니다.
+자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)`를 사용합니다. 자동/주기 실행은 없습니다. Device 버퍼 비우기·저장 메뉴와 분리합니다.
 
 #### 실기 검증 결과 — 전 항목 PASS (2026-08-17)
 
@@ -674,9 +674,9 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 도구: `Assets/Editor/Tools/LogcatCapture.cs`
 
 1. 기기를 USB로 연결한다 (USB 디버깅 ON)
-2. 메뉴 **`Hexiege > Logs > Clear Device Buffer (Deletes Logs)`** 실행
+2. 메뉴 **`Hexiege/Logs/Clear Device Buffer (Deletes Logs)`** 실행
 3. 기기에서 **버그를 재현**한다
-4. 메뉴 **`Hexiege > Logs > Save Device Logs`** 실행
+4. 메뉴 **`Hexiege/Logs/Save Device Logs`** 실행
 
 `Clean Old Editor Logs (Deletes Assets)`는 1.10의 Editor 수동 정리용이며 실기기 캡처 절차에 포함하지 않습니다. 버퍼 비우기·저장 메뉴와 구분선으로 분리합니다. 이력: [LogHistory H09b](LogHistory.md#h09b).
 

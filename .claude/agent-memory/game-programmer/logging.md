@@ -150,7 +150,7 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | — | `Editor/` 4파일 16건 | **이관하지 않기로 결정**(빌드 미포함 → 서버 수집 대상이 될 수 없음) |
 | — | `GameLog.cs` 9 · `ILogSink.cs` 2 · `Infrastructure/Debug/` 19 | 이관 대상 아님(로그 시스템 자체) |
 
-- `Hexiege > Logcat > 3. 오래된 에디터 로그 정리` 수동 메뉴는 **구현·실기 검증 완료**(커밋 `675203ae`).
+- `Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)` 수동 메뉴(옛 이름 `Hexiege/Logcat/3. 오래된 에디터 로그 정리`, `a031008c`에서 변경)는 **구현·실기 검증 완료**(커밋 `675203ae`).
   ~~"미구현"~~ 이라는 옛 기록은 폐기.
 
 ## 이관 시 재사용하는 판정 선례 (배치 1-A 에서 확인)

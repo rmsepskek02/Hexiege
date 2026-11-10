@@ -97,12 +97,13 @@ You own every document listed there, plus:
 
 ### 문서 정합성 검사 (문서 수정을 마칠 때마다)
 ```
-python3 Tools/check_docs.py
+python Tools/check_docs.py
 ```
+- `python3` 가 아니라 `python` 으로 실행한다 — 이유는 `CLAUDE.md` 「문서 시스템」 참조(이 PC의 `python3` 는 Store 별칭이라 실행되지 않는다).
 - 리포지토리 루트에서 실행한다. 읽기 전용이라 문서를 고치지 않고 문제 목록만 출력한다.
 - **검사 항목·지원 형식·진단 분류는 `Assets/_Project/Docs/WORKFLOW.md` [11]이 단일 소스다.** 숫자뿐 아니라 기존 문자·소번호 식별자, 분할 안내 및 Markdown 앵커도 검사한다. 내용힌트는 보조 진단이며 의미·구현 일치를 보증하지 않는다. 메모리 보호 검사 `[6]`·`[7]`은 유지한다.
 - `[6]`·`[7]` 은 **에이전트 메모리 보호용**이다. `[6]` 은 링크가 빠져 아무도 찾지 못하게 된 토픽 파일을, `[7]` 은 "옮겼다면서 실제로는 지운" 경우를 잡는다(폴더 총합이 줄지 않아야 이동이다).
-- `[7]` 의 기준값은 `.claude/agent-memory/_baseline.json` 에 있다. **이 파일을 직접 편집하지 않는다.** 갱신은 `python3 Tools/check_docs.py --update-baseline` 으로만 한다.
+- `[7]` 의 기준값은 `.claude/agent-memory/_baseline.json` 에 있다. **이 파일을 직접 편집하지 않는다.** 갱신은 `python Tools/check_docs.py --update-baseline` 으로만 한다.
   - **증가 방향**: `--update-baseline` 만으로 갱신하며 승인이 필요 없다. **미루지 않는다** — 미루면 이후 감소폭이 실제보다 작게 보인다.
   - **감소가 하나라도 포함된 갱신**: `--update-baseline --reason "왜 줄었는지"` 가 **필수**이며 `--reason` 없으면 도구가 **거부**한다. 준 사유는 `change_log` 에 자동 기록된다. **사용자 승인은 여전히 필요하다.**
 - 실행 결과를 해석하기 전에 **`WORKFLOW.md` [11]**을 읽는다. 참조 검색 대상은 `Docs/` + 루트 `AGENTS.md`·`CLAUDE.md` + `.claude/`의 관리 문서다. 지원하지 않는 정의 후보·빈 규칙 범위는 오류로 드러나며, 지원 형식의 세부 목록을 이곳에 복제하지 않는다.
@@ -128,7 +129,7 @@ python3 Tools/check_docs.py
 
 - [ ] 작성한 문서가 기존 다른 문서와 내용 충돌 없는지 확인
 - [ ] AGENTS.md 문서 인덱스에 새 파일 반영됐는지 확인 (새 파일 생성 시)
-- [ ] `python3 Tools/check_docs.py` 실행 후 0건 확인 (남은 항목은 이유와 함께 보고)
+- [ ] `python Tools/check_docs.py` 실행 후 0건 확인 (남은 항목은 이유와 함께 보고)
 - [ ] 사용자에게 변경된 파일 목록 공유
 
 ---
