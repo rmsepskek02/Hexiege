@@ -270,6 +270,20 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Human | EMP — 탑 무력화 상태(V6) | `Prefabs/VFX/Skills/vfx_emp_disabled.prefab` | **연결됨** — 스킬 자산이 아니라 `BuildingEffectConfig` `_towerDisabledPresets` 3줄(`EffectPreset_EmpDisabled_Human` · `_Spirit` · `_Transcendence`, 무력화된 **상대 종족 탑**에 재생). 보정 0 · 배율 1(탑 높이 측정 전). 멀티 3종 탑 프리셋 찾음 · 양쪽 화면 같은 탑 · 재적용 재시작 없음 · 파괴 즉시 제거 — 사용자 테스트 PASS(2026-11-09). 재생 계약 [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 11번 |
 
 - 그 밖의 스킬 VFX(`Prefabs/VFX/Skills/`의 다시 만들기로 한 첫 `vfx_meteor_fall`)는 **아직 어느 자산 · 프리팹 · 씬에서도 참조되지 않는다**. *(2026-11-09 갱신 — EMP 두 프리팹이 위 두 행으로 연결됨. 직전 「`vfx_emp_pulse` · `vfx_emp_disabled` · … 참조되지 않는다(2026-11-03 GUID 검색 0건)」)* 제작 목록과 순서는 [지원 스킬 기획 Plan](../_Tasks/2026-11-02/14_25_race-support-skills-design/Plan.md) 2-1 · 7절이며, 이 목록에 행을 미리 둘지는 그 Plan 6절에서 정하지 않았다.
+- **즉시 발동 강화 4종의 발동 VFX 칸 — 칸 준비됨 · 프리팹 없음 (2026-11-11):** 전술 지령(V16) · 화염의 축복(V23) · 숲의 포효(V13) · 숲의 순풍(V12)의 「발동 VFX 프리팹」 칸은 비어 있다. 넣으면 **시전 건물이 선 타일 중심**에서 양쪽 화면에 재생된다(배율 1 — 판정 반경 0, [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 10번). 빈 칸이면 `[SKILL-VFX]` `ActivationVfxSkipped Reason=NoPrefab` 1줄. 건물 위 재생은 칸이 채워진 즉시 스킬이 없어 실기 미관측. [지원 스킬 1차 강화 Task Plan 11절](../_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/Plan.md#11-implementation-and-user-test)
+
+#### 스킬 강화 상태 이펙트
+
+> 강화 스킬(타입 C)로 상태가 걸린 유닛마다 몸에 붙어 따라다니는 반복 이펙트. 스킬 자산의 「강화 상태 VFX」 칸(프리팹 · 크기 배율 · 위치 보정)에 연결한다(EffectPreset 아님). 재생 계약은 [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 12번, 규칙은 [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 · 13 · 25. *(2026-11-11 추가)*
+
+| 종족 | 스킬 | 파일명 | 비고 |
+|------|------|--------|------|
+| Human | 전술 지령 — 강화 상태(V17) | — | **칸 준비됨 · 미제작** — `Skill_Human_TacticalOrder`. 시험 때 기존 힐 프리팹(`vfx_bloomfairy_heal`, 초월 유닛용)을 임시로 넣어 경로를 확인한 뒤 비웠다(`6d0245c`). 인간용은 V17로 따로 만든다(사용자 메모) |
+| Spirit | 화염의 축복 — 강화 상태(V18) | — | **칸 준비됨 · 미제작** — `Skill_Spirit_FlameBlessing` |
+| Transcendence | 숲의 포효 — 강화 상태(V20) | — | **칸 준비됨 · 미제작** — `Skill_Trans_ForestRoar` |
+| Transcendence | 숲의 순풍 — 강화 상태(V21) | — | **칸 준비됨 · 미제작** — `Skill_Trans_ForestTailwind`. 발동 V12와 하나로 할지는 VFX 기획 때 |
+
+- 칸이 비어 있으면 효과만 걸리고 `[SKILL-BUFF]` `BuffVfxSkipped Reason=NoPrefab` 1줄이 남는다(정상). 확인된 범위: 붙이기 · 따라가기(반전 Client 포함) · 만료 꼬리 정지 · 사망 즉시 정지 — 사용자 테스트 PASS 2026-11-11(임시 프리팹). 경기 종료 · 재경기 정지는 미관측. [지원 스킬 1차 강화 Task Plan 11절](../_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/Plan.md#11-implementation-and-user-test)
 
 #### 골드 채집 이펙트
 

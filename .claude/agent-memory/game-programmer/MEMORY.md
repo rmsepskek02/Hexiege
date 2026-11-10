@@ -149,8 +149,10 @@
   client cooldown-mirror tick), delay chosen by the type-A bridge, `ClosePendingImpacts` on game end, VFX root scale.
   §2 (2026-11-09) EMP: `AreaTowerDisable = 3`, `BuildingStatusEffectSystem` (building-id keys, authoritative tick before the
   tower tick), tower gate via setter (K1), one list RPC + schema 7 → 8, status-loop VFX lease, race preset rows.
-  §3 (2026-11-10, implemented, user test not run) four type-C buff skills, per-skill `_statusVfxPrefab`, `UnitBuffVfxPresenter`
-  (follow after `ProjectNow`), instant-skill VFX at the caster building, `[SKILL-BUFF]` diagnostics, setup-tool count-2 trap.
+  §3 (2026-11-10~11, user test PASS) four type-C buff skills, per-skill `_statusVfxPrefab`, `UnitBuffVfxPresenter`
+  (follow after `ProjectNow`), instant-skill VFX at the caster building, `[SKILL-BUFF]` diagnostics, setup-tool expected-count
+  constant (now 6), temporary-prefab test, kept `NoAim` block ↔ suite B-8. *(2026-11-11 updated — was "implemented, user
+  test not run … setup-tool count-2 trap")*
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

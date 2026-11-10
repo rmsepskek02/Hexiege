@@ -87,10 +87,15 @@ Commits `aea11d3a` (judgment) · `28dfc9a8` (sync, schema 8) · `6c97c6f1` (scre
   (2) WORKFLOW [4] now requires a diagnostic log for every user test item: log once on each state change, count per-tick
   events (gate blocks) and report the count at expiry; prefix + `Diag=` + `DiagRev=` keys. The user kept them as `개발`.
 
-## 3. Support buff skills (type C ×4) + unit status-VFX path (2026-11-10 — implemented, user test NOT run)
+## 3. Support buff skills (type C ×4) + unit status-VFX path (2026-11-10~11 — user test PASS)
 
-Source: `Assets/_Project/Docs/_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/` Plan D1~D14 (user 「추천대로 진행하자」).
-Uncommitted at writing time; verify the commit before trusting this section.
+*(2026-11-11 updated — heading was "implemented, user test NOT run"; the line "Uncommitted at writing time; verify the commit
+before trusting this section." is replaced by the commit list below.)*
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/` Plan D1~D14 (user 「추천대로 진행하자」)
+and Plan §11 (results). Commits `06bf59f` (data) · `e5d7020` (screen) · `fbd3ab0` (diagnostics · suite · assets) · `6d0245c`
+(temporary prefab emptied, 8 disabled comment lines deleted). User test PASS 2026-11-11 (2 multi + 1 single match, log verdict
++ user visual; suite PASS by rule).
 
 - **Data:** `SkillDefinition._statusVfxPrefab` / `_statusVfxScale` / `_statusVfxOffset` → `SkillData.StatusVfx*` (optional ctor args,
   scale ≤ 0/NaN → 1). Setup tool does not write these keys. Four assets enabled (D4 temporary: AttackPowerMul 1.5 / MoveSpeedMul 1.3, 8 s, cd 15).
@@ -103,5 +108,19 @@ Uncommitted at writing time; verify the commit before trusting this section.
 - **Diagnostics `[SKILL-BUFF]` (Diag=SkillBuff):** server/client in `UnitCombatUseCase.SkillBuffDiagnostics.cs` (batch per team+kind,
   expiry watched through `StatusEffectSystem.SetDiagnosticTickListener`, `HasEffect` added), `BuffNoEffect` in `SkillActivationUseCase`
   (activation tag gives BuffApplied its sequence/slot), screen lines in the presenter. Suite: `RunUnitActionSelfValidation.SupportBuffSkills.cs`.
-- **Trap found:** `SupportSkillLoadoutSetup.ExpectedAvailableCount` is still 2 — with the four lines enabled the tool aborts in
-  `ValidateSpecs` (safe: nothing reverts) until that constant is changed with approval.
+- **Setup-tool count trap (fixed in `fbd3ab0`):** `SupportSkillLoadoutSetup.ExpectedAvailableCount` must equal the number of
+  available specs in `BuildSpecs` — left at 2 with the four buff lines enabled, `ValidateSpecs` aborts before writing (safe:
+  nothing reverts, but the tool cannot be re-run). It is now **6** (`SupportSkillLoadoutSetup.cs` line 91), with the
+  completion log text listing the six names. *(2026-11-11 corrected — this line said "is still 2 … until that constant is
+  changed with approval", but the same commit `fbd3ab0` that wrote the note already set it to 6.)* **Lesson:** whenever a
+  setup-tool spec line flips `available`, change the expected-count constant in the same commit, and re-read the committed
+  file before writing a memory note about its state.
+- **Testing a slot with no prefab (D14):** put an existing loop prefab that already meets the status-loop contract
+  (`vfx_bloomfairy_heal`, scale 2) into one skill's slot for the test, then empty it after the test (`6d0245c`). It proved
+  attach · follow (flipped Client too, one late pose resolved with `WaitedMs=0`) · expiry tail stop · death immediate stop
+  with `LeaseMatched` = stop count. Game-end / reinit stops stayed unobserved (no buff was active at match end).
+- **Kept disabled block:** `SkillActivationVfxPresenter.cs` lines 151~157 (`NoAim` block) and 192 (old position line) stay
+  commented until an instant skill gets an activation prefab and the caster-building playback is seen in a test. Deleting
+  them breaks suite B-8 (`RunUnitActionSelfValidation.SupportBuffSkills.cs` line 273 `Contains("// if (!p.HasAim)")`) —
+  change that check in the same commit.
+- **Instant activation VFX scale:** the four buff assets have radius 0, so `ComputeSkillVfxScale` returns 1 (prefab size as made).
