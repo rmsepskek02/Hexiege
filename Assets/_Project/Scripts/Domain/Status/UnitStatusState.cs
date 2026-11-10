@@ -73,6 +73,21 @@ namespace Hexiege.Domain
         }
 
         /// <summary>
+        /// 지정 종류의 상태가 지금 걸려 있는지(읽기 전용 — 2026-11-10 추가).
+        /// 강화 스킬 진단(「재적용인가」 · 「만료됐는가」 판정)과 Editor 자가 검증이 쓴다. 배율 계산과 무관하다.
+        /// </summary>
+        /// <param name="kind">확인할 상태 종류.</param>
+        /// <returns>그 종류의 상태가 하나라도 있으면 true.</returns>
+        public bool Has(StatusEffectKind kind)
+        {
+            for (int i = 0; i < _effects.Count; i++)
+            {
+                if (_effects[i].Kind == kind) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 공격력 배율 = 모든 AttackPowerMul 강도의 곱. 해당 상태가 없으면 1(무변경).
         /// </summary>
         public float AttackMultiplier()

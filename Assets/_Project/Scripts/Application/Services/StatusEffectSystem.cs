@@ -62,7 +62,14 @@ namespace Hexiege.Application
         /// <param name="dt">경과 시간(초).</param>
         public void Tick(float dt)
         {
-            if (dt <= 0f || _states.Count == 0) return;
+            // [2026-11-10 강화 스킬 진단] 상태가 하나도 없어 일찍 끝나는 틱에서도 진단 감시자에게 경과 시간을 알린다
+            //   (에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출 자체가 사라진다). 옛 줄(기록용):
+            // if (dt <= 0f || _states.Count == 0) return;
+            if (dt <= 0f || _states.Count == 0)
+            {
+                NotifyDiagnosticTick(dt);
+                return;
+            }
 
             // 딕셔너리 순회 중 제거를 피하기 위해 키를 복사한 뒤 값만 갱신한다.
             _tickKeyBuffer.Clear();
@@ -85,6 +92,50 @@ namespace Hexiege.Application
 
             _emptyKeyBuffer.Clear();
             _tickKeyBuffer.Clear();
+
+            // [2026-11-10 강화 스킬 진단] 이번 틱의 만료 처리가 끝난 "뒤"에 알린다 → 감시자가 「이번 틱에 만료됐다」를 바로 본다.
+            NotifyDiagnosticTick(dt);
+        }
+
+        /// <summary>
+        /// 지정 유닛에 지정 종류의 상태가 지금 걸려 있는지(읽기 전용 — 2026-11-10 추가).
+        /// 강화 스킬 진단(재적용 · 만료 판정)과 Editor 자가 검증이 쓴다. 상태를 바꾸지 않는다.
+        /// </summary>
+        /// <param name="unitId">대상 유닛 Id.</param>
+        /// <param name="kind">확인할 상태 종류.</param>
+        /// <returns>걸려 있으면 true.</returns>
+        public bool HasEffect(int unitId, StatusEffectKind kind)
+        {
+            return _states.TryGetValue(unitId, out UnitStatusState s) && s.Has(kind);
+        }
+
+        // ====================================================================
+        // [2026-11-10 강화 스킬 진단 — 지원 스킬 1차 강화 Task 구현 단위 ④] 틱 감시자
+        //   무엇인가(초급자용 설명):
+        //     강화 효과가 "몇 초 뒤에 실제로 끝났는지"(진단 BuffExpired)를 알려면 상태 시간이 줄어드는 순간을 봐야 한다.
+        //     틱은 조합 루트(싱글 · 순수 Client = GameBootstrapper.Update, Host = NetworkCombatController)가 이 Tick을 직접 부르므로,
+        //     전투 UseCase가 여기에 "틱이 끝나면 불러 달라"는 감시자(함수)를 1개 걸어 둔다.
+        //   진단 전용이다 — 감시자는 상태를 바꾸지 않고, 감시자 호출은 [Conditional]로 릴리스 빌드에서 사라진다.
+        //   감시자에서 예외가 나도 서버 틱이 깨지지 않게 여기서 삼킨다(진단 실패는 게임 결과와 무관).
+        // ====================================================================
+        private System.Action<float> _diagnosticTickListener;
+
+        /// <summary>
+        /// 진단 틱 감시자를 건다(null이면 해제). UnitCombatUseCase.SetStatusEffectSystem이 에디터 · 개발 빌드에서만 부른다.
+        /// </summary>
+        /// <param name="listener">틱마다 경과 시간(초)을 받는 함수.</param>
+        public void SetDiagnosticTickListener(System.Action<float> listener)
+        {
+            _diagnosticTickListener = listener;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void NotifyDiagnosticTick(float dt)
+        {
+            if (!(dt > 0f) || _diagnosticTickListener == null) return;
+            try { _diagnosticTickListener(dt); }
+            catch { /* 진단 전용 — 서버 틱을 막지 않는다 */ }
         }
 
         /// <summary> 지정 유닛의 공격력 배율(상태 없으면 1 — 무변경). </summary>

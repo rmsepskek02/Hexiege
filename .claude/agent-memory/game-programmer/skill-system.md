@@ -86,3 +86,22 @@ Commits `aea11d3a` (judgment) · `28dfc9a8` (sync, schema 8) · `6c97c6f1` (scre
   [vfx-presentation.md §13](vfx-presentation.md#13-skill-vfx-ground-height-and-diagnostic-logs-2026-11-09).
   (2) WORKFLOW [4] now requires a diagnostic log for every user test item: log once on each state change, count per-tick
   events (gate blocks) and report the count at expiry; prefix + `Diag=` + `DiagRev=` keys. The user kept them as `개발`.
+
+## 3. Support buff skills (type C ×4) + unit status-VFX path (2026-11-10 — implemented, user test NOT run)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/` Plan D1~D14 (user 「추천대로 진행하자」).
+Uncommitted at writing time; verify the commit before trusting this section.
+
+- **Data:** `SkillDefinition._statusVfxPrefab` / `_statusVfxScale` / `_statusVfxOffset` → `SkillData.StatusVfx*` (optional ctor args,
+  scale ≤ 0/NaN → 1). Setup tool does not write these keys. Four assets enabled (D4 temporary: AttackPowerMul 1.5 / MoveSpeedMul 1.3, 8 s, cd 15).
+- **Screen:** `UnitBuffVfxPresenter` (key = unit id + caster team + slot) listens to `OnSkillActivationConfirmed`/`Received` (plan A, no RPC,
+  schema stays 8), re-finds the skill with `FindSkillData`, targets = alive units of the target team on this screen. Start via
+  `EffectManager.StartUnitBuffVfx` (loop contract check cached per prefab, recipient-fit table) → `VfxPoolItem.FollowStatusLoop(lease, pose)`
+  after `ProjectNow()`. Stops: expiry/game end tail, death/reinit immediate, re-use extends end time only.
+- **Instant-skill activation VFX (D3):** `SkillActivationVfxPresenter` old `NoAim` return commented; no-aim skills play at the caster
+  building tile centre + 0.06 (`Anchor=CasterBuilding`), building lookup = 4th optional `Initialize` arg.
+- **Diagnostics `[SKILL-BUFF]` (Diag=SkillBuff):** server/client in `UnitCombatUseCase.SkillBuffDiagnostics.cs` (batch per team+kind,
+  expiry watched through `StatusEffectSystem.SetDiagnosticTickListener`, `HasEffect` added), `BuffNoEffect` in `SkillActivationUseCase`
+  (activation tag gives BuffApplied its sequence/slot), screen lines in the presenter. Suite: `RunUnitActionSelfValidation.SupportBuffSkills.cs`.
+- **Trap found:** `SupportSkillLoadoutSetup.ExpectedAvailableCount` is still 2 — with the four lines enabled the tool aborts in
+  `ValidateSpecs` (safe: nothing reverts) until that constant is changed with approval.

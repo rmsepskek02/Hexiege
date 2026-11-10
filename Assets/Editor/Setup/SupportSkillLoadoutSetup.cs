@@ -84,7 +84,12 @@ namespace Hexiege.EditorTools
 
         // 표에서 "사용 가능"이어야 하는 스킬 수. [EMP 커밋 4] 1(포격 지원) → 2(포격 지원 · EMP).
         //   표를 고치다 실수로 다른 자리표시가 켜지거나 EMP가 꺼지면 ValidateSpecs 가 쓰기 전에 멈춘다.
-        private const int ExpectedAvailableCount = 2;
+        //   [2026-11-10 지원 스킬 1차 강화 Task — 사용자 결정 D10, 메인 세션 승인] 2 → 6.
+        //   강화 스킬 네 개(전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍)를 「사용 가능」으로 켠 표(BuildSpecs)와 개수를 맞춘다.
+        //   이 값을 그대로 2로 두면 표의 사용 가능 수(6)와 달라 ValidateSpecs 가 쓰기 전에 멈춰 도구를 실행할 수 없다.
+        //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
+        //   옛 줄(기록용): private const int ExpectedAvailableCount = 2;
+        private const int ExpectedAvailableCount = 6;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -187,6 +192,25 @@ namespace Hexiege.EditorTools
             };
         }
 
+        // [2026-11-10 지원 스킬 1차 강화 Task — 사용자 결정 D4 · D10] 강화 스킬(타입 C — 맵 전체 아군 상태변경) 「사용 가능」 값.
+        //   자리표시(InstantPlaceholder)와 다른 점은 사용 가능 · 지속 · 상태 종류 · 강도 네 칸뿐이다(조준 없음 · 타입 C · 쿨 15 · 아군은 같다).
+        //   수치는 시험용 임시값이다(D4 — 공격력 1.5배 · 8초 · 쿨 15, 순풍 이동 1.3배 · 8초 · 쿨 15). 밸런싱 단계에서 확정한다.
+        //   🔴 새 칸(강화 상태 VFX 프리팹 · 크기 · 위치)은 이 도구가 쓰지 않는다 — 도구를 다시 실행해도 넣은 프리팹이 지워지지 않는다(Research 4-2).
+        private static SkillSpec InstantBuff(string file, RaceId race, int slot, string name, string desc,
+                                             StatusEffectKind kind, float magnitude, float duration)
+        {
+            return new SkillSpec
+            {
+                FileName = file, Race = race, Slot = slot, DisplayName = name, Description = desc,
+                IsAvailable = true,
+                AimType = SkillAimType.Instant,
+                Mechanic = SkillMechanicType.GlobalStatusChange,
+                Cooldown = 15f, Radius = 0f, Duration = duration, TotalDamage = 0, DamagePerSecond = 0f,
+                StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = true,
+                ImpactDelay = 0f, UseBombardmentVfx = false
+            };
+        }
+
         /// <summary>
         /// 확정 스킬 15개의 값 표. 순서 = 종족(인간 · 정령 · 초월) × 슬롯 1~5(Plan 3-5 표).
         /// </summary>
@@ -239,16 +263,23 @@ namespace Hexiege.EditorTools
                 emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
-                InstantPlaceholder("Skill_Human_TacticalOrder", h, 4, "전술 지령",
-                    "맵 전체 아군의 공격력과 생산 속도를 높인다.", allies: true),
+                // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
+                //   옛 줄(기록용):
+                // InstantPlaceholder("Skill_Human_TacticalOrder", h, 4, "전술 지령",
+                //     "맵 전체 아군의 공격력과 생산 속도를 높인다.", allies: true),
+                InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
+                    "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
 
                 // ── 정령(race 1) — MagicSpirit ──
                 PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
                     "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
                 PointPlaceholder("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
                     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다."),
-                InstantPlaceholder("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
-                    "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
+                // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초. 옛 줄(기록용):
+                // InstantPlaceholder("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
+                //     "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
+                InstantBuff("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
+                    "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
                 InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
                     "맵 전체 아군 유닛이 받는 피해를 줄인다.", allies: true),
                 // 원소 공명 — 기능 보류 · 이름만 등록(상위 결정 15). 대상이 정해지지 않아 targetsAllies=false.
@@ -262,10 +293,16 @@ namespace Hexiege.EditorTools
                     "맵 전체 아군 유닛과 건물에 체력 재생을 부여하고 증폭한다.", allies: true),
                 InstantPlaceholder("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
                     "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", allies: true),
-                InstantPlaceholder("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
-                    "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
-                InstantPlaceholder("Skill_Trans_ForestTailwind", t, 4, "숲의 순풍",
-                    "맵 전체 아군 유닛의 이동 속도를 높인다.", allies: true),
+                // [2026-11-10 D4 · D10] 숲의 포효 — 공격력 1.5배 · 8초. 옛 줄(기록용):
+                // InstantPlaceholder("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
+                //     "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
+                InstantBuff("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
+                    "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
+                // [2026-11-10 D4 · D10] 숲의 순풍 — 이동 속도 1.3배 · 8초. 옛 줄(기록용):
+                // InstantPlaceholder("Skill_Trans_ForestTailwind", t, 4, "숲의 순풍",
+                //     "맵 전체 아군 유닛의 이동 속도를 높인다.", allies: true),
+                InstantBuff("Skill_Trans_ForestTailwind", t, 4, "숲의 순풍",
+                    "맵 전체 아군 유닛의 이동 속도를 높인다.", StatusEffectKind.MoveSpeedMul, 1.3f, 8f),
             };
         }
 
@@ -358,8 +395,13 @@ namespace Hexiege.EditorTools
             if (verified)
             {
                 // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
+                // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다). 옛 줄(기록용):
+                // Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
+                //           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개(포격 지원 · EMP). " +
+                //           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
-                          $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개(포격 지원 · EMP). " +
+                          $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
