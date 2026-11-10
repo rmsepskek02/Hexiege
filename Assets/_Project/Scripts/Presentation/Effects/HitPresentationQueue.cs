@@ -427,9 +427,6 @@ namespace Hexiege.Presentation
                         boltTarget = ResolveTowerBoltTarget(s.TargetId, out boltUntracked);
                     // [2026-11-10 F0] 받는 순간 잡아 둔 대상 종류(없으면 null). 번개 고정 갈래의 가슴 높이에만 쓰인다.
                     UnitType? capturedBoltType = TryGetCapturedBoltType(key);
-                    // [F0 비활성화 — 2026-11-10] 잡아 둔 종류를 넘기지 않던 옛 호출. 최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-                    // bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
-                    //     boltTarget, boltUntracked);
                     bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
                         boltTarget, boltUntracked, capturedBoltType);
                     // [2026-11-03 — Plan 6-3 P-2] 타워 공격음: 발사 VFX를 부른 바로 이 자리에서 짝으로 호출한다(사운드 규칙 15).

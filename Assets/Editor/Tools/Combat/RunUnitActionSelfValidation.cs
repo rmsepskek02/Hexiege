@@ -1419,9 +1419,6 @@ namespace Hexiege.Editor.Combat
             Require(preset != null && config.GetAttack(UnitType.BloomFairy) == null, "Bloom heal slot is independent; attack remains null.");
             Require(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(preset.VfxPrefab)) == "ff068a5e9b80f3043a0517ebb1cfb00f", "Authored Bloom GUID must match.");
             var authored = preset.VfxPrefab.GetComponentsInChildren<ParticleSystem>(true);
-            // [R-3 비활성화 — 2026-10-13] 개수 5 고정은 옛 프리팹(Bloom_Ring 포함) 가정이었다. 새 프리팹은 4개.
-            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // Require(authored.Length == 5 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null, "Recursive5/root1 are separate metrics.");
             // 개수는 "실제 프리팹에서 센 값(1개 이상)"으로 바꾸고, 아래 시스템별 계약 단언은 그대로 둔다(검증 강도 유지).
             Require(authored.Length >= 1 && preset.VfxPrefab.GetComponent<ParticleSystem>() != null,
                 "Recursive authored PS count>=1 and root PS presence are separate metrics.");

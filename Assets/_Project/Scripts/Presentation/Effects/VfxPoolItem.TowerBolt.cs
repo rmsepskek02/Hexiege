@@ -201,16 +201,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ApplyTowerBoltPose()
         {
-            // [R2-2 비활성화 — 2026-10-13] 높이를 무시한(XZ 평면) 옛 조준·길이 계산.
-            //   시작점을 크리스탈 높이로 올리면 번개가 수평으로 날아가 유닛 머리 위를 지나갔다.
-            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // Vector3 direction = _boltEndpoint - _boltSource; direction.y = 0f;
-            // if (direction.sqrMagnitude > MinDirectionSqr) _boltRotation = Quaternion.LookRotation(direction);
-            // transform.SetPositionAndRotation(_boltSource + _boltRotation * _boltOffset,
-            //     _boltRotation * Quaternion.Euler(_boltEuler));
-            // // 실제 루트 위치(오프셋 반영)에서 끝점까지의 XZ 거리 = 번개가 보여야 할 월드 길이.
-            // Vector3 span = _boltEndpoint - transform.position; span.y = 0f;
-            // float worldLength = span.magnitude;
 
             // (1) 좌우 방향(yaw): 높이를 뺀 XZ 방향. 프리셋 위치 보정을 이 회전으로만 돌리므로
             //     보정의 Y(크리스탈 높이)는 기울기 없이 그대로 "월드 위쪽"으로 더해진다.

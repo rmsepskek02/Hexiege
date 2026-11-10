@@ -55,9 +55,6 @@ namespace Hexiege.Presentation
             //   첫 프레임부터 당긴 위치에 나온다. 매 재생마다 덮어쓰므로 풀 재사용 때 이전 대상의 당김이 남지 않는다.
             //   옵션이 꺼진 프리셋(독)은 0 벡터 + 기록 없음(null) → 예전과 같은 위치·같은 로그.
             string viewPull = ResolveViewPull(preset, fit, out _damageViewPull);
-            // [R-4 비활성화 — 2026-10-13] 대상과 무관한 고정 배율. 작은 유닛엔 너무 크고 큰 유닛엔 어색했다.
-            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // transform.localScale = Vector3.Scale(_originalLocalScale, preset.ScaleMultiplier);
             // 새 크기 = 프리팹 원본 × 프리셋 배율(기존 조정 수단 그대로) × 대상 맞춤 균등 배율.
             //   균등(한 값)이라 Hierarchy 스케일링 파티클이 납작/길쭉하게 찌그러지지 않는다(D-3).
             //   Return()이 _originalLocalScale로 되돌리므로 다음 재사용에 이 배율이 남지 않는다.

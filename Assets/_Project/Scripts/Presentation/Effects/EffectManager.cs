@@ -742,12 +742,6 @@ namespace Hexiege.Presentation
             // 공격 방식이 번개면 번개. HitPresentationQueue가 「대상을 해석할지」 정할 때도 같은 판단
             //   (TowerAttackNeedsTargetTracking = 프로필 공격 방식 Beam)을 쓰므로 두 곳이 어긋나지 않는다(Plan 10절 K-1).
             //   번개 시작점 인자(source)는 옛 호출 그대로다.
-            // [F0 비활성화 — 2026-11-10 runespire-bolt-death-endpoint] 대상 데이터가 없으면(고정 갈래) 유닛 종류와 상관없이
-            //   항상 0.6m를 쓰던 옛 호출. 맞는 순간 죽은 유닛에게도 표에 있는 실제 가슴 높이(약 0.18~0.32m) 대신 0.6m가 들어가
-            //   번개 끝이 약 0.3~0.4m 위로 떴다(Research 2-4). 최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // if (profile.kind == TowerAttackKind.Beam)
-            //     outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
-            //         preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
             if (profile.kind == TowerAttackKind.Beam)
             {
                 // [F0] 가슴 높이를 정하는 순서(초급자 설명):
