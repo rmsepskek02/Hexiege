@@ -21,8 +21,16 @@
 //   회전은 항등이다(프리팹이 원형). 포탄 낙하 무늬가 180° 돌아 보일 수 있다 — 연출 전용 [추정 — 게임에서 확인].
 //
 // 이번 범위에서 재생하지 않는 경우:
-//   - 조준 좌표가 없는 즉시 발동 스킬(HasAim=false): 재생 위치 규칙이 아직 없다(지금 켜진 즉시 발동 스킬도 없다).
+//   - [2026-11-10 비활성화 — 아래 「즉시 발동 스킬」 참고] 조준 좌표가 없는 즉시 발동 스킬(HasAim=false): 재생 위치 규칙이 아직 없다(지금 켜진 즉시 발동 스킬도 없다).
 //   - 스킬 데이터에 발동 VFX 프리팹이 비어 있는 스킬: 연출 없음(기존 스킬 자산은 모두 비어 있다 → 동작 무변경).
+//
+// 즉시 발동 스킬(조준 없음 — 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 등)의 재생 위치(2026-11-10 추가):
+//   사용자 결정 D3(_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx Plan) — 「시전 건물 위, 양쪽 화면」.
+//   발동 알림에 이미 실려 있는 건물 Id(BuildingId — 스킬 규칙 25)로 이 화면의 건물 데이터를 찾아,
+//   그 건물 타일 중심(도메인) → ToView(이 화면 좌표) + 지면 높이 0.06(아래 「지면 높이 보정」 공통 규칙 그대로)에서 재생한다.
+//   건물 데이터 조회 함수는 조합 루트가 Initialize의 넷째 인자로 넣는다(없으면 종전처럼 재생하지 않고 진단 줄만 남긴다).
+//   예전에는 조준이 없으면 맨 먼저 「NoAim」(Info)으로 끝냈다 — 그 return은 주석으로 남겨 두었다(WORKFLOW [4]).
+//   지금 즉시 발동 스킬의 발동 VFX 칸은 모두 비어 있어, 화면 결과가 바뀌는 스킬은 없다(칸이 빈 즉시 스킬은 NoPrefab Warn 1줄).
 //
 // 배치: 씬에 수동 배치하지 않는다. GameBootstrapper(LoadMap)가 자기 GameObject에 AddComponent하고
 //   Initialize를 부른다(WavePresentationPresenter · BloomHealEffectPresenter와 같은 방식).
@@ -47,6 +55,7 @@ using UniRx;
 using UnityEngine;
 using Hexiege.Application;
 using Hexiege.Core;
+using Hexiege.Domain; // [2026-11-10 D3] BuildingData(즉시 발동 스킬의 시전 건물 위치)
 
 namespace Hexiege.Presentation
 {
@@ -76,6 +85,9 @@ namespace Hexiege.Presentation
         private IDisposable _confirmedSubscription;
         private IDisposable _receivedSubscription;
 
+        // [2026-11-10 D3] 건물 Id → 이 화면의 건물 데이터(즉시 발동 스킬의 재생 위치 = 시전 건물). null이면 즉시 발동은 재생하지 않는다.
+        private Func<int, BuildingData> _findBuilding;
+
         /// <summary>
         /// 의존성을 주입하고 두 채널(확정 · 수신)을 구독한다. 맵을 불러올 때마다 GameBootstrapper가 호출한다(재호출 안전).
         /// </summary>
@@ -85,12 +97,18 @@ namespace Hexiege.Presentation
         /// 스킬 발동 VFX 루트에 더할 높이(월드 — GameConfig.SkillVfxGroundYOffset). NaN · 무한대면 기본값 0.06을 쓴다.
         /// 0이나 음수도 그대로 받는다(Inspector에서 일부러 내린 값 존중 — 그 경우 진단 로그 AboveTileTop=False로 드러난다).
         /// </param>
-        public void Initialize(SkillActivationUseCase skillActivation, EffectManager effects, float groundYOffset)
+        /// <param name="findBuilding">
+        /// [2026-11-10 D3] 건물 Id → 이 화면의 건물 데이터. 즉시 발동(조준 없음) 스킬의 발동 VFX를 시전 건물 위에서 재생할 때 쓴다.
+        /// 생략(null)하면 즉시 발동 스킬은 재생하지 않고 진단 줄(NoCasterBuilding)만 남긴다.
+        /// </param>
+        public void Initialize(SkillActivationUseCase skillActivation, EffectManager effects, float groundYOffset,
+                               Func<int, BuildingData> findBuilding = null)
         {
             DisposeSubscriptions();
 
             _skillActivation = skillActivation;
             _effects = effects;
+            _findBuilding = findBuilding;
             // NaN · 무한대는 Inspector 입력 실수로 보고 기본값으로 되돌린다(이펙트가 화면 밖으로 날아가지 않게).
             _groundYOffset = float.IsNaN(groundYOffset) || float.IsInfinity(groundYOffset)
                 ? DefaultGroundYOffset
@@ -130,12 +148,13 @@ namespace Hexiege.Presentation
             //   (this == null 은 Unity의 "파괴된 객체" 검사 — 정적 이벤트가 늦게 들어오는 경우 방어.)
             if (this == null || _skillActivation == null || _effects == null) return;
 
-            // 즉시 발동(조준 없음)은 이번 범위에서 재생 위치가 없다 — 머리말 참고.
-            if (!p.HasAim)
-            {
-                LogVfxSkipped(p, channel, "NoAim", isWarning: false);
-                return;
-            }
+            // [2026-11-10 D3 — 비활성화] 즉시 발동(조준 없음)은 재생 위치가 없어 여기서 끝냈다. 이제는 시전 건물 위에서 재생하므로
+            //   이 return을 주석으로 막았다(아래 「재생 위치 정하기」가 대신한다 — 머리말 「즉시 발동 스킬」). 옛 줄(기록용):
+            // if (!p.HasAim)
+            // {
+            //     LogVfxSkipped(p, channel, "NoAim", isWarning: false);
+            //     return;
+            // }
 
             // 팀 · 슬롯으로 이 화면 빌드의 스킬 데이터를 찾는다(두 기기 빌드가 같다는 것은 스키마 7 일치 확인이 보장).
             SkillData skill = _skillActivation.FindSkillData(p.Team, p.Slot);
@@ -145,8 +164,33 @@ namespace Hexiege.Presentation
                 return;
             }
 
+            // 재생 위치 정하기(2026-11-10 D3):
+            //   지점 지정 스킬 = 조준 좌표(종전 그대로). 즉시 발동 스킬 = 시전 건물 타일 중심(도메인 좌표).
+            //   건물을 못 찾으면(건물 조회 함수 미배선 · 늦게 도착한 알림으로 이미 사라진 건물) 재생하지 않고 Warn 1줄.
+            Vector3 domainPosition;
+            string anchor;
+            if (p.HasAim)
+            {
+                domainPosition = p.AimWorld;
+                anchor = AnchorAim;
+            }
+            else
+            {
+                BuildingData caster = _findBuilding != null ? _findBuilding(p.BuildingId) : null;
+                if (caster == null)
+                {
+                    LogVfxSkipped(p, channel, "NoCasterBuilding", isWarning: true);
+                    return;
+                }
+                // 타일 중심(높이 0). 건물 GameObject 위치를 쓰지 않는 이유: 건물 높이 오프셋이 섞이지 않고,
+                //   지점 지정 스킬과 같은 "지면 + 0.06" 규칙(루트 높이 60mm)을 그대로 지키기 위해서다(Plan 단위 ③).
+                domainPosition = HexMetrics.HexToWorld(caster.Position);
+                anchor = AnchorCasterBuilding;
+            }
+
             // 도메인 좌표 → 이 화면 좌표(빨강 화면이면 맵 중심 기준 X · Z 반전). 높이(Y)는 그대로.
-            Vector3 viewPosition = ViewConverter.ToView(p.AimWorld);
+            //   옛 줄(기록용 — 2026-11-10 D3로 재생 위치를 위에서 고르게 바꿈): Vector3 viewPosition = ViewConverter.ToView(p.AimWorld);
+            Vector3 viewPosition = ViewConverter.ToView(domainPosition);
             // 지면 높이 보정 — 타일 윗면(0.05) 위로 루트를 올린다(머리말 「지면 높이 보정」). X · Z는 그대로.
             //   조준 좌표의 Y는 맵 경계 보정에서 항상 0으로 맞춰지므로 결과는 "지면 높이 그 자체"가 된다
             //   (유닛 · 건물이 HexToWorld 결과에 높이 오프셋을 "더하는" 방식과 같게 더하기로 쓴다).
@@ -157,8 +201,12 @@ namespace Hexiege.Presentation
             bool played = _effects.PlaySkillActivationVfx(skill.ActivationVfxPrefab, viewPosition, scale);
             // 스킬 SFX 없음(Plan Q5 ①). 효과음이 생기면 위 VFX 호출 바로 아래에서 짝으로 부른다(사운드 규칙 15).
 
-            LogVfxPlayed(p, channel, skill.ActivationVfxPrefab.name, played, scale, viewPosition);
+            LogVfxPlayed(p, channel, skill.ActivationVfxPrefab.name, played, scale, viewPosition, anchor);
         }
+
+        // 진단 로그의 Anchor= 값(2026-11-10 D3) — 재생 위치를 무엇으로 정했는가.
+        private const string AnchorAim = "Aim";
+        private const string AnchorCasterBuilding = "CasterBuilding";
 
         // ====================================================================
         // 진단 로그(개발 축 — 릴리스 빌드에서는 호출 · 문자열 조립까지 통째로 사라진다, LogRules 1.7)
@@ -185,13 +233,13 @@ namespace Hexiege.Presentation
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void LogVfxPlayed(SkillActivationPresentation p, string channel, string prefabName, bool played,
-                                         float scale, Vector3 viewPosition)
+                                         float scale, Vector3 viewPosition, string anchor)
         {
             bool aboveTileTop = viewPosition.y > TileTopSurfaceY;
             GameLog.Dev.Info("Skill", nameof(SkillActivationVfxPresenter),
                 "[SKILL-VFX] ActivationVfxPlayed",
                 FormattableString.Invariant(
-                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationVfxPlayed, Role={CurrentRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, BuildingId={p.BuildingId}, Slot={p.Slot}, Prefab={prefabName}, Played={played}, Scale={scale:F2}, ViewFlipped={ViewConverter.IsFlipped}, AimXmm={ToMm(p.AimWorld.x)}, AimZmm={ToMm(p.AimWorld.z)}, ViewXmm={ToMm(viewPosition.x)}, ViewZmm={ToMm(viewPosition.z)}, RootYmm={ToMm(viewPosition.y)}, TileTopYmm={ToMm(TileTopSurfaceY)}, AboveTileTop={aboveTileTop}"));
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationVfxPlayed, Role={CurrentRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, BuildingId={p.BuildingId}, Slot={p.Slot}, Prefab={prefabName}, Played={played}, Scale={scale:F2}, ViewFlipped={ViewConverter.IsFlipped}, AimXmm={ToMm(p.AimWorld.x)}, AimZmm={ToMm(p.AimWorld.z)}, ViewXmm={ToMm(viewPosition.x)}, ViewZmm={ToMm(viewPosition.z)}, RootYmm={ToMm(viewPosition.y)}, TileTopYmm={ToMm(TileTopSurfaceY)}, AboveTileTop={aboveTileTop}, Anchor={anchor}"));
         }
 
         /// <summary>

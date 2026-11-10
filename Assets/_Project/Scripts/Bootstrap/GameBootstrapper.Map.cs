@@ -284,10 +284,14 @@ namespace Hexiege.Bootstrap
             if (skillVfxPresenter == null) skillVfxPresenter = gameObject.AddComponent<SkillActivationVfxPresenter>();
             //   (2026-11-09) 셋째 인자 = 스킬 발동 VFX 지면 높이(타일 윗면 0.05 위로 올려 이펙트가 타일에 잘리지 않게).
             //   값의 출처는 GameConfig 한 곳이다(UnitYOffset · BuildingYOffset 선례). Config가 없으면 같은 기본값 0.06.
+            //   (2026-11-10 D3) 넷째 인자 = 건물 Id → 건물 데이터. 즉시 발동 스킬(조준 없음)의 발동 VFX를 시전 건물 위에서 재생한다.
+            //   이번 맵의 건물 배치 UseCase를 붙잡아 둔다(람다가 다음 맵 것을 읽지 않게 — 탑 무력화 구독자와 같은 방식).
+            var skillVfxPlacement = _buildingPlacement;
             skillVfxPresenter.Initialize(
                 _skillActivation,
                 _effectManager,
-                _config != null ? _config.SkillVfxGroundYOffset : SkillActivationVfxPresenter.DefaultGroundYOffset);
+                _config != null ? _config.SkillVfxGroundYOffset : SkillActivationVfxPresenter.DefaultGroundYOffset,
+                id => skillVfxPlacement?.GetBuilding(id));
 
             // 10-3-2. [EMP — 2026-11-04 EMP Task 커밋 3] 방어탑 무력화 VFX(V6) 화면 구독자.
             //   무력화 표현 이벤트(확정 · 수신)를 받아 멈춘 탑 위에 합선 · 연기 이펙트를 지속 시간 동안 띄운다(표현 전용).
@@ -325,6 +329,24 @@ namespace Hexiege.Bootstrap
                 return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
                     ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
             });
+            // 10-3-3. [2026-11-10 강화 상태 VFX — 지원 스킬 1차 강화 Task 구현 단위 ②] 강화 스킬 상태 VFX 화면 구독자.
+            //   강화 스킬(타입 C) 발동 표현(확정 · 수신)을 받아, 효과를 받은 유닛마다 스킬 자산 「강화 상태 VFX」 칸의 프리팹을
+            //   붙이고 · 따라가게 하고 · 끝나면 뗀다(표현 전용 — 서버 판정 · RPC · 스키마 무변경, Plan D2 안 A).
+            //   위 발동 VFX · 탑 무력화 구독자와 같은 방식 — AddComponent(없을 때만) + 맵마다 Initialize(이전 구독 · 이펙트를 먼저 정리).
+            //   · 스킬 데이터 조회: 이번 맵의 스킬 UseCase(FindSkillData — 발동 판정과 같은 로드아웃 · 팀→종족 변환).
+            //   · 대상 유닛 목록: 이번 맵의 유닛 UseCase(이 화면 도메인의 유닛 — Client도 같은 Id로 유닛 데이터를 갖는다).
+            //   · 몸 위치: 화상 · 독 · 힐과 같은 공통 pose 함수(유닛 View가 그 유닛 데이터를 들고 있고 활성일 때만 보이는 몸 Transform).
+            //   ⚠️ IGameServices에는 아무것도 추가하지 않는다(Editor fixture 대역 구현 보호).
+            var buffVfxPresenter = GetComponent<UnitBuffVfxPresenter>();
+            if (buffVfxPresenter == null) buffVfxPresenter = gameObject.AddComponent<UnitBuffVfxPresenter>();
+            buffVfxPresenter.Initialize(_skillActivation, _effectManager, _unitSpawn, target =>
+            {
+                var go = bloomFactory.GetUnitObject(target.Id);
+                var view = go != null ? go.GetComponent<UnitView>() : null;
+                return view != null && ReferenceEquals(view.Data, target) && go.activeInHierarchy
+                    ? bloomPoseProvider.GetUnitTransform(target.Id) : null;
+            });
+
             var waveOwnerCombat = _unitCombat;
             var damagePresenter = GetComponent<TimedDamageEffectPresenter>();
             if (damagePresenter == null) damagePresenter = gameObject.AddComponent<TimedDamageEffectPresenter>();
