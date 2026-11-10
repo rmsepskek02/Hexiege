@@ -42,6 +42,8 @@
 //   머리 [SKILL-VFX] · Diag=SkillVfx — ActivationConfirmed(발동 확정) · ActivationRejected(사용 불가 거부) ·
 //     ImpactScheduled(착탄 예약) · ImpactApplied(실제 착탄 피해 — 시각 · 대상 수 · 사망 수) · ImpactDropped(경기 종료로 버림).
 //   머리 [EMP-DIAG] · Diag=EmpTowerDisable — TowersDisabled(EMP 판정 결과 — 원 안 · 밖 탑 수, 아군 탑 수, 원 안 적 유닛 수).
+//   (2026-11-10 추가) 머리 [SKILL-BUFF] · Diag=SkillBuff — BuffNoEffect(타입 C가 상태를 걸지 않고 끝남 — Warn, 정상이면 0건).
+//     타입 C 실행 직전 UnitCombatUseCase에 발동 꼬리표(순번 · 슬롯 · 건물)를 걸어 그쪽 BuffApplied 줄에 붙게 한다.
 //   목록 · 계수 조립은 [Conditional] 헬퍼 안에서만 하므로 릴리스 빌드에서는 호출 · 계산 · 문자열 조립이 모두 사라진다.
 //
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
@@ -207,7 +209,11 @@ namespace Hexiege.Application
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge,
                 (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence));
+            // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 타입 C 실행 전후로 "실제로 상태를 걸었는가"를 본다(에디터 · 개발 빌드 전용 —
+            //   릴리스에서는 두 호출이 사라진다). 발동 · 쿨다운 · 확정 흐름은 바꾸지 않는다(Plan 단위 ① 문서 담당 제안 — 거부로 바꾸지 않음).
+            DiagBeginSkillBuffActivation(skill, sequence, skillSlot, buildingId);
             executor.Execute(ctx);
+            DiagEndSkillBuffActivation(building.Team, buildingId, skillSlot, skill, sequence);
 
             // ⑧ 글로벌 쿨다운 설정(규칙 3). 착탄이 늦어도 쿨다운은 "발동 순간" 시작한다(Plan Q1-c).
             StartCooldownLocal(buildingId, skill.Cooldown);
@@ -425,6 +431,8 @@ namespace Hexiege.Application
         //   (싱글에서는 구독자가 없어 이벤트가 무시되고, 상태는 이 서버에 이미 적용된다.)
         private void ApplyGlobalStatusBridge(TeamId team, StatusEffectKind kind, float magnitude, float duration)
         {
+            // [2026-11-10 진단] 실행기가 이 다리까지 왔다 = 상태 적용을 시도했다(BuffNoEffect 판정용 — 에디터 · 개발 빌드 전용).
+            DiagMarkGlobalStatusBridgeCalled();
             _combat?.ApplySkillGlobalStatus(team, kind, magnitude, duration, raiseNetworkEvent: true);
         }
 
@@ -705,6 +713,49 @@ namespace Hexiege.Application
             GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[EMP-DIAG] TowersDisabled",
                 FormattableString.Invariant(
                     $"Diag=EmpTowerDisable, DiagRev=1, Event=TowersDisabled, Role={DiagRole()}, Team={team}, Sequence={sequence}, DurationMs={DiagMilli(duration)}, RadiusMm={DiagMilli(radius)}, AimXmm={DiagMilli(center.x)}, AimZmm={DiagMilli(center.z)}, Disabled={disabled}, Refreshed={_buildingStatus.DiagLastRefreshedCount}, PrevRemainingMs={_buildingStatus.DiagLastPrevRemainingMs}, TowerIds={towerIds}, EnemyTowersInRadius={enemyInRadius}, EnemyTowersOutOfRange={enemyOutOfRange}, AllyTowersInRadius={allyInRadius}, EnemyUnitsInRadius={enemyUnits}, EventPublished={disabled > 0}"));
+        }
+
+        // ── [2026-11-10 강화 스킬 진단 — 지원 스킬 1차 강화 Task 구현 단위 ④, Plan 5절 L2] ──
+        //   타입 C(전역 상태변경)는 데이터 칸(지속 > 0 · 상태 종류)이 하나라도 빠지면 실행기가 "조용히" 끝나는데도
+        //   쿨다운 · 발동 확정은 그대로 진행된다(Research 3-7) → 「효과 없이 쿨다운만 도는 스킬」. 그런 발동마다 Warn 1줄을 남긴다.
+        //   정상이면 0건이어야 한다(L2). 발동 결과 · 쿨다운은 바꾸지 않는다(진단만).
+        //   BuffApplied(적용 직후 대상 수)는 UnitCombatUseCase 쪽 진단이 남긴다 — 여기서는 그 줄에 순번 · 슬롯을 붙이는 꼬리표만 건다.
+        private bool _diagGlobalStatusBridgeCalled;
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBeginSkillBuffActivation(SkillData skill, int sequence, int slot, int buildingId)
+        {
+            _diagGlobalStatusBridgeCalled = false;
+            if (skill == null || skill.Mechanic != SkillMechanicType.GlobalStatusChange) return;
+            _combat?.DiagTagSkillBuffActivation(sequence, slot, buildingId);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagMarkGlobalStatusBridgeCalled()
+        {
+            _diagGlobalStatusBridgeCalled = true;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagEndSkillBuffActivation(TeamId team, int buildingId, int slot, SkillData skill, int sequence)
+        {
+            try
+            {
+                if (skill == null || skill.Mechanic != SkillMechanicType.GlobalStatusChange) return;
+                _combat?.DiagClearSkillBuffActivationTag();
+                if (_diagGlobalStatusBridgeCalled) return;
+                // 실행기(GlobalStatusChangeExecutor)가 조용히 끝난 이유를 같은 순서로 다시 판정한다(38 · 43행 — 지속 → 종류).
+                string reason = !(skill.Duration > 0f) ? "DurationNotPositive"
+                    : (StatusEffectKind)skill.StatusKind == StatusEffectKind.None ? "StatusKindNone"
+                    : "ExecutorReturned";
+                GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase), "[SKILL-BUFF] BuffNoEffect",
+                    FormattableString.Invariant(
+                        $"Diag=SkillBuff, DiagRev=1, Event=BuffNoEffect, Role={DiagRole()}, Team={team}, BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, Reason={reason}, DurationMs={DiagMilli(skill.Duration)}, StatusKind={skill.StatusKind}, MagMilli={DiagMilli(skill.Magnitude)}, CooldownStarted=True"));
+            }
+            catch { /* 진단 전용 — 서버 발동을 막지 않는다 */ }
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]

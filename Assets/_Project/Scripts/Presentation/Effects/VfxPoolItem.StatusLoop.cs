@@ -111,6 +111,58 @@ namespace Hexiege.Presentation
         private void ResetStatusLoop()
         {
             _statusLoop = false;
+            // [2026-11-10 강화 상태 VFX] 따라가기 보정도 재생별 상태다 — 풀 재사용 때 이전 유닛의 보정이 남지 않게 비운다.
+            _statusFollowOffset = Vector3.zero;
+        }
+
+        // ====================================================================
+        // [2026-11-10 강화 상태 VFX — 지원 스킬 1차 강화 Task 구현 단위 ②] 유닛 몸을 따라가는 상태 루프
+        //
+        // 무엇을 하나(초급자용 설명):
+        //   EMP 탑 무력화 이펙트는 탑이 움직이지 않아서 한 번 놓으면 끝이었다. 강화 스킬(전술 지령 등)의
+        //   상태 이펙트는 "걸어 다니는 유닛"에 붙으므로, 매 프레임 그 유닛의 보이는 몸(Visual Root) 자리로 옮겨야 한다.
+        //   시작 · 정지 · 확인 번호(lease)는 위의 EMP 장치를 그대로 쓰고, "옮기기(따라가기)"만 여기서 더한다.
+        //
+        //   위치 = 몸 발밑(pose.position) + 몸 회전 × 보정(스킬 데이터의 위치 보정 + 유닛 크기 표의 발밑 보정).
+        //   회전 = 몸 회전(유닛이 돌아서면 이펙트도 함께 돈다 — 화상 · 독 · 힐 이펙트와 같은 방식).
+        //   보정은 시작할 때 1번 정해 두고(EffectManager.StartUnitBuffVfx), 매 프레임에는 더하기만 한다(할당 없음).
+        //
+        //   🔴 pose는 부르는 쪽(UnitBuffVfxPresenter)이 읽기 "직전에" VisualRootProjector.ProjectNow()로 바로잡은 값이어야 한다.
+        //      뒤집힌(빨강) Client 화면에서는 보이는 몸이 실제 위치의 자식이라, 바로잡기 전에 읽으면 틀린 자리로 튄다
+        //      (VFXSFXGuide 「코드 계약 — 표현 pose를 저장해 매 프레임 읽는 소비자」).
+        //
+        //   정지(꼬리 · 즉시)는 위 StopStatusLoop을 그대로 쓴다. 정지한 뒤에는 따라가기 요청을 받지 않는다
+        //   (꼬리 입자는 마지막 자리에서 사그라진다 — 죽은 유닛 몸을 따라가지 않게).
+        // ====================================================================
+
+        // 시작할 때 정한 따라가기 보정(몸 회전 기준 로컬 좌표). ResetStatusLoop에서 비운다.
+        private Vector3 _statusFollowOffset;
+
+        /// <summary>
+        /// 방금 시작한 상태 루프의 따라가기 보정을 정한다(EffectManager가 BeginStatusLoop 직후 1번 부른다).
+        /// 확인 번호가 맞지 않으면 아무것도 하지 않는다.
+        /// </summary>
+        /// <param name="lease">BeginStatusLoop가 돌려준 확인 번호.</param>
+        /// <param name="localOffset">몸 회전 기준 로컬 보정(스킬 위치 보정 + 크기 표 발밑 보정).</param>
+        public void SetStatusLoopFollowOffset(ulong lease, Vector3 localOffset)
+        {
+            if (!IsStatusLoopActive(lease)) return;
+            _statusFollowOffset = localOffset;
+        }
+
+        /// <summary>
+        /// 상태 루프 이펙트를 대상 유닛의 지금 몸 자세(pose)로 옮긴다. UnitBuffVfxPresenter가 매 프레임(LateUpdate) 부른다.
+        /// 확인 번호가 다르거나(풀로 돌아가 다른 재생에 쓰이는 중) 이미 정지했거나 pose가 없으면 아무것도 하지 않는다.
+        /// </summary>
+        /// <param name="lease">BeginStatusLoop가 돌려준 확인 번호.</param>
+        /// <param name="pose">대상 유닛의 보이는 몸(Visual Root) Transform — 부르기 직전에 ProjectNow()로 바로잡은 것.</param>
+        /// <returns>실제로 옮겼으면 true.</returns>
+        public bool FollowStatusLoop(ulong lease, Transform pose)
+        {
+            if (pose == null || !IsStatusLoopActive(lease)) return false;
+            Quaternion rotation = pose.rotation;
+            transform.SetPositionAndRotation(pose.position + rotation * _statusFollowOffset, rotation);
+            return true;
         }
     }
 }

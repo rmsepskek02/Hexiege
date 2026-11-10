@@ -455,6 +455,9 @@ namespace Hexiege.Application
         public void SetStatusEffectSystem(StatusEffectSystem statusSystem)
         {
             _statusSystem = statusSystem;
+            // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 상태 틱마다 만료 · 사망 · 새 유닛을 살피는 진단 감시자를 건다
+            //   (에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출이 사라진다. UnitCombatUseCase.SkillBuffDiagnostics.cs).
+            DiagAttachSkillBuffTickListener(statusSystem);
         }
 
         /// <summary>
@@ -479,8 +482,18 @@ namespace Hexiege.Application
             if (_statusSystem == null) return baseAttack;
             float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
 
-            if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
-            return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
+            // [2026-11-10 강화 스킬 진단 L3 · L5-b] 버프 대상의 첫 공격 표본 1줄을 남기려고 반환 값을 한 번 변수에 담는다.
+            //   계산식은 그대로다(진단 호출은 에디터 · 개발 빌드에서만 남는다). 옛 줄(기록용):
+            // if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
+            // return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
+            if (statusMul == 1f) // 무변경 보장(부동소수 개입 없음).
+            {
+                DiagSampleSkillBuffAttack(attacker, baseAttack, statusMul, baseAttack);
+                return baseAttack;
+            }
+            int effectiveAttack = Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
+            DiagSampleSkillBuffAttack(attacker, baseAttack, statusMul, effectiveAttack);
+            return effectiveAttack;
         }
 
         /// <summary>
@@ -501,6 +514,8 @@ namespace Hexiege.Application
             {
                 float statusMoveMul = _statusSystem.GetMoveSpeedMultiplier(unit.Id);
                 mul *= statusMoveMul;
+                // [2026-11-10 강화 스킬 진단 L4 · L5-b] 버프 대상의 첫 이동 배율 조회 표본 1줄(에디터 · 개발 빌드 전용).
+                DiagSampleSkillBuffMove(unit, statusMoveMul, mul);
             }
             return mul;
         }
@@ -2449,6 +2464,10 @@ namespace Hexiege.Application
         {
             if (duration <= 0f || kind == StatusEffectKind.None) return;
 
+            // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 이번 적용 1건의 진단 묶음을 시작한다(대상 수 · 재적용 수 · 만료 추적용).
+            //   에디터 · 개발 빌드 전용 — 릴리스에서는 아래 Diag 호출 3개가 모두 사라진다. 적용 동작은 바꾸지 않는다.
+            DiagBeginSkillBuffBatch(team, kind, magnitude, duration, raiseNetworkEvent);
+
             // 대상 팀의 살아있는 유닛 전체 순회.
             foreach (var unit in _unitSpawn.Units.Values)
             {
@@ -2466,9 +2485,14 @@ namespace Hexiege.Application
                 else
                 {
                     // 버프/디버프/제어 — 상태 시스템에 부여(유효 스탯 접근자가 배율/게이트로 합성).
+                    //   [진단] 부여 "전에" 대상 1기를 센다(같은 종류가 이미 걸려 있었으면 재적용으로 센다 — L6 RefreshedCount).
+                    DiagNoteSkillBuffTarget(unit, kind);
                     _statusSystem?.Apply(unit.Id, new StatusEffect(kind, magnitude, duration, team));
                 }
             }
+
+            // [진단 L1 · L9] 적용 직후 1줄 — 서버 권위 발동이면 BuffApplied, 순수 Client 재현이면 BuffStatusReceived.
+            DiagEndSkillBuffBatch(raiseNetworkEvent);
 
             // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
             if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)

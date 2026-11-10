@@ -120,6 +120,40 @@ namespace Hexiege.Infrastructure
         [Tooltip("VFX 프리팹이 제작된 기준 반경(월드 단위). 재생 배율 = 스킬 반경 ÷ 이 값. 0 이하면 배율 1.")]
         [SerializeField] private float _vfxReferenceRadius = 2.0f;
 
+        [Header("강화 상태 VFX (타입 C — 효과를 받는 유닛 몸에 붙는 반복 이펙트)")]
+        // 강화 상태 VFX 칸(2026-11-10 추가 — 지원 스킬 1차 강화 Task
+        //   _Tasks/2026-11-10/04_20_support-buff-skills-status-vfx, Plan 구현 단위 ①).
+        //
+        // 무엇인가(초급자용 설명):
+        //   「전술 지령」 같은 강화 스킬을 쓰면 효과를 받은 아군 유닛마다 몸에 이펙트(빛 · 바람 · 잎 등)가 붙어
+        //   효과가 끝날 때까지 따라다닌다. 그 이펙트 그림을 "스킬마다" 따로 넣는 칸이다.
+        //   그림은 스킬마다 다르고(사용자: 「각 종족별 강화 vfx는 다른 이펙트」), 붙이고 · 따라가고 · 떼는 장치
+        //   (UnitBuffVfxPresenter)는 모든 강화 스킬이 함께 쓴다.
+        //
+        //   비워 두면(기본값) 효과(공격력 · 이동 속도)는 그대로 걸리고, 화면에는 이펙트가 없다.
+        //   이때 화면 쪽 구독자가 진단 로그 「BuffVfxSkipped Reason=NoPrefab」을 1줄 남긴다.
+        //
+        //   🔴 넣는 프리팹은 「상태 이펙트 계약」을 지켜야 한다(VFXSFXGuide 「코드 계약」 1 · 2):
+        //      모든 Particle System Looping ON · Stop Action None · Scaling Mode Hierarchy, 루트 pivot = 유닛 발밑.
+        //      Looping이 꺼져 있으면 효과가 끝나기 전에 이펙트가 저절로 사라지고, Hierarchy가 아니면 유닛 크기 맞춤이 먹지 않는다.
+        //
+        //   크기 · 위치 맞춤:
+        //     최종 크기 = 프리팹 원본 크기 × 아래 「크기 배율」 × 유닛 크기 표(UnitEffectConfig 「상태 이펙트 크기 맞춤」)의 균등 배율.
+        //     최종 위치 = 유닛 발밑 + 유닛 회전 × (아래 「위치 보정」 + 크기 표의 발밑 보정).
+        //     (화상 · 독 · 힐 이펙트가 EffectPreset의 Scale Multiplier · Local Position Offset으로 맞추는 것과 같은 계산이다.
+        //      스킬 데이터는 Presentation 타입인 EffectPreset을 참조할 수 없어서 — 레이어 규칙 — 숫자 칸 두 개로 둔다.)
+        //
+        //   기존 자산은 파일에 이 칸이 없어 아래 초기값(프리팹 없음 · 배율 1 · 보정 0)으로 읽힌다 → 동작 무변경.
+        //   일회성 셋업 도구(SupportSkillLoadoutSetup)는 이 칸을 쓰지 않는다 — 도구를 다시 실행해도 넣은 프리팹이 지워지지 않는다.
+        [Tooltip("효과를 받은 유닛 몸에 붙일 반복(Looping) VFX 프리팹. 비우면 이펙트 없이 효과만 걸린다.")]
+        [SerializeField] private GameObject _statusVfxPrefab;
+
+        [Tooltip("강화 상태 VFX 크기 배율(프리팹 원본 × 이 값 × 유닛 크기 표 배율). 0 이하 · NaN이면 1로 쓴다.")]
+        [SerializeField] private float _statusVfxScale = 1f;
+
+        [Tooltip("강화 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). 예: (0, 0.1, 0) = 발밑보다 0.1 위.")]
+        [SerializeField] private Vector3 _statusVfxOffset = Vector3.zero;
+
         /// <summary>
         /// 이 SO의 값을 Application 레이어 값 객체(SkillData)로 변환한다.
         /// 실행기/유스케이스/UI가 Infrastructure SO에 직접 의존하지 않도록 하는 경계(의존성 역전).
@@ -144,7 +178,11 @@ namespace Hexiege.Infrastructure
                 _isAvailable,
                 _impactDelay,
                 _activationVfxPrefab,
-                _vfxReferenceRadius);
+                _vfxReferenceRadius,
+                // 2026-11-10 강화 상태 VFX 칸 3개(위 「강화 상태 VFX」 머리말).
+                _statusVfxPrefab,
+                _statusVfxScale,
+                _statusVfxOffset);
         }
     }
 }

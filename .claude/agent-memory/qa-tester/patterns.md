@@ -148,8 +148,11 @@ Programmer-side details: `.claude/agent-memory/game-programmer/vfx-presentation.
   (`RecursivePSContract` fault) before suspecting the pool or the prefab GUID.
 - **Death-at-impact is its own case for tracked endpoints.** The tower deals damage before it publishes the effect
   snapshot, so a lethal hit always begins with a dead target and takes the snapshot-position branch (RuneSpire bolt
-  endpoint slightly off — OPEN, cause unverified). Test "target dies from this very hit" separately from "target dies
-  during the effect".
+  endpoint was slightly off — fixed 2026-11-10: the cause was a fixed 0.6 m chest height on that branch; the type is now
+  captured at receive time, `_Tasks/2026-11-09/19_52_runespire-bolt-death-endpoint/` Plan §12). Test "target dies from
+  this very hit" separately from "target dies during the effect". The lethal case shows as `Untracked(TargetDead)` on
+  Host/single but `Untracked(TargetViewMissing)` on the Client (object already destroyed at play) — expect both.
+  *(2026-11-10 updated — old: "(RuneSpire bolt endpoint slightly off — OPEN, cause unverified)")*
 - **Caster-owned VFX:** test "caster dies mid-charge" (FoxMagician 2 s, InfernoSpirit 1 s charge) — the effect must vanish
   for that caster only. Data values committed to the branch may lag the user's local re-measure/tuning: say which
   revision the numbers came from.

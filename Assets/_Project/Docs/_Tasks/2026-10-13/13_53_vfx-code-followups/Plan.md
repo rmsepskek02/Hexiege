@@ -365,10 +365,10 @@
 | 항목 | 커밋 | 최종 상태 | 근거 |
 |---|---|---|---|
 | A. Bloom 힐 개수 계약(1개 이상 + 시스템별 계약) | `d3f9abb1` | ✅ **사용자 실기 PASS** (PS 4개 프리팹 재생) | Research 10-2 |
-| B. RuneSpire 번개 원래 대상 추적 | `d3f9abb1` | ✅ 살아 있는 대상 PASS · ⚠️ **맞는 순간 사망 시 끝점 어긋남 OPEN** | Research 10-2 · 10-4 |
+| B. RuneSpire 번개 원래 대상 추적 | `d3f9abb1` | ✅ 살아 있는 대상 PASS · ✅ **맞는 순간 사망 시 끝점 — 해결(F0 `b495ce0`, 사용자 테스트 PASS 2026-11-10)** *(2026-11-10 갱신 — 종전 「⚠️ 맞는 순간 사망 시 끝점 어긋남 OPEN」. [후속 Task Plan 12절](../../2026-11-09/19_52_runespire-bolt-death-endpoint/Plan.md#12-implementation-and-user-test))* | Research 10-2 · 10-4 |
 | C. 상태 이펙트 대상 크기 맞춤 | `d3f9abb1` · 재측정 표·프리셋 `91371e55` | ✅ R3 재측정 뒤 **의도대로 조정됨** (사용자 화면 확인) · 값 미세 조정 진행 중 | Research 10-2 · 10-3 |
 | R2-1 차지 VFX 시전자 사망 정지 | `a840a152` | ✅ **사용자 실기 PASS** (2차·3차) | Research 9-2 · 10-2 |
-| R2-2 크리스털→가슴 3D 조준 | `a840a152` | ✅ 크리스털 시작·가슴 높이 PASS · 사망 시 예외는 B 행과 같은 결함 | Research 10-2 |
+| R2-2 크리스털→가슴 3D 조준 | `a840a152` | ✅ 크리스털 시작·가슴 높이 PASS · 사망 시 예외는 B 행과 같은 결함 *(2026-11-10 — 그 결함 해결, B 행)* | Research 10-2 |
 | R2-3 화상·힐 값 조정 | (사용자 데이터) | ⏳ **진행 중** — 코드 항목 아님 | Research 10-5 |
 | R2-4 독 프리팹 재제작 | `10a38cc0` | ✅ **사용자 승인** | Research 10-2 |
 | R3 측정 도구 스케일 버그 | `84b6ff2a` | ✅ **수정 · 재측정 · 실기 확인** | Research 10-2 |
@@ -376,9 +376,9 @@
 
 ### 13-2. 미해결과 남은 항목
 
-1. 🔴 **OPEN — 타워 번개 사망 시 끝점 어긋남.** 코드 사실·가설(⚠️ 미검증)·다음 단계 제안은 Research 10-4가 단일 소스다. 요지: 대상이 이미 죽은 상태로 재생이 시작되면 추적을 켜지 않고 서버 스냅샷 Impact + 가슴 높이를 끝점으로 쓴다(`HitPresentationQueue.cs` 278행 → `VfxPoolItem.TowerBolt.cs` 172행). 이때 가슴 높이는 크기 표가 아니라 0.6m 고정값이다 — 다음 작업 인계는 아래 13-4. *(2026-10-15 정정: 첫 판은 이 판정 자리를 `VfxPoolItem.TowerBolt.cs` 76행으로 적었다 — 76행은 추적 도중 사망 확인이다)* 제안된 수정(화면 위치를 쓰는 방향)은 `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 2026-10-13 블록 「추적 불가로 시작할 때」 문구와 맞닿으므로 **규칙 변경 전에 사용자 승인**이 필요하다.
+1. ✅ **해결 (2026-11-10) — 타워 번개 사망 시 끝점 어긋남.** *(2026-11-10 갱신 — 종전 「🔴 OPEN」. 원인 H0(가슴 높이 0.6m 고정)을 F0(받는 순간 종류를 잡아 표 가슴 높이)로 고쳐 사용자 테스트 PASS, 「추적 불가로 시작할 때」 문구는 바꾸지 않음 — [후속 Task Plan 12절](../../2026-11-09/19_52_runespire-bolt-death-endpoint/Plan.md#12-implementation-and-user-test). 아래는 2026-10-15 기록)* 코드 사실·가설(⚠️ 미검증)·다음 단계 제안은 Research 10-4가 단일 소스다. 요지: 대상이 이미 죽은 상태로 재생이 시작되면 추적을 켜지 않고 서버 스냅샷 Impact + 가슴 높이를 끝점으로 쓴다(`HitPresentationQueue.cs` 278행 → `VfxPoolItem.TowerBolt.cs` 172행). 이때 가슴 높이는 크기 표가 아니라 0.6m 고정값이다 — 다음 작업 인계는 아래 13-4. *(2026-10-15 정정: 첫 판은 이 판정 자리를 `VfxPoolItem.TowerBolt.cs` 76행으로 적었다 — 76행은 추적 도중 사망 확인이다)* 제안된 수정(화면 위치를 쓰는 방향)은 `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 2026-10-13 블록 「추적 불가로 시작할 때」 문구와 맞닿으므로 **규칙 변경 전에 사용자 승인**이 필요하다.
 2. ⏳ **데이터 조정 계속** — 화상·독·힐 프리셋 값(사용자, 반복 테스트). 현재 값은 커밋 `91371e55`에 있다: 재측정 표(Pistoleer 키 0.342 · 최대 키 약 0.53 · 최대 반경 약 0.41 · `manualScale` 없음), Heal·Poison Scale Multiplier 2, Burn 1, 오프셋 모두 0(Research 10-3). *(2026-10-15 정정: 첫 판의 「`84b6ff2a`에는 없다 — 사용자 PC의 커밋되지 않은 작업으로 보인다」는 사용자가 `91371e55`로 올려 해소)*
-3. **주석 비활성화한 옛 로직 — 지금은 남겨 둔다(사용자 결정, 2026-10-15: 작업이 끝나지 않았으므로).** 최종 삭제는 아래 13-4의 RuneSpire 번개 사망 시 끝점 결함이 사용자 테스트를 통과한 뒤에만 한다(WORKFLOW [4] 「[6] 통과 후 · [7] 전」). 현재 남아 있는 자리 [직접]: R-1 `VfxPoolItem.cs` 164행 · R-5 `VfxPoolItem.cs` 210행 · R-4 `VfxPoolItem.TimedDamage.cs` 42행 · R-3 `RunUnitActionSelfValidation.cs` 1385행 · R2-X1 `VfxPoolItem.TowerBolt.cs` 204행 · R3 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` 332행. (R2-X2 끝점 계산은 주석 블록이 아니라 호출 쪽에 가슴 높이를 더하는 방식으로 바뀌었다 — 같은 파일 165·172·188행.)
+3. ✅ **주석 비활성화한 옛 로직 — 최종 삭제 완료(2026-11-10, `fa3934c` — 주석만 삭제, 실행 코드 무변경).** *(2026-11-10 갱신 — 종전 「지금은 남겨 둔다(사용자 결정, 2026-10-15: 작업이 끝나지 않았으므로).」 삭제 조건(아래 결함의 사용자 테스트 통과)이 충족됐다 — [후속 Task Plan 12-5](../../2026-11-09/19_52_runespire-bolt-death-endpoint/Plan.md#12-5-final-deletion). 이 목록에 없던 `RunUnitActionSelfValidation.VfxConnections.cs`의 `[2026-10-13 R2-2 비활성화]` 블록 1곳은 남아 있다 — 후속 판단. 아래 행 번호는 2026-10-15 기록)* 최종 삭제는 아래 13-4의 RuneSpire 번개 사망 시 끝점 결함이 사용자 테스트를 통과한 뒤에만 한다(WORKFLOW [4] 「[6] 통과 후 · [7] 전」). 현재 남아 있는 자리 [직접]: R-1 `VfxPoolItem.cs` 164행 · R-5 `VfxPoolItem.cs` 210행 · R-4 `VfxPoolItem.TimedDamage.cs` 42행 · R-3 `RunUnitActionSelfValidation.cs` 1385행 · R2-X1 `VfxPoolItem.TowerBolt.cs` 204행 · R3 `Assets/Editor/Tools/UnitRecipientFitMeasureTool.cs` 332행. (R2-X2 끝점 계산은 주석 블록이 아니라 호출 쪽에 가슴 높이를 더하는 방식으로 바뀌었다 — 같은 파일 165·172·188행.)
 4. **이 작업의 범위 밖으로 남은 VFX 후속**(8절·10-5절 범위 밖 목록에서 이어짐): MushroomBomber 트레이서 **포물선 궤적**(현재 `TracerProjectile.cs` 161행 직선 `Lerp`, 사용자가 이전 작업에서 나중으로 미룸 — `_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/Plan.md` 5절 4번) · 새 VFX의 **SFX**(상태 이펙트·힐·타워 착탄은 `EffectManager.cs`의 `Sound15:` 주석대로 미제작) · `VFXSFXList.md`의 **미연결·제작 예정 VFX**(같은 문서 「2026-10-14 실측 연결 상태」 블록이 단일 소스). 모두 `ROADMAP.md`에 등록했다.
 5. **`Testcase.md` 없음** — TC 작성을 요청받지 않아(WORKFLOW [5-1]) 만들지 않았다. WORKFLOW [8](Testcase 결과 갱신)은 해당 없음이며 실기 결과는 Research 8~10절과 이 절이 담는다.
 
@@ -431,7 +431,9 @@
 - 수정: `Assets/_Project/Docs/_Tasks/2026-10-08/17_09_bloomfairy-heal-vfx-naming/Plan.md` · `Assets/_Project/Docs/_Tasks/2026-10-09/08_12_mushroombomber-vfx-split/Plan.md` (VFXSFXList 정리 때 상단 메모 추가)
 - 추가(로그 `.meta`): `Assets/_Project/Docs/_Logs/_editor/2026-10-13/RuntimeLog.txt.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-14.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-14/RuntimeLog.txt.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-15.meta` · `Assets/_Project/Docs/_Logs/_editor/2026-10-15/RuntimeLog.txt.meta` (뒤 두 개는 `91371e55`)
 
-### 13-4. 🔴 다음 작업 인계 — RuneSpire 번개: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋난다 (OPEN, 2026-10-15 사용자 지시로 추가)
+### 13-4. 🔴 다음 작업 인계 — RuneSpire 번개: 맞는 순간 대상이 죽으면 끝점이 살짝 어긋난다 (✅ 완료 2026-11-10 — 종전 「OPEN」, 2026-10-15 사용자 지시로 추가)
+
+> *(2026-11-10 — 이 인계는 후속 Task `_Tasks/2026-11-09/19_52_runespire-bolt-death-endpoint/`가 받아 끝냈다: 원인 H0 확정 · F0 구현(`b495ce0`) · 사용자 테스트 PASS · 아래 6곳 최종 삭제(`fa3934c`). F1 · F2 · F3는 진행하지 않았다. 결과: [Plan 12절](../../2026-11-09/19_52_runespire-bolt-death-endpoint/Plan.md#12-implementation-and-user-test). 로드맵 「VFX 후속 ①」 행은 완료로 삭제됐다. 아래 본문은 2026-10-15 기록 그대로다)*
 
 이 블록만 읽고 다음 작업을 시작할 수 있게 정리했다. 분석의 원본은 Research 10-4, 같은 내용의 programmer용 요약은 `.claude/agent-memory/game-programmer/vfx-presentation.md` §4-1, 로드맵 행은 `ROADMAP.md` 「VFX 후속 ①」.
 
@@ -465,7 +467,7 @@
 | F3 | 치명타일 때만 사망 처리 직전 위치를 따로 넘기는 등 스냅샷 구조 확장 | 스냅샷·RPC 구조 변경 — 이번 작업이 「바꾸지 않는 것」으로 둔 영역이라 별도 설계·승인 |
 피해·타겟 선택·HP·쿨다운은 어느 후보도 바꾸지 않는다(규칙 9 서버 권위, NET-AUTH-001).
 
-**주석 비활성화 블록 6곳 — 이 결함이 사용자 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정):**
+**주석 비활성화 블록 6곳 — 이 결함이 사용자 테스트를 통과한 뒤에만 최종 삭제(2026-10-15 사용자 결정):** *(2026-11-10 — ✅ 6곳 모두 삭제 완료, `fa3934c`)*
 | # | 파일 (`84b6ff2a` 기준 행) | 꺼 둔 옛 로직 |
 |---|---|---|
 | R-1 | `Assets/_Project/Scripts/Presentation/Effects/VfxPoolItem.cs` 약 164행 | Bloom 「정확히 5개」 거부 |

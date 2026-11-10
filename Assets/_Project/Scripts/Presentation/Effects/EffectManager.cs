@@ -674,6 +674,127 @@ namespace Hexiege.Presentation
             return item.StopStatusLoop(lease, immediate);
         }
 
+        // ====================================================================
+        // [2026-11-10 강화 상태 VFX — 지원 스킬 1차 강화 Task 구현 단위 ②] 유닛 상태 VFX(강화 스킬) — 시작 · 정지
+        //   UnitBuffVfxPresenter가 강화 스킬 발동 표현(확정 · 수신)을 받으면 대상 유닛마다 이 메서드로 시작하고,
+        //   매 프레임 VfxPoolItem.FollowStatusLoop로 몸을 따라가게 하며, 효과가 끝나면 꼬리 정지 · 유닛이 죽으면 즉시 정지한다.
+        //   프리팹 · 크기 배율 · 위치 보정은 스킬 데이터(SkillDefinition 자산 → SkillData)에 있다 — EffectPreset을 거치지 않는다
+        //   (스킬 데이터는 Application 타입이라 Presentation의 EffectPreset을 참조할 수 없다 — 레이어 규칙).
+        //   크기 · 발밑 보정은 화상 · 독 · 힐과 같은 유닛 크기 표(UnitEffectConfig 「상태 이펙트 크기 맞춤」)를 쓴다.
+        //   서버 판정 · 피해 · HP와 무관한 화면 표현 전용이다. 스킬 SFX는 없다(경로 없음 — 포격 · EMP와 같음).
+        // ====================================================================
+
+        // 프리팹별 「상태 이펙트 계약」 검사 결과 캐시(같은 프리팹을 매번 GetComponentsInChildren 하지 않게 — 할당 방지).
+        //   true = 통과, false = 위반(재생 거부). 프리팹은 런타임에 바뀌지 않으므로 처음 1번만 검사한다.
+        private readonly Dictionary<GameObject, bool> _unitBuffLoopContract = new Dictionary<GameObject, bool>();
+
+        // 이 매니저가 지금까지 새로 만든(Instantiate) VFX 인스턴스 수. 풀에서 꺼낸 것이 아니라 "새로 만든" 것을 셀 때만 쓴다
+        //   (강화 상태 VFX 진단 L15 「PoolCreated」 — 첫 발동 멈칫의 근거). 동작에는 쓰지 않는다.
+        private int _vfxInstancesCreated;
+
+        /// <summary>
+        /// 강화 상태 VFX 프리팹이 「상태 이펙트 계약」을 지키는지 검사한다(결과는 프리팹별로 캐시).
+        /// </summary>
+        /// <param name="prefab">검사할 프리팹.</param>
+        /// <returns>계약을 지키면 true.</returns>
+        public bool IsUnitBuffLoopContractSatisfied(GameObject prefab)
+        {
+            if (prefab == null) return false;
+            if (_unitBuffLoopContract.TryGetValue(prefab, out bool cached)) return cached;
+            bool ok = CheckUnitBuffLoopContract(prefab);
+            _unitBuffLoopContract[prefab] = ok;
+            return ok;
+        }
+
+        /// <summary>
+        /// 「상태 이펙트 계약」 실제 검사(캐시 없음 — VFXSFXGuide 「코드 계약」 1). Editor 자가 검증도 같은 함수를 부른다(기준 한 곳).
+        /// 파티클 시스템이 1개 이상이고, 모두 Looping ON · Stop Action None이어야 한다.
+        /// (Looping이 꺼져 있으면 효과가 끝나기 전에 저절로 사라지고, Stop Action이 Destroy/Disable이면 풀 항목이 망가진다.)
+        /// </summary>
+        /// <param name="prefab">검사할 프리팹.</param>
+        /// <returns>계약을 지키면 true.</returns>
+        public static bool CheckUnitBuffLoopContract(GameObject prefab)
+        {
+            if (prefab == null) return false;
+            ParticleSystem[] systems = prefab.GetComponentsInChildren<ParticleSystem>(true);
+            if (systems.Length == 0) return false;
+            for (int i = 0; i < systems.Length; i++)
+            {
+                ParticleSystem.MainModule main = systems[i].main;
+                if (!main.loop || main.stopAction != ParticleSystemStopAction.None) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 대상 유닛 몸에 강화 상태 VFX(반복 재생)를 시작하고 확인 번호(lease)를 돌려준다.
+        /// 크기 = 프리팹 원본 × scaleMultiplier × 유닛 크기 표 균등 배율, 위치 = 몸 발밑 + 몸 회전 × (localOffset + 크기 표 발밑 보정).
+        /// 항목은 VFX 컨테이너 아래에 둔다(유닛의 자식으로 붙이지 않는다 — 유닛 파괴 때 풀 항목이 함께 파괴되지 않도록).
+        /// </summary>
+        /// <param name="prefab">스킬 데이터의 강화 상태 VFX 프리팹.</param>
+        /// <param name="pose">대상 유닛의 보이는 몸(Visual Root) Transform — 부르기 직전에 ProjectNow()로 바로잡은 것.</param>
+        /// <param name="recipientType">대상 유닛 타입(크기 표 조회). 표에 없으면 배율 1 · 보정 0.</param>
+        /// <param name="scaleMultiplier">스킬 데이터의 크기 배율(SkillData가 이미 0 이하 · NaN을 1로 고친 값).</param>
+        /// <param name="localOffset">스킬 데이터의 위치 보정(몸 회전 기준 로컬).</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="fitFound">크기 표에 이 유닛 줄이 있었는가(진단 FitMissing 계수용).</param>
+        /// <param name="createdNew">풀에 남은 항목이 없어 새로 만들었는가(진단 PoolCreated 계수용).</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · NoPose · LoopContract · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartUnitBuffVfx(GameObject prefab, Transform pose, UnitType recipientType,
+            float scaleMultiplier, Vector3 localOffset,
+            out ulong lease, out bool fitFound, out bool createdNew, out string failReason)
+        {
+            lease = 0;
+            fitFound = false;
+            createdNew = false;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            if (pose == null) { failReason = "NoPose"; return null; }
+            // 계약 위반 프리팹은 재생 전에 거부한다(화상 · 독 · 힐과 같은 원칙 — 잘못 만든 프리팹은 아예 재생하지 않는다).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+
+            int createdBefore = _vfxInstancesCreated;
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            createdNew = _vfxInstancesCreated != createdBefore;
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            // 크기 표는 재생 시작 때 1번만 읽는다(매 프레임 재지 않는다 — 화상 · 독과 같은 D-1 원칙, Host · Client 같은 값).
+            fitFound = _unitConfig != null && _unitConfig.TryGetRecipientFit(recipientType, out _);
+            RecipientFit fit = ResolveRecipientFit(recipientType);
+            Vector3 offset = localOffset + fit.SafeFootOffset;
+            float scale = scaleMultiplier * fit.UniformScale;
+            if (!(scale > 0f) || float.IsInfinity(scale)) scale = 1f; // 잘못된 배율이면 원본 크기(안 보이는 것보다 낫다).
+
+            // 첫 자리 = 몸 발밑 + 몸 회전 × 보정. 회전 보정 · 전진 이동은 쓰지 않는다.
+            item.Play(pose.position, pose.rotation, offset, Vector3.zero, Vector3.one * scale, 0f, 0f);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                // 재생이 시작되지 않은 비정상 상황 — 반복 재생이 원점에 남지 않게 즉시 돌려보낸다(EMP 탑 VFX와 같은 처리).
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            item.SetStatusLoopFollowOffset(lease, offset);
+            return item;
+        }
+
+        /// <summary>
+        /// 강화 상태 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartUnitBuffVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartUnitBuffVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(입자까지 지움 — 유닛 사망 · 재경기). false = 꼬리 정지(효과 끝 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopUnitBuffVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.
@@ -742,12 +863,6 @@ namespace Hexiege.Presentation
             // 공격 방식이 번개면 번개. HitPresentationQueue가 「대상을 해석할지」 정할 때도 같은 판단
             //   (TowerAttackNeedsTargetTracking = 프로필 공격 방식 Beam)을 쓰므로 두 곳이 어긋나지 않는다(Plan 10절 K-1).
             //   번개 시작점 인자(source)는 옛 호출 그대로다.
-            // [F0 비활성화 — 2026-11-10 runespire-bolt-death-endpoint] 대상 데이터가 없으면(고정 갈래) 유닛 종류와 상관없이
-            //   항상 0.6m를 쓰던 옛 호출. 맞는 순간 죽은 유닛에게도 표에 있는 실제 가슴 높이(약 0.18~0.32m) 대신 0.6m가 들어가
-            //   번개 끝이 약 0.3~0.4m 위로 떴다(Research 2-4). 최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // if (profile.kind == TowerAttackKind.Beam)
-            //     outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
-            //         preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
             if (profile.kind == TowerAttackKind.Beam)
             {
                 // [F0] 가슴 높이를 정하는 순서(초급자 설명):
@@ -1142,6 +1257,8 @@ namespace Hexiege.Presentation
         private VfxPoolItem CreateVfxInstance(GameObject prefab)
         {
             GameObject go = Instantiate(prefab, _vfxContainer);
+            // [2026-11-10 강화 상태 VFX] 새로 만든 개수만 센다(진단 PoolCreated 전용 — 동작에는 쓰지 않는다).
+            _vfxInstancesCreated++;
 
             // 프리팹에 VfxPoolItem이 없으면 자동 부착 (프리팹 사전 준비 불필요).
             VfxPoolItem item = go.GetComponent<VfxPoolItem>();

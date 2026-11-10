@@ -329,8 +329,6 @@ namespace Hexiege.EditorTools
                 smr.BakeMesh(baked, true);
                 Vector3[] vertices = baked.vertices;
                 if (vertices.Length == 0) throw new InvalidOperationException("EmptyBake");
-                // [버그 — 2026-10-13 주석 처리] 스케일(1)을 강제로 넣어 중간 부모 스케일 0.2~0.3 이 빠졌다.
-                // Matrix4x4 placement = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
                 Matrix4x4 placement = smr.transform.localToWorldMatrix;
                 foreach (Vector3 v in vertices) points.Add(placement.MultiplyPoint3x4(v));
                 return true;

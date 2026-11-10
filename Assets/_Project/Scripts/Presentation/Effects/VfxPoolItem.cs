@@ -167,10 +167,6 @@ namespace Hexiege.Presentation
         {
             if (pose == null || !state.IsValid || !state.Active || _active) return 0;
             _bloomSystems ??= GetComponentsInChildren<ParticleSystem>(true);
-            // [R-1 비활성화 — 2026-10-13] 옛 프리팹(Bloom_Ring 포함)이 5개였다는 가정일 뿐 규칙 조항이 아니다.
-            //   새 프리팹은 사용자 결정으로 Bloom_Ring을 빼서 4개라, 이 줄이 힐 이펙트를 항상 거부했다.
-            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // if (_bloomSystems.Length != 5) return 0;
             // 개수는 "1개 이상"이면 된다. 대신 바로 아래의 시스템별 규격 검사(반복 재생·scaled 시간·
             // stopAction None·Local 좌표·burst 0)는 그대로 두므로 잘못 만든 프리팹은 여전히 재생 전에 거부된다.
             if (_bloomSystems.Length == 0) return 0;
@@ -230,11 +226,6 @@ namespace Hexiege.Presentation
             //   — 유닛은 돌아서지만 카메라는 돌지 않기 때문이다. 0 벡터(힐 기본)면 예전과 완전히 같은 위치다.
             transform.SetPositionAndRotation(pose.position + pose.rotation * _bloomOffset + _bloomViewPull,
                 pose.rotation * Quaternion.Euler(_bloomEuler));
-            // [R-5 비활성화 — 2026-10-13] 대상 Transform 스케일(lossyScale)을 곱하던 옛 방식.
-            //   유닛 VisualRoot 스케일은 전 유닛 1이라(25종 Blue/Red 프리팹 실측, 런타임에 유닛 스케일을
-            //   바꾸는 코드 없음) 실제 모델 크기 차이를 반영하지 못했다. 크기 표의 균등 배율로 대체한다.
-            //   최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
-            // var world = Vector3.Scale(Vector3.Scale(_originalLocalScale, _bloomScale), pose.lossyScale);
             // 최종 월드 크기 = 프리팹 원본 × 프리셋 배율 × 대상 맞춤 배율(재생 시작 때 저장한 값).
             var world = Vector3.Scale(_originalLocalScale, _bloomScale) * _bloomFitScale;
             var parentScale = transform.parent != null ? transform.parent.lossyScale : Vector3.one;

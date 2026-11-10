@@ -12,7 +12,7 @@
 
 어느 쪽이든 **화면 표현만** 바뀐다. 피해 · 타겟 선택 · HP · 쿨다운 · 서버 스냅샷 · 통신 형식 · 스키마는 바꾸지 않는다. 이 결함이 사용자 테스트를 통과하면 이전 VFX 작업에서 주석으로 꺼 둔 옛 코드 6곳을 최종 삭제한다(최상단 표).
 
-> **현재 상태: Plan 승인 — 구현 중.** 2026-11-10 사용자 결정(원문 「추천대로 진행해」): **안 B**(F0 + 진단 로그 함께, 테스트 1회) · 진단 로그 `[BOLT-END]` 존속 **`개발`**(유지). 주석 블록 6곳 최종 삭제는 테스트 통과 뒤 실행 전 사용자 확인, F1은 결과를 본 뒤 질문 — 10절. 규칙 문서는 무변경(9절은 테스트 통과 뒤). *(2026-11-10 갱신 — 종전: 「제안 — 사용자 승인 대기. 안 A / 안 B 선택, 진단 로그 존속 값, 최종 삭제 시점 확인이 남아 있다(10절). 승인 전 코드 · 에셋 · 규칙 문서 무변경.」)*
+> **현재 상태 (2026-11-10): ✅ 완료 — 구현(`b495ce0`) · 사용자 테스트 PASS(멀티 1경기 로그 판정 + 사용자 육안) · 옛 주석 블록 8곳 최종 삭제(`fa3934c`) · 문서 반영.** F1은 진행하지 않는다. 커밋 · 로그 판정 · 결정 · 삭제 · 남은 것은 [12절](#12-implementation-and-user-test). *(2026-11-10 갱신 — 종전: 「Plan 승인 — 구현 중. 2026-11-10 사용자 결정(원문 「추천대로 진행해」): 안 B(F0 + 진단 로그 함께, 테스트 1회) · 진단 로그 `[BOLT-END]` 존속 `개발`(유지). 주석 블록 6곳 최종 삭제는 테스트 통과 뒤 실행 전 사용자 확인, F1은 결과를 본 뒤 질문 — 10절. 규칙 문서는 무변경(9절은 테스트 통과 뒤).」 그 전: 「제안 — 사용자 승인 대기 …」)*
 
 **표기:** `[사실]` = Research에서 확인한 것 · `[제안]` = 결정 아님 · `[추천 — 메인 세션]` = 메인 세션 추천(결정 아님) · `[사용자 결정]` = 10절에서 사용자가 정할 것. 경로 머리 `Scripts/` = `Assets/_Project/Scripts/`, `Editor/` = `Assets/Editor/`. 행 번호는 HEAD `c28d0d7` 기준(Research).
 
@@ -41,6 +41,8 @@
 > - 6곳은 모두 주석이라 지워도 실행 코드는 바뀌지 않는다. 삭제 뒤에는 주석만 빠졌는지(동작 코드 무변경) 확인한다 — WORKFLOW 「검수 · 판정 작업과 수치 보고의 절차」 6번(주석 · 문자열을 구분한 본문 해시 대조) `[제안]`.
 > - R2-X1은 바로 이 번개 경로의 옛 계산이다. 이번 결함이 해결돼야 3D 조준 전체가 수용됐다고 볼 수 있어 2026-10-15 결정이 이 결함을 삭제 조건으로 걸었다.
 > - 삭제는 사용자 테스트 통과 후 **사용자에게 확인을 받고** 실행한다(WORKFLOW 「규칙」 — 삭제 관련 명령은 실행 전 명시 허가).
+>
+> *(2026-11-10 — ① · ② 모두 실행 완료. ①은 실제로 검증기가 아니라 호출 2곳(`EffectManager.cs` · `HitPresentationQueue.cs`)이 `[F0 비활성화` 블록이 됐고, ② 6곳과 함께 **8곳 · 7파일 · 주석 36줄**을 `fa3934c`에서 삭제했다(사용자 원문 「삭제하고 갱신해서 메인에 병합하도록 하자 또한 푸시도 해줘」). 상세 · 삭제 범위 밖으로 남은 블록 1곳은 [12-5](#12-5-final-deletion))*
 
 ---
 
@@ -220,7 +222,7 @@ Client에서 사망 처리 RPC가 공격 표현 RPC보다 먼저 도착해 **받
 ---
 
 <a id="9-docs-after-pass"></a>
-## 9. 사용자 테스트 통과 뒤 반영할 문서 `[제안 — 이번 구현에서는 고치지 않는다]`
+## 9. 사용자 테스트 통과 뒤 반영할 문서 `[제안 — 이번 구현에서는 고치지 않는다]` *(2026-11-10 — 반영 완료 → [12-6](#12-6-docs))*
 
 - `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 2026-10-13 블록 「상태」 줄(219행) — OPEN 해소 갱신. 안 B면 「끝점 높이」 · 「추적 불가로 시작할 때」 문구는 변경 없음.
 - `ROADMAP.md` 「VFX 후속 ①」 행 — 닫히면 행을 내린다(공용 메모리 「ROADMAP is a to-do list」).
@@ -248,7 +250,7 @@ Client에서 사망 처리 RPC가 공격 표현 RPC보다 먼저 도착해 **받
 | Q1 | **안 B** — F0 + 진단 로그 함께, 테스트 1회 | 1회차 구현 = 2절 진단 로그 + 3절 F0. 최상단 ①의 비활성화 후보가 적용 대상이 된다. 로그 모든 줄에 `Fix=F0` |
 | Q2 | 진단 로그 `[BOLT-END]` 존속 **`개발`**(유지) | 작업이 끝나도 코드를 지우지 않는다(`GameLog.Dev` — 에디터 · 개발 빌드에만). LogRules §1.14 금지 10(`임시` 제거 의무)은 해당 없음 |
 | Q3 | Plan에 적힌 그대로 — 이 결함 테스트 통과 직후([7] 전), **삭제 실행 전 사용자 확인** | 최상단 ②. 안 B라 이번 테스트 통과가 곧 삭제 조건이다 |
-| Q4 | Plan에 적힌 그대로 — F1은 이번에 넣지 않고 **결과를 본 뒤 질문** | 수평 어긋남(T3)이 남으면 그때 사용자에게 묻는다 |
+| Q4 | Plan에 적힌 그대로 — F1은 이번에 넣지 않고 **결과를 본 뒤 질문** | 수평 어긋남(T3)이 남으면 그때 사용자에게 묻는다 *(2026-11-10 결과 — F1 진행 안 함. 사용자에게 따로 묻지 않았다: 메인 세션 판단 + 사용자 육안 PASS → [12-4](#12-4-decisions))* |
 
 ---
 
@@ -258,3 +260,112 @@ Client에서 사망 처리 RPC가 공격 표현 RPC보다 먼저 도착해 **받
 |---|---|
 | 2026-11-10 (KST · 폴더 이름은 UTC 2026-11-09 19:52) | 최초 작성 — 사용자 승인 「task 문서 작성해」. 안 A / 안 B 제안, 승인 대기 |
 | 2026-11-10 | 사용자 결정 기록 — 원문 「추천대로 진행해」. Q1 안 B · Q2 `개발`(유지) · Q3 · Q4는 Plan대로(10절 결정 표). 상단 현재 상태 → 「Plan 승인 — 구현 중」, 1절 결정 줄 · 2-1 존속 문장 갱신. 코드 · 규칙 문서 무변경 |
+| 2026-11-10 | 완료 기록(WORKFLOW [7]~[11], 사용자 원문 「삭제하고 갱신해서 메인에 병합하도록 하자 또한 푸시도 해줘」) — 12절 추가(커밋 · 계획과 달라진 것 · 로그 판정 · 결정 · 최종 삭제 · 문서 반영 · 남은 것). 상단 현재 상태 → 완료, 최상단 ① · ② · 9절 제목 · 10절 Q4 행에 날짜 조각 |
+
+---
+
+<a id="12-implementation-and-user-test"></a>
+## 12. 구현 · 사용자 테스트 결과 (2026-11-10)
+
+쉽게 말하면: 번개가 유닛을 죽이는 순간에도 이제 그 유닛의 실제 가슴 높이에 꽂힌다. 고치기 전에는 그 순간에만 모든 유닛에 0.6m를 써서 끝이 약 0.3~0.4m 위로 떴다. 사용자가 멀티 1경기로 확인했고 로그로도 높이 차이 0이 나왔다. 남은 수평 차이는 최대 약 6.6cm이고 사용자 눈에는 문제가 없어 규칙 문구를 바꾸는 F1은 하지 않는다. 이전 VFX 작업과 이번 작업에서 주석으로 꺼 둔 옛 코드 8곳을 지웠다.
+
+<a id="12-1-commits"></a>
+### 12-1. 커밋
+
+| 커밋 | 내용 |
+|---|---|
+| `b495ce0` | F0 + 진단 로그 + 자가 검증(안 B, 1절). 파일: `Scripts/Presentation/Effects/HitPresentationQueue.cs`(받는 순간 대상 종류 잡기 · 키별 보관 · `[BOLT-END]` Receive / Begin / Limit / End / Fault) · `Scripts/Presentation/Effects/EffectManager.cs`(`PlayAttackEffect`에 선택 인자 `boltCapturedTargetType` · 고정 갈래 가슴 높이 `ResolveCapturedBoltChestHeight` · 읽기 전용 시작 기록) · `Editor/Tools/Combat/RunUnitActionSelfValidation.VfxConnections.cs`(자가 검증 F0-1~F0-5). 같은 커밋에 이 Research · Plan |
+| `b3f2a3a` | 병합 — 위 커밋과 원격 브랜치(`e6921b4`)를 합친 것 |
+| `fa3934c` | 옛 주석 블록 8곳 최종 삭제(12-5) — 7파일 · **주석 36줄만 삭제, 추가 0줄** `[확인 — git diff]` |
+| (이 기록) | 이 문서 반영(규칙 · 상시 문서 · 메모리) — 메인 세션이 커밋 · 병합한다 |
+
+<a id="12-2-plan-diff"></a>
+### 12-2. 계획과 달라진 것 `[확인 — HEAD 코드]`
+
+| 항목 | 계획 | 실제 |
+|---|---|---|
+| 종류 전달 방법(3-1 3번 · 4절) | game-programmer가 정함 | `EffectManager.PlayAttackEffect`에 **기본값이 있는 선택 인자** `UnitType? boltCapturedTargetType = null`을 더했다 — 기존 호출부는 그대로 컴파일된다. 종류를 찾는 순서는 화면 오브젝트(`View`, ID 일치 때만) → 도메인 목록(`Domain`) → 못 찾으면 보관하지 않음(→ 0.6m) |
+| 최상단 ① 비활성화 대상 | `EffectManager.cs` 가슴 높이 인자 · 검증기 (e) 기대값 | **검증기 (e)는 바꾸지 않았다**(0.6m 단언 유지). 대신 옛 호출 **2곳**이 `[F0 비활성화` 주석 블록이 됐다 — `EffectManager.cs`의 `BeginTowerBolt(… ResolveBoltChestHeight(boltTarget.Data))` 호출, `HitPresentationQueue.cs`의 종류를 넘기지 않던 `PlayAttackEffect` 호출. 둘 다 `fa3934c`에서 삭제 |
+| 새 자가 검증(3-1 5번) | 2케이스(종류 앎 → 표 값, 표에 없음 → 0.6m) | **F0-1~F0-5 다섯 케이스** — F0-1 종류를 아는 고정 갈래(사유 `TargetDead` · `TargetViewMissing` 둘 다) → 표 값, F0-2 표에 없는 종류 → 0.6m, F0-3 종류 모름 → 0.6m, F0-4 추적 갈래는 넘겨받은 종류를 보지 않음, F0-5 실제 큐 순서(받는 순간 잡기 → 도메인 제거 → 재생 때 표 값, 보관 0으로 정리) |
+| `Fault` 줄 심각도(2-1) | 모든 줄 `Info` | `Fault`만 **`Warn`**(`GameLog.Dev.Warn`), 나머지 `Info`. 존속은 그대로 `개발` |
+| `End` 줄(2-2) | 경기 종료 1줄 | 경기 종료 외에 **종료 신호 없는 재초기화** 때도 지난 경기 `End`를 남긴다. 번개를 하나도 받지 않은 경기는 `End`를 남기지 않는다 |
+| `Race` 키 | 6절 T8만 언급 | `Receive` · `Begin` 줄에 `Race=` 칸이 있다 |
+| 정적 하네스 | — | 54 → 54(새 실패 없음) `[전달 — 메인 세션]` |
+
+<a id="12-3-verdict"></a>
+### 12-3. 사용자 테스트 판정 `[전달 — 메인 세션 로그 판정]`
+
+- **로그 보관본:** `2026-11-10_12_41_runespire-bolt-death-endpoint_01` — ZIP · manifest SHA256이 GitHub 자산 digest · manifest와 일치(메인 세션 확인). 원시 로그는 비공개 보관소에만 있고 이 저장소에 옮기지 않는다(LogRules §1.10).
+- **표본:** 멀티 1경기(Host = 에디터 · Blue, Client = 기기 · Red 반전 화면), 약 30초. 번개 쪽마다 12발 · 그중 치명 6발, 대상은 전부 TideSpirit. **싱글은 이번 로그에 없다**(12-4).
+
+| 시나리오 · 항목 | 판정 | 근거 |
+|---|---|---|
+| T1 죽는 순간 고정 갈래 | PASS | Host 치명 6발 모두 `Branch=Untracked Reason=TargetDead` · Client 치명 6발 모두 `Reason=TargetViewMissing` |
+| T2 죽는 순간 표 가슴 높이 | **PASS** | 양쪽 치명 6발 모두 `ChestSource=Table`, `ChestUsedmm=206=ChestTablemm`, `ChestDeltamm=0`(Client도 치명 6발 같은 값). 206mm = TideSpirit 표 키 0.3433(`UnitEffectConfig.asset` 314행) × 0.6 `[확인 — 표 값]` — 고치기 전이면 600mm로 394mm 위였다. Host `End` `ChestSourceFallback=0` · `FallbackKnownType=0` · `MaxAbsChestDeltamm=0` |
+| T3 수평 어긋남(H1) | 측정 — 사용자 육안 문제 없음 | Host `MaxHDiffmm=0`. Client 받는 순간 서버 Impact ↔ Client 화면 위치 수평 차 `HDiffmm` 1~66(보통 19~29) — 고정 갈래 끝점의 수평 어긋남은 **최대 약 6.6cm** |
+| T4 Red(반전) 시점(H3) | 이상 없음 | Client(Red · 반전)도 높이 차 0. 수평 차는 T3 값 |
+| T5 살아남은 결과인데 재생 때 사망(H4) | **이번 표본 0건 — 원인 미확인으로 남김** | 3절의 옛 로그(Host 16건 · Client 10건)와 달리 이번 경기에서 생기지 않았다 |
+| T6 Client 받는 순간 종류를 아는가(3-2) | PASS(이번 표본) | Client `TypeSource=View` 12/12, `AliveAtReceive=true` 12/12 — 받는 순간에는 화면 오브젝트가 아직 있었다(RPC 도착 순서 가정이 **이 표본에서** 성립). Host `End` `TypeUnknownAtReceive=0` |
+| T7 살아 있는 대상 추적 회귀 없음 | PASS(Host) | Host 비치명 6발 `Branch=Tracked`, 차이 0. Client 비치명 줄의 판정은 전달된 판정에 없음 |
+| T8 인간 대포탑 · 덩굴 타워 무변 | 전달된 판정에 없음 | 이번 경기 탑은 RuneSpire뿐이라 다른 탑 줄은 판정 대상이 없었다 `[추정 — 전달된 판정에 탑 구성 언급 없음]` |
+| T9 육안 | PASS | 사용자 원문 「문제없어 보여」 |
+| T10 피해 · HP · 사망 무변 | 범위로 보장 | 서버 코드 무변경(4절 · 12-1 파일 목록) |
+| T11 회귀 스위트 | PASS(규칙) | 사용자가 실패를 말하지 않음 → PASS(WORKFLOW 「[6] 사용자 테스트」). 결과 파일 없음 · Console만 · 에이전트 미관측. **에디터 로그에도 스위트 픽스처 줄은 없었다.** `fa3934c` 삭제 뒤 스위트 재실행은 아직 안 함 |
+| 종합 `End` | PASS(Host) | Host `ChestSourceFallback=0` · `FallbackKnownType=0` · `TypeUnknownAtReceive=0` · `MaxAbsChestDeltamm=0` · `MaxHDiffmm=0` · `Fault` 0 · `Limit` 0. Client `End` 값은 위 T2 · T6 항목 외에 전달된 판정에 없음 |
+
+- **사용자 테스트 PASS** — 로그 판정(위 표) + 사용자 육안. 싱글 · 인간 대포탑 · 덩굴 타워 · H4는 이번 회차 관측 밖이다(12-7).
+- **관측된 사실 — Client 탑 즉발 사망은 `TargetViewMissing`이다** `[전달 — 메인 세션 해석]`: 탑 번개는 즉발 피해라 사망 RPC와 오브젝트 파괴(`Despawn(destroy: true)`)가 같은 흐름에서 처리되고, 다음 `Update`의 재생 때는 화면 오브젝트가 이미 없다. 그래서 F0처럼 **받는 순간에 종류를 잡아 두는 것**이 Client 쪽을 고친 핵심이다.
+
+<a id="12-4-decisions"></a>
+### 12-4. 결정 `[전달 — 메인 세션]`
+
+| # | 결정 | 근거 · 원문 |
+|---|---|---|
+| Q1 | 안 B | 10절(「추천대로 진행해」) |
+| Q2 | `[BOLT-END]` 존속 **`개발`** — 코드를 지우지 않는다 | 10절. `GameLog.Dev` + `[Conditional("UNITY_EDITOR")]` · `[Conditional("DEVELOPMENT_BUILD")]` `[확인 — 코드]` |
+| Q3 | 최종 삭제 **실행** | 사용자 원문 「삭제하고 갱신해서 메인에 병합하도록 하자 또한 푸시도 해줘」 → 12-5 |
+| Q4 | **F1 진행 안 함**(규칙 12 「추적 불가로 시작할 때」 문구 그대로) | 남은 수평 차 최대 약 6.6cm(12-3 T3)에 사용자 육안 PASS — **메인 세션 판단**. 사용자에게 따로 묻지 않았다 |
+| 싱글 테스트 생략 | **생략 확정** | 사용자 원문 「싱글도 따로 테스트를 해야 해? 멀티에서 성공적이면 된 거 아니야?」 → 메인 세션 근거: 싱글과 Host는 같은 받기 경로(`HitPresentationQueue.cs`의 `OnAttackEffectConfirmed` 동기 구독 — HEAD 949~950행, 작성 당시 `c28d0d7` 533~534행)와 같은 `TargetDead` 갈래를 타고 Host가 PASS했다 |
+
+<a id="12-5-final-deletion"></a>
+### 12-5. 옛 주석 블록 최종 삭제 — `fa3934c`
+
+WORKFLOW [4] 「기존 로직 제거 규칙」의 「[6] 통과 후 · [7] 전」에 맞춰 이 문서 반영보다 먼저 삭제했다. 삭제된 줄 36줄이 모두 `//` 주석이고 추가된 줄은 0이다 — 실행 코드 무변경 `[확인 — git diff HEAD~1 HEAD]`.
+
+| # | 파일 | 삭제한 블록 |
+|---|---|---|
+| R-1 | `Scripts/Presentation/Effects/VfxPoolItem.cs` | Bloom 「파티클 정확히 5개」 거부 |
+| R-5 | 같은 파일 | Bloom 대상 `lossyScale` 곱셈 |
+| R-4 | `Scripts/Presentation/Effects/VfxPoolItem.TimedDamage.cs` | 화상 · 독 고정 배율 |
+| R-3 | `Editor/Tools/Combat/RunUnitActionSelfValidation.cs` | 검증기 개수 5 단언 |
+| R2-X1 | `Scripts/Presentation/Effects/VfxPoolItem.TowerBolt.cs` | 번개 XZ 평면 조준 · 길이 |
+| R3 | `Editor/Tools/UnitRecipientFitMeasureTool.cs` | 스케일 1을 강제한 `TRS` 배치 행렬 |
+| F0-1 | `Scripts/Presentation/Effects/EffectManager.cs` | 고정 갈래에 항상 0.6m를 주던 옛 `BeginTowerBolt` 호출 |
+| F0-2 | `Scripts/Presentation/Effects/HitPresentationQueue.cs` | 잡아 둔 종류를 넘기지 않던 옛 `PlayAttackEffect` 호출 |
+
+(F0-1 · F0-2는 위 표의 블록 이름이며 12-2의 자가 검증 케이스 F0-1~F0-5와 다른 것이다.)
+
+- 🔴 **남은 비활성화 블록 1곳 — 후속 판단:** `Editor/Tools/Combat/RunUnitActionSelfValidation.VfxConnections.cs` 1645~1651행 `[2026-10-13 R2-2 비활성화]`(높이를 무시한 XZ 기대값 — 아래 3D 기대값으로 대체, 주석 7줄). 이전 작업의 6곳 표(옛 Plan 13-2 3번 · 13-4)에 없어 이번 삭제 범위에 들지 않았다. 지울지는 정하지 않았다 — 메인 세션 보고 사항. 코드 전체에서 `비활성화` 표식을 찾으면 이 1곳만 남는다 `[확인 — grep]`.
+
+<a id="12-6-docs"></a>
+### 12-6. 문서 반영 (9절 대응)
+
+| 9절 항목 | 결과 |
+|---|---|
+| `GameSystemRules_Buildings.md` 「방어 타워 시스템」 규칙 12 「상태」 줄 | OPEN을 해소로 갱신(날짜 조각). 「끝점 높이」 · 「추적 불가로 시작할 때」 문구는 그대로 |
+| `ROADMAP.md` 「VFX 후속 ①」 행 | 행 삭제(ROADMAP은 할 일 목록 — 공용 메모리 「ROADMAP is a to-do list」). 이력은 WORK_HISTORY · 이 Task |
+| `PROJECT_STATUS.md` · `WORK_HISTORY.md` | VFX 표현 후속 행의 OPEN · 6곳 문구 갱신 / 완료 행 1개 |
+| (추가) `Assets/VFXSFXList.md` | 머리 상태 줄 · RuneSpire 행의 OPEN 갱신 |
+| (추가) 옛 Task `2026-10-13/13_53_vfx-code-followups/` | Plan 13-1 B · R2-2 행, 13-2 1 · 3번, 13-4 제목 · 6곳 표에 완료 조각. Research 10-4 제목에 완료 조각 |
+| 공용 메모리 · game-programmer 메모리 | `.claude/MEMORY.md` 완료 1항목 · 2026-10-15 항목 상태 도장 갱신, `vfx-presentation.md` §4 · §4-1 · §6 갱신과 교훈 |
+| `TechnicalDesignDocument*.md` | 변경 없음 — 번개 끝점 · 가슴 높이를 다루는 줄이 없다 `[확인 — grep]` |
+| Testcase.md | 없음 — 요청받지 않아 만들지 않았다(WORKFLOW [5-1]). [8]은 해당 없음 |
+
+<a id="12-7-remaining"></a>
+### 12-7. 남은 것 · 미관측
+
+- **H4**(결과 HP > 0인데 재생 때 이미 사망) — 이번 표본 0건, 원인 미확인.
+- **싱글** — 이번 로그 없음. 생략은 결정(12-4)이며 관측이 아니다.
+- **F3**(RPC에 종류 추가) — 필요 없었다(Client `TypeSource=View` 12/12). 단 표본은 1경기 · 대상 1종(TideSpirit)이다.
+- **`fa3934c` 삭제 뒤 회귀 스위트 재실행** — 아직 안 함(삭제는 주석만이라 실행 코드 무변경).
+- **남은 비활성화 블록 1곳**(12-5) — 후속 판단.
