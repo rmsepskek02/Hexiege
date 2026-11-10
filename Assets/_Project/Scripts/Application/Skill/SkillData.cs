@@ -99,8 +99,30 @@ namespace Hexiege.Application
         /// </summary>
         public float VfxReferenceRadius { get; }
 
+        // ── 2026-11-10 추가: 강화 상태 VFX(타입 C — 효과를 받는 유닛 몸에 붙는 반복 이펙트) ──
+        //   지원 스킬 1차 강화 Task(_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx) 구현 단위 ①.
+        //   값은 SkillDefinition의 같은 이름 칸에서 복사된다. 실행기 · 서버 판정은 이 값을 읽지 않는다(화면 표현 전용).
+        //   화면 쪽 UnitBuffVfxPresenter가 발동 표현 이벤트를 받으면 이 프리팹을 대상 유닛마다 붙인다.
+
+        /// <summary>
+        /// 효과를 받은 유닛 몸에 붙일 반복 VFX 프리팹(null 허용 — 이펙트 없이 효과만 건다).
+        /// 발동 VFX(ActivationVfxPrefab)와 같은 "연출 참조" 선례라 GameObject로 담는다.
+        /// </summary>
+        public GameObject StatusVfxPrefab { get; }
+
+        /// <summary>
+        /// 강화 상태 VFX 크기 배율(프리팹 원본 × 이 값 × 유닛 크기 표 균등 배율). 0 이하 · NaN · 무한대는 1로 고쳐 보관한다.
+        /// </summary>
+        public float StatusVfxScale { get; }
+
+        /// <summary>
+        /// 강화 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). NaN · 무한대가 섞이면 0 벡터로 고쳐 보관한다.
+        /// </summary>
+        public Vector3 StatusVfxOffset { get; }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
+        /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -119,7 +141,10 @@ namespace Hexiege.Application
             bool isAvailable,
             float impactDelay,
             GameObject activationVfxPrefab,
-            float vfxReferenceRadius)
+            float vfxReferenceRadius,
+            GameObject statusVfxPrefab = null,
+            float statusVfxScale = 1f,
+            Vector3 statusVfxOffset = default)
         {
             Icon = icon;
             AimType = aimType;
@@ -142,6 +167,21 @@ namespace Hexiege.Application
             ImpactDelay = impactDelay > 0f ? impactDelay : 0f;
             ActivationVfxPrefab = activationVfxPrefab;
             VfxReferenceRadius = vfxReferenceRadius;
+
+            // 강화 상태 VFX(2026-11-10). Inspector 오입력 방어:
+            //   배율은 "0보다 크고 유한한 값"만 인정한다(0 · 음수면 이펙트가 안 보이거나 뒤집히고, NaN은 위치 계산을 망친다).
+            //   위치 보정은 세 축이 모두 유한할 때만 인정하고, 아니면 보정 없음(0 벡터)으로 둔다.
+            StatusVfxPrefab = statusVfxPrefab;
+            StatusVfxScale = statusVfxScale > 0f && !float.IsInfinity(statusVfxScale) ? statusVfxScale : 1f;
+            StatusVfxOffset = IsFiniteVector(statusVfxOffset) ? statusVfxOffset : Vector3.zero;
+        }
+
+        // 세 축이 모두 유한한 숫자인지(NaN · 무한대가 아닌지).
+        private static bool IsFiniteVector(Vector3 v)
+        {
+            return !float.IsNaN(v.x) && !float.IsInfinity(v.x)
+                && !float.IsNaN(v.y) && !float.IsInfinity(v.y)
+                && !float.IsNaN(v.z) && !float.IsInfinity(v.z);
         }
     }
 }
