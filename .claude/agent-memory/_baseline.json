@@ -38,7 +38,7 @@
     },
     "document-manager": {
       "files": 2,
-      "lines": 4991
+      "lines": 4993
     },
     "game-design-lead": {
       "files": 3,
@@ -46,7 +46,7 @@
     },
     "game-programmer": {
       "files": 23,
-      "lines": 9432
+      "lines": 9460
     },
     "project-orchestrator": {
       "files": 3,
@@ -54,7 +54,7 @@
     },
     "qa-tester": {
       "files": 3,
-      "lines": 1503
+      "lines": 1506
     }
   },
   "_known_orphans_란": [

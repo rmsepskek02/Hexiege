@@ -125,7 +125,8 @@
 - [vfx-presentation.md](vfx-presentation.md) — VFX presentation (2026-10-15): `BakeMesh(true)` output is renderer-local
   (use `localToWorldMatrix` — the measuring tool once inflated skinned units 3~5x), code-enforced particle contracts
   (Bloom / burn / poison), status-VFX fitting via `UnitEffectConfig` recipient table + presets, RuneSpire bolt
-  3D aim / chest height / freeze + the OPEN on-death endpoint offset, EffectPreset 「Stop When Caster Dies」,
+  3D aim / chest height / freeze + the on-death endpoint offset (§4-1 — fixed 2026-11-10: capture the target type at
+  receive time; *was "the OPEN on-death endpoint offset"*), EffectPreset 「Stop When Caster Dies」,
   and (§8, 2026-10-19) charge units: clip-event detection, charge marker = lease check-only (consuming it kills the
   multiplayer projectile), launch SFX at the tracer, cancel-stop placement excluding the normal revision commit.
   (§9, 2026-10-26~27) server-authoritative projectiles: impact time fixed at launch, single HP writer, classification

@@ -69,8 +69,9 @@ All of this is presentation only — no server damage / target / HP / RPC path c
   `ChestHeightRatio` (default 0.6); unit not in table → 0.6 m fallback.
 - The first design (4-B: "ignore height, XZ only") matched the written plan but not the user's intent; a preset
   offset cannot fix a horizontal aim. When the user names a visual anchor ("crystal", "chest"), design the aim in 3D.
-- **OPEN (2026-10-15):** if the target is already dead when the bolt begins, tracking never starts and the endpoint is
-  snapshot Impact + chest height (line 172), not the rendered pose. *(2026-10-15 correction — original said the check
+- **Fixed 2026-11-10 (was OPEN 2026-10-15):** if the target is already dead when the bolt begins, tracking never starts and
+  the endpoint is snapshot Impact + chest height (line 172), not the rendered pose — still true; the chest height now comes
+  from the type captured at receive time (§4-1). *(2026-10-15 correction — original said the check
   is `TryReadEndpoint` line 76; that line is the mid-flight death check. Dead-at-begin is rejected earlier — see §4-1.)*
   Ordering fact: `TowerCombatUseCase.ExecuteTowerAttack` reads the impact position (223~226), then applies damage
   (241), then builds/publishes the snapshot (245/248) — so a lethal hit always reaches this branch on server/Host/single
@@ -79,9 +80,31 @@ All of this is presentation only — no server damage / target / HP / RPC path c
   Using the rendered pose here would touch Buildings 「방어 타워 시스템」 rule 12 ("추적 불가로 시작할 때") — ask the
   user before any rule change.
 
-## 4-1. HANDOFF — bolt endpoint off when the tower hit kills the target (OPEN, pick up in a later task)
+<a id="4-1-bolt-endpoint-when-the-tower-hit-kills-the-target--done-2026-11-10"></a>
+## 4-1. Bolt endpoint when the tower hit kills the target — DONE 2026-11-10 (was: HANDOFF, OPEN)
 
-Single source: `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md` §13-4 (ROADMAP 「VFX 후속 ①」).
+**Result (2026-11-10, `_Tasks/2026-11-09/19_52_runespire-bolt-death-endpoint/` Plan §12):** cause = H0 (fixed 0.6 m chest
+height on the untracked branch). Fix F0 `b495ce0`: `HitPresentationQueue.ReceiveAttackEffect` captures the target
+`UnitType` per snapshot key (View data if the id matches → domain `_unitSpawn.GetUnit` → none), and
+`EffectManager.PlayAttackEffect(…, UnitType? boltCapturedTargetType = null)` uses `GetChestHeight(type)` on the untracked
+branch (unknown → 0.6 m). Endpoint position unchanged (snapshot Impact), rule 12 wording unchanged; F1/F2/F3 not done.
+User test PASS (one multiplayer match). Old comment blocks (§6 + 2 F0 blocks) deleted in `fa3934c`.
+Lessons:
+- **Capture what you need at receive time, not at play time.** Play runs on the next `Update`; by then the target is
+  gone. Host/single receive runs **synchronously inside the server `ExecuteTowerAttack`** (subscription on
+  `OnAttackEffectConfirmed`, HitPresentationQueue ~949), so the capture and diagnostics swallow their own exceptions.
+- **Client tower instant kill ⇒ `TargetViewMissing`, Host/single ⇒ `TargetDead`.** On the Client the death RPC destroys
+  the object before the next play; the attack-effect RPC still arrived first in this sample (`AliveAtReceive=true`,
+  `TypeSource=View` 12/12), so no RPC/schema change (F3) was needed. Sample = 1 match, TideSpirit only.
+- **Log verdict keys (`[BOLT-END]`, `Diag=TowerBoltEnd DiagRev=1 Fix=F0`, kept `개발`):** `Begin` lethal rows
+  `Branch=Untracked`, `ChestSource=Table`, `ChestDeltamm=0`; `End` `FallbackKnownType=0`, `ChestSourceFallback=0`,
+  `TypeUnknownAtReceive=0`, `MaxAbsChestDeltamm`, `MaxHDiffmm`; `Receive` `HDiffmm` (Client 1~66 mm, ≤ ~6.6 cm, user
+  saw no problem). `Fault` is the only `Warn` line.
+- H4 (snapshot HP > 0 but dead at play) was 0 in this sample — cause still unknown.
+
+*(Below: the 2026-10-15 handoff, kept as written. Line numbers are of `84b6ff2a`.)*
+
+Single source: `Assets/_Project/Docs/_Tasks/2026-10-13/13_53_vfx-code-followups/Plan.md` §13-4 (ROADMAP 「VFX 후속 ①」 — *row deleted 2026-11-10, done*).
 Symptom (user, 2026-10-15): endpoint slightly off only when this very hit kills the target; living / moving targets are fine.
 
 Verified code facts (line numbers at `84b6ff2a` — re-read before editing):
@@ -121,7 +144,11 @@ task's "do not change" scope — separate design). None changes damage/target/HP
 - Does not apply to death / tracer / impact / tower / status VFX. User-confirmed PASS (2026-10-13, 2026-10-15).
 - *(2026-10-19 added)* For charge units the same stop is also called on **attack cancel before launch** — see §8.
 
-## 6. Commented-out old logic still present — delete ONLY after the §4-1 issue passes the user's test (user decision 2026-10-15)
+## 6. Commented-out old logic — DELETED 2026-11-10 in `fa3934c` (was: still present, delete only after §4-1 passes — user decision 2026-10-15)
+
+*(2026-11-10: §4-1 passed, all six below plus the two F0 blocks were deleted — comment lines only, 36 lines, no executable
+change. Not in this list and still present: `RunUnitActionSelfValidation.VfxConnections.cs` `[2026-10-13 R2-2 비활성화]`
+XZ expectation block (~1645) — deletion not decided.)*
 
 R-1 `VfxPoolItem.cs` ~164 · R-5 `VfxPoolItem.cs` ~210 · R-4 `VfxPoolItem.TimedDamage.cs` ~42 · R-3
 `RunUnitActionSelfValidation.cs` ~1385 · R2-X1 `VfxPoolItem.TowerBolt.cs` ~204 · R3 `UnitRecipientFitMeasureTool.cs` ~332
