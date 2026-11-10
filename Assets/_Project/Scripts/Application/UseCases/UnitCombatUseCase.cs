@@ -483,9 +483,7 @@ namespace Hexiege.Application
             float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
 
             // [2026-11-10 강화 스킬 진단 L3 · L5-b] 버프 대상의 첫 공격 표본 1줄을 남기려고 반환 값을 한 번 변수에 담는다.
-            //   계산식은 그대로다(진단 호출은 에디터 · 개발 빌드에서만 남는다). 옛 줄(기록용):
-            // if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
-            // return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
+            //   계산식은 그대로다(진단 호출은 에디터 · 개발 빌드에서만 남는다).
             if (statusMul == 1f) // 무변경 보장(부동소수 개입 없음).
             {
                 DiagSampleSkillBuffAttack(attacker, baseAttack, statusMul, baseAttack);

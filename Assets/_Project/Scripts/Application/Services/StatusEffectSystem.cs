@@ -63,8 +63,7 @@ namespace Hexiege.Application
         public void Tick(float dt)
         {
             // [2026-11-10 강화 스킬 진단] 상태가 하나도 없어 일찍 끝나는 틱에서도 진단 감시자에게 경과 시간을 알린다
-            //   (에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출 자체가 사라진다). 옛 줄(기록용):
-            // if (dt <= 0f || _states.Count == 0) return;
+            //   (에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출 자체가 사라진다).
             if (dt <= 0f || _states.Count == 0)
             {
                 NotifyDiagnosticTick(dt);

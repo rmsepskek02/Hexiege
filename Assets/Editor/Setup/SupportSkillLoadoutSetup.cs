@@ -88,7 +88,6 @@ namespace Hexiege.EditorTools
         //   강화 스킬 네 개(전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍)를 「사용 가능」으로 켠 표(BuildSpecs)와 개수를 맞춘다.
         //   이 값을 그대로 2로 두면 표의 사용 가능 수(6)와 달라 ValidateSpecs 가 쓰기 전에 멈춰 도구를 실행할 수 없다.
         //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
-        //   옛 줄(기록용): private const int ExpectedAvailableCount = 2;
         private const int ExpectedAvailableCount = 6;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
@@ -264,9 +263,6 @@ namespace Hexiege.EditorTools
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
                 // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
-                //   옛 줄(기록용):
-                // InstantPlaceholder("Skill_Human_TacticalOrder", h, 4, "전술 지령",
-                //     "맵 전체 아군의 공격력과 생산 속도를 높인다.", allies: true),
                 InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
                     "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
 
@@ -275,9 +271,7 @@ namespace Hexiege.EditorTools
                     "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
                 PointPlaceholder("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
                     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다."),
-                // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초. 옛 줄(기록용):
-                // InstantPlaceholder("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
-                //     "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
+                // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
                 InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
@@ -293,14 +287,10 @@ namespace Hexiege.EditorTools
                     "맵 전체 아군 유닛과 건물에 체력 재생을 부여하고 증폭한다.", allies: true),
                 InstantPlaceholder("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
                     "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", allies: true),
-                // [2026-11-10 D4 · D10] 숲의 포효 — 공격력 1.5배 · 8초. 옛 줄(기록용):
-                // InstantPlaceholder("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
-                //     "맵 전체 아군 유닛의 공격력을 높인다.", allies: true),
+                // [2026-11-10 D4 · D10] 숲의 포효 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
-                // [2026-11-10 D4 · D10] 숲의 순풍 — 이동 속도 1.3배 · 8초. 옛 줄(기록용):
-                // InstantPlaceholder("Skill_Trans_ForestTailwind", t, 4, "숲의 순풍",
-                //     "맵 전체 아군 유닛의 이동 속도를 높인다.", allies: true),
+                // [2026-11-10 D4 · D10] 숲의 순풍 — 이동 속도 1.3배 · 8초.
                 InstantBuff("Skill_Trans_ForestTailwind", t, 4, "숲의 순풍",
                     "맵 전체 아군 유닛의 이동 속도를 높인다.", StatusEffectKind.MoveSpeedMul, 1.3f, 8f),
             };
@@ -395,10 +385,7 @@ namespace Hexiege.EditorTools
             if (verified)
             {
                 // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
-                // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다). 옛 줄(기록용):
-                // Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
-                //           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개(포격 지원 · EMP). " +
-                //           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
+                // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
                           "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍). " +
