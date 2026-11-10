@@ -49,6 +49,42 @@ namespace Hexiege.Presentation
         PlaybackInactive = 5,
     }
 
+    /// <summary>
+    /// [2026-11-10 [BOLT-END] 진단] 정령 타워 번개 1회 시작의 읽기 전용 기록.
+    /// EffectManager.PlayAttackEffect가 번개 분기를 탈 때 채우고, HitPresentationQueue가 진단 로그(Begin)에 옮겨 적는다.
+    /// 화면 동작에는 쓰이지 않는다(이미 정해진 값을 남겨 둘 뿐이다).
+    /// </summary>
+    public readonly struct TowerBoltBeginInfo
+    {
+        /// <summary>어느 스냅샷의 기록인지(공격 표현 식별 키 3개). 읽는 쪽이 자기 스냅샷의 기록인지 확인한다.</summary>
+        public readonly ulong Match, Lifetime, Sequence;
+        /// <summary>BeginTowerBolt가 돌려준 끝점 상태 — "Tracked" 또는 "Untracked(사유)". 번개 분기를 안 탔으면 null.</summary>
+        public readonly string EndpointState;
+        /// <summary>실제로 끝점에 더한 가슴 높이(월드 미터, BeginTowerBolt와 같은 정리 규칙 적용 후 값).</summary>
+        public readonly float ChestHeight;
+        /// <summary>가슴 높이를 고를 때 쓴 유닛 종류. 종류를 몰라 0.6m를 썼으면 null.</summary>
+        public readonly UnitType? ChestType;
+        /// <summary>끝점 값이 있는가(Bolt를 못 찾은 프리팹이면 false).</summary>
+        public readonly bool HasEndpoint;
+        /// <summary>번개 시작 순간의 끝점(화면 좌표 — 발밑 + 가슴 높이).</summary>
+        public readonly Vector3 Endpoint;
+
+        /// <summary>번개 시작 기록을 만든다.</summary>
+        public TowerBoltBeginInfo(ulong match, ulong lifetime, ulong sequence, string endpointState, float chestHeight,
+            UnitType? chestType, bool hasEndpoint, Vector3 endpoint)
+        {
+            Match = match; Lifetime = lifetime; Sequence = sequence; EndpointState = endpointState;
+            ChestHeight = chestHeight; ChestType = chestType; HasEndpoint = hasEndpoint; Endpoint = endpoint;
+        }
+
+        /// <summary>번개 분기를 실제로 탔는가(default면 false).</summary>
+        public bool Started => EndpointState != null;
+
+        /// <summary>이 기록이 주어진 스냅샷 키의 것인가.</summary>
+        public bool IsFor(ulong match, ulong lifetime, ulong sequence)
+            => Started && Match == match && Lifetime == lifetime && Sequence == sequence;
+    }
+
     /// <summary>유닛 공격 VFX 1회 재생 시도의 불변 진단 결과.</summary>
     public readonly struct UnitAttackVfxPlaybackResult
     {
@@ -660,10 +696,18 @@ namespace Hexiege.Presentation
         /// default(해석 실패)면 추적 없이 공격 순간 위치까지 길이만 맞춘다. 다른 공격 방식은 무시한다.
         /// </param>
         /// <param name="boltUntrackedReason">boltTarget이 default인 이유(진단용). null 허용.</param>
+        /// <param name="boltCapturedTargetType">
+        /// [2026-11-10 F0 — runespire-bolt-death-endpoint Plan 3절] 스냅샷을 "받는 순간" 화면 쪽이 미리 알아 둔 대상 유닛 종류.
+        /// 번개 고정 갈래(boltTarget에 대상 데이터가 없음 — 이미 죽음 · 오브젝트 없음)에서만 가슴 높이를 정하는 데 쓴다.
+        /// null이면 종류를 모른다는 뜻이며, 그때는 예전처럼 0.6m 대체값을 쓴다. 추적 갈래(대상 데이터 있음)는 이 값을 보지 않는다.
+        /// </param>
         public bool PlayAttackEffect(Hexiege.Application.AttackEffectPresentation s, Vector3 source, Vector3 impact, out string outcome,
-            TowerBoltTarget boltTarget = default, string boltUntrackedReason = null)
+            TowerBoltTarget boltTarget = default, string boltUntrackedReason = null, UnitType? boltCapturedTargetType = null)
         {
             outcome = "InvalidSnapshotOrVisual";
+            // [2026-11-10 [BOLT-END] 진단] 직전 재생의 번개 시작 기록이 이번 재생에 섞이지 않게 먼저 비운다.
+            //   (아래 번개 분기를 타지 않으면 Started=false로 남는다 — 읽는 쪽이 "번개 시작 없음"으로 판단한다.)
+            LastTowerBoltBegin = default;
             // 화면으로 발행되는 스냅샷은 Tower(타워 발사)뿐이다. MushroomImpact 값은 지속 피해 출처 기록 전용이라 여기 오지 않는다
             //   (UnitCombatUseCase.ExecuteAttack — 발행하지 않음). 혹시 오더라도 재생하지 않고 false로 돌려준다.
             if (!s.IsValid || s.Visual != Hexiege.Application.AttackEffectVisual.Tower) return false;
@@ -698,9 +742,28 @@ namespace Hexiege.Presentation
             // 공격 방식이 번개면 번개. HitPresentationQueue가 「대상을 해석할지」 정할 때도 같은 판단
             //   (TowerAttackNeedsTargetTracking = 프로필 공격 방식 Beam)을 쓰므로 두 곳이 어긋나지 않는다(Plan 10절 K-1).
             //   번개 시작점 인자(source)는 옛 호출 그대로다.
+            // [F0 비활성화 — 2026-11-10 runespire-bolt-death-endpoint] 대상 데이터가 없으면(고정 갈래) 유닛 종류와 상관없이
+            //   항상 0.6m를 쓰던 옛 호출. 맞는 순간 죽은 유닛에게도 표에 있는 실제 가슴 높이(약 0.18~0.32m) 대신 0.6m가 들어가
+            //   번개 끝이 약 0.3~0.4m 위로 떴다(Research 2-4). 최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+            // if (profile.kind == TowerAttackKind.Beam)
+            //     outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
+            //         preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
             if (profile.kind == TowerAttackKind.Beam)
-                outcome += "; Endpoint=" + item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
-                    preset.EulerRotationOffset, boltTarget, boltUntrackedReason, ResolveBoltChestHeight(boltTarget.Data));
+            {
+                // [F0] 가슴 높이를 정하는 순서(초급자 설명):
+                //   ① 추적 갈래 — 대상 데이터(boltTarget.Data)가 있으면 지금까지와 똑같이 그 유닛 종류로 표를 찾는다.
+                //   ② 고정 갈래 — 대상 데이터가 없으면(이미 죽음 · 오브젝트 없음) "받는 순간 알아 둔 종류"로 표를 찾는다.
+                //   ③ 그 종류도 모르면 0.6m 대체값(예전과 같다). 종류를 알아도 표에 그 유닛 줄이 없으면 0.6m(GetChestHeight 규칙).
+                //   끝점의 "수평 위치"는 바꾸지 않는다 — 고정 갈래는 여전히 서버 스냅샷 Impact다(규칙 12 「추적 불가로 시작할 때」).
+                UnitType? chestType = boltTarget.Data != null ? boltTarget.Data.Type : boltCapturedTargetType;
+                float chestHeight = boltTarget.Data != null
+                    ? ResolveBoltChestHeight(boltTarget.Data)
+                    : ResolveCapturedBoltChestHeight(boltCapturedTargetType);
+                string endpointState = item.BeginTowerBolt(s, source, impact, preset.LocalPositionOffset,
+                    preset.EulerRotationOffset, boltTarget, boltUntrackedReason, chestHeight);
+                outcome += "; Endpoint=" + endpointState;
+                LastTowerBoltBegin = DescribeTowerBoltBegin(s, impact, boltTarget, endpointState, chestHeight, chestType);
+            }
             // [2026-11-03 정리] 옛 주석 「Sound15: impact and tower SFX are unspecified, no additional sound fallback.」
             //   EffectManager는 오디오를 모른다(사운드 규칙 1). 타워 공격음은 이 메서드를 부르는 쪽
             //   (HitPresentationQueue.EmitAttackEffects)이 바로 아래 줄에서 짝으로 호출한다(사운드 규칙 15).
@@ -745,6 +808,66 @@ namespace Hexiege.Presentation
         {
             if (target == null || _unitConfig == null) return UnitEffectConfig.FallbackChestHeight;
             return _unitConfig.GetChestHeight(target.Type);
+        }
+
+        /// <summary>
+        /// [2026-11-10 F0] 번개 고정 갈래(대상 데이터 없음)의 가슴 높이를 "받는 순간 알아 둔 유닛 종류"로 정한다.
+        /// 종류를 알면 크기 표의 가슴 높이(표에 그 유닛 줄이 없으면 GetChestHeight가 0.6m를 돌려준다),
+        /// 종류를 모르거나 설정이 없으면 0.6m 대체값 — 규칙 12 「끝점 높이」 문구(「표에 그 유닛이 없으면 0.6m」) 그대로다.
+        /// </summary>
+        /// <param name="capturedType">받는 순간 잡아 둔 대상 유닛 종류. 모르면 null.</param>
+        /// <returns>끝점에 더할 가슴 높이(발밑 기준 월드 미터).</returns>
+        private float ResolveCapturedBoltChestHeight(UnitType? capturedType)
+        {
+            if (!capturedType.HasValue || _unitConfig == null) return UnitEffectConfig.FallbackChestHeight;
+            return _unitConfig.GetChestHeight(capturedType.Value);
+        }
+
+        // ====================================================================
+        // [2026-11-10 [BOLT-END] 진단 — runespire-bolt-death-endpoint Plan 2절] 번개 시작 기록 (읽기 전용)
+        //   HitPresentationQueue가 PlayAttackEffect 직후 이 기록을 읽어 진단 로그 한 줄(Begin)을 남긴다.
+        //   이 기록은 화면 표현에 쓰이지 않는다(값을 남겨 둘 뿐 — 번개 동작은 위 BeginTowerBolt가 이미 정했다).
+        // ====================================================================
+
+        /// <summary>
+        /// 가장 최근 PlayAttackEffect 호출의 번개 시작 기록. 번개 분기를 타지 않았으면 default(Started=false).
+        /// 진단 · 자가 검증 전용 읽기 값이다.
+        /// </summary>
+        public TowerBoltBeginInfo LastTowerBoltBegin { get; private set; }
+
+        /// <summary>
+        /// [진단] 이 유닛 종류의 "크기 표 가슴 높이"를 읽는다. 표에 그 유닛 줄이 없거나 설정이 없으면 false.
+        /// (GetChestHeight와 달리 0.6m 대체값을 돌려주지 않는다 — 「표 값」과 「대체값」을 로그에서 구분하기 위해서다.)
+        /// </summary>
+        /// <param name="type">유닛 종류.</param>
+        /// <param name="chestHeight">표 가슴 높이(월드 미터). 실패면 0.</param>
+        /// <returns>표에 쓸 수 있는 줄이 있으면 true.</returns>
+        public bool TryGetTableChestHeight(UnitType type, out float chestHeight)
+        {
+            chestHeight = 0f;
+            if (_unitConfig == null || !_unitConfig.TryGetRecipientFit(type, out _)) return false;
+            chestHeight = _unitConfig.GetChestHeight(type);
+            return true;
+        }
+
+        /// <summary>
+        /// 번개 시작 직후의 상태를 기록용 값으로 묶는다. 끝점은 BeginTowerBolt와 같은 식으로 계산한다
+        /// (추적 = 지금 화면 위치 + 가슴 높이, 고정 = 스냅샷 Impact + 가슴 높이, Bolt 없음 = 끝점 없음).
+        /// </summary>
+        private static TowerBoltBeginInfo DescribeTowerBoltBegin(Hexiege.Application.AttackEffectPresentation s, Vector3 impact,
+            TowerBoltTarget boltTarget, string endpointState, float chestHeight, UnitType? chestType)
+        {
+            // BeginTowerBolt가 쓰는 것과 같은 정리 규칙(0 이상 유한한 값만, 아니면 0 = 발밑).
+            float usedChest = chestHeight > 0f && !float.IsInfinity(chestHeight) ? chestHeight : 0f;
+            bool tracked = endpointState == "Tracked";
+            bool boltMissing = endpointState == "Untracked(BoltMissing)";
+            Vector3 endpoint = default;
+            bool hasEndpoint = false;
+            if (tracked && boltTarget.TryReadEndpoint(out Vector3 live, out _))
+            { endpoint = live + Vector3.up * usedChest; hasEndpoint = true; }
+            else if (!tracked && !boltMissing)
+            { endpoint = impact + Vector3.up * usedChest; hasEndpoint = true; }
+            return new TowerBoltBeginInfo(s.Match, s.Lifetime, s.Sequence, endpointState, usedChest, chestType, hasEndpoint, endpoint);
         }
 
         /// <summary>

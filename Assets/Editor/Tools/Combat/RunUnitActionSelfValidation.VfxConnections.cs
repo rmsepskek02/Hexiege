@@ -100,6 +100,7 @@ namespace Hexiege.Editor.Combat
             ValidateRecipientFitTable(units);
             ValidateWriterSnapshotVfx(units, buildings);
             ValidateRuneSpireBoltEndpoint(units, buildings);
+            ValidateRuneSpireBoltDeadTargetChestHeight(units, buildings); // [2026-11-10 F0] 맞는 순간 죽은 대상의 번개 끝점 높이
             ValidateGroundBurstTowerProfile(units, buildings); // [2026-11-03 Plan 7절 V-5] 데이터가 아직 없는 지면 분출 경로
             ValidateCasterOwnedChargeVfx(units, buildings);
             ValidateProjectilePresetsAndLocalTracer(units, buildings); // [P5 정리] 옛 이름 ValidateLegacyTracerArrivalImpact(R5 검사)
@@ -1720,6 +1721,10 @@ namespace Hexiege.Editor.Combat
                 // (e) 해석 실패 → 추적 없이 스냅샷 Impact까지 길이만 맞춘다.
                 var s3 = s; s3.Sequence = 3;
                 // [R2-2] 대상 데이터가 없으니 가슴 높이는 0.6m 대체값을 쓴다.
+                // [2026-11-10 F0 — runespire-bolt-death-endpoint] 이 단언은 「대상 데이터도 없고 받는 순간 잡아 둔 유닛 종류도
+                //   없는(= 종류 모름)」 경우다(PlayAttackEffect의 마지막 인자 boltCapturedTargetType을 넘기지 않는다 = null).
+                //   F0 뒤에도 이 경우는 0.6m 그대로라 기대값은 바뀌지 않는다(Plan 최상단 ① — 단언 유지).
+                //   종류를 아는 고정 갈래(표 가슴 높이) · 표에 없는 종류(0.6m)는 아래 ValidateRuneSpireBoltDeadTargetChestHeight가 본다.
                 Require(manager.PlayAttackEffect(s3, s3.Source, s3.Impact, out outcome, default, "TargetViewMissing")
                     && outcome.Contains("Endpoint=Untracked(TargetViewMissing)") && !item.TowerBoltTracking
                     && BoltMatchesEndpoint(Chest(s3.Impact, UnitEffectConfig.FallbackChestHeight)),
@@ -1756,6 +1761,167 @@ namespace Hexiege.Editor.Combat
             {
                 UnityEngine.Object.DestroyImmediate(root);
                 UnityEngine.Object.DestroyImmediate(targetGo);
+            }
+        }
+
+        /// <summary>
+        /// [2026-11-10 F0 — runespire-bolt-death-endpoint Plan 3절] 맞는 순간 죽은 대상(번개 고정 갈래)의 끝점 높이를 확인한다.
+        ///
+        /// 배경(초급자 설명): 번개가 그려지는 순간 대상이 이미 죽었거나 화면 오브젝트가 없으면 번개는 대상을 따라가지 않고
+        ///   서버 스냅샷 Impact(공격 순간 발밑)를 끝점으로 쓴다(고정 갈래). 예전에는 이때 유닛 종류를 몰라 모든 유닛에 0.6m를
+        ///   더했다. F0는 스냅샷을 "받는 순간" 대상 종류를 잡아 두었다가 고정 갈래에서도 크기 표의 가슴 높이를 쓴다.
+        ///
+        /// 확인 항목:
+        ///   F0-1 고정 갈래 + 종류를 앎(사유 TargetDead · TargetViewMissing 둘 다) → 스냅샷 Impact + 실제 크기 표 가슴 높이.
+        ///   F0-2 종류를 알지만 표에 그 유닛 줄이 없음 → 0.6m(규칙 12 「표에 그 유닛이 없으면 0.6m」), 표에 있으면 표 값(메모리 전용 표).
+        ///   F0-3 종류 모름(null) → 0.6m(기존 (e)와 같은 동작).
+        ///   F0-4 추적 갈래는 넘겨받은 종류를 보지 않는다 — 대상 데이터의 종류로 표를 찾는다(기존 동작 그대로).
+        ///   F0-5 실제 큐(HitPresentationQueue) 순서: 받는 순간(대상은 이미 죽음, 도메인 목록에는 아직 있음)에 종류를 잡고,
+        ///        도메인에서 지운 뒤 재생해도 표 가슴 높이를 쓴다(싱글 · Host 순서 — 서버 피해 → 스냅샷 발행 → 도메인 제거).
+        ///        재생 뒤 키별 보관 값이 남지 않는다(Plan 7절 R2).
+        /// 끝점 수평 위치는 어느 경우에도 스냅샷 Impact 그대로다(규칙 12 「추적 불가로 시작할 때」 — F1 아님).
+        /// </summary>
+        private static void ValidateRuneSpireBoltDeadTargetChestHeight(UnitEffectConfig units, BuildingEffectConfig buildings)
+        {
+            // 실제 크기 표에서 「표 가슴 높이가 0.6m와 분명히 다른」 유닛 하나를 고른다 — 같으면 F0 전후를 구분할 수 없다.
+            UnitType known = default; bool foundKnown = false;
+            foreach (UnitType type in Enum.GetValues(typeof(UnitType)))
+            {
+                if (!units.TryGetRecipientFit(type, out _)) continue;
+                if (Mathf.Abs(units.GetChestHeight(type) - UnitEffectConfig.FallbackChestHeight) <= 0.01f) continue;
+                known = type; foundKnown = true; break;
+            }
+            Require(foundKnown, "[F0] The actual size table has a unit whose chest height differs from the 0.6 fallback.");
+            float knownChest = units.GetChestHeight(known);
+            var endpointField = typeof(VfxPoolItem).GetField("_boltEndpoint", VfxFields);
+            Require(endpointField != null, "[F0] The bolt endpoint field exists for the fixture.");
+
+            bool active = NetworkContext.IsNetworkActive, server = NetworkContext.IsNetworkServer;
+            var oldManager = EffectManager.Instance;
+            var root = new GameObject("RuneSpireBoltDeadFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var probeRoot = new GameObject("RuneSpireBoltDeadProbeFixture") { hideFlags = HideFlags.HideAndDontSave };
+            var targetGo = new GameObject("RuneSpireBoltDeadTarget") { hideFlags = HideFlags.HideAndDontSave };
+            var probe = ScriptableObject.CreateInstance<UnitEffectConfig>();
+            probe.hideFlags = HideFlags.HideAndDontSave;
+            HitPresentationQueue queue = null;
+            try
+            {
+                NetworkContext.Set(false, false); // 싱글(= Host와 같은 「서버 피해 → 발행 → 제거」 순서)
+                var manager = root.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(manager, root.transform);
+                manager.Initialize(units, buildings, null);
+
+                var s = new AttackEffectPresentation { Match = 7, Lifetime = 1, Sequence = 1, AttackerId = 98031, TargetId = 98032,
+                    Visual = AttackEffectVisual.Tower, Race = RaceId.Spirit, Source = Vector3.zero, Impact = new Vector3(1f, 0.15f, 3f),
+                    ImpactTime = 1d, AppliedDamage = 150, ResultHp = 0 };
+
+                // 한 번 재생하고 「끝점 = 스냅샷 Impact + 기대 가슴 높이, 추적 없음, 번개 길이 = 루트→끝점 3D 거리」를 확인한다.
+                void RequireFixedEndpoint(EffectManager m, Transform container, AttackEffectPresentation snap, string reason,
+                    UnitType? captured, float expectedChest, UnitType? expectedChestType, string label)
+                {
+                    Require(m.PlayAttackEffect(snap, snap.Source, snap.Impact, out string outcome, default, reason, captured)
+                        && outcome.Contains("Endpoint=Untracked(" + reason + ")"), "[F0] " + label + ": the dead target plays on the fixed branch.");
+                    var item = container.GetComponentsInChildren<VfxPoolItem>(true)[0];
+                    var bolt = item.transform.Find("Bolt");
+                    Vector3 endpoint = (Vector3)endpointField.GetValue(item);
+                    Require(!item.TowerBoltTracking && VfxApprox(endpoint, snap.Impact + Vector3.up * expectedChest),
+                        "[F0] " + label + ": endpoint = snapshot Impact + expected chest height (horizontal position unchanged).");
+                    Require(bolt != null && Mathf.Abs(bolt.localScale.z
+                            - (endpoint - item.transform.position).magnitude / item.transform.lossyScale.z) < 1e-4f,
+                        "[F0] " + label + ": Bolt length = 3D distance from the crystal to that endpoint.");
+                    TowerBoltBeginInfo info = m.LastTowerBoltBegin;
+                    Require(info.IsFor(snap.Match, snap.Lifetime, snap.Sequence) && Mathf.Approximately(info.ChestHeight, expectedChest)
+                            && Nullable.Equals(info.ChestType, expectedChestType) && info.HasEndpoint && VfxApprox(info.Endpoint, endpoint),
+                        "[F0] " + label + ": the [BOLT-END] begin record matches what the bolt actually used.");
+                    item.Return();
+                }
+
+                // F0-1 종류를 아는 고정 갈래 — 서버 · Host · 싱글(TargetDead)과 Client(TargetViewMissing) 두 사유 모두 표 가슴 높이.
+                RequireFixedEndpoint(manager, root.transform, s, "TargetDead", known, knownChest, known, "known type / TargetDead");
+                var sMissing = s; sMissing.Sequence = 2;
+                RequireFixedEndpoint(manager, root.transform, sMissing, "TargetViewMissing", known, knownChest, known, "known type / TargetViewMissing");
+                Require(manager.TryGetTableChestHeight(known, out float tableRead) && Mathf.Approximately(tableRead, knownChest),
+                    "[F0] Diagnostic table chest lookup returns the size-table value.");
+
+                // F0-3 종류 모름 → 0.6m(F0 전과 같은 값 — (e)와 같은 경우를 기록값까지 확인).
+                var sUnknown = s; sUnknown.Sequence = 3;
+                RequireFixedEndpoint(manager, root.transform, sUnknown, "TargetViewMissing", null,
+                    UnitEffectConfig.FallbackChestHeight, null, "unknown type");
+
+                // F0-2 메모리 전용 표(LittleKnight 키 0.5 한 줄만) — 표에 있으면 표 값, 표에 없는 종류(Pistoleer)는 0.6m.
+                typeof(UnitEffectConfig).GetField("_recipientFits", VfxFields).SetValue(probe, new List<UnitRecipientFitEntry>
+                {
+                    new UnitRecipientFitEntry { unitType = UnitType.LittleKnight, height = 0.5f },
+                });
+                var probeManager = probeRoot.AddComponent<EffectManager>();
+                typeof(EffectManager).GetField("_vfxContainer", VfxFields).SetValue(probeManager, probeRoot.transform);
+                probeManager.Initialize(probe, buildings, null);
+                float probeChest = 0.5f * UnitEffectConfig.RecipientReferenceHeight * UnitEffectConfig.DefaultChestHeightRatio;
+                var sProbe = s; sProbe.Sequence = 4;
+                RequireFixedEndpoint(probeManager, probeRoot.transform, sProbe, "TargetDead", UnitType.LittleKnight, probeChest,
+                    UnitType.LittleKnight, "in-table type");
+                var sNotInTable = s; sNotInTable.Sequence = 5;
+                RequireFixedEndpoint(probeManager, probeRoot.transform, sNotInTable, "TargetDead", UnitType.Pistoleer,
+                    UnitEffectConfig.FallbackChestHeight, UnitType.Pistoleer, "known type not in the table");
+                Require(!probeManager.TryGetTableChestHeight(UnitType.Pistoleer, out _),
+                    "[F0] A type missing from the table has no table chest height (the log shows ChestTablemm=None).");
+
+                // F0-4 추적 갈래: 살아 있는 LittleKnight를 넘기면 넘겨받은 종류(Tank — 이 표에 없음 → 0.6m가 될 값)를 보지 않고
+                //   대상 데이터의 종류(LittleKnight)로 표 가슴 높이를 쓴다.
+                var view = targetGo.AddComponent<UnitView>();
+                var living = VfxUnit(98033, UnitType.LittleKnight, TeamId.Red);
+                typeof(UnitView).GetField("_unitData", VfxFields).SetValue(view, living);
+                targetGo.transform.position = new Vector3(2f, 0f, 2f);
+                var sTracked = s; sTracked.Sequence = 6; sTracked.TargetId = living.Id; sTracked.ResultHp = 850;
+                Require(probeManager.PlayAttackEffect(sTracked, sTracked.Source, sTracked.Impact, out string trackedOutcome,
+                        new TowerBoltTarget(targetGo.transform, view, living, null), null, UnitType.Tank)
+                    && trackedOutcome.Contains("Endpoint=Tracked"), "[F0] A living target still takes the tracked branch.");
+                var trackedItem = probeRoot.GetComponentsInChildren<VfxPoolItem>(true)[0];
+                Require(trackedItem.TowerBoltTracking
+                        && VfxApprox((Vector3)endpointField.GetValue(trackedItem), targetGo.transform.position + Vector3.up * probeChest)
+                        && Nullable.Equals(probeManager.LastTowerBoltBegin.ChestType, (UnitType?)UnitType.LittleKnight),
+                    "[F0] The tracked branch ignores the captured type and uses the target data's table chest height.");
+                trackedItem.Return();
+
+                // F0-5 실제 큐 순서(싱글 · Host): 받는 순간 종류를 잡고 → 도메인에서 지운 뒤 → 다음 재생에서 표 가슴 높이.
+                typeof(EffectManager).GetMethod("Awake", VfxFields).Invoke(manager, null);
+                Require(EffectManager.Instance == manager, "[F0-5] The queue fixture uses the actual manager lifecycle.");
+                var spawn = new UnitSpawnUseCase(null);
+                var dictionary = (Dictionary<int, UnitData>)typeof(UnitSpawnUseCase).GetField("_units", VfxFields).GetValue(spawn);
+                var victim = VfxUnit(98034, known, TeamId.Red);
+                victim.TakeDamage(99999); // 서버 피해 적용 뒤 = 스냅샷 발행 시점에는 이미 죽어 있다
+                dictionary[victim.Id] = victim;
+                queue = root.AddComponent<HitPresentationQueue>();
+                queue.Initialize(null, null, null, spawn, null, null); // UnitFactory 없음 → 화면 오브젝트는 못 찾고 도메인에서 종류를 찾는다
+                queue.SetAttackEffectClock(() => 100d);
+                var captures = (IDictionary)typeof(HitPresentationQueue).GetField("_boltTargetTypes", VfxFields).GetValue(queue);
+                var diagReceives = (IDictionary)typeof(HitPresentationQueue).GetField("_boltDiagReceives", VfxFields).GetValue(queue);
+                var pending = (IList)typeof(HitPresentationQueue).GetField("_attackEffectPending", VfxFields).GetValue(queue);
+                var sQueue = s; sQueue.Match = 8; sQueue.Sequence = 1; sQueue.TargetId = victim.Id;
+                GameEvents.OnAttackEffectConfirmed.OnNext(sQueue);
+                Require(pending.Count == 1 && captures.Count == 1,
+                    "[F0-5] Receiving the bolt snapshot queues it and captures the dead target's unit type once.");
+                dictionary.Remove(victim.Id); // 도메인 제거(TowerCombatUseCase — OnUnitDied 뒤) — 재생 때는 더 이상 찾을 수 없다
+                typeof(HitPresentationQueue).GetMethod("EmitAttackEffects", VfxFields).Invoke(queue, null);
+                Require(pending.Count == 0 && captures.Count == 0 && diagReceives.Count == 0,
+                    "[F0-5] Playing the snapshot removes its captured type and diagnostic entry (nothing accumulates).");
+                TowerBoltBeginInfo queued = manager.LastTowerBoltBegin;
+                Require(queued.IsFor(sQueue.Match, sQueue.Lifetime, sQueue.Sequence) && queued.EndpointState.StartsWith("Untracked(")
+                        && Nullable.Equals(queued.ChestType, (UnitType?)known) && Mathf.Approximately(queued.ChestHeight, knownChest)
+                        && VfxApprox(queued.Endpoint, sQueue.Impact + Vector3.up * knownChest),
+                    "[F0-5] The queue passes the type captured at receive time: fixed endpoint at the table chest height after domain removal.");
+                queue.Dispose();
+                Require(captures.Count == 0 && diagReceives.Count == 0, "[F0-5] Closing the queue leaves no captured entries.");
+            }
+            finally
+            {
+                queue?.Dispose();
+                typeof(EffectManager).GetProperty("Instance").SetValue(null, oldManager);
+                NetworkContext.Set(server, active);
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(probeRoot);
+                UnityEngine.Object.DestroyImmediate(targetGo);
+                UnityEngine.Object.DestroyImmediate(probe); // 메모리 전용 표(에셋 아님) 정리
             }
         }
 

@@ -372,6 +372,11 @@ namespace Hexiege.Presentation
             foreach (var s in _attackEffectPending) AttackEffectIdentity.Record("Skip", s, reason + "; NotStarted=True");
             AttackEffectIdentity.End(_attackEffectPending.Count, _attackEffectFailures, _attackEffectOverflow, reason, _attackEffectKeys.Count);
             _attackEffectPending.Clear(); _attackEffectReceivedAt.Clear();
+            // [2026-11-10 F0 · [BOLT-END]] 경기가 끝나면 재생하지 못한 번개의 보관 값도 함께 비운다(Plan 7절 R2).
+            //   End 줄은 비우기 전에 남겨야 "받았지만 재생 못 한 수(NotStarted)"를 셀 수 있다.
+            DiagBoltEnd(reason);
+            _boltTargetTypes.Clear();
+            ClearBoltDiagnosticEntries();
         }
         public void SetAttackEffectClock(System.Func<double> clock) => _attackEffectClock = clock ?? throw new System.ArgumentNullException(nameof(clock));
         private void ReceiveAttackEffect(AttackEffectPresentation s)
@@ -386,6 +391,11 @@ namespace Hexiege.Presentation
             //   (MushroomBomber 착탄은 서버 투사체 기록 경로가 그리므로 스냅샷이 오지 않는다 — UnitCombatUseCase.ExecuteAttack.)
             _attackEffectReceivedAt[key] = Time.realtimeSinceStartupAsDouble;
             _attackEffectPending.Add(s);
+            // [2026-11-10 F0] 번개 타워 스냅샷이면 지금(받는 순간) 대상 유닛 종류를 잡아 둔다 — 재생 때는 이미 화면 오브젝트가
+            //   사라졌을 수 있다. 🔴 싱글 · Host에서는 이 줄이 서버 ExecuteTowerAttack 안에서 동기로 실행되므로
+            //   두 메서드 모두 안에서 예외를 삼킨다(밖으로 던지면 피해 · 사망 처리가 멈출 수 있다 — Plan 7절 R1).
+            CaptureBoltTargetType(s, key);
+            DiagBoltReceive(s, key); // [BOLT-END] Receive — 개발 빌드 · 에디터 전용(릴리스에서는 호출 자체가 사라진다)
         }
         private void EmitAttackEffects()
         {
@@ -395,7 +405,7 @@ namespace Hexiege.Presentation
                 var s = _attackEffectPending[i];
                 var key = (s.Match, s.Lifetime, s.Sequence);
                 if (Time.realtimeSinceStartupAsDouble - _attackEffectReceivedAt[key] >= AuthoritativeAttackPresentationCoordinator.MissingScheduleDeadlineSeconds)
-                { _attackEffectFailures++; AttackEffectIdentity.Record("Skip", s, "PresentationClockWaitExpired; Completeness=Unknown", now); _attackEffectPending.RemoveAt(i); _attackEffectReceivedAt.Remove(key); continue; }
+                { _attackEffectFailures++; AttackEffectIdentity.Record("Skip", s, "PresentationClockWaitExpired; Completeness=Unknown", now); _attackEffectPending.RemoveAt(i); _attackEffectReceivedAt.Remove(key); ForgetBoltCapture(key); continue; }
                 // 타워 스냅샷은 표시 시각을 기다리지 않고 바로 재생한다(공격 순간 = 발사 이펙트). 시계 값이 비정상이면 다음 프레임에 다시 본다.
                 if (double.IsNaN(now) || double.IsInfinity(now)) continue;
                 Vector3 source = s.Source, impact = s.Impact;
@@ -415,8 +425,13 @@ namespace Hexiege.Presentation
                     if (s.Visual == AttackEffectVisual.Tower && EffectManager.Instance != null
                         && EffectManager.Instance.TowerAttackNeedsTargetTracking(s.Race))
                         boltTarget = ResolveTowerBoltTarget(s.TargetId, out boltUntracked);
+                    // [2026-11-10 F0] 받는 순간 잡아 둔 대상 종류(없으면 null). 번개 고정 갈래의 가슴 높이에만 쓰인다.
+                    UnitType? capturedBoltType = TryGetCapturedBoltType(key);
+                    // [F0 비활성화 — 2026-11-10] 잡아 둔 종류를 넘기지 않던 옛 호출. 최종 삭제는 사용자 테스트 통과 후(WORKFLOW [4]).
+                    // bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
+                    //     boltTarget, boltUntracked);
                     bool played = EffectManager.Instance != null && EffectManager.Instance.PlayAttackEffect(s, source, impact, out outcome,
-                        boltTarget, boltUntracked);
+                        boltTarget, boltUntracked, capturedBoltType);
                     // [2026-11-03 — Plan 6-3 P-2] 타워 공격음: 발사 VFX를 부른 바로 이 자리에서 짝으로 호출한다(사운드 규칙 15).
                     //   클립은 SoundConfig 「타워 공격 SFX」 칸(건물 종류 + 종족)에서 고른다 — 비어 있으면 무음.
                     //   Human · RuneSpire 클립은 효과음 2단계에서, VineTower 클립은 덩굴 VFX 확정 뒤에 넣는다(2026-11-03 현재 칸 비어 있음).
@@ -430,10 +445,12 @@ namespace Hexiege.Presentation
                     //   이 토큰을 빼지 않으면 덩굴 타워가 공격할 때마다 진단 END 줄의 실패 수가 늘어난다(Plan 10절 K-5).
                     if (!played && outcome != "TowerProfileEmpty") _attackEffectFailures++;
                     AttackEffectIdentity.Record(played ? "Play" : "Skip", s, outcome, now);
+                    DiagBoltBegin(s, key, outcome, boltTarget, capturedBoltType); // [BOLT-END] Begin — 개발 빌드 · 에디터 전용
                 }
                 catch (Exception ex) { _attackEffectFailures++; AttackEffectIdentity.Record("Fault", s, "Impact:" + ex.Message, now); }
                 _attackEffectPending.RemoveAt(i);
                 _attackEffectReceivedAt.Remove(key);
+                ForgetBoltCapture(key); // [F0] 재생이 끝난 스냅샷의 보관 값은 바로 지운다(쌓이지 않게 — Plan 7절 R2)
             }
         }
         /// <summary>
@@ -462,6 +479,403 @@ namespace Hexiege.Presentation
             Transform pose = _presentationPoseProvider.GetUnitTransform(targetId);
             if (pose == null) { reason = "PoseUnavailable"; return default; }
             return new TowerBoltTarget(pose, view, data, go.GetComponent<VisualRootProjector>());
+        }
+
+        // ====================================================================
+        // [2026-11-10 F0 — runespire-bolt-death-endpoint Plan 3절] 번개 대상 유닛 종류를 "받는 순간" 잡아 둔다.
+        //
+        // 왜 필요한가(초급자 설명):
+        //   RuneSpire 번개는 맞은 유닛의 가슴 높이를 겨눈다. 가슴 높이는 유닛 종류마다 다르다(크기 표 UnitEffectConfig).
+        //   그런데 번개 한 방이 유닛을 죽이면, 번개가 그려지는 순간(다음 프레임 Update)에는 그 유닛이 이미 죽었거나
+        //   화면 오브젝트가 사라져 "누구였는지"를 알 수 없었다 → 모든 유닛에 같은 0.6m를 써서 끝이 약 0.3~0.4m 위로 떴다.
+        //   서버 스냅샷에는 유닛 종류가 들어 있지 않다(RPC 모양을 바꾸지 않기 위해 넣지 않는다 — 스키마 8 유지).
+        //   그래서 스냅샷을 "받는 순간"(싱글 · Host는 서버 피해 처리 직후 · 도메인 목록에서 지우기 전) 화면 오브젝트나
+        //   도메인 유닛 목록에서 종류를 읽어 스냅샷 키별로 보관했다가, 재생할 때 EffectManager에 넘긴다.
+        //
+        // 무엇을 바꾸지 않는가: 피해 · 타겟 · HP · 스냅샷 · RPC · 번개 끝점의 수평 위치(여전히 스냅샷 Impact).
+        // 종류를 끝내 모르면(예: Client에서 사망 처리가 먼저 와서 오브젝트 · 데이터가 모두 없을 때) 예전처럼 0.6m다.
+        // ====================================================================
+
+        /// <summary>받는 순간 잡아 둔 번개 대상의 유닛 종류와, 어디서 찾았는지("View" 화면 오브젝트 / "Domain" 도메인 목록).</summary>
+        private readonly struct BoltTargetTypeCapture
+        {
+            public readonly UnitType Type;
+            public readonly string Source;
+            public BoltTargetTypeCapture(UnitType type, string source) { Type = type; Source = source; }
+        }
+
+        /// <summary>
+        /// 스냅샷 키(Match, Lifetime, Sequence)별 대상 종류 보관함. 재생(EmitAttackEffects) · 시간 초과 · 경기 종료 · 재초기화 때 지운다.
+        /// 보류 목록(_attackEffectPending, 최대 256)에 있는 항목만 들어가므로 그 이상 쌓이지 않는다.
+        /// </summary>
+        private readonly Dictionary<(ulong, ulong, ulong), BoltTargetTypeCapture> _boltTargetTypes = new();
+
+        /// <summary>이 스냅샷이 "원래 맞은 유닛을 따라가는 번개(Beam)" 타워의 것인가. EmitAttackEffects의 판단과 같은 식이다.</summary>
+        private static bool IsBoltSnapshot(AttackEffectPresentation s)
+            => s.Visual == AttackEffectVisual.Tower && EffectManager.Instance != null
+               && EffectManager.Instance.TowerAttackNeedsTargetTracking(s.Race);
+
+        /// <summary>
+        /// [F0] 번개 스냅샷을 받는 순간 대상 유닛 종류를 찾아 보관한다. 예외는 여기서 삼킨다 —
+        /// 싱글 · Host에서는 서버 공격 처리(ExecuteTowerAttack) 안에서 동기로 불리기 때문이다.
+        /// 실패하면 보관하지 않으므로 재생 때 0.6m(예전 동작)가 된다.
+        /// </summary>
+        private void CaptureBoltTargetType(AttackEffectPresentation s, (ulong, ulong, ulong) key)
+        {
+            try
+            {
+                if (!IsBoltSnapshot(s)) return;
+                if (TryFindBoltTargetType(s.TargetId, out UnitType type, out string source))
+                    _boltTargetTypes[key] = new BoltTargetTypeCapture(type, source);
+            }
+            catch (Exception ex)
+            {
+                _boltTargetTypes.Remove(key);
+                DiagBoltFault("CaptureType", ex);
+            }
+        }
+
+        /// <summary>
+        /// 대상 유닛 종류를 찾는다. ① 화면 오브젝트(UnitView)의 데이터 — ID가 같을 때만,
+        /// ② 없으면 도메인 유닛 목록(UnitSpawnUseCase). 죽은 상태여도 종류는 읽을 수 있다(종류만 읽고 HP는 보지 않는다).
+        /// </summary>
+        /// <param name="targetId">스냅샷의 대상 유닛 ID.</param>
+        /// <param name="type">찾은 유닛 종류.</param>
+        /// <param name="source">"View" / "Domain" / 못 찾으면 "None".</param>
+        /// <returns>찾았으면 true.</returns>
+        private bool TryFindBoltTargetType(int targetId, out UnitType type, out string source)
+        {
+            type = default; source = "None";
+            GameObject go = _unitFactory != null ? _unitFactory.GetUnitObject(targetId) : null;
+            UnitView view = go != null ? go.GetComponent<UnitView>() : null;
+            UnitData viewData = view != null ? view.Data : null;
+            if (viewData != null && viewData.Id == targetId) { type = viewData.Type; source = "View"; return true; }
+            UnitData domain = _unitSpawn?.GetUnit(targetId);
+            if (domain != null && domain.Id == targetId) { type = domain.Type; source = "Domain"; return true; }
+            return false;
+        }
+
+        /// <summary>[F0] 이 스냅샷 키로 보관한 대상 종류. 없으면 null(= 종류 모름 → 0.6m).</summary>
+        private UnitType? TryGetCapturedBoltType((ulong, ulong, ulong) key)
+            => _boltTargetTypes.TryGetValue(key, out BoltTargetTypeCapture capture) ? capture.Type : (UnitType?)null;
+
+        /// <summary>[F0] 재생 · 시간 초과로 목록에서 빠진 스냅샷의 보관 값(종류 · 진단)을 지운다.</summary>
+        private void ForgetBoltCapture((ulong, ulong, ulong) key)
+        {
+            _boltTargetTypes.Remove(key);
+            _boltDiagReceives.Remove(key);
+        }
+
+        // ====================================================================
+        // [2026-11-10 진단 로그 [BOLT-END] — runespire-bolt-death-endpoint Plan 2절 · 6절]
+        //   축(LogRules §1.2): 심각도 Info(실패 1줄만 Warn), 존속 「개발」(사용자 결정 2026-11-10). 아래 Diag* 메서드에는
+        //   [Conditional] 두 개가 붙어 있어 릴리스 빌드에서는 호출과 인자 계산이 통째로 사라진다(§1.7).
+        //   동작은 바꾸지 않는다 — 읽고 기록만 한다. 각 메서드는 안에서 예외를 삼킨다(Host에서는 서버 공격 처리 안에서 불린다).
+        //
+        //   이벤트(경기 하나 기준):
+        //     Receive — 번개 스냅샷을 받은 직후 1건당 1줄(받는 순간의 생존 · 화면 위치 · 종류).
+        //     Begin   — 재생(PlayAttackEffect) 직후 1건당 1줄(추적/고정 갈래 · 실제 가슴 높이 · 끝점).
+        //     Limit   — 상세 줄 상한을 처음 넘은 순간 1줄(치명 · 고정 128건, 비치명 대조군 32건 — Receive · Begin 한 쌍 = 1건).
+        //     End     — 경기 종료 때 1줄(개수 요약). 번개를 하나도 받지 않은 경기는 남기지 않는다.
+        //     Fault   — 진단 · 종류 캡처 중 예외가 나면 경기당 1줄만.
+        //   값 표기: 좌표 · 길이는 밀리미터 정수, 축은 '|'로 잇는다(값 안에 ", "를 넣지 않는다 — §1.4). 모르면 None.
+        //   비교 좌표계: 이 화면에 그리는 좌표(Client 반전 화면이면 Impact를 ToView로 바꾼 뒤 비교). Impactmm는 원래 값 그대로.
+        // ====================================================================
+
+        private const int BoltDiagLethalLimit = 128;
+        private const int BoltDiagControlLimit = 32;
+
+        /// <summary>[진단] 받는 순간의 값 중 재생 때 다시 필요한 것(키별 보관, 재생 · 종료 때 지운다).</summary>
+        private sealed class BoltDiagReceive
+        {
+            public bool Detailed;        // 이 건의 상세 줄(Receive · Begin)을 남기는가(상한 안이었는가)
+            public string AliveAtReceive; // "true" / "false" / "Unknown"
+            public double ReceivedAt;    // Time.realtimeSinceStartupAsDouble
+        }
+
+        private readonly Dictionary<(ulong, ulong, ulong), BoltDiagReceive> _boltDiagReceives = new();
+        private readonly Dictionary<string, int> _boltDiagUntrackedByReason = new();
+        private int _boltDiagReceived, _boltDiagBegun, _boltDiagTracked, _boltDiagLethalUntracked, _boltDiagNonLethalDeadAtBegin;
+        private int _boltDiagChestTable, _boltDiagChestFallback, _boltDiagFallbackKnownType, _boltDiagTypeUnknownAtReceive;
+        private int _boltDiagLethalDetails, _boltDiagControlDetails, _boltDiagOmitted;
+        private int _boltDiagMaxAbsChestDeltaMm = -1, _boltDiagMaxHDiffMm = -1; // -1 = 아직 값 없음(End에 None)
+        private bool _boltDiagLethalLimitLogged, _boltDiagControlLimitLogged, _boltDiagFaultLogged, _boltDiagEnded;
+
+        /// <summary>[진단] 새 경기 시작(Initialize) 때 개수 · 플래그를 0으로 되돌린다. 화면 동작과 무관한 값만 만진다.</summary>
+        private void ResetBoltDiagnostics()
+        {
+            ClearBoltDiagnosticEntries();
+            _boltDiagReceived = _boltDiagBegun = _boltDiagTracked = _boltDiagLethalUntracked = _boltDiagNonLethalDeadAtBegin = 0;
+            _boltDiagChestTable = _boltDiagChestFallback = _boltDiagFallbackKnownType = _boltDiagTypeUnknownAtReceive = 0;
+            _boltDiagLethalDetails = _boltDiagControlDetails = _boltDiagOmitted = 0;
+            _boltDiagMaxAbsChestDeltaMm = _boltDiagMaxHDiffMm = -1;
+            _boltDiagLethalLimitLogged = _boltDiagControlLimitLogged = _boltDiagFaultLogged = _boltDiagEnded = false;
+        }
+
+        /// <summary>[진단] 키별 보관 값과 사유별 개수를 비운다(경기 종료 · 재초기화).</summary>
+        private void ClearBoltDiagnosticEntries()
+        {
+            _boltDiagReceives.Clear();
+            _boltDiagUntrackedByReason.Clear();
+        }
+
+        /// <summary>[진단] 월드 미터 → 밀리미터 정수.</summary>
+        private static int BoltMm(float meters) => Mathf.RoundToInt(meters * 1000f);
+
+        /// <summary>[진단] 좌표를 "x|y|z" 밀리미터 정수 문자열로.</summary>
+        private static string BoltMmText(Vector3 v)
+            => FormattableString.Invariant($"{BoltMm(v.x)}|{BoltMm(v.y)}|{BoltMm(v.z)}");
+
+        /// <summary>[진단] 두 점의 수평(XZ) 거리 — 밀리미터 정수.</summary>
+        private static int BoltHorizontalMm(Vector3 a, Vector3 b)
+        {
+            Vector3 d = a - b; d.y = 0f;
+            return BoltMm(d.magnitude);
+        }
+
+        /// <summary>[진단] 이 화면이 Client 반전 화면인가(EmitAttackEffects가 Impact를 ToView로 바꾸는 조건과 같다).</summary>
+        private static bool BoltDiagClientFlipped
+            => NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer && ViewConverter.IsFlipped;
+
+        /// <summary>
+        /// [진단] 대상 유닛의 지금 화면 위치(VisualRootProjector.PresentationPosition — 이 화면 좌표)를 읽는다.
+        /// PresentationPosition은 읽을 때 ProjectNow를 부르는데, 같은 루트 위치에서 같은 값을 다시 쓰는 것뿐이라
+        /// 화면에는 변화가 없다(VisualRootProjector 주석 「멱등」 — Plan 7절 R6 재확인).
+        /// </summary>
+        private static bool TryReadBoltViewPosition(GameObject go, out Vector3 position)
+        {
+            position = default;
+            if (go == null) return false;
+            VisualRootProjector projector = go.GetComponent<VisualRootProjector>();
+            if (projector == null) return false;
+            position = projector.PresentationPosition;
+            return true;
+        }
+
+        /// <summary>
+        /// [진단] 화면 오브젝트 · 도메인 목록에서 대상 데이터를 찾는다(ID가 같을 때만). 생존 여부 기록용.
+        /// viewState = "Present"(화면 오브젝트의 데이터가 그 유닛) / "Missing"(화면 오브젝트 없음) / "Mismatch"(다른 데이터).
+        /// </summary>
+        private UnitData FindBoltDiagTarget(int targetId, out GameObject go, out string viewState)
+        {
+            go = _unitFactory != null ? _unitFactory.GetUnitObject(targetId) : null;
+            UnitView view = go != null ? go.GetComponent<UnitView>() : null;
+            UnitData viewData = view != null ? view.Data : null;
+            viewState = go == null ? "Missing" : viewData != null && viewData.Id == targetId ? "Present" : "Mismatch";
+            if (viewState == "Present") return viewData;
+            UnitData domain = _unitSpawn?.GetUnit(targetId);
+            return domain != null && domain.Id == targetId ? domain : null;
+        }
+
+        /// <summary>[진단] 상세 줄 1건(Receive · Begin 한 쌍)을 쓸 자리가 남았는지 확인하고 차지한다. 넘으면 Limit 1줄.</summary>
+        private bool ReserveBoltDiagDetail(bool lethalKind)
+        {
+            if (lethalKind && _boltDiagLethalDetails < BoltDiagLethalLimit) { _boltDiagLethalDetails++; return true; }
+            if (!lethalKind && _boltDiagControlDetails < BoltDiagControlLimit) { _boltDiagControlDetails++; return true; }
+            _boltDiagOmitted++;
+            if (lethalKind ? !_boltDiagLethalLimitLogged : !_boltDiagControlLimitLogged)
+            {
+                if (lethalKind) _boltDiagLethalLimitLogged = true; else _boltDiagControlLimitLogged = true;
+                GameLog.Dev.Info("Combat", nameof(HitPresentationQueue), "[BOLT-END] Limit",
+                    FormattableString.Invariant(
+                        $"Diag=TowerBoltEnd, DiagRev=1, Fix=F0, Event=Limit, Role={ServerProjectileDiagnostics.RoleName}, DiagnosticLimit={(lethalKind ? BoltDiagLethalLimit : BoltDiagControlLimit)}, Kind={(lethalKind ? "Lethal" : "Control")}, Completeness=Unknown"));
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [진단 — [BOLT-END] Receive] 번개 스냅샷을 받은 직후 1줄. 받는 순간 대상이 살아 있었는지, 화면 오브젝트가 있었는지,
+        /// 종류를 어디서 찾았는지, 스냅샷 Impact와 그 순간 화면 위치가 수평 · 수직으로 얼마나 다른지를 남긴다.
+        /// 치명(ResultHp ≤ 0) 또는 받는 순간 이미 죽어 있던 건은 「치명」 상한(128), 나머지는 「대조군」 상한(32)으로 센다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBoltReceive(AttackEffectPresentation s, (ulong, ulong, ulong) key)
+        {
+            try
+            {
+                if (!IsBoltSnapshot(s)) return;
+                _boltDiagReceived++;
+                UnitData data = FindBoltDiagTarget(s.TargetId, out GameObject go, out string viewState);
+                string alive = data == null ? "Unknown" : data.IsAlive ? "true" : "false";
+                bool lethal = s.ResultHp <= 0;
+                bool hasType = _boltTargetTypes.TryGetValue(key, out BoltTargetTypeCapture capture);
+                if (!hasType) _boltDiagTypeUnknownAtReceive++;
+                var entry = new BoltDiagReceive { AliveAtReceive = alive, ReceivedAt = Time.realtimeSinceStartupAsDouble };
+                _boltDiagReceives[key] = entry;
+
+                bool flipped = BoltDiagClientFlipped;
+                Vector3 impactView = flipped ? ViewConverter.ToView(s.Impact) : s.Impact;
+                Vector3 recvView = default;
+                bool hasView = viewState == "Present" && TryReadBoltViewPosition(go, out recvView);
+                Transform pose = go != null ? _presentationPoseProvider?.GetUnitTransform(s.TargetId) : null;
+                string hDiff = "None", vDiff = "None";
+                if (hasView)
+                {
+                    int h = BoltHorizontalMm(impactView, recvView);
+                    if (h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
+                    hDiff = h.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    vDiff = BoltMm(recvView.y - impactView.y).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                string chestTable = "None";
+                if (hasType && EffectManager.Instance != null && EffectManager.Instance.TryGetTableChestHeight(capture.Type, out float table))
+                    chestTable = BoltMm(table).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                entry.Detailed = ReserveBoltDiagDetail(lethal || alive != "true");
+                if (!entry.Detailed) return;
+                GameLog.Dev.Info("Combat", nameof(HitPresentationQueue), "[BOLT-END] Receive",
+                    FormattableString.Invariant(
+                        $"Diag=TowerBoltEnd, DiagRev=1, Fix=F0, Event=Receive, Role={ServerProjectileDiagnostics.RoleName}, ViewFlipped={(flipped ? "true" : "false")}, Race={s.Race}, Match={s.Match}, Lifetime={s.Lifetime}, Sequence={s.Sequence}, TargetId={s.TargetId}, ResultHp={s.ResultHp}, Lethal={(lethal ? "true" : "false")}, AliveAtReceive={alive}, ViewAtReceive={viewState}, UnitType={(hasType ? capture.Type.ToString() : "Unknown")}, TypeSource={(hasType ? capture.Source : "None")}, Impactmm={BoltMmText(s.Impact)}, RecvViewmm={(hasView ? BoltMmText(recvView) : "None")}, RecvPosemm={(pose != null ? BoltMmText(pose.position) : "None")}, HDiffmm={hDiff}, VDiffBasemm={vDiff}, ChestTablemm={chestTable}"));
+            }
+            catch (Exception ex) { DiagBoltFault("Receive", ex); }
+        }
+
+        /// <summary>
+        /// [진단 — [BOLT-END] Begin] 재생(PlayAttackEffect) 직후 1줄. 어느 갈래(추적/고정)로 시작했는지, 실제로 쓴 가슴 높이와
+        /// 표 가슴 높이의 차(ChestDeltamm — F0 뒤에는 0이 정상), 끝점 높이, 그 순간 화면 위치와 끝점의 수평 차를 남긴다.
+        /// 개수(End 요약)는 상한과 상관없이 항상 센다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBoltBegin(AttackEffectPresentation s, (ulong, ulong, ulong) key, string outcome,
+            TowerBoltTarget boltTarget, UnitType? capturedType)
+        {
+            try
+            {
+                if (!IsBoltSnapshot(s)) return;
+                _boltDiagReceives.TryGetValue(key, out BoltDiagReceive entry);
+                _boltDiagReceives.Remove(key);
+                EffectManager manager = EffectManager.Instance;
+                TowerBoltBeginInfo info = manager != null ? manager.LastTowerBoltBegin : default;
+                bool started = info.IsFor(s.Match, s.Lifetime, s.Sequence);
+                bool lethal = s.ResultHp <= 0;
+
+                // 갈래와 사유: "Tracked" / "Untracked(사유)" / 번개를 시작하지 못함(NotStarted — 사유는 outcome 첫 토큰).
+                string branch, reason;
+                if (!started) { branch = "NotStarted"; reason = BoltOutcomeToken(outcome); }
+                else if (info.EndpointState == "Tracked") { branch = "Tracked"; reason = "None"; }
+                else
+                {
+                    branch = "Untracked";
+                    string state = info.EndpointState;
+                    int open = state.IndexOf('('), close = state.LastIndexOf(')');
+                    reason = open >= 0 && close > open ? state.Substring(open + 1, close - open - 1) : state;
+                }
+
+                // 재생 순간의 생존: 추적 대상 데이터가 있으면 그것(살아 있어야 추적된다), 없으면 화면 · 도메인에서 다시 찾는다.
+                GameObject go;
+                string viewState;
+                UnitData data = boltTarget.Data;
+                if (data != null) { go = boltTarget.View != null ? boltTarget.View.gameObject : null; viewState = "Present"; }
+                else data = FindBoltDiagTarget(s.TargetId, out go, out viewState);
+                string aliveAtBegin = data == null ? "Unknown" : data.IsAlive ? "true" : "false";
+
+                // 가슴 높이 비교: 실제 사용 값 vs 표 값. 표 값은 "가슴 높이를 고를 때 쓴 종류"(없으면 받는 순간 잡아 둔 종류)로 찾는다.
+                UnitType? typeForTable = info.ChestType ?? capturedType;
+                bool hasTable = false; float table = 0f;
+                if (typeForTable.HasValue && manager != null) hasTable = manager.TryGetTableChestHeight(typeForTable.Value, out table);
+                bool chestFromTable = started && info.ChestType.HasValue && hasTable;
+                string chestSource = !started ? "None" : chestFromTable ? "Table" : "Fallback";
+                string chestUsed = started ? BoltMm(info.ChestHeight).ToString(System.Globalization.CultureInfo.InvariantCulture) : "None";
+                string chestTable = hasTable ? BoltMm(table).ToString(System.Globalization.CultureInfo.InvariantCulture) : "None";
+                string chestDelta = "None";
+                if (started && hasTable)
+                {
+                    int delta = BoltMm(info.ChestHeight) - BoltMm(table);
+                    int absDelta = delta < 0 ? -delta : delta;
+                    if (absDelta > _boltDiagMaxAbsChestDeltaMm) _boltDiagMaxAbsChestDeltaMm = absDelta;
+                    chestDelta = delta.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                // 끝점과 "그 순간 화면 위치"의 수평 차(화면 오브젝트가 없으면 None).
+                string endY = started && info.HasEndpoint ? BoltMm(info.Endpoint.y).ToString(System.Globalization.CultureInfo.InvariantCulture) : "None";
+                string endHDiff = "None";
+                if (started && info.HasEndpoint && viewState == "Present" && TryReadBoltViewPosition(go, out Vector3 viewNow))
+                {
+                    int h = BoltHorizontalMm(info.Endpoint, viewNow);
+                    if (h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
+                    endHDiff = h.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                string recvToBegin = entry != null
+                    ? Mathf.RoundToInt((float)((Time.realtimeSinceStartupAsDouble - entry.ReceivedAt) * 1000d)).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : "None";
+
+                // End 요약용 개수(상한과 무관하게 항상 센다).
+                if (started)
+                {
+                    _boltDiagBegun++;
+                    if (branch == "Tracked") _boltDiagTracked++;
+                    else
+                    {
+                        _boltDiagUntrackedByReason.TryGetValue(reason, out int n);
+                        _boltDiagUntrackedByReason[reason] = n + 1;
+                        if (lethal) _boltDiagLethalUntracked++;
+                    }
+                    if (chestFromTable) _boltDiagChestTable++;
+                    else
+                    {
+                        _boltDiagChestFallback++;
+                        if (typeForTable.HasValue) _boltDiagFallbackKnownType++; // 종류를 아는데 0.6m — F0 뒤에는 0이 정상
+                    }
+                }
+                if (!lethal && aliveAtBegin == "false") _boltDiagNonLethalDeadAtBegin++;
+
+                if (entry == null || !entry.Detailed) return;
+                GameLog.Dev.Info("Combat", nameof(HitPresentationQueue), "[BOLT-END] Begin",
+                    FormattableString.Invariant(
+                        $"Diag=TowerBoltEnd, DiagRev=1, Fix=F0, Event=Begin, Role={ServerProjectileDiagnostics.RoleName}, ViewFlipped={(BoltDiagClientFlipped ? "true" : "false")}, Race={s.Race}, Match={s.Match}, Lifetime={s.Lifetime}, Sequence={s.Sequence}, TargetId={s.TargetId}, Lethal={(lethal ? "true" : "false")}, UnitType={(typeForTable.HasValue ? typeForTable.Value.ToString() : "Unknown")}, Branch={branch}, Reason={reason}, AliveAtBegin={aliveAtBegin}, ChestUsedmm={chestUsed}, ChestTablemm={chestTable}, ChestDeltamm={chestDelta}, ChestSource={chestSource}, EndYmm={endY}, EndHDiffmm={endHDiff}, RecvToBeginMs={recvToBegin}"));
+            }
+            catch (Exception ex) { DiagBoltFault("Begin", ex); }
+        }
+
+        /// <summary>[진단] outcome 문자열의 첫 토큰(';' 앞, 공백 · 쉼표 제거) — NotStarted 사유 표기용.</summary>
+        private static string BoltOutcomeToken(string outcome)
+        {
+            if (string.IsNullOrEmpty(outcome)) return "None";
+            int cut = outcome.IndexOf(';');
+            string token = (cut >= 0 ? outcome.Substring(0, cut) : outcome).Trim();
+            return token.Length == 0 ? "None" : token.Replace(",", "").Replace(" ", "");
+        }
+
+        /// <summary>
+        /// [진단 — [BOLT-END] End] 경기 종료(또는 종료 신호 없는 재초기화) 때 1줄. 번개를 하나도 받지 않았으면 남기지 않는다.
+        /// 안 B(F0) 기준 정상: FallbackKnownType=0, Fault 줄 0.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBoltEnd(string reason)
+        {
+            try
+            {
+                if (_boltDiagEnded || _boltDiagReceived == 0) return;
+                _boltDiagEnded = true;
+                string byReason = null;
+                foreach (KeyValuePair<string, int> pair in _boltDiagUntrackedByReason)
+                    byReason = (byReason == null ? "" : byReason + "|") + pair.Key + ":" + pair.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                GameLog.Dev.Info("Combat", nameof(HitPresentationQueue), "[BOLT-END] End",
+                    FormattableString.Invariant(
+                        $"Diag=TowerBoltEnd, DiagRev=1, Fix=F0, Event=End, Role={ServerProjectileDiagnostics.RoleName}, Reason={BoltOutcomeToken(reason)}, Received={_boltDiagReceived}, Begun={_boltDiagBegun}, NotStarted={_boltDiagReceived - _boltDiagBegun}, Tracked={_boltDiagTracked}, UntrackedByReason={byReason ?? "None"}, LethalUntracked={_boltDiagLethalUntracked}, NonLethalDeadAtBegin={_boltDiagNonLethalDeadAtBegin}, ChestSourceTable={_boltDiagChestTable}, ChestSourceFallback={_boltDiagChestFallback}, FallbackKnownType={_boltDiagFallbackKnownType}, TypeUnknownAtReceive={_boltDiagTypeUnknownAtReceive}, MaxAbsChestDeltamm={(_boltDiagMaxAbsChestDeltaMm < 0 ? "None" : _boltDiagMaxAbsChestDeltaMm.ToString(System.Globalization.CultureInfo.InvariantCulture))}, MaxHDiffmm={(_boltDiagMaxHDiffMm < 0 ? "None" : _boltDiagMaxHDiffMm.ToString(System.Globalization.CultureInfo.InvariantCulture))}, Omitted={_boltDiagOmitted}"));
+            }
+            catch (Exception ex) { DiagBoltFault("End", ex); }
+        }
+
+        /// <summary>
+        /// [진단 — [BOLT-END] Fault] 진단 · 종류 캡처 중 예외가 나면 경기당 1줄만 남긴다(예외는 다시 던지지 않는다).
+        /// 예외 메시지는 쉼표가 섞일 수 있어 넣지 않고 예외 타입 이름만 남긴다(§1.4).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBoltFault(string stage, Exception ex)
+        {
+            try
+            {
+                if (_boltDiagFaultLogged) return;
+                _boltDiagFaultLogged = true;
+                GameLog.Dev.Warn("Combat", nameof(HitPresentationQueue), "[BOLT-END] Fault — 진단 중 예외(화면 동작은 계속된다)",
+                    FormattableString.Invariant(
+                        $"Diag=TowerBoltEnd, DiagRev=1, Fix=F0, Event=Fault, Role={ServerProjectileDiagnostics.RoleName}, Stage={stage}, Error={(ex != null ? ex.GetType().Name : "None")}"));
+            }
+            catch (Exception) { /* 진단 기록 실패는 무시한다 — 게임 흐름을 막지 않는다 */ }
         }
 
         public int AuthoritativeEmits { get; private set; }
@@ -525,6 +939,11 @@ namespace Hexiege.Presentation
         {
             _subscriptions.Clear();
             if (_attackEffectPending.Count != 0) CloseAttackEffects("Reinitialize");
+            // [2026-11-10 [BOLT-END]] 경기 종료 신호 없이 재초기화되면(보류 항목도 없어 위 Close가 안 불린 경우) 지난 경기의 End 줄을
+            //   여기서 남긴다. 이미 End를 남겼거나 번개를 하나도 받지 않았으면 아무것도 하지 않는다.
+            DiagBoltEnd("Reinitialize");
+            _boltTargetTypes.Clear();
+            ResetBoltDiagnostics();
             _attackEffectKeys.Clear(); _attackEffectPending.Clear(); _attackEffectReceivedAt.Clear(); _attackEffectsClosed = false;
             _attackEffectFailures = _attackEffectOverflow = 0;
             _attackClockFaultReported = false;
