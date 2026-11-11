@@ -284,6 +284,19 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Transcendence | 숲의 순풍 — 강화 상태(V21) | — | **칸 준비됨 · 미제작** — `Skill_Trans_ForestTailwind`. 발동 V12와 하나로 할지는 VFX 기획 때 |
 
 - 칸이 비어 있으면 효과만 걸리고 `[SKILL-BUFF]` `BuffVfxSkipped Reason=NoPrefab` 1줄이 남는다(정상). 확인된 범위: 붙이기 · 따라가기(반전 Client 포함) · 만료 꼬리 정지 · 사망 즉시 정지 — 사용자 테스트 PASS 2026-11-11(임시 프리팹). 경기 종료 · 재경기 정지는 미관측. [지원 스킬 1차 강화 Task Plan 11절](../_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/Plan.md#11-implementation-and-user-test)
+- *(2026-11-11 — 칸 이름이 「유닛 상태 VFX」로 바뀌었다. 지속 상태 구역도 같은 칸을 쓴다 — 아래 「스킬 구역 이펙트」.)*
+
+#### 스킬 구역 이펙트
+
+> 지속 상태 구역 스킬(서리 감옥 · 수액 늪)의 바닥 구역 이펙트와, 구역 안 유닛 몸에 붙는 이펙트. 바닥은 스킬 자산의 「구역 VFX」 칸, 몸은 「유닛 상태 VFX」 칸(프리팹 · 크기 배율 · 위치 보정)에 연결한다(EffectPreset 아님). 재생 계약은 [VFXSFXGuide](VFXSFXGuide.md) 「코드 계약」 13번, 규칙은 [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 · 25 · 28. *(2026-11-11 추가)*
+
+| 종족 | 스킬 | 파일명 | 비고 |
+|------|------|--------|------|
+| Spirit | 서리 감옥 — 바닥 얼음 구역(V3) | — | **칸 준비됨 · 미제작** — `Skill_Spirit_FrostPrison` 「구역 VFX」. 반경 2 · 기준 반경 2라 배율 1(지름 4의 원에 맞춰 만든다). 시험 때 `vfx_emp_disabled`를 임시로 넣어 자리 · 크기 · 양쪽 화면 · 만료 꼬리 정지를 확인한 뒤 비웠다(`92a1fc8`) |
+| Spirit | 서리 감옥 — 유닛 얼음 상태(V4) | — | **칸 준비됨 · 미제작** — 같은 자산 「유닛 상태 VFX」. 크기는 유닛 크기 표 × 스킬 크기 배율로 시작한다(큰 유닛 보정은 프리팹이 나온 뒤 — 같은 Task Z-12). 시험 때 `vfx_bloomfairy_heal`을 임시로 넣어 진입 부착 · 만료 꼬리 · 사망 즉시 정지를 확인한 뒤 비웠다. **구역을 나갈 때의 정지 · 재경기 정리는 미관측** |
+| Transcendence | 수액 늪 — 호박색 수액 바닥(V9) | — | **칸 준비됨 · 미제작** — `Skill_Trans_SapSwamp` 「구역 VFX」(배율 1, 서리와 같은 크기 기준). 유닛 칸은 비워 둔다(기획에 수액 상태 VFX 없음 — 같은 Task Z-14) |
+
+- 칸이 비어 있으면 효과만 동작하고 `[SKILL-ZONE]` `ZoneVfxSkipped` / `UnitZoneVfxSkipped` `Reason=NoPrefab` 1줄씩 남는다(정상). 연막탄(V7)은 스킬이 「사용 불가」라 행을 두지 않았다. [지속 상태 구역 Task Plan 11-7](../_Tasks/2026-11-10/16_02_support-skill-persistent-zones/Plan.md#11-7-final-result)
 
 #### 골드 채집 이펙트
 

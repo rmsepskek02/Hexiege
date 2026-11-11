@@ -15,9 +15,17 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
 - **Impact timing reuse:** Bombardment shipped with a 0.4 s server-side impact delay (type A, damage at the impact moment to
   whoever is in range then). Meteor is expected to reuse that reservation with a longer delay — design meteor around
   "damage at impact, dodgeable", not "damage at cast".
-- **Unavailable slots:** 9 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown). How an
-  unavailable slot looks is a later UI task (decision 16) — do not design it inside a skill task. *(2026-11-11 updated —
-  was "14 of the 15"; available now = Bombardment · EMP · Tactical Order (attack) · Flame Blessing · Forest Roar · Forest Tailwind)*
+- **Unavailable slots:** 7 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown). How an
+  unavailable slot looks is a later UI task (decision 16) — do not design it inside a skill task. The button **text** is now
+  the skill name (user request 2026-11-11 — icons / description tab stay in the later UI task). *(2026-11-11 updated —
+  was "9 of the 15" and, before that, "14 of the 15"; available now = Bombardment · EMP · Tactical Order (attack) · Flame
+  Blessing · Frost Prison · Sap Swamp · Forest Roar · Forest Tailwind)*
+- **Persistent status zones (2026-11-11, `_Tasks/2026-11-10/16_02_support-skill-persistent-zones/` Plan Z-1~Z-21 · §11-7):**
+  a zone hits enemy units **inside it now** (late entrants too, released on exit / expiry); same-skill overlap counts once;
+  a zone **multiplies** with other sources of the same kind (tailwind 1.3 × sap 0.4 = 0.52 — user: 「방법 자체는 좋은 것으로
+  생각돼」); the zone outlives its caster building; freeze always wins. Still undecided: two **map-wide** skills of the same
+  kind overlapping (no such pair exists now). Values temporary (frost r2 · 4 s, sap r2 · ×0.4 · 6 s, cd 15). Frozen units
+  cannot walk out, so "exit releases" is only visible with the sap swamp. Smoke Bomb's dodge (E) is not built.
 - **Map-wide buff skills (2026-11-11, `_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/` Plan D1~D14 · §11):** a buff
   hits only allies **alive at the activation moment** (units produced during the buff are not buffed — D1, may be revisited
   in balancing); re-use replaces the remaining time, no stacking. Each skill has its **own** buff-status VFX slot, so

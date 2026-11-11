@@ -24,7 +24,7 @@ user asset push `3ff5ed60`. User test PASS (single + multi, user's overall verdi
   One screen subscriber (`SkillActivationVfxPresenter`) listens to both — the `IsServer` guard is what stops the Host
   from playing twice. Payload = building id · team · **slot** · has-aim · aim (domain coords) · sequence · impact delay;
   the receiver re-finds VFX/radius from **its own build's** loadout by team + slot, so both builds must match →
-  `PresentationContractSchemaRevision` 6 → 7 and the fixture line `== 7` *(2026-11-09 note: now 8 / `== 8` — §2)*. No `IGameServices` method was added (the
+  `PresentationContractSchemaRevision` 6 → 7 and the fixture line `== 7` *(2026-11-09 note: now 8 / `== 8` — §2)* *(2026-11-11 note: now 9 / `== 9` — §4)*. No `IGameServices` method was added (the
   regression fixture has a stand-in implementation).
 - **Impact reservation is not on the cooldown tick.** `TickCooldowns` also runs on the pure client as a mirror
   (`GameBootstrapper.Update` guard `!IsNetworkMode() || !IsNetworkServer`); putting strikes there would make clients deal

@@ -227,6 +227,7 @@ human tower done (user-test PASS 2026-10-27); P5 cleanup `9cefe80d` · `b73c0993
   `PresentationContractSchemaRevision` (`UnitAttackShadowProfileResolver.cs`; 4 → 5 late-join snapshot count, 5 → 6 pre-launch cancel RPC; P5 kept 6).
   *(2026-11-03 note: now **7** — 6 → 7 by the skill activation ClientRpc shape, see [skill-system.md](skill-system.md) §1.)*
   *(2026-11-09 note: now **8** — 7 → 8 by the EMP `TowersDisabledClientRpc`, see [skill-system.md](skill-system.md) §2.)*
+  *(2026-11-11 note: now **9** — 8 → 9 by the zone `ZoneMembershipChangedClientRpc`, see [skill-system.md](skill-system.md) §4.)*
   *(2026-10-27 replaced; old bullet: "Per-unit switch: `EnabledUnitTypes` → `ManifestToken` (stage D `6,7,12,17,21;tower:human`) goes into the
   handshake hash …" — the switch lists and `IsServerProjectile*` no longer exist.)*
 - **Cleanup lesson (P5, 2026-10-27):** a migration plan's "delete in P5" list can name live code. RM-1 (immediate damage `ExecuteAttack` /
