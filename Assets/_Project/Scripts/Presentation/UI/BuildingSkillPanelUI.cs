@@ -60,6 +60,8 @@ namespace Hexiege.Presentation
         //   스킬 종류 이름(폭탄/빙결/버프/둔화/회복 등)을 텍스트로 표시해 실기 테스트를 돕는다.
         //   데이터 모델(SkillData/SkillDefinition)은 건드리지 않고, OnShow에서 메커니즘·상태종류로
         //   이름을 파생해 세팅한다(문자열 하드코딩 — 테스트 후 제거하기 쉽도록).
+        //   *(2026-11-11 변경 — 이제는 스킬 자산의 「스킬 이름」 칸을 먼저 띄우고, 비어 있을 때만 위의 파생 이름을
+        //    쓴다. 자세한 이유는 OnShow의 라벨 설정 부분과 ResolveSlotLabel 주석 참조.)*
         [Header("테스트용 임시 라벨(슬롯 1~5) — 정식 아이콘 도입 시 제거")]
         [Tooltip("각 스킬 슬롯 위 스킬 종류 텍스트(테스트용). 슬롯 버튼과 1:1. 비어도 동작한다.")]
         [SerializeField] private List<TMP_Text> _skillSlotLabels = new List<TMP_Text>(5);
@@ -216,13 +218,105 @@ namespace Hexiege.Presentation
                     _skillSlotOverlays[i].Hide();
 
                 // ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 제거.
-                //   스킬이 있는 슬롯에만 종류 이름을 표시하고, 빈 슬롯은 비운다.
+                //   스킬이 있는 슬롯에만 글자를 표시하고, 빈 슬롯은 비운다.
                 if (_skillSlotLabels != null && i < _skillSlotLabels.Count && _skillSlotLabels[i] != null)
                 {
-                    _skillSlotLabels[i].text = hasSkill ? DeriveSkillLabel(_currentLoadout[i]) : string.Empty;
+                    // ── 2026-11-11 변경(지속 구역 Task 단위 ⑥ — 사용자 요청 「스킬이름에 맞게 텍스트도 변경」) ──
+                    //   예전: 실행 방식(폭탄 · 장판 · 버프 · 둔화 …)으로 지은 글자를 그대로 띄웠다.
+                    //         그래서 같은 「버프」가 여러 칸에 떠, 테스트 때 어느 버튼이 숲의 순풍이고
+                    //         어느 버튼이 수액 늪인지 알 수 없었다.
+                    //   지금: 스킬 자산(SkillDefinition)에 적힌 「스킬 이름」 칸을 먼저 쓰고,
+                    //         그 칸이 비어 있을 때만 예전 글자(DeriveSkillLabel)로 돌아간다(ResolveSlotLabel).
+                    //   아래 주석 줄이 예전 코드다(WORKFLOW [4] — 테스트 통과 전까지 지우지 않고 남겨 둔다).
+                    // _skillSlotLabels[i].text = hasSkill ? DeriveSkillLabel(_currentLoadout[i]) : string.Empty;
+                    _skillSlotLabels[i].text = hasSkill ? ResolveSlotLabel(_currentLoadout[i], out _) : string.Empty;
                     _skillSlotLabels[i].enabled = hasSkill;
                 }
             }
+
+            // 진단 로그 1줄 — 패널을 열 때마다 슬롯별 글자와 그 글자의 출처(이름 칸 / 예전 글자)를 남긴다.
+            //   개발 빌드 · 에디터에서만 호출된다(릴리스에서는 호출 자체가 사라진다 — 아래 메서드의 Conditional).
+            LogSlotLabels(building, race);
+        }
+
+        // 슬롯 글자의 출처를 로그에 적을 때 쓰는 낱말(코드 · 로그에서 같은 값을 쓰도록 상수로 둔다).
+        //   Name     = 스킬 자산의 「스킬 이름」 칸을 그대로 띄웠다.
+        //   Fallback = 이름 칸이 비어 있어 예전 임시 글자(DeriveSkillLabel)를 띄웠다.
+        //   Empty    = 그 슬롯에 스킬이 없다(버튼이 숨겨져 글자도 비운다).
+        private const string LabelSourceName = "Name";
+        private const string LabelSourceFallback = "Fallback";
+        private const string LabelSourceEmpty = "Empty";
+
+        /// <summary>
+        /// ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 함께 정리.
+        /// 슬롯 버튼에 띄울 글자를 정한다. 스킬 자산의 「스킬 이름」(SkillData.DisplayName)이 있으면 그것을,
+        /// 비어 있거나 공백뿐이면 예전 임시 글자(DeriveSkillLabel — 실행 방식으로 지은 이름)를 돌려준다.
+        /// </summary>
+        /// <param name="skill">글자를 정할 스킬 값 객체(null이면 빈 문자열).</param>
+        /// <param name="source">글자의 출처 — Name / Fallback / Empty 중 하나(진단 로그용).</param>
+        /// <returns>슬롯 버튼에 표시할 글자.</returns>
+        private static string ResolveSlotLabel(SkillData skill, out string source)
+        {
+            if (skill == null)
+            {
+                source = LabelSourceEmpty;
+                return string.Empty;
+            }
+
+            // 이름 칸이 채워져 있으면 그대로 쓴다. 앞뒤 공백만 있는 값은 「비어 있음」으로 본다
+            //   (Inspector에서 실수로 띄어쓰기만 넣은 경우 버튼이 빈칸처럼 보이는 것을 막는다).
+            //   SkillData는 null 이름을 빈 문자열로 바꿔 두지만, 혹시 몰라 null도 함께 확인한다.
+            string name = skill.DisplayName;
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                source = LabelSourceName;
+                return name.Trim();
+            }
+
+            source = LabelSourceFallback;
+            return DeriveSkillLabel(skill);
+        }
+
+        /// <summary>
+        /// 진단 로그 — 패널을 열 때 한 번, 슬롯 1~5 각각의 글자 · 출처 · 사용 가능 여부를 남긴다.
+        /// 검색어 <c>[SKILL-PANEL]</c>. 슬롯 수와 키 구성은 매번 같다(빈 슬롯도 Src=Empty로 적는다 — LogRules 1.4).
+        /// 에디터 · 개발 빌드에서만 호출되고, 릴리스에서는 문자열 조립까지 통째로 사라진다(LogRules 1.7).
+        /// </summary>
+        /// <param name="building">지금 연 스킬 건물.</param>
+        /// <param name="race">그 건물 팀의 종족(로드아웃을 고른 키).</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogSlotLabels(BuildingData building, RaceId race)
+        {
+            int skillCount = _currentLoadout?.Count ?? 0;
+            int nameCount = 0;
+            int fallbackCount = 0;
+            var sb = new System.Text.StringBuilder(256);
+
+            for (int i = 0; i < _skillSlotButtons.Count; i++)
+            {
+                SkillData skill = i < skillCount ? _currentLoadout[i] : null;
+                string label = ResolveSlotLabel(skill, out string source);
+                if (source == LabelSourceName) nameCount++;
+                else if (source == LabelSourceFallback) fallbackCount++;
+
+                // 슬롯 번호는 사람이 보는 번호(1부터)로 적는다. 값에 쉼표가 들어가면 key=value 구분이 깨지므로
+                //   스킬 이름 쪽 쉼표만 다른 글자로 바꾼다(현재 15개 이름에는 쉼표가 없다).
+                int slotNo = i + 1;
+                string safeLabel = string.IsNullOrEmpty(label) ? "None" : label.Replace(',', '/');
+                bool available = skill != null && skill.IsAvailable;
+                sb.Append(", S").Append(slotNo).Append("Label=").Append(safeLabel)
+                  .Append(", S").Append(slotNo).Append("Src=").Append(source)
+                  .Append(", S").Append(slotNo).Append("Avail=").Append(available ? "True" : "False");
+            }
+
+            string role = !NetworkContext.IsNetworkActive ? "Single"
+                        : (NetworkContext.IsNetworkServer ? "Host" : "Client");
+
+            GameLog.Dev.Info("Skill", nameof(BuildingSkillPanelUI), "[SKILL-PANEL] SlotLabels",
+                System.FormattableString.Invariant(
+                    $"Diag=SkillPanel, DiagRev=1, Event=SlotLabels, Role={role}, BuildingId={building?.Id ?? -1}, Team={building?.Team.ToString() ?? "None"}, Race={race}, SkillCount={skillCount}, NameCount={nameCount}, FallbackCount={fallbackCount}")
+                + sb.ToString());
         }
 
         /// <summary>

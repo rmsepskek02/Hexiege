@@ -150,3 +150,9 @@ Uncommitted at writing time (commits are made by the main session) — verify `g
   DLLs) — only the static compile harness works; the suite runs in the Editor.
 - **Temporary test prefabs (Z-18):** Frost Prison `_zoneVfxPrefab` = `vfx_emp_disabled`, `_statusVfxPrefab` = `vfx_bloomfairy_heal`
   (scale 2, D14 precedent) — empty them after the user test.
+- **Slot button text = skill asset name (unit ⑥, 2026-11-11, uncommitted at writing time):** `BuildingSkillPanelUI.ResolveSlotLabel`
+  shows `SkillData.DisplayName` (trimmed), falls back to `DeriveSkillLabel` only when blank; old line kept commented (WORKFLOW [4]).
+  Log `[SKILL-PANEL] SlotLabels` (Diag=SkillPanel, `S1..S5 Label/Src/Avail`) once per panel open. All 15 loadout assets already
+  carry names matching the design Plan table, so no slot falls back. Labels: scene `SkillTestLabel` TMP 24pt, wrap on, no
+  auto-size, full-stretch over a ~297-px-wide slot (3 per row). Stale now: `SkillDefinition._displayName` comment/tooltip and
+  `SkillData.DisplayName` doc still say "not shown on screen" — not edited (scope), reported.
