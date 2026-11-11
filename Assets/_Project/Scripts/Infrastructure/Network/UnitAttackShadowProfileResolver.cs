@@ -30,7 +30,12 @@ namespace Hexiege.Infrastructure
         //   (발동 순번, 무력화 지속 시간, 탑 Id 배열)가 새로 생겼다(5 → 6 「새 RPC가 생겼다」 선례와 같은 이유).
         //   이 RPC를 모르는 빌드(스키마 7 — 사용자 기기에 깔린 지원 스킬 C-1 테스트 빌드)와 섞인 경기는 handshake에서 거부한다(사용자 결정 Q6).
         //   기존 SkillActivatedClientRpc · 요청 RPC 모양은 그대로다.
-        public const int PresentationContractSchemaRevision = 8;
+        // [2026-11-11 지속 상태 구역 Task 구현 단위 ② — 사용자 결정 Z-2 N-B] 8 → 9. 구역 구성원 변경 RPC 신설 —
+        //   NetworkSkillController.ZoneMembershipChangedClientRpc(구역 순번, 들어온 유닛 Id 배열, 나간 유닛 Id 배열)가 새로 생겼다
+        //   (7 → 8 「새 RPC가 생겼다」 선례와 같은 이유). 이 RPC를 모르는 빌드(스키마 8)와 섞인 경기는 handshake에서 거부한다
+        //   — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다. 기존 RPC · 요청 RPC 모양은 그대로다.
+        //   옛 줄(기록용): public const int PresentationContractSchemaRevision = 8;
+        public const int PresentationContractSchemaRevision = 9;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

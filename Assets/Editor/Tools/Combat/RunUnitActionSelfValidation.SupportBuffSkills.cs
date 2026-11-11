@@ -256,9 +256,13 @@ namespace Hexiege.Editor.Combat
         /// <summary> B-8 — 스키마 고정값 · 소스 게이트. </summary>
         private static void ValidateSupportBuffSourceGates()
         {
-            // 안 A(D2): 강화 상태 VFX는 기존 발동 알림만 재사용 — RPC 모양이 바뀌지 않았으므로 스키마는 8 그대로다.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
-                "B-8 support buff skills (D2 plan A) add no RPC — the presentation schema must stay 8.");
+            // 안 A(D2): 강화 상태 VFX는 기존 발동 알림만 재사용 — 강화 스킬 자체는 RPC를 늘리지 않는다.
+            //   [2026-11-11 지속 상태 구역 Task] 스키마는 구역 구성원 변경 RPC 때문에 8 → 9가 됐다(강화 스킬과 무관한 변경).
+            //   옛 줄(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
+            //     "B-8 support buff skills (D2 plan A) add no RPC — the presentation schema must stay 8.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
+                "B-8 support buff skills (D2 plan A) add no RPC; the schema is 9 only because of the persistent-zone membership RPC.");
 
             string presenter = File.ReadAllText("Assets/_Project/Scripts/Presentation/Effects/UnitBuffVfxPresenter.cs");
             int project = presenter.IndexOf("entry.Projector.ProjectNow();\n            entry.Item.FollowStatusLoop(", StringComparison.Ordinal);

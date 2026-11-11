@@ -36,6 +36,12 @@
 //   새 RPC가 생겼으므로 전투 표현 스키마(UnitAttackShadowProfileResolver)를 7 → 8로 올려
 //   이 RPC를 모르는 빌드(스키마 7)와 섞인 경기는 접속 확인 단계에서 거절된다(사용자 결정 Q6).
 //
+// 2026-11-11 변경(지속 상태 구역 Task 구현 단위 ② — 사용자 결정 Z-2 N-B):
+//   서리 감옥 · 수액 늪 구역의 구성원이 바뀐 틱마다 SkillZoneSystem이 GameEvents.OnSkillZoneMembershipConfirmed를 발행한다.
+//   서버의 이 컨트롤러가 구독해 새 RPC ZoneMembershipChangedClientRpc(구역 순번, 들어온 Id 배열, 나간 Id 배열)를 브로드캐스트하고,
+//   순수 클라이언트는 IsServer 가드 뒤에서 GameEvents.OnSkillZoneMembershipReceived로 발행한다(화면 V4용).
+//   구역 생성 · 끝 RPC는 없다(생성 = 발동 표현 RPC, 끝 = 화면 로컬 타이머). 스키마 8 → 9.
+//
 // 참고 패턴 = NetworkUpgradeController(main 병합 최신 관례):
 //   래퍼 → ServerRpc, 팀 소유권(SenderClientId), 브로드캐스트 ClientRpc,
 //   GameServicesLocator.Current 지연 해석(스폰 레이스 방지).
@@ -77,6 +83,10 @@ namespace Hexiege.Infrastructure
         //   위 발동 표현 구독과 같은 이유로 OnNetworkSpawn에서 바로 건다(정적 GameEvents라 IGameServices가 필요 없다).
         private System.IDisposable _towersDisabledConfirmedSubscription;
 
+        // 지속 상태 구역 구성원 변경 「확정」 이벤트 구독 핸들(해제용). 서버에서만 구독한다(2026-11-11 지속 상태 구역 Task — Z-2 N-B).
+        //   위 두 구독과 같은 이유로 OnNetworkSpawn에서 바로 건다(정적 GameEvents라 IGameServices가 필요 없다).
+        private System.IDisposable _zoneMembershipConfirmedSubscription;
+
         // ====================================================================
         // 생명주기
         // ====================================================================
@@ -117,6 +127,12 @@ namespace Hexiege.Infrastructure
                 _towersDisabledConfirmedSubscription?.Dispose();
                 _towersDisabledConfirmedSubscription = GameEvents.OnTowersDisabledConfirmed
                     .Subscribe(OnTowersDisabledConfirmedOnServer);
+
+                // 지속 상태 구역 구성원 변경 「확정」도 서버에서만 구독해 순수 클라이언트에 브로드캐스트한다(2026-11-11 Z-2 N-B).
+                //   구역 판정(SkillZoneSystem.Tick)은 서버 권위 틱에서만 돌기 때문이다.
+                _zoneMembershipConfirmedSubscription?.Dispose();
+                _zoneMembershipConfirmedSubscription = GameEvents.OnSkillZoneMembershipConfirmed
+                    .Subscribe(OnZoneMembershipConfirmedOnServer);
             }
 
             // [개발] 스폰 진입 흔적 → Info / 개발.
@@ -138,6 +154,9 @@ namespace Hexiege.Infrastructure
             // 방어탑 무력화 「확정」 구독 해제(같은 이유 — EMP 커밋 2).
             _towersDisabledConfirmedSubscription?.Dispose();
             _towersDisabledConfirmedSubscription = null;
+            // 구역 구성원 변경 「확정」 구독 해제(같은 이유 — 2026-11-11 지속 상태 구역 Task).
+            _zoneMembershipConfirmedSubscription?.Dispose();
+            _zoneMembershipConfirmedSubscription = null;
             base.OnNetworkDespawn();
         }
 
@@ -350,6 +369,88 @@ namespace Hexiege.Infrastructure
                                  "방어탑 무력화 수신 이벤트 구독자 예외 — 게임 결과 무영향",
                                  $"Sequence={sequence}, Duration={duration}, TowerCount={towerIds.Length}, Error={ex.Message}");
             }
+        }
+
+        // ====================================================================
+        // 지속 상태 구역 구성원 변경 — 서버 → 클라 브로드캐스트(2026-11-11 지속 상태 구역 Task 구현 단위 ②, 사용자 결정 Z-2 N-B)
+        // ====================================================================
+        //
+        // 왜 필요한가(초급자용 설명):
+        //   서리 감옥 구역 안에서 얼어붙은 유닛 몸에 얼음 이펙트(V4)를 상대 화면에도 같은 유닛에 붙이려면, 클라이언트가
+        //   "누가 구역 안인가"를 알아야 한다. 그런데 클라이언트에서는 유닛의 타일 좌표(UnitData.Position)가 이동으로 갱신되지 않아
+        //   서버와 같은 기준으로 스스로 셀 수 없다(Research 7절). 그래서 서버가 틱마다 "바뀐 유닛 Id만" 묶어 보낸다(EMP Id 배열 선례).
+        //   · 구역 생성 알림은 따로 없다 — 같은 발동의 SkillActivatedClientRpc(발동 표현)가 그 역할이다.
+        //   · 구역 끝 알림도 없다 — 화면이 발동 알림을 받은 순간 + 구역 지속 시간으로 스스로 끝낸다(Z-7 「구역 유지」라 일찍 끝나지 않는다).
+        //   · 순서: 서버는 첫 구성원을 발동 다음 틱에 보낸다(SkillZoneSystem) → 같은 NetworkObject의 ClientRpc는 보낸 순서대로
+        //     도착하므로(신뢰 · 순서 보장 채널) 클라이언트는 발동 알림을 먼저 받는다(위험 R-10).
+        //   새 RPC가 생겼으므로 전투 표현 스키마(UnitAttackShadowProfileResolver)를 8 → 9로 올렸다 — 스키마 8 빌드와 섞인 경기는
+        //   접속 확인 단계에서 거절된다(두 빌드 모두 새로 설치해야 한다).
+
+        /// <summary>
+        /// (서버 전용) 구역 구성원 변경 「확정」 이벤트를 받아 모든 클라이언트에 ZoneMembershipChangedClientRpc를 1회 보낸다.
+        /// </summary>
+        /// <param name="p">서버가 판정한 구성원 변경(구성원이 바뀐 구역 · 틱마다 1건).</param>
+        private void OnZoneMembershipConfirmedOnServer(SkillZoneMembershipPresentation p)
+        {
+            // 스폰이 풀린 뒤(경기 정리 중)에 늦게 들어온 변경이면 RPC를 보낼 수 없다 — NGO 오류 방지(발동 표현과 같은 가드).
+            if (!IsServer || !IsSpawned) return;
+            // 바뀐 것이 없으면 보낼 것이 없다(발행 쪽에서 이미 거르지만 한 번 더 막는다 — 빈 RPC 방지).
+            if (p.EnteredCount == 0 && p.ExitedCount == 0) return;
+
+            // int[]는 NGO가 기본 직렬화한다. Copy*가 새 배열을 만들어 주므로 값 객체 내부는 바뀌지 않는다.
+            int[] entered = p.CopyEnteredIds();
+            int[] exited = p.CopyExitedIds();
+            try
+            {
+                ZoneMembershipChangedClientRpc(p.Sequence, entered, exited);
+            }
+            catch (System.Exception ex)
+            {
+                // Host 서버 틱 안에서 불린다 — RPC 전송 실패가 서버 판정(구역 효과)을 깨지 않게 삼키고 Warn 1줄만 남긴다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "구역 구성원 변경 RPC 전송 실패 — 구역 효과는 유지",
+                                 $"Sequence={p.Sequence}, Entered={entered.Length}, Exited={exited.Length}, Error={ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 지속 상태 구역 구성원 변경을 모든 클라이언트에 알린다(표현 전용 — 클라이언트는 구역 효과를 판정하지 않는다).
+        /// 순수 클라이언트는 같은 값을 GameEvents.OnSkillZoneMembershipReceived로 발행해 화면이 같은 유닛에 얼음 VFX를 붙이게 한다.
+        /// 서버(호스트)는 「확정」 이벤트로 화면이 이미 처리했으므로 스킵한다(이중 처리 방지 — 다른 ClientRpc와 같은 IsServer 가드).
+        /// 클라이언트에 구역 상태 사본은 만들지 않는다.
+        /// </summary>
+        /// <param name="sequence">구역 순번(그 구역을 만든 발동의 순번 — SkillActivatedClientRpc 순번과 같다).</param>
+        /// <param name="enteredIds">이번에 구역에 들어온 유닛 Id.</param>
+        /// <param name="exitedIds">이번에 구역에서 나간 유닛 Id(걸어 나감 + 사망).</param>
+        [ClientRpc]
+        private void ZoneMembershipChangedClientRpc(int sequence, int[] enteredIds, int[] exitedIds)
+        {
+            if (IsServer) return; // 호스트는 서버 쪽 「확정」 이벤트로 화면이 이미 처리했다.
+
+            // [진단 L13] 순수 클라이언트 수신 1줄 — IsServer 가드 "뒤"라 Host에서는 남지 않는다(Host ZoneMembersChanged와 Ids 대조).
+            LogZoneMembershipReceived(sequence, enteredIds, exitedIds);
+
+            var presentation = new SkillZoneMembershipPresentation(sequence, enteredIds, exitedIds);
+            try
+            {
+                GameEvents.OnSkillZoneMembershipReceived.OnNext(presentation);
+            }
+            catch (System.Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 게임 결과(구역 효과는 서버)에는 영향이 없다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "구역 구성원 변경 수신 이벤트 구독자 예외 — 게임 결과 무영향",
+                                 $"Sequence={sequence}, Entered={(enteredIds != null ? enteredIds.Length : 0)}, Exited={(exitedIds != null ? exitedIds.Length : 0)}, Error={ex.Message}");
+            }
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogZoneMembershipReceived(int sequence, int[] enteredIds, int[] exitedIds)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[SKILL-ZONE] ZoneMembershipReceived",
+                System.FormattableString.Invariant(
+                    $"Diag=SkillZone, DiagRev=1, Event=ZoneMembershipReceived, Role=Client, Seq={sequence}, Entered={DiagJoinIds(enteredIds)}, Exited={DiagJoinIds(exitedIds)}"));
         }
 
         // ====================================================================
