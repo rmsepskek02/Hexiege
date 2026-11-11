@@ -795,6 +795,15 @@ namespace Hexiege.Infrastructure
             }
 
             // ────────────────────────────────────────────────────────────────
+            // [2026-11-11 지속 상태 구역 — 사용자 결정 Z-4] 구역 남은 시간 · 구성원(들어옴 · 나감) 갱신 — 서버 권위.
+            //   유닛 상태 틱 바로 앞 · 아래 유닛 전투 루프 앞이라, 같은 틱의 공격 관문(combat.CanAttack)이 이번 구역 결과를 본다.
+            //   이 자리는 Update 진입부 가드(IsSpawned · IsServer · _combatStopped)를 통과한 뒤라 서버에서만 돈다.
+            //   싱글은 GameBootstrapper.Update가 호출한다(이중 틱 금지). 순수 클라이언트는 구역이 없어 돌리지 않는다.
+            //   구성원이 바뀌면 SkillZoneSystem이 「확정」 이벤트를 내고 NetworkSkillController가 클라이언트에 전한다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetSkillActivationUseCase()?.TickZones(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소 — 서버 권위(규칙 13·25).
             //   쿨다운 틱 바로 옆. 싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
             //   멀티 순수 클라의 상태 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.

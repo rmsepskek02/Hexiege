@@ -1005,6 +1005,32 @@ namespace Hexiege.Application
             new Subject<TowersDisabledPresentation>();
 
         // ====================================================================
+        // 지속 상태 구역 구성원 변경 표현(2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-2 N-B)
+        //   위 EMP 두 채널과 같은 「확정 / 수신」 방식이다.
+        //   - 「확정」: 서버 권위 쪽(싱글 = 로컬 서버, 멀티 = 서버/Host)의 SkillZoneSystem.Tick이 구역 구성원이 바뀐 틱에 발행.
+        //   - 「수신」: 멀티 순수 클라이언트가 서버의 ZoneMembershipChangedClientRpc를 받았을 때 발행.
+        //   화면(UnitBuffVfxPresenter 「구역 구성원 구동기」)은 두 채널을 모두 구독한다. Host는 「확정」만, 순수 클라이언트는
+        //   「수신」만 받으므로(수신부 ClientRpc의 IsServer 가드) 한 화면에서 같은 변경을 두 번 처리하지 않는다.
+        //   구역 생성 · 끝 알림은 따로 없다 — 생성은 스킬 발동 표현(위 OnSkillActivation* 채널), 끝은 화면의 로컬 타이머다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 권위 쪽에서 지속 상태 구역의 구성원이 바뀌었을 때 발행(표현 전용 — 효과 판정과 무관).
+        /// 발행: SkillZoneSystem.Tick(서버 권위 틱 — 구성원이 바뀐 구역마다 1건)
+        /// 구독: NetworkSkillController(멀티 서버 — ZoneMembershipChangedClientRpc 브로드캐스트), UnitBuffVfxPresenter(화면)
+        /// </summary>
+        public static readonly Subject<SkillZoneMembershipPresentation> OnSkillZoneMembershipConfirmed =
+            new Subject<SkillZoneMembershipPresentation>();
+
+        /// <summary>
+        /// 멀티 순수 클라이언트가 서버의 구역 구성원 변경 알림(ZoneMembershipChangedClientRpc)을 받았을 때 발행(표현 전용).
+        /// 발행: NetworkSkillController.ZoneMembershipChangedClientRpc(IsServer 가드 뒤 — Host는 발행하지 않음)
+        /// 구독: UnitBuffVfxPresenter(화면)
+        /// </summary>
+        public static readonly Subject<SkillZoneMembershipPresentation> OnSkillZoneMembershipReceived =
+            new Subject<SkillZoneMembershipPresentation>();
+
+        // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================
 

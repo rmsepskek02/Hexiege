@@ -15,6 +15,9 @@
 //   - AreaTowerDisable  : 지정한 지점의 원형 범위 안 "적 방어탑"을 지속시간 동안 공격 불가로 만든다.
 //        (2026-11-04 EMP Task 커밋 1 — 인간 지원 스킬 EMP 전용. 실행기 = AreaTowerDisableExecutor.)
 //        유닛에게는 아무 영향이 없다. 상태는 건물 전용 저장소(BuildingStatusEffectSystem)에 걸린다.
+//   - PersistentStatusZone: 조준 지점에 몇 초 동안 남는 원형 구역. 구역 안 대상 유닛에게 빙결 · 이동 배율을 건다.
+//        (2026-11-11 지속 상태 구역 Task — 서리 감옥 · 수액 늪. 실행기 = PersistentStatusZoneExecutor,
+//         상태 저장 = SkillZoneSystem.)
 //
 //   ⚠️ 정수 값 고정: 스킬 자산(SkillDefinition._mechanic)은 이 열거형을 "정수"로 저장한다.
 //      기존 멤버(0·1·2)의 값을 바꾸면 이미 만든 자산이 다른 타입으로 읽힌다. 새 멤버는 항상 맨 뒤에 추가한다.
@@ -45,6 +48,15 @@ namespace Hexiege.Domain
         /// 지속시간 동안 공격하지 못하게 한다. 대상은 발동 순간에 정해진다(스냅샷). 유닛은 영향 없음.
         /// 2026-11-04 EMP Task(Plan 3-1 M1)에서 추가 — 값 3은 맨 뒤 추가라 기존 자산(0·1·2)과 겹치지 않는다.
         /// </summary>
-        AreaTowerDisable = 3
+        AreaTowerDisable = 3,
+
+        /// <summary>
+        /// 지속 상태 구역(서리 감옥 · 수액 늪 — 나중에 연막탄도 같은 틀). 조준 지점에 원형 구역이 지속시간 동안 남는다.
+        /// 구역 안의 대상 유닛(적 대상 스킬이면 적 유닛)에게 상태(빙결 · 이동 배율)가 걸리고,
+        /// 나중에 들어온 유닛도 걸리며, 구역을 나가거나 구역이 끝나면 풀린다(상위 결정 4 · 10).
+        /// 상태는 유닛 상태 시스템(StatusEffectSystem)이 아니라 별도 구역 서비스(SkillZoneSystem)가 들고 있다(사용자 결정 Z-1 Z3).
+        /// 2026-11-11 지속 상태 구역 Task(Z-16)에서 추가 — 값 4는 맨 뒤 추가라 기존 자산(0~3)과 겹치지 않는다.
+        /// </summary>
+        PersistentStatusZone = 4
     }
 }

@@ -274,6 +274,10 @@ namespace Hexiege.Bootstrap
         //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호). 멀티 서버 틱은
         //   TowerCombatUseCase.BuildingStatusSystem으로 같은 인스턴스에 닿는다.
         private BuildingStatusEffectSystem _buildingStatusEffectSystem;
+        // [2026-11-11 지속 상태 구역 Task] 구역 서비스(서리 감옥 · 수액 늪 저장소, 서버 권위). 맵마다 Setup에서 새로 만든다.
+        //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호). 멀티 서버 틱은
+        //   SkillActivationUseCase.TickZones로 같은 인스턴스에 닿는다.
+        private SkillZoneSystem _skillZoneSystem;
         // [MistShrine] 물안개 힐(시전·물안개 수명·회복·쿨다운·자동 모드). 서버 권위 UseCase.
         private MistShrineUseCase _mistShrine;
 
@@ -334,6 +338,9 @@ namespace Hexiege.Bootstrap
 
         // [EMP — 2026-11-04 EMP Task 커밋 1] 방어탑 파괴 · 철거 시 그 탑의 무력화 기록을 지우는 구독. ClearAll에서 정리.
         private System.IDisposable _towerDisableDestroyedSub;
+
+        // [2026-11-11 지속 상태 구역 Task] 유닛 사망 시 구역 구성원에서 바로 빼는 구독. ClearAll에서 정리.
+        private System.IDisposable _skillZoneUnitDiedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -553,6 +560,9 @@ namespace Hexiege.Bootstrap
             //   위 착탄 예약 닫기와 같은 방식 — 람다가 호출 시점의 필드를 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
             //   (싱글은 경기 종료 뒤에도 탑 틱이 돌므로, 비운 뒤 결과 화면 뒤에서 탑이 다시 쏘는 것은 다른 탑과 같은 기존 동작이다 — R-8.)
             GameEvents.OnGameEnd.Subscribe(_ => _buildingStatusEffectSystem?.Close()).AddTo(this);
+            // [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-8] 경기가 끝나면 모든 구역을 풀고 이후 새 구역을 만들지 않는다.
+            //   위 무력화 닫기와 같은 방식 — 람다가 호출 시점의 _skillActivation을 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
+            GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.CloseZones()).AddTo(this);
             // [진단 — 2026-11-09 인간 대포탑 전방 120° [TOWER-ARC] End] 경기가 끝나면 탑 판정 합계 1줄(종족별 발사 · 대기 · Verdict).
             //   싱글 · 멀티 서버 공통으로 이 구독 한 곳에서 부른다(위 무력화 닫기와 같은 자리 — 멀티 Host 에도 이 Bootstrapper 가 있다).
             //   경기당 1회만 남기는 중복 방지와 "Client 에서는 남기지 않음"은 DiagArcWriteEnd 안에서 처리한다.
@@ -743,6 +753,16 @@ namespace Hexiege.Bootstrap
             if (!IsNetworkMode() && _skillActivation != null)
             {
                 _skillActivation.TickPendingImpacts(Time.deltaTime);
+            }
+
+            // [2026-11-11 지속 상태 구역 — 사용자 결정 Z-4] 구역 남은 시간 · 구성원(들어옴 · 나감) 갱신 — 권위 전용, 유닛 상태 틱 바로 앞.
+            //   - 싱글: 여기서 처리(권위). 매 프레임이라 들어오고 나가는 순간이 프레임 하나만큼만 늦다.
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 상태 틱 바로 앞에서 처리 → 여기선 스킵(이중 감소 금지).
+            //   - 멀티 순수 클라: 절대 돌리지 않는다(클라에는 구역이 없다 — 구역 효과는 서버만 판정, 스킬 규칙 25).
+            //   ⚠️ 그래서 가드가 바로 아래 유닛 상태 틱(싱글 "또는 순수 클라")과 다르다 — !IsNetworkMode() 하나뿐이다(EMP 틱 선례). 합치지 말 것.
+            if (!IsNetworkMode() && _skillActivation != null)
+            {
+                _skillActivation.TickZones(Time.deltaTime);
             }
 
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소.

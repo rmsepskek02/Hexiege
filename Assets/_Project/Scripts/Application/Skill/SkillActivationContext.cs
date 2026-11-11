@@ -9,6 +9,7 @@
 //   - 재사용 효과 델리게이트 — UnitCombatUseCase의 "건물/스킬 출처 전용 피해/DoT" 경로를 그대로 넘겨받는다.
 //     (SpecialAttackContext가 ApplyDamage/ApplyDot을 델리게이트로 받는 것과 같은 역할 분담.)
 //   - 2026-11-04 EMP Task 커밋 1: 「범위 안 적 방어탑 무력화」 다리 1개 추가(BuildingStatusEffectSystem 경유).
+//   - 2026-11-11 지속 상태 구역 Task: 「구역 만들기」 다리 1개 추가(SkillZoneSystem 경유 — 생성자 맨 뒤 선택 인자).
 //
 // 왜 효과 적용을 델리게이트로 주입하는가(SpecialAttackContext와 동일한 이유):
 //   실행기가 UnitCombatUseCase의 private 로직(포지션 프로바이더·좌표 매퍼·이벤트 발행)에 직접
@@ -65,6 +66,13 @@ namespace Hexiege.Application
         //   null이면(서비스 미주입) 아무 일도 일어나지 않는다.
         private readonly Action<TeamId, Vector3, float, float> _towerDisable;
 
+        // 지속 상태 구역(SkillMechanicType.PersistentStatusZone — 서리 감옥 · 수액 늪)을 만드는 델리게이트.
+        //   (2026-11-11 지속 상태 구역 Task 구현 단위 ①.)
+        //   인자: (시전 팀, 중심 도메인 월드 좌표, 반경, 구역 지속시간, 효과 종류, 강도, 아군 대상 여부).
+        //   SkillActivationUseCase의 다리가 발동 순번 · 슬롯 · 건물 Id를 붙잡아 SkillZoneSystem.CreateZone을 부른다.
+        //   null이면(서비스 미주입 · 옛 호출) 아무 일도 일어나지 않는다.
+        private readonly Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> _persistentZone;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -77,6 +85,10 @@ namespace Hexiege.Application
         /// <param name="areaDot">타입 B 범위 지속 피해 적용 델리게이트.</param>
         /// <param name="globalStatus">타입 C 전역 상태변경 적용 델리게이트.</param>
         /// <param name="towerDisable">지점 범위 적 방어탑 무력화(EMP) 적용 델리게이트. null 허용(무효과).</param>
+        /// <param name="persistentZone">
+        /// 지속 상태 구역 생성 델리게이트(2026-11-11 추가). 선택 인자라 맨 뒤에 두었다 — 기존 호출(인자 9개를 위치로 넘기는
+        /// Editor 자가 검증 등)은 고치지 않아도 그대로 컴파일된다. 생략(null)하면 구역 스킬은 아무 일도 하지 않는다.
+        /// </param>
         public SkillActivationContext(
             SkillData skill,
             TeamId casterTeam,
@@ -86,8 +98,10 @@ namespace Hexiege.Application
             Action<TeamId, Vector3, float, int, int> instantAreaDamage,
             Action<TeamId, Vector3, float, float, float> areaDot,
             Action<TeamId, StatusEffectKind, float, float> globalStatus,
-            Action<TeamId, Vector3, float, float> towerDisable)
+            Action<TeamId, Vector3, float, float> towerDisable,
+            Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> persistentZone = null)
         {
+            _persistentZone = persistentZone;
             Skill = skill;
             CasterTeam = casterTeam;
             CasterBuildingId = casterBuildingId;
@@ -148,6 +162,23 @@ namespace Hexiege.Application
         public void DisableEnemyTowersInArea(Vector3 center, float radius, float duration)
         {
             _towerDisable?.Invoke(CasterTeam, center, radius, duration);
+        }
+
+        /// <summary>
+        /// 지속 상태 구역 — 지정한 중심에 원형 구역을 지속시간 동안 남긴다. 구역 안 대상 유닛(적 대상이면 상대 팀)에게
+        /// 효과(빙결 · 이동 배율)가 걸리고, 나중에 들어온 유닛도 걸리며, 나가거나 구역이 끝나면 풀린다.
+        /// 실제 구역 보관 · 구성원 판정 · 만료는 SkillZoneSystem이 담당한다(서버 권위 — 스킬 규칙 25).
+        /// </summary>
+        /// <param name="center">중심 도메인 월드 좌표(보통 <see cref="AimWorld"/>).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="duration">구역 지속시간(초).</param>
+        /// <param name="kind">효과 종류(Freeze · MoveSpeedMul).</param>
+        /// <param name="magnitude">강도(MoveSpeedMul의 배율).</param>
+        /// <param name="targetsAllies">true면 아군, false면 적 유닛이 대상.</param>
+        public void CreatePersistentStatusZone(Vector3 center, float radius, float duration, StatusEffectKind kind,
+                                               float magnitude, bool targetsAllies)
+        {
+            _persistentZone?.Invoke(CasterTeam, center, radius, duration, kind, magnitude, targetsAllies);
         }
     }
 }

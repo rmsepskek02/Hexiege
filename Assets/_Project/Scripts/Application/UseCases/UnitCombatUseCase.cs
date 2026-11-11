@@ -460,6 +460,50 @@ namespace Hexiege.Application
             DiagAttachSkillBuffTickListener(statusSystem);
         }
 
+        // ====================================================================
+        // [2026-11-11 지속 상태 구역] 구역 서비스 — 서리 감옥 · 수액 늪의 유닛별 효과(이동 배율 · 공격 가능) 조회.
+        //   GameBootstrapper가 SetSkillZoneSystem으로 주입한다(미주입 · 구역 없음이면 배율 1 · 공격 가능 — 기존 전투와 동일).
+        //   접근자 두 곳(GetUnitMoveSpeedMultiplier · CanAttack)만 이 서비스를 읽는다(사용자 결정 Z-1 Z3).
+        // ====================================================================
+        private SkillZoneSystem _zoneSystem;
+
+        /// <summary>
+        /// 지속 상태 구역 서비스를 주입한다. GameBootstrapper(조합 루트)에서 맵마다 1회 호출(SkillActivationUseCase와 같은 인스턴스).
+        /// 미주입(null)이면 구역 효과가 없다 → 기존 전투 · 이동과 완전히 동일(하위호환).
+        /// </summary>
+        /// <param name="zoneSystem">같은 경기의 구역 서비스.</param>
+        public void SetSkillZoneSystem(SkillZoneSystem zoneSystem)
+        {
+            _zoneSystem = zoneSystem;
+        }
+
+        // [진단] 구역 이동 표본(에디터 · 개발 빌드 전용 — 계산식에는 관여하지 않는다).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagSampleZoneMove(UnitData unit, float zoneMul, float totalMul)
+        {
+            try
+            {
+                float researchMul = _upgrade != null ? _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type) : 1f;
+                float statusMul = _statusSystem != null ? _statusSystem.GetMoveSpeedMultiplier(unit.Id) : 1f;
+                _zoneSystem?.DiagSampleMove(unit, researchMul, statusMul, zoneMul, totalMul, _mapper != null ? _mapper.TileHeight : 0f);
+            }
+            catch { /* 진단 전용 — 이동을 막지 않는다 */ }
+        }
+
+        // [진단 L4] 구역 공격 관문 차단 계수 — "사거리 안에 적이 있어 공격하려던" 경우만 센다(에디터 · 개발 빌드 전용).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagZoneGateBlocked(UnitData unit)
+        {
+            try
+            {
+                if (_zoneSystem == null || unit.IsHealer || !HasEnemyInRange(unit)) return;
+                _zoneSystem.DiagNoteGateBlocked(unit.Id);
+            }
+            catch { /* 진단 전용 — 공격 판정을 막지 않는다 */ }
+        }
+
         /// <summary>
         /// 공격자의 "유효 공격력" = 기본 공격력 × 팀 공격 연구 배율 × 상태 공격 배율(곱연산 — 확정 9-4).
         /// _upgrade 미주입 시 기본 공격력, _statusSystem 미주입/무상태 시 상태 배율 1 → 기존과 동일(하위호환).
@@ -515,6 +559,18 @@ namespace Hexiege.Application
                 // [2026-11-10 강화 스킬 진단 L4 · L5-b] 버프 대상의 첫 이동 배율 조회 표본 1줄(에디터 · 개발 빌드 전용).
                 DiagSampleSkillBuffMove(unit, statusMoveMul, mul);
             }
+
+            // [2026-11-11 지속 상태 구역 — 사용자 결정 Z-1 Z3 · Z-6] 구역 이동 배율 합성(서리 감옥 0 · 수액 늪 0.4).
+            //   「연구 × 상태 × 구역」 곱 — 순풍(상태 1.3) 유닛이 수액 늪(구역 0.4)에 들어오면 0.52, 나가면 다시 1.3.
+            //   구역 효과를 받지 않는 유닛은 1이 돌아오고, 1이면 곱하지 않는다 → 기존 값과 비트 단위로 같다(회귀 안전).
+            //   빙결 정지 애니메이션(UnitView.SetFrozenAnimation)은 이 반환값이 0인 것을 보고 켜진다 — 따로 연결할 것이 없다.
+            if (_zoneSystem != null)
+            {
+                float zoneMoveMul = _zoneSystem.GetMoveSpeedMultiplier(unit.Id);
+                if (zoneMoveMul != 1f) mul *= zoneMoveMul;
+                // [진단 L5 · L6 · L9] 구역 안 첫 조회 · 걸어 나간 뒤 첫 조회 표본(에디터 · 개발 빌드 전용).
+                DiagSampleZoneMove(unit, zoneMoveMul, mul);
+            }
             return mul;
         }
 
@@ -527,6 +583,16 @@ namespace Hexiege.Application
         public bool CanAttack(UnitData unit)
         {
             if (unit == null) return false;
+
+            // [2026-11-11 지속 상태 구역 — Z-1 Z3] 서리 감옥 구역 안이면 공격 불가(구역 서비스가 따로 든 빙결).
+            //   구역 밖 · 수액 늪 · 구역 없음이면 true라 아래 기존 상태 판정이 그대로 결과를 정한다(회귀 안전).
+            if (_zoneSystem != null && !_zoneSystem.CanAttack(unit.Id))
+            {
+                // [진단 L4] 사거리 안 적이 있는데 구역 때문에 막힌 횟수(줄 없음 — 구역 끝 줄에 합계만).
+                DiagZoneGateBlocked(unit);
+                return false;
+            }
+
             if (_statusSystem == null) return true;
 
             return _statusSystem.CanAttack(unit.Id);

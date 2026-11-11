@@ -38,6 +38,10 @@
 //   커밋 2(동기화): 실제로 멈춘 탑이 1개 이상이면 GameEvents.OnTowersDisabledConfirmed(팀 · 발동 순번 · 지속 · 탑 Id 목록)를
 //   발행한다. 멀티 서버에서는 NetworkSkillController가 이것을 TowersDisabledClientRpc로 순수 클라이언트에 전한다.
 //
+// 지속 상태 구역(2026-11-11 지속 상태 구역 Task — 서리 감옥 · 수액 늪):
+//   새 타입 PersistentStatusZone의 실행기가 컨텍스트의 구역 다리를 부르면, 이 UseCase가 주입받은 SkillZoneSystem
+//   (SetSkillZoneSystem)에 구역을 만든다(구역 순번 = 발동 순번). 권위 틱 TickZones · 경기 종료 CloseZones도 여기를 거친다.
+//
 // 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 모두 개발 축 · 상태가 바뀌는 순간 1줄):
 //   머리 [SKILL-VFX] · Diag=SkillVfx — ActivationConfirmed(발동 확정) · ActivationRejected(사용 불가 거부) ·
 //     ImpactScheduled(착탄 예약) · ImpactApplied(실제 착탄 피해 — 시각 · 대상 수 · 사망 수) · ImpactDropped(경기 종료로 버림).
@@ -116,6 +120,45 @@ namespace Hexiege.Application
         public void SetBuildingStatusSystem(BuildingStatusEffectSystem buildingStatus)
         {
             _buildingStatus = buildingStatus;
+        }
+
+        // [2026-11-11 지속 상태 구역 Task] 구역 서비스(서리 감옥 · 수액 늪 저장소). 조합 루트가 SetSkillZoneSystem으로 주입.
+        //   설정자 주입 이유는 위 건물 상태 서비스와 같다(생성자를 바꾸면 Editor 회귀 fixture가 깨진다 · null = 무효과 기본값).
+        //   권위 틱(TickZones)과 경기 종료 닫기(CloseZones)도 이 UseCase를 거친다 — 멀티 서버 틱이 IGameServices에
+        //   새 getter를 늘리지 않고 기존 GetSkillActivationUseCase()로 닿게 하기 위해서다(Editor fixture 대역 구현 보호).
+        private SkillZoneSystem _zoneSystem;
+
+        /// <summary>
+        /// 구역 서비스(지속 상태 구역 저장소)를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-11 지속 상태 구역 Task).
+        /// 주입하지 않으면 구역 타입(PersistentStatusZone) 스킬은 발동돼도 구역을 만들지 않는다(무효과 — 안전한 기본값).
+        /// </summary>
+        /// <param name="zoneSystem">같은 경기의 구역 서비스. UnitCombatUseCase에도 같은 인스턴스를 주입해야 접근자가 그 효과를 본다.</param>
+        public void SetSkillZoneSystem(SkillZoneSystem zoneSystem)
+        {
+            _zoneSystem = zoneSystem;
+        }
+
+        /// <summary> 주입된 구역 서비스(확인 · 검증용). 없으면 null. </summary>
+        public SkillZoneSystem SkillZoneSystem => _zoneSystem;
+
+        /// <summary>
+        /// (권위 전용 틱) 지속 상태 구역의 남은 시간 · 구성원을 갱신한다(사용자 결정 Z-4).
+        /// 반드시 서버 권위 쪽에서만 부른다 — 싱글 = GameBootstrapper.Update(!IsNetworkMode, 유닛 상태 틱 앞),
+        /// 멀티 서버 = NetworkCombatController.TickCombat(유닛 상태 틱 앞). 멀티 순수 클라이언트에서는 부르지 않는다
+        /// (쿨다운 틱처럼 클라 미러에 얹으면 안 된다 — 클라이언트에는 구역이 없다).
+        /// </summary>
+        /// <param name="dt">경과 시간(초).</param>
+        public void TickZones(float dt)
+        {
+            _zoneSystem?.Tick(dt);
+        }
+
+        /// <summary>
+        /// 경기 종료 시 모든 구역을 풀고 이후 새 구역을 막는다(Z-8 — 멱등). 조합 루트가 GameEvents.OnGameEnd에서 부른다.
+        /// </summary>
+        public void CloseZones()
+        {
+            _zoneSystem?.Close();
         }
 
         // ====================================================================
@@ -199,6 +242,15 @@ namespace Hexiege.Application
             //   다른 타입(A · B · C)의 실행기는 이 다리를 부르지 않으므로 기존 스킬 동작은 그대로다.
             //   (커밋 2) 이 다리는 무력화 「확정」 이벤트에 이번 발동 순번을 실어야 하므로, 순번을 붙잡은 람다로 넘긴다
             //   — 바로 위 타입 A 착탄 예약 다리(SelectInstantAreaDamageBridge)가 순번을 붙잡는 것과 같은 방식이다.
+            //   [2026-11-11 지속 상태 구역 Task] 마지막(10번째) 인자로 「구역 만들기」 다리를 더 넘긴다 — 구역 타입 실행기만 부른다.
+            //   이번 발동 순번 · 슬롯 · 건물 Id를 붙잡은 람다로 넘긴다(구역 순번 = 발동 순번 — 화면이 발동 알림과 짝짓는 열쇠).
+            //   옛 호출(기록용 — 인자 9개, 마지막 줄만 달랐다):
+            // var ctx = new SkillActivationContext(
+            //     skill, building.Team, buildingId, aim, hasAim,
+            //     SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
+            //     ApplyAreaDotBridge,
+            //     ApplyGlobalStatusBridge,
+            //     (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence));
             var ctx = new SkillActivationContext(
                 skill,
                 building.Team,
@@ -208,7 +260,9 @@ namespace Hexiege.Application
                 SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge,
-                (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence));
+                (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence),
+                (team, center, radius, duration, kind, magnitude, allies) =>
+                    CreatePersistentZoneBridge(team, center, radius, duration, kind, magnitude, allies, sequence, skillSlot, buildingId));
             // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 타입 C 실행 전후로 "실제로 상태를 걸었는가"를 본다(에디터 · 개발 빌드 전용 —
             //   릴리스에서는 두 호출이 사라진다). 발동 · 쿨다운 · 확정 흐름은 바꾸지 않는다(Plan 단위 ① 문서 담당 제안 — 거부로 바꾸지 않음).
             DiagBeginSkillBuffActivation(skill, sequence, skillSlot, buildingId);
@@ -472,6 +526,35 @@ namespace Hexiege.Application
             if (count <= 0 || _disabledTowerIdBuffer.Count == 0) return;
 
             PublishTowersDisabledConfirmed(team, sequence, duration, _disabledTowerIdBuffer);
+        }
+
+        // ====================================================================
+        // 지속 상태 구역 다리 — 2026-11-11 지속 상태 구역 Task 구현 단위 ①
+        // ====================================================================
+        //
+        // 실행기(PersistentStatusZoneExecutor) → SkillZoneSystem 다리(델리게이트).
+        //   구역 순번 = 이번 발동 순번이다 — 화면은 발동 알림(같은 순번)으로 구역 VFX를 시작하고, 구성원 알림을 그 순번으로 짝짓는다.
+        //   Activate는 서버에서만 불리므로 이 다리도 서버에서만 돈다(스킬 규칙 25).
+        //   구역 생성 알림 이벤트는 따로 내지 않는다 — 발동 「확정」 이벤트(아래 ⑨)가 그 역할을 한다(사용자 결정 Z-2 N-B).
+        private void CreatePersistentZoneBridge(TeamId team, Vector3 center, float radius, float duration, StatusEffectKind kind,
+                                                float magnitude, bool targetsAllies, int sequence, int slot, int buildingId)
+        {
+            if (_zoneSystem == null)
+            {
+                // [진단] 배선 누락으로 구역이 생기지 않았다는 Warn 1줄(조용한 무효과를 로그로 드러낸다 — EMP 선례).
+                LogZoneUnwired(team, slot, sequence);
+                return;
+            }
+            _zoneSystem.CreateZone(sequence, team, slot, buildingId, center, radius, duration, kind, magnitude, targetsAllies);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogZoneUnwired(TeamId team, int slot, int sequence)
+        {
+            GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase), "[SKILL-ZONE] ZoneCreateRejected",
+                FormattableString.Invariant(
+                    $"Diag=SkillZone, DiagRev=1, Event=ZoneCreateRejected, Role={DiagRole()}, Seq={sequence}, Team={team}, Slot={slot}, Reason=ZoneSystemMissing"));
         }
 
         /// <summary>

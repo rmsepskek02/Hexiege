@@ -454,6 +454,29 @@ namespace Hexiege.Bootstrap
             });
 
             // ────────────────────────────────────────────────────────────
+            // [2026-11-11 지속 상태 구역 Task — 구현 단위 ①] 구역 서비스(서리 감옥 · 수액 늪 저장소, 서버 권위 — 사용자 결정 Z-1 Z3).
+            //   맵을 불러올 때마다 새로 만든다(위 건물 상태 서비스와 같은 수명) → 재경기 때 이전 경기의 구역이 남지 않는다.
+            //   같은 인스턴스를 두 곳에 준다:
+            //     ① 스킬 UseCase — 구역 실행기가 "조준 지점에 구역을 만든다"(쓰기) + 권위 틱 TickZones · 경기 종료 CloseZones.
+            //     ② 전투 UseCase — 이동 배율 · 공격 관문 접근자가 "이 유닛의 구역 효과"를 묻는다(읽기).
+            //   둘 다 설정자 주입이라 생성자는 그대로다(Editor 회귀 fixture 보호). 셋째 인자(건물 조회)는 진단 로그의
+            //   「시전 건물 생존」 표기에만 쓴다 — 시전 건물이 파괴돼도 구역은 남는다(Z-7).
+            // ────────────────────────────────────────────────────────────
+            _skillZoneSystem = new SkillZoneSystem(_unitSpawn, hexMapper, _buildingPlacement);
+            _skillActivation.SetSkillZoneSystem(_skillZoneSystem);
+            _unitCombat.SetSkillZoneSystem(_skillZoneSystem);
+
+            // 유닛이 죽으면 구역 구성원에서 바로 뺀다(클라이언트 알림은 다음 권위 틱에 「나감」으로 간다).
+            //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 구역이 생기지 않으므로(발동은 서버만) 아무 일도 하지 않는다.
+            //   람다가 호출 시점의 필드를 읽으므로 항상 이번 경기의 서비스를 정리한다. 재구독 전 Dispose(위 탑 구독과 같은 패턴).
+            _skillZoneUnitDiedSub?.Dispose();
+            _skillZoneUnitDiedSub = GameEvents.OnUnitDied.Subscribe(e =>
+            {
+                if (e.Unit == null) return;
+                _skillZoneSystem?.NotifyUnitDied(e.Unit.Id);
+            });
+
+            // ────────────────────────────────────────────────────────────
             // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
             //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
             //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.
