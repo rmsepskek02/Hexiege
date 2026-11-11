@@ -17,17 +17,21 @@ MonoBehaviour:
   _description: "\uC9C0\uC815\uD55C \uBC94\uC704 \uBC14\uB2E5\uC5D0 \uC218\uC561\uC744
     \uAE54\uC544, \uC548\uC5D0 \uC788\uB294 \uC801 \uC720\uB2DB\uC744 \uD06C\uAC8C
     \uB290\uB9AC\uAC8C \uD55C\uB2E4."
-  _isAvailable: 0
+  _isAvailable: 1
   _aimType: 1
-  _cooldown: 10
-  _mechanic: 0
+  _cooldown: 15
+  _mechanic: 4
   _radius: 2
-  _duration: 0
-  _totalDamage: 150
+  _duration: 6
+  _totalDamage: 0
   _damagePerSecond: 0
-  _statusKind: 0
-  _magnitude: 0
+  _statusKind: 1
+  _magnitude: 0.4
   _targetsAllies: 0
   _impactDelay: 0
   _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
+  _zoneVfxPrefab: {fileID: 0}
+  _statusVfxPrefab: {fileID: 0}
+  _statusVfxScale: 1
+  _statusVfxOffset: {x: 0, y: 0, z: 0}

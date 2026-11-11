@@ -124,3 +124,29 @@ and Plan §11 (results). Commits `06bf59f` (data) · `e5d7020` (screen) · `fbd3
   them breaks suite B-8 (`RunUnitActionSelfValidation.SupportBuffSkills.cs` line 273 `Contains("// if (!p.HasAim)")`) —
   change that check in the same commit.
 - **Instant activation VFX scale:** the four buff assets have radius 0, so `ComputeSkillVfxScale` returns 1 (prefab size as made).
+
+## 4. Persistent status zones — Frost Prison · Sap Swamp (2026-11-11 — implemented, user test NOT run)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-10/16_02_support-skill-persistent-zones/` Plan Z-1~Z-21 (user 「추천대로 진행하자」).
+Uncommitted at writing time (commits are made by the main session) — verify `git log` before trusting this section.
+
+- **Zone state is its own service, not `StatusEffectSystem`** (Z-1 Z3): `SkillZoneSystem` (Application, partial + `.Diagnostics.cs`).
+  Only `GetUnitMoveSpeedMultiplier` (research × status × zone, zone multiplied only when ≠ 1) and `CanAttack` (zone check first)
+  read it. Why: `UnitStatusState.ApplyOrRefresh` replaces the same kind wholesale, so a sap `MoveSpeedMul` would erase a tailwind
+  record. No code outside the accessors reads status multipliers directly (R-7 grep, 2026-11-11).
+- **Same skill (team + slot) overlap applies once** via a `(unitId, skillKey)` set while rebuilding the per-unit effect cache;
+  different skills multiply; Freeze = move 0 + no attack. The cache is rebuilt only when membership changes.
+- **Authoritative tick through `SkillActivationUseCase.TickZones`** (no new `IGameServices` getter — fixture stand-in): multi
+  `NetworkCombatController.TickCombat` right before the status tick; single `GameBootstrapper.Update` under `!IsNetworkMode()` only.
+  `CloseZones` on `OnGameEnd`; `NotifyUnitDied` from a Setup `OnUnitDied` subscription (also tick-detected).
+- **Sync = one membership RPC** `ZoneMembershipChangedClientRpc(seq, entered[], exited[])` (schema 8 → 9, two fixtures `== 9`).
+  No create / end RPC: create = the activation RPC, end = screen-local timer (caster death keeps the zone — Z-7).
+  **First members are announced on the next tick**, so the activation RPC always precedes the membership RPC (R-10).
+- **Screen:** `SkillZoneVfxPresenter` (ground loop VFX from `_zoneVfxPrefab`, scale radius ÷ `_vfxReferenceRadius`, +0.06 height).
+  V4 = `UnitBuffVfxPresenter` zone driver (`.ZoneDriver.cs`): entries carry `Driver` + `ZoneRefs`; stop groups log under the driver's
+  prefix, so `[SKILL-BUFF]` keys are unchanged. Suite B-8 string gates read only the main presenter file — keep them there.
+- **Self-validation:** `RunUnitActionSelfValidation.SkillZones.cs` (Z-T1~Z-T10). Headless execution of `UnitCombatUseCase` /
+  `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` (reference UnityEngine
+  DLLs) — only the static compile harness works; the suite runs in the Editor.
+- **Temporary test prefabs (Z-18):** Frost Prison `_zoneVfxPrefab` = `vfx_emp_disabled`, `_statusVfxPrefab` = `vfx_bloomfairy_heal`
+  (scale 2, D14 precedent) — empty them after the user test.

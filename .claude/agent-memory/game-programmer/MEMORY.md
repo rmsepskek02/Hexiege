@@ -153,6 +153,9 @@
   (follow after `ProjectNow`), instant-skill VFX at the caster building, `[SKILL-BUFF]` diagnostics, setup-tool expected-count
   constant (now 6), temporary-prefab test, kept `NoAim` block ↔ suite B-8. *(2026-11-11 updated — was "implemented, user
   test not run … setup-tool count-2 trap")*
+  §4 (2026-11-11, implemented — user test NOT run) persistent status zones (Frost Prison · Sap Swamp): `PersistentStatusZone = 4`,
+  separate `SkillZoneSystem` composed only in the two `UnitCombatUseCase` accessors, membership RPC + schema 8 → 9,
+  `SkillZoneVfxPresenter`, `UnitBuffVfxPresenter` split into common core + activation / zone drivers, `[SKILL-ZONE]`.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

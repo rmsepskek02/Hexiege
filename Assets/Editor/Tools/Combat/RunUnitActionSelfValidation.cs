@@ -1051,6 +1051,7 @@ namespace Hexiege.Editor.Combat
             ValidateServerAuthoritativeProjectiles(); // [2026-10-20 서버 권위 투사체 — 단계 A]
             ValidateSinglePlayerPerspectiveReset(); // [2026-11-10 멀티 Client 뒤 싱글 Red·뒤집힘 잔존 버그 — 회귀]
             ValidateSupportBuffSkills(); // [2026-11-10 지원 스킬 1차 강화 4종 + 강화 상태 VFX 경로 — B-1~B-8]
+            ValidateSkillZones(); // [2026-11-11 지속 상태 구역(서리 감옥 · 수액 늪) — Z-T1~Z-T10]
             ValidateFoxMagicianProductionTimeline();
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();
