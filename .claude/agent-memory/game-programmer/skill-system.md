@@ -125,10 +125,18 @@ and Plan §11 (results). Commits `06bf59f` (data) · `e5d7020` (screen) · `fbd3
   change that check in the same commit.
 - **Instant activation VFX scale:** the four buff assets have radius 0, so `ComputeSkillVfxScale` returns 1 (prefab size as made).
 
-## 4. Persistent status zones — Frost Prison · Sap Swamp (2026-11-11 — implemented, user test NOT run)
+## 4. Persistent status zones — Frost Prison · Sap Swamp (2026-11-11 — user test PASS)
+
+*(2026-11-11 updated — heading was "implemented, user test NOT run"; the line "Uncommitted at writing time … verify `git log`"
+is replaced by the commit list below.)*
 
 Source: `Assets/_Project/Docs/_Tasks/2026-11-10/16_02_support-skill-persistent-zones/` Plan Z-1~Z-21 (user 「추천대로 진행하자」).
-Uncommitted at writing time (commits are made by the main session) — verify `git log` before trusting this section.
+Commits `0de30f7` (zone service · executor · server tick) · `96fbbd1` (membership RPC, schema 9) · `43c7c16` (zone VFX · unit zone
+VFX) · `417feea` (assets enabled · suite · temporary prefabs) · `a4a4465` (slot button text); cleanup (temporary prefabs emptied,
+stale comments fixed, disabled lines deleted) is uncommitted at writing time — commits are made by the main session.
+User test PASS 2026-11-11 (3 logs, multi + single): freeze + attack block, sap 0.4 and exit restore, overlap `Applied=Once`,
+zone survives caster-building demolition, tailwind × sap 0.52 / exit 1.3, `GameEnd` close, Client membership = Host, zone VFX and
+unit zone VFX start · Expire · UnitDied stop, `SlotLabels` Name 15/15. **Unobserved:** unit zone VFX `Path=Exit` stop, `Reinit`.
 
 - **Zone state is its own service, not `StatusEffectSystem`** (Z-1 Z3): `SkillZoneSystem` (Application, partial + `.Diagnostics.cs`).
   Only `GetUnitMoveSpeedMultiplier` (research × status × zone, zone multiplied only when ≠ 1) and `CanAttack` (zone check first)
@@ -149,10 +157,20 @@ Uncommitted at writing time (commits are made by the main session) — verify `g
   `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` (reference UnityEngine
   DLLs) — only the static compile harness works; the suite runs in the Editor.
 - **Temporary test prefabs (Z-18):** Frost Prison `_zoneVfxPrefab` = `vfx_emp_disabled`, `_statusVfxPrefab` = `vfx_bloomfairy_heal`
-  (scale 2, D14 precedent) — empty them after the user test.
-- **Slot button text = skill asset name (unit ⑥, 2026-11-11, uncommitted at writing time):** `BuildingSkillPanelUI.ResolveSlotLabel`
-  shows `SkillData.DisplayName` (trimmed), falls back to `DeriveSkillLabel` only when blank; old line kept commented (WORKFLOW [4]).
-  Log `[SKILL-PANEL] SlotLabels` (Diag=SkillPanel, `S1..S5 Label/Src/Avail`) once per panel open. All 15 loadout assets already
+  (scale 2, D14 precedent) were used for the test and **emptied after it** (`{fileID: 0}`, scale 1 — 2026-11-11). Every zone VFX
+  slot is empty now: nothing is visible until real prefabs are made. Suite Z-T9 checks a filled slot's loop contract only when it
+  is not null, so empty slots pass.
+- **Slot button text = skill asset name (unit ⑥, commit `a4a4465`):** `BuildingSkillPanelUI.ResolveSlotLabel`
+  shows `SkillData.DisplayName` (trimmed), falls back to `DeriveSkillLabel` only when blank (old commented line deleted after the
+  test). Log `[SKILL-PANEL] SlotLabels` (Diag=SkillPanel, `S1..S5 Label/Src/Avail`) once per panel open. All 15 loadout assets
   carry names matching the design Plan table, so no slot falls back. Labels: scene `SkillTestLabel` TMP 24pt, wrap on, no
-  auto-size, full-stretch over a ~297-px-wide slot (3 per row). Stale now: `SkillDefinition._displayName` comment/tooltip and
-  `SkillData.DisplayName` doc still say "not shown on screen" — not edited (scope), reported.
+  auto-size, full-stretch over a ~297-px-wide slot (3 per row). `SkillDefinition._displayName` comment/tooltip and
+  `SkillData.DisplayName` doc now say "used as the slot button text, fallback when blank" *(2026-11-11 fixed — they said
+  "not shown on screen")*.
+- **Disabled-line cleanup after the test (2026-11-11):** deleted only blocks whose replacement ran in the test logs — old 9-arg
+  `SkillActivationContext` call, schema `= 8` line, `UnitBuffVfxPresenter` old non-partial declaration and old stop-group
+  condition, old slot-label line, and the setup tool's four old lines. **Kept** (replacement not seen running):
+  `UnitBuffVfxPresenter` old `LogFault("Follow" …)` (runs only on an exception; Fault 0) and old `LogPendingResolved` line
+  (zone pending-resolve not in the reported results); the suite's two old `== 8` schema `Require` lines
+  (`RunUnitActionSelfValidation.ServerProjectiles.cs` / `.SupportBuffSkills.cs` — suite run not in the test evidence);
+  `SkillDefinition` old header and three old tooltip texts (Inspector text, not checkable by logs — main session to decide).

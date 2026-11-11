@@ -76,8 +76,7 @@ namespace Hexiege.Presentation
     /// <summary>
     /// 강화 스킬 발동 표현(확정 · 수신)을 받아 효과를 받은 유닛마다 강화 상태 VFX를 붙이고 · 따라가게 하고 · 떼는 화면 구독자.
     /// </summary>
-    // [2026-11-11 Z-21 (가)] partial — 구역 구성원 구동기를 UnitBuffVfxPresenter.ZoneDriver.cs로 나눴다. 옛 선언(기록용):
-    // public sealed class UnitBuffVfxPresenter : MonoBehaviour
+    // [2026-11-11 Z-21 (가)] partial — 구역 구성원 구동기를 UnitBuffVfxPresenter.ZoneDriver.cs로 나눴다.
     public sealed partial class UnitBuffVfxPresenter : MonoBehaviour
     {
         // ── 기록 열쇠: 유닛 Id + 시전 팀 + 슬롯 ──
@@ -644,8 +643,7 @@ namespace Hexiege.Presentation
             for (int i = 0; i < _stopGroups.Count; i++)
             {
                 StopGroup g = _stopGroups[i];
-                // [2026-11-11] 구동기도 같아야 같은 묶음이다. 옛 조건(기록용):
-                // if (g.CasterTeam == key.CasterTeam && g.Slot == key.Slot && g.Path == path && g.Immediate == immediate)
+                // [2026-11-11] 구동기도 같아야 같은 묶음이다.
                 if (g.CasterTeam == key.CasterTeam && g.Slot == key.Slot && g.Path == path && g.Immediate == immediate
                     && g.Driver == entry.Driver)
                 {

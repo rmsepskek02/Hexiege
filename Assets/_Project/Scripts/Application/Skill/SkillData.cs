@@ -68,7 +68,10 @@ namespace Hexiege.Application
         //   값은 SkillDefinition(SO)의 같은 이름 칸에서 복사된다. 기존 자산은 초기값(사용 가능 true · 지연 0 ·
         //   프리팹 없음 · 기준 반경 2.0)으로 읽혀 동작이 바뀌지 않는다.
 
-        /// <summary> 스킬 이름(화면 표시용). 지금은 화면에 쓰이지 않는다(추후 UI 작업). null이면 빈 문자열. </summary>
+        /// <summary>
+        /// 스킬 이름(화면 표시용). 스킬 패널 버튼 글자로 쓰인다(BuildingSkillPanelUI.ResolveSlotLabel — 2026-11-11부터).
+        /// 이름이 비어 있으면(공백뿐 포함) 버튼은 실행 방식으로 지어 낸 임시 라벨로 폴백한다. null이면 빈 문자열.
+        /// </summary>
         public string DisplayName { get; }
 
         /// <summary> 스킬 설명(화면 표시용). 지금은 화면에 쓰이지 않는다(추후 설명 탭). null이면 빈 문자열. </summary>

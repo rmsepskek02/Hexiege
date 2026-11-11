@@ -89,7 +89,6 @@ namespace Hexiege.EditorTools
         //   이 값을 그대로 2로 두면 표의 사용 가능 수(6)와 달라 ValidateSpecs 가 쓰기 전에 멈춰 도구를 실행할 수 없다.
         //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
         //   [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-20] 6 → 8. 서리 감옥 · 수액 늪을 「사용 가능」으로 켠 표와 개수를 맞춘다.
-        //   옛 줄(기록용): private const int ExpectedAvailableCount = 6;
         private const int ExpectedAvailableCount = 8;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
@@ -291,9 +290,7 @@ namespace Hexiege.EditorTools
                 // ── 정령(race 1) — MagicSpirit ──
                 PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
                     "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
-                // [2026-11-11 Z-10 · Z-20] 서리 감옥 — 빙결 구역 · 반경 2 · 4초 · 쿨 15. 옛 줄(기록용):
-                // PointPlaceholder("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
-                //     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다."),
+                // [2026-11-11 Z-10 · Z-20] 서리 감옥 — 빙결 구역 · 반경 2 · 4초 · 쿨 15.
                 PersistentZone("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
                     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다.",
                     StatusEffectKind.Freeze, 0f, duration: 4f, radius: 2f, cooldown: 15f),
@@ -307,9 +304,7 @@ namespace Hexiege.EditorTools
                     "기능 기획 보류 중인 스킬이다(이름만 등록).", allies: false),
 
                 // ── 초월(race 2) — WillowShrine ──
-                // [2026-11-11 Z-10 · Z-20] 수액 늪 — 이동 0.4배 구역 · 반경 2 · 6초 · 쿨 15. 옛 줄(기록용):
-                // PointPlaceholder("Skill_Trans_SapSwamp", t, 0, "수액 늪",
-                //     "지정한 범위 바닥에 수액을 깔아, 안에 있는 적 유닛을 크게 느리게 한다."),
+                // [2026-11-11 Z-10 · Z-20] 수액 늪 — 이동 0.4배 구역 · 반경 2 · 6초 · 쿨 15.
                 PersistentZone("Skill_Trans_SapSwamp", t, 0, "수액 늪",
                     "지정한 범위 바닥에 수액을 깔아, 안에 있는 적 유닛을 크게 느리게 한다.",
                     StatusEffectKind.MoveSpeedMul, 0.4f, duration: 6f, radius: 2f, cooldown: 15f),
@@ -416,11 +411,7 @@ namespace Hexiege.EditorTools
             {
                 // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
                 // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다).
-                // [2026-11-11 Z-20] 6개 → 8개 — 괄호 안에 서리 감옥 · 수액 늪을 더했다. 옛 줄(기록용):
-                // Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
-                //           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                //           "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍). " +
-                //           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
+                // [2026-11-11 Z-20] 6개 → 8개 — 괄호 안에 서리 감옥 · 수액 늪을 더했다.
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
                           "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪). " +

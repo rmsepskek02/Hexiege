@@ -244,13 +244,6 @@ namespace Hexiege.Application
             //   — 바로 위 타입 A 착탄 예약 다리(SelectInstantAreaDamageBridge)가 순번을 붙잡는 것과 같은 방식이다.
             //   [2026-11-11 지속 상태 구역 Task] 마지막(10번째) 인자로 「구역 만들기」 다리를 더 넘긴다 — 구역 타입 실행기만 부른다.
             //   이번 발동 순번 · 슬롯 · 건물 Id를 붙잡은 람다로 넘긴다(구역 순번 = 발동 순번 — 화면이 발동 알림과 짝짓는 열쇠).
-            //   옛 호출(기록용 — 인자 9개, 마지막 줄만 달랐다):
-            // var ctx = new SkillActivationContext(
-            //     skill, building.Team, buildingId, aim, hasAim,
-            //     SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
-            //     ApplyAreaDotBridge,
-            //     ApplyGlobalStatusBridge,
-            //     (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence));
             var ctx = new SkillActivationContext(
                 skill,
                 building.Team,

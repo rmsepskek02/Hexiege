@@ -227,8 +227,6 @@ namespace Hexiege.Presentation
                     //         어느 버튼이 수액 늪인지 알 수 없었다.
                     //   지금: 스킬 자산(SkillDefinition)에 적힌 「스킬 이름」 칸을 먼저 쓰고,
                     //         그 칸이 비어 있을 때만 예전 글자(DeriveSkillLabel)로 돌아간다(ResolveSlotLabel).
-                    //   아래 주석 줄이 예전 코드다(WORKFLOW [4] — 테스트 통과 전까지 지우지 않고 남겨 둔다).
-                    // _skillSlotLabels[i].text = hasSkill ? DeriveSkillLabel(_currentLoadout[i]) : string.Empty;
                     _skillSlotLabels[i].text = hasSkill ? ResolveSlotLabel(_currentLoadout[i], out _) : string.Empty;
                     _skillSlotLabels[i].enabled = hasSkill;
                 }
