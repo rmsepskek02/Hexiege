@@ -795,6 +795,65 @@ namespace Hexiege.Presentation
             return item.StopStatusLoop(lease, immediate);
         }
 
+        // ====================================================================
+        // [2026-11-11 지속 상태 구역 Task 구현 단위 ③] 구역 VFX(서리 감옥 V3 · 수액 늪 V9 — 바닥에 깔리는 반복 이펙트) — 시작 · 정지
+        //   SkillZoneVfxPresenter가 구역 스킬 발동 표현(확정 · 수신)을 받으면 조준 지점에 이 메서드로 시작하고,
+        //   구역 지속 시간이 끝나거나 경기가 끝나면 꼬리 정지, 재경기면 즉시 정지한다(사용자 결정 Z-8).
+        //   방어탑 상태 VFX(StartTowerStatusVfx)와 같은 "Play → BeginStatusLoop → 확인 번호" 순서다. 위치는 따라가지 않는다(바닥 고정).
+        //   프리팹은 스킬 데이터(SkillDefinition 「구역 VFX」 칸)에 있다. 크기 = 반경 ÷ 기준 반경(ComputeSkillVfxScale — 발동 VFX와 같다).
+        //   구역 효과 판정과 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 조준 지점 바닥에 구역 VFX(반복 재생)를 시작하고 확인 번호(lease)를 돌려준다.
+        /// 회전 = 항등(원형 바닥 이펙트), 크기 = 프리팹 원본 × uniformScale. 항목은 VFX 컨테이너 아래에 둔다.
+        /// </summary>
+        /// <param name="prefab">스킬 데이터의 구역 VFX 프리팹.</param>
+        /// <param name="viewPosition">재생 위치(이 화면 좌표 — 호출 측이 ViewConverter.ToView + 지면 높이를 더한 값).</param>
+        /// <param name="uniformScale">루트 균일 배율(ComputeSkillVfxScale). 0 이하 · NaN · 무한대면 1.</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · LoopContract · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartSkillZoneVfx(GameObject prefab, Vector3 viewPosition, float uniformScale,
+                                             out ulong lease, out string failReason)
+        {
+            lease = 0;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            // 반복 재생 계약(Looping ON · Stop Action None) — 유닛 상태 VFX와 같은 검사 함수(기준 한 곳, 결과는 프리팹별 캐시).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            item.Play(viewPosition, Quaternion.identity, Vector3.zero, Vector3.zero, Vector3.one * uniformScale, 0f, 0f);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                // 재생이 시작되지 않은 비정상 상황 — 반복 재생이 남지 않게 즉시 돌려보낸다(탑 상태 VFX와 같은 처리).
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            return item;
+        }
+
+        /// <summary>
+        /// 구역 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartSkillZoneVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartSkillZoneVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(재경기 · 파괴). false = 꼬리 정지(구역 끝 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopSkillZoneVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.

@@ -120,7 +120,25 @@ namespace Hexiege.Infrastructure
         [Tooltip("VFX 프리팹이 제작된 기준 반경(월드 단위). 재생 배율 = 스킬 반경 ÷ 이 값. 0 이하면 배율 1.")]
         [SerializeField] private float _vfxReferenceRadius = 2.0f;
 
-        [Header("강화 상태 VFX (타입 C — 효과를 받는 유닛 몸에 붙는 반복 이펙트)")]
+        [Header("구역 VFX (지속 상태 구역 — 구역이 남아 있는 동안 바닥에 깔리는 반복 이펙트)")]
+        // 구역 VFX 칸(2026-11-11 추가 — 지속 상태 구역 Task, 사용자 결정 Z-13).
+        //
+        // 무엇인가(초급자용 설명):
+        //   서리 감옥 · 수액 늪을 쓰면 조준한 자리에 구역이 몇 초 동안 남는다. 그동안 바닥에 깔려 있을 이펙트(얼음 · 호박색 수액)를
+        //   넣는 칸이다. 발동 순간 한 번 터지는 「발동 VFX」와 달리 구역이 끝날 때까지 반복 재생되고, 끝나면 사그라진다.
+        //   크기 = 스킬 반경 ÷ 위 「VFX 기준 반경」(발동 VFX와 같은 기준을 쓴다). 높이 = 지면 + 0.06(타일 윗면 0.05 위).
+        //
+        //   비워 두면(기본값) 효과(빙결 · 둔화)는 그대로 걸리고 화면에는 바닥 이펙트가 없다 — 진단 「ZoneVfxSkipped Reason=NoPrefab」.
+        //   🔴 넣는 프리팹은 「상태 이펙트 계약」을 지켜야 한다(VFXSFXGuide 「코드 계약」 1): 모든 Particle System Looping ON ·
+        //      Stop Action None · Scaling Mode Hierarchy. 어기면 재생하지 않는다(「ZoneVfxSkipped Reason=LoopContract」).
+        //   기존 자산은 파일에 이 칸이 없어 초기값(프리팹 없음)으로 읽힌다 → 동작 무변경. 셋업 도구는 이 칸을 쓰지 않는다.
+        [Tooltip("지속 상태 구역이 남아 있는 동안 조준 지점 바닥에 반복 재생할 VFX 프리팹(Looping). 비우면 이펙트 없이 효과만 동작.")]
+        [SerializeField] private GameObject _zoneVfxPrefab;
+
+        // [2026-11-11 지속 상태 구역 Task — Z-14] 헤더 · 툴팁의 「타입 C」 문구를 일반화했다(구역 스킬도 이 칸을 쓴다 — 서리 감옥 얼음 V4).
+        //   직렬화 키(_statusVfxPrefab 등)는 그대로라 자산은 바뀌지 않는다. 옛 헤더(기록용):
+        // [Header("강화 상태 VFX (타입 C — 효과를 받는 유닛 몸에 붙는 반복 이펙트)")]
+        [Header("유닛 상태 VFX (강화 스킬 · 지속 상태 구역 — 효과를 받는 유닛 몸에 붙는 반복 이펙트)")]
         // 강화 상태 VFX 칸(2026-11-10 추가 — 지원 스킬 1차 강화 Task
         //   _Tasks/2026-11-10/04_20_support-buff-skills-status-vfx, Plan 구현 단위 ①).
         //
@@ -145,13 +163,17 @@ namespace Hexiege.Infrastructure
         //
         //   기존 자산은 파일에 이 칸이 없어 아래 초기값(프리팹 없음 · 배율 1 · 보정 0)으로 읽힌다 → 동작 무변경.
         //   일회성 셋업 도구(SupportSkillLoadoutSetup)는 이 칸을 쓰지 않는다 — 도구를 다시 실행해도 넣은 프리팹이 지워지지 않는다.
-        [Tooltip("효과를 받은 유닛 몸에 붙일 반복(Looping) VFX 프리팹. 비우면 이펙트 없이 효과만 걸린다.")]
+        //   [2026-11-11 Z-14] 구역 스킬(서리 감옥 등)이면 "구역 안에 있는 동안" 붙는다 — 들어오면 붙고 나가거나 구역이 끝나면 떨어진다.
+        //   옛 툴팁(기록용): "효과를 받은 유닛 몸에 붙일 반복(Looping) VFX 프리팹. 비우면 이펙트 없이 효과만 걸린다."
+        [Tooltip("효과를 받은 유닛 몸에 붙일 반복(Looping) VFX 프리팹. 강화 스킬(타입 C)은 효과 시간 동안, 지속 상태 구역은 구역 안에 있는 동안 붙는다. 비우면 이펙트 없이 효과만 걸린다.")]
         [SerializeField] private GameObject _statusVfxPrefab;
 
-        [Tooltip("강화 상태 VFX 크기 배율(프리팹 원본 × 이 값 × 유닛 크기 표 배율). 0 이하 · NaN이면 1로 쓴다.")]
+        //   옛 툴팁(기록용): "강화 상태 VFX 크기 배율(프리팹 원본 × 이 값 × 유닛 크기 표 배율). 0 이하 · NaN이면 1로 쓴다."
+        [Tooltip("유닛 상태 VFX 크기 배율(프리팹 원본 × 이 값 × 유닛 크기 표 배율). 0 이하 · NaN이면 1로 쓴다.")]
         [SerializeField] private float _statusVfxScale = 1f;
 
-        [Tooltip("강화 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). 예: (0, 0.1, 0) = 발밑보다 0.1 위.")]
+        //   옛 툴팁(기록용): "강화 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). 예: (0, 0.1, 0) = 발밑보다 0.1 위."
+        [Tooltip("유닛 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). 예: (0, 0.1, 0) = 발밑보다 0.1 위.")]
         [SerializeField] private Vector3 _statusVfxOffset = Vector3.zero;
 
         /// <summary>
@@ -182,7 +204,9 @@ namespace Hexiege.Infrastructure
                 // 2026-11-10 강화 상태 VFX 칸 3개(위 「강화 상태 VFX」 머리말).
                 _statusVfxPrefab,
                 _statusVfxScale,
-                _statusVfxOffset);
+                _statusVfxOffset,
+                // 2026-11-11 구역 VFX 칸(위 「구역 VFX」 머리말).
+                _zoneVfxPrefab);
         }
     }
 }

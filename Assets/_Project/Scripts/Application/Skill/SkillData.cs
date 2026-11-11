@@ -120,9 +120,21 @@ namespace Hexiege.Application
         /// </summary>
         public Vector3 StatusVfxOffset { get; }
 
+        // ── 2026-11-11 추가: 구역 VFX(지속 상태 구역 — 바닥에 깔려 구역이 끝날 때까지 반복 재생되는 이펙트) ──
+        //   지속 상태 구역 Task(_Tasks/2026-11-10/16_02_support-skill-persistent-zones) 구현 단위 ③, 사용자 결정 Z-13.
+        //   값은 SkillDefinition의 같은 이름 칸에서 복사된다. 실행기 · 서버 판정은 이 값을 읽지 않는다(화면 표현 전용).
+        //   크기는 발동 VFX와 같은 「반경 ÷ VfxReferenceRadius」(기준 반경 공유 — Z-13).
+
+        /// <summary>
+        /// 구역이 남아 있는 동안 조준 지점 바닥에 반복 재생할 VFX 프리팹(null 허용 — 이펙트 없이 효과만 동작).
+        /// 화면 쪽 SkillZoneVfxPresenter가 발동 표현 이벤트를 받으면 재생하고, 구역 지속 시간이 지나면 꼬리 정지한다.
+        /// </summary>
+        public GameObject ZoneVfxPrefab { get; }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
+        /// 그 뒤 인자(구역 VFX 프리팹, 2026-11-11 추가)도 생략하면 "프리팹 없음"이다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -144,7 +156,8 @@ namespace Hexiege.Application
             float vfxReferenceRadius,
             GameObject statusVfxPrefab = null,
             float statusVfxScale = 1f,
-            Vector3 statusVfxOffset = default)
+            Vector3 statusVfxOffset = default,
+            GameObject zoneVfxPrefab = null)
         {
             Icon = icon;
             AimType = aimType;
@@ -174,6 +187,9 @@ namespace Hexiege.Application
             StatusVfxPrefab = statusVfxPrefab;
             StatusVfxScale = statusVfxScale > 0f && !float.IsInfinity(statusVfxScale) ? statusVfxScale : 1f;
             StatusVfxOffset = IsFiniteVector(statusVfxOffset) ? statusVfxOffset : Vector3.zero;
+
+            // 구역 VFX(2026-11-11). 프리팹 참조만 담는다(크기는 발동 VFX 기준 반경을 공유한다 — Z-13).
+            ZoneVfxPrefab = zoneVfxPrefab;
         }
 
         // 세 축이 모두 유한한 숫자인지(NaN · 무한대가 아닌지).

@@ -49,6 +49,16 @@
 //   BuffVfxStopped(정지 — L13, 같은 프레임 · 같은 경로는 1줄로 묶음) · BuffVfxFault(예외 — Warn).
 //   모두 상태가 바뀌는 순간에만 남기고, 매 프레임 따라가기에는 줄이 없다(LogRules 1.14-8).
 //
+// 2026-11-11 재구성(지속 상태 구역 Task 구현 단위 ④ — 사용자 결정 Z-21 (가)):
+//   이 파일은 이제 "공통부 + 두 구동기"다. 붙이기 · 따라가기 · 정지 · 사망 · 경기 종료 · 재경기 처리(공통부)는 한 곳에 두고,
+//   "누구에게 언제 붙이고 언제 떼는가"만 구동기가 정한다.
+//     · 발동 구동기(이 파일 HandleActivation — 종전 강화 스킬 경로 그대로): 발동 순간 대상 팀 전원 · 끝 시각 = 받은 순간 + 지속.
+//     · 구역 구성원 구동기(UnitBuffVfxPresenter.ZoneDriver.cs — 새 경로, 서리 감옥 얼음 V4):
+//       서버가 보낸 구역 구성원 변경(들어옴 → 붙임, 나감 → 꼬리 정지, Z-9)과 구역 지속 시간(끝 → 꼬리 정지)으로 붙이고 뗀다.
+//       같은 스킬 구역이 겹치면 한 유닛에 하나만 붙이고 "몇 개 구역에 들어 있나"를 센다(Z-5).
+//   강화 스킬 쪽 동작 · 로그 키([SKILL-BUFF])는 바뀌지 않는다. 구역 쪽 로그 키는 [SKILL-ZONE]이다.
+//   기록 하나가 어느 구동기 것인지는 ActiveBuffVfx.Driver로 구분한다(정지 줄 · 대기 해소 줄의 머리가 이것으로 갈린다).
+//
 // Presentation 레이어 — Application(이벤트 · UseCase · 값 객체 · GameLog · NetworkContext) + Core(ViewConverter) + Domain 의존.
 //   서버 판정 · 피해 · HP · 상태 시간에는 손대지 않는 "표현 전용" 컴포넌트다.
 // ============================================================================
@@ -66,7 +76,9 @@ namespace Hexiege.Presentation
     /// <summary>
     /// 강화 스킬 발동 표현(확정 · 수신)을 받아 효과를 받은 유닛마다 강화 상태 VFX를 붙이고 · 따라가게 하고 · 떼는 화면 구독자.
     /// </summary>
-    public sealed class UnitBuffVfxPresenter : MonoBehaviour
+    // [2026-11-11 Z-21 (가)] partial — 구역 구성원 구동기를 UnitBuffVfxPresenter.ZoneDriver.cs로 나눴다. 옛 선언(기록용):
+    // public sealed class UnitBuffVfxPresenter : MonoBehaviour
+    public sealed partial class UnitBuffVfxPresenter : MonoBehaviour
     {
         // ── 기록 열쇠: 유닛 Id + 시전 팀 + 슬롯 ──
         //   readonly struct + IEquatable — Dictionary 키로 쓸 때 상자 씌우기(박싱) 할당이 생기지 않게.
@@ -107,7 +119,14 @@ namespace Hexiege.Presentation
             public GameObject Prefab;            // 붙일 프리팹(대기 뒤 늦게 시작할 때 쓴다)
             public float Scale;                  // 스킬 데이터 크기 배율
             public Vector3 Offset;               // 스킬 데이터 위치 보정
+            // [2026-11-11 Z-21 (가)] 이 기록을 만든 구동기(정지 · 대기 해소 진단 줄의 머리를 고른다).
+            public VfxDriver Driver = VfxDriver.Activation;
+            // [2026-11-11] 구역 구동기 전용 — 이 유닛이 들어 있는 같은 스킬 구역 순번들(겹침 참조 수 — Z-5). 발동 구동기는 null.
+            public HashSet<int> ZoneRefs;
         }
+
+        // 기록을 만든 구동기(2026-11-11 Z-21 (가)).
+        private enum VfxDriver { Activation, Zone }
 
         // 정지 줄을 "같은 프레임 · 같은 스킬 · 같은 경로"끼리 1줄로 묶기 위한 계수(만료는 보통 대상 전원이 같은 프레임에 끝난다).
         private struct StopGroup
@@ -120,6 +139,7 @@ namespace Hexiege.Presentation
             public int Count;          // 정지한 기록 수
             public int LeaseMatched;   // 확인 번호가 맞아 실제로 멈춘 수(대기 중이던 기록은 멈출 이펙트가 없어 0)
             public int MaxActiveMs;    // 가장 오래 붙어 있던 기록의 시간(ms)
+            public VfxDriver Driver;   // [2026-11-11] 어느 구동기의 정지인가(줄 머리 [SKILL-BUFF] / [SKILL-ZONE])
         }
 
         // 의존성(Initialize로 주입).
@@ -179,6 +199,10 @@ namespace Hexiege.Presentation
             _receivedSubscription = GameEvents.OnSkillActivationReceived.Subscribe(p => { OnSkillActivation(p, ChannelReceived); });
             _unitDiedSubscription = GameEvents.OnUnitDied.Subscribe(OnUnitDied);
             _gameEndSubscription = GameEvents.OnGameEnd.Subscribe(OnGameEnd);
+
+            // [2026-11-11 Z-21 (가)] 구역 구성원 구동기 — 이전 경기 구역 기록을 비우고 구성원 변경 두 채널(확정 · 수신)을 구독한다.
+            ResetZoneDriver();
+            SubscribeZoneDriver();
         }
 
         /// <summary> 파괴(씬 언로드) 시 정적 이벤트 허브 구독을 해제하고 남은 이펙트를 지운다. </summary>
@@ -199,6 +223,8 @@ namespace Hexiege.Presentation
             _unitDiedSubscription = null;
             _gameEndSubscription?.Dispose();
             _gameEndSubscription = null;
+            // [2026-11-11] 구역 구성원 변경 구독 해제(ZoneDriver.cs).
+            DisposeZoneDriverSubscriptions();
         }
 
         // ====================================================================
@@ -234,6 +260,13 @@ namespace Hexiege.Presentation
             //   같은 사건을 두 곳에서 남기지 않도록 여기서는 조용히 끝낸다(LogRules 1.14-9).
             SkillData skill = _skillActivation.FindSkillData(p.Team, p.Slot);
             if (skill == null) return;
+            // [2026-11-11 Z-21 (가)] 지속 상태 구역 스킬이면 구역 구성원 구동기에 구역을 등록하고 끝낸다
+            //   (붙이기는 구성원 변경 알림이 왔을 때 — ZoneDriver.cs). 강화 스킬(타입 C)은 아래 종전 발동 구동기 그대로다.
+            if (skill.Mechanic == SkillMechanicType.PersistentStatusZone)
+            {
+                RegisterZone(p, channel, skill);
+                return;
+            }
             // 강화 상태 VFX는 타입 C(전역 상태변경) 스킬만 쓴다. 포격 · EMP 등은 이 구독자와 무관하다.
             if (skill.Mechanic != SkillMechanicType.GlobalStatusChange) return;
 
@@ -383,6 +416,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private void LateUpdate()
         {
+            // [2026-11-11 Z-21 (가)] 구역 구성원 구동기 — 지속 시간이 지난 구역의 구성원 이펙트를 꼬리 정지한다(ZoneDriver.cs).
+            //   아래 「기록이 없으면 바로 돌아간다」보다 앞이어야 한다(구역 기록만 남은 경우에도 끝을 처리).
+            if (_zoneRecords.Count > 0) TickZoneRecords(Time.time);
+
             if (_active.Count == 0) return;
 
             float now = Time.time;
@@ -400,7 +437,10 @@ namespace Hexiege.Presentation
                 catch (Exception ex)
                 {
                     // 한 기록의 실패가 다른 기록 · 다음 프레임을 막지 않게, 그 기록만 즉시 정지하고 버린다.
-                    LogFault("Follow", null, key.CasterTeam, key.Slot, entry.Sequence, ex);
+                    // [2026-11-11] 구역 구동기 기록이면 [SKILL-ZONE] 머리로 남긴다. 옛 줄(기록용):
+                    // LogFault("Follow", null, key.CasterTeam, key.Slot, entry.Sequence, ex);
+                    if (entry.Driver == VfxDriver.Zone) LogZoneFault("Follow", null, entry.Sequence, ex);
+                    else LogFault("Follow", null, key.CasterTeam, key.Slot, entry.Sequence, ex);
                     _active.Remove(key);
                     try { StopEntry(entry, immediate: true, path: "Fault"); } catch { /* 정지마저 실패하면 풀이 정리한다 */ }
                 }
@@ -429,7 +469,13 @@ namespace Hexiege.Presentation
             if (entry.Pending)
             {
                 StartOutcome outcome = TryStart(entry, out bool fitFound, out _, out string failReason);
-                if (outcome == StartOutcome.Started) LogPendingResolved(key, entry, fitFound);
+                // [2026-11-11] 구역 구동기 기록이면 [SKILL-ZONE] 머리로 남긴다. 옛 줄(기록용):
+                // if (outcome == StartOutcome.Started) LogPendingResolved(key, entry, fitFound);
+                if (outcome == StartOutcome.Started)
+                {
+                    if (entry.Driver == VfxDriver.Zone) LogZonePendingResolved(key.UnitId, entry, fitFound);
+                    else LogPendingResolved(key, entry, fitFound);
+                }
                 else if (outcome == StartOutcome.Failed)
                 {
                     _active.Remove(key);
@@ -500,6 +546,8 @@ namespace Hexiege.Presentation
                 if (this == null) return;
                 _gameEnded = true;
                 StopAll(immediate: false, path: "GameEnd");
+                // [2026-11-11] 구역 기록도 비운다(구성원 이펙트는 위 StopAll이 꼬리 정지했다 — Z-8).
+                _zoneRecords.Clear();
             }
             catch (Exception ex)
             {
@@ -596,7 +644,10 @@ namespace Hexiege.Presentation
             for (int i = 0; i < _stopGroups.Count; i++)
             {
                 StopGroup g = _stopGroups[i];
-                if (g.CasterTeam == key.CasterTeam && g.Slot == key.Slot && g.Path == path && g.Immediate == immediate)
+                // [2026-11-11] 구동기도 같아야 같은 묶음이다. 옛 조건(기록용):
+                // if (g.CasterTeam == key.CasterTeam && g.Slot == key.Slot && g.Path == path && g.Immediate == immediate)
+                if (g.CasterTeam == key.CasterTeam && g.Slot == key.Slot && g.Path == path && g.Immediate == immediate
+                    && g.Driver == entry.Driver)
                 {
                     g.Count++;
                     if (stopped) g.LeaseMatched++;
@@ -609,7 +660,7 @@ namespace Hexiege.Presentation
             _stopGroups.Add(new StopGroup
             {
                 CasterTeam = key.CasterTeam, Slot = key.Slot, Sequence = entry.Sequence, Path = path, Immediate = immediate,
-                Count = 1, LeaseMatched = stopped ? 1 : 0, MaxActiveMs = activeMs
+                Count = 1, LeaseMatched = stopped ? 1 : 0, MaxActiveMs = activeMs, Driver = entry.Driver
             });
         }
 
@@ -621,6 +672,8 @@ namespace Hexiege.Presentation
             for (int i = 0; i < _stopGroups.Count; i++)
             {
                 StopGroup g = _stopGroups[i];
+                // [2026-11-11] 구역 구동기 정지는 [SKILL-ZONE] UnitZoneVfxStopped로 남긴다(ZoneDriver.cs — L16).
+                if (g.Driver == VfxDriver.Zone) { LogZoneStopGroup(g); continue; }
                 GameLog.Dev.Info("Skill", nameof(UnitBuffVfxPresenter), "[SKILL-BUFF] BuffVfxStopped",
                     FormattableString.Invariant(
                         $"Diag=SkillBuff, DiagRev=1, Event=BuffVfxStopped, Role={DiagRole()}, Team={g.CasterTeam}, Slot={g.Slot}, Sequence={g.Sequence}, Path={g.Path}, Immediate={g.Immediate}, Count={g.Count}, LeaseMatched={g.LeaseMatched}, MaxActiveMs={g.MaxActiveMs}"));

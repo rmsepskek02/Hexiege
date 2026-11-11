@@ -293,6 +293,18 @@ namespace Hexiege.Bootstrap
                 _config != null ? _config.SkillVfxGroundYOffset : SkillActivationVfxPresenter.DefaultGroundYOffset,
                 id => skillVfxPlacement?.GetBuilding(id));
 
+            // 10-3-1b. [2026-11-11 지속 상태 구역 Task 구현 단위 ③] 구역 VFX(서리 감옥 V3 · 수액 늪 V9) 화면 구독자.
+            //   구역 스킬 발동 표현(확정 · 수신)을 받아 조준 지점 바닥에 스킬 자산 「구역 VFX」 칸의 프리팹을 구역 지속 시간 동안 띄운다
+            //   (표현 전용 — 사용자 결정 Z-2: 구역 VFX는 발동 채널 재사용, 끝은 화면 로컬 타이머).
+            //   위 발동 VFX 구독자와 같은 방식 — AddComponent(없을 때만) + 맵마다 Initialize(이전 구독 · 이펙트를 먼저 정리).
+            //   지면 높이는 발동 VFX와 같은 GameConfig 값(0.06)이다.
+            var zoneVfxPresenter = GetComponent<SkillZoneVfxPresenter>();
+            if (zoneVfxPresenter == null) zoneVfxPresenter = gameObject.AddComponent<SkillZoneVfxPresenter>();
+            zoneVfxPresenter.Initialize(
+                _skillActivation,
+                _effectManager,
+                _config != null ? _config.SkillVfxGroundYOffset : SkillZoneVfxPresenter.DefaultGroundYOffset);
+
             // 10-3-2. [EMP — 2026-11-04 EMP Task 커밋 3] 방어탑 무력화 VFX(V6) 화면 구독자.
             //   무력화 표현 이벤트(확정 · 수신)를 받아 멈춘 탑 위에 합선 · 연기 이펙트를 지속 시간 동안 띄운다(표현 전용).
             //   위 발동 VFX 구독자와 같은 방식 — AddComponent(없을 때만) + 맵마다 Initialize(이전 구독 · 이펙트를 먼저 정리).
@@ -503,6 +515,10 @@ namespace Hexiege.Bootstrap
             //   서비스 자체는 다음 LoadMap()의 CreateUseCases가 새로 만들고 구독도 다시 건다(이전 경기 무력화가 남지 않는다).
             _towerDisableDestroyedSub?.Dispose();
             _towerDisableDestroyedSub = null;
+
+            // [2026-11-11 지속 상태 구역 Task] 유닛 사망 → 구역 구성원 정리 구독 해제(다음 LoadMap이 새 서비스와 함께 다시 건다).
+            _skillZoneUnitDiedSub?.Dispose();
+            _skillZoneUnitDiedSub = null;
 
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
