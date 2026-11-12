@@ -25,11 +25,13 @@ using System;
 namespace Hexiege.Infrastructure
 {
     /// <summary>
-    /// 유니티 콘솔 전용 sink. 파일에는 쓰지 않는다(파일은 FileSink 담당).
-    /// 실기기(빌드)에서는 이 출력이 그대로 Android Logcat 에 나타난다.
+    /// 기본 콘솔 sink. Development Android만 공유 RuntimeLogger 파일 보존을 먼저 시도한다.
+    /// 파일 성공 시 개발 Info와 명시된 진단 Warning 두 종류만 중복 콘솔을 생략한다.
+    /// 그 외 운영·경고·오류·예외 및 파일 실패는 기존 Android Logcat/콘솔 경로를 유지한다.
     /// </summary>
     public sealed class ConsoleSink : Hexiege.Application.ILogSink
     {
+
         /// <summary>
         /// 로그 한 건을 콘솔에 출력한다.
         ///
@@ -43,18 +45,52 @@ namespace Hexiege.Infrastructure
         /// <param name="message">메시지 본문(GameLog 가 이미 민감 데이터를 걸러 둔 상태).</param>
         /// <param name="data">"key=value" 구조화 필드(Event=... 이 이미 병합되어 있다).</param>
         /// <param name="exception">함께 남길 예외. 없으면 null.</param>
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
         public void Write(Hexiege.Application.LogLevel level, string system, string className,
                           string message, string data, Exception exception)
         {
             string line = Hexiege.Application.GameLog.Compose(level, system, className, message, data);
+            bool archived = RuntimeLogger.TryArchiveDeviceRecord(line,
+                level == Hexiege.Application.LogLevel.Warn ? UnityEngine.LogType.Warning
+                    : level == Hexiege.Application.LogLevel.Error ? UnityEngine.LogType.Error : UnityEngine.LogType.Log,
+                OmitInfoStack(level, system, className, message, data, exception), exception);
+            if (archived && RuntimeLogger.IsFileOnlyInfo(level == Hexiege.Application.LogLevel.Info, data, exception))
+            {
+                return;
+            }
+            // Console.* marker는 실제 native 출력만 잰다. 파일 I/O는 별도 ArchiveWrite marker다.
+            if (archived && RuntimeLogger.IsFileOnlyDiagnosticWarning(level == Hexiege.Application.LogLevel.Warn,
+                system, className, message, data, exception))
+            {
+                return;
+            }
+            if (RuntimeLogger.DeviceArchiveFallbackRequired)
+            {
+                WriteConsole(level, system, className, message, data, exception, line);
+            }
+            else WriteConsole(level, system, className, message, data, exception, line);
+        }
+
+        private void WriteConsole(Hexiege.Application.LogLevel level, string system, string className,
+                          string message, string data, Exception exception, string preparedLine)
+#else
+        public void Write(Hexiege.Application.LogLevel level, string system, string className,
+                          string message, string data, Exception exception)
+#endif
+        {
+
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            string line = preparedLine;
+#else
+            string line = Hexiege.Application.GameLog.Compose(level, system, className, message, data);
+#endif
 
             // 심각도에 맞는 메서드로 출력한다.
             // 이렇게 해야 에디터 콘솔의 필터(Info/Warning/Error 탭)가 제대로 동작하고,
             // Logcat 에서도 우선순위(I/W/E)가 구분된다.
-            // 이 진단의 일상 사건만 스택 생략. 운영/오류/예외 및 다른 로그는 기존 경로를 유지한다.
-            if (exception == null && level == Hexiege.Application.LogLevel.Info
-                && className == Hexiege.Application.WavePresentationDiagnostics.LogClass
-                && message == Hexiege.Application.WavePresentationDiagnostics.Prefix)
+            // 파도·전투 복귀 진단과 확인된 재경기 개체 정리/서버 유닛 사망 Info만 호출별로 스택 생략.
+            // 운영/오류/예외 및 다른 로그는 기존 경로를 유지한다.
+            if (OmitInfoStack(level, system, className, message, data, exception))
                 UnityEngine.Debug.LogFormat(UnityEngine.LogType.Log,
                     UnityEngine.LogOption.NoStacktrace, null, "{0}", line);
             else switch (level)
@@ -87,8 +123,23 @@ namespace Hexiege.Infrastructure
             //      이 sink 는 GameLog.Emit 내부에서 호출되므로 가드가 이미 켜져 있다.
             if (exception != null)
             {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#endif
                 UnityEngine.Debug.LogException(exception);
             }
+        }
+        private static bool OmitInfoStack(Hexiege.Application.LogLevel level, string system,
+            string className, string message, string data, Exception exception)
+        {
+            if (exception != null || level != Hexiege.Application.LogLevel.Info) return false;
+            return (className == Hexiege.Application.WavePresentationDiagnostics.LogClass
+                    && message == Hexiege.Application.WavePresentationDiagnostics.Prefix)
+                || (system == "Movement" && className == "UnitView" && message == "[UAS-PC-RECOVERY]")
+                || (system == "Network"
+                    && ((className == "NetworkGameEndController" && message == "StartRematch: 동적 NetworkObject Despawn")
+                        || (className == "NetworkCombatController" && message == "서버: 유닛 사망"))
+                    // Ops는 GameLog.MergeData가 Event= 접두사를 붙인다. 새 특례에서 제외한다.
+                    && (data == null || !data.StartsWith("Event=", StringComparison.Ordinal)));
         }
     }
 }

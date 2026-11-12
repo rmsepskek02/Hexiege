@@ -2525,16 +2525,16 @@ namespace Hexiege.Presentation
         /// <param name="extraFields">그 줄에만 붙는 추가 <c>key=value</c>. 없으면 null.</param>
         private string BuildRematchDiagFields(string extraFields)
         {
-            string state = $"IsServer={NetworkContext.IsNetworkServer}, "
-                         + $"NetworkActive={NetworkContext.IsNetworkActive}, "
-                         + $"RematchPreparing={_rematchPreparing}, "
-                         + $"AcceptHandled={_rematchAcceptSignalHandled}, "
-                         + $"OpponentLeft={_opponentLeft}, "
-                         + $"RematchFailed={_rematchFailed}";
-
-            return string.IsNullOrEmpty(extraFields) ? state : state + ", " + extraFields;
+            bool isServer = NetworkContext.IsNetworkServer;
+            bool networkActive = NetworkContext.IsNetworkActive;
+            bool preparing = _rematchPreparing;
+            bool acceptHandled = _rematchAcceptSignalHandled;
+            bool opponentLeft = _opponentLeft;
+            bool failed = _rematchFailed;
+            return string.IsNullOrEmpty(extraFields)
+                ? $"IsServer={isServer}, NetworkActive={networkActive}, RematchPreparing={preparing}, AcceptHandled={acceptHandled}, OpponentLeft={opponentLeft}, RematchFailed={failed}"
+                : $"IsServer={isServer}, NetworkActive={networkActive}, RematchPreparing={preparing}, AcceptHandled={acceptHandled}, OpponentLeft={opponentLeft}, RematchFailed={failed}, {extraFields}";
         }
-
         /// <summary>
         /// 재경기 상태 <b>정상 전이</b>를 남긴다(축 A <c>Info</c>).
         /// </summary>

@@ -432,6 +432,27 @@ C# 컴파일러가 `[Conditional]` 로 지우는 것은 **문(statement) 자리�
 
 주체 변경·과거 누락 로그 수는 [LogHistory H06](LogHistory.md#h06)에 보존합니다.
 
+
+### Android Development 일반 Info의 private 기록 정책 (2026-10-29 승인)
+
+**적용 범위는 Development Android nonEditor다.** 기존 RuntimeLogger writer로 모든 GameLog 원문·순서·필요callerstack/예외정보를private보존하고, 파일기록성공한 일반Dev.Info 및 아래 정확두종류 진단Warning만 중복Console출력을생략한다. Ops `Event=`·Exception객체는예외선택에서제외하며 다른Warning/Error/Exception과Editor/Release의기존콘솔/객체/스택은유지한다. 파일성공 대상이Logcat에없어지는것은의도된출력정책변경이다.
+
+LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 유지하고 Application.quitting에서 닫는다. 파일고장시 현재로그까지 Consolefallback하고 고장을 latch한다. 고장알림은 재귀에 안전해야 한다. queue/worker/throttle·자동삭제는 도입하지 않는다. 기본 `Application.GetStackTraceLogType`의 None을 존중하고 기존 선택NoStack은 stack을 만들지 않는다. 필요한 managed caller정보를 보존하되 Unity Debug native wrapper까지 이전콘솔과 바이트동일한 stack을 보장하지 않는다.
+
+이 계약의 구현/검증은 해당 Task에 기록하며 Android 파일I/O·IL2CPP 실기는 별도 판정한다. OS/전송 내부지연 원인은 미확정이고 파일I/O·프로세스kill의 완전무손실을 보장하지 않는다. 이전정책 원문은 [LogHistory H15](LogHistory.md#h15)에 보존했다.
+
+### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인)
+
+archive성공후에만 다음두경로를선택한다. (1) Warn/Network/UnitAttackShadowObserver의 message 정확히 `[UAS-ATTACK-SHADOW] presentation-shadow-failure`. (2) Warn/Network/TimedDamageEffectChannel의 sourceRecord 전체고정필드 grammar·순서·경계를검증하고 Stage=Drop,Visual=Poison,Reason=StaleStopOrClosed,Writer=Damage인경우다. 부분문자열포함이나유사메시지로확대하지않는다. Ops `Event=`/Exception객체·writerfault/reentry/unavailable는선택하지않으며nativefallback을유지한다.
+
+레벨·본문·횟수·순서·callerstack·archive전체보존은유지한다. sourceowner의실패/Stopguard·UAScap/drop판정은바꾸지않는 **출력운송교정**이며게임오류원인을해결한것이아니다. 실제코드/QA·CLR/정적검증은Task에기록하고native공유핵심·Android실기효과는별도검증으로구분한다. 종전모든Warning native보존문구는 [LogHistory H16](LogHistory.md#h16)에보존했다.
+
+### 선택 Info의 호출스택 생략
+
+ConsoleSink는 Exception 객체가 없는 Info 중 정확 WavePresentationDiagnostics class/prefix와 Movement/UnitView의 `[UAS-PC-RECOVERY]`만 호출별 NoStacktrace를 적용한다. Network의 NetworkGameEndController·`StartRematch: 동적 NetworkObject Despawn` 및 NetworkCombatController·`서버: 유닛 사망`도 정확 일치할 때만 적용하며 이 두 Network 예외는 구조화 data가 `Event=`로 시작하는 Ops를 제외한다. 기존 Wave 정책을 유지하며 부분 문자열·다른 클래스·레벨로 넓히지 않는다.
+
+본문·호출 횟수·순서·레벨은 유지하고 선택한 Info의 caller stack만 생략한다. Warning/Error/Exception 객체와 그 외 출력 정책은 유지한다. 이는 진단 출력 비용의 한정 변경이며 게임 권위·피해 판정 변경이나 기기 성능 효과 보증이 아니다. Android archive의 필요한 caller stack도 이 선택과 기본 None 정책을 존중한다. 이전 범위와 변경 이유는 [LogHistory H17](LogHistory.md#h17)을 참조한다.
+
 ### sink가 하나도 없으면 콘솔로 폴백한다
 
 등록 전에 발생한 로그를 버리면 안 된다.
@@ -523,7 +544,7 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 ---
 
-## 1.10 파일 기록 — 에디터 상시 활성
+## 1.10 파일 기록 — 에디터 상시·Android Development 원본 보존
 
 ### 에디터에서는 파일 기록을 항상 켠다
 
@@ -535,6 +556,19 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 파일 기록 구현을 **둘로 두지 않는다.** 이미 검증된 파일 쓰기 코드(append + AutoFlush, 예외 시 게임 중단 없음)가 있는데
 새로 만들면 두 구현이 서로 다르게 동작하기 시작하고, 어느 쪽이 진짜인지 알 수 없게 된다.
+
+
+### Android Development archive 컨테이너 예외 (1.4 형식의 한정 예외)
+
+본문 GameLog 라인형식은1.4 그대로 유지한다. 파일은 `Application.persistentDataPath/DevelopmentLogs/<UTC-GUID>/RuntimeLog.txt`이며 기존 RuntimeLog_device.txt Logcat캡처와 다른 증거층이다. purpose header와 `DEVICE-ARCHIVE schema/buildGuid/backend/process/utc` header·빈줄 뒤 각record를 `=== RECORD seq=N utf8Bytes=B ===`→원래payload(필요stack/exception 포함)→`=== RECORD-END seq=N ===`로 감싼다. 이컨테이너만1.4의 일반fileheader 예외이며 운영로그 본문 변경이 아니다.
+
+살아있는파일에 sessionfooter가 없어도 정상이다. seq·UTF-8길이·RECORD-END가 완결된 prefix를 분석하고 부분tail/손상은 구분한다. 종료footer의 `recordsFlushed=True`는 Close/Dispose성공과 같지 않으며 별도native `[DEVICE-LOG-ARCHIVE-END] closed=True`와 함께 판단한다. partialwrite/flush실패 때 같은행이 파일과nativefallback 양쪽에 남을 수 있으므로 seq/길이/END와faultwarning을 함께 확인한다.
+
+**성공 archive를 GameLog 집계의 주근거로 삼는다.** 정확두진단Warning예외를제외한 Ops/Warning/Error/Exception은native에도 계속나가므로 파일+Logcat을 단순합산하면 동일사건을 두번센다. Logcat은 엔진/bypass/native정책·고장fallback 확인용 대조근거다. archive완전성/실행identity/부분tail을 확인한 뒤 동일사건을 대응시키며 원시두파일 모두private보관한다.
+
+### Android Development private 세션과 보관
+
+Android Development nonEditor의 private 파일은 Editor 일별파일과 구분해 실행별 고유세션으로 유지한다. 모든 GameLog의 전체원문·순서/필요caller정보를 기존 RuntimeLogger로 보존하고 씬전환으로 끊지 않는다. 기기 private 파일도 Logcat과 함께 adb로 회수하고 기기/실행/빌드·원본hash를 연결한다. 원시private 보관·업로드/다운로드 검증·별도 로컬삭제 승인은 아래1.10의 기존계약을 그대로 따른다. 이 정책승인이 업로드/삭제승인을 대신하지 않는다. 실제경로와 회수성공은 Task의 구현/실기영수증으로 확인한다.
 
 ### 파일 누적 관리 방침
 
@@ -661,13 +695,17 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 ## 1.12 실기기 로그
 
-에디터에서는 파일로 직접 저장하지만, 실기기에서는 파일 쓰기 코드가 동작하지 않으므로
-로그가 Android Logcat으로만 나간다. 그 Logcat을 **에디터 도구로 파일에 뽑는다.**
+Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는 일반 Dev.Info와1.8의정확두진단Warning을포함한private파일을함께수집한다(1.8/1.10). 파일성공한 일반 Info와정확두진단Warning은 Logcat에 없을 수 있으므로 Logcat만으로 로그부재를 판정하지 않는다. 그 외 실기기 콘솔 경로는 기존 Logcat 수집을 유지한다.
 
 | 환경 | 로그 파일 |
 |------|----------|
 | 에디터 | `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` (1.10 — 2026-08-14 단일 파일명으로 변경) |
-| 실기기 | `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/RuntimeLog_device.txt` (아래 도구) |
+| 실기기 Logcat | `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/RuntimeLog_device.txt` (아래 도구) |
+| Android Development private 원본 | 앱 private 파일의 실행별 고유세션. 회수한 원본은 작업별 private 보관(1.10); 실제 경로/회수영수증은 구현·실행 근거로 기록 |
+
+### Android Development 회수 범위
+
+일반 Dev.Info와정확두진단Warning의파일기록 성공분은 Logcat에 없으므로 **앱 private 원본과 Logcat을 함께** 확보한다. 메인작업자가 adb로 자동회수할 수 있으며 회수원본을1.10의 private 규칙으로 보관한다. 회수도구/경로가 준비되지 않았거나 프로세스kill·파일고장이 있었다면 누락가능성을 명시하고 Logcat만으로 완전수집을 선언하지 않는다. 아래 기존 메뉴는 Logcat 수집용이며 private 파일회수까지 완료했다고 간주하지 않는다.
 
 ### 캡처 도구 사용 절차
 
@@ -717,7 +755,7 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 **Infrastructure→Application 의존 방향을 유지하며 Application→Infrastructure 역참조는 금지합니다.** Application/NetworkContext의 정적 홀더 선례를 따릅니다. Domain의 당시 사용처 0건은 과거 측정일 뿐 새 참조 허가가 아닙니다.
 
-- Editor는 FileSink, Build는 ConsoleSink **하나만** 등록하여 콘솔 이중 출력을 방지합니다.
+- Editor는 기존 FileSink, Android Development nonEditor는 private 파일성공시 일반 Dev.Info와1.8의정확두진단Warning의 중복Console출력을 생략하는 경로, 그 외 Build는 기존 ConsoleSink 경로를 유지합니다. 구체 보존/폴백 계약은1.8의 승인정책을 따릅니다.
 - EnsureInitialized는 멱등이며 상태·sink·hook cache는 static으로 씬을 건너 유지합니다. bootstrap은 진입만 호출하고 owner는 외부 의존성을 주입하지 않습니다(1.8).
 - 가장 먼저 실행된 Login/Game bootstrap이 세션을 열고 Application.quitting에서 한 번 닫습니다. **씬 OnDestroy에서 세션을 닫지 않습니다. Lobby 직접 진입은 비적용 범위**입니다.
 - FileSink는 인자 없는 BeginSession으로 일별 RuntimeLog.txt를 열고 RuntimeLogger에 목적 `에디터 상시 런타임 로그`를 전달합니다. append/AutoFlush, 예외 시 게임 중단 없음, FileSink 세션 소유권 가드와 빈 목적 fallback을 유지합니다.

@@ -1058,3 +1058,43 @@ H10 안 「현행 코드 상태」 표의 `LogEvent` enum 행과 `LogEvent` 이�
 | `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **멤버 37개**(2026-08-19 실측. ~~32개~~ → ~~36개~~ — 나머지 계층 이관 **배치 2 에서 4개 신설**, 다른 배치는 신설 0건. **2026-08-19 커밋 `cc864054` 로 `UnhandledEngineError` 1개 추가 = 37**)이며 `Unknown`(0)은 의도적으로 무의미 값으로 비워 두었다. 각 멤버에 부여 근거와 발생 지점이 XML 주석으로 붙어 있다. **[🔴 2026-09-08 갱신 — 위 실측치는 그 시점 값이라 그대로 두고 덧붙인다: 커밋 `2e1b305`(무작위 맵 2단계 K)이 맵 준비·투영 키 4종을 신설해 **현재 41개**다. 내역은 1.5 의 「맵 준비·투영 키 4종 신설」 블록과 개정 이력 표 2026-09-08 행]** | 1.5 — **충족** |
 | `LogEvent` 이벤트 키 채우기 | **완료.** 기존 2개(`Unknown`(0) · `UnhandledException`) + 2026-08-13 감사에서 확정한 키 30종 = 32 → 나머지 계층 이관 배치 2 에서 4개 신설 = ~~36개~~ → **`UnhandledEngineError` 1개 추가 = 현재 37개**(2026-08-19 실측). 선행 이관은 감사가 확정해 둔 키를 **반영**만 했고(키별 내역은 `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` §0-7 ③), 이번 이관도 **배치 2 외에는 신설 0건**이다. **`Unknown` 사용처는 여전히 0건**. **[🔴 2026-09-08 갱신 — 원문은 그대로 두고 덧붙인다: 2026-09-08 커밋 `2e1b305` 이 맵 준비·투영 키 **4종을 신설**해 37 → **현재 41개**다. 이관에 따른 반영이 아니라 **새 기능(무작위 맵 2단계 K)이 요구한 키 신설**이다]** | 1.5 / 1.14 금지 사항 6 — **충족** |
 <!-- VERBATIM-END H14c -->
+
+
+<a id="h15"></a>
+
+## H15 — 2026-10-29 Android Development 일반 Info private 기록 승인 전 원문
+
+현재 계약은 LogRules1.8/1.10/1.12/1.13을 따른다. 아래는 이번 교체대상 문구의 변경전 원문이며 당시 Editor전용파일/Build콘솔 정책을 보존한다. 신규정책의 구현/실기PASS 증거가 아니다.
+
+## 1.10 파일 기록 — 에디터 상시 활성
+
+에디터에서는 파일로 직접 저장하지만, 실기기에서는 파일 쓰기 코드가 동작하지 않으므로
+로그가 Android Logcat으로만 나간다. 그 Logcat을 **에디터 도구로 파일에 뽑는다.**
+
+| 실기기 | `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/RuntimeLog_device.txt` (아래 도구) |
+
+- Editor는 FileSink, Build는 ConsoleSink **하나만** 등록하여 콘솔 이중 출력을 방지합니다.
+
+
+### H15 후속 구현형식 확인
+
+승인 후 실제구현은 모든 GameLog를 AndroidDev archive에 보존하고 일반Dev.Info만 성공시native출력을 생략한다. Ops/Warn/Error/Exception의native중복을 단순합산하지 않는다. 정확컨테이너·경로·partialprefix/flush와close구분은 현행LogRules1.10을 따른다. 앞선 원문블록은 이전정책 보존이며 새실기PASS가 아니다.
+
+
+<a id="h16"></a>
+
+## H16 — 2026-10-30 정확두진단 Warning 출력운송 예외 승인 전 문구
+
+현행은LogRules1.8의한정예외다. 아래변경전원문은일반Info만파일전용으로하던당시정책이며새구현/실기PASS가아니다.
+
+**적용 범위는 Development Android nonEditor의 일반 Dev.Info다.** 기존 RuntimeLogger writer를 재사용해 **모든 GameLog** 원문·순서와 필요한 managed caller stack/예외정보를 private 파일로 보존하고, 파일기록 성공한 일반 Dev.Info만 중복Console출력을 생략한다. Ops `Event=`·Warning/Error/Exception의 기존콘솔/예외객체/스택은 유지한다. Editor·Release의 기존출력도 유지한다. 파일성공 Info가 Logcat에 남지 않는 것은 의도한 정책변경이다.
+
+Ops/Warning/Error/Exception은native에도 계속나가므로
+
+<a id="h17"></a>
+
+## H17 — 선택 Info NoStack와 제품 선별 반영의 경계
+
+기존 Wave 진단의 호출별 NoStack 정책에 이어 recovery·재경기 NetworkObject 정리·서버 유닛 사망의 정확 Info 경로를 선택 생략하도록 승인했다. 새 Network 두 예외는 Ops Event=와 Exception 객체를 제외한다. 변경 전 이 추가 경로는 일반 Debug 출력의 호출스택 정책을 따랐으며, 이후 본문·횟수·순서·레벨/다른 Warning·Error·Exception을 보존하고 선택 Info stack만 생략했다. 현행 정확 선택자는 LogRules1.8을 따른다.
+
+2026-11-12 제품 선별에는 이 정책과 Android Development archive의 일반 Info/정확 두 Warning native 중복 생략·실패 Console fallback만 포함한다. 실험 측정 identity·profiler pulse·Editor Client readiness getter와 측정 도구/Task·raw는 포함하지 않는다. 기존 혼합 작업본의 컴파일·회귀·실기 관측은 선별본의 검증 PASS가 아니며 제품 분리본 대표4구성 컴파일은 오류0으로 확인했으나 native 검증은 이전 혼합본 범위이고 실기 전체·FPS 효과는 미증명이다. main 반영 완료를 뜻하지 않는다.

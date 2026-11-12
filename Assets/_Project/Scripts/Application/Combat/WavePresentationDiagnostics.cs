@@ -185,6 +185,10 @@ namespace Hexiege.Application
         {
             string head = FormattableString.Invariant($"scope={_scope}, role={_role}, epoch={_epoch:x16}, deliveryEpoch={key.Epoch:x16}, wave={key.Id}, validDelivery={key.IsValid}, localWave={localWave}, event={++_sequence}, stage={stage}, clockDomain={(_role == "single" ? "simulation-local" : "synced-server")}, now={clock:G17}, impact={(ordinal > 0 ? ordinal.ToString(CultureInfo.InvariantCulture) : "none")}, target={target}, kind={kind}");
             var level = warning ? LogLevel.Warn : LogLevel.Info;
+            // 전체 필드가 기존의 보수적 1줄 예산 안이면 이전 chunker도 반드시 1part를 만든다.
+            // 이 경우에만 필드마다 head/Compose/누적 candidate 문자열을 다시 만드는 비용을 줄인다.
+            // 긴 값·raw 구분자·Base64 분할은 아래 기존 경로로 보내 로그 형식과 줄 수를 보존한다.
+            if (TryWriteSingleChunk(head, detail, level, warning)) return;
             var pieces = new List<string>();
             // 기존 parser의 필드 구분은 ", ". 값 안에 raw 구분자는 두지 않는다.
             foreach (string field in (detail ?? "").Split(';'))
@@ -225,6 +229,39 @@ namespace Hexiege.Application
                 if (warning) GameLog.Dev.Warn("Combat", LogClass, Prefix, payload);
                 else GameLog.Dev.Info("Combat", LogClass, Prefix, payload);
             }
+        }
+
+        private bool TryWriteSingleChunk(string head, string detail, LogLevel level, bool warning)
+        {
+            // 큰 payload는 조립부터 하지 않고 기존 분할기로 보낸다. 빈 ';' 필드가 많아
+            // 정규화하면 짧아지는 입력도 기존 경로가 같은 결과를 만들므로 출력 의미는 그대로다.
+            if (detail != null && (detail.Length > ByteLimit
+                || Encoding.UTF8.GetByteCount(detail) > ByteLimit - head.Length)) return false;
+            if (!string.IsNullOrEmpty(detail) && detail.IndexOf(", ", StringComparison.Ordinal) >= 0) return false;
+            var builder = new StringBuilder();
+            if (detail != null)
+            {
+                int start = 0;
+                for (int end = 0; end <= detail.Length; end++)
+                {
+                    if (end < detail.Length && detail[end] != ';') continue;
+                    if (end > start)
+                    {
+                        if (builder.Length > 0) builder.Append(", ");
+                        builder.Append(detail, start, end - start);
+                    }
+                    start = end + 1;
+                }
+            }
+            string chunk = builder.ToString();
+            string probe = head + ", part=2147483647, parts=2147483647, " + chunk;
+            if (Encoding.UTF8.GetByteCount(GameLog.Compose(level, "Combat", LogClass, Prefix, probe)) > ByteLimit) return false;
+            string payload = head + ", part=1, parts=1" + (chunk.Length == 0 ? "" : ", " + chunk);
+            // 실제 최종 prefix도 기존 경로처럼 검사한다. 예산 밖이면 기존 실패 관측 경로가 처리한다.
+            if (Encoding.UTF8.GetByteCount(GameLog.Compose(level, "Combat", LogClass, Prefix, payload)) > ByteLimit) return false;
+            if (warning) GameLog.Dev.Warn("Combat", LogClass, Prefix, payload);
+            else GameLog.Dev.Info("Combat", LogClass, Prefix, payload);
+            return true;
         }
 #endif
     }

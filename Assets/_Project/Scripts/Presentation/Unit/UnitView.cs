@@ -575,7 +575,7 @@ _slot = _nextEviction;
                     string data = $"schema=pc-recovery-v1, session={_session}, lifecycle={_lifecycle}, unit={_unit}, episode={_episode}, " +
                         $"event={eventId}, kind={kind}, part={part + 1}, parts={parts}, payload={content}";
                     const string prefix = "[23:59:59.999] [WARN] [Movement/UnitView] [UAS-PC-RECOVERY] | ";
-                    if (System.Text.Encoding.UTF8.GetByteCount(prefix + data + "\n") >= 900)
+                    if (prefix.Length + System.Text.Encoding.UTF8.GetByteCount(data) + 1 >= 900)
                     {
                         _formatDrops++;
                         GameLog.Dev.Warn("Movement", nameof(UnitView), "[UAS-PC-RECOVERY]",
@@ -825,15 +825,22 @@ _slot = _nextEviction;
             if (_attackPhase.Active && (_attackPhase.Lifetime != value.Lifetime
                 || value.PresentationRevision <= _attackPhase.PresentationRevision)) return RejectAttackPhase(value, "stale-owner-revision");
             if (!CanUseNativeAttackPhase(_unitData) || _attackPhaseClip.length != (float)value.Duration) return RejectAttackPhase(value, "unsupported-native-metadata");
-            var markers = new List<float>();
-            foreach (var marker in _attackPhaseClip.events) if (marker.functionName == "OnAttackHit") markers.Add(marker.time);
-            if (_unitData.HitFrameTimes == null || markers.Count != _unitData.HitFrameTimes.Length) return RejectAttackPhase(value, "marker-count-mismatch");
-            for (int i = 0; i < markers.Count; i++) if (markers[i] != _unitData.HitFrameTimes[i]) return RejectAttackPhase(value, "marker-time-mismatch");
+            // 매 회차의 최신 이벤트 snapshot은 그대로 검사하되 검증 전용 List는 만들지 않는다.
+            // 개수 오류를 시간 오류보다 먼저 판정하고, 클립 원순서(정렬하지 않음)를 유지한다.
+            var markers = _attackPhaseClip.events;
+            int markerCount = 0;
+            foreach (var marker in markers) if (marker.functionName == "OnAttackHit") markerCount++;
+            if (_unitData.HitFrameTimes == null || markerCount != _unitData.HitFrameTimes.Length) return RejectAttackPhase(value, "marker-count-mismatch");
+            int markerIndex = 0;
+            foreach (var marker in markers)
+                if (marker.functionName == "OnAttackHit" && marker.time != _unitData.HitFrameTimes[markerIndex++])
+                    return RejectAttackPhase(value, "marker-time-mismatch");
             bool firstEpoch = _nativeAppliedEpoch != value.EpochId || _nativeAppliedLifetime != value.Lifetime;
             if (_attackPhase.Active && !firstEpoch && _attackPhase.EpochServerTime != value.EpochServerTime) return RejectAttackPhase(value, "epoch-time-mismatch");
             if (value.Mode == AttackPresentationImpactMode.Scoped)
                 foreach (var hit in value.Hits)
-                    if (hit.HitIndex >= markers.Count || (float)hit.MarkerOffset != markers[hit.HitIndex]) return RejectAttackPhase(value, "occurrence-marker-mismatch");
+                    // 위에서 marker 전체와 같은 값임을 확인한 배열을 읽는다(새 배열·공유 캐시 없음).
+                    if (hit.HitIndex >= markerCount || (float)hit.MarkerOffset != _unitData.HitFrameTimes[hit.HitIndex]) return RejectAttackPhase(value, "occurrence-marker-mismatch");
             if (firstEpoch) { _attackPhaseClockHighWater = raw; _attackPhaseClockRegressed = false; }
             _attackPhaseApplyClock = raw;
             _attackPhaseRetiringOwner = _attackPhase;

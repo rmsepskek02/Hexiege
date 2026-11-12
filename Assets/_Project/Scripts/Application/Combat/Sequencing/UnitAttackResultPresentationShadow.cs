@@ -282,6 +282,9 @@ namespace Hexiege.Application.Combat.Sequencing
             new HashSet<AttackerInstanceId>();
         private readonly Dictionary<AttackPresentationScope, byte> _consumedScopeStages =
             new Dictionary<AttackPresentationScope, byte>();
+        private readonly List<AttackResultKey> _resultRemovalBuffer = new List<AttackResultKey>();
+        private readonly List<AttackPresentationScope> _scopeRemovalBuffer = new List<AttackPresentationScope>();
+        private readonly HashSet<AttackPresentationScope> _retainedScopes = new HashSet<AttackPresentationScope>();
         private readonly Queue<PresentationShadowClassification> _ready =
             new Queue<PresentationShadowClassification>();
 
@@ -419,21 +422,29 @@ namespace Hexiege.Application.Combat.Sequencing
         {
             if (!instanceId.IsValid) return;
             _retired.Add(instanceId);
-            var remove = new List<AttackResultKey>();
-            foreach (AttackResultKey key in _results.Keys)
-                if (key.AttackerInstanceId == instanceId) remove.Add(key);
-            for (int i = 0; i < remove.Count; i++) _results.Remove(remove[i]);
-            for (int index = _legacy.Count - 1; index >= 0; index--)
+            try
             {
-                if (TryGetObservationSequence(_legacy[index], out AttackerInstanceId legacyInstance, out _)
-                    && legacyInstance == instanceId)
-                    _legacy.RemoveAt(index);
+                var remove = _resultRemovalBuffer;
+                foreach (AttackResultKey key in _results.Keys)
+                    if (key.AttackerInstanceId == instanceId) remove.Add(key);
+                for (int i = 0; i < remove.Count; i++) _results.Remove(remove[i]);
+                for (int index = _legacy.Count - 1; index >= 0; index--)
+                {
+                    if (TryGetObservationSequence(_legacy[index], out AttackerInstanceId legacyInstance, out _)
+                        && legacyInstance == instanceId)
+                        _legacy.RemoveAt(index);
+                }
+                var consumedRemove = _scopeRemovalBuffer;
+                foreach (AttackPresentationScope scope in _consumedScopeStages.Keys)
+                    if (scope.AttackerInstanceId == instanceId) consumedRemove.Add(scope);
+                for (int i = 0; i < consumedRemove.Count; i++)
+                    _consumedScopeStages.Remove(consumedRemove[i]);
             }
-            var consumedRemove = new List<AttackPresentationScope>();
-            foreach (AttackPresentationScope scope in _consumedScopeStages.Keys)
-                if (scope.AttackerInstanceId == instanceId) consumedRemove.Add(scope);
-            for (int i = 0; i < consumedRemove.Count; i++)
-                _consumedScopeStages.Remove(consumedRemove[i]);
+            finally
+            {
+                _resultRemovalBuffer.Clear();
+                _scopeRemovalBuffer.Clear();
+            }
         }
 
         public void Clear()
@@ -698,34 +709,23 @@ namespace Hexiege.Application.Combat.Sequencing
         private void CleanupOrphanedConsumedScopes()
         {
             if (_consumedScopeStages.Count == 0) return;
-            var remove = new List<AttackPresentationScope>();
-            foreach (AttackPresentationScope scope in _consumedScopeStages.Keys)
+            try
             {
-                bool retained = false;
                 foreach (AttackResultKey key in _results.Keys)
-                {
-                    if (AttackPresentationScope.FromResultKey(key).Equals(scope))
-                    {
-                        retained = true;
-                        break;
-                    }
-                }
-                if (!retained)
-                {
-                    for (int index = 0; index < _legacy.Count; index++)
-                    {
-                        if (_legacy[index].HasAttackScope
-                            && _legacy[index].AttackScope.Equals(scope))
-                        {
-                            retained = true;
-                            break;
-                        }
-                    }
-                }
-                if (!retained) remove.Add(scope);
+                    _retainedScopes.Add(AttackPresentationScope.FromResultKey(key));
+                for (int index = 0; index < _legacy.Count; index++)
+                    if (_legacy[index].HasAttackScope)
+                        _retainedScopes.Add(_legacy[index].AttackScope);
+                foreach (AttackPresentationScope scope in _consumedScopeStages.Keys)
+                    if (!_retainedScopes.Contains(scope)) _scopeRemovalBuffer.Add(scope);
+                for (int index = 0; index < _scopeRemovalBuffer.Count; index++)
+                    _consumedScopeStages.Remove(_scopeRemovalBuffer[index]);
             }
-            for (int index = 0; index < remove.Count; index++)
-                _consumedScopeStages.Remove(remove[index]);
+            finally
+            {
+                _retainedScopes.Clear();
+                _scopeRemovalBuffer.Clear();
+            }
         }
 
         private void ExpireLegacy(double serverTime)

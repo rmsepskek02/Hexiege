@@ -28,8 +28,8 @@ namespace Hexiege.Infrastructure
     ///
     /// 동작 요약:
     /// - 에디터(UNITY_EDITOR)에서는 지정한 폴더에 텍스트 파일로도 로그를 남긴다.
-    /// - 실기기(빌드)에서는 파일 쓰기를 전혀 하지 않고, Debug.Log 계열로만 출력한다.
-    ///   (Android Logcat 등에서 동일한 형식으로 확인 가능)
+    /// - Development Android는 고유 파일 기록 성공 후 개발 Info와 명시된 진단 Warning 두 종류의 중복 콘솔을 생략한다.
+    /// - 다른 빌드는 기존 Debug.Log 경로를 유지한다. 파일 실패·등록 전/종료 뒤에도 콘솔로 복귀한다.
     ///
     /// 보안 주의:
     /// - PlayerId, 인증 토큰, 세션 키 등 "민감한 데이터"는 로그(message/data)에 절대 출력하지 말 것.
@@ -41,10 +41,11 @@ namespace Hexiege.Infrastructure
     /// </summary>
     public static class RuntimeLogger
     {
-#if UNITY_EDITOR
+
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD)
         // 현재 열려 있는 로그 파일에 대한 쓰기 스트림.
         // null이면 아직 BeginSession이 호출되지 않았거나 EndSession으로 닫힌 상태다.
-        // (이 필드는 에디터에서만 사용하므로 #if UNITY_EDITOR 안에 둔다)
+        // Development Android도 같은 writer 구현을 사용하며 별도 백그라운드 큐는 두지 않는다.
         private static StreamWriter _writer;
 #endif
 
@@ -87,7 +88,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 디버그 로그 세션을 시작한다.
         /// 에디터에서는 지정한 폴더에 로그 파일을 만들고(또는 이어쓰기) 헤더를 기록한다.
-        /// 실기기에서는 아무 동작도 하지 않는다(파일을 만들지 않음).
+        /// 이 에디터 진입점은 실기기에서 동작하지 않는다. 개발 Android는 Owner의 BeginDeviceArchive를 쓴다.
         /// </summary>
         /// <param name="folderPath">로그 파일을 저장할 폴더 경로. 없으면 자동으로 생성한다.</param>
         /// <param name="purpose">
@@ -105,17 +106,14 @@ namespace Hexiege.Infrastructure
                 EndSession();
 
                 // 폴더가 아직 없다면 만들어 준다. (중간 경로까지 모두 생성됨)
-                if (!Directory.Exists(folderPath))
-                {
-                    Directory.CreateDirectory(folderPath);
-                }
+                Directory.CreateDirectory(folderPath);
 
                 // 파일명은 항상 "RuntimeLog.txt" 하나다. 역할(host/client)을 파일명에 넣지 않는다.
                 //
                 // 왜 역할별로 파일을 나누지 않는가 (LogRules.md 1.10):
                 //   이 클래스의 파일 쓰기 코드는 전부 #if UNITY_EDITOR 안에 있어
-                //   빌드(실기기)는 로그 파일을 아예 만들지 않는다.
-                //   즉 파일을 쓰는 프로세스는 언제나 에디터 1개뿐이라 파일이 서로 충돌할 수 없고,
+                //   개발 Android는 이 경로 대신 앱 전용 고유 run 폴더를 사용한다.
+                //   이 에디터 경로를 쓰는 프로세스는 에디터 1개뿐이라 파일이 서로 충돌할 수 없고,
                 //   파일명을 나눌 이유가 없다.
                 //   역할은 파일명이 아니라 로그 라인의 "Role=host" 같은 key=value 필드로 남긴다.
                 const string FileName = "RuntimeLog.txt";
@@ -123,8 +121,8 @@ namespace Hexiege.Infrastructure
 
                 // append: true  → 기존 파일이 있으면 이어쓰기(기록 보존)
                 // autoFlush: true → 매 줄 작성 직후 디스크에 즉시 기록.
-                //                   에디터가 갑자기 멈추거나 크래시 나도 로그가 유실되지 않는다.
-                _writer = new StreamWriter(fullPath, append: true) { AutoFlush = true };
+                //                   관리 버퍼의 미기록 tail 위험을 줄이지만 OS/디스크 고장의 무손실 보장은 아니다.
+                _writer = OpenWriter(fullPath, false);
 
                 // ── 헤더 기록 (LogRules.md 1.4 「파일 헤더」) ──
                 //   1줄째: === [작업명 또는 로그 목적] ===   ← 호출자가 넘긴 purpose
@@ -155,7 +153,8 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 로그 한 줄을 기록한다.
-        /// - 콘솔(Debug.Log 계열)에는 항상 출력된다(에디터 + 실기기 공통).
+        /// - 기본적으로 콘솔(Debug.Log 계열)에 출력한다.
+        /// - Development Android 파일 성공 시 일반 Info 및 정확히 지정된 진단 Warning 두 종류만 콘솔 중복을 생략한다(Event=는 제외).
         /// - 에디터에서 BeginSession으로 파일이 열려 있으면 파일에도 같은 형식으로 이어쓴다.
         /// - BeginSession 없이 호출해도 예외 없이 콘솔 출력만 수행된다.
         /// </summary>
@@ -180,6 +179,25 @@ namespace Hexiege.Infrastructure
                 line += $" | {data}";
             }
 
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            // 임시 RuntimeLogger 직접 호출도 같은 파일 세션에 정확히 한 번 기록한다.
+            // 이 경로의 기존 스택 생략은 Wave 한 종류뿐이다(ConsoleSink 특례와 별개).
+            bool omitStack = level == LogLevel.Info
+                && className == Hexiege.Application.WavePresentationDiagnostics.LogClass
+                && message == Hexiege.Application.WavePresentationDiagnostics.Prefix;
+            bool archived = TryArchiveDeviceRecord(line,
+                level == LogLevel.Warn ? LogType.Warning : level == LogLevel.Error ? LogType.Error : LogType.Log,
+                omitStack, null);
+            if (archived && IsFileOnlyInfo(level == LogLevel.Info, data, null))
+            {
+                return;
+            }
+            if (archived && IsFileOnlyDiagnosticWarning(level == LogLevel.Warn, system, className, message, data, null))
+            {
+                return;
+            }
+#endif
+
 #if UNITY_EDITOR
             // 2) 에디터에서 파일 스트림이 열려 있다면 파일에도 같은 줄을 기록한다.
             if (_writer != null)
@@ -196,7 +214,7 @@ namespace Hexiege.Infrastructure
             }
 #endif
 
-            // 3) 콘솔에는 심각도에 맞는 메서드로 항상 출력한다.
+            // 3) 파일 전용으로 반환한 Info/허용된 진단 Warning을 제외하고 심각도대로 콘솔 출력한다.
             //    이렇게 하면 에디터 콘솔과 실기기 Logcat에서 모두 동일한 형식으로 보인다.
             //
             //    ⚠️ 이 구간만 "콘솔 출력 중" 플래그로 감싼다(IsEmittingToConsole 주석 참조).
@@ -208,6 +226,17 @@ namespace Hexiege.Infrastructure
             //       그 뒤로 훅이 **모든 엔진 오류를 영구히 무시**하게 된다.
             //       즉 로그 시스템이 조용히 죽는다. 그래서 무슨 일이 있어도 finally 에서 내린다.
             //       (GameLog.Emit 의 재진입 가드도 정확히 같은 이유로 finally 를 쓴다.)
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            if (DeviceArchiveFallbackRequired)
+            {
+                EmitDeviceConsole(level, className, message, line);
+            }
+            else EmitDeviceConsole(level, className, message, line);
+        }
+
+        private static void EmitDeviceConsole(LogLevel level, string className, string message, string line)
+        {
+#endif
             _isEmittingToConsole = true;
             try
             {
@@ -239,11 +268,19 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 디버그 로그 세션을 종료한다.
         /// 에디터에서는 열려 있던 파일 스트림을 닫고 정리한다.
-        /// 실기기에서는 아무 동작도 하지 않는다.
+        /// Development Android는 파일 footer/Flush와 종료를 처리한다. 다른 실기기 빌드는 파일 동작이 없다.
         /// 이미 닫혀 있어도(스트림이 null이어도) 안전하게 호출할 수 있다.
         /// </summary>
         public static void EndSession()
         {
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD)
+            if (_deviceAttempted && (_deviceOwnsWriter || _writer == null))
+            {
+                if (_deviceWriting) { _deviceCloseRequested = true; return; }
+                CloseDeviceArchive();
+                return;
+            }
+#endif
 #if UNITY_EDITOR
             if (_writer != null)
             {
@@ -264,6 +301,269 @@ namespace Hexiege.Infrastructure
             }
 #endif
         }
+
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD)
+        private static StreamWriter OpenWriter(string path, bool createNew)
+        {
+            var stream = new FileStream(path, createNew ? FileMode.CreateNew : FileMode.Append, FileAccess.Write, FileShare.Read);
+            StreamWriter writer = null;
+            try
+            {
+                writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false));
+                writer.AutoFlush = true;
+                return writer;
+            }
+            catch
+            {
+                // 생성/초기 Flush 실패도 아직 필드에 대입되지 않은 자원을 반드시 회수한다.
+                try { writer?.Dispose(); } catch { }
+                try { stream.Dispose(); } catch { }
+                throw;
+            }
+        }
+
+        private static bool _deviceAttempted, _deviceActive, _deviceFaulted, _deviceWarned, _deviceOwnsWriter;
+        private static bool _deviceWriting, _deviceClosing, _deviceCloseRequested;
+        private static long _deviceAttempts, _deviceRecords;
+        private static long _deviceDiagnosticFailures;
+        private static long _deviceConsoleFallbacks;
+        private static string _devicePath;
+        internal static bool DeviceArchiveFailed => _deviceFaulted;
+        internal static bool DeviceArchiveFallbackRequired => _deviceAttempted && (_deviceFaulted || _deviceWriting || _deviceClosing);
+        internal static bool DeviceArchiveActive => _deviceActive && !_deviceWriting && !_deviceClosing;
+        internal static bool IsFileOnlyInfo(bool isInfo, string data, Exception exception) => isInfo && exception == null
+            && (data == null || !data.StartsWith("Event=", StringComparison.Ordinal));
+
+
+        // 성공한 archive만 호출자가 적용한다. 원문/Warning 레벨/호출 스택은 파일에 그대로 남긴다.
+        internal static bool IsFileOnlyDiagnosticWarning(bool isWarning, string system, string className,
+            string message, string data, Exception exception)
+        {
+            if (!isWarning || exception != null || system != "Network"
+                || (data != null && data.StartsWith("Event=", StringComparison.Ordinal))) return false;
+            if (className == "UnitAttackShadowObserver")
+                return message == "[UAS-ATTACK-SHADOW] presentation-shadow-failure";
+            return className == "TimedDamageEffectChannel" && IsPoisonStaleStopMessage(message);
+        }
+
+        private static readonly string[] _poisonStopFields = {
+            "Stage=", "Match=", "Lifetime=", "Effect=", "Revision=", "Target=", "Source=", "Visual=",
+            "Active=", "Start=", "End=", "Now=", "Role=", "Authority=", "Reason=", "AttackKey=", "Writer=" };
+
+        private static bool IsPoisonStaleStopMessage(string message)
+        {
+            if (message == null) return false;
+            ReadOnlySpan<char> remaining = message.AsSpan();
+            for (int field = 0; field < _poisonStopFields.Length; field++)
+            {
+                int separator = remaining.IndexOf(", ".AsSpan());
+                bool last = field == _poisonStopFields.Length - 1;
+                if (last ? separator >= 0 : separator < 0) return false;
+                ReadOnlySpan<char> token = last ? remaining : remaining.Slice(0, separator);
+                ReadOnlySpan<char> key = _poisonStopFields[field].AsSpan();
+                if (!token.StartsWith(key, StringComparison.Ordinal)) return false;
+                ReadOnlySpan<char> value = token.Slice(key.Length);
+                if (value.IsEmpty) return false;
+                // Record의 scalar에는 공백/개행이 없다. 불명확한 형태는 native 출력을 유지한다.
+                for (int i = 0; i < value.Length; i++)
+                    if (char.IsWhiteSpace(value[i]) || char.IsControl(value[i])) return false;
+                bool valid;
+                switch (field)
+                {
+                    case 0: valid = value.SequenceEqual("Drop".AsSpan()); break;
+                    case 1: case 2: case 3: case 4:
+                        valid = ulong.TryParse(value, System.Globalization.NumberStyles.None,
+                            System.Globalization.CultureInfo.InvariantCulture, out _); break;
+                    case 5: case 6:
+                        valid = int.TryParse(value, System.Globalization.NumberStyles.AllowLeadingSign,
+                            System.Globalization.CultureInfo.InvariantCulture, out _); break;
+                    case 7: valid = value.SequenceEqual("Poison".AsSpan()); break;
+                    case 8: case 13: valid = value.SequenceEqual("True".AsSpan()) || value.SequenceEqual("False".AsSpan()); break;
+                    case 9: case 10: case 11:
+                        valid = IsInvariantDiagnosticDouble(value); break;
+                    case 12: valid = value.SequenceEqual("Solo".AsSpan()) || value.SequenceEqual("Server".AsSpan())
+                            || value.SequenceEqual("Client".AsSpan()); break;
+                    case 14: valid = value.SequenceEqual("StaleStopOrClosed".AsSpan()); break;
+                    case 15: valid = IsAttackKey(value); break;
+                    default: valid = value.SequenceEqual("Damage".AsSpan()); break;
+                }
+                if (!valid) return false;
+                if (!last) remaining = remaining.Slice(separator + 2);
+            }
+            return true;
+        }
+
+        private static bool IsAttackKey(ReadOnlySpan<char> value)
+        {
+            for (int part = 0; part < 3; part++)
+            {
+                int colon = value.IndexOf(':');
+                if (part == 2 ? colon >= 0 : colon < 0) return false;
+                ReadOnlySpan<char> number = part == 2 ? value : value.Slice(0, colon);
+                if (!ulong.TryParse(number, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out _)) return false;
+                if (part != 2) value = value.Slice(colon + 1);
+            }
+            return true;
+        }
+
+        private static bool IsInvariantDiagnosticDouble(ReadOnlySpan<char> value)
+        {
+            // Invariant G17이 생성하는 특수값의 정확한 표기만 허용한다.
+            if (value.SequenceEqual("NaN".AsSpan()) || value.SequenceEqual("Infinity".AsSpan())
+                || value.SequenceEqual("-Infinity".AsSpan())) return true;
+            for (int i = 0; i < value.Length; i++)
+                if ((value[i] < '0' || value[i] > '9') && value[i] != '.'
+                    && value[i] != '-' && value[i] != '+' && value[i] != 'E') return false;
+            return double.TryParse(value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double number)
+                && !double.IsInfinity(number) && !double.IsNaN(number);
+        }
+
+
+        /// <summary>Owner가 앱당 한 번만 연다. 같은 run 폴더/파일을 다시 열거나 덮어쓰지 않는다.</summary>
+        internal static void BeginDeviceArchive(string root)
+        {
+            if (_deviceAttempted) return;
+            _deviceAttempted = true;
+            try
+            {
+                if (_writer != null) throw new InvalidOperationException("Another runtime log writer is already open.");
+                string run = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture)
+                    + "-" + Guid.NewGuid().ToString("N");
+                string directory = Path.Combine(root, run);
+                if (Directory.Exists(directory)) throw new IOException("Device archive directory already exists.");
+                Directory.CreateDirectory(directory);
+                _devicePath = Path.Combine(directory, "RuntimeLog.txt");
+                _writer = OpenWriter(_devicePath, true);
+                _deviceOwnsWriter = true;
+#if ENABLE_IL2CPP
+                const string backend = "IL2CPP";
+#else
+                const string backend = "MonoOrEditor";
+#endif
+                using var process = System.Diagnostics.Process.GetCurrentProcess();
+                _writer.WriteLine("=== Android development runtime archive ===");
+                _writer.WriteLine("=== DEVICE-ARCHIVE schema=1 session=" + run + " buildGuid=" + UnityEngine.Application.buildGUID
+                    + " backend=" + backend + " process=" + process.Id + " utc="
+                    + DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture) + " ===");
+                _writer.WriteLine();
+                _writer.Flush();
+                _deviceActive = true;
+                // 수집기가 폴더를 찾는 1회 식별 헤더. UID/토큰/원문 로그는 출력하지 않는다.
+                EmitDeviceDiagnostic("[DEVICE-LOG-ARCHIVE] schema=1 path=" + _devicePath + " buildGuid=" + UnityEngine.Application.buildGUID);
+            }
+            catch (Exception error) { FailDeviceArchive(error, "open"); CloseDeviceArchive(); }
+        }
+
+        internal static string CaptureDeviceCallerStack(LogType type, bool omitStack)
+        {
+            if (omitStack || UnityEngine.Application.GetStackTraceLogType(type) == StackTraceLogType.None) return null;
+            return StackTraceUtility.ExtractStackTrace();
+        }
+
+        /// <summary>
+        /// 완성된 원문을 공유 writer에 동기 기록한다. 성공한 뒤에만 console 중복을 생략할 수 있다.
+        /// 길이/seq/END 경계로 불완전 tail을 찾는다. AutoFlush는 OS 강제 종료/디스크 고장의 무손실 보장이 아니다.
+        /// </summary>
+        internal static bool TryArchiveDeviceRecord(string line, LogType type, bool omitStack, Exception exception)
+        {
+            if (!DeviceArchiveActive || _writer == null)
+            {
+                if (DeviceArchiveFallbackRequired) _deviceConsoleFallbacks++;
+                return false;
+            }
+            bool saved = false;
+            _deviceWriting = true;
+            long sequence = ++_deviceAttempts;
+            try
+            {
+                string stack = CaptureDeviceCallerStack(type, omitStack);
+                string payload = line + Environment.NewLine;
+                if (!string.IsNullOrEmpty(stack)) payload += stack + Environment.NewLine;
+                if (exception != null) payload += exception + Environment.NewLine;
+                string record = "=== RECORD seq=" + sequence + " utf8Bytes=" + System.Text.Encoding.UTF8.GetByteCount(payload)
+                    + " ===" + Environment.NewLine + payload + "=== RECORD-END seq=" + sequence + " ===" + Environment.NewLine;
+                {
+                    _writer.Write(record);
+                    _writer.Flush();
+                }
+                _deviceRecords++;
+                saved = true;
+            }
+            catch (Exception error) { FailDeviceArchive(error, "record"); }
+            finally
+            {
+                _deviceWriting = false;
+                if (_deviceFaulted || _deviceCloseRequested) CloseDeviceArchive();
+            }
+            // Close/flush 재진입에서 고장이 확인된 경우 현재 행도 기존 console 경로로 돌린다.
+            bool success = saved && !_deviceFaulted;
+            if (!success) _deviceConsoleFallbacks++;
+            return success;
+        }
+
+        private static void FailDeviceArchive(Exception error, string stage)
+        {
+            _deviceFaulted = true; _deviceActive = false;
+            if (_deviceWarned) return;
+            _deviceWarned = true;
+            bool prior = _isEmittingToConsole;
+            _isEmittingToConsole = true;
+            try
+            {
+                // 파일 일부가 쓰인 뒤 실패하면 같은 행이 Logcat에도 있을 수 있다. seq/기록 수로 그 경계를 남긴다.
+                Debug.LogWarning("[RuntimeLogger] device archive unavailable; console fallback. stage=" + stage
+                    + ", error=" + error.GetType().Name + ", attempts=" + _deviceAttempts + ", committed=" + _deviceRecords);
+            }
+            catch { _deviceDiagnosticFailures++; } // 실패 경고의 외부 logHandler 오류가 원래 행의 fallback을 막으면 안 된다.
+            finally { _isEmittingToConsole = prior; }
+        }
+
+        private static void EmitDeviceDiagnostic(string line)
+        {
+            bool prior = _isEmittingToConsole;
+            _isEmittingToConsole = true;
+            try { Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "{0}", line); }
+            catch { _deviceDiagnosticFailures++; } // 진단 자체의 오류를 다시 로그하여 재귀하지 않는다.
+            finally { _isEmittingToConsole = prior; }
+        }
+
+        private static void CloseDeviceArchive()
+        {
+            if (_deviceClosing) return;
+            _deviceActive = false;
+            _deviceCloseRequested = false;
+            if (!_deviceOwnsWriter) return;
+            var writer = _writer;
+            _writer = null;
+            _deviceOwnsWriter = false;
+            if (writer == null) return;
+            _deviceClosing = true;
+            bool flushed = false, disposed = false;
+            try
+            {
+                if (!_deviceFaulted)
+                {
+                    writer.WriteLine("=== DEVICE-ARCHIVE-END attempts=" + _deviceAttempts + " committed=" + _deviceRecords
+                        + " diagnosticFailures=" + _deviceDiagnosticFailures + " consoleFallbacks=" + _deviceConsoleFallbacks + " recordsFlushed=True ===");
+                    writer.Flush();
+                    flushed = true;
+                }
+            }
+            catch (Exception error) { FailDeviceArchive(error, "close-flush"); }
+            finally
+            {
+                try { writer.Dispose(); disposed = true; }
+                catch (Exception error) { FailDeviceArchive(error, "close-dispose"); }
+                _deviceClosing = false;
+            }
+            // 파일 footer는 Flush까지만 증명한다. Dispose까지 성공한 별도 receipt를 Logcat에 남긴다.
+            if (flushed && disposed && !_deviceFaulted)
+                EmitDeviceDiagnostic("[DEVICE-LOG-ARCHIVE-END] closed=True committed=" + _deviceRecords
+                    + " consoleFallbacks=" + _deviceConsoleFallbacks + " path=" + _devicePath);
+        }
+#endif
 
         /// <summary>
         /// LogLevel 열거형을 로그 문자열에 쓸 대문자 텍스트로 변환한다.

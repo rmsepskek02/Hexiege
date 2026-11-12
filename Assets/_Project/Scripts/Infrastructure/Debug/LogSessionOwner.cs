@@ -216,9 +216,8 @@ namespace Hexiege.Infrastructure
             //   ① 이 시점(Awake)에는 NGO 가 아직 연결되지 않아 host/client 를 알 수 없다.
             //      이 프로젝트의 멀티 테스트 구성은 "에디터 1개 + 실기기 빌드 1개"이고,
             //      어느 쪽이 host 가 될지는 정해져 있지 않다.
-            //   ② 애초에 파일명을 나눌 필요가 없다. FileSink 의 동작 전체가 #if UNITY_EDITOR 안에 있어
-            //      빌드(실기기)는 로그 파일을 아예 쓰지 않는다.
-            //      즉 파일을 쓰는 프로세스는 언제나 에디터 1개뿐이라 파일이 충돌할 수 없다.
+            //   ② 이 FileSink 경로는 #if UNITY_EDITOR 안에 있다. 개발 Android 파일은 앱 전용 run 폴더다.
+            //      이 에디터 경로의 작성 프로세스는 에디터 1개뿐이라 역할별 파일이 충돌하지 않는다.
             //   → 그래서 파일은 RuntimeLog.txt 하나이고,
             //     역할은 NetworkCombatController.OnNetworkSpawn 이 역할 확정 시점에
             //     "Role=host / Role=client" 로그 한 줄로 남긴다(LogRules.md 1.4 / 1.10).
@@ -227,8 +226,12 @@ namespace Hexiege.Infrastructure
             Hexiege.Application.GameLog.AddSink(_logFileSink);
 #else
             // ── 빌드(실기기): 콘솔 sink 하나만 등록한다 ──
-            //   빌드에서는 파일 쓰기가 아예 없으므로(RuntimeLogger 의 파일 코드는 에디터 전용),
-            //   로그는 Logcat 으로 나가고 필요하면 LogcatCapture 도구로 파일에 뽑는다.
+            //   Development Android만 아래에서 파일 보존을 먼저 켠다. 나머지 빌드는 기존 Logcat 경로다.
+            //   ConsoleSink 하나만 등록하므로 파일 기록과 중복 콘솔 여부도 호출당 한 번 결정한다.
+#if UNITY_ANDROID && DEVELOPMENT_BUILD
+            // 개발 Android만 전체 원문을 고유 run 폴더에 보존한다. 씬 변경으로 다시 열지 않는다.
+            RuntimeLogger.BeginDeviceArchive(System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "DevelopmentLogs"));
+#endif
             _logConsoleSink = new ConsoleSink();
             Hexiege.Application.GameLog.AddSink(_logConsoleSink);
 #endif
@@ -309,6 +312,9 @@ namespace Hexiege.Infrastructure
                 Hexiege.Application.GameLog.RemoveSink(_logConsoleSink);
                 _logConsoleSink = null;
             }
+#if UNITY_ANDROID && DEVELOPMENT_BUILD
+            RuntimeLogger.EndSession();
+#endif
 #endif
 
             // 훅 중복 방지용 캐시도 비운다.

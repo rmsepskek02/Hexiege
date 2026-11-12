@@ -18,6 +18,11 @@ namespace Hexiege.Presentation
         private double _lastTime;
         private int _reportedFailures;
         private bool _invalidClockEpisode;
+        // 인스턴스 메서드 delegate를 프레임마다 새로 만들지 않는다.
+        // clock은 경기 owner를 캡처하여 재초기화 뒤에도 이미 재생 중인 파도의 소유자가 바뀌지 않게 한다.
+        private Func<WavePresentationSpawn, double, bool> _spawnEmitter;
+        private Func<WavePresentationContact, bool> _contactEmitter;
+        private Func<double> _waveClock;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private WavePresentationDiagnostics _diagnostics = new("presentation");
 #endif
@@ -32,6 +37,7 @@ namespace Hexiege.Presentation
             _lastTime = combat.WaveServerTime;
             if (double.IsNaN(_lastTime) || double.IsInfinity(_lastTime) || _lastTime < 0)
             { _combat = null; return; }
+            _waveClock = CreateWaveClock(combat);
             _coordinator.Reset(_epoch, _lastTime, combat.WavePresentationBaselineId);
             _reportedFailures = 0;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -46,6 +52,9 @@ namespace Hexiege.Presentation
             });
             combat.SetWavePresentationOwned(true);
         }
+
+        // Initialize의 이벤트 콜백과 캡처 저장소를 공유하지 않아 파도 clock은 owner만 보관한다.
+        private static Func<double> CreateWaveClock(UnitCombatUseCase owner) => () => owner.WaveServerTime;
 
         private void EnsureEpoch(double time)
         {
@@ -90,7 +99,9 @@ namespace Hexiege.Presentation
             // Tick은 raw 한 표본만 읽는다. 로컬 monotonic 표본은 ClockPending 만료에만 사용한다.
             EnsureEpoch(time); _lastTime = time;
             _coordinator.AdvanceBaseline(_combat.WavePresentationBaseline, _combat.WavePresentationBaselineId);
-            _coordinator.Tick(time, EmitSpawn, EmitContact, Time.realtimeSinceStartupAsDouble);
+            _spawnEmitter ??= EmitSpawn;
+            _contactEmitter ??= EmitContact;
+            _coordinator.Tick(time, _spawnEmitter, _contactEmitter, Time.realtimeSinceStartupAsDouble);
             if (_coordinator.Failures != _reportedFailures)
             {
                 _reportedFailures = _coordinator.Failures;
@@ -103,7 +114,7 @@ namespace Hexiege.Presentation
             var effects = EffectManager.Instance;
             if (effects == null) return false;
             var owner = _combat;
-            var item = effects.PlayWave(spawn, () => owner.WaveServerTime);
+            var item = effects.PlayWave(spawn, _waveClock);
             if (item == null) return false;
             AudioManager.Instance?.PlayUnitAttackSfx(UnitType.TorrentSpirit);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -157,6 +168,7 @@ namespace Hexiege.Presentation
               _combat.WaveSpawned -= ReceiveSpawn; _combat.WaveContactConfirmed -= ReceiveContact; }
             _endSubscription?.Dispose(); _endSubscription = null;
             _combat = null;
+            _waveClock = null;
             _coordinator.Close();
         }
         private void OnDestroy() { Detach(); _combat = null; }

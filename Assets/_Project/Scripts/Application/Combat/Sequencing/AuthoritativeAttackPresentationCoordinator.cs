@@ -123,7 +123,7 @@ namespace Hexiege.Application.Combat.Sequencing
             if (_results.TryGetValue(result.Key, out var previous))
                 return previous.Input.Equals(result) ? Duplicate() : Fail(AuthoritativePresentationStatus.Conflict);
             if (_bundles.TryGetValue(AttackPresentationScope.FromResultKey(result.Key), out var completedBundle)
-                && Array.FindIndex(completedBundle, item => item.Key.Equals(result.Key)) < 0)
+                && !ContainsResultKey(completedBundle, result.Key))
                 return Fail(AuthoritativePresentationStatus.Conflict);
             if (_results.Count >= _capacity) return Fail(AuthoritativePresentationStatus.CapacityExceeded);
             _results.Add(result.Key, new ResultState { Input = result, ReceivedAt = now });
@@ -168,7 +168,7 @@ namespace Hexiege.Application.Combat.Sequencing
             }
             if (_resultKeysByScope.TryGetValue(scope, out var knownKeys))
                 foreach (var knownKey in knownKeys)
-                    if (Array.FindIndex(results, item => item.Key.Equals(knownKey)) < 0)
+                    if (!ContainsResultKey(results, knownKey))
                         return Fail(AuthoritativePresentationStatus.Conflict);
             if (_bundles.TryGetValue(scope, out var previous))
             {
@@ -187,6 +187,12 @@ namespace Hexiege.Application.Combat.Sequencing
             return AuthoritativePresentationStatus.Accepted;
         }
 
+        private static bool ContainsResultKey(AttackResultPresentationInput[] results, AttackResultKey key)
+        {
+            for (int index = 0; index < results.Length; index++)
+                if (results[index].Key.Equals(key)) return true;
+            return false;
+        }
         public void Tick(double now)
         {
             if (!ValidTime(now)) { Fail(AuthoritativePresentationStatus.Invalid); return; }

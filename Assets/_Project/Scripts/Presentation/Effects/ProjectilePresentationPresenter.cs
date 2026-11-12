@@ -101,6 +101,9 @@ namespace Hexiege.Presentation
         }
 
         private readonly ProjectilePresentationCoordinator _coordinator = new ProjectilePresentationCoordinator();
+        // 트레이서 오브젝트와 별개인 작은 화면 상태도 반환 뒤 재사용한다.
+        // 보관 상한은 대기 객체 메모리에만 적용하며 새 투사체의 표시를 제한하지 않는다.
+        private readonly System.Collections.Generic.Stack<Visual> _visualPool = new System.Collections.Generic.Stack<Visual>();
         private UnitCombatUseCase _combat;
         private HitPresentationQueue _hits;
         private UnitFactory _unitFactory;
@@ -269,15 +272,13 @@ namespace Hexiege.Presentation
             try
             {
                 ProjectileLaunchPresentation launch = slot.Launch;
-                var visual = new Visual
-                {
-                    AttackerIsUnit = launch.AttackerIsUnit,
-                    AttackerType = (UnitType)launch.AttackerKind,
-                    // [단계 C] 건물 공격자면 AttackerKind = BuildingType, AttackerRace = RaceId(서버가 채운다).
-                    TowerType = (BuildingType)launch.AttackerKind,
-                    TowerRace = (RaceId)launch.AttackerRace,
-                    LastCenter = ViewConverter.ToView(launch.TargetCenter)
-                };
+                var visual = _visualPool.Count > 0 ? _visualPool.Pop() : new Visual();
+                visual.AttackerIsUnit = launch.AttackerIsUnit;
+                visual.AttackerType = (UnitType)launch.AttackerKind;
+                // [단계 C] 건물 공격자면 AttackerKind = BuildingType, AttackerRace = RaceId(서버가 채운다).
+                visual.TowerType = (BuildingType)launch.AttackerKind;
+                visual.TowerRace = (RaceId)launch.AttackerRace;
+                visual.LastCenter = ViewConverter.ToView(launch.TargetCenter);
                 UnitView attackerView = ResolveAttackerView(launch);
                 // [단계 C] 건물 공격자(타워)는 서버가 보낸 포구 위치(높이 포함)를 그대로 출발점으로 쓴다.
                 //   Red 화면은 ToView가 XZ를 반전한다 — 타워도 그 화면에서 180° 돌아 놓여 있어 같은 포구에 맞는다.
@@ -470,6 +471,25 @@ namespace Hexiege.Presentation
             try { EffectManager.Instance?.EndServerProjectile(visual.Tracer); }
             catch (Exception exception) { Fault("end", slot, exception); }
             visual.Tracer = null;
+            RecycleVisual(visual);
+        }
+
+        private void RecycleVisual(Visual visual)
+        {
+            // EndServerProjectile의 반환 콜백까지 끝난 뒤에만 대여 가능하게 한다.
+            // 대상이 없던 다음 발에 이전 타겟·위치·종족 정보가 남지 않도록 새 Visual의 기본값으로 돌린다.
+            visual.Start = default;
+            visual.TargetPose = null;
+            visual.TargetView = null;
+            visual.TargetData = null;
+            visual.TargetObject = null;
+            visual.LastCenter = default;
+            visual.LastEndpoint = default;
+            visual.AttackerType = default;
+            visual.AttackerIsUnit = default;
+            visual.TowerType = default;
+            visual.TowerRace = default;
+            if (_visualPool.Count < ProjectilePresentationCoordinator.MaxSlots) _visualPool.Push(visual);
         }
 
         private void Fault(string stage, ProjectilePresentationCoordinator.Slot slot, Exception exception)
@@ -542,10 +562,13 @@ namespace Hexiege.Presentation
                 // 차지 유닛은 설계상 발사 신호에서 총구 VFX를 켜지 않는다(발사음만) — VFX 시작 수에 넣지 않는다.
                 bool started = !chargeUnit && cueStatus == UnitAttackVfxPlaybackStatus.Started;
                 if (started) _view.CueVfxStarted++;
-                cue = chargeUnit ? "played-sfx-only-charge" : started ? "played-vfx-started" : "played-vfx-" + cueStatus;
+                cue = chargeUnit ? "played-sfx-only-charge" : started ? "played-vfx-started" : null;
             }
             if (midFlight) _view.BeginsMidFlight++;
             if (_view.Samples >= ViewSampleLimit) return;
+            // 표본 상한 뒤에는 출력하지 않을 enum 이름·결합 문자열을 만들지 않는다.
+            // 계수는 위에서 그대로 갱신하고 실제로 남기는 처음 24발의 cue 값만 기존 형식으로 조립한다.
+            cue ??= "played-vfx-" + cueStatus;
             _view.Samples++;
             _view.Sampled.Add(slot.Key.Id);
             ProjectileLaunchPresentation launch = slot.Launch;

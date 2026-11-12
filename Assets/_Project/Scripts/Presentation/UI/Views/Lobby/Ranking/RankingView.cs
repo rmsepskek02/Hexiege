@@ -20,7 +20,7 @@
 // 주의(데이터 로드 시점):
 //   로비 탭은 CanvasGroup(alpha) 로 전환되어 GameObject 가 계속 활성 상태이므로,
 //   OnEnable 은 씬 진입 시 1회만 발화한다. 그래서 OnEnable/Start 는 데이터를 불러오지 않고
-//   서비스·행 풀·버튼 리스너를 구성하는 초기화만 한다.
+//   서비스·버튼 리스너만 구성한다. 행 풀은 첫 페이지 표시 직전에 1회 준비한다.
 //   랭킹 데이터를 실제로 불러오는 시점은 두 곳이며 둘 다 이미 배선돼 있다.
 //     - 랭킹 탭을 고른 순간 — LobbyRootView 의 탭 전환 구독이 이 View 의 RefreshAsync 를 부른다.
 //     - 새로고침 버튼을 누른 순간 — 아래 OnRefreshClicked.
@@ -142,6 +142,7 @@ namespace Hexiege.Presentation
         }
 
         private bool _initialized = false;
+        private bool _rowPoolWiringValid, _rowPoolPrepared, _rowPoolPreparing, _rowPoolClosed;
 
         // ====================================================================
         // Unity 생명주기
@@ -164,6 +165,7 @@ namespace Hexiege.Presentation
 
         private void OnDestroy()
         {
+            _rowPoolClosed = true;
             if (_prevPageButton != null) _prevPageButton.onClick.RemoveAllListeners();
             if (_nextPageButton != null) _nextPageButton.onClick.RemoveAllListeners();
             if (_refreshButton != null) _refreshButton.onClick.RemoveAllListeners();
@@ -180,18 +182,18 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 서비스/행 풀/버튼 리스너를 1회 구성한다.
+        /// 서비스/초기 배선 검사/버튼 리스너를 1회 구성한다.
         /// </summary>
         private void InitializeIfNeeded()
         {
-            if (_initialized)
+            if (_initialized || _rowPoolClosed)
                 return;
 
             // UseCase 생성(구현체는 Infrastructure — Presentation 에서 생성 허용).
             ILeaderboardService leaderboardService = new LeaderboardService();
             _rankingUseCase = new RankingUseCase(leaderboardService);
 
-            BuildRowPool();
+            _rowPoolWiringValid = ValidateRowPoolWiring();
             BindHeaderButtons();
             AcquireVisibilityGroups();
 
@@ -294,19 +296,6 @@ namespace Hexiege.Presentation
                     StyleButton(header, 24);
             }
             NormalizeColumnWidths(_headerRow);
-            foreach (RankRowView row in _rows)
-            {
-                if (row == null) continue;
-                NormalizeColumnWidths(row.transform);
-                if (row.TryGetComponent(out LayoutElement rowLayout))
-                {
-                    // 프리팹의 고정 60 높이 대신 세 줄을 담고, 더 긴 내용은 기존 LayoutGroup이 높이를 계산한다.
-                    rowLayout.minHeight = 96f;
-                    rowLayout.preferredHeight = -1f;
-                    rowLayout.flexibleHeight = 0f;
-                }
-            }
-
             StyleButton(_prevPageButton, 24);
             StyleButton(_nextPageButton, 24);
             // 기존 은색 페이지 버튼 위의 문구 대비를 맞춘다.
@@ -486,28 +475,58 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 행 프리팹을 Content 아래에 RowsPerPage 개 생성해 풀로 보관한다.
         /// </summary>
-        private void BuildRowPool()
+        private bool ValidateRowPoolWiring()
         {
-            if (_rowPrefab == null || _content == null)
-            {
-                // [개발] Warn + 개발 — Inspector 배선 누락(1.3 원칙 3 단서).
-                //   ⚠️ 이 파일에서 Cloud(랭킹 조회) 계층과 중복되는 로그는 없다. 조회 실패는
-                //      LeaderboardService 가 LeaderboardQueryFailed / LeaderboardMetadataParseFailed 로
-                //      이미 운영 기록하며, 이 자리는 그 흐름과 무관한 UI 배선 문제다.
-                GameLog.Dev.Warn("UI", nameof(RankingView),
-                                 "행 프리팹/컨테이너 미배선 — 랭킹 행 풀을 만들 수 없다",
-                                 "Field=_rowPrefab|_content");
-                return;
-            }
-
-            for (int i = 0; i < RowsPerPage; i++)
-            {
-                RankRowView row = Instantiate(_rowPrefab, _content);
-                row.Clear();
-                _rows.Add(row);
-            }
+            if (_rowPrefab != null && _content != null) return true;
+            // 초기화 시점의 기존 경고를 유지하고 첫 표시마다 반복하지 않는다.
+            GameLog.Dev.Warn("UI", nameof(RankingView),
+                "행 프리팹/컨테이너 미배선 — 랭킹 행 풀을 만들 수 없다",
+                "Field=_rowPrefab|_content");
+            return false;
         }
 
+        private bool EnsureRowPool()
+        {
+            if (_rowPoolClosed || _rowPoolPreparing) return false;
+            if (_rowPoolPrepared || !_rowPoolWiringValid) return true;
+            _rowPoolPreparing = true;
+            try
+            {
+                _rowPoolPrepared = BuildRowPool();
+                return _rowPoolPrepared;
+            }
+            finally { _rowPoolPreparing = false; }
+        }
+
+        private bool BuildRowPool()
+        {
+            if (_rowPrefab == null || _content == null) return false;
+            for (int i = 0; i < RowsPerPage; i++)
+            {
+                if (_rowPoolClosed) return false;
+                // 생성 직후 등록해 Clear/layout 실패나 재진입 뒤에도 같은 슬롯을 재사용한다.
+                if (i >= _rows.Count) _rows.Add(Instantiate(_rowPrefab, _content));
+                else if (_rows[i] == null) _rows[i] = Instantiate(_rowPrefab, _content);
+                if (_rowPoolClosed) return false;
+                RankRowView row = _rows[i];
+                row.Clear();
+                ConfigureRowLayout(row);
+            }
+            return true;
+        }
+
+        private static void ConfigureRowLayout(RankRowView row)
+        {
+            if (row == null) return;
+            NormalizeColumnWidths(row.transform);
+            if (row.TryGetComponent(out LayoutElement rowLayout))
+            {
+                // 기존 표시 규격을 첫 생성 시 그대로 적용한다.
+                rowLayout.minHeight = 96f;
+                rowLayout.preferredHeight = -1f;
+                rowLayout.flexibleHeight = 0f;
+            }
+        }
         /// <summary>
         /// 헤더 행 자식에서 Button 들을 수집하고, 열 인덱스에 맞춰 정렬 콜백을 등록한다.
         /// 열 순서(좌→우): 0 순위(고정) / 1 닉네임 / 2 승률 / 3 게임수 / 4 승 / 5 패.
@@ -762,6 +781,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void RenderCurrentPage()
         {
+            if (!EnsureRowPool()) return;
             IReadOnlyList<LeaderboardEntry> entries = ActiveEntries;
             _currentPage = Mathf.Clamp(_currentPage, 0, PageCount - 1);
             int startIndex = _currentPage * RowsPerPage;

@@ -13,10 +13,9 @@
 //   → 이 클래스는 경로·세션 수명만 책임지고, 실제 기록은 RuntimeLogger 에 위임한다.
 //
 // ── 에디터 전용이다 ──────────────────────────────────────────────────────
-//   RuntimeLogger 의 파일 쓰기 코드는 #if UNITY_EDITOR 안에 있어 실기기에서는 동작하지 않는다.
-//   그리고 RuntimeLogger.Log 는 파일과 **콘솔에 동시에** 출력한다.
-//   그래서 이 sink 를 빌드에서 ConsoleSink 와 함께 등록하면 콘솔에 같은 줄이 두 번 찍힌다.
-//   그 사고를 구조적으로 막기 위해, 이 클래스의 동작 전체를 #if UNITY_EDITOR 로 감쌌다.
+//   이 FileSink의 동작 전체는 #if UNITY_EDITOR이며 파일과 에디터 콘솔에 동시에 출력한다.
+//   에디터에서 ConsoleSink까지 함께 등록하면 같은 줄이 두 번 찍히므로 하나만 등록한다.
+//   Development Android는 이 FileSink를 쓰지 않고 ConsoleSink가 RuntimeLogger의 공유 writer로 보존한다.
 //   빌드에서는 등록되더라도 아무 일도 하지 않는다.
 //   (조합 루트에서도 에디터: FileSink / 빌드: ConsoleSink 로 갈라 등록한다.)
 //
@@ -111,7 +110,7 @@ namespace Hexiege.Infrastructure
         /// 그 헤더가 실행 구분선 역할을 한다(LogRules.md 1.10).
         ///
         /// 파일명에 역할(host/client)을 넣지 않는 이유:
-        ///   이 클래스의 동작 전체가 #if UNITY_EDITOR 안에 있어 빌드(실기기)는 파일을 쓰지 않는다.
+        ///   이 FileSink의 동작은 #if UNITY_EDITOR 안에 있다(개발 Android 파일 보존은 별도 진입 경로).
         ///   따라서 파일을 쓰는 프로세스는 항상 에디터 1개뿐이라 파일이 충돌할 수 없다.
         ///   역할은 NetworkCombatController.OnNetworkSpawn 에서 "Role=host / Role=client"
         ///   로그 한 줄로 남긴다(LogRules.md 1.10).

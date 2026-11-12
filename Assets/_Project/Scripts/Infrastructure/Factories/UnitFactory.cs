@@ -580,16 +580,26 @@ namespace Hexiege.Infrastructure
                 return System.Array.Empty<float>();
 
             // Animation Event의 함수 이름과 시간을 읽을 뿐, 여기서 피해를 발생시키지 않는다.
-            var hitTimes = new List<float>();
-            foreach (var evt in attackClip.events)
+            // Unity가 돌려준 이벤트 snapshot은 한 번만 읽는다. 같은 snapshot에서 개수를 센 뒤
+            // 결과 배열을 정확한 크기로 만들어 유닛 생성마다 List와 확장용 배열을 따로 만들지 않는다.
+            // 클립별 캐시는 두지 않으므로 다음 생성 때 바뀐 이벤트도 기존처럼 다시 읽는다.
+            var events = attackClip.events;
+            int count = 0;
+            foreach (var evt in events)
+                if (evt.functionName == "OnAttackHit") count++;
+            if (count == 0) return System.Array.Empty<float>();
+
+            var hitTimes = new float[count];
+            int index = 0;
+            foreach (var evt in events)
             {
                 if (evt.functionName == "OnAttackHit")
-                    hitTimes.Add(evt.time);
+                    hitTimes[index++] = evt.time;
             }
 
             // 에셋 저장 순서에 의존하지 않도록 다중 marker도 시간순으로 반환한다.
-            hitTimes.Sort();
-            return hitTimes.ToArray();
+            System.Array.Sort(hitTimes);
+            return hitTimes;
         }
 
         /// <summary>

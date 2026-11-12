@@ -375,14 +375,12 @@ namespace Hexiege.Application
             string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
             string levelText = LevelToText(level);
 
-            string line = $"[{timestamp}] [{levelText}] [{system}/{className}] {message}";
-
-            if (!string.IsNullOrEmpty(data))
-            {
-                line += $" | {data}";
-            }
-
-            return line;
+            // data가 있는 로그도 완성된 한 줄을 한 번만 조립한다.
+            // 먼저 기본 줄을 만든 뒤 다시 덧붙이면 같은 긴 본문이 중간 문자열에도 복사된다.
+            // timestamp·레벨·구분자와 null/빈 data 생략 규칙은 두 경로에서 그대로 유지한다.
+            return string.IsNullOrEmpty(data)
+                ? $"[{timestamp}] [{levelText}] [{system}/{className}] {message}"
+                : $"[{timestamp}] [{levelText}] [{system}/{className}] {message} | {data}";
         }
 
         /// <summary>

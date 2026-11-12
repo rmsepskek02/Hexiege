@@ -36,6 +36,7 @@ namespace Hexiege.Application
         private readonly Dictionary<ulong, Slot> _slots = new();
         private readonly List<ulong> _retire = new();
         private readonly HashSet<ulong> _retiredGaps = new();
+        private Predicate<ulong> _retiredGapPredicate;
         private ulong _epoch, _retiredThrough;
         private double _baseline;
         private double _lastClock;
@@ -114,9 +115,13 @@ namespace Hexiege.Application
             if (baselineId > _retiredThrough)
             {
                 _retiredThrough = baselineId;
-                _retiredGaps.RemoveWhere(id => id <= baselineId);
+                // 캡처 지역변수 대신 같은 비교 기준을 보관한 필드를 읽는다.
+                // baseline이 그대로인 매 프레임에는 closure/delegate를 만들지 않는다.
+                _retiredGapPredicate ??= IsAtOrBeforeRetiredBaseline;
+                _retiredGaps.RemoveWhere(_retiredGapPredicate);
             }
         }
+        private bool IsAtOrBeforeRetiredBaseline(ulong id) => id <= _retiredThrough;
         private bool UsableClock(double now) => Finite(now) && now >= 0 && now >= _lastClock;
         private bool ValidateClock(double now, double local)
         {

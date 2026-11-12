@@ -1267,7 +1267,7 @@ namespace Hexiege.Application
         public bool HasEnemyInRange(UnitData attacker)
         {
             if (attacker == null || !attacker.IsAlive) return false;
-            return FindFirstEnemyTarget(attacker) != null;
+            return FindFirstEnemyTarget(attacker, default, usePositionOverride: false, stopAtFirstMatch: true) != null;
         }
 
         /// <summary>
@@ -1291,7 +1291,7 @@ namespace Hexiege.Application
             return FindFirstEnemyTarget(
                 attacker,
                 attackerCandidateWorldPosition,
-                usePositionOverride: true) != null;
+                usePositionOverride: true, stopAtFirstMatch: true) != null;
         }
 
         /// <summary>
@@ -1312,7 +1312,9 @@ namespace Hexiege.Application
         public bool HasEnemyInDetectRange(UnitData attacker)
         {
             if (attacker == null || !attacker.IsAlive) return false;
-            return FindFirstEnemyInDetectRange(attacker) != null;
+            bool detected = FindFirstEnemyInDetectRange(
+                attacker, default, usePositionOverride: false, stopAtFirstMatch: true) != null;
+            return detected;
         }
 
         /// <summary>
@@ -1333,10 +1335,12 @@ namespace Hexiege.Application
                 return false;
             }
 
-            return FindFirstEnemyInDetectRange(
+            bool detected = FindFirstEnemyInDetectRange(
                 attacker,
                 attackerCandidateWorldPosition,
-                usePositionOverride: true) != null;
+                usePositionOverride: true,
+                stopAtFirstMatch: true) != null;
+            return detected;
         }
 
         /// <summary>
@@ -1535,7 +1539,9 @@ namespace Hexiege.Application
         private IDamageable FindFirstEnemyInDetectRange(
             UnitData attacker,
             Vector3 attackerPositionOverride,
-            bool usePositionOverride)
+            bool usePositionOverride,
+            bool stopAtFirstMatch = false
+            )
         {
             // _positionProvider가 없으면 HexCoord 기반 폴백.
             // HexCoord 폴백은 이미 threshold=1로 인접 타일까지 탐색하므로
@@ -1575,6 +1581,9 @@ namespace Hexiege.Application
 
                 if (dist <= unitMaxDist && dist < minWorldDist)
                 {
+                    // 존재 여부만 필요하면 나머지 최근접 후보를 읽지 않는다.
+                    // 실제 타겟을 고르는 호출은 끝까지 기존 순서로 탐색한다.
+                    if (stopAtFirstMatch) return unit;
                     minWorldDist = dist;
                     closestTarget = unit;
                 }
@@ -1596,6 +1605,7 @@ namespace Hexiege.Application
 
                 if (dist <= buildingMaxDist && dist < minWorldDist)
                 {
+                    if (stopAtFirstMatch) return building;
                     minWorldDist = dist;
                     closestTarget = building;
                 }
@@ -1625,7 +1635,8 @@ namespace Hexiege.Application
         private IDamageable FindFirstEnemyTarget(
             UnitData attacker,
             Vector3 attackerPositionOverride,
-            bool usePositionOverride)
+            bool usePositionOverride,
+            bool stopAtFirstMatch = false)
         {
             // _positionProvider가 없으면 기존 HexCoord 기반 판정으로 폴백
             if (_positionProvider == null && !usePositionOverride)
@@ -1663,6 +1674,8 @@ namespace Hexiege.Application
 
                 if (dist <= unitMaxDist && dist < minWorldDist)
                 {
+                    // 존재 판정은 첫 유효 후보에서 끝내고, 최근접 선택은 계속 탐색한다.
+                    if (stopAtFirstMatch) return unit;
                     minWorldDist = dist;
                     closestTarget = unit;
                 }
@@ -1685,6 +1698,7 @@ namespace Hexiege.Application
 
                 if (dist <= buildingMaxDist && dist < minWorldDist)
                 {
+                    if (stopAtFirstMatch) return building;
                     minWorldDist = dist;
                     closestTarget = building;
                 }
