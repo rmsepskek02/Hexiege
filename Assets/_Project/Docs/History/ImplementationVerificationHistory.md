@@ -11807,3 +11807,153 @@ Firebase 세션이 남아 있는 상태로 앱이 재실행되면 자동 로그�
 ---
 
 ````
+
+<a id="android-performance-20261027-capture-review"></a>
+
+## 2026-10-27 — Android 표현 할당 최적화와 새 Profiler 캡처 확인
+
+반복 전투 중 불필요하게 만드는 임시 객체와 진단 문자열을 줄였다. 이 기록은 `codex/android-performance-optimization`의 미커밋 변경 및 메인 세션의 Profiler UI 관측을 정리한 것이다. 작업 프로젝트는 `D:\Projects\Hexiege\Hexiege`다. 이전 인계의 NCC 전투 틱 버퍼 재사용·8개 marker는 이미 게시된 기준이며, 그 구현·복원 원본은 [기존 인계](../_Tasks/2026-10-25/19_44_android-30fps-profiling/Handoff.md)에 보존한다. 아래 추가 변경을 NCC 변경 전/후의 통제된 비교 결과로 해석하지 않는다.
+
+### 적용된 추가 변경
+
+아래 앞 4개 소스는 새 23:11 캡처 전 적용분이고, `GameLog.cs`는 그 캡처 분석 뒤 진행한 후속 1건이다.
+
+| 파일 | 변경과 보존 경계 |
+|---|---|
+| `Presentation/Effects/WavePresentationPresenter.cs` | 프레임마다 생성하던 emitter delegate를 인스턴스에서 재사용하고 wave clock을 경기 초기화 때 한 번 만든다. clock은 원래 경기 owner를 캡처해 이전 파도가 새 경기 owner를 읽지 않게 하며 Detach 때 presenter 참조를 해제한다. |
+| `Application/Combat/WavePresentationCoordinator.cs` | baseline 정리의 `RemoveWhere` predicate를 재사용한다. 비교 기준은 먼저 갱신한 `_retiredThrough`이며 제거 조건은 유지한다. |
+| `Application/Combat/WavePresentationDiagnostics.cs` | 기존 보수적 900 UTF-8 byte 예산 안에 들어가는 짧은 1part 로그만 빠르게 조립한다. 이벤트·계수·필드·순서·최종 Compose 예산 검사를 유지하고 긴 값, raw 구분자, Base64·분할 로그는 기존 경로로 보낸다. |
+| `Presentation/Effects/ProjectilePresentationPresenter.cs` | private `Visual` 상태를 반환 후 재사용한다. tracer 반환 콜백이 끝난 뒤 12개 필드를 초기화하고 최대 512개만 보관하며 공개 `Slot`은 재사용하지 않는다. 진단 표본 상한 24 뒤 버릴 enum 결합 문자열은 만들지 않되 계수와 실제 출력하는 첫 24개 로그는 유지한다. |
+| `Application/GameLog.cs` | data가 있는 최종 로그 한 줄을 한 번에 조립해 기본 줄+덧붙임의 중간 문자열을 없앤다. timestamp·레벨·구분자·null/빈 data 생략 규칙을 유지하고 로그 내용·횟수·stack/sink·sanitize 경로를 바꾸지 않는다. |
+
+게임 수치·서버 피해/HP·권위·타겟 선택·Client 표현 지연·표현 종료 계약은 이 추가 최적화의 변경 대상이 아니다. pool 상한은 보관량이며 새 투사체 표시 수를 제한하지 않는다. 재사용은 총 RAM 감소나 모든 프레임 GC 0B를 보장하지 않는다.
+
+### 코드·컴파일 확인 범위
+
+로컬 ignored `.utmp/`의 실제 메서드 추출 CLR harness 결과를 문서 담당이 다시 읽었다. 이 파일들은 임시 확인 자료이며 배포·이식의 필수 원본이나 Android 성능 증거가 아니다.
+
+| 확인 | 결과·한계 |
+|---|---|
+| Wave 로그 출력 동등성 | `wave-formatter-20261027/AllocationBenchmark.txt`: 8,020쌍, 불일치 0. 같은 sink의 1,000회 측정에서 짧은 1part 17,600 → 6,248 B/call, 긴 Base64 fallback 235,752 → 235,752 B/call. CLR 결과다. |
+| Visual 재사용 | `projectile-visual-pool-20261027/PoolHarness.txt`: 8개 확인, 12개 필드, 예외·재진입·상한 포함. warm pool 1,000회 할당 0B. Unity stub을 쓴 CLR 범위다. |
+| Projectile 진단 지연 조립 | `projectile-diag-lazy-cue-20261027/DiagBeginHarness.txt`: 2,048조합의 로그·계수 불일치 0. 표본 상한 뒤 PresetUnavailable 1,000회에서 104 → 0 B/call. CLR 결과다. |
+| 공통 로그 한 줄 조립 | `gamelog-compose-20261027/ComposeHarness.txt`: C# 9, 고정 시계·4개 culture에서 65,536조합의 문자열/UTF-8 차이 0. warm 1,000회 뒤 같은 sink로 1,000회 측정: null/빈 data 216 → 216 B/call, 일반 payload 720 → 552 B/call, 긴 Unicode 2,184 → 2,016 B/call. CLR Compose만의 결과이며 Android·엔진 로그 출력 시간 개선율이 아니다. |
+| Unity 컴파일 | 메인 세션 전달값: 앞 4개 소스의 `Assembly-CSharp.dll` 갱신 21:26:06, 해당 변경의 새 C# 컴파일 오류 미발견. 기존 Console 문제 전체 0건이라는 뜻은 아니다. 후속 GameLog 포함 컴파일도 메인 세션이 확인했다: 소스 저장 23:40:12 이후 `Assembly-CSharp.dll` 갱신 23:47:26(2026-10-27), Editor.log 최근 1.5MB에서 script compilation 요청·완료 뒤 assembly reload·refresh 완료를 읽었고 `error CS` 0회였다. 이는 해당 로그 범위의 새 C# 오류 미발견이며 새 기기 빌드·실기는 아직 확인하지 않았다. |
+| Build And Run·사용자 실행 | 빌드 시도 후 사용자가 테스트·저장을 보고했다. 빌드 완료/설치의 에이전트 직접 관측이나 경기 전체 기능 수용으로 확대하지 않는다. |
+
+### Profiler 캡처와 개별 프레임 관측
+
+원본 위치는 프로젝트 루트 `ProfilerCaptures/`다. raw `.data`는 이 문서에 복제하지 않는다. 아래 수치는 메인 세션이 Unity Profiler UI에서 읽어 전달한 개별 프레임이며 문서 담당이 전체 프레임을 재측정한 통계가 아니다.
+
+- 기존 `Hexiege_2026-10-27_17-44-02.data`: Android / IL2CPP / samsung SM-N971N, Android Client의 2,000프레임 기준 기록. 558번 CPU 32.92ms·GC 31.5KB, Wave Update 0.03ms·280B, Projectile Update 0.43ms·2.1KB. 230번 Wave Update 3.36ms·102.1KB. Android Host 측정과 구분한다.
+- `22-12-59.data`와 `22-14-10.data`: 메인 세션 SHA256 대조에서 서로 동일하고 이전 프레임 내용을 다시 저장한 기록으로 확인했다. 추가 최적화 후 성능 증거에서 제외한다.
+- 새 `Hexiege_2026-10-27_23-11-30.data`: 파일 264,247,764 bytes, UI에서 새 2,000프레임 로드 및 이전과 다른 프레임 내용 확인. 캡처 목록의 Android 아이콘을 확인했다. 이번 기록의 정확한 기기·backend·Host/Client 메타데이터는 추가 확정하지 않았다. 현재 연결 toolbar가 Play Mode라는 이유만으로 저장된 기록을 PC 데이터로 판정하지 않는다.
+
+| 새 캡처 프레임 | 메인 세션 UI 관측 |
+|---|---|
+| 778 | CPU 32.93ms, PlayerLoop 32.85ms·GC 48.0KB. ScriptRunBehaviourUpdate 1.01ms·32B. Wave Update 0.02ms·0B, Projectile Update 0.03ms·0B. VfxPoolItem Update 20회·0.22ms·0B. |
+| 1825 | CPU 75.87ms. NetworkPostLateUpdate 56.40ms·약 0.6MB, 하위 UpdateFunction.Invoke 56.39ms(self 23.54ms). 그 하위 LogStringToConsole 29회·19.28ms·241.4KB, Instantiate 14회·9.47ms, AddComponent 14회·0.96ms·13.5KB, GC.Alloc 2,127회·351.8KB. 부모·자식의 포함 시간/할당이므로 서로 더하지 않는다. |
+
+Wave·Projectile Update에서 0B 표본을 확인했지만 두 경기의 부하·역할·장면이 동일하다고 보장하지 않는다. 전체 평균·p95·최악 프레임·개선율은 산출하지 않았고 한 프레임으로 전체 성능 향상을 확정하지 않는다. Highlights의 목표 60FPS 색상과 작업 목표 30FPS를 구분한다. GPU 시간 미수집을 GPU 병목의 증거로 바꾸지 않는다.
+
+1825번의 네트워크 처리 하위 로그·객체 생성 경로 조사에 이어 공통 `GameLog.Compose` 중간 문자열 제거 1건을 구현했다. 이는 호출당 관리 할당을 줄이는 변경이며 엔진 `LogStringToConsole`의 19.28ms가 해결됐다는 뜻은 아니다. 위 UI 샘플만으로 생성 객체의 종류나 로그 burst의 전체 호출 원인을 확정하지 않았다. 후속 변경의 실기 효과·객체 생성 비용은 미확정으로 남기며 로그를 일괄 끄거나 게임 동작을 바꾸지 않는다.
+
+
+<a id="android-performance-20261028-hit-markers"></a>
+
+### 2026-10-28 후속 — 유닛 생성 때 타격 marker 배열의 임시 할당 감소
+
+`Infrastructure/Factories/UnitFactory.cs`의 `GetHitFrameTimes` 한 메서드에서 `List<float>`·확장 배열·`ToArray`를 대신해 같은 Animation Event snapshot을 한 번 읽고, 필요한 개수를 센 뒤 정확한 크기의 독립 `float[]`에 원래 순서로 복사해 정렬한다. marker 이름·값·정렬·빈 결과/폴백·결과 배열의 독립 소유를 유지한다. 클립 캐시를 두지 않아 다음 호출에서 바뀐 snapshot도 다시 읽으며 서버 타격/피해 시점을 바꾸지 않는다.
+
+문서 담당이 실제 diff와 `.utmp/unit-hit-markers-20261028/MarkerHarness.txt`를 대조했다. C# 9 CLR에서 실제 전후 메서드와 `AnimationClip.events` 배열 복제 stub을 사용한 8,004조합의 float 비트·순서·snapshot getter 횟수 불일치 0, 독립 출력 소유·바뀐 snapshot 확인 PASS, null event 예외 동일이다. 1,000회 측정의 호출당 할당은 marker 1개 152 → 80B, 6개 264 → 136B였다. 이는 stub을 쓴 CLR 범위이며 Unity/Android 전체 생성 비용이나 FPS 개선율이 아니다.
+
+메인 직접 관측 전달값: 소스 저장 2026-10-28 00:12:42 뒤 `Assembly-CSharp.dll`이 00:15:54에 갱신됐다. Editor.log 최근 400KB에서 컴파일 완료 뒤 assembly reload·refresh 16.709초를 확인했고 `error CS` 0회로 새 C# 컴파일 오류를 발견하지 않았다. Build Profiles에서 Android 활성·Login/Lobby/Game 3개 씬·AAB 꺼짐을 확인한 뒤 Build And Run 버튼을 눌러 시도했다. 사용자 지시에 따라 이후 완료 감시는 하지 않았으며 완료·설치 성공·새 실기·Profiler 재측정은 아직 확인하지 않았다. 앞 캡처의 Instantiate 14회가 이 메서드에서 발생했다고 확정하지 않으며 그 비용을 해결했다고 기록하지 않는다.
+
+
+<a id="android-performance-20261028-native-markers"></a>
+
+### 2026-10-28 후속 — native 공격 표현 marker 검증의 임시 List 제거
+
+`Presentation/Unit/UnitView.cs`의 `ApplyAttackPhasePresentation`에서 검증 전용 `List<float>`와 확장 배열을 없앴다. 같은 최신 clip event snapshot 한 번에서 marker 수를 먼저 세고 원래 순서로 시간을 비교한다. 이후 scoped occurrence는 이미 전체 marker와 동등함을 확인한 `HitFrameTimes` 배열을 읽는다. 거부 우선순서 count → 원순서 time → epoch → occurrence, snapshot 재조회, 로그/거부 사유와 공격 writer는 유지한다. 캐시·정렬·새 공유 배열은 추가하지 않는다.
+
+문서 담당이 실제 diff 및 `.utmp/native-marker-validation-20261028/NativeMarkerHarness.txt`를 확인했다. 변경하지 않은 상위 payload gate 뒤 실제 검증 블록을 C# 9 CLR·clip snapshot 복제 stub으로 비교한 12,008조합에서 결과·거부 순서·snapshot 읽기 불일치 0이다. 음수 HitIndex는 변경하지 않은 상위 payload gate가 거부하므로 이 블록 비교의 입력에서 제외했다. 1,000회 호출당 할당은 marker 1개 120 → 48B, 6개 216 → 88B이며 공통 clip 복제 stub 할당을 포함한다. 실제 Unity/Android 성능 개선량은 미측정이다.
+
+이 추가 변경은 일곱 번째 수정 소스다. 메인 직접 관측 전달값: 소스 저장 00:29 뒤 `Assembly-CSharp.dll`이 2026-10-28 00:34:22에 갱신됐다. Editor.log 최근 250KB에서 forced synchronous recompile 뒤 assembly reload·refresh 24.618초를 확인했고 `error CS` 0회로 새 C# 컴파일 오류를 발견하지 않았다. Unity 창 활성화 timeout 때 기존 빌드·에디터를 중단하지 않았고 새 Build And Run은 추가 시도하지 않았다. 이번 추가분의 설치·새 실기는 미확인이며 앞선 빌드 시도와 혼동하지 않는다.
+
+
+<a id="android-performance-20261028-final-bundle"></a>
+
+### 2026-10-28 최종 묶음 — sequencing 임시 할당·반복 검색 감소
+
+현재 측정·코드 감사에서 근거를 확보한 좁은 최적화 범위를 마무리해 추가 수정 소스는 총 9개다. 전체 최적화 가능성을 소진했다거나 모든 성능 문제를 해결했다는 뜻은 아니다. 마지막 2개 소스의 실제 diff와 `.utmp/remaining-sequencing-20261028/Results.txt`를 문서 담당이 대조했다.
+
+- `Application/Combat/Sequencing/UnitAttackResultPresentationShadow.cs`: scheduler의 Retire 제거 목록을 재사용하고 finally에서 비운다. consumed scope 정리는 각 scope마다 results·legacy를 반복 검색하던 대신 retained scope HashSet을 한 번 구성해 Contains로 판정하며 제거 목록과 집합은 finally에서 비운다. 소유 객체 수명 동안 재사용 용량은 남는다.
+- `Application/Combat/Sequencing/AuthoritativeAttackPresentationCoordinator.cs`: 두 곳의 캡처 predicate를 쓰던 `Array.FindIndex`를 순수 `ContainsResultKey` 루프로 바꿨다. key 비교·입력/거부 판정·공개 API·bundle 소유권은 유지한다.
+
+CLR 결과 파일은 무작위 cleanup/retire/clear 5,000조합과 key 검색 2,827조합의 동일 결과를 보고한다. warm 뒤 1,000회 측정에서 retained64 Cleanup 호출당 32 → 0B, key 검색 120 → 0B였다. 메인 전달값으로 기존 7개와 새 2개 소스의 QA 읽기 검토에서 actionable 회귀 지적은 없었다. 이는 실제 Unity/Android 전체 실행이나 새 실기 PASS가 아니며, HashSet이 모든 데이터 분포에서 CPU 시간을 줄인다고 보장하지 않는다.
+
+최종 2개 소스까지 포함한 9소스의 Unity 컴파일을 확인했다. 메인 직접 관측 전달값: 두 소스 저장 00:48 이후 `Assembly-CSharp.dll`이 2026-10-28 00:55:55에 갱신됐고, Editor.log 최근 250KB에서 forced synchronous recompile 뒤 assembly reload·refresh 32.659초 및 `error CS` 0회를 확인했다. 이는 새 C# 오류 미발견이며 기존 npm/MCP 등 Console 문제 전체 0건이라는 뜻은 아니다. 이후 Build Profiles에서 Android 활성·3개 씬·APK를 확인하고 Build And Run을 클릭해 시도했다. 사용자 지시대로 이후 완료 감시는 하지 않아 완료·설치 성공·새 실기·Profiler 재측정은 미확인이다. 1차 비교는 기존 기준과 같은 Android Client + Editor Host 구성을 사용하고 경기 종료·재경기도 함께 확인할 예정이다. 다른 역할 구성의 개선 증거로 자동 확대하지 않는다.
+
+남은 불확정은 별도로 유지한다. NGO Instantiate 14회의 생성 객체 종류를 확정하지 않았으므로 사전 pool 작업은 보류한다. 공개 Slot·bundle·Animation Event snapshot의 소유권/수명은 유지하며 이를 억지로 공유하지 않는다. 서버 예약 List와 legacy VFX 비용도 실측 원인이 확정되지 않아 이번 묶음에 포함하지 않는다. 최종 개선량은 새 캡처가 있어야 판단할 수 있다.
+
+
+<a id="android-performance-20261028-field-captures"></a>
+
+### 2026-10-28 최종 묶음 뒤 사용자 테스트·두 캡처와 불필요 기록 정리
+
+사용자가 테스트 완료·새 저장 및 분석 뒤 불필요 데이터 삭제를 요청했다. 아래는 메인 세션의 Unity Profiler UI 직접 관측·파일/metadata 확인 전달값이다. 문서 담당은 남은 파일 이름·크기를 다시 확인했으며 전체 프레임 통계를 재측정하지 않았다.
+
+| 새 기록 | 확인 범위 |
+|---|---|
+| `Hexiege_2026-10-28_02-07-29.data` | 242,095,892 bytes, 새 2,000프레임. |
+| `Hexiege_2026-10-28_02-08-40.data` | 179,079,732 bytes, 새 2,000프레임. 두 파일은 서로 다른 해시다. |
+
+두 기록 모두 UI의 Android 아이콘과 highlights binary 꼬리의 samsung SM-N971N·Android 12 기기 정보를 확인했다. backend와 Host/Client 역할은 확정하지 않았다. 예정한 Android Client + Editor Host 구성을 실제 이 캡처의 역할로 단정하지 않는다. Editor 로그에는 역할이 혼재하고 같은 Android 프레임과 연결되지 않아 역할 근거로 사용하지 않았다.
+
+| 기록·프레임 | 개별 프레임 관측 |
+|---|---|
+| 02:07:29 / 737 | CPU 32.45ms, PlayerLoop 32.32ms·6.5KB. ScriptUpdate 0.86ms·168B, Wave Update 0.01ms·0B, Projectile Update 표시 0.00ms·0B, VfxPool Update 41회·0.18ms·0B. GameBootstrapper 56B, ProductionTicker 112B. 시간 0.00 표시는 UI 정밀도이며 실행 비용이 없다는 뜻은 아니다. |
+| 02:07:29 / 1769 | CPU 116.72ms·약 1.2MB. NetworkPostLateUpdate 83.78ms·1.1MB → Invoke 83.77ms(self 37.8ms). Invoke 직속 LogStringToConsole 42회·22.61ms·304KB. UnitView.OnDisable 15회·17.73ms·221.9KB → 하위 LogStringToConsole 12회·12.60ms·138.4KB와 GC.Collect 3.29ms. Invoke 직속 GC.Collect 4.14ms. UpdateDelayedDynamicFrameRate 15.02ms·94.8KB. |
+| 02:08:40 / 1097 | CPU 36.49ms. FinishFrameRendering 24.54ms·8.9KB, PresentAfterDraw 3.25ms. |
+| 02:08:40 / 1759 | CPU 273.63ms, PlayerLoop 273.51ms·약 1.5MB. EarlyUpdate.UpdatePreloading / Loading.UpdatePreloading 183.17ms·1.2MB, Canvas 74.43ms·281.8KB. 두 Preloading 이름은 중첩 경로이며 시간을 더하지 않는다. |
+| 02:08:40 / 1825 | 로드 직후 초기 표시에서 CPU 33.30ms·8KB를 읽었다. 별도 그래프 재선택으로 확인한 위 프레임들과 관측 방법을 구분한다. |
+
+포함 시간·할당은 부모/자식 사이에 중첩되므로 표의 값을 합산하지 않는다. 전체 평균·p95·최대값을 산출하지 않았고 부하·역할 동등성도 확정하지 않았다. 따라서 종전 75.87ms와 이번 116.72/273.63ms를 전후 개선율로 계산하거나 전체 개선/악화로 판정하지 않는다. 평상시 표현 Update의 0B 표본과 별도로 종료/비활성화 경로의 로그 burst·GC 및 로딩/Canvas 지연이 남아 있다.
+
+프로그래머의 OnDisable 소스 추적에서 `PostCombatTraceRetire` 및 타입별 end 기록 경로가 후보로 확인됐지만, 실제 하위 12개 로그의 종류는 프레임과 연결해 확정하지 않았다. 사용자 테스트 보고와 이 분석은 새 캡처 확인이며 전체 전투·종료·재경기 계약 PASS를 자동 확정하는 근거가 아니다.
+
+**삭제 범위와 보존:** 사용자 요청·범위 확인 뒤 메인이 native PowerShell로 이전 재저장 중복 `22-12-59`·`22-14-10` 및 옛 PC 기록 `16-58-31`의 data/highlights 총 6파일, 합계 809,378,986 bytes를 삭제했다. 위 이전 문단의 파일명은 당시 관측 이력이며 현재 존재를 뜻하지 않는다. 기준 `17-44-02`, 추가 최적화 전 `23-11-30`, 새 두 기록 및 판정 미확정 `17-40-07`은 남겼다. `.utmp/` 검증 소스/결과와 runtime 로그는 재검증 근거로 보존했다. raw runtime 로그 삭제·업로드는 하지 않았고, 삭제 파일을 대체하는 빈 파일이나 깨진 링크는 만들지 않았다.
+
+
+<a id="android-performance-20261028-disable-log"></a>
+
+### 2026-10-28 잔여 묶음 — 비활성화 진단 Info 스택과 UTF-8 예산 검사
+
+사용자가 남은 최적화·테스트·빌드를 승인해, 새 캡처 분석 뒤 근거를 확보한 두 위치를 추가 수정했다. `Infrastructure/Debug/ConsoleSink.cs`가 새 수정 소스이고 `Presentation/Unit/UnitView.cs`는 기존 수정에 추가돼 누적 제품 소스는 10개다. 현재 근거 안의 적용 범위를 닫은 것이며 모든 최적화·렉 문제가 해결됐다는 뜻은 아니다.
+
+- ConsoleSink는 exception 없는 Info 중 정확히 `Movement` / `UnitView` / `[UAS-PC-RECOVERY]`인 사건에만 호출별 `NoStacktrace`를 적용한다. 기존 Wave 진단의 선택적 정책은 유지한다. **이 Info 호출스택을 생략하는 것은 의도한 출력 정책 변경**이다. 본문·횟수·순서는 유지하며 Warning·Error·Exception 및 다른 로그는 기존 출력·스택 경로를 보존한다.
+- UnitView 진단 Emit의 UTF-8 예산 검사에서 `prefix + data + newline` 임시 문자열 대신 ASCII 고정 prefix 길이 + data의 UTF-8 byte 수 + newline 1을 계산한다. 기존 `>=900` 거부와 480 분할·경고·형식 경계를 유지하며 payload 자체를 줄이지 않는다.
+
+문서 담당이 실제 두 diff와 `.utmp/disable-log-20261028/Results.txt`를 읽었다. 실제 Emit의 출력/part/경고/형식 경계 6,000조합 동일, ConsoleSink 경로/내용/횟수/예외 384조합 PASS이며 메인 전달값으로 QA 읽기 검토의 actionable 지적은 없었다. 300 ASCII payload 예산 검사식의 warm 호출당 CLR 할당은 752 → 0B다. 이는 검사식의 CLR 결과이며 엔진 호출스택 생략의 Android 시간·전체 GC 개선량은 아직 측정하지 않았다.
+
+이번 추가분 Unity 컴파일도 확인했다. 메인 직접 관측 전달값: 소스 저장 03:28 이후 `Assembly-CSharp.dll`이 2026-10-28 03:39:33에 갱신됐고, Editor.log 최근 250KB에서 forced synchronous recompile 뒤 assembly reload·refresh 49.817초와 `error CS` 0회를 확인했다. 이는 새 C# 오류 미발견이며 기존 Console 문제 전체 0건을 의미하지 않는다. 메인이 사용자가 명시한 File 메뉴를 실제로 열어 Build And Run 항목을 클릭했다(Build Profiles 창 버튼 아님). 클릭 뒤 완료 감시는 하지 않아 빌드 완료·설치·새 실기 성공은 아직 확인하지 않았다.
+
+로딩은 UIManager의 1초 뒤 동기 LoadScene 계약과 반복 Canvas rebuild의 직접 원인 근거를 확보하지 못해 수정하지 않았다. NGO 생성 객체의 원인은 미확정이고 Projectile compaction은 수명/순서 위험에 비해 실측 연결이 부족해 보류했다. 이 보류를 완료로 옮기거나 이번 두 변경이 앞선 로딩/Canvas 지연을 해결했다고 기록하지 않는다.
+
+
+<a id="android-performance-20261028-latest-captures"></a>
+
+### 2026-10-28 10:36~10:38 후속 테스트 — 정상 저장·종료 로그 비용 미해결
+
+새 `Hexiege_2026-10-28_10-36-53.data` 145,038,792 bytes와 `Hexiege_2026-10-28_10-38-14.data` 163,547,100 bytes가 정상 저장됐다. 문서 담당이 파일 크기를 다시 읽었고, 메인 직접 UI 관측 전달값은 각각 2,000프레임·Android 아이콘 및 highlights 꼬리의 SM-N971N / Android 12다. 역할·backend·이번 실행 APK hash는 확정하지 않았다.
+
+| 캡처·프레임 | 메인 UI 직접 관측 전달값 |
+|---|---|
+| 10:36:53 / 1193 | CPU 75.46ms, PlayerLoop 75.37ms·약 1MB. NetworkPostLateUpdate 49.36ms → Invoke 49.36ms(self 11.4ms). UnitView.OnDisable 6회·18.67ms·369.8KB → 하위 LogStringToConsole 18회·16.19ms·227.2KB. Invoke 직속 LogStringToConsole 30회·13.52ms·251.4KB, Instantiate 6회·3.01ms, TransportDisconnect 0.69ms. DelayedDynamicFrameRate 13.63ms·71.2KB. |
+| 10:38:14 / 1624 | CPU 32.93ms·8.4KB, Wait 24.43ms. |
+| 10:38:14 / 1627 | CPU 33.22ms·8.4KB. |
+| 10:38:14 / 1617 | CPU 29.96ms·9.4KB. |
+
+포함 시간·할당의 부모/자식은 중첩되므로 합산하지 않는다. 전체 평균·p95·최대 프레임 통계는 측정하지 않았다. 이전 02:07:29의 1769번은 OnDisable 15회·하위 로그 12회였고 이번 1193번은 6회·18회여서 작업량이 다르다. 두 CPU 숫자를 개선율·완전 해결·회귀 판정으로 바꾸지 않는다.
+
+메인 세션이 최신 Editor 로그 10:36~10:38의 312행을 확인했으나 PC-RECOVERY는 0건이고 역할도 혼재했다. 이 Editor 로그를 Android 프레임의 18개 로그 종류나 NoStacktrace 실제 반영의 증거로 사용할 수 없다. **종료/비활성화 로그 비용이 여전히 크고 이번 교정 효과를 실기로 확정하지 못했으므로 미해결로 유지한다.** 이번 분석에서는 제품 코드 추가 수정이나 파일 삭제를 하지 않았다.

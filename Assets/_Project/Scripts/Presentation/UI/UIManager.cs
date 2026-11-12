@@ -112,6 +112,28 @@ namespace Hexiege.Presentation
         /// <summary>배경 점유 또는 로딩의 실제 입력 상태를 바꾼 직후 동기 통보한다.</summary>
         public event Action BlockingUiStateChanged;
 
+        /// <summary>측정 전용 관측자를 명시 opt-in일 때만 잠시 붙인다.</summary>
+        public void BeginLobbyReturnPerformanceMeasurement()
+        {
+            if (Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Enabled)
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Begin(this, ReadReturnPerformanceUi);
+        }
+
+        private Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.UiSnapshot ReadReturnPerformanceUi()
+        {
+            bool hidden = _loadingIndicator != null && _loadingIndicator.alpha <= 0f
+                && !_loadingIndicator.blocksRaycasts && !_loadingIndicator.interactable;
+            return new Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.UiSnapshot
+            {
+                LoadingPresent = _loadingIndicator != null,
+                LoadingHidden = hidden,
+                AllBlockersClear = hidden && !HasForegroundModal && _blockingOverlayRefCount == 0
+                    && _blockingModalOwners.Count == 0 && !_overlayVisible
+                    && (_blockingOverlay == null || (_blockingOverlay.alpha <= 0f
+                        && !_blockingOverlay.blocksRaycasts && !_blockingOverlay.interactable))
+            };
+        }
+
         /// <summary>결과 화면 자신을 제외한 상위 모달/로딩의 실제 입력 점유.</summary>
         public bool HasForegroundModal => (_confirmPopup != null && _confirmPopup.IsOverlayHeld)
             || (_resultModalSource != null && _resultModalSource.IsOverlayHeld)
@@ -396,9 +418,19 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEnumerator LoadSceneRoutine(string sceneName)
         {
+            long measurementTicket = sceneName == SceneLoader.Lobby
+                ? Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.CaptureAttemptTicket() : 0L;
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.SceneDelayBegin, measurementTicket);
             // 사용자가 로딩 화면을 충분히 인식할 수 있도록 1초 대기한다.
             yield return new WaitForSecondsRealtime(1f);
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.SceneDelayEnd, measurementTicket);
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.SceneLoadCallBegin, measurementTicket);
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.SceneLoadCallReturned, measurementTicket);
         }
 
         /// <summary>
@@ -537,6 +569,7 @@ namespace Hexiege.Presentation
             _loadingIndicator.blocksRaycasts = show;
             _loadingIndicator.interactable = show;
             BlockingUiStateChanged?.Invoke();
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.LoadingChanged(show);
         }
 
         /// <summary>

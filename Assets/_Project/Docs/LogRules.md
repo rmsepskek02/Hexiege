@@ -441,7 +441,7 @@ LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 �
 
 이 계약의 구현/검증은 해당 Task에 기록하며 Android 파일I/O·IL2CPP 실기는 별도 판정한다. OS/전송 내부지연 원인은 미확정이고 파일I/O·프로세스kill의 완전무손실을 보장하지 않는다. 이전정책 원문은 [LogHistory H15](LogHistory.md#h15)에 보존했다.
 
-### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인)
+### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인·구현/정적검증완료)
 
 archive성공후에만 다음두경로를선택한다. (1) Warn/Network/UnitAttackShadowObserver의 message 정확히 `[UAS-ATTACK-SHADOW] presentation-shadow-failure`. (2) Warn/Network/TimedDamageEffectChannel의 sourceRecord 전체고정필드 grammar·순서·경계를검증하고 Stage=Drop,Visual=Poison,Reason=StaleStopOrClosed,Writer=Damage인경우다. 부분문자열포함이나유사메시지로확대하지않는다. Ops `Event=`/Exception객체·writerfault/reentry/unavailable는선택하지않으며nativefallback을유지한다.
 

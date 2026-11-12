@@ -71,8 +71,12 @@ namespace Hexiege.Infrastructure
         /// <param name="maxPlayers">최대 플레이어 수 (기본 2인).</param>
         /// <param name="relayJoinCode">Relay Join Code. null 이면 나중에 별도 업데이트.</param>
         /// <returns>생성된 Lobby 객체. 실패 시 null.</returns>
-        public async Task<Lobby> CreateLobbyAsync(
+        public Task<Lobby> CreateLobbyAsync(
             string lobbyName, int maxPlayers = 2, string relayJoinCode = null, string matchId = null)
+            => CreateLobbyAsync(lobbyName, maxPlayers, relayJoinCode, matchId, null);
+
+        internal async Task<Lobby> CreateLobbyAsync(
+            string lobbyName, int maxPlayers, string relayJoinCode, string matchId, CustomRoomCreationDiagnostics diagnostic)
         {
             try
             {
@@ -99,8 +103,10 @@ namespace Hexiege.Infrastructure
                         DataObject.IndexOptions.S1);
                 }
 
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.LobbyCreate, CustomRoomCreationDiagnostics.Outcome.Begin);
                 CurrentLobby = await LobbyService.Instance.CreateLobbyAsync(
                     lobbyName, maxPlayers, options);
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.LobbyCreate, CustomRoomCreationDiagnostics.Outcome.Done, CurrentLobby != null);
 
                 GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 생성 완료",
                                  $"Name={CurrentLobby.Name}, Code={CurrentLobby.LobbyCode}, LobbyId={CurrentLobby.Id}");
@@ -109,6 +115,7 @@ namespace Hexiege.Infrastructure
             }
             catch (LobbyServiceException e)
             {
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.LobbyCreate, CustomRoomCreationDiagnostics.Outcome.Failed, error: e);
                 GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
                                   "Lobby 생성 실패 — 호출부는 null 만 받는다", e);
                 return null;

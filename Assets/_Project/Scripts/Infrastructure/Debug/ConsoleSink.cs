@@ -32,6 +32,43 @@ namespace Hexiege.Infrastructure
     public sealed class ConsoleSink : Hexiege.Application.ILogSink
     {
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private static readonly Unity.Profiling.ProfilerMarker _HostMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Host");
+        private static readonly Unity.Profiling.ProfilerMarker _ClientMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Client");
+        private static readonly Unity.Profiling.ProfilerMarker _ServerMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Server");
+        private static readonly Unity.Profiling.ProfilerMarker _NetworkInactiveUnknownMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.NetworkInactiveUnknown");
+        private static readonly Unity.Profiling.ProfilerMarker _NetworkStartingUnknownMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.NetworkStartingUnknown");
+        private static readonly Unity.Profiling.ProfilerMarker _HealMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Heal");
+        private static readonly Unity.Profiling.ProfilerMarker _TimingMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Timing");
+        private static readonly Unity.Profiling.ProfilerMarker _WaveMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Wave");
+        private static readonly Unity.Profiling.ProfilerMarker _PostCombatMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.PostCombat");
+        private static readonly Unity.Profiling.ProfilerMarker _OtherMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Other");
+        private static readonly Unity.Profiling.ProfilerMarker _InfoDefaultStackPolicyMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.InfoDefaultStackPolicy");
+        private static readonly Unity.Profiling.ProfilerMarker _InfoNoStackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.InfoNoStack");
+        private static readonly Unity.Profiling.ProfilerMarker _WarnDefaultStackPolicyMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.WarnDefaultStackPolicy");
+        private static readonly Unity.Profiling.ProfilerMarker _ErrorDefaultStackPolicyMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.ErrorDefaultStackPolicy");
+        private static readonly Unity.Profiling.ProfilerMarker _ExceptionMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Console.Exception");
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+        private static readonly Unity.Profiling.ProfilerMarker _archiveFallbackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveConsoleFallback");
+#endif
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void CaptureIdentity()
+        {
+#if ENABLE_IL2CPP
+            const string backend = "IL2CPP";
+#else
+            const string backend = "MonoOrEditor";
+#endif
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            string identity = "[CAPTURE-IDENTITY] schema=perf-capture-v1, buildGuid=" + UnityEngine.Application.buildGUID
+                + ", version=" + UnityEngine.Application.version + ", backend=" + backend
+                + ", unity=" + UnityEngine.Application.unityVersion + ", process=" + process.Id
+                + ", startupUtc=" + DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            // Bootstrap sink 등록 전에도 기기 logcat에 남는 독립적인 1회 식별 헤더다.
+            UnityEngine.Debug.LogFormat(UnityEngine.LogType.Log,
+                UnityEngine.LogOption.NoStacktrace, null, "{0}", identity);
+        }
+#endif
         /// <summary>
         /// 로그 한 건을 콘솔에 출력한다.
         ///
@@ -56,17 +93,19 @@ namespace Hexiege.Infrastructure
                 OmitInfoStack(level, system, className, message, data, exception), exception);
             if (archived && RuntimeLogger.IsFileOnlyInfo(level == Hexiege.Application.LogLevel.Info, data, exception))
             {
+                RuntimeLogger.MarkFileOnlyInfo();
                 return;
             }
             // Console.* marker는 실제 native 출력만 잰다. 파일 I/O는 별도 ArchiveWrite marker다.
             if (archived && RuntimeLogger.IsFileOnlyDiagnosticWarning(level == Hexiege.Application.LogLevel.Warn,
                 system, className, message, data, exception))
             {
+                RuntimeLogger.MarkFileOnlyDiagnosticWarning();
                 return;
             }
             if (RuntimeLogger.DeviceArchiveFallbackRequired)
             {
-                WriteConsole(level, system, className, message, data, exception, line);
+                using (_archiveFallbackMarker.Auto()) WriteConsole(level, system, className, message, data, exception, line);
             }
             else WriteConsole(level, system, className, message, data, exception, line);
         }
@@ -78,7 +117,22 @@ namespace Hexiege.Infrastructure
                           string message, string data, Exception exception)
 #endif
         {
-
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            var network = Unity.Netcode.NetworkManager.Singleton;
+            using var roleScope = (network != null && network.IsListening
+                ? (network.IsHost ? _HostMarker : network.IsClient ? _ClientMarker
+                    : network.IsServer ? _ServerMarker : _NetworkStartingUnknownMarker)
+                : _NetworkInactiveUnknownMarker).Auto();
+            using var categoryScope = (className == "UnitHealCastDiagnostics" ? _HealMarker
+                : className == "PistoleerTimingDiagnostics" ? _TimingMarker
+                : className == Hexiege.Application.WavePresentationDiagnostics.LogClass ? _WaveMarker
+                : system == "Movement" && className == "UnitView" && message == "[UAS-PC-RECOVERY]"
+                    ? _PostCombatMarker : _OtherMarker).Auto();
+            bool diagnosticNoStack = OmitInfoStack(level, system, className, message, data, exception);
+            using var routeScope = (diagnosticNoStack ? _InfoNoStackMarker
+                : level == Hexiege.Application.LogLevel.Warn ? _WarnDefaultStackPolicyMarker
+                : level == Hexiege.Application.LogLevel.Error ? _ErrorDefaultStackPolicyMarker : _InfoDefaultStackPolicyMarker).Auto();
+#endif
 #if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
             string line = preparedLine;
 #else
@@ -124,6 +178,7 @@ namespace Hexiege.Infrastructure
             if (exception != null)
             {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+                using (_ExceptionMarker.Auto())
 #endif
                 UnityEngine.Debug.LogException(exception);
             }

@@ -103,6 +103,9 @@ namespace Hexiege.Presentation
 
         private void Start()
         {
+            long measurementTicket = Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.CaptureAttemptTicket();
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.LobbyStartEntered, measurementTicket);
             // NetworkGameManager 자동 탐색 (DontDestroyOnLoad 오브젝트)
             if (_networkGameManager == null)
                 _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
@@ -162,7 +165,10 @@ namespace Hexiege.Presentation
             // 게임 포기(멀티)/로비 복귀/연결 끊김 복귀 등으로 다른 씬에서 켜둔
             // 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
             // 어디서 켰든 목적지 씬(Lobby)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.LobbyReady();
             UIManager.Instance?.ShowLoading(false);
+            Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Stamp(
+                Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.LobbyStartCompleted, measurementTicket);
         }
 
         private void OnDestroy()

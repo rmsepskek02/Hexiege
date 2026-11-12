@@ -52,7 +52,7 @@ namespace Hexiege.Bootstrap
     // IGameServices를 구현하여 GameServicesLocator에 등록한다.
     // Infrastructure/Network 파일들이 Bootstrap에 직접 의존하는 대신
     // GameServicesLocator.Current(IGameServices)를 통해 접근하도록 한다.
-    public partial class GameBootstrapper : MonoBehaviour, IGameServices
+    public partial class GameBootstrapper : MonoBehaviour, IGameServices, IReadOnlyMapPreparationEvidence
     {
         // ====================================================================
         // Inspector에서 설정할 참조

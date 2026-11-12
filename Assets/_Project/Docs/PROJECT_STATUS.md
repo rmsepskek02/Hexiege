@@ -38,6 +38,7 @@
 | 사운드 | AudioManager·BGM/SFX·볼륨/음소거 연결의 구현 기록, 기존 볼륨/음소거 UI 실기 확인. 효과음 묶음 재편 1단계(2026-11-02~03): SFX 동시 재생 개편(전체 16 · 같은 클립 3개 · 0.05초 · 「우선」이 가장 오래된 「일반」을 끊음)·VFX 프리팹 AudioSource 4개 끄기·SoundConfig 「찾을 수 없음」 참조 정리 구현, 사용자 테스트 PASS(LittleKnight 재생 · 회귀 스위트 PASS(규칙)) | 큰 전투 청취(동시 재생 판단 실기)는 사용자 결정으로 SFX 추가 뒤 — 미검증. 묶음·전용 공격음 제작은 1-D 프롬프트부터. 메뉴 실행 결과 에셋·씬 값은 미커밋. [Plan 17절](<_Tasks/2026-11-02/13_39_unit-attack-sfx-tiering/Plan.md#17-stage1-user-test>). BGM/SFX Inspector별 배선·제작/실기·수용 잔여는 에셋 목록. Victory/Defeat 분리는 Sound 규칙의 선행조건이 있는 추후 기획 |
 | 로그 | GameLog/FileSink·에디터 파일·Device 캡처·수동 정리와 기존 이관/실기 근거. 로그 보관 ZIP 생성 에디터 도구(`Hexiege/Logs/Create Log Archive ZIP`, 업로드는 사용자) — 사용자 실행으로 ZIP 생성·메인 세션 다운로드 대조 OK(Task Plan §8의 3회, 이후 서버 투사체 단계 B-2·C 로그 보관에도 같은 도구 manifest 사용 — 2026-10-21) | 현행 규범은 [LogRules](LogRules.md). ZIP 도구의 KST 날짜 기준 변경(`fd4c04cb`)은 실행 확인 기록 없음([Task Plan §8](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md)). Lobby 직접 진입은 사용자 범위 제외. 자연 엔진 오류 훅 발화의 미확인과 FileSink 경로 중복 정리는 ROADMAP |
 | Android 제품 최적화 | 타일 mesh 재사용·Attack/Detect 존재 조회 조기 종료·표현 pool/버퍼·delegate/문자열·랭킹 지연 생성과 승인된 개발 로그 비용 교정의 제품 분리본 컴파일 통과 | 기존 혼합본에서 출력 동등·조건부 작업 감소·일부 기기 관측을 확인했으나 전 프로젝트 FPS/직접 절감ms는 미입증. 분리본 대표4구성 컴파일은 통과했으며 native 검증은 이전 혼합본 범위다. 실기 전체·FPS 효과는 미증명이고 측정 도구·설정·원시 로그는 제외. 로그 정책은 [LogRules](LogRules.md) |
+| Android 최적화의 기존 측정 기록(2026-10-28 당시) | 표현·진단·marker·sequencing 및 recovery 로그 비용 감소 누적 10소스 구현·CLR·Unity 컴파일 확인. 이후 두 Android 캡처 정상 저장 및 개별 프레임 분석 | 종료/비활성화 로그 비용은 여전히 크며 recovery stack 생략의 실기 효과·실제 로그 종류·실행 APK 일치는 미확정. 전체 개선율·회귀·완전 해결로 판정하지 않음. 로딩/Canvas·NGO 원인 잔여도 보존. [적용 범위](History/ImplementationVerificationHistory.md#android-performance-20261028-disable-log)·[최신 측정](History/ImplementationVerificationHistory.md#android-performance-20261028-latest-captures) |
 | 에셋·플랫폼 | 팀별 표현·3D 전환/자산 적용 및 AAB 최적화의 기록 | 보유/제작/연결은 에셋 목록. 과거 용량은 당시 빌드 값이며 현재 크기 보증이 아님 |
 | 개발 도구 | 필수 Editor7소스/17메뉴 보존, 불필요28소스/메타 최종 삭제·main 반영. Fox fixture 비교 교정 후 전체 회귀 suite 사용자 PASS 수용 | 에이전트 native 실행·기기 플레이/전체 공격 시각·HP 수용과 구분. [회귀 수용 근거](<_Tasks/2026-10-19/15_21_regression-suite-contract-fixes/Research.md#6-사용자-전체-suite-pass-수용과-최종-정리>). 사용법은 WORKFLOW/TDD/LogRules, 문서 검사 범위는 WORKFLOW [11] |
 
@@ -147,3 +148,5 @@
 <a id="플랫폼--빌드-최적화-2026-07-15"></a>
 <a id="피격-시-부유-hp-텍스트--world-space-2026-04-1213-2026-04-17-world-space-전환"></a>
 <a id="현행-진행-경계-2026-10-13-문서-정리"></a>
+
+제품 선별 행은 main 제품 반영 범위를, 기존 측정 행은 당시 혼합 작업본의 관측·한계를 구분한다. 이후 측정 상태와 최신 검증 축은 기존 최적화 Task Research35/Plan32에서 확인하며 과거 측정 행의 미확정을 제품 선별본의 현재 결과로 대입하지 않는다.

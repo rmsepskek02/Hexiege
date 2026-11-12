@@ -71,20 +71,25 @@ namespace Hexiege.Editor.Combat
                     && RefactoringRead<int>(panel, "_refactoringResourceRefreshes") - resourceBefore == 1,
                     "One real event must invoke each refresh once after repeated initialization.");
 
-                // 열린 패널에서 누르고 있던 상태를 꾸민 뒤 실제 비활성화 수명을 통과시킨다.
-                // 입력 판정 조건을 복제하지 않고 실제 OnDisable/PointerUp의 결과를 관찰한다.
+                // Offline EditMode에서는 일반 MonoBehaviour 수명 메시지가 자동 실행되지 않는다.
+                // 실제 cleanup 메서드를 명시 dispatch하며 Play Mode 메시지 전달 검증과 구분한다.
                 RefactoringWrite(panel, "_isPointerDown", true);
                 RefactoringWrite(panel, "_longPressTriggered", true);
                 int taps = RefactoringRead<int>(panel, "_refactoringTapCalls");
                 go.SetActive(false);
+                RefactoringInvoke(panel, "OnDisable");
+                RefactoringReceipt("EDITOR-UI-LIFETIME", "EVIDENCE", "EditModeExplicitCleanupDispatch;NotPlayLifecycleDispatch");
                 Require(!RefactoringRead<bool>(panel, "_isPointerDown")
                     && !RefactoringRead<bool>(panel, "_longPressTriggered"),
-                    "Disabling the actual panel must clear held and long-press state.");
+                    "Actual panel OnDisable cleanup must clear held and long-press state.");
                 RefactoringInvoke(panel, "OnUnitPointerUp");
                 Require(RefactoringRead<int>(panel, "_refactoringTapCalls") == taps,
                     "Pointer release after disable must not enter the tap action.");
                 queueBefore = RefactoringRead<int>(panel, "_refactoringQueueRefreshes");
                 resourceBefore = RefactoringRead<int>(panel, "_refactoringResourceRefreshes");
+                var destroyTrigger = go.GetComponent<UniRx.Triggers.ObservableDestroyTrigger>();
+                Require(destroyTrigger != null, "Actual panel subscriptions must bind to the UniRx destroy trigger.");
+                destroyTrigger.ForceRaiseOnDestroy();
                 UnityEngine.Object.DestroyImmediate(go);
                 GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(-92001));
                 GameEvents.OnResourceChanged.OnNext(new ResourceChangedEvent(TeamId.Blue, 2));
@@ -92,7 +97,14 @@ namespace Hexiege.Editor.Combat
                     && RefactoringRead<int>(panel, "_refactoringResourceRefreshes") == resourceBefore,
                     "Destroyed panel callbacks must not receive later global events.");
             }
-            finally { if (go != null) UnityEngine.Object.DestroyImmediate(go); }
+            finally
+            {
+                if (go != null)
+                {
+                    go.GetComponent<UniRx.Triggers.ObservableDestroyTrigger>()?.ForceRaiseOnDestroy();
+                    UnityEngine.Object.DestroyImmediate(go);
+                }
+            }
         }
 
         private static void ValidateRefactoringTickerLifetime()
@@ -107,10 +119,27 @@ namespace Hexiege.Editor.Combat
                 Require(RefactoringRead<int>(ticker, "_refactoringTickerBinds") == 2
                     && subscriptions.Count == 8 && !subscriptions.IsDisposed,
                     "Repeated actual ticker initialization must replace, rather than accumulate, eight subscriptions.");
+                RefactoringInvoke(ticker, "OnDestroy");
+                Require(subscriptions.IsDisposed, "Actual ticker OnDestroy cleanup must dispose its subscriptions.");
+                RefactoringReceipt("EDITOR-TICKER-LIFETIME", "EVIDENCE", "EditModeExplicitCleanupDispatch;NotPlayLifecycleDispatch");
                 UnityEngine.Object.DestroyImmediate(go);
-                Require(subscriptions.IsDisposed, "Actual ticker destruction must dispose its subscriptions.");
             }
-            finally { if (go != null) UnityEngine.Object.DestroyImmediate(go); }
+            finally
+            {
+                if (go != null)
+                {
+                    try
+                    {
+                        var remainingTicker = go.GetComponent<ProductionTicker>();
+                        if (remainingTicker != null) RefactoringInvoke(remainingTicker, "OnDestroy");
+                    }
+                    finally
+                    {
+                        try { go.GetComponent<UniRx.Triggers.ObservableDestroyTrigger>()?.ForceRaiseOnDestroy(); }
+                        finally { UnityEngine.Object.DestroyImmediate(go); }
+                    }
+                }
+            }
         }
 
         private static void ValidateRefactoringBootstrapLifetime()
