@@ -986,4 +986,4 @@ PROJECT_STATUS/WORK_HISTORY는 자동 병합됐고 현재 HEAD 원문의 비어 
 
 제품 선별 커밋 object `14247c6fa4aafaa9a47bfb0c561765b8020524d0`을 준비했다(부모 eaa883d4). 제품23파일은 타일 mesh·존재 조회·표현/버퍼·문자열·랭킹과 승인 로그 정책 및 필수4문서이며 측정 define/FrameTiming 설정·helper/tools·raw·Task/실수 기록은 제품 main 대상에서 제외한다. 제품 분리본 대표4구성 컴파일과 합성 tree 문서 검사는 통과했지만 native 검증은 이전 혼합본 범위이고 실기 전체·FPS 효과는 미증명이다.
 
-현재는 object 준비뿐이며 local main ref 이동·remote push 완료가 아니다. 현재 최적화 브랜치는 그대로 두고 측정 설정/도구와 기존 Task·문서 이력을 feature 복사본으로 보존한다. Task/메타는 기존 GUID를 그대로 복사했으며 새 Task/Testcase를 만든 것이 아니다. 실제 ref 반영 뒤 완료 사실을 별도 기록할 예정이며 지금은 준비 상태로 한정한다.
+제품23파일을 로컬 main14247c6에 반영했고 현재 codex/android-performance-optimization은 제품 부모와 측정 전용 분리를 담은49db109a로 fast-forward했다. 원격 push는 실행하지 않았다. 측정 설정/도구와 기존 Task·문서 이력은 최적화 브랜치에 보존했다. Task/메타는 기존 GUID를 그대로 복사했으며 새 Task/Testcase를 만든 것이 아니다. autostash3c66f2c4 재적용의 문서5충돌은 먼저 private 백업 후 검증 feature 원문으로 해결했다. 자동 병합 WORK_HISTORY는 feature와 전체 텍스트 동일·고유행 누락0을 확인했다. 원본 autostash와 충돌 백업을 보존하며 이번 Git add는 메인이 담당한다. 새 빌드·실기는 없고 분리본4구성 컴파일/문서 검사 통과와 이전 혼합본 native 검증의 범위를 구분한다.
