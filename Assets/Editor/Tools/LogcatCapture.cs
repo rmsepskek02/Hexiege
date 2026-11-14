@@ -3,14 +3,14 @@
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
 // │  1) 기기를 USB 로 연결한다(USB 디버깅 ON).                                │
-// │  2) Hexiege > Logs > Clear Device Buffer (Deletes Logs) 실행.             │
+// │  2) Hexiege > Logs > Maintenance > Clear Device Buffer (Deletes Logs) 실행.             │
 // │  3) 기기에서 버그를 재현한다.                                             │
-// │  4) Hexiege > Logs > Save Device Logs 실행.                               │
+// │  4) Hexiege > Logs > Advanced > Save Device Logs 실행.                               │
 // │     → Assets/_Project/Docs/_Logs/{날짜}/{시각}_logcat/RuntimeLog_device.txt │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // ┌─ 곁들인 도구: 오래된 에디터 로그 정리 ──────────────────────────────────┐
-// │  Hexiege > Logs > Clean Old Editor Logs (Deletes Assets) 실행.            │
+// │  Hexiege > Logs > Maintenance > Clean Old Editor Logs (Deletes Assets) 실행.            │
 // │  에디터에서 플레이할 때마다 자동으로 쌓이는 상시 로그                       │
 // │  (Assets/_Project/Docs/_Logs/_editor/{날짜}/RuntimeLog.txt)가              │
 // │  너무 많아졌을 때, 오래된 "날짜 폴더"만 골라 지운다(LogRules.md 1.10).      │
@@ -183,7 +183,7 @@ namespace Hexiege.EditorTools
         /// 기기의 Logcat 링 버퍼를 비운다(`adb logcat -c`).
         /// 실기기 테스트를 시작하기 "직전"에 실행해서, 이번 재현에서 나온 로그만 남게 만든다.
         /// </summary>
-        [MenuItem("Hexiege/Logs/Clear Device Buffer (Deletes Logs)", false, 1)]
+        [MenuItem("Hexiege/Logs/Maintenance/Clear Device Buffer (Deletes Logs)", false, 1)]
         public static void ClearBuffer()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -209,7 +209,7 @@ namespace Hexiege.EditorTools
                 "Logcat 버퍼를 비웠습니다.\n\n" +
                 $"대상 기기: {deviceLabel}\n\n" +
                 "이제 기기에서 버그를 재현한 뒤,\n" +
-                "메뉴 [Hexiege > Logs > Save Device Logs] 을 실행하세요.",
+                "메뉴 [Hexiege > Logs > Advanced > Save Device Logs] 을 실행하세요.",
                 "확인");
         }
 
@@ -222,7 +222,7 @@ namespace Hexiege.EditorTools
         /// 저장 경로는 LogRules.md 규칙에 따라 `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/` 아래이며,
         /// 폴더가 없으면 자동으로 만든다(사용자에게 경로를 묻지 않는다).
         /// </summary>
-        [MenuItem("Hexiege/Logs/Save Device Logs", false, 2)]
+        [MenuItem("Hexiege/Logs/Advanced/Save Device Logs", false, 2)]
         public static void SaveToFile()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -234,8 +234,7 @@ namespace Hexiege.EditorTools
             // ── 로그 덤프 ──────────────────────────────────────────────────
             //   -d          : 버퍼에 있는 것만 뱉고 즉시 종료(dump). 이게 없으면 계속 붙어서 안 끝난다.
             //   -v threadtime: "날짜 시각 PID TID 우선순위 태그: 메시지" 형식. 시간과 스레드가 보여 추적이 쉽다.
-            string args = "-d -v threadtime " + BuildBufferArgs() + " " + string.Join(" ", LogcatTagFilters);
-            AdbResult result = RunAdb(adbPath, serial, "logcat " + args, CaptureTimeoutMs, "Logcat 을 읽는 중...");
+            AdbResult result = ReadDeviceLogs(adbPath, serial);
 
             if (!result.Success)
             {
@@ -384,7 +383,7 @@ namespace Hexiege.EditorTools
         ///   5) 삭제 직전에 폴더마다 "정말 _editor/ 바로 아래인가" 를 다시 검사한 뒤 삭제
         ///   6) AssetDatabase.Refresh() 로 에디터에 반영하고 결과를 보고
         /// </summary>
-        [MenuItem("Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)", false, 13)]
+        [MenuItem("Hexiege/Logs/Maintenance/Clean Old Editor Logs (Deletes Assets)", false, 13)]
         public static void CleanOldEditorLogs()
         {
             // ── 1) 정리 대상 뿌리 폴더 확인 ────────────────────────────────
@@ -1325,6 +1324,12 @@ namespace Hexiege.EditorTools
 
         /// <summary>`-b main -b system -b crash` 형태의 버퍼 인자 문자열을 만든다.</summary>
         /// <returns>조립된 인자 문자열.</returns>
+        internal static AdbResult ReadDeviceLogs(string adbPath, string serial)
+        {
+            string args = "-d -v threadtime " + BuildBufferArgs() + " " + string.Join(" ", LogcatTagFilters);
+            return RunAdb(adbPath, serial, "logcat " + args, CaptureTimeoutMs, "Logcat 을 읽는 중...");
+        }
+
         private static string BuildBufferArgs()
         {
             var sb = new StringBuilder();

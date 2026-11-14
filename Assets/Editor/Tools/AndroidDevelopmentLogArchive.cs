@@ -18,11 +18,14 @@ namespace Hexiege.EditorTools
         internal const string Package = "com.gorocompany.hexiege";
         internal const string RemoteRoot = "/storage/emulated/0/Android/data/" + Package + "/files/DevelopmentLogs";
         internal const string PrivateRelative = ".utmp/raw-logs/_Logs/Android";
+        internal const string PrivateLogcatRelative = ".utmp/raw-logs/_Logs/Logcat", LogcatRawName = "RuntimeLog_device.txt";
         internal const string RawName = "RuntimeLog.txt", ReceiptName = "CollectionReceipt.json";
         internal const long MaxRawBytes = 256L * 1024 * 1024, MaxReceiptBytes = 64L * 1024;
         private string _adb, _serial, _deviceLabel;
         private Vector2 _scroll;
         private string _lastDeletionResult;
+        private string _collectionStatus, _taskName = "android-logs";
+        private bool _lastLogcatEmpty, _advancedOpen;
         private readonly List<Entry> _entries = new List<Entry>();
         private sealed class Entry { internal string session, local, status; internal long bytes; internal bool selected; }
 
@@ -44,14 +47,19 @@ namespace Hexiege.EditorTools
         internal sealed class RemoteInfo { internal long bytes; internal string sha; }
         private static readonly Regex SessionPattern = new Regex(@"^\d{8}-\d{6}-\d{3}-[a-f0-9]{32}$", RegexOptions.CultureInvariant);
 
-        [MenuItem("Hexiege/Logs/Android Development Logs", false, 25)]
-        private static void Open() => GetWindow<AndroidDevelopmentLogArchive>("Android Development Logs");
+        // 통합 창의 중복 진입 메뉴는 비활성화하고 기능은 유지한다.
+        // [MenuItem("Hexiege/Logs/Android Development Logs", false, 25)]
+        private static void Open() => GetWindow<AndroidDevelopmentLogArchive>("Device Logs and ZIP");
+        [MenuItem("Hexiege/Logs/Collect Device Logs and Create ZIP", false, 23)]
+        private static void OpenUnified() => Open();
 
         private void OnGUI()
         {
-            EditorGUILayout.HelpBox("앱 내부 DevelopmentLogs를 PC에 복사·검증합니다. Logcat 저장/버퍼 비우기와 별개입니다. 자동 삭제·업로드는 하지 않습니다.", MessageType.Info);
+            EditorGUILayout.HelpBox("선택한 앱 로그와 현재 Logcat 버퍼를 함께 PC로 수집·검증하고 ZIP을 만듭니다. 세션은 앱 실행 1회이며 여러 경기를 포함할 수 있습니다. ZIP에는 오늘의 아직 보관하지 않은 기존 로그도 포함됩니다. 자동 삭제·업로드는 하지 않습니다.", MessageType.Info);
             if (GUILayout.Button("기기 선택 · 세션 목록 읽기")) Safe(RefreshSessions);
             EditorGUILayout.LabelField("기기", _deviceLabel ?? "선택되지 않음");
+            _taskName = EditorGUILayout.TextField("ZIP 작업명 (영문)", _taskName);
+            if (!string.IsNullOrEmpty(_collectionStatus)) EditorGUILayout.HelpBox(_collectionStatus, MessageType.Info);
             if (!string.IsNullOrEmpty(_lastDeletionResult)) EditorGUILayout.HelpBox(_lastDeletionResult, MessageType.Info);
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             foreach (var row in _entries)
@@ -62,10 +70,12 @@ namespace Hexiege.EditorTools
             EditorGUILayout.EndScrollView();
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_serial)))
             {
-                if (GUILayout.Button("선택 세션 PC 복사 · 검증")) Safe(CollectSelected);
+                if (GUILayout.Button("선택 앱 로그 + Logcat 수집 · ZIP 만들기")) Safe(CollectAndZip);
+                _advancedOpen = EditorGUILayout.Foldout(_advancedOpen, "고급: 앱 로그만 PC 복사", true);
+                if (_advancedOpen && GUILayout.Button("선택 세션 PC 복사 · 검증")) Safe(CollectSelected);
                 if (GUILayout.Button("PC 검증된 종료 세션 선택 삭제…")) Safe(DeleteSelected);
             }
-            EditorGUILayout.HelpBox("활성·변경 중 파일은 snapshot으로 보관할 수 있지만 삭제할 수 없습니다. 정상 종료 확인 기록이 없는 강제 종료 로그도 자동/선택 정리 대상에서 제외됩니다. 회수 후 Create Log Archive ZIP으로 원문과 영수증을 묶어 직접 업로드할 수 있습니다.", MessageType.None);
+            EditorGUILayout.HelpBox("수집·ZIP 생성 후에도 기기 원본은 그대로 유지됩니다. 삭제는 별도 정리 버튼에서만 수동으로 실행합니다. 활성·변경 중 파일 및 정상 종료 확인 기록이 없는 강제 종료 로그는 삭제할 수 없습니다. 업로드는 직접 수행합니다.", MessageType.None);
         }
 
         private void Safe(Action action)
@@ -159,6 +169,58 @@ namespace Hexiege.EditorTools
                 row.status = stable && parsed.complete ? "PC 원문/hash/기록·정상 종료 검증 완료. 활성 PID이면 삭제는 계속 차단됩니다."
                     : "진단 snapshot 보존. 활성/변경 중/미완전 파일: 삭제 불가. " + parsed.error;
             }
+        }
+
+        private void CollectAndZip()
+        {
+            if (!_entries.Any(x => x.selected)) throw new IOException("앱 로그 세션을 먼저 선택하세요. 수집/ZIP을 실행하지 않았습니다.");
+            if (!Regex.IsMatch(_taskName ?? "", @"^[a-z0-9][a-z0-9\-]{0,39}$"))
+                throw new IOException("ZIP 작업명은 영문 소문자·숫자·하이픈 1~40자로 입력하세요.");
+            string phase = "앱 로그 복사·검증";
+            DateTime archiveStartDate = DateTime.UtcNow.AddHours(9).Date;
+            try
+            {
+                _collectionStatus = phase + " 중";
+                CollectSelected();
+                phase = "같은 기기의 Logcat 수집";
+                _collectionStatus = "앱 로그 PC 보관 완료. " + phase + " 중";
+                EnsureDevice();
+                SavePrivateLogcat();
+                phase = "ZIP 생성";
+                _collectionStatus = "앱 로그와 Logcat PC 보관 완료. ZIP 생성 중";
+                DateTime endDate = DateTime.UtcNow.AddHours(9).Date;
+                if (endDate < archiveStartDate) archiveStartDate = endDate;
+                bool created = LogArchiveZip.TryCreateArchive(_taskName, archiveStartDate);
+                _collectionStatus = created ? "앱 로그·Logcat 수집 및 ZIP 검증 완료. 기기 원본 유지/자동 업로드 없음."
+                    : "PC 수집본은 보존됐습니다. ZIP은 취소·실패·신규 대상 없음으로 생성되지 않았습니다.";
+                if (_lastLogcatEmpty) _collectionStatus += " 현재 필터에 일치하는 Logcat 0건: 조회는 성공했습니다.";
+            }
+            catch
+            {
+                _collectionStatus = phase + " 단계에서 중단했습니다. 이미 복사한 PC 원문과 기기 원본은 보존합니다. 이후 단계는 실행하지 않았습니다.";
+                throw;
+            }
+        }
+        private string SavePrivateLogcat()
+        {
+            _lastLogcatEmpty = false;
+            var result = LogcatCapture.ReadDeviceLogs(_adb, _serial);
+            if (!result.Success) throw new IOException("Logcat 수집 명령이 실패했습니다. ZIP 자동 진행을 중단합니다.");
+            _lastLogcatEmpty = string.IsNullOrWhiteSpace(result.StandardOutput);
+            string text = "=== Android Logcat 캡처 ===\n=== 저장 UTC: " + DateTime.UtcNow.ToString("O")
+                + " ===\n=== 대상 기기: " + _deviceLabel + " ===\n\n"
+                + (_lastLogcatEmpty ? "matching Logcat records=0; no device buffer entries matched the configured filters. Read succeeded.\n" : result.StandardOutput);
+            if (Encoding.UTF8.GetByteCount(text) > MaxRawBytes) throw new IOException("Logcat 도구 읽기 한도 256 MiB를 넘습니다.");
+            string project = Path.GetDirectoryName(UnityEngine.Application.dataPath);
+            string directory = Path.Combine(project, PrivateLogcatRelative, DateTime.UtcNow.AddHours(9).ToString("yyyy-MM-dd"),
+                DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N"));
+            CheckLocalPath(project, directory); Directory.CreateDirectory(directory);
+            string target = Path.Combine(directory, LogcatRawName), temp = target + ".partial";
+            byte[] bytes = new UTF8Encoding(false).GetBytes(text);
+            using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) file.Write(bytes, 0, bytes.Length);
+            File.Move(temp, target);
+            if (Sha(BoundedRead(target, MaxRawBytes)) != Sha(bytes)) throw new IOException("PC Logcat 저장 hash가 다릅니다. 원문을 보존하고 중단합니다.");
+            return target;
         }
 
         private string FindLocal(string session)
@@ -303,6 +365,27 @@ namespace Hexiege.EditorTools
                         CheckPrivateRawPath(project, raw); CheckLocalPath(project, receipt);
                         yield return raw;
                     }
+                }
+            }
+        }
+        internal static IEnumerable<string> FindPrivateLogcatFiles(string project, DateTime startDate)
+        {
+            string root = Path.Combine(project, PrivateLogcatRelative);
+            if (!Directory.Exists(root)) yield break;
+            CheckLocalPath(project, root);
+            foreach (string date in Directory.GetDirectories(root))
+            {
+                if (!DateTime.TryParseExact(Path.GetFileName(date), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
+                    || day.Date < startDate.Date) continue;
+                CheckLocalPath(project, date);
+                foreach (string collection in Directory.GetDirectories(date))
+                {
+                    if (!ValidSession(Path.GetFileName(collection))) continue;
+                    CheckLocalPath(project, collection);
+                    string raw = Path.Combine(collection, LogcatRawName);
+                    if (!File.Exists(raw)) continue;
+                    CheckLocalPath(project, raw);
+                    yield return raw;
                 }
             }
         }
