@@ -594,7 +594,7 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 | **누적 단위** | **일 단위 이어쓰기.** 하루에 파일 1개 |
 | **실행 구분** | 파일을 나누지 않고, 플레이 모드 진입 시 **헤더를 다시 기록**해 구분선으로 삼는다 |
 | **공유** | 선택 raw 테스트 로그는 월별 Release의 독립 ZIP으로 검증·보관한다 (아래) |
-| **`.gitignore`** | raw만 좁은 경로로 분리하는 정책; 전체 `_Logs/` 제외 금지. 실제 pattern 적용은 별도 승인 (아래) |
+| **`.gitignore`** | 승인된 자동 raw·meta·전용 폴더만 제외한다. Log.md/Task 문서는 보존하고 전체 `_Logs/` 제외는 금지한다(아래). |
 | **정리** | **자동 삭제하지 않는다.** 사용자가 원할 때만 수동 메뉴로 지운다 (아래) |
 
 **근거:**
@@ -627,11 +627,11 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 - raw 테스트 로그 공유는 검증된 private Release ZIP 방식을 사용합니다. **신규 RuntimeLog txt 본문이 소스 Git에 재추적되지 않도록** 승인된 정확 원본 경로/파일명 pattern을 적용하며 ignore를 우회해 raw를 다시 추가하지 않습니다. 기존 추적 파일은 private 업로드·전체 다운로드 검증과 별도 사용자 승인 뒤에만 좁은 원본 목록으로 추적 해제합니다. 로컬 raw 원본은 그대로 보존하고 Git 이력은 남기며 **history rewrite는 하지 않습니다**.
 - **Log.md·Task·raw txt.meta 및 실제 코드/asset/doc/folder metadata는 소스 Git에 유지**합니다. `CrossAuditResult.txt`처럼 RuntimeLog가 아닌 결과 txt도 유지합니다. `_Logs/` 전체 또는 전체 txt ignore 금지입니다. raw txt 본문만 좁게 분리하는 pattern을 적용하며, 적용 전 확정 경로 검토와 사용자 승인을 받습니다. 로그 문서/meta를 광범위한 제외 패턴에 함께 넣거나 orphan 이름만으로 삭제하지 않습니다.
 
-#### 보관본 생성 도구 — `Hexiege/Logs/Create Log Archive ZIP`
+#### 보관본 생성 도구 — `Hexiege/Logs/Advanced/Create Log Archive ZIP`
 
 도구: `Assets/Editor/Tools/LogArchiveZip.cs`. 사양은 2026-10-20 사용자 승인, 시작 날짜 기본값·KST 기준은 2026-10-21 사용자 요청으로 변경. **구현·메뉴 실행 확인 상태: 메뉴·창 동작은 사용자 실행으로 확인(ZIP 3회 정상 생성, 메인 세션이 Release에서 내려받아 manifest 대조 OK — 2026-10-21). 2026-10-21 KST 기준 변경분은 아직 미실행** — 현재 상태는 [Task Plan](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md) §8을 따르며, 아래 KST 관련 동작은 실행 확인을 뜻하지 않습니다. *(2026-10-21 갱신: 종전 표기 「확인 전」을 사용자 실행 결과로 고침.)* 이 도구는 ZIP과 manifest를 **만들기만** 하고 업로드는 사용자가 합니다(클라우드 세션은 사용자 PC 파일에 접근할 수 없고, 공개 소스 저장소를 거치면 로그가 Git 이력에 영구 공개되기 때문).
 
-1. Unity 에디터에서 메뉴 **`Hexiege/Logs/Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
+1. Unity 에디터에서 메뉴 **`Hexiege/Logs/Advanced/Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
 2. 도구가 **날짜 폴더가 「시작 날짜」 이후(당일 포함, 기본 = 창을 열 때의 한국 시간(KST) 오늘 — 기억하지 않음)인** 실기기 로그 `_Logs/YYYY-MM-DD/*/RuntimeLog_device*.txt`(번호 붙은 파일 포함), 진단 세션 로그 `_Logs/YYYY-MM-DD/HH_MM_[작업명]/RuntimeLog.txt`(1.11), Editor daily `_Logs/_editor/YYYY-MM-DD/RuntimeLog.txt` 중 **`_Logs/_zip/`의 기존 manifest에 (경로, SHA256)으로 기록되지 않은 파일**만 고릅니다(2026-10-20 사용자 결정). 같은 폴더의 Log.md·meta·결과 txt는 대상이 아닙니다. 기록 중인 Editor daily는 읽는 시점의 snapshot으로 담고, 내용이 바뀌었으면 새로 포함합니다.
 3. `Assets/_Project/Docs/_Logs/_zip/YYYY-MM-DD/`에 `YYYY-MM-DD_HH_MM_<작업명>_<NN>.zip`과 같은 이름의 `.manifest.json`이 생깁니다(`NN`은 같은 날짜+작업명 기준 회차). ZIP 내부는 저장소 상대 경로이고 manifest에는 위 manifest 항목과 업로드 예정 Release, 「업로드는 사용자 수행」 표기가 들어갑니다. 빌드 상태는 `not inferred`입니다.
 4. 완료되면 저장 폴더와 Release 페이지(`https://github.com/rmsepskek02/Hexiege-Logs/releases/tag/logs-YYYY-MM`)가 열립니다. 대상이 없거나 오류이면 안내만 하고 끝납니다.
@@ -642,7 +642,7 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 - **날짜 하한 — 「시작 날짜」 옵션 (2026-10-20 사용자 결정, 기본값은 2026-10-21 사용자 요청으로 변경):** 도구는 날짜 폴더가 시작 날짜보다 앞선 로그를 고르지 않습니다. 기본값은 **창을 열 때의 한국 시간(KST) 오늘**이며 기억하지 않고, 창의 **[오늘(KST)]** 버튼으로 그 순간의 KST 오늘로 되돌립니다. **당일을 포함하며 Editor daily에도 똑같이 적용**됩니다. **자정을 넘겨 이어진 테스트는 전날 폴더가 기본 범위에서 빠지므로 시작 날짜를 전날로 직접 지정합니다.** 2026-10-20은 기본값이 아니라 **경고 기준**으로만 남습니다 — 시작 날짜가 그보다 이르면 창이 「이전 보관분(2026-10-12 기존로그 등)과 겹칠 수 있고 도구가 확인하지 않는다」고 경고합니다. 2026-10-12 기존 로그 보관분은 이미 Release에 있으므로 그 manifest를 읽어 대조하는 대신 이 하한으로 반복 포함을 막습니다. 2026-10-13~19 공백은 사용자가 **한 번** 시작 날짜를 2026-10-13으로 두고 실행해 묶어 보관합니다 *(2026-10-21 실행·대조 완료: `2026-10-20_23_58_test_01`, 기존 보관 manifest와 중복 0 — Plan §8)*. 그 회차가 기존 보관분과 겹치는지는 도구가 확인하지 않으며, 업로드 뒤 메인 세션이 기존 manifest와 대조합니다. 결정 기록: [Task Plan](_Tasks/2026-10-20/12_02_log-archive-zip-tool/Plan.md) §4-1.
 - **날짜 기준 — KST (2026-10-21 사용자 요청):** 시작 날짜 기본값, 출력 폴더 `_zip/YYYY-MM-DD/`, 파일명의 `YYYY-MM-DD_HH_MM`, Release 월(`logs-YYYY-MM`)은 모두 PC 시간대와 무관하게 한국 시간 기준입니다(시간대 ID `Korea Standard Time`/`Asia/Seoul` 조회 실패 시 고정 UTC+9). 🔴 **남은 차이:** 원본 로그의 날짜 폴더 `_Logs/YYYY-MM-DD/`는 지금도 `FileSink.cs`·`LogcatCapture.cs`가 **PC 로컬 날짜**로 만듭니다. PC가 KST가 아니면 원본 폴더 날짜와 도구의 KST 날짜가 하루 어긋날 수 있으며, 그때는 시작 날짜를 직접 조정합니다. manifest의 `created_at_local`은 PC 로컬 시각입니다.
 - **중복 판정 근거는 로컬 `_zip/`뿐입니다.** `_zip/`은 Git에서 제외되므로 지우거나 다른 PC에서 실행하면 이미 보관한 로그가 다시 포함됩니다(덮어쓰기·손실은 없음).
-- **Git 제외 예외 (2026-10-20 사용자 승인):** `/Assets/_Project/Docs/_Logs/_zip/` 하위 전체와 `/Assets/_Project/Docs/_Logs/_zip.meta`를 `.gitignore`로 제외합니다. 산출물이 공개 소스 저장소에 커밋되는 것을 막기 위한 것이며, 위 항목의 「folder metadata 유지·광범위한 제외 패턴 금지」에 대한 **이 경로 한정 예외**입니다. `_Logs/` 전체 또는 전체 txt 제외 금지와 그 밖의 Log.md·Task·raw txt.meta 유지는 그대로입니다.
+- **Git 제외 예외 (2026-10-20 사용자 승인):** `/Assets/_Project/Docs/_Logs/_zip/` 하위 전체와 `/Assets/_Project/Docs/_Logs/_zip.meta`를 `.gitignore`로 제외합니다. 산출물이 공개 소스 저장소에 커밋되는 것을 막기 위한 것이며, 위 항목의 「folder metadata 유지·광범위한 제외 패턴 금지」에 대한 **이 경로 한정 예외**입니다. `_Logs/` 전체·프로젝트 전체 txt 제외 금지는 유지합니다. 2026-11-14 사용자 요청으로 `_Logs` 안 자동 raw txt/meta·자동 `_editor`/HH_mm_logcat 폴더와 관련 meta·날짜 parent meta/루트 `_Logs.meta`는 좁게 제외하며 Log.md·Task 문서와 문서 자체 meta는 보존합니다. 기존 추적 해제는 PC 원본 삭제가 아닙니다.
 
 <a id="공유는-복사가-아니라-그-파일을-그대로-커밋한다"></a>
 <a id="gitignore에-넣지-않는다"></a>
@@ -668,7 +668,7 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 
 **제목의 PASS는 당시 검증 이력이며 새 실행 결과가 아닙니다.** 원문 검증 표: [LogHistory H08d](LogHistory.md#h08d).
 
-자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)`를 사용합니다. 자동/주기 실행은 없습니다. Device 버퍼 비우기·저장 메뉴와 분리합니다.
+자동 삭제 대신, **사용자가 직접 실행할 때만** `Hexiege/Logs/Maintenance/Clean Old Editor Logs (Deletes Assets)`를 사용합니다. 자동/주기 실행은 없습니다. Device 버퍼 비우기·저장 메뉴와 분리합니다.
 
 #### 실기 검증 결과 — 전 항목 PASS (2026-08-17)
 
@@ -727,16 +727,22 @@ Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는
 
 | 수단 | 실제 범위 | 포함하지 않는 것 |
 |---|---|---|
-| `Save Device Logs` | Logcat `-d`를 PC 파일로 저장 | 앱 DevelopmentLogs 파일 pull |
-| `Clear Device Buffer` | 기기 Logcat ring 비우기 | 앱 DevelopmentLogs 삭제 |
-| `Clean Old Editor Logs (Deletes Assets)` | 1.10의 `_Logs/_editor`30일/90일 수동 정리 | Android 앱 파일·회수 사본 정리 |
-| `Create Log Archive ZIP` | 기존 `Assets/_Project/Docs/_Logs` 후보와 고정 Android 회수 root의 원문/receipt2파일 | 기기 DevelopmentLogs 직접 pull·임의 `.utmp` 스캔 |
+| `Advanced/Save Device Logs` | Logcat `-d`를 PC 파일로 저장 | 앱 DevelopmentLogs 파일 pull |
+| `Maintenance/Clear Device Buffer` | 기기 Logcat ring 비우기 | 앱 DevelopmentLogs 삭제 |
+| `Maintenance/Clean Old Editor Logs (Deletes Assets)` | 1.10의 `_Logs/_editor`30일/90일 수동 정리 | Android 앱 파일·회수 사본 정리 |
+| `Advanced/Create Log Archive ZIP` | 기존 `Assets/_Project/Docs/_Logs` 후보·고정 Android 회수 root 원문/receipt2파일·고정 private Logcat 파일 | 기기 DevelopmentLogs 직접 pull·임의 `.utmp` 스캔 |
 
 따라서 별도 ADB로 앱 파일을 회수한 성공은 위 메뉴가 앱 원본까지 자동 회수·ZIP 포함했다는 증거가 아니다. Dev 원문과 Logcat을 각각 확보하고 private 보관·완결/hash 확인 후 업로드 범위를 검증한다. 종료 세션 삭제는1.10의 PC 복사·검증 후 선택 삭제 계약을 따른다. Android Dev 회수 메뉴와 ZIP의 고정 회수 root 연결을 지원한다. 원격 삭제·업로드는 별도 사용자 확인/실행을 따른다. 보관일수·quota·자동 정리는 추가하지 않는다.
 
-### Android Development Logs 메뉴
+### 통합 기기 로그·ZIP 메뉴
 
-`Hexiege/Logs/Android Development Logs`에서 기기 세션 목록→선택 원문 PC 복사·검증→종료 세션 선택 정리를 수행한다. PC 경로는 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`이며 RuntimeLog.txt와 CollectionReceipt.json만 둔다. 기존 ZIP 도구는 이 고정 root의 두 파일을 기존 Assets 후보와 함께 포함한다. 실제 업로드는 자동화하지 않고 기존 private 검증·사용자 수동 업로드 계약을 따른다.
+일반 수집 입구는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 하나다. 창 이름은 Device Logs and ZIP이고 단독 앱 원문 PC 복사는 고급 접기 안에 둔다. 같은 창의 옛 Android Development Logs alias 메뉴는 비활성이다. 세션은 앱 실행1회이며 여러 경기를 포함할 수 있다. Logcat은 수집 시점 현재 버퍼의 필터 snapshot으로 과거 선택 세션 당시 Logcat 복원이 아니다. 삭제·업로드는 자동 실행하지 않는다.
+
+
+통합 수집은 같은 창의 「선택 앱 로그+Logcat 수집·ZIP」 버튼을 사용한다. 선택 session 원문 회수→동일 기기 Logcat snapshot→기존 ZIP 생성 순서이며 선택0은 중단한다. Logcat 명령 실패/부분 수집 실패는 ZIP을 중단하고 회수된 원문을 보존한다. 명령 성공·현재 수집 필터에 일치하는0건은 오류가 아니므로0건 상태를 명시한 파일을 남겨 앱 원문과 ZIP에 포함한다. 이는 전체 Android 버퍼가 비었다는 증거가 아니다. Logcat은 `.utmp/raw-logs/_Logs/Logcat/<YYYY-MM-DD>/<collection-id>/RuntimeLog_device.txt`에 두며 삭제는 통합 버튼과 별도다.
+
+
+`Hexiege/Logs/Collect Device Logs and Create ZIP`에서 기기 세션 목록→선택 원문 PC 복사·검증→종료 세션 선택 정리를 수행한다. PC 경로는 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`이며 RuntimeLog.txt와 CollectionReceipt.json만 둔다. 기존 ZIP 도구는 이 고정 root의 두 파일과 고정 private Logcat root의 RuntimeLog_device.txt를 기존 Assets 후보와 함께 포함한다. ZIP 기본 날짜 범위의 아직 보관하지 않은 다른 회수 사본도 포함할 수 있으므로 선택한1회만 들어간다고 가정하지 않는다. 실제 업로드는 자동화하지 않고 기존 private 검증·사용자 수동 업로드 계약을 따른다.
 
 기기 전후/PC size·SHA와 record seq/UTF-8길이/END를 검사하고 정상 footer가 없는 활성/강제 종료 원본은 SnapshotIncomplete로 보존·분석할 수 있으나 삭제하지 않는다. 삭제는 PC 검증과 원격 재대조·종료/비활성·PID 부재·경로/심볼릭 방어를 모두 통과한 RuntimeLog.txt만 목록 선택과2단계 확인 후 수행한다. 폴더를 삭제하지 않는다. 취소·unknown·검증 실패는 보호한다.
 
@@ -747,9 +753,9 @@ Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는
 도구: `Assets/Editor/Tools/LogcatCapture.cs`
 
 1. 기기를 USB로 연결한다 (USB 디버깅 ON)
-2. 메뉴 **`Hexiege/Logs/Clear Device Buffer (Deletes Logs)`** 실행
+2. 메뉴 **`Hexiege/Logs/Maintenance/Clear Device Buffer (Deletes Logs)`** 실행
 3. 기기에서 **버그를 재현**한다
-4. 메뉴 **`Hexiege/Logs/Save Device Logs`** 실행
+4. 메뉴 **`Hexiege/Logs/Advanced/Save Device Logs`** 실행
 
 `Clean Old Editor Logs (Deletes Assets)`는 1.10의 Editor 수동 정리용이며 실기기 캡처 절차에 포함하지 않습니다. 버퍼 비우기·저장 메뉴와 구분선으로 분리합니다. 이력: [LogHistory H09b](LogHistory.md#h09b).
 
