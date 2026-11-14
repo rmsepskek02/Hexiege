@@ -736,7 +736,7 @@ Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는
 
 ### 통합 기기 로그·ZIP 메뉴
 
-일반 수집 입구는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 하나다. 창 이름은 Device Logs and ZIP이고 단독 앱 원문 PC 복사는 고급 접기 안에 둔다. 같은 창의 옛 Android Development Logs alias 메뉴는 비활성이다. 세션은 앱 실행1회이며 여러 경기를 포함할 수 있다. Logcat은 수집 시점 현재 버퍼의 필터 snapshot으로 과거 선택 세션 당시 Logcat 복원이 아니다. 삭제·업로드는 자동 실행하지 않는다.
+일반 수집 입구는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 하나다. 창 이름은 Device Logs and ZIP이고 단독 앱 원문 PC 복사는 접기 없이 항상 표시한다. 기기 원본 삭제 버튼의 글자는 빨간색으로 표시해 수집·복사와 구분한다. 같은 창의 옛 Android Development Logs alias 메뉴는 비활성이다. 세션은 앱 실행1회이며 여러 경기를 포함할 수 있다. Logcat은 수집 시점 현재 버퍼의 필터 snapshot으로 과거 선택 세션 당시 Logcat 복원이 아니다. 삭제·업로드는 자동 실행하지 않는다.
 
 
 통합 수집은 같은 창의 「선택 앱 로그+Logcat 수집·ZIP」 버튼을 사용한다. 선택 session 원문 회수→동일 기기 Logcat snapshot→기존 ZIP 생성 순서이며 선택0은 중단한다. Logcat 명령 실패/부분 수집 실패는 ZIP을 중단하고 회수된 원문을 보존한다. 명령 성공·현재 수집 필터에 일치하는0건은 오류가 아니므로0건 상태를 명시한 파일을 남겨 앱 원문과 ZIP에 포함한다. 이는 전체 Android 버퍼가 비었다는 증거가 아니다. Logcat은 `.utmp/raw-logs/_Logs/Logcat/<YYYY-MM-DD>/<collection-id>/RuntimeLog_device.txt`에 두며 삭제는 통합 버튼과 별도다.
