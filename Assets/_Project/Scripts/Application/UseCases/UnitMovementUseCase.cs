@@ -708,20 +708,35 @@ namespace Hexiege.Application
 
             int currentDistanceToGoal = HexCoord.Distance(nearestTile, finalTarget);
             var candidates = new List<(HexCoord coord, float distanceSquared)>();
-            foreach (KeyValuePair<HexCoord, HexTile> pair in _grid.Tiles)
+            // [2026-11-13 인접 조회] 기존 전체 타일 순회 대신 같은 인접 6칸만 조회한다. 아래 정렬·도달 검사는 유지한다.
+            // foreach (KeyValuePair<HexCoord, HexTile> pair in _grid.Tiles)
+            // {
+            //     HexTile tile = pair.Value;
+            //     if (tile == null || !tile.IsWalkable)
+            //         continue;
+            //     if (HexCoord.Distance(nearestTile, pair.Key) != 1)
+            //         continue;
+            //     if (HexCoord.Distance(pair.Key, finalTarget) >= currentDistanceToGoal)
+            //         continue;
+            //
+            //     Vector3 center = _mapper.HexToWorld(pair.Key);
+            //     float dx = center.x - unitWorldPosDomain.x;
+            //     float dz = center.z - unitWorldPosDomain.z;
+            //     candidates.Add((pair.Key, dx * dx + dz * dz));
+            // }
+            for (int direction = 0; direction < HexDirectionExtensions.Count; direction++)
             {
-                HexTile tile = pair.Value;
+                HexCoord neighbor = ((HexDirection)direction).Neighbor(nearestTile);
+                HexTile tile = _grid.GetTile(neighbor);
                 if (tile == null || !tile.IsWalkable)
                     continue;
-                if (HexCoord.Distance(nearestTile, pair.Key) != 1)
-                    continue;
-                if (HexCoord.Distance(pair.Key, finalTarget) >= currentDistanceToGoal)
+                if (HexCoord.Distance(neighbor, finalTarget) >= currentDistanceToGoal)
                     continue;
 
-                Vector3 center = _mapper.HexToWorld(pair.Key);
+                Vector3 center = _mapper.HexToWorld(neighbor);
                 float dx = center.x - unitWorldPosDomain.x;
                 float dz = center.z - unitWorldPosDomain.z;
-                candidates.Add((pair.Key, dx * dx + dz * dz));
+                candidates.Add((neighbor, dx * dx + dz * dz));
             }
 
             candidates.Sort((left, right) =>
@@ -732,6 +747,7 @@ namespace Hexiege.Application
                 int qOrder = left.coord.Q.CompareTo(right.coord.Q);
                 return qOrder != 0 ? qOrder : left.coord.R.CompareTo(right.coord.R);
             });
+
 
             for (int index = 0; index < candidates.Count; index++)
             {

@@ -49,7 +49,12 @@ namespace Hexiege.Infrastructure
                     || primaryObservation.ResultingHp != primaryResult.ResultingHp))
                 return false;
 
-            var assembled = new List<AttackResultPresentationInput>(facts.Length + 1);
+            // [2026-11-13 중간 할당 제거] 최종 결과는 호출별 소유 배열이다. invalid 입력도 모든 fact를 담을 수 있게 한다.
+            // 기존: var assembled = new List<AttackResultPresentationInput>(facts.Length + 1);
+            int resultCount = primaryResult.Outcome == AttackImpactOutcome.HitApplied && facts.Length > 0
+                ? facts.Length : facts.Length + 1;
+            var assembled = new AttackResultPresentationInput[resultCount];
+            int assembledCount = 0;
             bool foundPrimaryAppliedFact = false;
             for (int i = 0; i < facts.Length; i++)
             {
@@ -97,9 +102,10 @@ namespace Hexiege.Infrastructure
                     fact.VictimPresentationType,
                     fact.VictimTeam);
                 if (!input.IsValid) return false;
-                for (int j = 0; j < assembled.Count; j++)
+                for (int j = 0; j < assembledCount; j++)
                     if (assembled[j].Key.Equals(key)) return false;
-                assembled.Add(input);
+                // 기존: assembled.Add(input);
+                assembled[assembledCount++] = input;
             }
 
             if (primaryResult.Outcome == AttackImpactOutcome.HitApplied && !foundPrimaryAppliedFact)
@@ -110,12 +116,16 @@ namespace Hexiege.Infrastructure
             AttackResultPresentationInput primaryInput = CreatePrimaryInput(
                 attackerUnitId, primaryResult, delivery, primaryObservation);
             if (!primaryInput.IsValid) return false;
-            assembled.Add(primaryInput);
+            // 기존: assembled.Add(primaryInput);
+            assembled[assembledCount++] = primaryInput;
 
-            assembled.Sort((left, right) => left.Key.CompareTo(right.Key));
-            results = assembled.ToArray();
+            // 기존: assembled.Sort((left, right) => left.Key.CompareTo(right.Key));
+            // 기존: results = assembled.ToArray();
+            Array.Sort(assembled, (left, right) => left.Key.CompareTo(right.Key));
+            results = assembled;
             return true;
         }
+
 
         public static bool TryToNetwork(
             AttackResultPresentationInput[] inputs,

@@ -25,7 +25,8 @@ namespace Hexiege.EditorTools
         private Vector2 _scroll;
         private string _lastDeletionResult;
         private string _collectionStatus, _taskName = "android-logs";
-        private bool _lastLogcatEmpty, _advancedOpen;
+        private bool _lastLogcatEmpty;
+        private GUIStyle _deleteButtonStyle;
         private readonly List<Entry> _entries = new List<Entry>();
         private sealed class Entry { internal string session, local, status; internal long bytes; internal bool selected; }
 
@@ -71,9 +72,21 @@ namespace Hexiege.EditorTools
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_serial)))
             {
                 if (GUILayout.Button("선택 앱 로그 + Logcat 수집 · ZIP 만들기")) Safe(CollectAndZip);
-                _advancedOpen = EditorGUILayout.Foldout(_advancedOpen, "고급: 앱 로그만 PC 복사", true);
-                if (_advancedOpen && GUILayout.Button("선택 세션 PC 복사 · 검증")) Safe(CollectSelected);
-                if (GUILayout.Button("PC 검증된 종료 세션 선택 삭제…")) Safe(DeleteSelected);
+                if (GUILayout.Button("선택 세션 PC 복사 · 검증")) Safe(CollectSelected);
+                // 삭제 버튼의 글자만 바꾼다. GUI 전역 색이나 다른 버튼 스타일은 건드리지 않는다.
+                if (_deleteButtonStyle == null)
+                {
+                    _deleteButtonStyle = new GUIStyle(GUI.skin.button);
+                    _deleteButtonStyle.normal.textColor = Color.red;
+                    _deleteButtonStyle.hover.textColor = Color.red;
+                    _deleteButtonStyle.active.textColor = Color.red;
+                    _deleteButtonStyle.focused.textColor = Color.red;
+                    _deleteButtonStyle.onNormal.textColor = Color.red;
+                    _deleteButtonStyle.onHover.textColor = Color.red;
+                    _deleteButtonStyle.onActive.textColor = Color.red;
+                    _deleteButtonStyle.onFocused.textColor = Color.red;
+                }
+                if (GUILayout.Button("PC 검증된 종료 세션 선택 삭제…", _deleteButtonStyle)) Safe(DeleteSelected);
             }
             EditorGUILayout.HelpBox("수집·ZIP 생성 후에도 기기 원본은 그대로 유지됩니다. 삭제는 별도 정리 버튼에서만 수동으로 실행합니다. 활성·변경 중 파일 및 정상 종료 확인 기록이 없는 강제 종료 로그는 삭제할 수 없습니다. 업로드는 직접 수행합니다.", MessageType.None);
         }
