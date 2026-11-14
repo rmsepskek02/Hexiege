@@ -441,7 +441,7 @@ LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 �
 
 이 계약의 구현/검증은 해당 Task에 기록하며 Android 파일I/O·IL2CPP 실기는 별도 판정한다. OS/전송 내부지연 원인은 미확정이고 파일I/O·프로세스kill의 완전무손실을 보장하지 않는다. 이전정책 원문은 [LogHistory H15](LogHistory.md#h15)에 보존했다.
 
-### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인)
+### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인·구현/정적검증완료)
 
 archive성공후에만 다음두경로를선택한다. (1) Warn/Network/UnitAttackShadowObserver의 message 정확히 `[UAS-ATTACK-SHADOW] presentation-shadow-failure`. (2) Warn/Network/TimedDamageEffectChannel의 sourceRecord 전체고정필드 grammar·순서·경계를검증하고 Stage=Drop,Visual=Poison,Reason=StaleStopOrClosed,Writer=Damage인경우다. 부분문자열포함이나유사메시지로확대하지않는다. Ops `Event=`/Exception객체·writerfault/reentry/unavailable는선택하지않으며nativefallback을유지한다.
 
@@ -566,9 +566,25 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 **성공 archive를 GameLog 집계의 주근거로 삼는다.** 정확두진단Warning예외를제외한 Ops/Warning/Error/Exception은native에도 계속나가므로 파일+Logcat을 단순합산하면 동일사건을 두번센다. Logcat은 엔진/bypass/native정책·고장fallback 확인용 대조근거다. archive완전성/실행identity/부분tail을 확인한 뒤 동일사건을 대응시키며 원시두파일 모두private보관한다.
 
+### 자동 기록과 정리 범위 요약
+
+| 환경 | 자동 파일 기록 | 삭제·용량 관리 |
+|---|---|---|
+| Editor | 기존 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` 일별 이어쓰기 | 자동 삭제 없음. 기존 수동 Editor 정리 메뉴만 적용 |
+| Android Development nonEditor | `persistentDataPath/DevelopmentLogs/<UTC-GUID>/RuntimeLog.txt` 실행별 기록 | 자동 삭제·진행 중 파일 자동 정리·Android 크기 quota 없음 |
+| 일반 Release 앱 | 이 archive 경로의 앱 파일 기록 없음; 기존 콘솔 경로 유지 | Dev archive 보관 정책을 Release 파일 존재로 오인하지 않음 |
+
+자동 기록은 자동 회수·업로드·삭제를 뜻하지 않는다. 파일의 동기 기록/flush는 디스크 I/O 비용이 있으므로 무료 최적화가 아니며, 실패 fallback·완결 prefix와 close 판정은 위 archive 계약을 따른다. 사용자는 PC 복사·검증 후 종료 세션을 선택 삭제하는 정책을 확정했다. 기간/용량 자동 정리는 도입하지 않는다. 아래 기존 사용자 승인·회수 검증·수동 정리 경계를 유지한다.
+
 ### Android Development private 세션과 보관
 
 Android Development nonEditor의 private 파일은 Editor 일별파일과 구분해 실행별 고유세션으로 유지한다. 모든 GameLog의 전체원문·순서/필요caller정보를 기존 RuntimeLogger로 보존하고 씬전환으로 끊지 않는다. 기기 private 파일도 Logcat과 함께 adb로 회수하고 기기/실행/빌드·원본hash를 연결한다. 원시private 보관·업로드/다운로드 검증·별도 로컬삭제 승인은 아래1.10의 기존계약을 그대로 따른다. 이 정책승인이 업로드/삭제승인을 대신하지 않는다. 실제경로와 회수성공은 Task의 구현/실기영수증으로 확인한다.
+
+### Android 종료 세션의 PC 검증 후 선택 삭제
+
+사용자 선택 정책: 먼저 기기 원본을 PC로 복사하고 원문 hash와 record의 seq/UTF-8길이/END 완결성을 검증한다. 그 뒤 종료·비활성으로 확인된 세션만 사용자가 대상 목록을 선택하고 확인한 경우 기기 원본을 삭제할 수 있다. 미회수·진행 중·종료 여부 불명·검증 실패 세션은 보호하며 자동 삭제하지 않는다. PC 원본의 정리는 아래 기존 private 업로드·다운로드 검증과 별도 로컬 삭제 승인 계약을 유지한다.
+
+이 정책 선택은 지금 기기 파일 삭제나 업로드를 실행하라는 승인이 아니다. 실제 대상·검증 결과·종료 상태를 제시한 선택 확인과 실행 근거를 구분한다. 회수·선택 정리 지원 메뉴는 아래1.12를 따른다. 실제 삭제·업로드 실행 여부와 수집/ZIP 검증은 별도로 판정한다. 새 보관일수·용량 quota·자동 정리는 없다.
 
 ### 파일 누적 관리 방침
 
@@ -705,7 +721,26 @@ Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는
 
 ### Android Development 회수 범위
 
-일반 Dev.Info와정확두진단Warning의파일기록 성공분은 Logcat에 없으므로 **앱 private 원본과 Logcat을 함께** 확보한다. 메인작업자가 adb로 자동회수할 수 있으며 회수원본을1.10의 private 규칙으로 보관한다. 회수도구/경로가 준비되지 않았거나 프로세스kill·파일고장이 있었다면 누락가능성을 명시하고 Logcat만으로 완전수집을 선언하지 않는다. 아래 기존 메뉴는 Logcat 수집용이며 private 파일회수까지 완료했다고 간주하지 않는다.
+일반 Dev.Info와정확두진단Warning의파일기록 성공분은 Logcat에 없으므로 **앱 private 원본과 Logcat을 함께** 확보한다. 메인작업자가 adb로 자동회수할 수 있으며 회수원본을1.10의 private 규칙으로 보관한다. 회수도구/경로가 준비되지 않았거나 프로세스kill·파일고장이 있었다면 누락가능성을 명시하고 Logcat만으로 완전수집을 선언하지 않는다. 기존 Save Device Logs 메뉴는 Logcat 수집용이며 private 파일회수까지 완료했다고 간주하지 않는다.
+
+### 기존 메뉴와 앱 파일 회수의 차이
+
+| 수단 | 실제 범위 | 포함하지 않는 것 |
+|---|---|---|
+| `Save Device Logs` | Logcat `-d`를 PC 파일로 저장 | 앱 DevelopmentLogs 파일 pull |
+| `Clear Device Buffer` | 기기 Logcat ring 비우기 | 앱 DevelopmentLogs 삭제 |
+| `Clean Old Editor Logs (Deletes Assets)` | 1.10의 `_Logs/_editor`30일/90일 수동 정리 | Android 앱 파일·회수 사본 정리 |
+| `Create Log Archive ZIP` | 기존 `Assets/_Project/Docs/_Logs` 후보와 고정 Android 회수 root의 원문/receipt2파일 | 기기 DevelopmentLogs 직접 pull·임의 `.utmp` 스캔 |
+
+따라서 별도 ADB로 앱 파일을 회수한 성공은 위 메뉴가 앱 원본까지 자동 회수·ZIP 포함했다는 증거가 아니다. Dev 원문과 Logcat을 각각 확보하고 private 보관·완결/hash 확인 후 업로드 범위를 검증한다. 종료 세션 삭제는1.10의 PC 복사·검증 후 선택 삭제 계약을 따른다. Android Dev 회수 메뉴와 ZIP의 고정 회수 root 연결을 지원한다. 원격 삭제·업로드는 별도 사용자 확인/실행을 따른다. 보관일수·quota·자동 정리는 추가하지 않는다.
+
+### Android Development Logs 메뉴
+
+`Hexiege/Logs/Android Development Logs`에서 기기 세션 목록→선택 원문 PC 복사·검증→종료 세션 선택 정리를 수행한다. PC 경로는 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`이며 RuntimeLog.txt와 CollectionReceipt.json만 둔다. 기존 ZIP 도구는 이 고정 root의 두 파일을 기존 Assets 후보와 함께 포함한다. 실제 업로드는 자동화하지 않고 기존 private 검증·사용자 수동 업로드 계약을 따른다.
+
+기기 전후/PC size·SHA와 record seq/UTF-8길이/END를 검사하고 정상 footer가 없는 활성/강제 종료 원본은 SnapshotIncomplete로 보존·분석할 수 있으나 삭제하지 않는다. 삭제는 PC 검증과 원격 재대조·종료/비활성·PID 부재·경로/심볼릭 방어를 모두 통과한 RuntimeLog.txt만 목록 선택과2단계 확인 후 수행한다. 폴더를 삭제하지 않는다. 취소·unknown·검증 실패는 보호한다.
+
+원문256MiB·receipt64KiB는 도구가 읽는 안전 상한이며 앱 보관 quota나 자동 삭제 기준이 아니다. 상한 밖 파일을 임의로 자르거나 지우지 않는다. 메뉴 수집·ZIP 실행 검증과 안전 core/삭제 모의 검증, 실제 삭제·업로드 검증을 구분하며 실제 결과는 기존 Task에 기록한다.
 
 ### 캡처 도구 사용 절차
 
