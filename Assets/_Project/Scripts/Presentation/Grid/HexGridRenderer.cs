@@ -161,6 +161,12 @@ namespace Hexiege.Presentation
         /// <summary> 빗금 머티리얼. 메시와 같은 이유로 공유한다. </summary>
         private static Material _hatchMaterial;
 
+        // 배치는 이번 RenderGrid에서 만든 빗금만 묶는다. 타일·금광·공유 에셋은 포함하지 않는다.
+        private readonly List<GameObject> _hatchObjects = new List<GameObject>();
+        private Mesh _ownedHatchCombinedMesh;
+        private GameObject _hatchCombinedObject;
+
+
         // ====================================================================
         // 그리드 렌더링
         // ====================================================================
@@ -243,6 +249,7 @@ namespace Hexiege.Presentation
                     CreateNoBuildHatch(tileObj);
                 }
             }
+            BatchNoBuildHatches();
         }
 
         /// <summary>
@@ -250,6 +257,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ClearGrid()
         {
+            ReleaseHatchBatchMeshes();
             // 이 오브젝트의 모든 자식(타일들) 파괴
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -299,7 +307,105 @@ namespace Hexiege.Presentation
             // 얇은 장식이라 그림자를 주고받을 이유가 없다. 모바일 렌더 비용도 아낀다.
             meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
+            _hatchObjects.Add(hatchObj);
         }
+
+        /// <summary>
+        /// 필수 빗금의 정점·색·UV를 유지하며 하나의 메시/Renderer로 제출한다.
+        /// 타일/콜라이더는 그대로다. 투명 정렬과 컬링 단위는 전체 빗금 bounds 하나가 된다.
+        /// 생성이 모두 끝난 뒤에만 원래 Renderer를 끄고, 실패하면 원래 표시를 유지한다.
+        /// </summary>
+        private void BatchNoBuildHatches()
+        {
+            if (_hatchCombinedObject != null || _hatchObjects.Count < 2
+                || _hatchMesh == null || !_hatchMesh.isReadable || _hatchMesh.subMeshCount != 1
+                || _hatchMaterial == null || !_hatchMaterial.shader.isSupported) return;
+            MeshRenderer first = null;
+            foreach (GameObject hatch in _hatchObjects)
+            {
+                if (hatch == null || !hatch.activeInHierarchy) return;
+                var renderer = hatch.GetComponent<MeshRenderer>();
+                var filter = hatch.GetComponent<MeshFilter>();
+                if (renderer == null || !renderer.enabled || renderer.isPartOfStaticBatch || filter == null
+                    || filter.sharedMesh != _hatchMesh || renderer.sharedMaterial != _hatchMaterial) return;
+                if (first == null) first = renderer;
+                else if (hatch.layer != first.gameObject.layer || renderer.sortingLayerID != first.sortingLayerID
+                    || renderer.sortingOrder != first.sortingOrder || renderer.renderingLayerMask != first.renderingLayerMask) return;
+            }
+            try
+            {
+                var pieces = new CombineInstance[_hatchObjects.Count];
+                Matrix4x4 toGrid = transform.worldToLocalMatrix;
+                for (int i = 0; i < pieces.Length; i++)
+                {
+                    pieces[i].mesh = _hatchMesh;
+                    pieces[i].subMeshIndex = 0;
+                    pieces[i].transform = toGrid * _hatchObjects[i].transform.localToWorldMatrix;
+                }
+                // 공유 원본은 계속 보관한다. 여기서 만든 결합 메시만 현재 grid가 소유한다.
+                _ownedHatchCombinedMesh = new Mesh { name = "NoBuildHatchCombinedMesh" };
+                if ((long)_hatchMesh.vertexCount * pieces.Length > 65535)
+                    _ownedHatchCombinedMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                _ownedHatchCombinedMesh.CombineMeshes(pieces, true, true, false);
+                _ownedHatchCombinedMesh.RecalculateBounds();
+                if (_ownedHatchCombinedMesh.vertexCount == 0) throw new System.InvalidOperationException();
+                _hatchCombinedObject = new GameObject("NoBuildHatchCombined");
+                _hatchCombinedObject.SetActive(false);
+                _hatchCombinedObject.layer = first.gameObject.layer;
+                _hatchCombinedObject.transform.SetParent(transform, false);
+                _hatchCombinedObject.AddComponent<MeshFilter>().sharedMesh = _ownedHatchCombinedMesh;
+                var combined = _hatchCombinedObject.AddComponent<MeshRenderer>();
+                combined.sharedMaterial = _hatchMaterial;
+                combined.sortingLayerID = first.sortingLayerID;
+                combined.sortingOrder = first.sortingOrder;
+                combined.renderingLayerMask = first.renderingLayerMask;
+                combined.shadowCastingMode = first.shadowCastingMode;
+                combined.receiveShadows = first.receiveShadows;
+                combined.lightProbeUsage = first.lightProbeUsage;
+                combined.reflectionProbeUsage = first.reflectionProbeUsage;
+                combined.motionVectorGenerationMode = first.motionVectorGenerationMode;
+                combined.allowOcclusionWhenDynamic = first.allowOcclusionWhenDynamic;
+                foreach (GameObject hatch in _hatchObjects) hatch.GetComponent<MeshRenderer>().enabled = false;
+                _hatchCombinedObject.SetActive(true);
+            }
+            catch (System.Exception)
+            {
+                // 부분 생성도 화면에 남기지 않는다. 원래 빗금 오브젝트/공유 자원은 건드리지 않았다.
+                DestroyCombinedHatch();
+                foreach (GameObject hatch in _hatchObjects)
+                    if (hatch != null) hatch.GetComponent<MeshRenderer>().enabled = true;
+            }
+        }
+
+        private void DestroyCombinedHatch()
+        {
+            // PlayMode Destroy는 지연되므로 Renderer를 먼저 숨긴다.
+            if (_hatchCombinedObject != null)
+            {
+                _hatchCombinedObject.SetActive(false);
+                DestroyHatchObject(_hatchCombinedObject);
+                _hatchCombinedObject = null;
+            }
+            if (_ownedHatchCombinedMesh != null && _ownedHatchCombinedMesh != _hatchMesh)
+                DestroyHatchObject(_ownedHatchCombinedMesh);
+            _ownedHatchCombinedMesh = null;
+        }
+
+        private void ReleaseHatchBatchMeshes()
+        {
+            DestroyCombinedHatch();
+            foreach (GameObject hatch in _hatchObjects)
+                if (hatch != null) hatch.SetActive(false);
+            _hatchObjects.Clear();
+        }
+
+        private static void DestroyHatchObject(UnityEngine.Object value)
+        {
+            if (UnityEngine.Application.isPlaying) Destroy(value);
+            else DestroyImmediate(value);
+        }
+
+        private void OnDestroy() => ReleaseHatchBatchMeshes();
 
         /// <summary>
         /// 빗금 3개짜리 메시를 만든다(최초 1회). 이후에는 캐시를 그대로 돌려준다.
