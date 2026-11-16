@@ -634,7 +634,7 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 1. Unity 에디터에서 메뉴 **`Hexiege/Logs/Advanced/Create Log Archive ZIP`**를 실행하고 작업명을 **영문 slug**로 입력합니다(마지막 입력값이 기억됨). ASCII 이름이라 위 플랫폼 파일명 정규화 대응이 생기지 않습니다.
 2. 도구가 **날짜 폴더가 「시작 날짜」 이후(당일 포함, 기본 = 창을 열 때의 한국 시간(KST) 오늘 — 기억하지 않음)인** 실기기 로그 `_Logs/YYYY-MM-DD/*/RuntimeLog_device*.txt`(번호 붙은 파일 포함), 진단 세션 로그 `_Logs/YYYY-MM-DD/HH_MM_[작업명]/RuntimeLog.txt`(1.11), Editor daily `_Logs/_editor/YYYY-MM-DD/RuntimeLog.txt` 중 **`_Logs/_zip/`의 기존 manifest에 (경로, SHA256)으로 기록되지 않은 파일**만 고릅니다(2026-10-20 사용자 결정). 같은 폴더의 Log.md·meta·결과 txt는 대상이 아닙니다. 기록 중인 Editor daily는 읽는 시점의 snapshot으로 담고, 내용이 바뀌었으면 새로 포함합니다.
 3. `Assets/_Project/Docs/_Logs/_zip/YYYY-MM-DD/`에 `YYYY-MM-DD_HH_MM_<작업명>_<NN>.zip`과 같은 이름의 `.manifest.json`이 생깁니다(`NN`은 같은 날짜+작업명 기준 회차). ZIP 내부는 저장소 상대 경로이고 manifest에는 위 manifest 항목과 업로드 예정 Release, 「업로드는 사용자 수행」 표기가 들어갑니다. 빌드 상태는 `not inferred`입니다.
-4. 완료되면 저장 폴더와 Release 페이지(`https://github.com/rmsepskek02/Hexiege-Logs/releases/tag/logs-YYYY-MM`)가 열립니다. 대상이 없거나 오류이면 안내만 하고 끝납니다.
+4. 완료창에 결과 경로를 표시합니다. **확인/닫기/Esc는 창만 닫고**, **웹페이지 열기**를 명시 선택한 경우에만 저장 폴더와 Release 페이지(`https://github.com/rmsepskek02/Hexiege-Logs/releases/tag/logs-YYYY-MM`)를 함께 엽니다. 확인/닫기/Esc에는 폴더·페이지 자동 열기가 없습니다. 대상이 없거나 오류이면 안내만 하고 끝납니다.
 5. 사용자가 ZIP과 manifest를 **둘 다** 월별 Release(제목 `로그 보관 YYYY-MM`, tag `logs-YYYY-MM`)에 올립니다. 업로드 직전 private 확인(위 첫 항목)은 업로드하는 사용자에게 그대로 적용됩니다. 그 달 Release가 아직 없으면 같은 제목·tag로 만듭니다.
 6. 메인 세션이 Release에서 ZIP·manifest를 실제로 내려받아 위 다운로드 검증 항목대로 대조한 뒤 분석합니다. manifest의 Release 위치는 **업로드 예정 위치**이므로 그 검증 전에는 보관 확인으로 기록하지 않습니다.
 

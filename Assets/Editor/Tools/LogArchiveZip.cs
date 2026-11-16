@@ -12,7 +12,7 @@
 // │     → Assets/_Project/Docs/_Logs/_zip/{KST 오늘 날짜}/                     │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.zip                               │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.manifest.json                     │
-// │  4) 결과 창을 닫으면 그 폴더와 이번 달 Release 페이지가 열린다.            │
+// │  4) [확인]/[닫기]는 창만 닫고, [웹페이지 열기]는 ZIP 폴더와 Release를 연다.│
 // │     ZIP 과 manifest 업로드는 **사용자가 직접** 한다(이 도구는 업로드 안 함).│
 // └────────────────────────────────────────────────────────────────────────┘
 //
@@ -1121,7 +1121,7 @@ namespace Hexiege.EditorTools
                 "확인");
         }
 
-        /// <summary>결과 요약을 보여 주고, 확인 후 출력 폴더와 이번 달 Release 페이지를 연다.</summary>
+        /// <summary>결과 경로를 안내한다. 웹페이지 열기를 고른 경우에만 ZIP 위치 폴더와 Release 페이지를 연다.</summary>
         private static void ShowResultAndOpen(ArchivePaths paths, ArchiveNames names, ArchiveResult result)
         {
             long totalBytes = 0;
@@ -1141,12 +1141,15 @@ namespace Hexiege.EditorTools
             sb.AppendLine($"ZIP 크기: {result.ZipBytes:N0} bytes");
             sb.AppendLine("ZIP SHA256: " + result.ZipSha256);
             sb.AppendLine();
-            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인] 후 폴더와 Release 페이지가 열립니다.");
+            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인]/[닫기]는 창만 닫고, [웹페이지 열기]를 선택할 때만 ZIP 위치 폴더와 Release 페이지가 열립니다.");
             sb.AppendLine($"· 업로드 전 {UploadOwner}/{UploadRepo} 가 private 인지 확인하세요.");
             sb.AppendLine("· ZIP 과 manifest 를 함께 올리고, 다시 내려받아 크기·SHA256 을 대조하세요.");
             sb.AppendLine($"· 이번 달 Release 가 아직 없으면 페이지가 404 입니다 → 제목 「{ReleaseTitlePrefix}{names.MonthText}」, " +
                           $"태그 {ReleaseTagPrefix}{names.MonthText} 로 새로 만드세요.");
-            EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
+            // 기존: EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
+            // 0(확인), 1(닫기/창 닫기/Escape)는 외부 창을 열지 않는다. 2만 명시적인 웹페이지 요청이다.
+            int resultChoice = EditorUtility.DisplayDialogComplex(
+                DialogTitle, sb.ToString(), "확인", "닫기", "웹페이지 열기");
 
             Debug.Log($"[LogArchiveZip] 생성 완료: {names.ZipRepoRelative} (파일 {result.Records.Count}개, SHA256={result.ZipSha256})");
 
@@ -1155,8 +1158,14 @@ namespace Hexiege.EditorTools
             //   "이미 보관됨" 판정도 파일을 직접 읽는다. 전체 Refresh 는 프로젝트 전체를 다시 훑는 비싼 작업이라
             //   생략하고, Unity 의 평소 자동 갱신(에디터 창에 다시 포커스가 올 때)이 .meta 를 만들게 둔다.
             //   _zip 폴더는 .gitignore 대상이라 .meta 가 언제 생기든 소스 Git 에는 영향이 없다.
-            EditorUtility.RevealInFinder(names.ZipAbsolute);
-            UnityEngine.Application.OpenURL(releaseUrl);
+            // 기존 자동 실행 경로는 보존하되 사용하지 않는다.
+            // EditorUtility.RevealInFinder(names.ZipAbsolute);
+            // UnityEngine.Application.OpenURL(releaseUrl);
+            if (resultChoice == 2)
+            {
+                EditorUtility.RevealInFinder(names.ZipAbsolute);
+                UnityEngine.Application.OpenURL(releaseUrl);
+            }
         }
 
         // ====================================================================
