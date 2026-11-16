@@ -45,8 +45,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private Renderer _renderer;
 
-        /// <summary> 머티리얼 인스턴스 캐시. material 접근 시 복제되므로 캐시하여 GC 방지. </summary>
+        /// <summary> 이 뷰가 직접 만든 색상용 머티리얼 한 개. 공유 에셋은 소유하지 않는다. </summary>
         private Material _materialInstance;
+        private Material _sourceMaterial;
+        private Renderer _materialRenderer;
 
         /// <summary> 전역 설정 참조. 팀 색상, 선택 틴트 값을 읽어옴. </summary>
         private GameConfig _config;
@@ -69,21 +71,22 @@ namespace Hexiege.Presentation
             // Renderer 타입으로 가져와서 MeshRenderer/SpriteRenderer 모두 대응
             _renderer = GetComponent<Renderer>();
 
-            // 머티리얼 인스턴스 캐시 — SG_HexTile 셰이더(윗면)를 우선 탐색
-            if (_renderer != null)
-            {
-                foreach (var mat in _renderer.materials)
-                {
-                    if (mat.shader.name.Contains("SG_HexTile"))
-                    {
-                        _materialInstance = mat;
-                        break;
-                    }
-                }
-                // SG_HexTile 셰이더를 찾지 못한 경우 fallback (index 0)
-                if (_materialInstance == null)
-                    _materialInstance = _renderer.material;
-            }
+            // // 머티리얼 인스턴스 캐시 — SG_HexTile 셰이더(윗면)를 우선 탐색
+            // if (_renderer != null)
+            // {
+            //     foreach (var mat in _renderer.materials)
+            //     {
+            //         if (mat.shader.name.Contains("SG_HexTile"))
+            //         {
+            //             _materialInstance = mat;
+            //             break;
+            //         }
+            //     }
+            //     // SG_HexTile 셰이더를 찾지 못한 경우 fallback (index 0)
+            //     if (_materialInstance == null)
+            //         _materialInstance = _renderer.material;
+            // }
+            InitializeColorMaterial();
 
             // 초기 색상 설정 (Neutral = 회색)
             UpdateColor();
@@ -91,6 +94,74 @@ namespace Hexiege.Presentation
             // 이벤트 구독
             SubscribeEvents();
         }
+
+        private void InitializeColorMaterial()
+        {
+            Material[] materials = _renderer != null ? _renderer.sharedMaterials : null;
+            int slot = FindColorMaterialSlot(materials);
+            // 같은 Renderer/슬롯이 아직 우리 인스턴스를 쓰면 재초기화해도 복제하지 않는다.
+            if (_materialInstance != null && _materialRenderer == _renderer && slot >= 0
+                && materials[slot] == _materialInstance) return;
+
+            if (_materialRenderer != null || _materialInstance != null)
+            {
+                ReleaseColorMaterial();
+                materials = _renderer != null ? _renderer.sharedMaterials : null;
+                slot = FindColorMaterialSlot(materials);
+            }
+            if (slot < 0) return;
+            Material source = materials[slot];
+            var instance = new Material(source);
+            bool assigned = false;
+            try
+            {
+                materials[slot] = instance;
+                _renderer.sharedMaterials = materials;
+                _sourceMaterial = source;
+                _materialRenderer = _renderer;
+                _materialInstance = instance;
+                assigned = true;
+            }
+            finally { if (!assigned) DestroyColorMaterial(instance); }
+        }
+
+        private static int FindColorMaterialSlot(Material[] materials)
+        {
+            if (materials == null || materials.Length == 0) return -1;
+            for (int i = 0; i < materials.Length; i++)
+                if (materials[i] != null && materials[i].shader != null
+                    && materials[i].shader.name.Contains("SG_HexTile")) return i;
+            return materials[0] != null ? 0 : -1;
+        }
+
+        private void ReleaseColorMaterial()
+        {
+            Material owned = _materialInstance, source = _sourceMaterial;
+            Renderer owner = _materialRenderer;
+            _materialInstance = null; _sourceMaterial = null; _materialRenderer = null;
+            if (owned == null) return;
+            try
+            {
+                if (owner != null)
+                {
+                    Material[] materials = owner.sharedMaterials;
+                    bool changed = false;
+                    for (int i = 0; i < materials.Length; i++)
+                        if (materials[i] == owned) { materials[i] = source; changed = true; }
+                    // 외부가 교체한 슬롯은 그대로 두고, 아직 우리 인스턴스를 쓰는 참조만 원복한다.
+                    if (changed) owner.sharedMaterials = materials;
+                }
+            }
+            finally { DestroyColorMaterial(owned); }
+        }
+
+        private static void DestroyColorMaterial(Material material)
+        {
+            if (UnityEngine.Application.isPlaying) Destroy(material);
+            else DestroyImmediate(material);
+        }
+
+        private void OnDestroy() => ReleaseColorMaterial();
 
         /// <summary> 이 타일의 좌표를 외부에서 조회할 때 사용. </summary>
         public HexCoord Coord => _coord;

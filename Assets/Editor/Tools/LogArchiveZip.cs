@@ -2,7 +2,7 @@
 // LogArchiveZip.cs  (에디터 전용 · 상시 사용 도구)
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
-// │  1) Hexiege/Logs/Create Log Archive ZIP 실행 → 작은 창이 뜬다.             │
+// │  1) Hexiege/Logs/Advanced/Create Log Archive ZIP 실행 → 작은 창이 뜬다.             │
 // │  2) 작업명을 입력한다(영문·숫자·하이픈만. 예: vfx-followups).             │
 // │     「시작 날짜」는 보통 기본값(창을 연 순간의 한국 시간 KST 오늘) 그대로 둔다.│
 // │     ⚠️ 자정을 넘겨 이어진 테스트면 전날 폴더가 기본 범위에서 빠지므로      │
@@ -12,7 +12,7 @@
 // │     → Assets/_Project/Docs/_Logs/_zip/{KST 오늘 날짜}/                     │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.zip                               │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.manifest.json                     │
-// │  4) 결과 창을 닫으면 그 폴더와 이번 달 Release 페이지가 열린다.            │
+// │  4) [확인]/[닫기]는 창만 닫고, [웹페이지 열기]는 ZIP 폴더와 Release를 연다.│
 // │     ZIP 과 manifest 업로드는 **사용자가 직접** 한다(이 도구는 업로드 안 함).│
 // └────────────────────────────────────────────────────────────────────────┘
 //
@@ -29,6 +29,9 @@
 //                       (RuntimeLog_device.txt, RuntimeLog_device_2.txt … 전부)
 //   · 진단 세션 로그    Assets/_Project/Docs/_Logs/{YYYY-MM-DD}/{HH_MM_작업명}/RuntimeLog.txt
 //   · 에디터 상시 로그  Assets/_Project/Docs/_Logs/_editor/{YYYY-MM-DD}/RuntimeLog.txt
+//   · Android 앱 원문  .utmp/raw-logs/_Logs/Android/{회수KST날짜}/{session}/{collection}/RuntimeLog.txt
+//                     + CollectionReceipt.json (검증한 쌍을 함께 보관)
+//   · 통합 Logcat     .utmp/raw-logs/_Logs/Logcat/{회수KST날짜}/{collection}/RuntimeLog_device.txt
 //   _zip 폴더(이 도구의 산출물)와 .meta 파일은 넣지 않는다.
 //   그중 **이미 이전 ZIP 에 같은 내용으로 들어간 파일은 뺀다.**
 //   판단 기준은 기존 _zip 폴더 안의 모든 *.manifest.json 에 적힌 (경로, SHA256) 쌍이다.
@@ -199,10 +202,10 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>
-        /// 메뉴 Hexiege/Logs/Create Log Archive ZIP — 작업명 입력 창을 연다.
+        /// 메뉴 Hexiege/Logs/Advanced/Create Log Archive ZIP — 작업명 입력 창을 연다.
         /// 우선순위 24 는 기존 Logs 메뉴(1, 2, 13)와 10 넘게 떨어뜨려 구분선 아래 별도 묶음으로 보이게 한 값이다.
         /// </summary>
-        [MenuItem("Hexiege/Logs/Create Log Archive ZIP", false, 24)]
+        [MenuItem("Hexiege/Logs/Advanced/Create Log Archive ZIP", false, 24)]
         public static void OpenWindow()
         {
             // utility=true: 도킹되지 않는 작은 떠 있는 창으로 연다(잠깐 쓰고 닫는 도구라서).
@@ -233,7 +236,7 @@ namespace Hexiege.EditorTools
             EditorGUILayout.LabelField("테스트 로그 보관 ZIP 만들기", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "시작 날짜 당일부터의 날짜 폴더에 있는 원본 로그(실기기 RuntimeLog_device*.txt · " +
-                "진단 세션/에디터 RuntimeLog.txt) 중 아직 보관하지 않은 것만 골라 " +
+                "진단 세션/에디터 RuntimeLog.txt · PC 회수한 Android 앱 원문/영수증·통합 Logcat) 중 아직 보관하지 않은 것만 골라 " +
                 "ZIP 과 manifest 를 _Logs/_zip/오늘날짜(KST)/ 에 만듭니다.\n" +
                 "업로드는 하지 않습니다. 완료 후 열리는 Release 페이지에 직접 올려 주세요.",
                 MessageType.Info);
@@ -284,7 +287,7 @@ namespace Hexiege.EditorTools
             }
 
             DateTime boundaryDate = ParseDateOrThrow(PriorArchiveBoundaryDateText);
-            string scope = $"{startDate.ToString(DateFolderFormat, CultureInfo.InvariantCulture)} 당일부터의 날짜 폴더(실기기·진단 세션·에디터 일일 로그 모두)만 찾습니다.";
+            string scope = $"{startDate.ToString(DateFolderFormat, CultureInfo.InvariantCulture)} 당일부터의 날짜 폴더(실기기·진단 세션·에디터 일일·PC 회수 Android·통합 Logcat)만 찾습니다.";
             if (startDate < boundaryDate)
             {
                 EditorGUILayout.HelpBox(scope + $"\n{PriorArchiveBoundaryDateText} 보다 이른 날짜입니다. 이전 보관분(예: 2026-10-12 기존로그)과 겹치는지는 " +
@@ -487,6 +490,11 @@ namespace Hexiege.EditorTools
         /// <param name="startDate">이 날짜(당일 포함) 이후의 날짜 폴더만 대상으로 삼는다.</param>
         public static void CreateArchive(string taskName, DateTime startDate)
         {
+            TryCreateArchive(taskName, startDate);
+        }
+
+        internal static bool TryCreateArchive(string taskName, DateTime startDate)
+        {
             var paths = ArchivePaths.Resolve();
             // 출력 폴더(_zip/YYYY-MM-DD)·파일 이름(YYYY-MM-DD_HH_MM)·Release 월(YYYY-MM)을 모두 KST 기준으로 정한다.
             // 「시작 날짜」 기본값(KST 오늘)과 같은 기준이어야 "오늘 폴더" 가 서로 하루 어긋나지 않는다.
@@ -497,7 +505,7 @@ namespace Hexiege.EditorTools
 
             // ── 1) 이미 보관된 목록 ────────────────────────────────────────
             ArchivedIndex archived = LoadArchivedIndex(paths);
-            if (archived.UnreadableManifests.Count > 0 && !ConfirmUnreadableManifests(archived)) return;
+            if (archived.UnreadableManifests.Count > 0 && !ConfirmUnreadableManifests(archived)) return false;
 
             // ── 2) 후보 찾기 ───────────────────────────────────────────────
             List<CandidateSource> candidates = FindCandidates(paths, startDate, out int skippedLinks);
@@ -508,19 +516,22 @@ namespace Hexiege.EditorTools
                     $"찾는 위치({startDateText} 당일부터의 날짜 폴더만):\n" +
                     $"  {paths.LogsRootRelative}/YYYY-MM-DD/*/{DeviceLogFilePrefix}*{LogFileExtension}\n" +
                     $"  {paths.LogsRootRelative}/YYYY-MM-DD/*/{EditorLogFileName}\n" +
-                    $"  {paths.LogsRootRelative}/{EditorLogsFolderName}/YYYY-MM-DD/{EditorLogFileName}",
+                    $"  {paths.LogsRootRelative}/{EditorLogsFolderName}/YYYY-MM-DD/{EditorLogFileName}\n" +
+                    "  .utmp/raw-logs/_Logs/Android/YYYY-MM-DD/session/collection/RuntimeLog.txt + CollectionReceipt.json\n" +
+                    "  .utmp/raw-logs/_Logs/Logcat/YYYY-MM-DD/collection/RuntimeLog_device.txt",
                     "확인");
-                return;
+                return false;
             }
 
             // ── 3)~5) 생성 · 검증 · 이동 ───────────────────────────────────
             ArchiveNames names = ArchiveNames.Create(paths, now, taskName);
             ArchiveResult result = BuildAndPublishLocally(paths, names, now, taskName, startDateText, candidates, archived);
-            if (result == null) return; // 안내는 BuildAndPublishLocally 안에서 이미 했다.
+            if (result == null) return false; // 안내는 BuildAndPublishLocally 안에서 이미 했다.
 
             result.SkippedLinks = skippedLinks;
             result.StartDateText = startDateText;
             ShowResultAndOpen(paths, names, result);
+            return true;
         }
 
         /// <summary>
@@ -545,7 +556,7 @@ namespace Hexiege.EditorTools
                 tempZip = tempStem + ".zip.tmp";
                 tempManifest = tempStem + ".manifest.tmp";
 
-                List<SourceRecord> records = WriteZip(tempZip, candidates, archived, out int skippedArchived);
+                List<SourceRecord> records = WriteZip(paths, tempZip, candidates, archived, out int skippedArchived);
                 if (records.Count == 0)
                 {
                     ShowNothingNew(candidates.Count, skippedArchived);
@@ -738,6 +749,12 @@ namespace Hexiege.EditorTools
             foreach (string dateDir in EnumerateDateFolders(editorRoot, startDate, ref links))
                 TryAddCandidate(paths, Path.Combine(dateDir, EditorLogFileName), SourceKind.EditorDaily, list, ref links);
 
+            // Android 앱 원문은 정해진 private 보관 경로의 원문/영수증 쌍만 받는다.
+            foreach (string raw in AndroidDevelopmentLogArchive.FindPrivateRawFiles(paths.ProjectRootAbsolute, startDate))
+                TryAddCandidate(paths, raw, SourceKind.AndroidDevelopmentArchive, list, ref links);
+            foreach (string raw in AndroidDevelopmentLogArchive.FindPrivateLogcatFiles(paths.ProjectRootAbsolute, startDate))
+                TryAddCandidate(paths, raw, SourceKind.PrivateLogcatCapture, list, ref links);
+
             list.Sort((a, b) => string.CompareOrdinal(a.RepoRelativePath, b.RepoRelativePath));
             skippedLinks = links;
             return list;
@@ -804,7 +821,7 @@ namespace Hexiege.EditorTools
         /// ZIP 파일은 넣을 파일이 처음 나왔을 때 만든다 → 새 파일이 0개면 Temp 에도 아무것도 생기지 않는다.
         /// 메모리에는 한 번에 원본 1개만 올라간다(다 넣고 나면 버린다).
         /// </summary>
-        private static List<SourceRecord> WriteZip(string tempZip, List<CandidateSource> candidates,
+        private static List<SourceRecord> WriteZip(ArchivePaths paths, string tempZip, List<CandidateSource> candidates,
             ArchivedIndex archived, out int skippedArchived)
         {
             var records = new List<SourceRecord>();
@@ -818,21 +835,41 @@ namespace Hexiege.EditorTools
                     CandidateSource candidate = candidates[i];
                     ReportProgress($"읽는 중 ({i + 1}/{candidates.Count}): {candidate.RepoRelativePath}", i, candidates.Count);
 
+                    var snapshots = new List<(SourceRecord record, byte[] bytes)>();
                     SourceRecord record = TakeSnapshot(candidate, out byte[] bytes);
-                    if (archived.Keys.Contains(MakeKey(record.RepoRelativePath, record.Sha256)))
+                    snapshots.Add((record, bytes));
+                    if (candidate.Kind == SourceKind.AndroidDevelopmentArchive)
                     {
-                        skippedArchived++;
+                        string session = AndroidDevelopmentLogArchive.CheckPrivateRawPath(paths.ProjectRootAbsolute, candidate.AbsolutePath);
+                        string receiptPath = Path.Combine(Path.GetDirectoryName(candidate.AbsolutePath), AndroidDevelopmentLogArchive.ReceiptName);
+                        AndroidDevelopmentLogArchive.CheckLocalPath(paths.ProjectRootAbsolute, receiptPath);
+                        var receiptCandidate = new CandidateSource(receiptPath, paths.ToRepoRelative(receiptPath), SourceKind.AndroidCollectionReceipt);
+                        SourceRecord receiptRecord = TakeSnapshot(receiptCandidate, out byte[] receiptBytes);
+                        // 검증에 사용한 바로 그 바이트를 ZIP에도 쓴다. 원문을 다시 읽지 않는다.
+                        AndroidDevelopmentLogArchive.ValidatePair(bytes, receiptBytes, session);
+                        snapshots.Add((receiptRecord, receiptBytes));
+                    }
+                    bool privatePair = candidate.Kind == SourceKind.AndroidDevelopmentArchive;
+                    if (privatePair && snapshots.TrueForAll(x => archived.Keys.Contains(MakeKey(x.record.RepoRelativePath, x.record.Sha256))))
+                    {
+                        skippedArchived += snapshots.Count;
                         continue;
                     }
-
-                    if (zip == null)
+                    foreach (var snapshot in snapshots)
                     {
-                        // CreateNew: 혹시 같은 이름이 있으면 덮어쓰지 않고 예외(이름에 GUID 가 있어 사실상 없음).
-                        zipStream = new FileStream(tempZip, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
-                        zip = new ZipArchive(zipStream, ZipArchiveMode.Create, true, Encoding.UTF8);
+                        if (!privatePair && archived.Keys.Contains(MakeKey(snapshot.record.RepoRelativePath, snapshot.record.Sha256)))
+                        {
+                            skippedArchived++;
+                            continue;
+                        }
+                        if (zip == null)
+                        {
+                            zipStream = new FileStream(tempZip, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+                            zip = new ZipArchive(zipStream, ZipArchiveMode.Create, true, Encoding.UTF8);
+                        }
+                        AddEntry(zip, snapshot.record, snapshot.bytes);
+                        records.Add(snapshot.record);
                     }
-                    AddEntry(zip, record, bytes);
-                    records.Add(record);
                 }
             }
             finally
@@ -857,7 +894,11 @@ namespace Hexiege.EditorTools
         /// </summary>
         private static SourceRecord TakeSnapshot(CandidateSource candidate, out byte[] bytes)
         {
-            using (var stream = new FileStream(candidate.AbsolutePath, FileMode.Open, FileAccess.Read,
+            if (candidate.Kind == SourceKind.AndroidDevelopmentArchive || candidate.Kind == SourceKind.AndroidCollectionReceipt
+                || candidate.Kind == SourceKind.PrivateLogcatCapture)
+                bytes = AndroidDevelopmentLogArchive.BoundedRead(candidate.AbsolutePath,
+                    candidate.Kind == SourceKind.AndroidCollectionReceipt ? AndroidDevelopmentLogArchive.MaxReceiptBytes : MaxSnapshotBytes);
+            else using (var stream = new FileStream(candidate.AbsolutePath, FileMode.Open, FileAccess.Read,
                        FileShare.ReadWrite | FileShare.Delete))
             {
                 if (stream.Length > MaxSnapshotBytes)
@@ -966,10 +1007,10 @@ namespace Hexiege.EditorTools
                 total_source_bytes = totalBytes,
                 sources = sources,
                 start_date = result.StartDateText,
-                start_date_rule = "date folders on or after start_date (inclusive); applied to _Logs/YYYY-MM-DD/ and _Logs/_editor/YYYY-MM-DD/; " +
+                start_date_rule = "date folders on or after start_date (inclusive); applied to Assets/_Project/Docs/_Logs/YYYY-MM-DD/, _Logs/_editor/YYYY-MM-DD/, and .utmp/raw-logs/_Logs/Android/YYYY-MM-DD/ plus .utmp/raw-logs/_Logs/Logcat/YYYY-MM-DD/ (collection date in KST, not session UTC); " +
                                   "default start_date = today in KST (UTC+9) when the window opens (not remembered); " +
                                   "start_date earlier than " + PriorArchiveBoundaryDateText + " may overlap prior archives outside _zip",
-                dedupe_scope = "path+sha256 already listed in Assets/_Project/Docs/_Logs/_zip/**/*.manifest.json",
+                dedupe_scope = "path+sha256 already listed in Assets/_Project/Docs/_Logs/_zip/**/*.manifest.json; private Android raw+receipt are skipped only when both hashes are archived, otherwise both are included",
                 prior_archive_dedupe = PriorArchiveDedupeNote,
                 skipped_already_archived = result.SkippedArchived,
                 manifests_scanned = result.ManifestsScanned,
@@ -1005,7 +1046,7 @@ namespace Hexiege.EditorTools
         private static ManifestSource ToManifestSource(SourceRecord r)
         {
             // 에디터가 쓰는 두 종류(상시·진단 세션)는 Unity 가 아직 덧붙이는 중일 수 있다.
-            bool editor = r.Kind != SourceKind.DeviceCapture;
+            bool editor = r.Kind == SourceKind.EditorDaily || r.Kind == SourceKind.DiagnosticSession;
             return new ManifestSource
             {
                 path = r.RepoRelativePath,
@@ -1017,7 +1058,9 @@ namespace Hexiege.EditorTools
                 source_last_write_utc = FormatUtc(r.SourceLastWriteUtc),
                 snapshot_note = editor
                     ? "snapshot of a file Unity may still append to; later bytes are not included and the last line may be partial"
-                    : "device capture file read as-is",
+                    : r.Kind == SourceKind.AndroidDevelopmentArchive || r.Kind == SourceKind.AndroidCollectionReceipt
+                        ? "verified PC Android snapshot pair; see CollectionReceipt.json for remote stability/completeness; not proof of a closed session"
+                        : "device capture file read as-is",
             };
         }
 
@@ -1028,6 +1071,9 @@ namespace Hexiege.EditorTools
             {
                 case SourceKind.EditorDaily: return "editor_daily";
                 case SourceKind.DiagnosticSession: return "diagnostic_session";
+                case SourceKind.AndroidDevelopmentArchive: return "android_development_archive";
+                case SourceKind.AndroidCollectionReceipt: return "android_collection_receipt";
+                case SourceKind.PrivateLogcatCapture: return "private_logcat_capture";
                 default: return "device_capture";
             }
         }
@@ -1075,7 +1121,7 @@ namespace Hexiege.EditorTools
                 "확인");
         }
 
-        /// <summary>결과 요약을 보여 주고, 확인 후 출력 폴더와 이번 달 Release 페이지를 연다.</summary>
+        /// <summary>결과 경로를 안내한다. 웹페이지 열기를 고른 경우에만 ZIP 위치 폴더와 Release 페이지를 연다.</summary>
         private static void ShowResultAndOpen(ArchivePaths paths, ArchiveNames names, ArchiveResult result)
         {
             long totalBytes = 0;
@@ -1095,12 +1141,15 @@ namespace Hexiege.EditorTools
             sb.AppendLine($"ZIP 크기: {result.ZipBytes:N0} bytes");
             sb.AppendLine("ZIP SHA256: " + result.ZipSha256);
             sb.AppendLine();
-            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인] 후 폴더와 Release 페이지가 열립니다.");
+            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인]/[닫기]는 창만 닫고, [웹페이지 열기]를 선택할 때만 ZIP 위치 폴더와 Release 페이지가 열립니다.");
             sb.AppendLine($"· 업로드 전 {UploadOwner}/{UploadRepo} 가 private 인지 확인하세요.");
             sb.AppendLine("· ZIP 과 manifest 를 함께 올리고, 다시 내려받아 크기·SHA256 을 대조하세요.");
             sb.AppendLine($"· 이번 달 Release 가 아직 없으면 페이지가 404 입니다 → 제목 「{ReleaseTitlePrefix}{names.MonthText}」, " +
                           $"태그 {ReleaseTagPrefix}{names.MonthText} 로 새로 만드세요.");
-            EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
+            // 기존: EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
+            // 0(확인), 1(닫기/창 닫기/Escape)는 외부 창을 열지 않는다. 2만 명시적인 웹페이지 요청이다.
+            int resultChoice = EditorUtility.DisplayDialogComplex(
+                DialogTitle, sb.ToString(), "확인", "닫기", "웹페이지 열기");
 
             Debug.Log($"[LogArchiveZip] 생성 완료: {names.ZipRepoRelative} (파일 {result.Records.Count}개, SHA256={result.ZipSha256})");
 
@@ -1109,8 +1158,14 @@ namespace Hexiege.EditorTools
             //   "이미 보관됨" 판정도 파일을 직접 읽는다. 전체 Refresh 는 프로젝트 전체를 다시 훑는 비싼 작업이라
             //   생략하고, Unity 의 평소 자동 갱신(에디터 창에 다시 포커스가 올 때)이 .meta 를 만들게 둔다.
             //   _zip 폴더는 .gitignore 대상이라 .meta 가 언제 생기든 소스 Git 에는 영향이 없다.
-            EditorUtility.RevealInFinder(names.ZipAbsolute);
-            UnityEngine.Application.OpenURL(releaseUrl);
+            // 기존 자동 실행 경로는 보존하되 사용하지 않는다.
+            // EditorUtility.RevealInFinder(names.ZipAbsolute);
+            // UnityEngine.Application.OpenURL(releaseUrl);
+            if (resultChoice == 2)
+            {
+                EditorUtility.RevealInFinder(names.ZipAbsolute);
+                UnityEngine.Application.OpenURL(releaseUrl);
+            }
         }
 
         // ====================================================================
@@ -1177,6 +1232,9 @@ namespace Hexiege.EditorTools
 
             /// <summary>진단 세션 로그(날짜/HH_MM_작업명/RuntimeLog.txt). 세션이 열려 있으면 append 중일 수 있다.</summary>
             DiagnosticSession,
+            AndroidDevelopmentArchive,
+            AndroidCollectionReceipt,
+            PrivateLogcatCapture,
         }
 
         /// <summary>이 도구가 쓰는 절대/상대 경로 모음. 한 번 계산해 모든 단계가 같은 값을 쓴다.</summary>

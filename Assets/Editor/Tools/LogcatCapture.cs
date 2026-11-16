@@ -3,14 +3,14 @@
 //
 // ┌─ 사용법 ────────────────────────────────────────────────────────────────┐
 // │  1) 기기를 USB 로 연결한다(USB 디버깅 ON).                                │
-// │  2) Hexiege > Logs > Clear Device Buffer (Deletes Logs) 실행.             │
+// │  2) Hexiege > Logs > Maintenance > Clear Device Buffer (Deletes Logs) 실행.             │
 // │  3) 기기에서 버그를 재현한다.                                             │
-// │  4) Hexiege > Logs > Save Device Logs 실행.                               │
+// │  4) Hexiege > Logs > Advanced > Save Device Logs 실행.                               │
 // │     → Assets/_Project/Docs/_Logs/{날짜}/{시각}_logcat/RuntimeLog_device.txt │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // ┌─ 곁들인 도구: 오래된 에디터 로그 정리 ──────────────────────────────────┐
-// │  Hexiege > Logs > Clean Old Editor Logs (Deletes Assets) 실행.            │
+// │  Hexiege > Logs > Maintenance > Clean Old Editor Logs (Deletes Assets) 실행.            │
 // │  에디터에서 플레이할 때마다 자동으로 쌓이는 상시 로그                       │
 // │  (Assets/_Project/Docs/_Logs/_editor/{날짜}/RuntimeLog.txt)가              │
 // │  너무 많아졌을 때, 오래된 "날짜 폴더"만 골라 지운다(LogRules.md 1.10).      │
@@ -20,9 +20,9 @@
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // 무엇을 하는가(유니티 초급자 기준):
-//   실기기(Android) 테스트에서는 RuntimeLogger 가 파일을 만들지 못한다.
-//   RuntimeLogger.cs 의 파일 쓰기 코드가 전부 #if UNITY_EDITOR 안에 있기 때문이다.
-//   그래서 실기기 로그는 Debug.Log → Android Logcat 으로만 나간다.
+//   Development Android는 앱 내부 DevelopmentLogs에도 기록한다.
+//   이 도구는 그 파일을 가져오지 않고 기존 Android Logcat만 읽는다.
+//   앱 내부 원문 회수는 Hexiege/Logs/Android Development Logs 메뉴를 쓴다.
 //
 //   지금까지는 사용자가 Logcat 창에서 로그를 드래그 복사해 채팅에 붙여넣어야 했는데,
 //   분량 제한 때문에 로그 일부만 전달되어 원인 추적이 늦어지는 일이 있었다.
@@ -183,7 +183,7 @@ namespace Hexiege.EditorTools
         /// 기기의 Logcat 링 버퍼를 비운다(`adb logcat -c`).
         /// 실기기 테스트를 시작하기 "직전"에 실행해서, 이번 재현에서 나온 로그만 남게 만든다.
         /// </summary>
-        [MenuItem("Hexiege/Logs/Clear Device Buffer (Deletes Logs)", false, 1)]
+        [MenuItem("Hexiege/Logs/Maintenance/Clear Device Buffer (Deletes Logs)", false, 1)]
         public static void ClearBuffer()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -209,7 +209,7 @@ namespace Hexiege.EditorTools
                 "Logcat 버퍼를 비웠습니다.\n\n" +
                 $"대상 기기: {deviceLabel}\n\n" +
                 "이제 기기에서 버그를 재현한 뒤,\n" +
-                "메뉴 [Hexiege > Logs > Save Device Logs] 을 실행하세요.",
+                "메뉴 [Hexiege > Logs > Advanced > Save Device Logs] 을 실행하세요.",
                 "확인");
         }
 
@@ -222,7 +222,7 @@ namespace Hexiege.EditorTools
         /// 저장 경로는 LogRules.md 규칙에 따라 `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/` 아래이며,
         /// 폴더가 없으면 자동으로 만든다(사용자에게 경로를 묻지 않는다).
         /// </summary>
-        [MenuItem("Hexiege/Logs/Save Device Logs", false, 2)]
+        [MenuItem("Hexiege/Logs/Advanced/Save Device Logs", false, 2)]
         public static void SaveToFile()
         {
             // ── adb 확보 ───────────────────────────────────────────────────
@@ -234,8 +234,7 @@ namespace Hexiege.EditorTools
             // ── 로그 덤프 ──────────────────────────────────────────────────
             //   -d          : 버퍼에 있는 것만 뱉고 즉시 종료(dump). 이게 없으면 계속 붙어서 안 끝난다.
             //   -v threadtime: "날짜 시각 PID TID 우선순위 태그: 메시지" 형식. 시간과 스레드가 보여 추적이 쉽다.
-            string args = "-d -v threadtime " + BuildBufferArgs() + " " + string.Join(" ", LogcatTagFilters);
-            AdbResult result = RunAdb(adbPath, serial, "logcat " + args, CaptureTimeoutMs, "Logcat 을 읽는 중...");
+            AdbResult result = ReadDeviceLogs(adbPath, serial);
 
             if (!result.Success)
             {
@@ -384,7 +383,7 @@ namespace Hexiege.EditorTools
         ///   5) 삭제 직전에 폴더마다 "정말 _editor/ 바로 아래인가" 를 다시 검사한 뒤 삭제
         ///   6) AssetDatabase.Refresh() 로 에디터에 반영하고 결과를 보고
         /// </summary>
-        [MenuItem("Hexiege/Logs/Clean Old Editor Logs (Deletes Assets)", false, 13)]
+        [MenuItem("Hexiege/Logs/Maintenance/Clean Old Editor Logs (Deletes Assets)", false, 13)]
         public static void CleanOldEditorLogs()
         {
             // ── 1) 정리 대상 뿌리 폴더 확인 ────────────────────────────────
@@ -883,7 +882,7 @@ namespace Hexiege.EditorTools
         /// </summary>
         /// <param name="adbPath">찾아낸 adb 경로(또는 PATH 사용 시 "adb"/"adb.exe").</param>
         /// <returns>찾았으면 true.</returns>
-        private static bool TryResolveAdb(out string adbPath)
+        internal static bool TryResolveAdb(out string adbPath)
         {
             adbPath = null;
 
@@ -999,7 +998,7 @@ namespace Hexiege.EditorTools
         /// <param name="serial">선택된 기기의 직렬번호(1대뿐이어도 명시적으로 지정한다).</param>
         /// <param name="deviceLabel">표시용 기기 라벨.</param>
         /// <returns>대상이 확정되면 true.</returns>
-        private static bool TryResolveDevice(string adbPath, out string serial, out string deviceLabel)
+        internal static bool TryResolveDevice(string adbPath, out string serial, out string deviceLabel)
         {
             serial = null;
             deviceLabel = null;
@@ -1134,7 +1133,7 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>adb 실행 결과를 담는 구조체.</summary>
-        private struct AdbResult
+        internal struct AdbResult
         {
             /// <summary>프로세스가 정상적으로 끝났고 종료 코드가 0이면 true.</summary>
             public bool Success;
@@ -1178,7 +1177,7 @@ namespace Hexiege.EditorTools
         /// <param name="timeoutMs">제한 시간(밀리초). 넘으면 프로세스를 강제 종료한다.</param>
         /// <param name="progressMessage">진행 표시줄에 띄울 문구(null 이면 표시하지 않음).</param>
         /// <returns>실행 결과.</returns>
-        private static AdbResult RunAdb(
+        internal static AdbResult RunAdb(
             string adbPath, string serial, string arguments, int timeoutMs, string progressMessage)
         {
             // `adb -s <직렬번호> <명령>` 순서다. -s 는 반드시 하위 명령보다 앞에 온다.
@@ -1325,6 +1324,12 @@ namespace Hexiege.EditorTools
 
         /// <summary>`-b main -b system -b crash` 형태의 버퍼 인자 문자열을 만든다.</summary>
         /// <returns>조립된 인자 문자열.</returns>
+        internal static AdbResult ReadDeviceLogs(string adbPath, string serial)
+        {
+            string args = "-d -v threadtime " + BuildBufferArgs() + " " + string.Join(" ", LogcatTagFilters);
+            return RunAdb(adbPath, serial, "logcat " + args, CaptureTimeoutMs, "Logcat 을 읽는 중...");
+        }
+
         private static string BuildBufferArgs()
         {
             var sb = new StringBuilder();
