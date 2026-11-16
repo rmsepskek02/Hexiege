@@ -892,8 +892,14 @@ namespace Hexiege.Infrastructure
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                         using var targetQueriesSample = _targetQueriesProfilerMarker.Auto();
 #endif
-                        attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
-                        hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
+                        // [2026-11-15 중복 검색 제거] 아래 기존 결과와 같은 동기 조회에서만 재사용한다.
+                        // 기존: attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
+                        // 기존: hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
+                        bool rangeQueryPerformed = false;
+                        attackResult = combat.CanAttack(unit)
+                            ? combat.TryFindTarget(unit, out rangeQueryPerformed) : null;
+                        hasEnemy = attackResult.HasValue
+                            || (!rangeQueryPerformed && combat.HasEnemyInRange(unit));
                     }
 
                     if (hasEnemy)

@@ -12,7 +12,7 @@
 // │     → Assets/_Project/Docs/_Logs/_zip/{KST 오늘 날짜}/                     │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.zip                               │
 // │         {날짜}_{HH}_{MM}_{작업명}_{회차}.manifest.json                     │
-// │  4) [확인]/[닫기]는 창만 닫고, [웹페이지 열기]는 ZIP 폴더와 Release를 연다.│
+// │  4) [확인]은 창만 닫고, [웹페이지 열기]는 ZIP 폴더와 Release를 연다.      │
 // │     ZIP 과 manifest 업로드는 **사용자가 직접** 한다(이 도구는 업로드 안 함).│
 // └────────────────────────────────────────────────────────────────────────┘
 //
@@ -1141,15 +1141,16 @@ namespace Hexiege.EditorTools
             sb.AppendLine($"ZIP 크기: {result.ZipBytes:N0} bytes");
             sb.AppendLine("ZIP SHA256: " + result.ZipSha256);
             sb.AppendLine();
-            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인]/[닫기]는 창만 닫고, [웹페이지 열기]를 선택할 때만 ZIP 위치 폴더와 Release 페이지가 열립니다.");
+            sb.AppendLine("업로드는 이 도구가 하지 않습니다. [확인]은 창만 닫고, [웹페이지 열기]를 선택할 때만 ZIP 위치 폴더와 Release 페이지가 열립니다.");
             sb.AppendLine($"· 업로드 전 {UploadOwner}/{UploadRepo} 가 private 인지 확인하세요.");
             sb.AppendLine("· ZIP 과 manifest 를 함께 올리고, 다시 내려받아 크기·SHA256 을 대조하세요.");
             sb.AppendLine($"· 이번 달 Release 가 아직 없으면 페이지가 404 입니다 → 제목 「{ReleaseTitlePrefix}{names.MonthText}」, " +
                           $"태그 {ReleaseTagPrefix}{names.MonthText} 로 새로 만드세요.");
             // 기존: EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
-            // 0(확인), 1(닫기/창 닫기/Escape)는 외부 창을 열지 않는다. 2만 명시적인 웹페이지 요청이다.
-            int resultChoice = EditorUtility.DisplayDialogComplex(
-                DialogTitle, sb.ToString(), "확인", "닫기", "웹페이지 열기");
+            // 기존 3버튼 경로는 보존한다. cancel에 웹버튼을 배치하면 Escape도 웹열기로 오인하므로 사용하지 않는다.
+            // int resultChoice = EditorUtility.DisplayDialogComplex(
+            //     DialogTitle, sb.ToString(), "확인", "닫기", "웹페이지 열기");
+            int resultChoice = ArchiveResultDialog.ShowResult(sb.ToString()) ? 2 : 0;
 
             Debug.Log($"[LogArchiveZip] 생성 완료: {names.ZipRepoRelative} (파일 {result.Records.Count}개, SHA256={result.ZipSha256})");
 
@@ -1165,6 +1166,54 @@ namespace Hexiege.EditorTools
             {
                 EditorUtility.RevealInFinder(names.ZipAbsolute);
                 UnityEngine.Application.OpenURL(releaseUrl);
+            }
+        }
+
+        /// <summary>확인/웹페이지 열기만 있는 결과 창. 닫기·Escape는 외부 동작을 요청하지 않는다.</summary>
+        private sealed class ArchiveResultDialog : EditorWindow
+        {
+            private string _message;
+            private Action _requestWeb;
+            private Vector2 _scroll;
+
+            internal static bool ShowResult(string message)
+            {
+                bool webRequested = false;
+                var dialog = CreateInstance<ArchiveResultDialog>();
+                dialog.titleContent = new GUIContent(DialogTitle);
+                dialog.minSize = new Vector2(560f, 360f);
+                dialog._message = message;
+                // 선택 결과는 창 바깥의 지역 변수에 둔다. X로 창이 파괴되어도 기본값 false다.
+                dialog._requestWeb = () => webRequested = true;
+                dialog.ShowModal();
+                return webRequested;
+            }
+
+            private void OnGUI()
+            {
+                if (Event.current.type == EventType.KeyDown
+                    && (Event.current.keyCode == KeyCode.Escape
+                        || Event.current.keyCode == KeyCode.Return
+                        || Event.current.keyCode == KeyCode.KeypadEnter))
+                {
+                    Event.current.Use();
+                    Close();
+                    return;
+                }
+                _scroll = EditorGUILayout.BeginScrollView(_scroll);
+                float height = EditorStyles.wordWrappedLabel.CalcHeight(
+                    new GUIContent(_message), Mathf.Max(100f, position.width - 36f));
+                EditorGUILayout.SelectableLabel(_message, EditorStyles.wordWrappedLabel, GUILayout.Height(height));
+                EditorGUILayout.EndScrollView();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("확인", GUILayout.Height(26f))) Close();
+                    if (GUILayout.Button("웹페이지 열기", GUILayout.Height(26f)))
+                    {
+                        _requestWeb?.Invoke();
+                        Close();
+                    }
+                }
             }
         }
 
