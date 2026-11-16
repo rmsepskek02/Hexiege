@@ -63,7 +63,7 @@ namespace Hexiege.Editor.Combat
             ValidateSkillZoneExecutor();           // Z-T8
             ValidateSkillZoneAssets();             // Z-T9
             ValidateSkillZoneSourceGates();        // Z-T10
-            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb still unavailable (Z-T9), schema 9 + setup expected count 9 + tick/subscription/RPC source gates (Z-T10).");
+            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb still unavailable (Z-T9), schema 10 + setup expected count 10 + tick/subscription/RPC source gates (Z-T10).");
         }
 
         // 구역 fixture — 새 유닛 목록 · 전투 UseCase · 상태 시스템 · 구역 서비스 + 구성원 알림 수집.
@@ -341,16 +341,22 @@ namespace Hexiege.Editor.Combat
         /// <summary> Z-T10 — 스키마 · 셋업 기대 수 · 소스 게이트. </summary>
         private static void ValidateSkillZoneSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
-                "Z-T10 the persistent-zone membership RPC must raise the presentation schema to 9.");
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 C 비활성화] 쉴드 깨짐 알림 RPC로 스키마가 9 → 10이 됐다. 옛 검사:
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
+            //     "Z-T10 the persistent-zone membership RPC must raise the presentation schema to 9.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
+                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10).");
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-16 지원 스킬 새 상태 Task 단계 A — A-4 비활성화] 대지의 갑주를 켜 기대 수가 8 → 9가 됐다. 옛 검사:
             // Require(expected != null && (int)expected.GetRawConstantValue() == 8,
             //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 8 (six earlier skills + Frost Prison + Sap Swamp).");
-            Require(expected != null && (int)expected.GetRawConstantValue() == 9,
-                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 9 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor).");
+            // [2026-11-16 단계 C — C-4 비활성화] 신목의 각성을 켜 기대 수가 9 → 10이 됐다. 옛 검사:
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 9,
+            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 9 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 10,
+                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening).");
 
             string net = File.ReadAllText("Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             int zoneTick = net.IndexOf("GetSkillActivationUseCase()?.TickZones(elapsed);", StringComparison.Ordinal);

@@ -261,8 +261,12 @@ namespace Hexiege.Editor.Combat
             //   옛 줄(기록용):
             // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
             //     "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raises it to 8.");
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
-                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raises it to 9.");
+            //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC(ShieldBrokenClientRpc)가 새로 생겼다.
+            //   옛 줄(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
+            //     "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raises it to 9.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
+                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raises it to 10.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved

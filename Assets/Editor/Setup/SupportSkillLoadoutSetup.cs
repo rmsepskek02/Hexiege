@@ -90,8 +90,10 @@ namespace Hexiege.EditorTools
         //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
         //   [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-20] 6 → 8. 서리 감옥 · 수액 늪을 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-4] 8 → 9. 대지의 갑주를 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-16 지원 스킬 새 상태 Task 단계 C — 구현 단위 C-4] 9 → 10. 신목의 각성을 「사용 가능」으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        private const int ExpectedAvailableCount = 9;
+        // private const int ExpectedAvailableCount = 9;
+        private const int ExpectedAvailableCount = 10;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -331,8 +333,15 @@ namespace Hexiege.EditorTools
                     StatusEffectKind.MoveSpeedMul, 0.4f, duration: 6f, radius: 2f, cooldown: 15f),
                 InstantPlaceholder("Skill_Trans_RootsOfRegeneration", t, 1, "재생의 뿌리",
                     "맵 전체 아군 유닛과 건물에 체력 재생을 부여하고 증폭한다.", allies: true),
-                InstantPlaceholder("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
-                    "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", allies: true),
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 C — Plan S-1 · 6-1] 신목의 각성 — 주 효과 = 유닛 쉴드 150 · 8초 · 쿨 15,
+                //   추가 효과 = 「건물 각각 · 쉴드 500」 한 줄(모두 시험용 임시값). 도구를 다시 실행해도 자리표시로 돌아가지 않게 줄을 바꿨다.
+                //   🔴 유닛 · 건물 상태 VFX 칸(임시 프리팹 포함)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
+                //   옛 줄(기록용):
+                // InstantPlaceholder("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
+                //     "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", allies: true),
+                WithExtra(InstantBuff("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
+                    "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", StatusEffectKind.Shield, 150f, 8f),
+                    SkillEffectTarget.Building, StatusEffectKind.Shield, 500f),
                 // [2026-11-10 D4 · D10] 숲의 포효 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
@@ -434,9 +443,10 @@ namespace Hexiege.EditorTools
                 // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다).
                 // [2026-11-11 Z-20] 6개 → 8개 — 괄호 안에 서리 감옥 · 수액 늪을 더했다.
                 // [2026-11-16 A-4] 8개 → 9개 — 괄호 안에 대지의 갑주를 더했다.
+                // [2026-11-16 단계 C — C-4] 9개 → 10개 — 괄호 안에 신목의 각성을 더했다.
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
