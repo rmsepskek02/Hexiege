@@ -15,11 +15,12 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
 - **Impact timing reuse:** Bombardment shipped with a 0.4 s server-side impact delay (type A, damage at the impact moment to
   whoever is in range then). Meteor is expected to reuse that reservation with a longer delay — design meteor around
   "damage at impact, dodgeable", not "damage at cast".
-- **Unavailable slots:** 7 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown). How an
+- **Unavailable slots:** 6 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown). How an
   unavailable slot looks is a later UI task (decision 16) — do not design it inside a skill task. The button **text** is now
-  the skill name (user request 2026-11-11 — icons / description tab stay in the later UI task). *(2026-11-11 updated —
+  the skill name (user request 2026-11-11 — icons / description tab stay in the later UI task). *(2026-11-16 updated — was "7 of the 15"; Earth Armor added and Tactical Order now also has production speed — `_Tasks/2026-11-16/01_00_support-skill-new-statuses/` Plan §12)* *(2026-11-11 updated —
   was "9 of the 15" and, before that, "14 of the 15"; available now = Bombardment · EMP · Tactical Order (attack) · Flame
   Blessing · Frost Prison · Sap Swamp · Forest Roar · Forest Tailwind)*
+- **New support statuses — stage A (2026-11-16, `_Tasks/2026-11-16/01_00_support-skill-new-statuses/` Plan S-1~S-17 · §12):** Earth Armor reduces **all** damage a buffed unit takes (unit attacks, enemy skills, towers, DoT) — defense first, then ×0.7, round AwayFromZero, minimum 1; buildings are not covered; units produced during the buff are not covered. Production speed is **team-wide** (in-progress production speeds up at once; new/upgraded production buildings included); required time is unchanged. Values temporary (×0.7, ×1.5, 8 s, cd 15). Decisions were the main session's recommendation, reported to the user with no objection — not an explicit confirmation. Earth Armor (Spirit) and the shield (Transcendence) can never meet on one unit (one race per team). Stage C shield: unit 150 · building 500, replace on re-use, leftover dropped on expiry (Plan §6-1).
 - **Persistent status zones (2026-11-11, `_Tasks/2026-11-10/16_02_support-skill-persistent-zones/` Plan Z-1~Z-21 · §11-7):**
   a zone hits enemy units **inside it now** (late entrants too, released on exit / expiry); same-skill overlap counts once;
   a zone **multiplies** with other sources of the same kind (tailwind 1.3 × sap 0.4 = 0.52 — user: 「방법 자체는 좋은 것으로
@@ -30,7 +31,7 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
   hits only allies **alive at the activation moment** (units produced during the buff are not buffed — D1, may be revisited
   in balancing); re-use replaces the remaining time, no stacking. Each skill has its **own** buff-status VFX slot, so
   per-race art needs no per-recipient override (D7); the buff VFX shows on **both** screens (D2). Values are temporary
-  (attack ×1.5, move ×1.3, 8 s, cd 15). Tactical Order's production-speed half needs new status 2-S. Whether V12 (tailwind
+  (attack ×1.5, move ×1.3, 8 s, cd 15). Tactical Order's production-speed half needs new status 2-S *(2026-11-16: done — team-wide ×1.5, in-progress production too; see the new-statuses entry below)*. Whether V12 (tailwind
   wind/leaves) and V21 (tailwind buff state) are one effect is still open for VFX design. User visual note: telling ×1.5
   attack by eye was hard (「강화된 구체적인 수치는 육안으로 비교하기 어려웠어」); the values were judged from logs.
 
