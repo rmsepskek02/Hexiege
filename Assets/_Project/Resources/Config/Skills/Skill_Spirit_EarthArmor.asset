@@ -16,17 +16,22 @@ MonoBehaviour:
   _displayName: "\uB300\uC9C0\uC758 \uAC11\uC8FC"
   _description: "\uB9F5 \uC804\uCCB4 \uC544\uAD70 \uC720\uB2DB\uC774 \uBC1B\uB294
     \uD53C\uD574\uB97C \uC904\uC778\uB2E4."
-  _isAvailable: 0
+  _isAvailable: 1
   _aimType: 0
   _cooldown: 15
   _mechanic: 2
   _radius: 0
-  _duration: 0
+  _duration: 8
   _totalDamage: 0
   _damagePerSecond: 0
-  _statusKind: 0
-  _magnitude: 0
+  _statusKind: 6
+  _magnitude: 0.7
   _targetsAllies: 1
   _impactDelay: 0
   _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
+  _zoneVfxPrefab: {fileID: 0}
+  _statusVfxPrefab: {fileID: 8266672880827664662, guid: ff068a5e9b80f3043a0517ebb1cfb00f, type: 3}
+  _statusVfxScale: 2
+  _statusVfxOffset: {x: 0, y: 0, z: 0}
+  _extraEffects: []

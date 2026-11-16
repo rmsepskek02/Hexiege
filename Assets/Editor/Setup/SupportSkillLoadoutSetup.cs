@@ -89,7 +89,9 @@ namespace Hexiege.EditorTools
         //   이 값을 그대로 2로 두면 표의 사용 가능 수(6)와 달라 ValidateSpecs 가 쓰기 전에 멈춰 도구를 실행할 수 없다.
         //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
         //   [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-20] 6 → 8. 서리 감옥 · 수액 늪을 「사용 가능」으로 켠 표와 개수를 맞춘다.
-        private const int ExpectedAvailableCount = 8;
+        //   [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-4] 8 → 9. 대지의 갑주를 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        // private const int ExpectedAvailableCount = 8;
+        private const int ExpectedAvailableCount = 9;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -111,12 +113,21 @@ namespace Hexiege.EditorTools
         private const string F_ImpactDelay = "_impactDelay";
         private const string F_ActivationVfx = "_activationVfxPrefab";
         private const string F_VfxReferenceRadius = "_vfxReferenceRadius";
+        // [2026-11-16 A-4] 추가 효과 목록 칸과 그 한 줄의 칸 이름(SkillDefinition.ExtraEffectEntry의 public 필드 이름).
+        private const string F_ExtraEffects = "_extraEffects";
+        private const string F_ExtraTarget = "target";
+        private const string F_ExtraStatusKind = "statusKind";
+        private const string F_ExtraMagnitude = "magnitude";
 
+        // [2026-11-16 A-4] 끝에 F_ExtraEffects를 더했다(쓰기 전 칸 이름 확인 대상). 옛 목록:
+        //     F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
+        //     F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
+        //     F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius
         private static readonly string[] AllFieldNames =
         {
             F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
             F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
-            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius
+            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects
         };
 
         // SkillLoadoutConfig 의 직렬화 칸 이름.
@@ -158,6 +169,15 @@ namespace Hexiege.EditorTools
             public float ImpactDelay;      // 착탄 지연(초).
             public bool UseBombardmentVfx; // true면 포격 VFX 프리팹을 연결.
             public bool UseEmpPulseVfx;    // [EMP 커밋 4] true면 EMP 고리 VFX 프리팹을 연결(포격 VFX와 동시에 켜면 ValidateSpecs가 멈춘다).
+            // [2026-11-16 A-4] 추가 효과 목록(대상 · 종류 · 강도). 비어 있으면 자산의 목록도 비운다(표가 곧 정답 — 다른 칸과 같은 멱등 규칙).
+            public List<SkillExtraEffect> ExtraEffects = new List<SkillExtraEffect>();
+        }
+
+        // [2026-11-16 A-4] 표의 한 줄에 추가 효과 한 줄을 붙여 그 줄을 그대로 돌려준다(표 안에서 줄여 쓰기 위한 도우미).
+        private static SkillSpec WithExtra(SkillSpec spec, SkillEffectTarget target, StatusEffectKind kind, float magnitude)
+        {
+            spec.ExtraEffects.Add(new SkillExtraEffect(target, kind, magnitude));
+            return spec;
         }
 
         // 자리표시 값 — 지점 조준 스킬용(기존 Skill_Human_Bomb 값: 타입 A · 반경 2 · 피해 150 · 쿨 10).
@@ -284,8 +304,14 @@ namespace Hexiege.EditorTools
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
                 // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
-                InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
+                // [2026-11-16 A-4 비활성화 — 생산 속도 추가] 옛 줄:
+                // InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
+                //     "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1 · S-9] 주 효과(공격력 1.5배 · 8초 · 쿨 15)는 그대로,
+                //   추가 효과 목록에 「팀 · 생산 속도 1.5배」 한 줄. 설명 문구가 이제 실제 동작과 맞는다.
+                WithExtra(InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
                     "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
+                    SkillEffectTarget.Team, StatusEffectKind.ProductionSpeedMul, 1.5f),
 
                 // ── 정령(race 1) — MagicSpirit ──
                 PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
@@ -297,8 +323,12 @@ namespace Hexiege.EditorTools
                 // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
-                InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
-                    "맵 전체 아군 유닛이 받는 피해를 줄인다.", allies: true),
+                // [2026-11-16 A-4 비활성화 — 대지의 갑주 켜기] 옛 줄(자리표시 · 사용 불가):
+                // InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
+                //     "맵 전체 아군 유닛이 받는 피해를 줄인다.", allies: true),
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1] 대지의 갑주 — 받는 피해 0.7배 · 8초 · 쿨 15(시험용 임시값).
+                InstantBuff("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
+                    "맵 전체 아군 유닛이 받는 피해를 줄인다.", StatusEffectKind.IncomingDamageMul, 0.7f, 8f),
                 // 원소 공명 — 기능 보류 · 이름만 등록(상위 결정 15). 대상이 정해지지 않아 targetsAllies=false.
                 InstantPlaceholder("Skill_Spirit_ElementalResonance", s, 4, "원소 공명",
                     "기능 기획 보류 중인 스킬이다(이름만 등록).", allies: false),
@@ -412,9 +442,10 @@ namespace Hexiege.EditorTools
                 // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
                 // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다).
                 // [2026-11-11 Z-20] 6개 → 8개 — 괄호 안에 서리 감옥 · 수액 늪을 더했다.
+                // [2026-11-16 A-4] 8개 → 9개 — 괄호 안에 대지의 갑주를 더했다.
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
@@ -625,6 +656,16 @@ namespace Hexiege.EditorTools
             //   ↑ [EMP 커밋 4] 포격 VFX만 고르던 종전 줄. EMP VFX도 고를 수 있게 아래 줄로 대체(포격 결과는 같다).
             so.FindProperty(F_ActivationVfx).objectReferenceValue = ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx);
             so.FindProperty(F_VfxReferenceRadius).floatValue = DefaultVfxReferenceRadius;
+            // [2026-11-16 A-4] 추가 효과 목록 — 표의 줄 수만큼 배열 크기를 맞추고 줄마다 정수 코드 · 강도를 쓴다(빈 표면 빈 배열).
+            SerializedProperty extras = so.FindProperty(F_ExtraEffects);
+            extras.arraySize = spec.ExtraEffects.Count;
+            for (int i = 0; i < spec.ExtraEffects.Count; i++)
+            {
+                SerializedProperty row = extras.GetArrayElementAtIndex(i);
+                row.FindPropertyRelative(F_ExtraTarget).intValue = (int)spec.ExtraEffects[i].Target;
+                row.FindPropertyRelative(F_ExtraStatusKind).intValue = (int)spec.ExtraEffects[i].Kind;
+                row.FindPropertyRelative(F_ExtraMagnitude).floatValue = spec.ExtraEffects[i].Magnitude;
+            }
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def); // 저장 대상으로 표시(빠지면 SaveAssets가 파일에 쓰지 않는다).
@@ -686,6 +727,24 @@ namespace Hexiege.EditorTools
             CheckFloat(F_ImpactDelay, spec.ImpactDelay);
             CheckRef(F_ActivationVfx, ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx));
             CheckFloat(F_VfxReferenceRadius, DefaultVfxReferenceRadius);
+            // [2026-11-16 A-4] 추가 효과 목록 — 줄 수와 줄마다 값을 비교한다.
+            SerializedProperty extras = so.FindProperty(F_ExtraEffects);
+            if (extras.arraySize != spec.ExtraEffects.Count)
+            {
+                Note(F_ExtraEffects, extras.arraySize + "줄", spec.ExtraEffects.Count + "줄");
+            }
+            else
+            {
+                for (int i = 0; i < spec.ExtraEffects.Count; i++)
+                {
+                    SerializedProperty row = extras.GetArrayElementAtIndex(i);
+                    SkillExtraEffect e = spec.ExtraEffects[i];
+                    if (row.FindPropertyRelative(F_ExtraTarget).intValue != (int)e.Target
+                        || row.FindPropertyRelative(F_ExtraStatusKind).intValue != (int)e.Kind
+                        || !Mathf.Approximately(row.FindPropertyRelative(F_ExtraMagnitude).floatValue, e.Magnitude))
+                        Note(F_ExtraEffects + "[" + i + "]", "다름", $"{e.Target}/{e.Kind}/{e.Magnitude:0.###}");
+                }
+            }
 
             return sb.ToString();
         }
@@ -826,7 +885,9 @@ namespace Hexiege.EditorTools
                                  && Mathf.Approximately(data.Radius, spec.Radius)
                                  && Mathf.Approximately(data.Duration, spec.Duration)
                                  && data.TotalDamage == spec.TotalDamage
-                                 && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay);
+                                 && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay)
+                                 // [2026-11-16 A-4] 추가 효과 목록 줄 수도 표와 같아야 한다.
+                                 && data.ExtraEffects.Count == spec.ExtraEffects.Count;
                     if (!match)
                     {
                         Debug.LogError($"{LogPrefix} race {(int)race} 슬롯 {slot + 1} 이 표와 다르다 " +

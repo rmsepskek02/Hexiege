@@ -33,3 +33,7 @@ MonoBehaviour:
   _statusVfxPrefab: {fileID: 0}
   _statusVfxScale: 1
   _statusVfxOffset: {x: 0, y: 0, z: 0}
+  _extraEffects:
+  - target: 2
+    statusKind: 7
+    magnitude: 1.5
