@@ -17,6 +17,7 @@
 //   2026-11-03: 발동 VFX 프리팹(UnityEngine.GameObject)도 같은 "연출 참조" 이유로 담는다(실행기는 읽지 않는다).
 // ============================================================================
 
+using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
 
@@ -134,10 +135,25 @@ namespace Hexiege.Application
         /// </summary>
         public GameObject ZoneVfxPrefab { get; }
 
+        // ── 2026-11-16 추가: 추가 효과 목록(지원 스킬 새 상태 — 단계 A, Plan S-13) ──
+        //   주 효과(StatusKind · Magnitude) 하나로는 「공격력 + 생산 속도」(전술 지령)처럼 효과 둘 이상을 걸 수 없어서 덧붙였다.
+        //   값은 SkillDefinition의 「추가 효과 목록」 칸에서 복사된다. 칸이 없는 옛 자산은 빈 목록으로 읽혀 동작이 그대로다.
+        //   실행기(GlobalStatusChangeExecutor)가 목록의 줄마다 서버 전용 지원 스킬 효과 서비스로 보낸다.
+
+        /// <summary>
+        /// 추가 효과 목록(주 효과 말고 더 거는 효과들). 비어 있을 수 있지만 null은 아니다(호출자가 null 검사 없이 순회).
+        /// 지속시간 · 대상 팀은 주 효과와 같다(Duration · TargetsAllies).
+        /// </summary>
+        public IReadOnlyList<SkillExtraEffect> ExtraEffects { get; }
+
+        // 빈 목록 하나를 모든 스킬이 함께 쓴다(추가 효과가 없는 스킬마다 빈 배열을 새로 만들지 않게).
+        private static readonly SkillExtraEffect[] NoExtraEffects = new SkillExtraEffect[0];
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
         /// 그 뒤 인자(구역 VFX 프리팹, 2026-11-11 추가)도 생략하면 "프리팹 없음"이다.
+        /// 맨 뒤 인자(추가 효과 목록, 2026-11-16 추가)도 생략하면 "추가 효과 없음"이다 — 기존 호출은 고치지 않아도 그대로 컴파일된다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -160,7 +176,8 @@ namespace Hexiege.Application
             GameObject statusVfxPrefab = null,
             float statusVfxScale = 1f,
             Vector3 statusVfxOffset = default,
-            GameObject zoneVfxPrefab = null)
+            GameObject zoneVfxPrefab = null,
+            IReadOnlyList<SkillExtraEffect> extraEffects = null)
         {
             Icon = icon;
             AimType = aimType;
@@ -193,6 +210,63 @@ namespace Hexiege.Application
 
             // 구역 VFX(2026-11-11). 프리팹 참조만 담는다(크기는 발동 VFX 기준 반경을 공유한다 — Z-13).
             ZoneVfxPrefab = zoneVfxPrefab;
+
+            // 추가 효과 목록(2026-11-16). 받은 목록을 새 배열로 복사해 보관한다 —
+            //   호출자가 나중에 원본 목록을 바꿔도 이 값 객체는 바뀌지 않는다(불변 값 객체 약속).
+            if (extraEffects == null || extraEffects.Count == 0)
+            {
+                ExtraEffects = NoExtraEffects;
+            }
+            else
+            {
+                var copy = new SkillExtraEffect[extraEffects.Count];
+                for (int i = 0; i < copy.Length; i++) copy[i] = extraEffects[i];
+                ExtraEffects = copy;
+            }
+        }
+
+        /// <summary>
+        /// 이 스킬이 지정한 상태 종류의 효과를 거는지 찾는다(주 효과 먼저, 없으면 추가 효과 목록에서 첫 줄).
+        /// 서버 실행기와 순수 클라이언트 생산 막대 거울(UnitProductionUseCase.MirrorProductionSpeedFromSkill)이
+        /// 같은 규칙으로 값을 찾도록 이 메서드 하나를 함께 쓴다(2026-11-16 추가).
+        /// 주 효과는 대상이 「유닛」이다(타입 C 주 효과는 대상 팀 유닛 각각에 걸린다).
+        /// </summary>
+        /// <param name="kind">찾을 상태 종류.</param>
+        /// <param name="target">찾은 효과의 대상 종류(못 찾으면 Unit).</param>
+        /// <param name="magnitude">찾은 효과의 강도(못 찾으면 0).</param>
+        /// <returns>찾았으면 true.</returns>
+        public bool TryFindEffect(StatusEffectKind kind, out SkillEffectTarget target, out float magnitude)
+        {
+            if (kind != StatusEffectKind.None && (StatusEffectKind)StatusKind == kind)
+            {
+                target = SkillEffectTarget.Unit;
+                magnitude = Magnitude;
+                return true;
+            }
+            for (int i = 0; i < ExtraEffects.Count; i++)
+            {
+                if (ExtraEffects[i].Kind != kind) continue;
+                target = ExtraEffects[i].Target;
+                magnitude = ExtraEffects[i].Magnitude;
+                return true;
+            }
+            target = SkillEffectTarget.Unit;
+            magnitude = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// 시전 팀으로부터 효과를 받을 팀을 정한다 — 아군 대상이면 시전 팀, 적 대상이면 반대 팀
+        /// (실행기 GlobalStatusChangeExecutor · 화면 UnitBuffVfxPresenter와 같은 규칙. Neutral은 그대로).
+        /// </summary>
+        /// <param name="casterTeam">스킬을 쓴 팀.</param>
+        /// <returns>효과를 받을 팀.</returns>
+        public TeamId ResolveTargetTeam(TeamId casterTeam)
+        {
+            if (TargetsAllies) return casterTeam;
+            if (casterTeam == TeamId.Blue) return TeamId.Red;
+            if (casterTeam == TeamId.Red) return TeamId.Blue;
+            return casterTeam;
         }
 
         // 세 축이 모두 유한한 숫자인지(NaN · 무한대가 아닌지).

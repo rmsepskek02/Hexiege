@@ -23,6 +23,13 @@
 //   Rule 5   : 골드 차감 = 슬롯 표시 시점 (자동 항목). 수동 항목은 등록 시 즉시 차감
 //   Rule 2-1 : 자동 등록 타입이 PendingQueue 마지막 수동 항목과 같으면 IsAuto=true로 전환(중복 금지)
 //
+// [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-3] 전술 지령 생산 속도(Plan S-9 안 A):
+//   생산 진행 시간을 매 틱 「dt × 팀 생산 배율」만큼 늘린다(필요 시간 RequiredTime은 그대로). 그래서 이미 진행 중인 생산도
+//   그 순간부터 빨라지고, 효과가 끝나는 순간 정확히 원래 속도로 돌아온다. 배율은 팀 단위라 효과 중 새로 짓거나
+//   업그레이드한 생산 건물에도 걸린다. 배율이 없으면(1) 곱하지 않는다 → 기존과 같다.
+//     - 서버 · 싱글: SetProductionSpeedSource로 받은 지원 스킬 효과 서비스가 배율을 알려 준다.
+//     - 순수 클라이언트: 진행 막대 거울(ProductionSpeedMirror)이 발동 알림으로 같은 배율을 따라 한다(RPC 없음).
+//
 // Application 레이어 — Domain에 의존.
 // ============================================================================
 
@@ -50,6 +57,56 @@ namespace Hexiege.Application
         private int _spawnFacingBarracksId;
         private bool _spawnFacingTargetSelected;
 #endif
+
+        // [2026-11-16 A-3] 서버 · 싱글의 팀 생산 속도 배율 창구(지원 스킬 효과 서비스). null이면 배율 1(기존과 같음).
+        //   생성자가 아니라 설정자로 받는다 — 생성자를 바꾸면 기존 호출(조합 루트 · 검증 fixture)이 깨진다.
+        private IProductionSpeedSource _speedSource;
+
+        // [2026-11-16 A-3] 순수 클라이언트 진행 막대 거울. 이 UseCase가 맵마다 새로 만들어지므로 거울도 경기마다 새것이다.
+        private readonly ProductionSpeedMirror _clientSpeedMirror = new ProductionSpeedMirror();
+
+        /// <summary>
+        /// 서버 · 싱글의 팀 생산 속도 배율 창구를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-16 전술 지령 생산 속도).
+        /// 주입하지 않으면 배율은 항상 1이다(기존 생산과 완전히 같다).
+        /// </summary>
+        /// <param name="source">같은 경기의 지원 스킬 효과 서비스(IProductionSpeedSource).</param>
+        public void SetProductionSpeedSource(IProductionSpeedSource source)
+        {
+            _speedSource = source;
+        }
+
+        /// <summary> 순수 클라이언트 진행 막대 거울(확인 · 검증용). </summary>
+        public ProductionSpeedMirror ClientSpeedMirror => _clientSpeedMirror;
+
+        /// <summary>
+        /// (순수 클라이언트 전용) 스킬 발동 알림을 받은 순간 부른다. 그 스킬이 생산 속도 효과(팀 대상)를 가지면
+        /// 같은 배율 · 지속을 진행 막대 거울에 기록한다(서버의 실제 생산 완료와 무관한 화면 표시용 — Plan S-9).
+        /// 서버와 같은 규칙으로 찾는다: SkillData.TryFindEffect(생산 속도) · ResolveTargetTeam(아군/적).
+        /// </summary>
+        /// <param name="skill">이 빌드의 스킬 데이터(팀 · 슬롯으로 찾은 것).</param>
+        /// <param name="casterTeam">시전 팀.</param>
+        /// <param name="sequence">발동 순번(진단용).</param>
+        /// <param name="slot">슬롯(진단용).</param>
+        /// <param name="buildingId">시전 건물(진단용).</param>
+        public void MirrorProductionSpeedFromSkill(SkillData skill, TeamId casterTeam, int sequence, int slot, int buildingId)
+        {
+            if (skill == null || skill.Mechanic != SkillMechanicType.GlobalStatusChange) return;
+            if (!skill.TryFindEffect(StatusEffectKind.ProductionSpeedMul, out SkillEffectTarget target, out float magnitude)) return;
+            if (target != SkillEffectTarget.Team) return; // 서버도 팀 대상 생산 속도만 받는다(SupportSkillEffectSystem.IsSupported).
+            _clientSpeedMirror.Apply(skill.ResolveTargetTeam(casterTeam), magnitude, skill.Duration, sequence, casterTeam, slot, buildingId);
+        }
+
+        /// <summary> 경기 종료 시 진행 막대 거울을 닫는다(멱등 — 조합 루트가 OnGameEnd에서 부른다). </summary>
+        public void CloseProductionSpeedMirror()
+        {
+            _clientSpeedMirror.Close();
+        }
+
+        // 서버 · 싱글의 지금 팀 생산 배율(창구 없으면 1).
+        private float GetAuthoritativeSpeedMultiplier(TeamId team)
+        {
+            return _speedSource != null ? _speedSource.GetProductionSpeedMultiplier(team) : 1f;
+        }
 
         public UnitProductionUseCase(
             HexGrid grid,
@@ -263,10 +320,17 @@ namespace Hexiege.Application
             {
                 if (state.CurrentProducing == null) continue;
 
-                state.ElapsedTime += deltaTime;
+                // [2026-11-16 비활성화 — 전술 지령 생산 속도 거울(A-3, Plan S-9)] 옛 줄:
+                // state.ElapsedTime += deltaTime;
+                //   거울 배율이 없으면(1) 곱하지 않는다 → 옛 줄과 같다. 막대 표시만 바뀌고 생산 완료는 서버가 정한다.
+                float mirrorMul = _clientSpeedMirror.GetMultiplier(state.Team);
+                state.ElapsedTime += mirrorMul != 1f ? deltaTime * mirrorMul : deltaTime;
                 if (state.ElapsedTime > state.RequiredTime)
                     state.ElapsedTime = state.RequiredTime;
             }
+
+            // 거울의 남은 시간은 막대를 채운 "뒤"에 줄인다(이번 프레임 조각까지는 배율을 적용 — 서버 쪽 판정과 같은 순서 감각).
+            _clientSpeedMirror.Tick(deltaTime);
         }
 
         // ====================================================================
@@ -407,7 +471,13 @@ namespace Hexiege.Application
         /// </summary>
         private void TickProduction(ProductionState state, float deltaTime)
         {
-            state.ElapsedTime += deltaTime;
+            // [2026-11-16 비활성화 — 전술 지령 생산 속도(A-3, Plan S-9 안 A)] 옛 줄:
+            // state.ElapsedTime += deltaTime;
+            //   팀 생산 배율이 없으면(1) 곱하지 않는다 → 옛 줄과 같다. 필요 시간(RequiredTime)은 바꾸지 않는다.
+            float speedMul = GetAuthoritativeSpeedMultiplier(state.Team);
+            DiagProductionTickBegin(state);
+            state.ElapsedTime += speedMul != 1f ? deltaTime * speedMul : deltaTime;
+            DiagProductionTickEnd(state, deltaTime, speedMul);
             if (state.ElapsedTime > state.RequiredTime)
                 state.ElapsedTime = state.RequiredTime;
 
@@ -449,6 +519,8 @@ namespace Hexiege.Application
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             ObserveReleasedSpawnForFacing(state, unit);
 #endif
+            // [2026-11-16 진단 [SKILL-PROD] ProdCompleteSample] 생산 1건 완료 표본(효과 중 · 효과 직후만 — 개발 빌드 전용).
+            DiagProductionCompleted(state, type);
             // 생산 상태 초기화
             state.CurrentProducing = null;
             state.CurrentIsAuto = false;

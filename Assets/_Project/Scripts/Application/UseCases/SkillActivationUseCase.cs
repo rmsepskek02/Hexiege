@@ -42,6 +42,11 @@
 //   새 타입 PersistentStatusZone의 실행기가 컨텍스트의 구역 다리를 부르면, 이 UseCase가 주입받은 SkillZoneSystem
 //   (SetSkillZoneSystem)에 구역을 만든다(구역 순번 = 발동 순번). 권위 틱 TickZones · 경기 종료 CloseZones도 여기를 거친다.
 //
+// 지원 스킬 새 효과(2026-11-16 지원 스킬 새 상태 Task 단계 A — 대지의 갑주 받는 피해 · 전술 지령 생산 속도):
+//   타입 C 실행기가 컨텍스트의 「지원 스킬 효과」 다리를 부르면, 이 UseCase가 주입받은 SupportSkillEffectSystem
+//   (SetSupportSkillEffectSystem)에 효과를 건다(발동 순번 · 슬롯 · 건물 Id를 붙잡아). 권위 틱 TickSupportEffects ·
+//   경기 종료 CloseSupportEffects도 여기를 거친다(IGameServices에 getter를 늘리지 않기 위해 — 구역 서비스와 같은 이유).
+//
 // 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 모두 개발 축 · 상태가 바뀌는 순간 1줄):
 //   머리 [SKILL-VFX] · Diag=SkillVfx — ActivationConfirmed(발동 확정) · ActivationRejected(사용 불가 거부) ·
 //     ImpactScheduled(착탄 예약) · ImpactApplied(실제 착탄 피해 — 시각 · 대상 수 · 사망 수) · ImpactDropped(경기 종료로 버림).
@@ -140,6 +145,42 @@ namespace Hexiege.Application
 
         /// <summary> 주입된 구역 서비스(확인 · 검증용). 없으면 null. </summary>
         public SkillZoneSystem SkillZoneSystem => _zoneSystem;
+
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-1] 지원 스킬 효과 서비스(받는 피해 배율 · 생산 속도 배율 저장소).
+        //   조합 루트가 SetSupportSkillEffectSystem으로 주입한다. 설정자 주입 이유는 위 두 서비스와 같다(생성자 무변경 · null = 무효과).
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-16).
+        /// 주입하지 않으면 받는 피해 배율 · 생산 속도 배율 효과는 발동돼도 걸리지 않는다(무효과 — 진단 Warn 1줄).
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스. 전투 · 탑 · 생산 UseCase에도 같은 인스턴스를 줘야 그 효과를 본다.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
+        /// <summary> 주입된 지원 스킬 효과 서비스(확인 · 검증용). 없으면 null. </summary>
+        public SupportSkillEffectSystem SupportSkillEffectSystem => _supportEffects;
+
+        /// <summary>
+        /// (권위 전용 틱) 지원 스킬 효과의 남은 시간을 줄이고 끝난 효과를 지운다(2026-11-16).
+        /// 반드시 서버 권위 쪽에서만 부른다 — 싱글 = GameBootstrapper.Update(!IsNetworkMode), 멀티 서버 = NetworkCombatController.TickCombat.
+        /// 순수 클라이언트에서는 부르지 않는다(클라이언트에는 효과가 없다 — 이중 틱 금지, 물안개 규칙 21 선례).
+        /// </summary>
+        /// <param name="dt">경과 시간(초).</param>
+        public void TickSupportEffects(float dt)
+        {
+            _supportEffects?.Tick(dt);
+        }
+
+        /// <summary>
+        /// 경기 종료 시 지원 스킬 효과를 모두 지우고 이후 새 효과를 막는다(멱등 — 2026-11-16). 조합 루트가 OnGameEnd에서 부른다.
+        /// </summary>
+        public void CloseSupportEffects()
+        {
+            _supportEffects?.Close();
+        }
 
         /// <summary>
         /// (권위 전용 틱) 지속 상태 구역의 남은 시간 · 구성원을 갱신한다(사용자 결정 Z-4).
@@ -255,7 +296,11 @@ namespace Hexiege.Application
                 ApplyGlobalStatusBridge,
                 (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence),
                 (team, center, radius, duration, kind, magnitude, allies) =>
-                    CreatePersistentZoneBridge(team, center, radius, duration, kind, magnitude, allies, sequence, skillSlot, buildingId));
+                    CreatePersistentZoneBridge(team, center, radius, duration, kind, magnitude, allies, sequence, skillSlot, buildingId),
+                // [2026-11-16 지원 스킬 새 상태 — A-1] 11번째(마지막) 인자 「지원 스킬 효과 걸기」 다리 — 타입 C 실행기가
+                //   받는 피해 배율 · 생산 속도 배율을 걸 때만 부른다. 발동 순번 · 시전 팀 · 슬롯 · 건물 Id를 붙잡은 람다다.
+                (targetTeam, target, kind, magnitude, duration) =>
+                    ApplySupportEffectBridge(building.Team, targetTeam, target, kind, magnitude, duration, sequence, skillSlot, buildingId));
             // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 타입 C 실행 전후로 "실제로 상태를 걸었는가"를 본다(에디터 · 개발 빌드 전용 —
             //   릴리스에서는 두 호출이 사라진다). 발동 · 쿨다운 · 확정 흐름은 바꾸지 않는다(Plan 단위 ① 문서 담당 제안 — 거부로 바꾸지 않음).
             DiagBeginSkillBuffActivation(skill, sequence, skillSlot, buildingId);
@@ -539,6 +584,36 @@ namespace Hexiege.Application
                 return;
             }
             _zoneSystem.CreateZone(sequence, team, slot, buildingId, center, radius, duration, kind, magnitude, targetsAllies);
+        }
+
+        // ====================================================================
+        // 지원 스킬 효과 다리 — 2026-11-16 지원 스킬 새 상태 Task 단계 A(구현 단위 A-1)
+        // ====================================================================
+        //
+        // 실행기(GlobalStatusChangeExecutor) → SupportSkillEffectSystem 다리(델리게이트).
+        //   Activate는 서버에서만 불리므로 이 다리도 서버에서만 돈다(스킬 규칙 25). 효과 알림 RPC는 따로 없다 —
+        //   유닛 상태 VFX는 기존 발동 알림으로, Client 생산 막대는 발동 알림을 받은 순간의 로컬 거울로 맞춘다(Plan S-9 · 스키마 9 유지).
+        private void ApplySupportEffectBridge(TeamId casterTeam, TeamId targetTeam, SkillEffectTarget target, StatusEffectKind kind,
+                                              float magnitude, float duration, int sequence, int slot, int buildingId)
+        {
+            // [진단] 타입 C가 실제로 효과를 걸러 왔다 → BuffNoEffect Warn을 내지 않게 표시한다(상태 시스템 다리와 같은 표시).
+            DiagMarkGlobalStatusBridgeCalled();
+            if (_supportEffects == null)
+            {
+                // [진단] 배선 누락으로 효과가 걸리지 않았다는 Warn 1줄(조용한 무효과를 로그로 드러낸다 — EMP · 구역 선례).
+                LogSupportEffectUnwired(casterTeam, slot, sequence, kind);
+                return;
+            }
+            _supportEffects.Apply(sequence, casterTeam, slot, buildingId, targetTeam, target, kind, magnitude, duration);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogSupportEffectUnwired(TeamId team, int slot, int sequence, StatusEffectKind kind)
+        {
+            GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase), "[SKILL-SUPPORT] EffectRejected",
+                FormattableString.Invariant(
+                    $"Diag=SkillSupport, DiagRev=1, Event=EffectRejected, Role={DiagRole()}, Seq={sequence}, Team={team}, Slot={slot}, Kind={kind}, Reason=SupportSystemMissing"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]

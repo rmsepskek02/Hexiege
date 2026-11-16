@@ -520,6 +520,13 @@ namespace Hexiege.Bootstrap
             _skillZoneUnitDiedSub?.Dispose();
             _skillZoneUnitDiedSub = null;
 
+            // [2026-11-16 지원 스킬 새 상태 — A-1 · A-3] 유닛 사망 → 지원 스킬 효과 정리 구독 · 순수 클라 생산 막대 거울 구독 해제
+            //   (다음 LoadMap이 새 서비스 · 새 생산 UseCase와 함께 다시 건다).
+            _supportEffectUnitDiedSub?.Dispose();
+            _supportEffectUnitDiedSub = null;
+            _productionMirrorActivationSub?.Dispose();
+            _productionMirrorActivationSub = null;
+
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
             _gameEnd = null;

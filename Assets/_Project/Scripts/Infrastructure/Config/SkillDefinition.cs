@@ -21,6 +21,9 @@
 //   모든 새 칸의 초기값은 "지금 동작 그대로"가 되도록 골랐다(사용 가능 true · 지연 0 · 프리팹 없음).
 //   그래서 이 칸이 생기기 전에 만든 자산은 다시 저장하지 않아도 예전과 똑같이 동작한다.
 //
+// 2026-11-16 추가 칸(지원 스킬 새 상태 Task — _Tasks/2026-11-16/01_00_support-skill-new-statuses, 단계 A):
+//   「추가 효과 목록」(_extraEffects) — 주 효과 말고 함께 거는 효과(대상 종류 · 상태 종류 · 강도). 초기값은 빈 목록이라 기존 자산 무변경.
+//
 // Infrastructure 레이어 — ScriptableObject. Application(SkillData)/Domain(enum) 참조.
 // ============================================================================
 
@@ -177,6 +180,31 @@ namespace Hexiege.Infrastructure
         [Tooltip("유닛 상태 VFX 위치 보정(유닛 기준 로컬 좌표, 월드 단위). 예: (0, 0.1, 0) = 발밑보다 0.1 위.")]
         [SerializeField] private Vector3 _statusVfxOffset = Vector3.zero;
 
+        // ── 2026-11-16 추가: 추가 효과 목록(지원 스킬 새 상태 Task 단계 A — 구현 단위 A-1, Plan S-13) ──
+        //   위 「상태변경」 칸(주 효과)은 효과를 하나만 담는다. 전술 지령처럼 「공격력 + 생산 속도」를 함께 거는 스킬은
+        //   두 번째 효과부터 이 목록에 한 줄씩 적는다. 지속시간 · 아군/적은 주 효과 칸(_duration · _targetsAllies)을 함께 쓴다.
+        //   기존 자산은 파일에 이 칸이 없어 빈 목록으로 읽힌다 → 동작 무변경.
+
+        /// <summary>
+        /// 추가 효과 한 줄(직렬화용). 정수 코드로 저장한다 — 주 효과 칸(_statusKind)과 같은 방식(열거형 이름이 바뀌어도 자산이 깨지지 않게).
+        /// </summary>
+        [System.Serializable]
+        public sealed class ExtraEffectEntry
+        {
+            [Tooltip("대상 종류 정수 코드. 0 = 대상 팀 유닛 각각 · 1 = 대상 팀 건물 각각(단계 C·B용 — 지금은 거부됨) · 2 = 대상 팀 자체(예: 생산 속도).")]
+            public int target = (int)SkillEffectTarget.Team;
+
+            [Tooltip("상태 종류 정수 코드(StatusEffectKind). 6 = 받는 피해 배율 · 7 = 생산 속도 배율.")]
+            public int statusKind = 0;
+
+            [Tooltip("강도(배율). 예: 1.5 = 1.5배.")]
+            public float magnitude = 0f;
+        }
+
+        [Header("추가 효과 목록 (타입 C — 주 효과 말고 더 거는 효과)")]
+        [Tooltip("주 효과(위 「상태변경」) 말고 함께 거는 효과들. 지속시간 · 아군/적은 주 효과와 같다. 예: 전술 지령 = [대상 2(팀) · 종류 7(생산 속도) · 1.5].")]
+        [SerializeField] private ExtraEffectEntry[] _extraEffects = new ExtraEffectEntry[0];
+
         /// <summary>
         /// 이 SO의 값을 Application 레이어 값 객체(SkillData)로 변환한다.
         /// 실행기/유스케이스/UI가 Infrastructure SO에 직접 의존하지 않도록 하는 경계(의존성 역전).
@@ -207,7 +235,26 @@ namespace Hexiege.Infrastructure
                 _statusVfxScale,
                 _statusVfxOffset,
                 // 2026-11-11 구역 VFX 칸(위 「구역 VFX」 머리말).
-                _zoneVfxPrefab);
+                _zoneVfxPrefab,
+                // 2026-11-16 추가 효과 목록(위 「추가 효과 목록」 머리말).
+                BuildExtraEffects());
+        }
+
+        /// <summary>
+        /// 직렬화된 추가 효과 줄을 Application 값(SkillExtraEffect) 배열로 옮긴다. 비었거나 null 줄은 건너뛴다.
+        /// 정수 코드 → 열거형 변환만 하고 값 검사(지원하는 조합인가)는 서버 서비스가 한다(잘못된 줄은 서버가 거부 · 진단 Warn).
+        /// </summary>
+        private SkillExtraEffect[] BuildExtraEffects()
+        {
+            if (_extraEffects == null || _extraEffects.Length == 0) return null; // SkillData가 빈 목록으로 바꾼다.
+            var list = new System.Collections.Generic.List<SkillExtraEffect>(_extraEffects.Length);
+            for (int i = 0; i < _extraEffects.Length; i++)
+            {
+                ExtraEffectEntry e = _extraEffects[i];
+                if (e == null) continue;
+                list.Add(new SkillExtraEffect((SkillEffectTarget)e.target, (StatusEffectKind)e.statusKind, e.magnitude));
+            }
+            return list.ToArray();
         }
     }
 }

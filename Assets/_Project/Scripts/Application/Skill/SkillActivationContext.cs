@@ -10,6 +10,8 @@
 //     (SpecialAttackContext가 ApplyDamage/ApplyDot을 델리게이트로 받는 것과 같은 역할 분담.)
 //   - 2026-11-04 EMP Task 커밋 1: 「범위 안 적 방어탑 무력화」 다리 1개 추가(BuildingStatusEffectSystem 경유).
 //   - 2026-11-11 지속 상태 구역 Task: 「구역 만들기」 다리 1개 추가(SkillZoneSystem 경유 — 생성자 맨 뒤 선택 인자).
+//   - 2026-11-16 지원 스킬 새 상태 Task 단계 A: 「지원 스킬 효과 걸기」 다리 1개 추가(SupportSkillEffectSystem 경유 —
+//     받는 피해 배율 · 생산 속도 배율처럼 서버만 계산하는 새 효과. 생성자 맨 뒤 선택 인자).
 //
 // 왜 효과 적용을 델리게이트로 주입하는가(SpecialAttackContext와 동일한 이유):
 //   실행기가 UnitCombatUseCase의 private 로직(포지션 프로바이더·좌표 매퍼·이벤트 발행)에 직접
@@ -73,6 +75,13 @@ namespace Hexiege.Application
         //   null이면(서비스 미주입 · 옛 호출) 아무 일도 일어나지 않는다.
         private readonly Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> _persistentZone;
 
+        // 지원 스킬 효과(받는 피해 배율 · 생산 속도 배율 등 — 서버 전용 서비스가 보관하는 새 효과)를 거는 델리게이트.
+        //   (2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-1, Plan S-13.)
+        //   인자: (대상 팀, 대상 종류(유닛 각각/건물 각각/팀), 효과 종류, 강도, 지속시간). 대상 팀은 실행기가 아군/적 판정을 마친 결과다.
+        //   SkillActivationUseCase의 다리가 발동 순번 · 슬롯 · 건물 Id를 붙잡아 SupportSkillEffectSystem.Apply를 부른다.
+        //   null이면(서비스 미주입 · 옛 호출) 아무 일도 일어나지 않는다.
+        private readonly Action<TeamId, SkillEffectTarget, StatusEffectKind, float, float> _supportEffect;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -89,6 +98,10 @@ namespace Hexiege.Application
         /// 지속 상태 구역 생성 델리게이트(2026-11-11 추가). 선택 인자라 맨 뒤에 두었다 — 기존 호출(인자 9개를 위치로 넘기는
         /// Editor 자가 검증 등)은 고치지 않아도 그대로 컴파일된다. 생략(null)하면 구역 스킬은 아무 일도 하지 않는다.
         /// </param>
+        /// <param name="supportEffect">
+        /// 지원 스킬 효과 걸기 델리게이트(2026-11-16 추가). 같은 이유로 맨 뒤 선택 인자다 — 생략(null)하면
+        /// 받는 피해 배율 · 생산 속도 배율 같은 새 효과는 걸리지 않는다(기존 효과 경로는 그대로).
+        /// </param>
         public SkillActivationContext(
             SkillData skill,
             TeamId casterTeam,
@@ -99,9 +112,11 @@ namespace Hexiege.Application
             Action<TeamId, Vector3, float, float, float> areaDot,
             Action<TeamId, StatusEffectKind, float, float> globalStatus,
             Action<TeamId, Vector3, float, float> towerDisable,
-            Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> persistentZone = null)
+            Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> persistentZone = null,
+            Action<TeamId, SkillEffectTarget, StatusEffectKind, float, float> supportEffect = null)
         {
             _persistentZone = persistentZone;
+            _supportEffect = supportEffect;
             Skill = skill;
             CasterTeam = casterTeam;
             CasterBuildingId = casterBuildingId;
@@ -179,6 +194,21 @@ namespace Hexiege.Application
                                                float magnitude, bool targetsAllies)
         {
             _persistentZone?.Invoke(CasterTeam, center, radius, duration, kind, magnitude, targetsAllies);
+        }
+
+        /// <summary>
+        /// 지원 스킬 효과 — 지정한 팀(아군/적)에 서버 전용 새 효과(받는 피해 배율 · 생산 속도 배율 등)를 지속시간 동안 건다.
+        /// 대상 종류가 「유닛」이면 그 팀의 지금 살아 있는 유닛 각각에(발동 순간 — 스킬 규칙 13), 「팀」이면 팀 자체에 건다.
+        /// 실제 보관 · 만료 · 판정은 SupportSkillEffectSystem이 담당한다(서버 권위 — 스킬 규칙 25). (2026-11-16 추가)
+        /// </summary>
+        /// <param name="targetTeam">효과를 받을 팀(실행기가 아군/적 판정을 마친 결과).</param>
+        /// <param name="target">대상 종류(유닛 각각 · 건물 각각 · 팀).</param>
+        /// <param name="kind">효과 종류(IncomingDamageMul · ProductionSpeedMul).</param>
+        /// <param name="magnitude">강도(배율).</param>
+        /// <param name="duration">지속시간(초).</param>
+        public void ApplySupportEffect(TeamId targetTeam, SkillEffectTarget target, StatusEffectKind kind, float magnitude, float duration)
+        {
+            _supportEffect?.Invoke(targetTeam, target, kind, magnitude, duration);
         }
     }
 }

@@ -18,6 +18,15 @@
 //     - HealOverTime   : 지속 회복 "총량"(HP). 이 종류는 상태 시스템에 저장하지 않고 기존 HoT를
 //                        재사용한다(회복 HP는 이미 네트워크로 동기화되므로 상태 배율 합성 대상이 아님).
 //
+//   ── 2026-11-16 추가(지원 스킬 새 상태 — 단계 A, _Tasks/2026-11-16/01_00_support-skill-new-statuses Plan S-13) ──
+//   아래 두 값은 유닛 상태 시스템(StatusEffectSystem)에 넣지 않는다. 서버 전용 「지원 스킬 효과 서비스」
+//   (Application/Services/SupportSkillEffectSystem)가 따로 보관한다 — 상태 시스템은 같은 종류를 통째로 교체하고
+//   순수 클라이언트 거울에서도 돌기 때문에, 피해 · 생산처럼 서버만 계산해야 하는 효과를 넣으면 안 된다.
+//     - IncomingDamageMul  : 받는 피해 배율(0<m<1 = 덜 아프게 맞음). 예: 0.7 = 받는 피해 30% 감소(대지의 갑주).
+//                            유닛에만 걸린다. 피해 지점 6곳이 같은 헬퍼(IncomingDamage)로 이 배율을 곱한다.
+//     - ProductionSpeedMul : 생산 속도 배율(m>1 = 빨리 만듦). 예: 1.5 = 생산 진행이 1.5배 빠름(전술 지령의 생산 부분).
+//                            유닛이 아니라 "팀" 단위로 걸린다(그 팀의 생산 건물 전부 — Plan S-9).
+//
 // Domain 레이어 — 순수 C#. UnityEngine / Hexiege.Core 참조 금지.
 // ============================================================================
 
@@ -44,6 +53,20 @@ namespace Hexiege.Domain
         Freeze = 4,
 
         /// <summary> 지속 회복(Magnitude=총 회복량 HP). 상태 시스템 미저장 — 기존 HoT(ApplyTimedEffect)로 위임. </summary>
-        HealOverTime = 5
+        HealOverTime = 5,
+
+        // ── 2026-11-16 추가 — 서버 전용 지원 스킬 효과 서비스가 보관한다(상태 시스템 · 상태 RPC에 넣지 않는다) ──
+
+        /// <summary>
+        /// 받는 피해 배율(Magnitude=배율, 0&lt;m&lt;1=감소). 유닛 전용. 대지의 갑주.
+        /// 피해 지점 6곳이 방어 감쇄 "뒤"에 이 배율을 곱한다(반올림 AwayFromZero · 최소 1).
+        /// </summary>
+        IncomingDamageMul = 6,
+
+        /// <summary>
+        /// 생산 속도 배율(Magnitude=배율, m&gt;1=빠름). 팀 단위(그 팀 생산 건물 전부). 전술 지령의 생산 부분.
+        /// 생산 진행 시간에 매 틱 곱한다(진행 중인 생산에도 바로 적용 — Plan S-9 안 A).
+        /// </summary>
+        ProductionSpeedMul = 7
     }
 }

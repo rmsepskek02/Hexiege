@@ -477,6 +477,37 @@ namespace Hexiege.Application
             _zoneSystem = zoneSystem;
         }
 
+        // ====================================================================
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-2] 지원 스킬 효과 서비스 — 대지의 갑주(받는 피해 배율) 조회.
+        //   GameBootstrapper가 SetSupportSkillEffectSystem으로 주입한다. 피해 지점 4곳(이 클래스)의 TakeDamage 줄이
+        //   단일 헬퍼 IncomingDamage.Apply로 바뀌었고, 헬퍼가 이 서비스에 배율을 묻는다. 미주입(null) · 효과 없음이면 배율을 곱하지 않는다
+        //   → 기존 피해와 완전히 같다(회귀 안전). 탑 피해 2곳은 TowerCombatUseCase가 같은 인스턴스를 받는다.
+        // ====================================================================
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — SkillActivationUseCase · TowerCombatUseCase와 같은 인스턴스).
+        /// 미주입(null)이면 받는 피해 배율이 없다 → 기존 전투와 완전히 동일(하위호환). 생성자는 바꾸지 않는다(Editor fixture 보호).
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
+        // [2026-11-16 진단 분류] 지금 처리 중인 피해가 도끼병 휩쓸기(SpecialAttackContext의 2-인자 피해 다리)에서 왔는가.
+        //   피해 지점 ①의 진단 Writer=Sweep을 가르는 데만 쓴다(피해 계산 · 판정과 무관). 휩쓸기 경로의 3-인자 오버로드가 켜고 끈다.
+        private bool _sweepVictimInProgress;
+
+        // 피해 지점 ①(ApplyDamageToVictim)의 진단 분류 — 파도 > 투사체 착탄 > 휩쓸기 > 직접 공격 순서로 가른다.
+        private IncomingDamageWriter ResolveVictimWriter(ActiveWave presentationWave)
+        {
+            if (presentationWave != null) return IncomingDamageWriter.Wave;
+            if (ProjectileImpactInProgress) return IncomingDamageWriter.Projectile;
+            if (_sweepVictimInProgress) return IncomingDamageWriter.Sweep;
+            return IncomingDamageWriter.Direct;
+        }
+
         // [진단] 구역 이동 표본(에디터 · 개발 빌드 전용 — 계산식에는 관여하지 않는다).
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
@@ -2022,9 +2053,24 @@ namespace Hexiege.Application
         /// <param name="immediatePresentation">
         ///   true면 피격 표현 큐가 공격자 타격 프레임을 기다리지 않고 즉시 방출(파도 전용 경로 — 규칙 26).
         /// </param>
+        // [2026-11-16 비활성화 — 휩쓸기 진단 분류 표시를 켜고 끄려고 식 본문을 블록 본문으로 바꿈] 옛 본문:
+        //     => ApplyDamageToVictim(
+        //         attacker, target, immediatePresentation, default);
+        //   이 3-인자 오버로드는 2-인자 오버로드(SpecialAttackContext의 피해 다리 — 도끼병 휩쓸기 전용)에서만 불린다
+        //   (grep: SpecialAttackContext.ApplyDamage 사용처 = SweepAttackBehavior 1곳). 피해 호출 자체는 옛 줄과 같다.
         private void ApplyDamageToVictim(UnitData attacker, IDamageable target, bool immediatePresentation)
-            => ApplyDamageToVictim(
-                attacker, target, immediatePresentation, default);
+        {
+            bool previousSweep = _sweepVictimInProgress;
+            _sweepVictimInProgress = true;
+            try
+            {
+                ApplyDamageToVictim(attacker, target, immediatePresentation, default);
+            }
+            finally
+            {
+                _sweepVictimInProgress = previousSweep;
+            }
+        }
 
         private void ApplyDamageToVictim(
             UnitData attacker,
@@ -2044,7 +2090,11 @@ namespace Hexiege.Application
             int finalDamage = ComputeFinalDamage(attacker, target, rawDamage);
             PistoleerTimingDiagnostics.Event(attacker, "WriterBefore", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
                 $"hp={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
-            target.TakeDamage(finalDamage);
+            // [2026-11-16 비활성화 — 피해 지점 ①을 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(finalDamage);
+            //   헬퍼는 효과가 없으면 finalDamage를 그대로 TakeDamage에 넘긴다(동작 동일). 대지의 갑주가 걸린 유닛이면
+            //   방어 감쇄 뒤 값(finalDamage)에 받는 피해 배율을 곱한다. 아래 진단 줄들의 damage= 는 배율 전 값(종전 의미 그대로)이다.
+            IncomingDamage.Apply(_supportEffects, target, finalDamage, rawDamage, ResolveVictimWriter(presentationWave));
             PistoleerTimingDiagnostics.Event(attacker, "WriterAfter", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
                 $"hp={target.Hp} before={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -2392,7 +2442,9 @@ namespace Hexiege.Application
             int hpBefore = target.Hp;
             // 피해 적용(임의 량). 스플래시도 직격과 동일하게 방어력 감쇄(+건물 2배 판정)를 거친다.
             // 방어력 0(Phase 1)이면 ComputeFinalDamage(amount)=amount → 기존과 동일(하위호환).
-            target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
+            // [2026-11-16 비활성화 — 피해 지점 ②를 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
+            IncomingDamage.Apply(_supportEffects, target, ComputeFinalDamage(attacker, target, amount), amount, IncomingDamageWriter.Splash);
 
             Vector3 impactWorld = ResolveWorldPosition(target);
             bool hasImpactPosition = WorldPointXZ.TryCreate(
@@ -2603,7 +2655,9 @@ namespace Hexiege.Application
             }
 
             int finalDamage = DamageCalculator.ApplyDefense(rawDamage, defense);
-            target.TakeDamage(finalDamage);
+            // [2026-11-16 비활성화 — 피해 지점 ③을 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(finalDamage);
+            IncomingDamage.Apply(_supportEffects, target, finalDamage, rawDamage, IncomingDamageWriter.Skill);
 
             // 피격 이벤트 발행 — NetworkHealthSync가 구독해 모든 클라이언트에 HP를 동기화한다.
             //   공격자가 건물이므로 attackerIsUnit=false(피격 표현 큐의 타워형 즉시 방출 경로),
@@ -3076,7 +3130,11 @@ namespace Hexiege.Application
         {
             if (target == null || !target.IsAlive || amount <= 0) return;
 
-            target.TakeDamage(amount);
+            // [2026-11-16 비활성화 — 피해 지점 ④를 단일 헬퍼로(Plan S-14 · S-4)] 옛 줄:
+            // target.TakeDamage(amount);
+            //   지속 피해는 방어 감쇄가 없으므로(유닛 규칙 44) 감쇄 뒤 값 = 원래 틱 값이다. 대지의 갑주가 걸린 유닛이면
+            //   그 틱 값에 0.7배를 곱한다(최소 1 — 예: 틱 2 → 1). DoT 총량 장부(AppliedAmount)는 원래 틱 값으로 센다(종전과 같다).
+            IncomingDamage.Apply(_supportEffects, target, amount, amount, IncomingDamageWriter.DoT);
 
             int attackerId = attacker != null ? attacker.Id : -1;
             GameEvents.OnEntityDamaged.OnNext(
