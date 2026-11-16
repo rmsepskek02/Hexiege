@@ -278,7 +278,7 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 
 | 종족 | 스킬 | 파일명 | 비고 |
 |------|------|--------|------|
-| Human | 전술 지령 — 강화 상태(V17) | — | **칸 준비됨 · 미제작** — `Skill_Human_TacticalOrder`. 시험 때 기존 힐 프리팹(`vfx_bloomfairy_heal`, 초월 유닛용)을 임시로 넣어 경로를 확인한 뒤 비웠다(`6d0245c`). 인간용은 V17로 따로 만든다(사용자 메모). *(2026-11-16: 전술 지령에 생산 속도가 더해졌지만 생산 건물 쪽 이펙트 칸은 아직 없다 — 신목의 각성 단계에서 건물 칸만 만들고 비운다(그 Task 결정 S-10). 이 칸은 지금처럼 공격력을 받은 유닛에만 붙는다)* |
+| Human | 전술 지령 — 강화 상태(V17) | — | **칸 준비됨 · 미제작** — `Skill_Human_TacticalOrder`. 시험 때 기존 힐 프리팹(`vfx_bloomfairy_heal`, 초월 유닛용)을 임시로 넣어 경로를 확인한 뒤 비웠다(`6d0245c`). 인간용은 V17로 따로 만든다(사용자 메모). *(2026-11-17: 생산 속도 쪽 건물용 이펙트는 **아군 생산 건물 전부**에 붙인다 — 사용자 결정(원문 「3번 아군 생산건물 전부에 붙어야 좋을거같아」, [지원 스킬 새 상태 Task](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#6-1-9-20261117) 결정 S-10). 건물 상태 VFX 장치에 붙이는 구현은 진행 중 · 건물용 프리팹 없음. 유닛 칸은 지금처럼 공격력을 받은 유닛에만 붙는다. 직전 「(2026-11-16: … 신목의 각성 단계에서 건물 칸만 만들고 비운다(그 Task 결정 S-10). …)」)* |
 | Spirit | 화염의 축복 — 강화 상태(V18) | — | **칸 준비됨 · 미제작** — `Skill_Spirit_FlameBlessing` |
 | Spirit | 대지의 갑주 — 강화 상태(V19) | — | **칸 준비됨 · 미제작** — `Skill_Spirit_EarthArmor` 「유닛 상태 VFX」. 시험 때 `vfx_bloomfairy_heal`을 임시로 넣어 붙이기(Client 7/7) · 사망 즉시 정지 · 만료 꼬리 정지를 확인한 뒤 비웠다(`ca5ab02`). *(2026-11-16 추가 — [지원 스킬 새 상태 Task Plan 12절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#12-stage-a-result))* |
 | Transcendence | 숲의 포효 — 강화 상태(V20) | — | **칸 준비됨 · 미제작** — `Skill_Trans_ForestRoar` |
