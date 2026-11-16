@@ -174,3 +174,21 @@ unit zone VFX start · Expire · UnitDied stop, `SlotLabels` Name 15/15. **Unobs
   (zone pending-resolve not in the reported results); the suite's two old `== 8` schema `Require` lines
   (`RunUnitActionSelfValidation.ServerProjectiles.cs` / `.SupportBuffSkills.cs` — suite run not in the test evidence);
   `SkillDefinition` old header and three old tooltip texts (Inspector text, not checkable by logs — main session to decide).
+
+## 5. Support new statuses stage A — Earth Armor · Tactical Order production speed (2026-11-16 — stage A user test PASS)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses/`. Commits `274311a` · `b11cf4b`; user test PASS
+2026-11-16 (one multi match, Host device archive + Client Editor). Suite run NOT in the evidence (user runs it after stage 2).
+
+- **Temporary prefab emptied (2026-11-16, uncommitted at writing time):** `Skill_Spirit_EarthArmor.asset` `_statusVfxPrefab {fileID: 0}`,
+  `_statusVfxScale 1` (D14 / Z-18 precedent).
+- **Disabled-line cleanup (2026-11-16):** deleted only blocks whose replacement ran in the logs — damage point ⑥ TowerShell
+  (`TowerCombatUseCase`), executor old always-status-bridge line (`GlobalStatusChangeExecutor`), both old `ElapsedTime += deltaTime`
+  lines (`UnitProductionUseCase` server tick + client mirror), setup tool's old field list and two old spec lines. **Kept:** points
+  ② splash · ③ skill · ④ DoT · ⑤ tower instant (not hit in the test); the executor's old `kind == None` return (the widened case
+  "main empty + extras" never ran); Sweep diagnostic old expression body (`UnitCombatUseCase` ~2056, Sweep writer not seen);
+  suite `SkillZones.cs` old `== 8` check (suite not run).
+- **Trap — point ① cannot be deleted by comment-only cleanup:** suite `RunUnitActionSelfValidation.cs` ~797 ("Actual writer hook
+  ordering") finds the literal `target.TakeDamage(finalDamage)` between `"WriterBefore"` and `"WriterAfter"` with no comment
+  filter — after S-14 that literal exists there **only as the commented old line**. Deleting it makes the next match be point ③'s
+  commented line (after WriterAfter) → the check throws. Change the anchor (e.g. to `IncomingDamage.Apply(`) in the same commit.

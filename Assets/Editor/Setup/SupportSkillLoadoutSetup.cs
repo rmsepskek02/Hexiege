@@ -119,10 +119,7 @@ namespace Hexiege.EditorTools
         private const string F_ExtraStatusKind = "statusKind";
         private const string F_ExtraMagnitude = "magnitude";
 
-        // [2026-11-16 A-4] 끝에 F_ExtraEffects를 더했다(쓰기 전 칸 이름 확인 대상). 옛 목록:
-        //     F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
-        //     F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
-        //     F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius
+        // [2026-11-16 A-4] 끝에 F_ExtraEffects를 더했다(쓰기 전 칸 이름 확인 대상).
         private static readonly string[] AllFieldNames =
         {
             F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
@@ -304,9 +301,6 @@ namespace Hexiege.EditorTools
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
                 // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
-                // [2026-11-16 A-4 비활성화 — 생산 속도 추가] 옛 줄:
-                // InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
-                //     "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
                 // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1 · S-9] 주 효과(공격력 1.5배 · 8초 · 쿨 15)는 그대로,
                 //   추가 효과 목록에 「팀 · 생산 속도 1.5배」 한 줄. 설명 문구가 이제 실제 동작과 맞는다.
                 WithExtra(InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
@@ -323,9 +317,6 @@ namespace Hexiege.EditorTools
                 // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
-                // [2026-11-16 A-4 비활성화 — 대지의 갑주 켜기] 옛 줄(자리표시 · 사용 불가):
-                // InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
-                //     "맵 전체 아군 유닛이 받는 피해를 줄인다.", allies: true),
                 // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1] 대지의 갑주 — 받는 피해 0.7배 · 8초 · 쿨 15(시험용 임시값).
                 InstantBuff("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
                     "맵 전체 아군 유닛이 받는 피해를 줄인다.", StatusEffectKind.IncomingDamageMul, 0.7f, 8f),

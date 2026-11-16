@@ -508,8 +508,6 @@ namespace Hexiege.Application
                 : target.Defense;
             int damage = DamageCalculator.ApplyDefense(Math.Max(0, attackPowerAtLaunch), defense);
             int hpBefore = target.Hp;
-            // [2026-11-16 비활성화 — 피해 지점 ⑥을 단일 헬퍼로(Plan S-14)] 옛 줄:
-            // target.TakeDamage(damage);
             IncomingDamage.Apply(_supportEffects, target, damage, Math.Max(0, attackPowerAtLaunch), IncomingDamageWriter.TowerShell);
             int applied = Math.Max(0, hpBefore - target.Hp);
             // [진단 — 2026-11-09 EMP 테스트 진단 로그] 이 착탄을 낸 탑이 지금 무력화 중이면 "무력화 중 착탄" 수를 센다

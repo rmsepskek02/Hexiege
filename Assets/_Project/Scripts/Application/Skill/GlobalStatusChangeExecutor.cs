@@ -58,8 +58,6 @@ namespace Hexiege.Application
                 : OppositeTeam(ctx.CasterTeam);
 
             // 실제 유닛 순회·상태 부여·회복 위임은 UnitCombatUseCase가 담당(서버 권위).
-            // [2026-11-16 비활성화 — 주 효과 종류에 따라 두 다리로 나눔] 옛 줄(항상 상태 시스템 다리):
-            // ctx.ApplyGlobalStatus(targetTeam, kind, skill.Magnitude, skill.Duration);
             if (kind != StatusEffectKind.None)
             {
                 if (SupportSkillEffectSystem.IsServiceKind(kind))
@@ -70,7 +68,7 @@ namespace Hexiege.Application
                 }
                 else
                 {
-                    // 기존 종류 — 옛 줄과 똑같은 호출(동작 무변경).
+                    // 기존 종류 — 종전과 똑같은 상태 시스템 다리 호출(동작 무변경).
                     ctx.ApplyGlobalStatus(targetTeam, kind, skill.Magnitude, skill.Duration);
                 }
             }

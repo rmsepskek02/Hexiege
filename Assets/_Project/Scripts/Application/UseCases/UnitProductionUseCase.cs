@@ -320,9 +320,8 @@ namespace Hexiege.Application
             {
                 if (state.CurrentProducing == null) continue;
 
-                // [2026-11-16 비활성화 — 전술 지령 생산 속도 거울(A-3, Plan S-9)] 옛 줄:
-                // state.ElapsedTime += deltaTime;
-                //   거울 배율이 없으면(1) 곱하지 않는다 → 옛 줄과 같다. 막대 표시만 바뀌고 생산 완료는 서버가 정한다.
+                // [2026-11-16 전술 지령 생산 속도 거울(A-3, Plan S-9)]
+                //   거울 배율이 없으면(1) 곱하지 않는다 → 종전과 같다. 막대 표시만 바뀌고 생산 완료는 서버가 정한다.
                 float mirrorMul = _clientSpeedMirror.GetMultiplier(state.Team);
                 state.ElapsedTime += mirrorMul != 1f ? deltaTime * mirrorMul : deltaTime;
                 if (state.ElapsedTime > state.RequiredTime)
@@ -471,9 +470,8 @@ namespace Hexiege.Application
         /// </summary>
         private void TickProduction(ProductionState state, float deltaTime)
         {
-            // [2026-11-16 비활성화 — 전술 지령 생산 속도(A-3, Plan S-9 안 A)] 옛 줄:
-            // state.ElapsedTime += deltaTime;
-            //   팀 생산 배율이 없으면(1) 곱하지 않는다 → 옛 줄과 같다. 필요 시간(RequiredTime)은 바꾸지 않는다.
+            // [2026-11-16 전술 지령 생산 속도(A-3, Plan S-9 안 A)]
+            //   팀 생산 배율이 없으면(1) 곱하지 않는다 → 종전과 같다. 필요 시간(RequiredTime)은 바꾸지 않는다.
             float speedMul = GetAuthoritativeSpeedMultiplier(state.Team);
             DiagProductionTickBegin(state);
             state.ElapsedTime += speedMul != 1f ? deltaTime * speedMul : deltaTime;
