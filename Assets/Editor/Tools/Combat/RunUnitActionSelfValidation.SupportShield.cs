@@ -61,6 +61,8 @@ namespace Hexiege.Editor.Combat
             ValidateShieldClose();               // Sh-T7
             ValidateSacredTreeAssetAndExecutor();// Sh-T8
             ValidateShieldSourceGates();         // Sh-T9
+            ValidateBuildingVfxTargetScope();    // Sh-T10 [2026-11-17 S-10 — 전술 지령 건물 이펙트 = 아군 생산 건물 전부]
+            Debug.Log("[UAS-DIAG][SKILL-BVFX] self-validation PASS: building status VFX target scope (Sh-T10) — Tactical Order → ProductionBuildings (late built / upgraded production buildings attach), Sacred Tree → ActivationBuildings (activation-time buildings only), Earth Armor / null → None; every production stage 1-3 of all three races is a target, non-production buildings / enemy team / dead buildings are not.");
             Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing with Roots still unavailable (Sh-T8), schema 10 / setup 10 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
         }
 
@@ -387,6 +389,83 @@ namespace Hexiege.Editor.Combat
                     && buildingPresenter.Contains("GameEvents.OnBuildingUpgraded.Subscribe") && buildingPresenter.Contains("path: \"Upgraded\"")
                     && buildingPresenter.Contains("path: \"Broken\"") && buildingPresenter.Contains("path: \"Died\""),
                 "Sh-T9 BuildingStatusVfxPresenter must log NoPrefab and stop on break / death / upgrade.");
+        }
+
+        /// <summary>
+        /// Sh-T10 [2026-11-17 S-10] — 건물 상태 VFX 대상 기준(순수 규칙 BuildingStatusVfxTargetPolicy).
+        /// ① 스킬별 기준: 전술 지령 = ProductionBuildings(효과 중 새 건물도) · 신목의 각성 = ActivationBuildings(발동 순간만) · 대지의 갑주 = None.
+        /// ② 생산 기준 대상: 세 종족 생산 라인의 1 · 2 · 3단계(업그레이드 형태) 전부 = 대상, 비생산 건물 · 적 팀 · 파괴된 건물 = 대상 아님.
+        /// ③ 쉴드 기준(ActivationBuildings)은 종류와 무관하게 대상 팀 건물 전부(단계 C 동작 그대로).
+        /// 전역 스탯 표(UnitStats · BuildingStats)를 읽지 않는다 — 건물은 HP를 직접 넣은 BuildingData로 만든다(2026-11-17 회귀 실패의 교훈).
+        /// </summary>
+        private static void ValidateBuildingVfxTargetScope()
+        {
+            SkillData tactical = AssetDatabase.LoadAssetAtPath<SkillDefinition>(TacticalOrderAssetPath).ToSkillData();
+            SkillData tree = AssetDatabase.LoadAssetAtPath<SkillDefinition>(SacredTreeAssetPath).ToSkillData();
+            SkillData armor = AssetDatabase.LoadAssetAtPath<SkillDefinition>(EarthArmorAssetPath).ToSkillData();
+            Require(BuildingStatusVfxTargetPolicy.Resolve(tactical) == BuildingStatusVfxScope.ProductionBuildings
+                    && BuildingStatusVfxTargetPolicy.Resolve(tree) == BuildingStatusVfxScope.ActivationBuildings
+                    && BuildingStatusVfxTargetPolicy.Resolve(armor) == BuildingStatusVfxScope.None
+                    && BuildingStatusVfxTargetPolicy.Resolve(null) == BuildingStatusVfxScope.None,
+                "Sh-T10 scope: Tactical Order → ProductionBuildings, Sacred Tree → ActivationBuildings, Earth Armor / null → None.");
+            Require(BuildingStatusVfxTargetPolicy.AttachesLateBuildings(BuildingStatusVfxScope.ProductionBuildings)
+                    && !BuildingStatusVfxTargetPolicy.AttachesLateBuildings(BuildingStatusVfxScope.ActivationBuildings)
+                    && !BuildingStatusVfxTargetPolicy.AttachesLateBuildings(BuildingStatusVfxScope.None),
+                "Sh-T10 only the production scope attaches to buildings created during the effect (shield keeps S-11).");
+
+            // 생산 건물 = BuildingTypeHelper 표의 1 · 2 · 3단계(업그레이드 형태 포함). 목록을 여기 직접 적어 표가 바뀌면 이 검사가 알린다.
+            BuildingType[] production =
+            {
+                BuildingType.TrainingCamp, BuildingType.WarAcademy, BuildingType.HumanBarracks,
+                BuildingType.Gunsmith, BuildingType.Armory, BuildingType.WeaponForge,
+                BuildingType.Garage, BuildingType.VehicleBay,
+                BuildingType.FireSpire, BuildingType.BlazeConduit, BuildingType.InfernoCore,
+                BuildingType.AquaSpring, BuildingType.TidalNexus, BuildingType.OceanicHeart,
+                BuildingType.StoneMound, BuildingType.TerraForge, BuildingType.GaeaSanctum,
+                BuildingType.PrimalAltar, BuildingType.PrimalDen, BuildingType.PrimalSanctuary,
+                BuildingType.FeralAltar, BuildingType.FeralDen, BuildingType.FeralSanctuary,
+                BuildingType.SporePatch, BuildingType.FloralNursery,
+            };
+            BuildingType[] nonProduction =
+            {
+                BuildingType.Castle, BuildingType.MiningPost, BuildingType.AutoTower, BuildingType.FlightFacility,
+                BuildingType.Research, BuildingType.MagicBuilding, BuildingType.HealShrine,
+            };
+            Require(production.Length + nonProduction.Length == Enum.GetValues(typeof(BuildingType)).Length,
+                "Sh-T10 every BuildingType must be classified here (a new building type needs a decision).");
+
+            int nextId = 97980;
+            BuildingData Make(BuildingType type, TeamId team) => new BuildingData(nextId++, type, team, new HexCoord(0, 0), 1000);
+            const BuildingStatusVfxScope prod = BuildingStatusVfxScope.ProductionBuildings;
+            const BuildingStatusVfxScope act = BuildingStatusVfxScope.ActivationBuildings;
+            foreach (BuildingType type in production)
+            {
+                Require(BuildingStatusVfxTargetPolicy.IsTarget(prod, Make(type, TeamId.Blue), TeamId.Blue),
+                    "Sh-T10 own production building " + type + " (incl. upgraded stages) must be a Tactical Order VFX target.");
+                Require(!BuildingStatusVfxTargetPolicy.IsTarget(prod, Make(type, TeamId.Red), TeamId.Blue),
+                    "Sh-T10 enemy production building " + type + " must not be a target.");
+            }
+            foreach (BuildingType type in nonProduction)
+            {
+                Require(!BuildingStatusVfxTargetPolicy.IsTarget(prod, Make(type, TeamId.Blue), TeamId.Blue),
+                    "Sh-T10 non-production building " + type + " must not be a Tactical Order VFX target.");
+                Require(BuildingStatusVfxTargetPolicy.IsTarget(act, Make(type, TeamId.Blue), TeamId.Blue),
+                    "Sh-T10 the shield scope keeps every own building (" + type + ") — stage C behaviour unchanged.");
+            }
+            BuildingData dead = Make(BuildingType.TrainingCamp, TeamId.Blue);
+            dead.TakeDamage(dead.MaxHp * 10);
+            Require(!dead.IsAlive && !BuildingStatusVfxTargetPolicy.IsTarget(prod, dead, TeamId.Blue)
+                    && !BuildingStatusVfxTargetPolicy.IsTarget(prod, null, TeamId.Blue)
+                    && !BuildingStatusVfxTargetPolicy.IsTarget(BuildingStatusVfxScope.None, Make(BuildingType.TrainingCamp, TeamId.Blue), TeamId.Blue),
+                "Sh-T10 dead / null buildings and the None scope are never targets.");
+
+            // 소스 게이트 — 장치가 이 규칙을 쓰고, 효과 중 건설 · 업그레이드를 받아 늦게 붙인다.
+            string presenter = File.ReadAllText("Assets/_Project/Scripts/Presentation/Effects/BuildingStatusVfxPresenter.cs");
+            Require(SupportActiveLineCount(presenter, "BuildingStatusVfxTargetPolicy.Resolve(skill)") == 1
+                    && SupportActiveLineCount(presenter, "GameEvents.OnBuildingPlaced.Subscribe(") == 1
+                    && SupportActiveLineCount(presenter, "EnqueueLateBuilding(e.NewBuilding.Id, LateReasonUpgraded)") == 1
+                    && presenter.Contains("Event=BuildingVfxAttachedLate") && presenter.Contains("Scope={BuildingStatusVfxTargetPolicy.DiagName(scope)}"),
+                "Sh-T10 BuildingStatusVfxPresenter must resolve the scope, subscribe to placement, re-attach after upgrade and log Scope / AttachedLate.");
         }
     }
 }

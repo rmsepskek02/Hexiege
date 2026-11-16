@@ -218,10 +218,17 @@ Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Uncommitted at writing time
   one RPC sender, one RPC per server damage event, heals on separate RPCs, so zero diff only means "server HP unchanged too".
   Fully absorbed projectile hits: server END `hit` count unchanged (status-based, `applied=0`); under (a) the client would count
   `emptyRelease`, not a timeout.
-- **Building VFX device:** `BuildingStatusVfxPresenter` (head `[SKILL-BVFX]`, key building id + team + slot), only for skills with a
-  Building-target extra row (`SkillData.HasBuildingEffect`); Tactical Order's building slot (S-10) is not used (attach rule undecided).
+- **Building VFX device:** `BuildingStatusVfxPresenter` (head `[SKILL-BVFX]`, key building id + team + slot). Target scope comes from
+  pure `Application/Skill/BuildingStatusVfxTargetPolicy` (2026-11-17, S-10 user decision "all own production buildings"):
+  `ActivationBuildings` = skills with a Building-target extra row (Sacred Tree shield — activation-time buildings only, S-11);
+  `ProductionBuildings` = Team-target `ProductionSpeedMul` (Tactical Order — `BuildingTypeHelper.IsProductionBuilding`, stages 1-3,
+  plus buildings built/upgraded during the effect via `OnBuildingPlaced` / upgrade `NewBuilding`, attached next Update with the
+  batch's end time, log `BuildingVfxAttachedLate Reason=Built/Upgraded`). `BuildingVfxStarted` gained trailing `Scope=` key.
+  Implemented, user test NOT run at writing time. *(2026-11-17 — was "Tactical Order's building slot is not used (attach rule undecided)")*
   Unit shield break stop: `UnitBuffVfxPresenter.ShieldDriver.cs` (Path=ShieldBroken).
-- **Suite:** `RunUnitActionSelfValidation.SupportShield.cs` Sh-T1~Sh-T9. Editor check = copy the four partials + scratch stubs
+- **Suite:** `RunUnitActionSelfValidation.SupportShield.cs` Sh-T1~Sh-T10 (Sh-T10 = scope policy + presenter source gate). Editor check = copy the four partials + scratch stubs
   (scratchpad `a4_ed.tree/Ed/EdStubs.cs`, `SetupExtract.cs`) into a tree and run harness2 directly (run3.sh compiles runtime only).
 - **Temporary prefabs (S-17):** Sacred Tree `_statusVfxPrefab` = `vfx_bloomfairy_heal` (scale 2), `_buildingStatusVfxPrefab` =
   `vfx_emp_disabled` (`{fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf}`, scale 1) — to be emptied after the test.
+  Tactical Order `_buildingStatusVfxPrefab` = same `vfx_emp_disabled` ref, scale 1 (added 2026-11-17; the asset had no such keys
+  before — empty value after the test = `{fileID: 0}`). Unit slot stays empty.

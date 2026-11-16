@@ -37,3 +37,6 @@ MonoBehaviour:
   - target: 2
     statusKind: 7
     magnitude: 1.5
+  _buildingStatusVfxPrefab: {fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf, type: 3}
+  _buildingStatusVfxScale: 1
+  _buildingStatusVfxOffsetY: 0
