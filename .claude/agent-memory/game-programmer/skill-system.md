@@ -192,6 +192,13 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses
   ordering") finds the literal `target.TakeDamage(finalDamage)` between `"WriterBefore"` and `"WriterAfter"` with no comment
   filter — after S-14 that literal exists there **only as the commented old line**. Deleting it makes the next match be point ③'s
   commented line (after WriterAfter) → the check throws. Change the anchor (e.g. to `IncomingDamage.Apply(`) in the same commit.
+- **Lesson — suite fixtures must not read global stat tables (2026-11-17 suite FAIL "S-T2 ② HP 10 must exceed 55"):** in a menu
+  suite run `UnitStats._data` is null (no bootstrap; SoloTiming ~4385 · Fox ~8250 · ServerProjectiles ~224 restore it to the old
+  null), so `SpawnUnitWithId` gives fallbacks HP 10 / attack 1 / defense 0; `BuildingStats` holds only the Spirit AutoTower row that
+  VfxConnections ~2066 injects without restore (Castle Trans → fallback 200). Fix: `SupportFixtureStatsScope` (`.SupportNewStatuses.cs`,
+  `using var` at both S-T / Sh-T entry points) copies both tables, pins Pistoleer atk 60 · Tank HP 10000 def 0 · Trans Castle 2000,
+  restores the original references on Dispose. B-* / Z-T* passed in that run (they ran before S-T2). Write new HP-based fixtures
+  inside this scope, and never compute a DoT expectation with `ApplyDefense` (DoT skips defense).
 
 ## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — implemented, user test NOT run)
 

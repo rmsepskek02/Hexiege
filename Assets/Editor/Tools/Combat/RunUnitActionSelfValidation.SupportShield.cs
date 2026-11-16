@@ -48,6 +48,10 @@ namespace Hexiege.Editor.Combat
         private static void ValidateSupportShieldStageC()
         {
             Require(!UnityEngine.Application.isPlaying, "Support shield fixture must run outside a live match.");
+            // [2026-11-17 스위트 실패 수정 — 전역 스탯 의존 제거] Sh-T1 · Sh-T2 · Sh-T4 · Sh-T7의 Tank HP(폴백 10이면 60 · 50+30 · 20 피해를
+            //   못 견딘다)와 Sh-T3의 공격력(폴백 1이면 「둘째 타에 쉴드가 깨진다」 전제 = 공격력 > 20이 거짓) · 초월 Castle HP를
+            //   이 메서드 동안만 고정값으로 넣고 끝나면 원래 표를 되돌린다(SupportFixtureStatsScope — SupportNewStatuses.cs 설명 참고).
+            using var fixtureStats = new SupportFixtureStatsScope();
             ValidateShieldOrderAfterReduction(); // Sh-T1
             ValidateUnitShieldLifecycle();       // Sh-T2
             ValidateBuildingShield();            // Sh-T3 · Sh-T4(건물)

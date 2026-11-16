@@ -55,6 +55,12 @@ namespace Hexiege.Editor.Combat
         private static void ValidateSupportNewStatusesStageA()
         {
             Require(!UnityEngine.Application.isPlaying, "Support new-status fixture must run outside a live match.");
+            // [2026-11-17 스위트 실패 수정 — 「S-T2 ② splash fixture target HP 10 must exceed the expected damage 55」]
+            //   이 검사의 대상 유닛 HP · 공격자 공격력은 전역 정적 표 UnitStats에서 온다(SpawnUnitWithId → UnitStats.GetMaxHp).
+            //   메뉴로 스위트를 돌리면 그 표가 비어 있어(null — 게임 부트스트랩이 안 돌았고, 앞선 검사들도 끝나면 원래 null로 되돌린다)
+            //   Tank HP가 폴백 10, Pistoleer 공격력이 폴백 1이 되어 ② 이후 지점이 「HP > 기대 피해」 전제를 못 지켰다.
+            //   이 줄이 이 메서드가 끝날 때까지만 필요한 행을 고정값으로 넣고, 끝나면(예외로 끝나도) 원래 표를 그대로 되돌린다.
+            using var fixtureStats = new SupportFixtureStatsScope();
             ValidateSupportDamageScaling();        // S-T1
             ValidateSupportDamagePoints(false);    // S-T2 (무효과 회귀)
             ValidateSupportDamagePoints(true);     // S-T3 (6곳 감소)
@@ -100,6 +106,77 @@ namespace Hexiege.Editor.Combat
                 Require(unit != null, "S-T0 support fixture unit must spawn: " + id);
                 unit.Position = new HexCoord(q, r);
                 return unit;
+            }
+        }
+
+        // ── fixture 전용 스탯 고정(2026-11-17) ─────────────────────────────
+        //
+        // [왜 필요한가 — 초급 개발자용 설명]
+        //   UnitStats · BuildingStats는 「게임 전체가 함께 쓰는 정적(static) 표」다. 실제 게임에서는 GameBootstrapper가
+        //   설정 에셋 값을 넣지만, 에디터 메뉴로 스위트를 돌리면 아무도 넣지 않아 비어 있다(null). 비어 있으면 조회 함수가
+        //   폴백 값을 준다 — 유닛 HP 10 · 공격력 1 · 방어 0, 초월 Castle HP 200(UnitStats.GetMaxHp / BuildingStats.GetDefaultMaxHp).
+        //   또 앞선 검사들(SoloTiming · Fox · 서버 투사체)은 자기 값으로 바꿨다가 끝나면 「원래 값(null)」으로 되돌린다.
+        //   그래서 이 검사들이 그 순간의 전역 값에 기대면, 스위트 안 순서나 그 전에 게임을 실행했는지에 따라 결과가 달라진다.
+        //
+        // [무엇을 하는가]
+        //   만들 때: 지금 표를 복사한 뒤(다른 행은 그대로 둔다) 이 검사들이 쓰는 행만 고정값으로 덮어 넣는다.
+        //     - Pistoleer(공격자) 공격력 60: 0이 아니고, 쉴드 Sh-T3의 「공격력 > 20」 전제를 만족한다.
+        //     - Tank(피격 대상) HP 10000 · 방어 0: 가장 큰 기대 피해(③ 포격 150 · ⑤ Spirit AutoTower 실제 에셋 150)보다 훨씬 크다.
+        //     - 초월 Castle HP 2000: Sh-T3에서 공격력 60을 두 번 맞아도 살아 있다.
+        //   끝날 때(Dispose): 두 표의 「원래 참조」를 그대로 되돌린다(null이었으면 null로) — 뒤따르는 검사가 보는 전역 상태는 이전과 같다.
+        //   (Initialize는 사본을 만들므로 되돌릴 때는 Initialize가 아니라 필드에 원래 참조를 직접 넣는다 — 서버 투사체 fixture와 같은 방식.)
+        private sealed class SupportFixtureStatsScope : IDisposable
+        {
+            public const int AttackerAttackPower = 60;
+            public const int VictimTankMaxHp = 10000;
+            public const int CastleTranscendenceMaxHp = 2000;
+
+            private static readonly FieldInfo UnitDataField =
+                typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+            private static readonly FieldInfo BuildingDataField =
+                typeof(BuildingStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
+
+            private readonly object _oldUnitData;
+            private readonly object _oldBuildingData;
+            private bool _disposed;
+
+            public SupportFixtureStatsScope()
+            {
+                Require(UnitDataField != null && BuildingDataField != null,
+                    "S-T0 support fixture stat seams (UnitStats._data / BuildingStats._data) must exist.");
+                _oldUnitData = UnitDataField.GetValue(null);
+                _oldBuildingData = BuildingDataField.GetValue(null);
+
+                // 유닛 표 — 기존 행을 복사하고 두 행만 덮는다(복사본에만 쓰므로 원래 표는 바뀌지 않는다).
+                var units = _oldUnitData is Dictionary<UnitType, UnitStats.StatValues> oldUnits
+                    ? new Dictionary<UnitType, UnitStats.StatValues>(oldUnits)
+                    : new Dictionary<UnitType, UnitStats.StatValues>();
+                units[UnitType.Pistoleer] = new UnitStats.StatValues { MaxHp = 300, AttackPower = AttackerAttackPower, AttackRange = 3f,
+                    DetectRange = 3f, MoveSpeed = 1f, AttackCooldown = 1f, HitFrameTimes = new[] { .2f }, Defense = 0 };
+                units[UnitType.Tank] = new UnitStats.StatValues { MaxHp = VictimTankMaxHp, AttackPower = 50, AttackRange = 3f,
+                    DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 2f, HitFrameTimes = new[] { .4f }, Defense = 0 };
+                UnitStats.Initialize(units);
+
+                // 건물 표 — 마찬가지로 복사 후 초월 Castle 행만 덮는다(Spirit AutoTower 등 앞 검사가 넣은 행은 그대로 — ⑤가 그 값을 쓴다).
+                var buildings = _oldBuildingData is Dictionary<(BuildingType, RaceId), BuildingStats.StatValues> oldBuildings
+                    ? new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>(oldBuildings)
+                    : new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
+                buildings[(BuildingType.Castle, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = CastleTranscendenceMaxHp };
+                BuildingStats.Initialize(buildings);
+
+                Require(UnitStats.GetMaxHp(UnitType.Tank) == VictimTankMaxHp && UnitStats.GetAttackPower(UnitType.Pistoleer) == AttackerAttackPower
+                        && UnitStats.GetDefense(UnitType.Tank) == 0
+                        && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp,
+                    "S-T0 support fixture stats must be pinned (Tank HP " + VictimTankMaxHp + ", Pistoleer attack " + AttackerAttackPower
+                    + ", Transcendence Castle HP " + CastleTranscendenceMaxHp + ").");
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                UnitDataField.SetValue(null, _oldUnitData);
+                BuildingDataField.SetValue(null, _oldBuildingData);
             }
         }
 
@@ -205,7 +282,11 @@ namespace Hexiege.Editor.Combat
                     () => f.Tower.ApplyTowerProjectileImpact(towerData, victims[5], 120, default));
 
                 // 상대 팀 유닛 · 건물은 언제나 그대로(대지의 갑주는 시전 팀 유닛만).
-                RequireSupportHit(tag, "enemy-team unit", enemyTeamUnit, DamageCalculator.ApplyDefense(20, enemyTeamUnit.Defense),
+                // [2026-11-17 비활성화 — 기대값 식 정정] 옛 줄:
+                // RequireSupportHit(tag, "enemy-team unit", enemyTeamUnit, DamageCalculator.ApplyDefense(20, enemyTeamUnit.Defense),
+                //   이 지점은 ④ 지속 피해(dot)로 때리는데, 지속 피해는 방어 감쇄를 거치지 않는다(ApplyTimedDamageToUnit → 틱 값 그대로).
+                //   옛 식은 Tank 방어가 0일 때만 우연히 20이었다(전역 스탯 값에 기대는 같은 종류의 결함). 같은 줄의 ④ · newcomer처럼 20 그대로를 기대한다.
+                RequireSupportHit(tag, "enemy-team unit", enemyTeamUnit, 20,
                     () => dot.Invoke(f.Combat, new object[] { attacker, enemyTeamUnit, 20 }));
                 var blueBuilding = new BuildingData(97901, BuildingType.MiningPost, TeamId.Blue, new HexCoord(2, 0), 5000);
                 RequireSupportHit(tag, "Blue building", blueBuilding, attacker.AttackPower,
