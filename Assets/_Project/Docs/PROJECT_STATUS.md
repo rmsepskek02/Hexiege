@@ -13,6 +13,7 @@
 
 | 시스템 | 구현·확인된 범위 | 현재 한계·참조 |
 |---|---|---|
+| 전투 검색·임시 수집 최적화 | Host NCC의 완료된 빈 검색 재사용·UseCase instance-local idle1슬롯 collector 구현. 실제 소스 자동 비교36case/232assert와16case/1,170assert, SDK 오류0. eligible warm collector/List/backing3개 생성 회피·최종 owned 결과 배열 유지 | 실기215bundle·Client reject0/transportFailure0·경기 종료/로비 관측. 공격 관측 invalid 상세 상한16·한 유닛 이동 복구 반복62 FAIL은 별도 미해결, 전체 회귀 수용과 bytes/ms/FPS 절감은 미검증 |
 | 랠리포인트 | 최초·후속 수정 싱글·멀티 및 AI 5번 싱글 사용자 수용, 코드 정리·별도 검증 후 main 통합·원격 push 완료 | 통합 후 신규 실기·역할별·장치별·정밀 로그 계약 및 전체 경로 차단 대응으로 확대하지 않음. [통합·원격 반영 결과](<_Tasks/2026-10-13/10_37_rally-point-fix/Research.md#9-10-pr-없는-로컬-main-통합-완료-2026-10-18-메인-수행-인계>) |
 | 코어 경기 | 헥스 맵·건설/생산·자원·점령·전투·승패 및 싱글/멀티 기본 흐름 구현 기록 | 상세 동작은 게임 규칙, 남은 범위는 ROADMAP |
 | 유닛 행동·전투 | 서버 권위·행동/타격 결과·표현 구조 및 기존 개별 교정. 원래 승인 교정의 에셋/코드 반영 감사와 입증된 누락 복원은 종결 | 전체25종·역할교대·Legacy rollback·정밀 시각/구조 이행은 개별 수용과 별도. [Matrix](Assets/UnitCombatAssetMatrix.md) |
