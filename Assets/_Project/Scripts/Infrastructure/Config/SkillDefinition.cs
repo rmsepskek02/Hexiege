@@ -23,6 +23,7 @@
 //
 // 2026-11-16 추가 칸(지원 스킬 새 상태 Task — _Tasks/2026-11-16/01_00_support-skill-new-statuses, 단계 A):
 //   「추가 효과 목록」(_extraEffects) — 주 효과 말고 함께 거는 효과(대상 종류 · 상태 종류 · 강도). 초기값은 빈 목록이라 기존 자산 무변경.
+//   단계 C: 「건물 상태 VFX」(_buildingStatusVfxPrefab · _buildingStatusVfxScale · _buildingStatusVfxOffsetY). 초기값은 프리팹 없음.
 //
 // Infrastructure 레이어 — ScriptableObject. Application(SkillData)/Domain(enum) 참조.
 // ============================================================================
@@ -191,10 +192,13 @@ namespace Hexiege.Infrastructure
         [System.Serializable]
         public sealed class ExtraEffectEntry
         {
-            [Tooltip("대상 종류 정수 코드. 0 = 대상 팀 유닛 각각 · 1 = 대상 팀 건물 각각(단계 C·B용 — 지금은 거부됨) · 2 = 대상 팀 자체(예: 생산 속도).")]
+            // [2026-11-16 단계 C] 건물 대상(1)이 쉴드에 한해 허용됐다 — 툴팁 갱신. 옛 툴팁(기록용):
+            //   "대상 종류 정수 코드. 0 = 대상 팀 유닛 각각 · 1 = 대상 팀 건물 각각(단계 C·B용 — 지금은 거부됨) · 2 = 대상 팀 자체(예: 생산 속도)."
+            [Tooltip("대상 종류 정수 코드. 0 = 대상 팀 유닛 각각 · 1 = 대상 팀 건물 각각(지금은 쉴드만 — 신목의 각성) · 2 = 대상 팀 자체(예: 생산 속도).")]
             public int target = (int)SkillEffectTarget.Team;
 
-            [Tooltip("상태 종류 정수 코드(StatusEffectKind). 6 = 받는 피해 배율 · 7 = 생산 속도 배율.")]
+            // [2026-11-16 단계 C] 8 = 쉴드 추가. 옛 툴팁(기록용): "상태 종류 정수 코드(StatusEffectKind). 6 = 받는 피해 배율 · 7 = 생산 속도 배율."
+            [Tooltip("상태 종류 정수 코드(StatusEffectKind). 6 = 받는 피해 배율 · 7 = 생산 속도 배율 · 8 = 쉴드(강도 = 흡수량).")]
             public int statusKind = 0;
 
             [Tooltip("강도(배율). 예: 1.5 = 1.5배.")]
@@ -204,6 +208,34 @@ namespace Hexiege.Infrastructure
         [Header("추가 효과 목록 (타입 C — 주 효과 말고 더 거는 효과)")]
         [Tooltip("주 효과(위 「상태변경」) 말고 함께 거는 효과들. 지속시간 · 아군/적은 주 효과와 같다. 예: 전술 지령 = [대상 2(팀) · 종류 7(생산 속도) · 1.5].")]
         [SerializeField] private ExtraEffectEntry[] _extraEffects = new ExtraEffectEntry[0];
+
+        [Header("건물 상태 VFX (효과를 받는 건물 위에 효과 시간 동안 붙는 반복 이펙트)")]
+        // 건물 상태 VFX 칸(2026-11-16 추가 — 지원 스킬 새 상태 Task 단계 C, Plan 6-1-3 · S-10 · S-12).
+        //
+        // 무엇인가(초급자용 설명):
+        //   신목의 각성을 쓰면 아군 건물에도 쉴드가 씌워진다. 그 쉴드가 남아 있는 동안 건물 위에 보여 줄 이펙트를 넣는 칸이다.
+        //   유닛 몸에 붙는 「유닛 상태 VFX」와 따로 둔다(건물은 크기 · 모양이 유닛과 전혀 다르다).
+        //   붙이고 · 떼는 장치(BuildingStatusVfxPresenter)는 이 칸을 쓰는 모든 스킬이 함께 쓴다
+        //   (단계 B 재생의 뿌리 건물 재생도 같은 칸 · 장치를 쓴다).
+        //
+        //   언제 쓰이나: 스킬의 「추가 효과 목록」에 대상 1(건물 각각) 줄이 있을 때만 붙인다(지금은 신목의 각성).
+        //     전술 지령(생산 건물 쪽 이펙트 — S-10)은 칸만 있고 비워 둔다. 「어느 건물에 붙일지」는 아직 정해지지 않아(상위 Plan 4절 20)
+        //     전술 지령 칸에 프리팹을 넣어도 지금은 붙지 않는다.
+        //
+        //   정지: 효과 시간 끝 = 꼬리 정지 · 쉴드 깨짐 · 건물 파괴/철거 · 업그레이드 · 재경기 = 즉시 · 경기 종료 = 꼬리.
+        //
+        //   🔴 넣는 프리팹은 「상태 이펙트 계약」을 지켜야 한다(VFXSFXGuide 「코드 계약」 1): 모든 Particle System Looping ON ·
+        //      Stop Action None · Scaling Mode Hierarchy. 어기면 재생하지 않는다(진단 「BuildingVfxSkipped Reason=LoopContract」).
+        //   크기 = 프리팹 원본 × 아래 배율(건물 종류와 무관한 하나의 배율 — S-12). 위치 = 건물 GameObject 위치 + 아래 높이 보정(Y만).
+        //   기존 자산은 파일에 이 칸이 없어 초기값(프리팹 없음 · 배율 1 · 보정 0)으로 읽힌다 → 동작 무변경. 셋업 도구는 이 칸을 쓰지 않는다.
+        [Tooltip("효과를 받은 건물 위에 효과 시간 동안 반복 재생할 VFX 프리팹(Looping). 추가 효과에 건물 대상 줄이 있는 스킬만 쓴다. 비우면 이펙트 없이 효과만 걸린다.")]
+        [SerializeField] private GameObject _buildingStatusVfxPrefab;
+
+        [Tooltip("건물 상태 VFX 크기 배율(프리팹 원본 × 이 값 — 모든 건물에 같은 배율). 0 이하 · NaN이면 1로 쓴다.")]
+        [SerializeField] private float _buildingStatusVfxScale = 1f;
+
+        [Tooltip("건물 상태 VFX 높이 보정(건물 위치 기준 Y만, 월드 단위). 예: 0.1 = 건물 바닥보다 0.1 위.")]
+        [SerializeField] private float _buildingStatusVfxOffsetY = 0f;
 
         /// <summary>
         /// 이 SO의 값을 Application 레이어 값 객체(SkillData)로 변환한다.
@@ -237,7 +269,11 @@ namespace Hexiege.Infrastructure
                 // 2026-11-11 구역 VFX 칸(위 「구역 VFX」 머리말).
                 _zoneVfxPrefab,
                 // 2026-11-16 추가 효과 목록(위 「추가 효과 목록」 머리말).
-                BuildExtraEffects());
+                BuildExtraEffects(),
+                // 2026-11-16 단계 C 건물 상태 VFX 칸 3개(위 「건물 상태 VFX」 머리말).
+                _buildingStatusVfxPrefab,
+                _buildingStatusVfxScale,
+                _buildingStatusVfxOffsetY);
         }
 
         /// <summary>

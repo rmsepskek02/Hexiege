@@ -854,6 +854,74 @@ namespace Hexiege.Presentation
             return item.StopStatusLoop(lease, immediate);
         }
 
+        // ====================================================================
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 C] 일반 건물 상태 VFX(신목의 각성 건물 쉴드 등) — 시작 · 정지
+        //   BuildingStatusVfxPresenter가 건물 대상 효과가 있는 스킬의 발동 표현(확정 · 수신)을 받으면 대상 건물마다 이 메서드로 시작하고,
+        //   효과 시간 끝 · 경기 종료면 꼬리 정지, 쉴드 깨짐 · 파괴 · 업그레이드 · 재경기면 즉시 정지한다(Plan 6-1-3).
+        //   EMP 탑 무력화 VFX(StartTowerStatusVfx)와 같은 "Play → BeginStatusLoop → 확인 번호" 순서 · 같은 높이 보정(Y만) 규칙이지만,
+        //   프리팹 · 배율은 종족 프리셋이 아니라 스킬 데이터(「건물 상태 VFX」 칸)에서 온다 — 탑 장치와 분리(EMP 판정과 얽히지 않게).
+        //   건물은 움직이지 않으므로 따라가기는 없다. 효과 판정과 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 위에 건물 상태 VFX(반복 재생)를 시작하고 확인 번호(lease)를 돌려준다.
+        /// 위치 = 건물 위치 + 높이 보정(Y만), 회전 = 항등, 크기 = 프리팹 원본 × uniformScale. 항목은 VFX 컨테이너 아래에 둔다
+        /// (건물의 자식으로 붙이지 않는다 — 건물 파괴 · 업그레이드 때 풀 항목이 함께 파괴되지 않게).
+        /// </summary>
+        /// <param name="prefab">스킬 데이터의 건물 상태 VFX 프리팹.</param>
+        /// <param name="buildingViewPosition">건물 위치(이 화면 좌표 — 건물 GameObject 위치. 빨강 화면 변환이 이미 끝난 값).</param>
+        /// <param name="uniformScale">루트 균일 배율(스킬 데이터 — 0 이하 · NaN · 무한대면 1).</param>
+        /// <param name="offsetY">높이 보정(월드 단위, Y만).</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="createdNew">풀에 남은 항목이 없어 새로 만들었는가(진단 PoolCreated용).</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · LoopContract · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartBuildingStatusVfx(GameObject prefab, Vector3 buildingViewPosition, float uniformScale, float offsetY,
+                                                  out ulong lease, out bool createdNew, out string failReason)
+        {
+            lease = 0;
+            createdNew = false;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            // 반복 재생 계약(Looping ON · Stop Action None) — 유닛 상태 VFX와 같은 검사 함수(기준 한 곳, 결과는 프리팹별 캐시).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+            if (float.IsNaN(offsetY) || float.IsInfinity(offsetY)) offsetY = 0f;
+
+            int createdBefore = _vfxInstancesCreated;
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            createdNew = _vfxInstancesCreated != createdBefore;
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            // 높이(Y)만 보정한다 — 회전이 항등이라 Play의 "회전 × 보정"은 보정 그대로다(EMP 탑 VFX와 같은 규칙).
+            item.Play(buildingViewPosition, Quaternion.identity, new Vector3(0f, offsetY, 0f), Vector3.zero,
+                      Vector3.one * uniformScale, 0f, 0f);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                // 재생이 시작되지 않은 비정상 상황 — 반복 재생이 남지 않게 즉시 돌려보낸다(탑 상태 VFX와 같은 처리).
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            return item;
+        }
+
+        /// <summary>
+        /// 건물 상태 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartBuildingStatusVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartBuildingStatusVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(입자까지 지움 — 깨짐 · 파괴 · 업그레이드 · 재경기). false = 꼬리 정지(효과 끝 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopBuildingStatusVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
         public System.Func<double> AttackEffectClock = () => Time.timeAsDouble;
         /// <summary>
         /// 서버가 확정한 공격 표현 스냅샷(즉발 타워 발사 — Spirit RuneSpire 번개 등)을 이 화면에서 재생한다.

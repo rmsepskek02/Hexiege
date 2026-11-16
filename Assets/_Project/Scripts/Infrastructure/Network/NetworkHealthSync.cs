@@ -384,6 +384,28 @@ namespace Hexiege.Infrastructure
                     presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
                     projectilePresentationKey: projectileKey));
             }
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 C — Plan S-6 (b)] HP 차이 0 = 서버가 피해를 처리했지만 HP가 줄지 않은 피격
+            //   (신목의 각성 쉴드가 피해를 전부 막은 경우). Host는 이 피격에 숫자 · 피격 VFX · 타격 반응을 그대로 내므로(서버가
+            //   OnEntityDamaged를 HP 변화와 무관하게 발행) Client도 같은 이벤트를 다시 낸다 — 양쪽 화면이 같아진다.
+            //   부작용 검토(2026-11-16, 근거):
+            //     · 이 RPC를 보내는 곳은 서버의 OnEntityDamaged 구독 1곳뿐이고, 서버는 피해를 처리할 때마다 정확히 1번 보낸다(중복 전송 경로 없음).
+            //     · Client의 유닛 HP는 이 RPC(감소) · 회복 전용 RPC(증가) · 사망 패킷(0으로 맞춘 뒤 목록에서 제거)으로만 바뀐다.
+            //       회복은 별도 RPC라 여기로 오지 않는다(「회복 0」이 숫자를 띄우는 일은 없다).
+            //     · 따라서 차이 0은 「서버도 그 피격에서 HP가 줄지 않았다」일 때만 생기고, 그 경우 Host도 표현을 냈다 → (b)는 Client를 Host와 같게 할 뿐이다.
+            //     · 차이가 음수(Client HP가 서버보다 낮음 — 비정상)는 지금처럼 아무것도 하지 않는다(정확히 0일 때만).
+            //     · HP 0(이미 죽은 대상)은 제외한다 — 쉴드가 전부 막은 대상은 언제나 살아 있다. 사망 표현(HP 0 이벤트를 보는
+            //       DeferredUnitDeathPresenter)이 두 번 돌 여지를 처음부터 없앤다.
+            else if (diff == 0 && serverHp > 0)
+            {
+                // [개발] 쉴드가 전부 막은 피격 1건 = 1줄(피격 줄과 같은 빈도 · Dev — 릴리스에서는 사라진다). C-L12 판정용.
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[SKILL-SHIELD] ZeroDiffHitRepublished",
+                                 $"Diag=SkillShield, DiagRev=1, Event=ZeroDiffHitRepublished, Role=Client, Target=Unit, Id={unitId}, Hp={unit.Hp}, AttackerId={attackerId}, AttackerIsUnit={attackerIsUnit}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true,
+                    attackerId: attackerId, attackerIsUnit: attackerIsUnit,
+                    immediatePresentation: immediatePresentation,
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
+            }
         }
 
         /// <summary>
@@ -518,6 +540,18 @@ namespace Hexiege.Infrastructure
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
                 // RPC로 받은 공격자 정보를 그대로 전달한다. (Phase 2 — 축 3)
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
+                    attackerId: attackerId, attackerIsUnit: attackerIsUnit,
+                    immediatePresentation: false,
+                    presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
+                    projectilePresentationKey: projectileKey));
+            }
+            // [2026-11-16 단계 C — Plan S-6 (b)] 건물 쉴드가 피해를 전부 막은 피격 — 위 유닛 경로와 같은 이유 · 같은 조건(정확히 0).
+            //   건물 HP도 이 RPC(감소) · 건물 회복 전용 RPC(증가) · 사망 패킷으로만 바뀐다.
+            else if (diff == 0 && serverHp > 0)
+            {
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[SKILL-SHIELD] ZeroDiffHitRepublished",
+                                 $"Diag=SkillShield, DiagRev=1, Event=ZeroDiffHitRepublished, Role=Client, Target=Building, Id={buildingId}, Hp={building.Hp}, AttackerId={attackerId}, AttackerIsUnit={attackerIsUnit}, Projectile={(projectileKey.IsValid ? projectileKey.ToString() : "none")}");
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: false,

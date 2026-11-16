@@ -149,11 +149,33 @@ namespace Hexiege.Application
         // 빈 목록 하나를 모든 스킬이 함께 쓴다(추가 효과가 없는 스킬마다 빈 배열을 새로 만들지 않게).
         private static readonly SkillExtraEffect[] NoExtraEffects = new SkillExtraEffect[0];
 
+        // ── 2026-11-16 추가: 건물 상태 VFX(지원 스킬 새 상태 — 단계 C, Plan 6-1-3 · S-10 · S-12) ──
+        //   효과를 받은 건물 위에 효과 시간 동안 반복 재생하는 이펙트(신목의 각성 건물 쉴드 · 단계 B 재생의 뿌리 건물 재생).
+        //   값은 SkillDefinition의 「건물 상태 VFX」 칸에서 복사된다. 실행기 · 서버 판정은 이 값을 읽지 않는다(화면 표현 전용).
+        //   화면 쪽 BuildingStatusVfxPresenter가 발동 표현 이벤트를 받으면 이 프리팹을 대상 건물마다 붙인다.
+
+        /// <summary>
+        /// 효과를 받은 건물 위에 붙일 반복 VFX 프리팹(null 허용 — 이펙트 없이 효과만 건다).
+        /// </summary>
+        public GameObject BuildingStatusVfxPrefab { get; }
+
+        /// <summary>
+        /// 건물 상태 VFX 크기 배율(프리팹 원본 × 이 값 — 건물 종류와 무관한 하나의 배율, S-12). 0 이하 · NaN · 무한대는 1로 고쳐 보관한다.
+        /// </summary>
+        public float BuildingStatusVfxScale { get; }
+
+        /// <summary>
+        /// 건물 상태 VFX 높이 보정(건물 GameObject 위치 기준 Y만, 월드 단위). NaN · 무한대는 0으로 고쳐 보관한다.
+        /// X · Z 보정은 두지 않는다 — 상대 진영 건물은 180° 돌아 있어 X · Z 보정은 모델과 어긋난다(EMP 탑 VFX와 같은 이유).
+        /// </summary>
+        public float BuildingStatusVfxOffsetY { get; }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
         /// 그 뒤 인자(구역 VFX 프리팹, 2026-11-11 추가)도 생략하면 "프리팹 없음"이다.
         /// 맨 뒤 인자(추가 효과 목록, 2026-11-16 추가)도 생략하면 "추가 효과 없음"이다 — 기존 호출은 고치지 않아도 그대로 컴파일된다.
+        /// 그 뒤 세 인자(건물 상태 VFX — 2026-11-16 단계 C)도 생략하면 "프리팹 없음 · 배율 1 · 높이 보정 0"이다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -177,7 +199,10 @@ namespace Hexiege.Application
             float statusVfxScale = 1f,
             Vector3 statusVfxOffset = default,
             GameObject zoneVfxPrefab = null,
-            IReadOnlyList<SkillExtraEffect> extraEffects = null)
+            IReadOnlyList<SkillExtraEffect> extraEffects = null,
+            GameObject buildingStatusVfxPrefab = null,
+            float buildingStatusVfxScale = 1f,
+            float buildingStatusVfxOffsetY = 0f)
         {
             Icon = icon;
             AimType = aimType;
@@ -223,6 +248,36 @@ namespace Hexiege.Application
                 for (int i = 0; i < copy.Length; i++) copy[i] = extraEffects[i];
                 ExtraEffects = copy;
             }
+
+            // 건물 상태 VFX(2026-11-16 단계 C). Inspector 오입력 방어는 유닛 상태 VFX와 같은 규칙이다.
+            BuildingStatusVfxPrefab = buildingStatusVfxPrefab;
+            BuildingStatusVfxScale = buildingStatusVfxScale > 0f && !float.IsInfinity(buildingStatusVfxScale) ? buildingStatusVfxScale : 1f;
+            BuildingStatusVfxOffsetY = !float.IsNaN(buildingStatusVfxOffsetY) && !float.IsInfinity(buildingStatusVfxOffsetY)
+                ? buildingStatusVfxOffsetY : 0f;
+        }
+
+        /// <summary>
+        /// 이 스킬이 「건물 각각」에 거는 효과를 하나라도 가졌는가(추가 효과 목록의 대상 = 건물).
+        /// 화면의 건물 상태 VFX 장치가 "이 발동에 건물 이펙트를 붙여야 하는가"를 이것으로 판단한다(2026-11-16 단계 C).
+        /// 주 효과는 대상이 언제나 유닛이므로 보지 않는다.
+        /// </summary>
+        /// <returns>건물 대상 효과가 있으면 true.</returns>
+        public bool HasBuildingEffect()
+        {
+            for (int i = 0; i < ExtraEffects.Count; i++)
+                if (ExtraEffects[i].Target == SkillEffectTarget.Building && ExtraEffects[i].Kind != StatusEffectKind.None) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 이 스킬의 건물 대상 효과 가운데 쉴드가 있는가(쉴드 깨짐 알림으로 건물 이펙트를 바로 꺼야 하는가 — 2026-11-16 단계 C).
+        /// </summary>
+        /// <returns>건물 쉴드가 있으면 true.</returns>
+        public bool HasBuildingShield()
+        {
+            for (int i = 0; i < ExtraEffects.Count; i++)
+                if (ExtraEffects[i].Target == SkillEffectTarget.Building && ExtraEffects[i].Kind == StatusEffectKind.Shield) return true;
+            return false;
         }
 
         /// <summary>

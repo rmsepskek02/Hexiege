@@ -14,9 +14,14 @@
 //   대지의 갑주(받는 피해 0.7배)는 "모든 피해"에 걸려야 하므로, 6곳이 각자 계산하면 하나라도 빠뜨리기 쉽다(위험 R-1).
 //   그래서 6곳의 `target.TakeDamage(값)` 줄을 모두 이 헬퍼 호출로 바꿨다. 순서(Plan S-14):
 //     방어 감쇄(각 자리의 기존 계산 그대로) → 받는 피해 배율(유닛만) → (단계 C: 쉴드 흡수) → HP.
+//   [2026-11-16 단계 C — 신목의 각성, Plan 6-1-2] 쉴드 흡수 단계를 채웠다(유닛 · 건물 모두):
+//     흡수 = min(남은 쉴드, 들어온 피해) → HP에는 나머지만. 쉴드가 0이 되면 「깨짐」(SupportSkillEffectSystem.AbsorbShield).
+//     건물이 맞는 서버 피해 경로는 6곳(①~⑥ 중 ① 직격 · 파도 · ② 스플래시 · ③ 포격)이 모두 이 헬퍼를 지난다(2026-11-16 grep 확인 —
+//     헬퍼 밖 TakeDamage는 Client HP 맞춤 2곳 · Client 사망 패킷 HP 0 맞춤 2곳뿐이고 서버 피해가 아니다).
 //
 // 회귀 안전(핵심):
 //   - 서비스가 없거나(null) · 대상이 건물이거나 · 배율이 정확히 1이면 곱하지 않고 받은 값을 그대로 TakeDamage에 넘긴다.
+//     (단계 C 뒤: 쉴드가 없는 대상은 흡수 0 — 여전히 받은 값 그대로.)
 //     → 대지의 갑주가 안 걸린 유닛 · 건물은 이 헬퍼가 생기기 전과 비트 단위로 같은 피해를 받는다.
 //
 // 반올림 · 최소 1(Plan S-14 — DamageCalculator.ApplyDefense와 같은 규칙):
@@ -84,15 +89,32 @@ namespace Hexiege.Application
                 float mul = effects.GetIncomingDamageMultiplier(unit.Id);
                 int finalDamage = mul != 1f ? ScaleDamage(damage, mul) : damage;
 
-                // (단계 C 자리) 쉴드 흡수 — 신목의 각성 회차에서 여기에 「흡수 → 남은 피해만 HP」를 넣는다.
+                // [2026-11-16 단계 C — 신목의 각성] 쉴드 흡수: 배율까지 끝난 피해를 쉴드가 먼저 받고, 남은 피해만 HP로 넘긴다.
+                //   쉴드가 없으면 AbsorbShield가 받은 값을 그대로 돌려준다 → hpDamage == finalDamage(기존과 같다).
+                //   ⚠️ 아래 [SKILL-ARMOR] 진단에는 종전처럼 「배율 뒤 값」(finalDamage)을 넘긴다 — 대지의 갑주 판정 값의 뜻을 바꾸지 않는다.
+                int hpDamage = effects.AbsorbShield(unit, finalDamage, writer);
 
-                target.TakeDamage(finalDamage);
+                // [2026-11-16 단계 C 비활성화 — 쉴드 흡수 뒤 남은 피해만 HP로] 옛 줄:
+                // target.TakeDamage(finalDamage);
+                target.TakeDamage(hpDamage);
                 // [진단 [SKILL-ARMOR]] 감소 표본 · 지점별 계수(에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출이 사라진다).
                 effects.DiagRecordIncomingDamage(unit, writer, rawBeforeDefense, damage, finalDamage, mul);
-                return finalDamage;
+                // [2026-11-16 단계 C 비활성화 — 반환값 = 실제로 TakeDamage에 넘긴 값(문서 주석과 같은 뜻)] 옛 줄:
+                // return finalDamage;
+                return hpDamage;
             }
 
-            // 건물 · 서비스 없음 — 기존과 같은 값 그대로(대지의 갑주는 유닛만 — Plan S-4 표 아래).
+            // [2026-11-16 단계 C 추가] 건물 쉴드 — 건물은 받는 피해 배율이 없으므로(대지의 갑주는 유닛만) 쉴드 흡수만 한다.
+            //   쉴드가 없는 건물이면 AbsorbShield가 받은 값을 그대로 돌려준다 → 기존과 같은 값.
+            if (effects != null && target is BuildingData)
+            {
+                int buildingHpDamage = effects.AbsorbShield(target, damage, writer);
+                target.TakeDamage(buildingHpDamage);
+                return buildingHpDamage;
+            }
+
+            // 서비스 없음(또는 유닛 · 건물이 아닌 대상) — 기존과 같은 값 그대로.
+            //   [2026-11-16 단계 C] 옛 주석: 「건물 · 서비스 없음 — 기존과 같은 값 그대로(대지의 갑주는 유닛만 — Plan S-4 표 아래).」
             target.TakeDamage(damage);
             return damage;
         }

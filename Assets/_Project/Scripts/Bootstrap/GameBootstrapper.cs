@@ -350,6 +350,9 @@ namespace Hexiege.Bootstrap
         private System.IDisposable _supportEffectUnitDiedSub;
         // [2026-11-16 A-3] 순수 클라이언트: 스킬 발동 알림 → 생산 진행 막대 거울 기록 구독. ClearAll에서 정리.
         private System.IDisposable _productionMirrorActivationSub;
+        // [2026-11-16 단계 C — C-1] 건물 파괴 · 업그레이드 시 지원 스킬 효과(건물 쉴드)를 바로 지우는 구독 2개. ClearAll에서 정리.
+        private System.IDisposable _supportEffectBuildingDiedSub;
+        private System.IDisposable _supportEffectBuildingUpgradedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.

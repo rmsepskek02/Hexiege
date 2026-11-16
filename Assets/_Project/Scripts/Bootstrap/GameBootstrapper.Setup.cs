@@ -500,6 +500,27 @@ namespace Hexiege.Bootstrap
             });
 
             // ────────────────────────────────────────────────────────────
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 C — C-1] 건물 쉴드(신목의 각성)용 배선.
+            //   ① 건물 목록 주입(설정자 — 생성자 무변경): 발동 순간 살아 있는 시전 팀 건물을 모으고, 권위 틱이 사라진 건물을 정리한다.
+            //   ② 건물이 파괴 · 철거되면(OnBuildingDied) 그 건물의 효과를 바로 지운다(사망과 같게 센다).
+            //   ③ 건물이 업그레이드되면(OnBuildingUpgraded — 옛 Id) 옛 건물의 효과를 버린다(새 Id에 넘기지 않는다 — Plan S-11).
+            //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 효과가 걸리지 않으므로 지울 것이 없다(유닛 사망 구독과 같은 패턴).
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 건물 쉴드 기록이 하나도 없으면 피해 헬퍼가 받은 값을 그대로 넘긴다.
+            // ────────────────────────────────────────────────────────────
+            _supportSkillEffects.SetBuildingPlacement(_buildingPlacement);
+            _supportEffectBuildingDiedSub?.Dispose();
+            _supportEffectBuildingDiedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (e.Building == null) return;
+                _supportSkillEffects?.NotifyBuildingRemoved(e.Building.Id, upgraded: false);
+            });
+            _supportEffectBuildingUpgradedSub?.Dispose();
+            _supportEffectBuildingUpgradedSub = GameEvents.OnBuildingUpgraded.Subscribe(e =>
+            {
+                _supportSkillEffects?.NotifyBuildingRemoved(e.OldBuildingId, upgraded: true);
+            });
+
+            // ────────────────────────────────────────────────────────────
             // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
             //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
             //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.

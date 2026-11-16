@@ -27,6 +27,13 @@
 //   - 효과 기록(EffectRecord)에 「남은 양」(쉴드)이나 「소수 이월」(재생) 칸을 더하면 된다.
 //   - IsSupported(대상, 종류) 표에 조합을 더하면 실행기 · 다리는 고치지 않아도 된다.
 //
+// 2026-11-16 단계 C(신목의 각성 — Plan 6-1)에서 실제로 얹은 것:
+//   - 종류 Shield(유닛 · 건물), 건물 저장소 _buildingEffects(유닛 Id와 겹칠 수 있어 따로), 건물 목록 설정자 SetBuildingPlacement.
+//   - AbsorbShield: 피해 헬퍼가 「받는 피해 배율 뒤」 값을 넘기면 쉴드가 먼저 받고 나머지를 돌려준다. 0이 되면 깨짐 →
+//     다음 Tick 머리에서 GameEvents.OnShieldBrokenConfirmed로 묶어 알린다(멀티 서버는 NetworkSkillController가 Client로 중계).
+//   - 만료 = 남은 양 버림, 재적용 = 교체(새 양 · 새 시간), 건물 파괴 · 업그레이드 = NotifyBuildingRemoved, 경기 종료 = Close.
+//   - 진단 [SKILL-SHIELD]는 SupportSkillEffectSystem.ShieldDiagnostics.cs.
+//
 // 「묶음(batch)」이란:
 //   발동 한 번이 건 효과들의 모임이다(발동 순번 · 시전 팀 · 슬롯 · 대상 수 · 경과 시간). 진단 로그가
 //   「적용 → 끝」을 한 쌍으로 남기려고 쓴다(ArmorApplied ↔ ArmorEnded). 묶음의 대상이 모두 끝나면(만료 · 교체 · 사망) 그 묶음이 끝난다.
@@ -59,8 +66,12 @@ namespace Hexiege.Application
         /// <param name="kind">상태 종류.</param>
         public static bool IsServiceKind(StatusEffectKind kind)
         {
+            // [2026-11-16 단계 C 비활성화 — 쉴드 종류 추가(Plan 6-1)] 옛 식:
+            // return kind == StatusEffectKind.IncomingDamageMul
+            //     || kind == StatusEffectKind.ProductionSpeedMul;
             return kind == StatusEffectKind.IncomingDamageMul
-                || kind == StatusEffectKind.ProductionSpeedMul;
+                || kind == StatusEffectKind.ProductionSpeedMul
+                || kind == StatusEffectKind.Shield;
         }
 
         /// <summary>
@@ -71,7 +82,12 @@ namespace Hexiege.Application
         /// <param name="kind">효과 종류.</param>
         public static bool IsSupported(SkillEffectTarget target, StatusEffectKind kind)
         {
-            if (target == SkillEffectTarget.Unit) return kind == StatusEffectKind.IncomingDamageMul;
+            // [2026-11-16 단계 C 비활성화 — 유닛 쉴드 · 건물 쉴드 조합 추가(Plan 6-1)] 옛 줄:
+            // if (target == SkillEffectTarget.Unit) return kind == StatusEffectKind.IncomingDamageMul;
+            if (target == SkillEffectTarget.Unit)
+                return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield;
+            // 건물 대상(단계 C): 지금은 쉴드만. (단계 B 재생의 뿌리는 여기에 재생 종류를 더한다.)
+            if (target == SkillEffectTarget.Building) return kind == StatusEffectKind.Shield;
             if (target == SkillEffectTarget.Team) return kind == StatusEffectKind.ProductionSpeedMul;
             return false;
         }
@@ -109,6 +125,24 @@ namespace Hexiege.Application
             public int DiagSamples;                 // 감소 표본 줄 수
             public int DiagSamplesDropped;          // 상한 때문에 남기지 않은 표본 수
             public HashSet<long> DiagSampled;       // 표본을 남긴 (유닛 Id, 쓰는 곳) 쌍
+
+            // ── [2026-11-16 단계 C] 쉴드 묶음 전용 칸 ──
+            public int ShieldAmount;                // 대상 하나에 거는 쉴드 양(강도를 정수로 반올림한 값 — 예: 150)
+            public int Broken;                      // 효과 중 쉴드가 0이 되어 깨진 대상 수(판정 · 진단 공용 계수)
+            public int Expired;                     // 시간이 다 되어 남은 양을 버리고 끝난 대상 수
+            public int Upgraded;                    // 건물 업그레이드로 버려진 대상 수(S-11 — 새 Id에는 넘기지 않는다)
+            // 진단 전용(개발 빌드에서만 채워진다 — 판정과 무관)
+            public long DiagIncomingTotal;          // 쉴드가 있던 대상이 받은 피해 합(헬퍼에 들어온 값 — 배율 뒤)
+            public long DiagAbsorbedTotal;          // 그중 쉴드가 흡수한 합
+            public long DiagHpDamageTotal;          // 그중 HP로 넘어간 합(들어온 = 흡수 + HP 피해)
+            public int DiagAbsorbHits;              // 쉴드가 1 이상 흡수한 피격 수
+            public long DiagDiscardedTotal;         // 만료 · 교체 · 업그레이드로 버린 남은 양 합
+            public int DiagAbsorbSamples;           // ShieldAbsorbSample 줄 수
+            public int DiagAbsorbSamplesDropped;    // 상한 때문에 남기지 않은 표본 수
+            public int DiagBrokenLines;             // ShieldBroken 줄 수
+            public int DiagExpiredLines;            // ShieldExpired 줄 수
+            public int DiagNewTargetHits;           // 효과 중 같은 팀 「대상이 아닌」 유닛 · 건물(새로 나온 것)이 맞은 횟수(C-L7)
+            public HashSet<long> DiagShieldSampled; // 첫 흡수 표본을 남긴 (대상 종류, Id) 키
         }
 
         // 대상 1개에 걸린 효과 1개(종류마다 하나 — 같은 종류는 교체).
@@ -118,9 +152,38 @@ namespace Hexiege.Application
             public float Magnitude;
             public float Remaining;   // 남은 시간(초). 0 이하가 되면 끝.
             public EffectBatch Batch; // 이 효과를 건 발동 묶음
+            // [2026-11-16 단계 C] 쉴드 종류만 쓴다 — 남은 흡수량(피해를 받을 때마다 줄어든다. 0이 되면 깨짐).
+            //   StatusEffect의 강도(Magnitude)는 고정값이라 「줄어드는 양」을 담을 수 없어 따로 둔다(Research 6-2).
+            public int ShieldRemaining;
         }
 
         private readonly UnitSpawnUseCase _unitSpawn;
+
+        // [2026-11-16 단계 C] 건물 목록(발동 순간 대상 수집 · 틱의 생존 확인). 설정자로 주입한다 — 생성자를 바꾸면
+        //   이 서비스를 직접 만드는 Editor 자가 검증(fixture)이 깨지므로(단계 A와 같은 이유) 생성자는 그대로 둔다.
+        //   null이면 건물 대상 효과(건물 쉴드)는 아무에게도 걸리지 않는다(무효과 — 진단 Targets=0).
+        private BuildingPlacementUseCase _buildingPlacement;
+
+        // [2026-11-16 단계 C] 건물 Id → 그 건물의 효과 목록. 유닛 Id와 건물 Id는 다른 계수기에서 나와 값이 겹칠 수 있으므로
+        //   유닛 저장소와 반드시 따로 둔다(상위 Plan 4절 13 · Plan 6-1-2 「저장」).
+        private readonly Dictionary<int, List<EffectRecord>> _buildingEffects = new Dictionary<int, List<EffectRecord>>();
+
+        // [2026-11-16 단계 C] 이번 권위 틱 동안 깨진 쉴드(대상 Id + 그 쉴드를 건 발동 순번). 다음 Tick 머리에서 한 번에 알린다
+        //   (틱 단위 묶음 — Plan 6-1-2 「소진 알림」). 발동 순번을 함께 들고 있는 이유: 깨진 뒤 같은 대상에 새 쉴드가 걸려도
+        //   화면이 "옛 쉴드의 깨짐"으로 새 이펙트를 끄지 않게 하려는 것이다(화면은 순번이 같은 기록만 끈다).
+        private readonly List<BrokenShield> _pendingBroken = new List<BrokenShield>(8);
+
+        // 깨진 쉴드 한 건(알림 대기).
+        private struct BrokenShield
+        {
+            public int Sequence;   // 그 쉴드를 건 발동 순번
+            public int TargetId;   // 유닛 Id 또는 건물 Id
+            public bool IsUnit;    // true = 유닛, false = 건물
+        }
+
+        // 알림을 순번별로 묶을 때 쓰는 재사용 버퍼(매 틱 new 하지 않는다 — 깨짐이 있는 틱에만 배열을 만든다).
+        private readonly List<int> _brokenUnitBuffer = new List<int>(8);
+        private readonly List<int> _brokenBuildingBuffer = new List<int>(8);
 
         // 유닛 Id → 그 유닛의 효과 목록. (단계 C에서 건물 Id 저장소를 따로 둔다 — 유닛 Id와 건물 Id는 값이 겹칠 수 있다.)
         private readonly Dictionary<int, List<EffectRecord>> _unitEffects = new Dictionary<int, List<EffectRecord>>();
@@ -153,6 +216,22 @@ namespace Hexiege.Application
 
         /// <summary> 효과를 가진 유닛 수(확인 · 검증용). </summary>
         public int UnitRecordCount => _unitEffects.Count;
+
+        /// <summary> 효과를 가진 건물 수(확인 · 검증용 — 2026-11-16 단계 C). </summary>
+        public int BuildingRecordCount => _buildingEffects.Count;
+
+        /// <summary> 아직 화면에 알리지 않은 깨진 쉴드 수(확인 · 검증용 — 다음 Tick 머리에서 알리고 0이 된다). </summary>
+        public int PendingBrokenCount => _pendingBroken.Count;
+
+        /// <summary>
+        /// 건물 목록을 주입한다(2026-11-16 단계 C — 건물 쉴드 대상 수집 · 생존 확인). 조합 루트가 맵마다 1회 부른다.
+        /// 생성자 대신 설정자인 이유: 생성자를 바꾸면 이 서비스를 직접 만드는 Editor 자가 검증이 깨진다.
+        /// </summary>
+        /// <param name="buildingPlacement">같은 경기의 건물 배치 UseCase. null이면 건물 대상 효과는 걸리지 않는다.</param>
+        public void SetBuildingPlacement(BuildingPlacementUseCase buildingPlacement)
+        {
+            _buildingPlacement = buildingPlacement;
+        }
 
         // ====================================================================
         // 걸기
@@ -192,6 +271,18 @@ namespace Hexiege.Application
                 DiagRejected(sequence, casterTeam, slot, target, kind, magnitude, duration, "InvalidValue");
                 return 0;
             }
+            // [2026-11-16 단계 C] 쉴드 양은 정수(HP와 같은 단위)로 반올림해 쓴다. 1보다 작으면 막을 것이 없으므로 거부한다.
+            int shieldAmount = 0;
+            if (kind == StatusEffectKind.Shield)
+            {
+                double rounded = System.Math.Round((double)magnitude, System.MidpointRounding.AwayFromZero);
+                shieldAmount = rounded >= int.MaxValue ? int.MaxValue : (int)rounded;
+                if (shieldAmount < 1)
+                {
+                    DiagRejected(sequence, casterTeam, slot, target, kind, magnitude, duration, "InvalidValue");
+                    return 0;
+                }
+            }
 
             var batch = new EffectBatch
             {
@@ -203,7 +294,8 @@ namespace Hexiege.Application
                 Target = target,
                 Kind = kind,
                 Magnitude = magnitude,
-                Duration = duration
+                Duration = duration,
+                ShieldAmount = shieldAmount // [단계 C] 쉴드가 아니면 0(쓰지 않는다)
             };
 
             if (target == SkillEffectTarget.Unit)
@@ -216,6 +308,19 @@ namespace Hexiege.Application
                     {
                         if (unit == null || !unit.IsAlive || unit.Team != targetTeam) continue;
                         SetRecord(_unitEffects, unit.Id, batch);
+                    }
+                }
+            }
+            // [2026-11-16 단계 C 추가] 건물 대상(건물 쉴드): 발동 순간 살아 있는 대상 팀 건물 각각. 효과 중 새로 짓거나
+            //   업그레이드한 건물(업그레이드하면 Id가 바뀐다)은 대상이 아니다(Plan S-11 · 6-1-2).
+            else if (target == SkillEffectTarget.Building)
+            {
+                if (_buildingPlacement != null)
+                {
+                    foreach (BuildingData building in _buildingPlacement.Buildings.Values)
+                    {
+                        if (building == null || !building.IsAlive || building.Team != targetTeam) continue;
+                        SetRecord(_buildingEffects, building.Id, batch);
                     }
                 }
             }
@@ -253,6 +358,10 @@ namespace Hexiege.Application
                 batch.DiagRefreshed++;
                 if (existing.Remaining > batch.DiagPrevRemaining) batch.DiagPrevRemaining = existing.Remaining;
                 EffectBatch previous = existing.Batch;
+                // [2026-11-16 단계 C] 쉴드 교체(S-5): 남아 있던 양은 버리고(진단 합계에만 센다) 새 양으로 바꾼다 — 더하지 않는다.
+                if (previous != null && existing.Kind == StatusEffectKind.Shield)
+                    previous.DiagDiscardedTotal += existing.ShieldRemaining;
+                existing.ShieldRemaining = batch.ShieldAmount;
                 existing.Magnitude = batch.Magnitude;
                 existing.Remaining = batch.Duration;
                 existing.Batch = batch;
@@ -269,7 +378,8 @@ namespace Hexiege.Application
                 Kind = batch.Kind,
                 Magnitude = batch.Magnitude,
                 Remaining = batch.Duration,
-                Batch = batch
+                Batch = batch,
+                ShieldRemaining = batch.ShieldAmount // [단계 C] 쉴드가 아니면 0
             });
         }
 
@@ -285,15 +395,24 @@ namespace Hexiege.Application
         /// <param name="dt">경과 시간(초). 0 이하 · NaN이면 아무것도 하지 않는다.</param>
         public void Tick(float dt)
         {
-            if (_closed || !(dt > 0f) || _activeBatches.Count == 0) return;
+            // [2026-11-16 단계 C 비활성화 — 깨진 쉴드 알림을 「묶음이 모두 끝난 뒤」에도 보내야 해서 조건을 둘로 나눴다] 옛 줄:
+            // if (_closed || !(dt > 0f) || _activeBatches.Count == 0) return;
+            //   (마지막 대상의 쉴드가 깨지면 그 묶음이 끝나 _activeBatches가 0이 된다 — 옛 줄 그대로면 그 깨짐 알림이 영영 나가지 않는다.)
+            if (_closed || !(dt > 0f)) return;
+            // [단계 C] 지난 틱 사이에 깨진 쉴드를 한 번에 알린다(틱 단위 묶음 — 깨짐이 없으면 아무 일도 없다).
+            FlushBrokenShields();
+            if (_activeBatches.Count == 0) return;
 
             for (int i = 0; i < _activeBatches.Count; i++) _activeBatches[i].Elapsed += dt;
 
             TickStore(_unitEffects, dt, checkUnitAlive: true);
             TickStore(_teamEffects, dt, checkUnitAlive: false);
+            // [단계 C] 건물 저장소 — 목록에 없거나(파괴 · 철거 · 업그레이드로 Id가 바뀜) 죽은 건물의 효과도 지운다(통보를 놓친 경우의 안전망).
+            TickStore(_buildingEffects, dt, checkUnitAlive: false, checkBuildingAlive: true);
         }
 
-        private void TickStore(Dictionary<int, List<EffectRecord>> store, float dt, bool checkUnitAlive)
+        // [2026-11-16 단계 C] 맨 뒤 선택 인자 checkBuildingAlive 추가(건물 저장소용). 기존 두 호출은 인자가 그대로라 동작이 같다.
+        private void TickStore(Dictionary<int, List<EffectRecord>> store, float dt, bool checkUnitAlive, bool checkBuildingAlive = false)
         {
             if (store.Count == 0) return;
 
@@ -306,7 +425,9 @@ namespace Hexiege.Application
                 if (!store.TryGetValue(key, out List<EffectRecord> records)) continue;
 
                 // 사망 통보(NotifyUnitDied)를 놓친 경우의 안전망 — 유닛 목록에 없거나 죽었으면 효과를 지운다.
-                bool gone = checkUnitAlive && !IsUnitAlive(key);
+                // [2026-11-16 단계 C 비활성화 — 건물 생존 확인을 더했다] 옛 줄:
+                // bool gone = checkUnitAlive && !IsUnitAlive(key);
+                bool gone = (checkUnitAlive && !IsUnitAlive(key)) || (checkBuildingAlive && !IsBuildingAlive(key));
                 for (int i = records.Count - 1; i >= 0; i--)
                 {
                     EffectRecord record = records[i];
@@ -320,6 +441,13 @@ namespace Hexiege.Application
                     if (record.Remaining <= 0f)
                     {
                         records.RemoveAt(i);
+                        // [단계 C] 쉴드 만료 — 남은 양은 버린다(Plan S-5 · 6-1-2). 계수 + 진단 표본 1줄(상한) — 판정 저장소는 이미 지웠다.
+                        if (record.Kind == StatusEffectKind.Shield && record.Batch != null)
+                        {
+                            record.Batch.Expired++;
+                            record.Batch.DiagDiscardedTotal += record.ShieldRemaining;
+                            DiagShieldExpired(record.Batch, key, isUnit: checkUnitAlive, discarded: record.ShieldRemaining);
+                        }
                         ReleaseFromBatch(record.Batch, died: false, endReason: "Expire");
                     }
                 }
@@ -332,6 +460,166 @@ namespace Hexiege.Application
         {
             if (_unitSpawn == null) return false;
             return _unitSpawn.Units.TryGetValue(unitId, out UnitData unit) && unit != null && unit.IsAlive;
+        }
+
+        // [2026-11-16 단계 C] 건물이 아직 목록에 있고 살아 있는가. 업그레이드하면 옛 Id가 목록에서 빠지므로 여기서 false가 된다.
+        private bool IsBuildingAlive(int buildingId)
+        {
+            if (_buildingPlacement == null) return false;
+            BuildingData building = _buildingPlacement.GetBuilding(buildingId);
+            return building != null && building.IsAlive;
+        }
+
+        /// <summary>
+        /// 건물이 파괴 · 철거되거나 업그레이드로 사라지면 그 건물의 효과(건물 쉴드)를 바로 지운다(2026-11-16 단계 C).
+        /// 조합 루트의 OnBuildingDied · OnBuildingUpgraded(옛 Id) 구독이 부른다. 효과가 없는 건물이면 아무 일도 없다.
+        /// 업그레이드는 새 Id에 효과를 넘기지 않고 버린다(Plan S-11 · 6-1-2 — 업그레이드 순간 옛 건물의 쉴드는 끝난다).
+        /// </summary>
+        /// <param name="buildingId">사라진 건물 Id(업그레이드면 옛 Id).</param>
+        /// <param name="upgraded">true = 업그레이드로 사라짐, false = 파괴 · 철거.</param>
+        public void NotifyBuildingRemoved(int buildingId, bool upgraded)
+        {
+            if (!_buildingEffects.TryGetValue(buildingId, out List<EffectRecord> records)) return;
+            _buildingEffects.Remove(buildingId);
+            for (int i = 0; i < records.Count; i++)
+            {
+                EffectRecord record = records[i];
+                if (record.Batch == null) continue;
+                if (upgraded)
+                {
+                    // 업그레이드 — 「사망」이 아니라 「버림」으로 센다(ShieldEnded Upgraded= · 버린 양 합계).
+                    record.Batch.Upgraded++;
+                    if (record.Kind == StatusEffectKind.Shield) record.Batch.DiagDiscardedTotal += record.ShieldRemaining;
+                    ReleaseFromBatch(record.Batch, died: false, endReason: "AllTargetsGone");
+                }
+                else
+                {
+                    ReleaseFromBatch(record.Batch, died: true, endReason: "AllTargetsGone");
+                }
+            }
+        }
+
+        // ====================================================================
+        // [2026-11-16 단계 C] 쉴드 흡수 — 피해 지점 헬퍼(IncomingDamage.Apply)가 부른다
+        // ====================================================================
+
+        /// <summary>
+        /// 쉴드가 피해를 먼저 받는다(서버 권위 피해 경로 전용 — Plan S-14 순서의 「쉴드 흡수」 단계).
+        /// 흡수 = min(남은 쉴드, 들어온 피해), 돌려주는 값 = HP로 넘길 나머지. 쉴드가 0이 되면 「깨짐」 —
+        /// 기록을 지우고 다음 권위 틱 머리에서 화면에 알린다(틱 단위 묶음).
+        /// 🔴 회귀 안전: 쉴드 기록이 하나도 없거나(사전 조회 없이 바로) 이 대상에 쉴드가 없으면 들어온 값을 그대로 돌려준다.
+        /// </summary>
+        /// <param name="target">피해를 받는 대상(유닛 · 건물).</param>
+        /// <param name="incoming">방어 감쇄 · 받는 피해 배율까지 끝난 피해(HP에 들어가기 직전 값).</param>
+        /// <param name="writer">피해 지점(진단 표본용 — 판정에는 쓰지 않는다).</param>
+        /// <returns>HP에 넣을 피해(쉴드가 흡수하고 남은 양).</returns>
+        public int AbsorbShield(IDamageable target, int incoming, IncomingDamageWriter writer)
+        {
+            if (target == null || incoming <= 0) return incoming;
+            // 이미 죽은 대상은 TakeDamage가 아무것도 하지 않으므로 쉴드도 깎지 않는다(값 그대로 — 기존과 같음).
+            if (!target.IsAlive) return incoming;
+
+            Dictionary<int, List<EffectRecord>> store;
+            bool isUnit;
+            if (target is UnitData) { store = _unitEffects; isUnit = true; }
+            else if (target is BuildingData) { store = _buildingEffects; isUnit = false; }
+            else return incoming;
+
+            if (store.Count == 0)
+            {
+                // 쉴드가 하나도 없다 — 진단만(같은 팀 쉴드 묶음이 진행 중이면 「새 대상 피격」으로 센다 — C-L7).
+                DiagShieldUntargetedHit(target, isUnit, writer, incoming);
+                return incoming;
+            }
+            if (!store.TryGetValue(target.Id, out List<EffectRecord> records))
+            {
+                DiagShieldUntargetedHit(target, isUnit, writer, incoming);
+                return incoming;
+            }
+
+            for (int i = 0; i < records.Count; i++)
+            {
+                EffectRecord record = records[i];
+                if (record.Kind != StatusEffectKind.Shield) continue;
+
+                int before = record.ShieldRemaining;
+                int absorbed = before < incoming ? before : incoming;
+                if (absorbed < 0) absorbed = 0;
+                record.ShieldRemaining = before - absorbed;
+                int hpDamage = incoming - absorbed;
+                EffectBatch batch = record.Batch;
+                bool broken = record.ShieldRemaining <= 0;
+
+                // [진단] 흡수 표본(대상별 첫 흡수 + 깨지는 순간 — 상한) · 합계(개발 빌드 전용 — 판정 무관).
+                DiagShieldAbsorb(batch, target, isUnit, writer, incoming, absorbed, before, record.ShieldRemaining, hpDamage, broken);
+
+                if (broken)
+                {
+                    // 깨짐: 기록을 지우고(이 대상은 더는 흡수하지 않는다) 알림 대기열에 넣는다.
+                    records.RemoveAt(i);
+                    if (records.Count == 0) store.Remove(target.Id);
+                    if (batch != null)
+                    {
+                        batch.Broken++;
+                        _pendingBroken.Add(new BrokenShield { Sequence = batch.Sequence, TargetId = target.Id, IsUnit = isUnit });
+                        ReleaseFromBatch(batch, died: false, endReason: "AllBroken");
+                    }
+                }
+                return hpDamage;
+            }
+
+            // 이 대상에 다른 효과(받는 피해 배율)만 있고 쉴드는 없다 — 값 그대로.
+            DiagShieldUntargetedHit(target, isUnit, writer, incoming);
+            return incoming;
+        }
+
+        /// <summary> 대상에 쉴드가 남아 있으면 그 양, 없으면 0(확인 · 검증용 — 2026-11-16 단계 C). </summary>
+        /// <param name="targetId">유닛 Id 또는 건물 Id.</param>
+        /// <param name="isUnit">true = 유닛 저장소, false = 건물 저장소.</param>
+        public int GetShieldRemaining(int targetId, bool isUnit)
+        {
+            Dictionary<int, List<EffectRecord>> store = isUnit ? _unitEffects : _buildingEffects;
+            if (store.Count == 0 || !store.TryGetValue(targetId, out List<EffectRecord> records)) return 0;
+            for (int i = 0; i < records.Count; i++)
+                if (records[i].Kind == StatusEffectKind.Shield) return records[i].ShieldRemaining;
+            return 0;
+        }
+
+        // 깨진 쉴드를 발동 순번별로 묶어 「확정」 이벤트로 알린다(서버 권위 쪽 — 싱글 · Host 화면이 직접 받고, 멀티 서버는
+        //   NetworkSkillController가 이 이벤트를 받아 ShieldBrokenClientRpc로 순수 Client에 보낸다). 깨짐이 없으면 아무것도 하지 않는다.
+        private void FlushBrokenShields()
+        {
+            if (_pendingBroken.Count == 0) return;
+            // 대개 순번은 하나뿐이다(한 번의 발동). 여러 개면 순번마다 한 건씩 보낸다.
+            while (_pendingBroken.Count > 0)
+            {
+                int sequence = _pendingBroken[0].Sequence;
+                _brokenUnitBuffer.Clear();
+                _brokenBuildingBuffer.Clear();
+                for (int i = _pendingBroken.Count - 1; i >= 0; i--)
+                {
+                    BrokenShield b = _pendingBroken[i];
+                    if (b.Sequence != sequence) continue;
+                    if (b.IsUnit) _brokenUnitBuffer.Insert(0, b.TargetId); else _brokenBuildingBuffer.Insert(0, b.TargetId);
+                    _pendingBroken.RemoveAt(i);
+                }
+                var presentation = new ShieldBrokenPresentation(sequence, _brokenUnitBuffer, _brokenBuildingBuffer);
+                // [진단] 서버가 알린 Id 목록 1줄(Client ShieldBrokenReceived와 대조 — C-L8).
+                DiagShieldBrokenNotified(presentation);
+                try
+                {
+                    GameEvents.OnShieldBrokenConfirmed.OnNext(presentation);
+                }
+                catch (System.Exception ex)
+                {
+                    // 화면 · 전송 구독자의 실패가 서버 권위 틱(효과 만료)을 깨지 않게 삼키고 Warn 1줄만 남긴다(구역 알림 선례).
+                    GameLog.Dev.Warn("Skill", nameof(SupportSkillEffectSystem),
+                                     "[SKILL-SHIELD] 쉴드 깨짐 알림 구독자 예외 — 효과 판정은 유지",
+                                     $"Diag=SkillShield, DiagRev=1, Seq={sequence}, Units={presentation.UnitCount}, Buildings={presentation.BuildingCount}, Error={ex.GetType().Name}");
+                }
+            }
+            _brokenUnitBuffer.Clear();
+            _brokenBuildingBuffer.Clear();
         }
 
         /// <summary>
@@ -364,6 +652,10 @@ namespace Hexiege.Application
             _activeBatches.Clear();
             _unitEffects.Clear();
             _teamEffects.Clear();
+            // [2026-11-16 단계 C] 건물 효과와 아직 알리지 않은 깨짐도 버린다 — 경기 종료 때 화면은 모든 쉴드 이펙트를
+            //   스스로 꼬리 정지하므로(OnGameEnd) 깨짐 알림을 따로 보낼 필요가 없다.
+            _buildingEffects.Clear();
+            _pendingBroken.Clear();
         }
 
         // 묶음에서 대상 하나가 빠졌다(만료 · 교체 · 사망). 마지막 대상이었으면 묶음을 끝낸다.
@@ -423,6 +715,14 @@ namespace Hexiege.Application
         {
             if (_unitEffects.Count == 0) return false;
             FindMagnitude(_unitEffects, unitId, kind, out EffectBatch batch);
+            return batch != null;
+        }
+
+        /// <summary> 건물에 지정 종류 효과가 걸려 있는지(확인 · 검증용 — 2026-11-16 단계 C). </summary>
+        public bool BuildingHasEffect(int buildingId, StatusEffectKind kind)
+        {
+            if (_buildingEffects.Count == 0) return false;
+            FindMagnitude(_buildingEffects, buildingId, kind, out EffectBatch batch);
             return batch != null;
         }
 

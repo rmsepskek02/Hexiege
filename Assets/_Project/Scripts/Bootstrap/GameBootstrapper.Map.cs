@@ -326,6 +326,21 @@ namespace Hexiege.Bootstrap
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
 
+            // 10-3-2b. [2026-11-16 지원 스킬 새 상태 Task 단계 C — C-3] 일반 건물 상태 VFX(신목의 각성 건물 쉴드 · 단계 B 건물 재생) 화면 구독자.
+            //   건물 대상 효과가 있는 스킬의 발동 표현(확정 · 수신)을 받아, 이 화면의 시전 팀 건물마다 스킬 자산 「건물 상태 VFX」 칸의
+            //   프리팹을 효과 시간 동안 띄운다(표현 전용 — 발동 알림 재사용, 깨짐만 서버 알림). 위 탑 무력화 구독자와는 분리된 장치다.
+            //   위 구독자들과 같은 방식 — AddComponent(없을 때만) + 맵마다 Initialize(이전 구독 · 이펙트를 먼저 정리).
+            //   · 건물 목록: 이번 맵의 건물 배치 UseCase(클라이언트도 같은 Id로 건물 데이터를 갖는다).
+            //   · 건물 위치: BuildingFactory(IBuildingObjectProvider) — 건물 GO가 이미 이 화면 좌표에 있다(가짜 null은 진짜 null로).
+            //   ⚠️ IGameServices에는 아무것도 추가하지 않는다(Editor fixture 대역 구현 보호).
+            var buildingStatusVfxPresenter = GetComponent<BuildingStatusVfxPresenter>();
+            if (buildingStatusVfxPresenter == null) buildingStatusVfxPresenter = gameObject.AddComponent<BuildingStatusVfxPresenter>();
+            buildingStatusVfxPresenter.Initialize(
+                _skillActivation,
+                _effectManager,
+                _buildingPlacement,
+                _buildingFactory != null ? _buildingFactory : null);
+
             var wavePresenter = GetComponent<WavePresentationPresenter>();
             if (wavePresenter == null) wavePresenter = gameObject.AddComponent<WavePresentationPresenter>();
             wavePresenter.Initialize(_unitCombat, _floatingHpTextSpawner);
@@ -526,6 +541,11 @@ namespace Hexiege.Bootstrap
             _supportEffectUnitDiedSub = null;
             _productionMirrorActivationSub?.Dispose();
             _productionMirrorActivationSub = null;
+            // [2026-11-16 단계 C — C-1] 건물 파괴 · 업그레이드 → 지원 스킬 효과 정리 구독 해제(다음 LoadMap이 새 서비스와 함께 다시 건다).
+            _supportEffectBuildingDiedSub?.Dispose();
+            _supportEffectBuildingDiedSub = null;
+            _supportEffectBuildingUpgradedSub?.Dispose();
+            _supportEffectBuildingUpgradedSub = null;
 
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();

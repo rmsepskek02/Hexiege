@@ -42,6 +42,11 @@
 //   순수 클라이언트는 IsServer 가드 뒤에서 GameEvents.OnSkillZoneMembershipReceived로 발행한다(화면 V4용).
 //   구역 생성 · 끝 RPC는 없다(생성 = 발동 표현 RPC, 끝 = 화면 로컬 타이머). 스키마 8 → 9.
 //
+// 2026-11-16 변경(지원 스킬 새 상태 Task 단계 C — 신목의 각성, Plan 6-1-2 S-8):
+//   쉴드가 깨지면 SupportSkillEffectSystem이 다음 권위 틱 머리에서 GameEvents.OnShieldBrokenConfirmed를 발행한다(발동 순번별 묶음).
+//   서버의 이 컨트롤러가 구독해 새 RPC ShieldBrokenClientRpc(발동 순번, 유닛 Id 배열, 건물 Id 배열)를 브로드캐스트하고,
+//   순수 클라이언트는 IsServer 가드 뒤에서 GameEvents.OnShieldBrokenReceived로 발행한다(쉴드 이펙트 즉시 정지용). 스키마 9 → 10.
+//
 // 참고 패턴 = NetworkUpgradeController(main 병합 최신 관례):
 //   래퍼 → ServerRpc, 팀 소유권(SenderClientId), 브로드캐스트 ClientRpc,
 //   GameServicesLocator.Current 지연 해석(스폰 레이스 방지).
@@ -86,6 +91,10 @@ namespace Hexiege.Infrastructure
         // 지속 상태 구역 구성원 변경 「확정」 이벤트 구독 핸들(해제용). 서버에서만 구독한다(2026-11-11 지속 상태 구역 Task — Z-2 N-B).
         //   위 두 구독과 같은 이유로 OnNetworkSpawn에서 바로 건다(정적 GameEvents라 IGameServices가 필요 없다).
         private System.IDisposable _zoneMembershipConfirmedSubscription;
+
+        // 쉴드 깨짐 「확정」 이벤트 구독 핸들(해제용). 서버에서만 구독한다(2026-11-16 지원 스킬 새 상태 Task 단계 C — Plan 6-1-2 S-8).
+        //   위 세 구독과 같은 이유로 OnNetworkSpawn에서 바로 건다(정적 GameEvents라 IGameServices가 필요 없다).
+        private System.IDisposable _shieldBrokenConfirmedSubscription;
 
         // ====================================================================
         // 생명주기
@@ -133,6 +142,12 @@ namespace Hexiege.Infrastructure
                 _zoneMembershipConfirmedSubscription?.Dispose();
                 _zoneMembershipConfirmedSubscription = GameEvents.OnSkillZoneMembershipConfirmed
                     .Subscribe(OnZoneMembershipConfirmedOnServer);
+
+                // 쉴드 깨짐 「확정」도 서버에서만 구독해 순수 클라이언트에 브로드캐스트한다(2026-11-16 단계 C — S-8).
+                //   쉴드 흡수 · 깨짐 판정(SupportSkillEffectSystem)은 서버 권위 피해 경로 · 틱에서만 돌기 때문이다.
+                _shieldBrokenConfirmedSubscription?.Dispose();
+                _shieldBrokenConfirmedSubscription = GameEvents.OnShieldBrokenConfirmed
+                    .Subscribe(OnShieldBrokenConfirmedOnServer);
             }
 
             // [개발] 스폰 진입 흔적 → Info / 개발.
@@ -157,6 +172,9 @@ namespace Hexiege.Infrastructure
             // 구역 구성원 변경 「확정」 구독 해제(같은 이유 — 2026-11-11 지속 상태 구역 Task).
             _zoneMembershipConfirmedSubscription?.Dispose();
             _zoneMembershipConfirmedSubscription = null;
+            // 쉴드 깨짐 「확정」 구독 해제(같은 이유 — 2026-11-16 단계 C).
+            _shieldBrokenConfirmedSubscription?.Dispose();
+            _shieldBrokenConfirmedSubscription = null;
             base.OnNetworkDespawn();
         }
 
@@ -442,6 +460,86 @@ namespace Hexiege.Infrastructure
                                  "구역 구성원 변경 수신 이벤트 구독자 예외 — 게임 결과 무영향",
                                  $"Sequence={sequence}, Entered={(enteredIds != null ? enteredIds.Length : 0)}, Exited={(exitedIds != null ? exitedIds.Length : 0)}, Error={ex.Message}");
             }
+        }
+
+        // ====================================================================
+        // 쉴드 깨짐 알림(2026-11-16 지원 스킬 새 상태 Task 단계 C — 신목의 각성, Plan 6-1-2 「소진 알림」 S-8)
+        // ====================================================================
+        //
+        // 무엇을 하나(초급자용 설명):
+        //   신목의 각성 쉴드는 맞을 때마다 서버에서만 줄어든다(Client는 HP만 받아 쉴드가 얼마 남았는지 모른다).
+        //   쉴드가 0이 되면(깨지면) 그 대상의 쉴드 이펙트를 Client 화면에서도 바로 꺼야 하므로, 서버가 깨진 대상 Id를 알린다.
+        //   서버의 SupportSkillEffectSystem이 권위 틱 머리에서 지난 틱 사이의 깨짐을 발동 순번별로 묶어 「확정」 이벤트를 내고,
+        //   이 컨트롤러가 그것을 받아 ShieldBrokenClientRpc(순번, 유닛 Id 배열, 건물 Id 배열)를 1회 브로드캐스트한다.
+        //   순수 Client는 IsServer 가드 뒤에서 GameEvents.OnShieldBrokenReceived로 발행 → 화면(유닛 · 건물 쉴드 이펙트)이 즉시 정지.
+        //   만료 알림은 없다 — 화면이 발동 알림을 받은 순간 + 지속 시간으로 스스로 끝낸다(1차 강화 D2 · 구역 Z-2 선례).
+        //   새 RPC가 생겼으므로 전투 표현 스키마(UnitAttackShadowProfileResolver)를 9 → 10으로 올렸다 — 스키마 9 빌드와 섞인 경기는
+        //   접속 확인 단계에서 거절된다(두 빌드 모두 새로 설치해야 한다). 기존 RPC · 요청 RPC 모양은 그대로다.
+
+        /// <summary>
+        /// (서버 전용) 쉴드 깨짐 「확정」 이벤트를 받아 모든 클라이언트에 ShieldBrokenClientRpc를 1회 보낸다.
+        /// </summary>
+        /// <param name="p">서버가 판정한 쉴드 깨짐(발동 순번마다 · 깨짐이 있던 틱에만 1건).</param>
+        private void OnShieldBrokenConfirmedOnServer(ShieldBrokenPresentation p)
+        {
+            // 스폰이 풀린 뒤(경기 정리 중)에 늦게 들어온 알림이면 RPC를 보낼 수 없다 — NGO 오류 방지(구역 알림과 같은 가드).
+            if (!IsServer || !IsSpawned) return;
+            // 깨진 대상이 없으면 보낼 것이 없다(발행 쪽에서 이미 거르지만 한 번 더 막는다 — 빈 RPC 방지).
+            if (p.UnitCount == 0 && p.BuildingCount == 0) return;
+
+            // int[]는 NGO가 기본 직렬화한다. Copy*가 새 배열을 만들어 주므로 값 객체 내부는 바뀌지 않는다.
+            int[] units = p.CopyUnitIds();
+            int[] buildings = p.CopyBuildingIds();
+            try
+            {
+                ShieldBrokenClientRpc(p.Sequence, units, buildings);
+            }
+            catch (System.Exception ex)
+            {
+                // Host 서버 틱 안에서 불린다 — RPC 전송 실패가 서버 판정(쉴드 효과)을 깨지 않게 삼키고 Warn 1줄만 남긴다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "쉴드 깨짐 RPC 전송 실패 — 쉴드 효과는 유지",
+                                 $"Sequence={p.Sequence}, Units={units.Length}, Buildings={buildings.Length}, Error={ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 쉴드가 깨진 유닛 · 건물을 모든 클라이언트에 알린다(표현 전용 — 클라이언트는 쉴드를 판정하지 않는다).
+        /// 순수 클라이언트는 같은 값을 GameEvents.OnShieldBrokenReceived로 발행해 화면이 그 대상의 쉴드 이펙트를 즉시 끄게 한다.
+        /// 서버(호스트)는 「확정」 이벤트로 화면이 이미 처리했으므로 스킵한다(이중 처리 방지 — 다른 ClientRpc와 같은 IsServer 가드).
+        /// </summary>
+        /// <param name="sequence">그 쉴드를 건 발동 순번(SkillActivatedClientRpc 순번과 같다).</param>
+        /// <param name="unitIds">쉴드가 깨진 유닛 Id.</param>
+        /// <param name="buildingIds">쉴드가 깨진 건물 Id(유닛 Id와 값이 겹칠 수 있어 따로 보낸다).</param>
+        [ClientRpc]
+        private void ShieldBrokenClientRpc(int sequence, int[] unitIds, int[] buildingIds)
+        {
+            if (IsServer) return; // 호스트는 서버 쪽 「확정」 이벤트로 화면이 이미 처리했다.
+
+            // [진단 C-L8] 순수 클라이언트 수신 1줄 — IsServer 가드 "뒤"라 Host에서는 남지 않는다(Host ShieldBrokenNotified와 Id 대조).
+            LogShieldBrokenReceived(sequence, unitIds, buildingIds);
+
+            var presentation = new ShieldBrokenPresentation(sequence, unitIds, buildingIds);
+            try
+            {
+                GameEvents.OnShieldBrokenReceived.OnNext(presentation);
+            }
+            catch (System.Exception ex)
+            {
+                // [개발] Warn + 개발. 화면 표현 구독자의 실패라 게임 결과(쉴드 효과는 서버)에는 영향이 없다.
+                GameLog.Dev.Warn("Network", nameof(NetworkSkillController),
+                                 "쉴드 깨짐 수신 이벤트 구독자 예외 — 게임 결과 무영향",
+                                 $"Sequence={sequence}, Units={(unitIds != null ? unitIds.Length : 0)}, Buildings={(buildingIds != null ? buildingIds.Length : 0)}, Error={ex.Message}");
+            }
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogShieldBrokenReceived(int sequence, int[] unitIds, int[] buildingIds)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[SKILL-SHIELD] ShieldBrokenReceived",
+                System.FormattableString.Invariant(
+                    $"Diag=SkillShield, DiagRev=1, Event=ShieldBrokenReceived, Role=Client, Seq={sequence}, UnitCount={(unitIds != null ? unitIds.Length : 0)}, Units={DiagJoinIds(unitIds)}, BuildingCount={(buildingIds != null ? buildingIds.Length : 0)}, Buildings={DiagJoinIds(buildingIds)}"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]

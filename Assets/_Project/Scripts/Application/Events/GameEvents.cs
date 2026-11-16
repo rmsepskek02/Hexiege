@@ -1031,6 +1031,32 @@ namespace Hexiege.Application
             new Subject<SkillZoneMembershipPresentation>();
 
         // ====================================================================
+        // 쉴드 깨짐 표현(2026-11-16 지원 스킬 새 상태 Task 단계 C — 신목의 각성, Plan 6-1-2 「소진 알림」 S-8)
+        //   위 구역 두 채널과 같은 「확정 / 수신」 방식이다.
+        //   - 「확정」: 서버 권위 쪽(싱글 = 로컬 서버, 멀티 = 서버/Host)의 SupportSkillEffectSystem.Tick 머리에서
+        //     지난 틱 사이에 깨진 쉴드가 있을 때 발행(발동 순번마다 1건).
+        //   - 「수신」: 멀티 순수 클라이언트가 서버의 ShieldBrokenClientRpc를 받았을 때 발행.
+        //   화면(UnitBuffVfxPresenter · BuildingStatusVfxPresenter)은 두 채널을 모두 구독한다. Host는 「확정」만,
+        //   순수 클라이언트는 「수신」만 받으므로 한 화면에서 같은 깨짐을 두 번 처리하지 않는다.
+        // ====================================================================
+
+        /// <summary>
+        /// 서버 권위 쪽에서 쉴드가 깨졌을 때 발행(표현 전용 — 효과 판정과 무관).
+        /// 발행: SupportSkillEffectSystem.Tick(서버 권위 틱 머리 — 발동 순번마다 1건)
+        /// 구독: NetworkSkillController(멀티 서버 — ShieldBrokenClientRpc 브로드캐스트), UnitBuffVfxPresenter · BuildingStatusVfxPresenter(화면)
+        /// </summary>
+        public static readonly Subject<ShieldBrokenPresentation> OnShieldBrokenConfirmed =
+            new Subject<ShieldBrokenPresentation>();
+
+        /// <summary>
+        /// 멀티 순수 클라이언트가 서버의 쉴드 깨짐 알림(ShieldBrokenClientRpc)을 받았을 때 발행(표현 전용).
+        /// 발행: NetworkSkillController.ShieldBrokenClientRpc(IsServer 가드 뒤 — Host는 발행하지 않음)
+        /// 구독: UnitBuffVfxPresenter · BuildingStatusVfxPresenter(화면)
+        /// </summary>
+        public static readonly Subject<ShieldBrokenPresentation> OnShieldBrokenReceived =
+            new Subject<ShieldBrokenPresentation>();
+
+        // ====================================================================
         // 타일 관련 이벤트
         // ====================================================================
 

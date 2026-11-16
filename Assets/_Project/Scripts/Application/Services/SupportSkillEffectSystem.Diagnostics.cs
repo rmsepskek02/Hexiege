@@ -54,6 +54,8 @@ namespace Hexiege.Application
             {
                 if (batch.Kind == StatusEffectKind.IncomingDamageMul) DiagArmorBatchApplied(batch);
                 else if (batch.Kind == StatusEffectKind.ProductionSpeedMul) DiagProductionBatchApplied(batch);
+                // [2026-11-16 단계 C] 쉴드 → [SKILL-SHIELD] ShieldApplied(SupportSkillEffectSystem.ShieldDiagnostics.cs).
+                else if (batch.Kind == StatusEffectKind.Shield) DiagShieldBatchApplied(batch);
             }
             catch { /* 진단 전용 — 서버 발동을 막지 않는다 */ }
         }
@@ -66,6 +68,8 @@ namespace Hexiege.Application
             {
                 if (batch.Kind == StatusEffectKind.IncomingDamageMul) DiagArmorBatchEnded(batch, reason);
                 else if (batch.Kind == StatusEffectKind.ProductionSpeedMul) DiagProductionBatchEnded(batch, reason);
+                // [2026-11-16 단계 C] 쉴드 → [SKILL-SHIELD] ShieldEnded(합계 줄).
+                else if (batch.Kind == StatusEffectKind.Shield) DiagShieldBatchEnded(batch, reason);
             }
             catch { /* 진단 전용 — 서버 틱을 막지 않는다 */ }
         }
@@ -81,6 +85,8 @@ namespace Hexiege.Application
                 string head, diag;
                 if (kind == StatusEffectKind.IncomingDamageMul) { head = "[SKILL-ARMOR]"; diag = "SkillArmor"; }
                 else if (kind == StatusEffectKind.ProductionSpeedMul) { head = "[SKILL-PROD]"; diag = "SkillProd"; }
+                // [2026-11-16 단계 C] 쉴드 거부(닫힌 뒤 · 잘못된 값 등)는 [SKILL-SHIELD] 머리로 — C-L13 「Close 뒤 ShieldApplied 0」 판정용.
+                else if (kind == StatusEffectKind.Shield) { head = "[SKILL-SHIELD]"; diag = "SkillShield"; }
                 else { head = "[SKILL-SUPPORT]"; diag = "SkillSupport"; }
                 GameLog.Dev.Warn("Skill", nameof(SupportSkillEffectSystem), head + " EffectRejected",
                     System.FormattableString.Invariant(

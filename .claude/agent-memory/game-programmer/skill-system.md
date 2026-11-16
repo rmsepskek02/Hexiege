@@ -192,3 +192,29 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses
   ordering") finds the literal `target.TakeDamage(finalDamage)` between `"WriterBefore"` and `"WriterAfter"` with no comment
   filter — after S-14 that literal exists there **only as the commented old line**. Deleting it makes the next match be point ③'s
   commented line (after WriterAfter) → the check throws. Change the anchor (e.g. to `IncomingDamage.Apply(`) in the same commit.
+
+## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — implemented, user test NOT run)
+
+Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Uncommitted at writing time — commits are made by the main session; verify
+`git log` before trusting this line.
+
+- **Kind `StatusEffectKind.Shield = 8`** (service kind). Unit target = main effect, building target = extra row `{1, 8, 500}`.
+  Building store `_buildingEffects` is separate from unit ids; buildings injected by setter `SetBuildingPlacement` (ctor unchanged).
+- **Absorb order** in `IncomingDamage.Apply`: defense → armor multiplier → `AbsorbShield` → `TakeDamage(hpDamage)`. Buildings get
+  only `AbsorbShield`. No shield record → value returned unchanged. All server building damage goes through the helper (towers hit
+  units only; grep of `.TakeDamage(` outside the helper = client HP sync ×2 + client death packets ×2).
+- **Break notice:** broken shields queue in `_pendingBroken` (sequence + id + isUnit) and are flushed at the **head of the next
+  `Tick`** as `GameEvents.OnShieldBrokenConfirmed` (one per sequence). `Tick`'s old one-line early return was split so the flush
+  runs even when no batch is left. `NetworkSkillController.ShieldBrokenClientRpc(seq, unitIds[], buildingIds[])` → schema 9 → 10
+  (4 suite `== 9` checks, not 3 — stage A added one in `.SupportNewStatuses.cs`). Screens stop only entries whose sequence matches.
+- **S-6 (b) applied:** `NetworkHealthSync` republishes `OnEntityDamaged` when `diff == 0 && serverHp > 0` (unit + building). Evidence:
+  one RPC sender, one RPC per server damage event, heals on separate RPCs, so zero diff only means "server HP unchanged too".
+  Fully absorbed projectile hits: server END `hit` count unchanged (status-based, `applied=0`); under (a) the client would count
+  `emptyRelease`, not a timeout.
+- **Building VFX device:** `BuildingStatusVfxPresenter` (head `[SKILL-BVFX]`, key building id + team + slot), only for skills with a
+  Building-target extra row (`SkillData.HasBuildingEffect`); Tactical Order's building slot (S-10) is not used (attach rule undecided).
+  Unit shield break stop: `UnitBuffVfxPresenter.ShieldDriver.cs` (Path=ShieldBroken).
+- **Suite:** `RunUnitActionSelfValidation.SupportShield.cs` Sh-T1~Sh-T9. Editor check = copy the four partials + scratch stubs
+  (scratchpad `a4_ed.tree/Ed/EdStubs.cs`, `SetupExtract.cs`) into a tree and run harness2 directly (run3.sh compiles runtime only).
+- **Temporary prefabs (S-17):** Sacred Tree `_statusVfxPrefab` = `vfx_bloomfairy_heal` (scale 2), `_buildingStatusVfxPrefab` =
+  `vfx_emp_disabled` (`{fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf}`, scale 1) — to be emptied after the test.
