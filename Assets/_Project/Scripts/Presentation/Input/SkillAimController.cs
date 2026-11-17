@@ -34,8 +34,20 @@
 //       누른 자리 = 직사각형 시작점(U-2) · 끈 쪽 = 방향(U-3, 도메인 좌표끼리 빼서 — P-10) · 최소 드래그(약 0.5칸) 미만이면
 //       발사하지 않고 조준 유지(U-5) · 다시 누르면 시작점 이동(U-6) · X 위에서 떼면 취소(U-7) · 엣지 스크롤 없음(U-8).
 //       첫 터치 전에는 직사각형 없이 기존 조준과 같은 범위 원 · X 버튼만 보인다(M-1).
+//       → [2026-11-18 L-7 UI-1로 대체] 첫 터치 전에는 화면 중앙에 흐릿한(고스트) 직사각형 + 화살표(화면 위쪽 방향)를 보이고,
+//         첫 터치 때 진하게 바뀌며 그 지점으로 옮긴다. 원 표시 줄은 주석으로 남겼다(BeginAimCore).
 //   진단 로그 [SKILL-AIM](Diag=SkillAim — AimBegin · AimAnchorSet · AimFingerCountChanged · AimReleaseResolved)은
 //   손가락이 닿고 떨어지는 순간에만 1줄씩 남긴다(드래그 중 매 프레임 남기지 않는다 — LogRules 금지 8).
+//
+// ── 2026-11-18 공습 Task 단계 L-7 조준 UI 개선(Plan 14절 UI-1 · UI-2a · UI-2d) ──
+//   (5) 맞는 타일 하이라이트(UI-2a): 조합 루트가 넣어 준 "모든 타일 중심"(SetTileCenterSource)을 조준 시작 때 한 번 받아 두고,
+//       조준점 · 시작점 · 방향이 바뀔 때만 서버와 같은 기준(SkillAimVisualMath — 타일 중심 · 반경 / 직사각형 · 유효 길이)으로
+//       맞는 타일을 다시 골라 SkillAimTileHighlight 에 넘긴다(목록 재사용 — 매 프레임 할당 없음).
+//   (6) 상태 색(UI-2d): 고스트(공습 첫 화면) · 발사 가능(빨강) · 최소 드래그 미만(회색) · X 위(회색으로 흐려짐)를
+//       매 프레임 판정해(SkillAimVisualMath.ResolveVisualState — 발사 판정과 같은 조건) 바뀔 때만 세 표시물에 알린다.
+//   (7) 진단 로그(개발 축 — GameLog.Dev, 릴리스에서 사라짐): 상태가 "바뀔 때만" [SKILL-AIM] AimVisualState 1줄
+//       (고스트 → 활성은 From=Ghost 로 드러난다), AimBegin · AimReleaseResolved 에 HighlightTiles(하이라이트 타일 수) 키 추가.
+//   조준 판정 · 발사 로직(L-3 — 손가락 추적 · 떼는 순서 · 최소 드래그 · X 취소 · 콜백)은 바꾸지 않았다(표시만).
 //
 // Presentation 레이어 — Unity 의존.
 // ============================================================================
@@ -207,6 +219,39 @@ namespace Hexiege.Presentation
         // 맵 경계 사각형 함수(공습 「맵 안 유효 길이」 계산용 — 서버와 같은 HexMetrics.ComputeMapWorldBounds 값). null이면 잘라내지 않는다.
         private MapWorldBoundsProvider _mapBoundsProvider;
 
+        // ── 2026-11-18 L-7 추가 상태(조준 표시 전용 — 판정에 쓰지 않는다) ──────────
+
+        // 공습 폭격 횟수(스킬 데이터 LineStrikeCount — 폭격 눈금 · 하이라이트 구간 계산용).
+        private int _lineStrikeCount;
+
+        // 공습 첫 터치 전(고스트 표시 중)인가 — UI-1. BeginLineAim 에서 true, 첫 터치(SetLineAnchor)에서 false.
+        private bool _lineGhost;
+
+        // 추적 손가락이 지금 X 버튼 위인가(ApplyCancelHover 가 기록 — 상태 색 CancelHover 판정용).
+        private bool _cancelHovering;
+
+        // 지금 표시 상태와 "이번 조준에서 상태를 한 번이라도 정했는가"(첫 판정은 AimBegin 줄에 담고 AimVisualState 를 남기지 않는다).
+        private SkillAimVisualState _visualState = SkillAimVisualState.Armed;
+        private bool _visualStateInitialized;
+
+        // 모든 타일 중심(도메인 월드)을 채워 주는 함수(조합 루트 주입 — 맵 재로드에도 최신 그리드). null 이면 하이라이트 없음.
+        private Action<List<Vector3>> _tileCenterSource;
+
+        // 조준 시작 때 받아 둔 타일 중심 목록 · 이번 하이라이트 번호 · 직전 하이라이트 번호(재사용 — 매 프레임 할당 없음).
+        private readonly List<Vector3> _tileCentersDomain = new List<Vector3>(512);
+        private readonly List<int> _highlightIndices = new List<int>(64);
+        private readonly List<int> _shownHighlightIndices = new List<int>(64);
+
+        // 하이라이트를 마지막으로 계산한 조건 — 같으면 다시 고르지 않는다(조준점이 멈춰 있는 동안 계산 0회).
+        private bool _highlightKeyValid;
+        private bool _highlightKeyLine;
+        private Vector3 _highlightKeyA;     // 원형 = 조준점, 직선 = 시작점
+        private Vector3 _highlightKeyB;     // 직선 = 방향(원형은 0)
+        private float _highlightKeyEff;     // 직선 = 유효 길이(원형 = 반경)
+
+        // 맞는 타일 하이라이트 표시물(런타임 생성 — 씬 배선 없음). 처음 필요할 때 만든다.
+        private SkillAimTileHighlight _tileHighlight;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -253,6 +298,17 @@ namespace Hexiege.Presentation
         public void SetMapWorldBoundsProvider(MapWorldBoundsProvider provider)
         {
             _mapBoundsProvider = provider;
+        }
+
+        /// <summary>
+        /// 모든 타일 중심(도메인 월드)을 목록에 채워 주는 함수를 주입한다(2026-11-18 L-7 — 맞는 타일 하이라이트 UI-2a).
+        /// 서버가 대상 위치로 쓰는 것과 같은 HexMetrics.HexToWorld(타일 좌표)를 넣어야 「보이는 곳 = 맞는 곳」이 된다.
+        /// 조준을 시작할 때 한 번만 부른다(조준 중 매 프레임 부르지 않는다). null 이면 하이라이트를 그리지 않는다.
+        /// </summary>
+        /// <param name="source">목록을 비우고 타일 중심을 채우는 함수(GameBootstrapper 가 _grid 를 읽는 람다로 넣는다).</param>
+        public void SetTileCenterSource(Action<List<Vector3>> source)
+        {
+            _tileCenterSource = source;
         }
 
         // ====================================================================
@@ -317,8 +373,10 @@ namespace Hexiege.Presentation
         /// <param name="fallbackDomain">화면 중앙이 맵 밖일 때 범위 원을 둘 기본 도메인 좌표(보통 시전 건물 위치).</param>
         /// <param name="onConfirm">발사 확정 콜백(buildingId, slot, 시작점(도메인), 방향(도메인, 정규화)).</param>
         /// <param name="onCancel">취소 콜백.</param>
+        /// <param name="strikeCount">폭격 횟수(스킬 데이터 LineStrikeCount — 2026-11-18 L-7, 폭격 눈금 · 맞는 타일 하이라이트 표시용).
+        /// 생략하면 0 = 눈금 · 하이라이트 없음(판정 · 발사에는 쓰지 않는다).</param>
         public void BeginLineAim(int buildingId, int skillSlot, float radius, float lineLength, float lineWidth,
-            Vector3 fallbackDomain, Action<int, int, Vector3, Vector3> onConfirm, Action onCancel)
+            Vector3 fallbackDomain, Action<int, int, Vector3, Vector3> onConfirm, Action onCancel, int strikeCount = 0)
         {
             if (_gameplayInputBlocked?.Invoke() == true) return;
             _mode = AimMode.Line;
@@ -326,6 +384,7 @@ namespace Hexiege.Presentation
             _onLineConfirm = onConfirm;
             _lineLength = lineLength;
             _lineWidth = lineWidth;
+            _lineStrikeCount = strikeCount < 0 ? 0 : strikeCount;
             BeginAimCore(buildingId, skillSlot, radius, fallbackDomain, onCancel);
         }
 
@@ -359,16 +418,59 @@ namespace Hexiege.Presentation
 
             if (_camera == null) _camera = Camera.main;
 
+            // [2026-11-18 L-7] 표시 상태 · 하이라이트 초기화 — 타일 중심 목록은 조준마다 한 번 받는다(맵 재로드 대응).
+            _cancelHovering = false;
+            _visualStateInitialized = false;
+            _highlightKeyValid = false;
+            _tileCentersDomain.Clear();
+            _tileCenterSource?.Invoke(_tileCentersDomain);
+
             // 조준 원 기본 위치 = 화면 중앙(맵 밖이면 시전 건물 위치). 진입 즉시 지도 위에 표시.
             //   공습도 첫 터치 전에는 이 원을 그대로 보여 준다(M-1 — 「기존 조준과 같은 범위 표시」).
             Vector3 start = ResolveDefaultDomain(fallbackDomain);
-            ShowReticleAtDomain(start);
+            // [2026-11-18 L-7 UI-1 — M-1 대체] 공습은 원 대신 고스트 직사각형을 보인다. 원 표시 줄(옛 동작, 기록용):
+            // ShowReticleAtDomain(start);
+            _lineGhost = _mode == AimMode.Line;
+            if (_mode == AimMode.Line)
+            {
+                // 원형 조준 경로의 "마지막 조준 좌표"는 기본 위치로만 맞춰 둔다(원은 그리지 않는다 — 직선 판정에는 쓰지 않는 값).
+                _lastValidDomain = start;
+                _hasValidCoord = true;
+                _reticle?.Hide();
+                ShowLineGhost(start);
+            }
+            else
+            {
+                ShowReticleAtDomain(start);
+            }
 
             // 취소(X) 버튼을 조준하는 동안만 표시(규칙 20). 기준 스케일로 리셋.
             SetCancelButtonVisible(true);
             ApplyCancelHover(false);
 
+            // [2026-11-18 L-7] 첫 상태 색 · 하이라이트를 정한 뒤 AimBegin 에 담는다(첫 판정은 별도 AimVisualState 줄을 남기지 않는다).
+            RefreshAimVisuals();
+
             LogAimBegin();
+        }
+
+        /// <summary>
+        /// [2026-11-18 L-7 UI-1] 공습 첫 화면 — 화면 중앙(기본 위치)을 가운데로 하는 흐릿한(고스트) 직사각형을 화면 위쪽 방향으로 보인다.
+        /// 시작점 = 가운데 − 방향 × (길이 ÷ 2), 맵 경계 안으로 clamp(규칙 22). _lineAnchorSet 은 false 로 둔다 —
+        /// 고스트는 "아직 시작점을 정하지 않음"이라, 이 상태에서 손을 떼도 발사되지 않고(ResolveLineRelease 의 기존 조건),
+        /// 첫 터치(SetLineAnchor)는 지금과 같이 Touch=First 로 그 자리에 시작점을 정한다.
+        /// </summary>
+        /// <param name="centerDomain">고스트 직사각형 가운데(도메인 — 화면 중앙, 맵 밖이면 시전 건물 위치).</param>
+        private void ShowLineGhost(Vector3 centerDomain)
+        {
+            Vector3 dir = SkillLineAimMath.DefaultDomainDirection(centerDomain);
+            float half = Mathf.Max(0f, _lineLength) * 0.5f;
+            Vector3 anchor = centerDomain - dir * half;
+            anchor = _clampToBounds != null ? _clampToBounds(anchor) : anchor;
+            anchor.y = 0f;
+            _lineAnchorDomain = anchor;
+            _lineDirectionDomain = dir;
+            ShowLineReticle(out _);
         }
 
         // ====================================================================
@@ -504,6 +606,10 @@ namespace Hexiege.Presentation
                     LogReleaseResolved("NoFire", frame.NoFireReason, IsOverCancelZone(frame.TrackedPos));
                     break;
             }
+
+            // [2026-11-18 L-7] 이번 프레임의 조준 결과로 상태 색 · 맞는 타일 하이라이트를 맞춘다(바뀔 때만 일한다 — 할당 없음).
+            //   발사 · 취소로 조준이 끝났으면(EndAim) 아무것도 하지 않는다.
+            if (_isAiming) RefreshAimVisuals();
         }
 
         /// <summary>
@@ -530,6 +636,7 @@ namespace Hexiege.Presentation
             if (_reticle != null)
             {
                 Vector3 view = ViewConverter.ToView(clampedDomain);
+                _reticle.SetState(ComputeVisualState()); // [2026-11-18 L-7] 상태 색을 먼저 알려 등장 순간부터 맞는 색으로(UI-2d)
                 _reticle.Show(view, _radius);
             }
         }
@@ -638,11 +745,16 @@ namespace Hexiege.Presentation
             if (!retouch) _lineDirectionDomain = SkillLineAimMath.DefaultDomainDirection(_lineAnchorDomain);
             _lineAnchorSet = true;
             _lineDragDistance = 0f;
+            // [2026-11-18 L-7 UI-1] 고스트 → 활성: 첫 터치에서 흐릿한 직사각형이 진하게 바뀌며 이 자리로 옮겨진다.
+            bool wasGhost = _lineGhost;
+            _lineGhost = false;
 
             // 공습 조준에서는 원형 조준원을 쓰지 않는다 — 첫 터치 전 범위 표시(M-1)였던 원을 숨긴다.
             //   _hasValidCoord 는 원형 경로 전용이라 직선 판정에 쓰지 않는다.
             _reticle?.Hide();
             ShowLineReticle(out float effLength);
+            // [2026-11-18 L-7] 고스트에서 막 활성이 됐으면 "새로 놓였다"를 보여 주려고 등장 애니메이션(작게 → 크게)을 한 번 더 튼다.
+            if (wasGhost && _lineReticle != null) _lineReticle.PlayAppear();
 
             LogAnchorSet(retouch, effLength);
         }
@@ -682,7 +794,10 @@ namespace Hexiege.Presentation
             if (_lineReticle == null) _lineReticle = SkillLineAimReticle.CreateRuntime();
             Vector3 viewStart = ViewConverter.ToView(_lineAnchorDomain);
             Vector3 viewDirection = SkillLineAimMath.DomainDirectionToView(_lineAnchorDomain, _lineDirectionDomain);
-            _lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth);
+            // [2026-11-18 L-7] 원래 길이 · 폭격 횟수를 함께 넘겨 폭격 눈금을 그린다(UI-2c), 상태 색은 먼저 알린다(UI-2d). 옛 호출(기록용):
+            // _lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth);
+            _lineReticle.SetState(ComputeVisualState());
+            _lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth, _lineLength, _lineStrikeCount);
         }
 
         /// <summary>
@@ -762,6 +877,109 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-11-18 L-7] 조준 표시 — 상태 색(UI-2d) · 맞는 타일 하이라이트(UI-2a). 표시 전용(판정 · 발사에 쓰지 않는다)
+        // ====================================================================
+
+        /// <summary>
+        /// 지금 조준의 표시 상태 — 발사 판정과 같은 조건(X 위 · 고스트 · 최소 드래그)을 미리 보여 준다(SkillAimVisualMath).
+        /// </summary>
+        private SkillAimVisualState ComputeVisualState()
+        {
+            return SkillAimVisualMath.ResolveVisualState(_mode == AimMode.Line, _lineGhost, _cancelHovering,
+                                                         _lineDragDistance, LineMinDragWorld);
+        }
+
+        /// <summary>
+        /// 상태 색과 하이라이트를 지금 조준에 맞춘다. 상태가 바뀌었으면 진단 1줄(AimVisualState). 조준 시작 때의 첫 판정은
+        /// 로그를 따로 남기지 않는다(AimBegin 줄의 VisualState 키에 담긴다).
+        /// </summary>
+        private void RefreshAimVisuals()
+        {
+            SkillAimVisualState state = ComputeVisualState();
+            RefreshHighlight();
+
+            // 세 표시물에 상태를 알린다(색은 각 표시물이 매 프레임 부드럽게 따라간다). 런타임 생성물은 Unity null 검사.
+            if (_reticle != null) _reticle.SetState(state);
+            if (_lineReticle != null) _lineReticle.SetState(state);
+            if (_tileHighlight != null) _tileHighlight.SetState(state);
+
+            if (!_visualStateInitialized)
+            {
+                _visualState = state;
+                _visualStateInitialized = true;
+                return;
+            }
+            if (state == _visualState) return;
+            SkillAimVisualState from = _visualState;
+            _visualState = state;
+            LogVisualState(from, state);
+        }
+
+        /// <summary>
+        /// 맞는 타일을 서버와 같은 기준으로 다시 골라 하이라이트에 넘긴다(UI-2a). 조건(조준점 · 시작점 · 방향 · 유효 길이)이 그대로면
+        /// 다시 고르지 않고, 고른 결과가 그대로면 메시를 다시 만들지 않는다. 목록은 모두 재사용한다(매 프레임 할당 없음).
+        /// </summary>
+        /// <returns>지금 하이라이트한 타일 수.</returns>
+        private int RefreshHighlight()
+        {
+            if (!_isAiming || _tileCentersDomain.Count == 0)
+            {
+                // 타일 중심을 못 받았다(조합 루트 배선 없음 · 맵 없음) → 하이라이트 없이 조준만 한다.
+                if (_tileHighlight != null) _tileHighlight.Hide();
+                _shownHighlightIndices.Clear();
+                return 0;
+            }
+
+            bool line = _mode == AimMode.Line;
+            Vector3 keyA, keyB;
+            float keyEff;
+            if (line)
+            {
+                keyA = _lineAnchorDomain;
+                keyB = _lineDirectionDomain;
+                keyEff = ComputeLineEffectiveLength();
+            }
+            else
+            {
+                keyA = _lastValidDomain;
+                keyB = Vector3.zero;
+                keyEff = _radius;
+            }
+
+            bool shown = _tileHighlight != null && _tileHighlight.gameObject.activeSelf;
+            if (shown && _highlightKeyValid && _highlightKeyLine == line && keyA == _highlightKeyA
+                && keyB == _highlightKeyB && keyEff == _highlightKeyEff)
+                return _shownHighlightIndices.Count;
+
+            _highlightKeyValid = true;
+            _highlightKeyLine = line;
+            _highlightKeyA = keyA;
+            _highlightKeyB = keyB;
+            _highlightKeyEff = keyEff;
+
+            if (line)
+                SkillAimVisualMath.CollectLineTiles(_tileCentersDomain, keyA, keyB, _lineLength, _lineWidth * 0.5f,
+                                                    keyEff, _lineStrikeCount, _highlightIndices);
+            else if (_hasValidCoord)
+                SkillAimVisualMath.CollectCircleTiles(_tileCentersDomain, keyA, _radius, _highlightIndices);
+            else
+                _highlightIndices.Clear();
+
+            if (shown && SkillAimVisualMath.SameIndices(_highlightIndices, _shownHighlightIndices))
+                return _shownHighlightIndices.Count;
+
+            // 직전 목록에 그대로 복사(AddRange 대신 한 칸씩 — 런타임별 내부 임시 배열 할당을 피한다).
+            _shownHighlightIndices.Clear();
+            for (int i = 0; i < _highlightIndices.Count; i++) _shownHighlightIndices.Add(_highlightIndices[i]);
+
+            // 표시물은 처음 필요할 때 만든다(씬 배선 없음). 씬이 바뀌어 사라졌으면(Unity null) 다시 만든다.
+            if (_tileHighlight == null) _tileHighlight = SkillAimTileHighlight.CreateRuntime();
+            _tileHighlight.SetState(ComputeVisualState());
+            _tileHighlight.Show(_tileCentersDomain, _shownHighlightIndices);
+            return _shownHighlightIndices.Count;
+        }
+
+        // ====================================================================
         // [2026-11-17 L-3] 진단 로그 [SKILL-AIM] — 개발 축(GameLog.Dev = [Conditional], 릴리스에서 사라짐)
         //   손가락이 닿고 떨어지는 순간에만 1줄. 드래그 중 매 프레임 남기지 않는다(LogRules 금지 8).
         //   길이 · 거리 · 좌표는 밀리 정수(값 × 1000), 좌표는 도메인 기준(빨강 화면 Client 도 서버와 같은 기준).
@@ -778,9 +996,16 @@ namespace Hexiege.Presentation
         /// <summary> 조준 시작 1줄(L-L1 · L-L8 · L-L18). </summary>
         private void LogAimBegin()
         {
+            // [2026-11-18 L-7] DiagRev 1 → 2: VisualState(첫 상태 색) · HighlightTiles(하이라이트 타일 수 — L-L33) · TileCount(받은 타일 중심 수,
+            //   0 이면 조합 루트 배선 누락) · StrikeCount · LineGhost 키를 더했고, 공습은 첫 터치 전부터 고스트 직사각형이 보여 LineShown=True 다.
+            //   옛 줄(기록용):
+            // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimBegin",
+            //     FormattableString.Invariant(
+            //         $"Diag=SkillAim, DiagRev=1, Event=AimBegin, Mode={ModeLabel}, BuildingId={_buildingId}, Slot={_skillSlot}, EdgeScroll={(_mode == AimMode.Line ? "Off" : "On")}, LineShown=False, RadiusMilli={Milli(_radius)}, LengthMilli={Milli(_mode == AimMode.Line ? _lineLength : 0f)}, WidthMilli={Milli(_mode == AimMode.Line ? _lineWidth : 0f)}, ThresholdMilli={Milli(_mode == AimMode.Line ? LineMinDragWorld : 0f)}"));
+            bool line = _mode == AimMode.Line;
             GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimBegin",
                 FormattableString.Invariant(
-                    $"Diag=SkillAim, DiagRev=1, Event=AimBegin, Mode={ModeLabel}, BuildingId={_buildingId}, Slot={_skillSlot}, EdgeScroll={(_mode == AimMode.Line ? "Off" : "On")}, LineShown=False, RadiusMilli={Milli(_radius)}, LengthMilli={Milli(_mode == AimMode.Line ? _lineLength : 0f)}, WidthMilli={Milli(_mode == AimMode.Line ? _lineWidth : 0f)}, ThresholdMilli={Milli(_mode == AimMode.Line ? LineMinDragWorld : 0f)}"));
+                    $"Diag=SkillAim, DiagRev=2, Event=AimBegin, Mode={ModeLabel}, BuildingId={_buildingId}, Slot={_skillSlot}, EdgeScroll={(line ? "Off" : "On")}, LineShown={line}, LineGhost={_lineGhost}, VisualState={_visualState}, HighlightTiles={_shownHighlightIndices.Count}, TileCount={_tileCentersDomain.Count}, RadiusMilli={Milli(_radius)}, LengthMilli={Milli(line ? _lineLength : 0f)}, WidthMilli={Milli(line ? _lineWidth : 0f)}, StrikeCount={(line ? _lineStrikeCount : 0)}, ThresholdMilli={Milli(line ? LineMinDragWorld : 0f)}"));
         }
 
         /// <summary> 공습 시작점 지정 1줄(L-L2). </summary>
@@ -808,17 +1033,40 @@ namespace Hexiege.Presentation
         /// <param name="overCancel">손을 뗀 자리가 X 위였는가.</param>
         private void LogReleaseResolved(string result, string reason, bool overCancel)
         {
+            // [2026-11-18 L-7] DiagRev 1 → 2: HighlightTiles(손을 뗀 순간 하이라이트 타일 수 — L-L33) 키를 더했다.
+            //   발사면 그 발동에서 서버가 대상을 고르는 기준(타일 중심 · 반경 / 직사각형 · 유효 길이)과 같은 기준으로 센 수다.
+            //   손을 뗀 순간의 좌표로 다시 맞춘 뒤 센다(조건이 같으면 다시 고르지 않는다). 옛 줄 2개는 아래 각 분기에 주석으로 남겼다.
+            int highlightTiles = RefreshHighlight();
             if (_mode == AimMode.Line)
             {
                 float eff = _lineAnchorSet ? ComputeLineEffectiveLength() : 0f;
+                // 옛 줄(기록용):
+                // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
+                //     FormattableString.Invariant(
+                //         $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Line, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, AnchorSet={_lineAnchorSet}, DragMilli={Milli(_lineDragDistance)}, ThresholdMilli={Milli(LineMinDragWorld)}, AnchorXmm={Milli(_lineAnchorDomain.x)}, AnchorZmm={Milli(_lineAnchorDomain.z)}, DirXMilli={Milli(_lineDirectionDomain.x)}, DirZMilli={Milli(_lineDirectionDomain.z)}, LengthMilli={Milli(_lineLength)}, EffLengthMilli={Milli(eff)}, WidthMilli={Milli(_lineWidth)}, Flipped={ViewConverter.IsFlipped}"));
                 GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
                     FormattableString.Invariant(
-                        $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Line, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, AnchorSet={_lineAnchorSet}, DragMilli={Milli(_lineDragDistance)}, ThresholdMilli={Milli(LineMinDragWorld)}, AnchorXmm={Milli(_lineAnchorDomain.x)}, AnchorZmm={Milli(_lineAnchorDomain.z)}, DirXMilli={Milli(_lineDirectionDomain.x)}, DirZMilli={Milli(_lineDirectionDomain.z)}, LengthMilli={Milli(_lineLength)}, EffLengthMilli={Milli(eff)}, WidthMilli={Milli(_lineWidth)}, Flipped={ViewConverter.IsFlipped}"));
+                        $"Diag=SkillAim, DiagRev=2, Event=AimReleaseResolved, Mode=Line, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, AnchorSet={_lineAnchorSet}, DragMilli={Milli(_lineDragDistance)}, ThresholdMilli={Milli(LineMinDragWorld)}, AnchorXmm={Milli(_lineAnchorDomain.x)}, AnchorZmm={Milli(_lineAnchorDomain.z)}, DirXMilli={Milli(_lineDirectionDomain.x)}, DirZMilli={Milli(_lineDirectionDomain.z)}, LengthMilli={Milli(_lineLength)}, EffLengthMilli={Milli(eff)}, WidthMilli={Milli(_lineWidth)}, StrikeCount={_lineStrikeCount}, HighlightTiles={highlightTiles}, VisualState={_visualState}, Flipped={ViewConverter.IsFlipped}"));
                 return;
             }
+            // 옛 줄(기록용):
+            // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
+            //     FormattableString.Invariant(
+            //         $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Circle, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, HasCoord={_hasValidCoord}, AimXmm={Milli(_lastValidDomain.x)}, AimZmm={Milli(_lastValidDomain.z)}, Flipped={ViewConverter.IsFlipped}"));
             GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
                 FormattableString.Invariant(
-                    $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Circle, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, HasCoord={_hasValidCoord}, AimXmm={Milli(_lastValidDomain.x)}, AimZmm={Milli(_lastValidDomain.z)}, Flipped={ViewConverter.IsFlipped}"));
+                    $"Diag=SkillAim, DiagRev=2, Event=AimReleaseResolved, Mode=Circle, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, HasCoord={_hasValidCoord}, AimXmm={Milli(_lastValidDomain.x)}, AimZmm={Milli(_lastValidDomain.z)}, RadiusMilli={Milli(_radius)}, HighlightTiles={highlightTiles}, VisualState={_visualState}, Flipped={ViewConverter.IsFlipped}"));
+        }
+
+        /// <summary>
+        /// [2026-11-18 L-7] 표시 상태가 바뀐 순간 1줄(L-L31 · L-L32). 드래그 중 매 프레임이 아니라 "바뀔 때만" 남는다.
+        /// 공습 고스트 → 활성은 From=Ghost(GhostToActive=True)로 드러나며, 같은 조준에서 다시 Ghost 로 돌아가지 않으므로 한 번뿐이다.
+        /// </summary>
+        private void LogVisualState(SkillAimVisualState from, SkillAimVisualState to)
+        {
+            GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimVisualState",
+                FormattableString.Invariant(
+                    $"Diag=SkillAim, DiagRev=1, Event=AimVisualState, Mode={ModeLabel}, BuildingId={_buildingId}, Slot={_skillSlot}, From={from}, To={to}, GhostToActive={from == SkillAimVisualState.Ghost}, OverCancel={_cancelHovering}, DragMilli={Milli(_mode == AimMode.Line ? _lineDragDistance : 0f)}, ThresholdMilli={Milli(_mode == AimMode.Line ? LineMinDragWorld : 0f)}, HighlightTiles={_shownHighlightIndices.Count}"));
         }
 
         /// <summary>
@@ -844,6 +1092,12 @@ namespace Hexiege.Presentation
             // [2026-11-17 L-3 · L-4] 공습 표시 · 모드 · 손가락 추적 정리.
             IsLineAim = false;
             if (_lineReticle != null) _lineReticle.Hide();
+            // [2026-11-18 L-7] 하이라이트 숨김 · 표시 상태 초기화(다음 조준은 처음부터 다시 고른다).
+            if (_tileHighlight != null) _tileHighlight.Hide();
+            _shownHighlightIndices.Clear();
+            _highlightKeyValid = false;
+            _lineGhost = false;
+            _cancelHovering = false;
             _pointerTracker.Reset(waitForButtonRelease: false);
             // 취소 버튼 스케일 즉시 기준값으로 원복(잔여 없게) 후 숨김(규칙 20·20-1).
             _cancelTargetScale = _cancelBaseScale;
@@ -882,6 +1136,7 @@ namespace Hexiege.Presentation
             if (_reticle != null)
             {
                 Vector3 view = ViewConverter.ToView(domain);
+                _reticle.SetState(ComputeVisualState()); // [2026-11-18 L-7] 등장 순간부터 맞는 색(UI-2d)
                 _reticle.Show(view, _radius);
             }
         }
@@ -893,6 +1148,7 @@ namespace Hexiege.Presentation
         private void ApplyCancelHover(bool over)
         {
             _cancelTargetScale = over ? _cancelBaseScale * _cancelHoverScale : _cancelBaseScale;
+            _cancelHovering = over; // [2026-11-18 L-7] 상태 색 CancelHover(회색으로 흐려짐 — UI-2d) 판정용
         }
 
         /// <summary>

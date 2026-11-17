@@ -451,8 +451,13 @@ namespace Hexiege.Presentation
                         //   끈 쪽 = 방향, 최소 드래그 미만이면 발사하지 않음(U-2~U-10). 직선 길이 · 폭은 스킬 데이터 값으로 그린다.
                         //   확정 콜백이 시작점 + 방향을 받아 발동 요청에 방향을 실어 보낸다(싱글 · 멀티 모두 — 아래 OnLineAimConfirm).
                         //   다른 지점 지정 스킬(포격 · EMP · 서리 감옥 · 수액 늪)은 아래 else 의 기존 원형 조준 그대로다(R-1).
+                        // [2026-11-18 L-7] 폭격 횟수(LineStrikeCount)를 함께 넘긴다 — 조준 표시의 폭격 눈금 · 맞는 타일 하이라이트가
+                        //   서버와 같은 구간 기준으로 그려지게(Plan 14절 UI-2a · UI-2c). 조준 판정 · 발사 로직은 그대로다. 옛 호출(기록용):
+                        // _skillAimController.BeginLineAim(buildingId, slotIndex, skill.Radius,
+                        //     skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel);
                         _skillAimController.BeginLineAim(buildingId, slotIndex, skill.Radius,
-                            skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel);
+                            skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel,
+                            skill.LineStrikeCount);
                     }
                     else
                     {

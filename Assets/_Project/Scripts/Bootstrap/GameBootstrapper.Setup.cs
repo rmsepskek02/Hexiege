@@ -768,6 +768,18 @@ namespace Hexiege.Bootstrap
                     HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
                     return true;
                 });
+
+                // [2026-11-18 공습 Task L-7 — UI-2a] 조준 중 「맞는 타일」 하이라이트용 모든 타일 중심(도메인 월드).
+                //   서버가 대상 위치로 쓰는 것(_mapper.HexToWorld = HexMetrics.HexToWorld(타일 좌표))과 같은 값이어야
+                //   「보이는 곳 = 맞는 곳」이 된다. 조준 컨트롤러는 조준을 시작할 때 한 번만 부른다(매 프레임 아님).
+                //   람다가 호출 시점의 _grid 를 읽어 맵 재로드(재경기 새 맵)에도 최신 타일을 쓴다. 그리드가 없으면 빈 목록 → 하이라이트 없음.
+                _skillAimController.SetTileCenterSource(list =>
+                {
+                    list.Clear();
+                    if (_grid == null) return;
+                    foreach (var coord in _grid.Tiles.Keys)
+                        list.Add(HexMetrics.HexToWorld(coord));
+                });
             }
         }
 

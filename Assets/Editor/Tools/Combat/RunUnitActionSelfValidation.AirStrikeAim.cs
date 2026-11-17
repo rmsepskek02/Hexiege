@@ -23,7 +23,17 @@
 //   소스 게이트: 조준 컨트롤러가 추적기로 판정 · 옛 primaryTouch 판정 호출 0 · 카메라 두 손가락 / 오른쪽 버튼 분기 ·
 //          2터치 팬 금지 가드 비활성 · 패널 공습 분기와 방향 전달 · 조합 루트 맵 경계 배선 · 탭 오발동 억제.
 //
-// 하지 않는 것: 실제 Touchscreen 장치 · 카메라 이동량 · 조준 표시 모양(육안) — 사용자 실기 항목(Plan 8절 10~14 · 20~25).
+//   [2026-11-18 L-7 조준 UI 개선 — Plan 14절 UI-1 · UI-2a · UI-2c · UI-2d] (ValidateAirStrikeAimVisuals)
+//   L7-1 상태 판정: 원형 = 발사 가능 / X 위, 공습 = 고스트 / X 위 / 최소 드래그 미만 / 발사 가능(경계 = 임계값이면 발사 — 발사 판정과 같은 함수).
+//   L7-2 원형 하이라이트 = 서버 식(타일 중심 · 조준점 XZ 거리² ≤ 반경², Y 무시, 경계 포함)과 같은 타일.
+//   L7-3 공습 하이라이트 = 서버 폭격 루프(폭격마다 IsStrikeInRange → IsInside · SegmentIndexOf == k · along ≤ 유효 길이 + 여유)를
+//        이 검사 안에서 따로 다시 돌린 합집합과 같은 타일(맵 안 · 잘림 · 대각 방향 · 폭격 0회), 경계(옆 거리 = 반폭, along = 유효 길이) 포함.
+//   L7-4 폭격 눈금 위치 = 화면 폭격 VFX 와 같은 식(구간 ∩ 유효 길이의 가운데), 맵 밖이라 건너뛰는 폭격은 눈금 없음.
+//   L7-5 소스 게이트: 고스트 직사각형 진입(옛 원 표시 줄은 주석) · 매 프레임 표시 갱신 · 조합 루트 타일 중심 배선 · 패널의 폭격 횟수 전달 ·
+//        VFX 의 폭격 위치 식이 눈금 식과 같은 모양으로 남아 있는지.
+//
+// 하지 않는 것: 실제 Touchscreen 장치 · 카메라 이동량 · 조준 표시 모양(육안 — 그라데이션 · 맥동 · 쉐브론 흐름 · 등장 애니메이션) —
+//   사용자 실기 항목(Plan 8절 10~14 · 20~25 · 14-4).
 // ViewConverter 는 맵 중심을 읽는 API 가 없어 이전 값을 되돌릴 수 없다 → 끝나면 EditMode 기본값으로 초기화한다(VfxConnections · LocalTeamReset 선례).
 // 실행 중(Play)에는 돌지 않는다.
 // ============================================================================
@@ -31,6 +41,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Hexiege.Core;
+using Hexiege.Domain;
 using Hexiege.Presentation;
 using UnityEngine;
 
@@ -49,6 +60,8 @@ namespace Hexiege.Editor.Combat
             ValidateAimTrackerEdgeCases();      // 버튼 대기 · 함께 뗌 · release 프레임 새 손가락 · 동시 터치 · 마우스
             ValidateLineAimViewConversion();    // P-10
             ValidateAirStrikeAimSourceGates();  // 배선 · 비활성화 소스 게이트
+            ValidateAirStrikeAimVisuals();      // [2026-11-18 L-7] 상태 판정 · 하이라이트 = 서버 기준 · 눈금 위치 · 소스 게이트
+            Debug.Log("[UAS-DIAG][SKILL-AIM] L-7 aim visual self-validation PASS: visual state follows the fire rule (ghost / below threshold / armed at exactly the threshold / X hover first), circle highlight equals the server tile-centre radius test (Y ignored, boundary inclusive), line highlight equals an independent replay of the server strike loop (in-map, clipped, diagonal, zero strikes, side and effective-length boundaries), strike ticks sit where the strike VFX plays and skipped strikes have none, and the ghost-entry / per-frame refresh / tile-centre wiring / strike-count source gates.");
             Debug.Log("[UAS-DIAG][SKILL-AIM] self-validation PASS: second finger lifted first returns to one-finger aim and the last lift fires once, tracked finger lifted first never fires (even after the other finger lifts) until a new touch, X release uses the tracked finger's last position (LS-T13 ① ② ③), the release cache stays on the tracked id when the remaining finger moves (LS-T13 ④), button-gesture wait / lifted-together / same-frame new finger / simultaneous touch / mouse id paths, red-view direction computed in domain space with distance preserved and round trip (P-10), and the input / camera / panel / bootstrap / tap-suppression source gates.");
         }
 
@@ -262,6 +275,189 @@ namespace Hexiege.Editor.Combat
             string input = File.ReadAllText(root + "Presentation/Input/InputHandler.cs");
             Require(SupportActiveLineCount(input, "if (_contactHadMultiTouch) LogTapSuppressed(") == 2,
                 "R-18 both the touch and mouse release paths must suppress the click after a two-finger gesture.");
+        }
+
+        // ====================================================================
+        // [2026-11-18 L-7] 조준 표시 — 상태 판정 · 하이라이트 = 서버 기준 · 눈금 위치 · 소스 게이트
+        // ====================================================================
+
+        private static void ValidateAirStrikeAimVisuals()
+        {
+            ValidateAimVisualState();      // L7-1
+            ValidateCircleHighlight();     // L7-2
+            ValidateLineHighlight();       // L7-3
+            ValidateStrikeTicks();         // L7-4
+            ValidateAimVisualSourceGates(); // L7-5
+        }
+
+        // L7-1 — 표시 상태는 발사 판정 순서(X 위 → 고스트 → 최소 드래그)와 같아야 한다.
+        private static void ValidateAimVisualState()
+        {
+            Require(SkillAimVisualMath.ResolveVisualState(false, false, false, 0f, 0.5f) == SkillAimVisualState.Armed
+                    && SkillAimVisualMath.ResolveVisualState(false, false, true, 0f, 0.5f) == SkillAimVisualState.CancelHover,
+                "L7-1 the circle aim must be Armed (red) and CancelHover over X.");
+            Require(SkillAimVisualMath.ResolveVisualState(true, true, false, 0f, 0.5f) == SkillAimVisualState.Ghost
+                    && SkillAimVisualMath.ResolveVisualState(true, true, true, 0f, 0.5f) == SkillAimVisualState.CancelHover,
+                "L7-1 the air strike before the first touch must be Ghost, and X hover must win over Ghost.");
+            Require(SkillAimVisualMath.ResolveVisualState(true, false, false, 0.4999f, 0.5f) == SkillAimVisualState.BelowThreshold
+                    && SkillAimVisualMath.ResolveVisualState(true, false, false, 0.5f, 0.5f) == SkillAimVisualState.Armed
+                    && SkillAimVisualMath.ResolveVisualState(true, false, true, 3f, 0.5f) == SkillAimVisualState.CancelHover,
+                "L7-1 the air strike must be grey below the minimum drag, red at exactly the threshold (same as IsDragEnough), and X hover first.");
+        }
+
+        // 가짜 타일 중심 격자(도메인 월드 — 0.25 간격 점들). 서버 식과 같은지만 보므로 육각 배치일 필요는 없다.
+        private static List<Vector3> AimVisualPointGrid(float minX, float maxX, float minZ, float maxZ, float step, float y)
+        {
+            var list = new List<Vector3>();
+            for (float x = minX; x <= maxX + 1e-4f; x += step)
+                for (float z = minZ; z <= maxZ + 1e-4f; z += step)
+                    list.Add(new Vector3(x, y, z));
+            return list;
+        }
+
+        // L7-2 — 원형: 서버 UnitCombatUseCase.CollectEnemyUnitsInRadiusDomain 식(Flatten 후 sqrMagnitude <= radius*radius).
+        private static void ValidateCircleHighlight()
+        {
+            var centers = AimVisualPointGrid(-4f, 4f, -4f, 4f, 0.25f, 0f);
+            centers.Add(new Vector3(1f, 5f, 0.5f));      // Y 가 달라도 XZ 로만 본다(서버 Flatten)
+            centers.Add(new Vector3(2.5f, 0f, 1f));      // 조준 (0.5, 1) 에서 정확히 반경 2 — 경계 포함
+            centers.Add(new Vector3(2.5011f, 0f, 1f));   // 반경을 아주 조금 넘음
+            Vector3 aim = new Vector3(0.5f, 3f, 1f);     // 조준점 Y 도 무시
+            const float radius = 2f;
+
+            var result = new List<int>();
+            int n = SkillAimVisualMath.CollectCircleTiles(centers, aim, radius, result);
+            int expected = 0;
+            var server = new List<int>();
+            Vector3 centerWorld = new Vector3(aim.x, 0f, aim.z);
+            for (int i = 0; i < centers.Count; i++)
+            {
+                Vector3 rel = new Vector3(centers[i].x, 0f, centers[i].z) - centerWorld;
+                if (rel.sqrMagnitude <= radius * radius) { server.Add(i); expected++; }
+            }
+            Require(n == expected && SkillAimVisualMath.SameIndices(result, server) && n > 0,
+                "L7-2 the circle highlight must pick exactly the tiles the server radius test hits.");
+            int last = centers.Count;
+            Require(result.Contains(last - 3) && result.Contains(last - 2) && !result.Contains(last - 1),
+                "L7-2 the circle highlight must ignore Y, include a tile exactly on the radius and exclude one just outside.");
+            Require(SkillAimVisualMath.CollectCircleTiles(centers, aim, 0f, result) == 0 && result.Count == 0,
+                "L7-2 a zero radius must highlight nothing (the server hits nothing).");
+        }
+
+        // 서버 폭격 루프를 이 검사 안에서 따로 다시 돌린 합집합(SkillActivationUseCase 의 IsStrikeInRange 건너뛰기 +
+        //   UnitCombatUseCase.IsInLineStrikeSegment 의 IsInside → SegmentIndexOf == k → along ≤ 유효 길이 + 여유).
+        private static bool ServerLineUnionHit(Vector3 s, Vector3 d, float length, float half, float eff, int count, Vector3 p)
+        {
+            for (int k = 0; k < count; k++)
+            {
+                if (!LineStrikeGeometry.IsStrikeInRange(k, count, length, eff)) continue;
+                if (!LineStrikeGeometry.IsInside(s.x, s.z, d.x, d.z, length, half, p.x, p.z, out float along)) continue;
+                if (LineStrikeGeometry.SegmentIndexOf(along, length, count) != k) continue;
+                if (along > eff + LineStrikeGeometry.BoundaryEpsilon) continue;
+                return true;
+            }
+            return false;
+        }
+
+        // L7-3 — 공습: 하이라이트 = 서버 폭격 합집합.
+        private static void ValidateLineHighlight()
+        {
+            var centers = AimVisualPointGrid(-2f, 8f, -2f, 8f, 0.2f, 0f);
+            Vector3 diag = new Vector3(1f, 0f, 1f).normalized;
+            // (시작점, 방향, 길이, 폭, 유효 길이, 폭격 수) — 맵 안 · 잘림(3.3 → 4번째 폭격 건너뜀) · 대각 · 유효 길이 0 · 폭격 0회.
+            var cases = new (Vector3 s, Vector3 d, float len, float w, float eff, int count)[]
+            {
+                (new Vector3(0f, 0f, 0f), Vector3.forward, 6f, 2f, 6f, 5),
+                (new Vector3(0f, 0f, 0f), Vector3.forward, 6f, 2f, 3.3f, 5),
+                (new Vector3(0.3f, 0f, 0.1f), diag, 6f, 2f, 4.7f, 5),
+                (new Vector3(1f, 0f, 1f), Vector3.right, 6f, 1.5f, 0f, 5),
+                (new Vector3(0f, 0f, 0f), Vector3.forward, 6f, 2f, 6f, 0),
+            };
+            var result = new List<int>();
+            var server = new List<int>();
+            for (int c = 0; c < cases.Length; c++)
+            {
+                var k = cases[c];
+                SkillAimVisualMath.CollectLineTiles(centers, k.s, k.d, k.len, k.w * 0.5f, k.eff, k.count, result);
+                server.Clear();
+                for (int i = 0; i < centers.Count; i++)
+                    if (ServerLineUnionHit(k.s, k.d, k.len, k.w * 0.5f, k.eff, k.count, centers[i])) server.Add(i);
+                Require(SkillAimVisualMath.SameIndices(result, server),
+                    $"L7-3 case {c}: the line highlight ({result.Count} tiles) must equal the server strike-loop union ({server.Count} tiles).");
+                if (c < 3) Require(result.Count > 0, $"L7-3 case {c}: the in-map line must highlight some tiles.");
+            }
+            Require(result.Count == 0, "L7-3 zero strikes must highlight nothing (the server drops no bomb).");
+
+            // 경계: 옆 거리 = 반폭(포함) · 반폭 + 0.01(제외) · along = 유효 길이(포함) · 잘린 뒤 4번째 구간(건너뜀) · 시작점 뒤(제외).
+            Vector3 s0 = Vector3.zero, f = Vector3.forward;
+            Require(SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 6f, 5, new Vector3(1f, 0f, 2f))
+                    && !SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 6f, 5, new Vector3(1.01f, 0f, 2f)),
+                "L7-3 a tile exactly half a width aside must be hit and one just beyond must not.");
+            Require(SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 3.3f, 5, new Vector3(0f, 0f, 3.3f))
+                    && !SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 3.3f, 5, new Vector3(0f, 0f, 3.4f))
+                    && !SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 3.3f, 5, new Vector3(0f, 0f, 3.7f))
+                    && !SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 6f, 5, new Vector3(0f, 0f, -0.1f)),
+                "L7-3 the line highlight must stop at the effective length (inclusive), skip the clipped strike segment and exclude points behind the start.");
+            // 유효 길이가 정확히 3번째 구간 시작(2.4)이면 서버는 3번째 폭격을 통째로 건너뛴다(IsStrikeInRange: 2.4 < 2.4 거짓) —
+            //   along = 2.4 인 점은 「유효 길이 안」이지만 3번째 구간이라 맞지 않는다. 바로 앞(2.3)은 2번째 폭격에 맞는다.
+            Require(!SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 2.4f, 5, new Vector3(0f, 0f, 2.4f))
+                    && !ServerLineUnionHit(s0, f, 6f, 1f, 2.4f, 5, new Vector3(0f, 0f, 2.4f))
+                    && SkillAimVisualMath.IsLineTileHit(s0, f, 6f, 1f, 2.4f, 5, new Vector3(0f, 0f, 2.3f)),
+                "L7-3 a point exactly at a skipped strike's segment start (= effective length) must not be highlighted, like the server.");
+        }
+
+        // L7-4 — 폭격 눈금 = 화면 폭격 VFX 자리(SkillActivationVfxPresenter.ScheduleStrikeVfx 의 centerAlong).
+        private static void ValidateStrikeTicks()
+        {
+            float[] full = { 0.6f, 1.8f, 3.0f, 4.2f, 5.4f };
+            for (int k = 0; k < 5; k++)
+                Require(SkillAimVisualMath.TryGetStrikeTickAlong(k, 5, 6f, 6f, out float a) && Mathf.Abs(a - full[k]) < 1e-4f,
+                    $"L7-4 strike {k + 1} of 5 on an in-map line of 6 must tick at the segment centre {full[k]}.");
+            Require(SkillAimVisualMath.TryGetStrikeTickAlong(0, 5, 6f, 3.3f, out float c0) && Mathf.Abs(c0 - 0.6f) < 1e-4f
+                    && SkillAimVisualMath.TryGetStrikeTickAlong(2, 5, 6f, 3.3f, out float c2) && Mathf.Abs(c2 - 2.85f) < 1e-4f
+                    && !SkillAimVisualMath.TryGetStrikeTickAlong(3, 5, 6f, 3.3f, out _)
+                    && !SkillAimVisualMath.TryGetStrikeTickAlong(4, 5, 6f, 3.3f, out _),
+                "L7-4 a line clipped at 3.3 must tick strike 3 at the centre of its in-map part (2.85) and draw no tick for the skipped strikes 4 and 5.");
+            Require(SkillAimVisualMath.TryGetStrikeTickAlong(0, 5, 6f, 0f, out float z0) && z0 == 0f
+                    && !SkillAimVisualMath.TryGetStrikeTickAlong(1, 5, 6f, 0f, out _)
+                    && !SkillAimVisualMath.TryGetStrikeTickAlong(5, 5, 6f, 6f, out _)
+                    && !SkillAimVisualMath.TryGetStrikeTickAlong(0, 0, 6f, 6f, out _),
+                "L7-4 with zero effective length only the first strike ticks at the start; out-of-range indices and zero strikes tick nothing.");
+
+            var a1 = new List<int> { 1, 2, 3 };
+            var a2 = new List<int> { 1, 2, 3 };
+            var a3 = new List<int> { 1, 3, 2 };
+            Require(SkillAimVisualMath.SameIndices(a1, a2) && !SkillAimVisualMath.SameIndices(a1, a3)
+                    && !SkillAimVisualMath.SameIndices(a1, new List<int> { 1, 2 }),
+                "L7-4 SameIndices must compare count and order (the highlight mesh is rebuilt only when it differs).");
+        }
+
+        // L7-5 — 소스 게이트.
+        private static void ValidateAimVisualSourceGates()
+        {
+            const string root = "Assets/_Project/Scripts/";
+            string aim = File.ReadAllText(root + "Presentation/Input/SkillAimController.cs");
+            Require(SupportActiveLineCount(aim, "ShowLineGhost(start);") == 1
+                    && SupportActiveLineCount(aim, "ShowReticleAtDomain(start);") == 1
+                    && aim.Contains("// ShowReticleAtDomain(start);"),
+                "L7-5 UI-1: the air strike must enter with the ghost rectangle, the circle aim keeps its circle, and the old circle line stays as a comment.");
+            Require(SupportActiveLineCount(aim, "if (_isAiming) RefreshAimVisuals();") == 1
+                    && SupportActiveLineCount(aim, "_lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth, _lineLength, _lineStrikeCount);") == 1
+                    && SupportActiveLineCount(aim, "_lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth);") == 0,
+                "L7-5 the aim controller must refresh the state colour / highlight every frame and draw the strike ticks.");
+
+            string boot = File.ReadAllText(root + "Bootstrap/GameBootstrapper.Setup.cs");
+            Require(SupportActiveLineCount(boot, "_skillAimController.SetTileCenterSource(") == 1
+                    && SupportActiveLineCount(boot, "list.Add(HexMetrics.HexToWorld(coord));") == 1,
+                "L7-5 the composition root must give the aim controller the tile centres the server uses (HexMetrics.HexToWorld).");
+
+            string panel = File.ReadAllText(root + "Presentation/UI/BuildingSkillPanelUI.cs");
+            Require(SupportActiveLineCount(panel, "skill.LineStrikeCount);") == 1,
+                "L7-5 the skill panel must pass the strike count to the line aim.");
+
+            string vfx = File.ReadAllText(root + "Presentation/Effects/SkillActivationVfxPresenter.LineStrike.cs");
+            Require(SupportActiveLineCount(vfx, "float centerAlong = (segFrom + judgeTo) * 0.5f;") == 1,
+                "L7-5 the strike VFX position formula must still be the one the aim ticks copy (SkillAimVisualMath.TryGetStrikeTickAlong).");
         }
     }
 }
