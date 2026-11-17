@@ -453,6 +453,7 @@ Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 �
 - 힐 이벤트 `GameEvents.OnEntityHealed`(`EntityHealedEvent`) — 피격(OnEntityDamaged)과 **분리된 채널**(연출/색상 구분).
 - 멀티 동기화: `NetworkHealthSync`가 HP **증가(힐)** 도 동기화한다(`SyncHealClientRpc` + 클라 `OnEntityHealed` 재발행). 기존엔 HP 감소만 동기화했으므로 힐 방향을 반드시 함께 열어야 한다.
 - 연출: `FloatingHpTextSpawner`가 치유 색상(`_healColor`)으로 표시. 피격 텍스트와 풀·배치 로직 공유. (⚠️ 예외: HoT 누적 회복의 힐 텍스트는 틱마다가 아니라 효과 종료 시 1회만 표시하며 표시값은 즉발 힐과 동일한 현재 HP 형식 — 규칙 37. 즉발 힐은 종전대로 즉시 표시.)
+- 회복 증폭: 초월 스킬 재생의 뿌리를 받은 유닛 · 건물은 효과 동안 받는 회복이 전부 1.5배다(BloomFairy 힐 · 지속 회복 · 자연회복 · 물안개 — 서버 회복 자리에서 곱하고 대상별 소수 나머지를 이월). 규칙 원본은 [스킬 규칙](GameSystemRules_Skills.md#스킬-메커니즘-타입) 「스킬 메커니즘 타입」 규칙 13 「재생 · 회복 증폭」. *(2026-11-17 추가 — [지원 스킬 새 상태 Task Plan 14절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#14-stage-b-result))*
 
 **규칙 31. 다중 파티클 시스템 VFX 재생**
 

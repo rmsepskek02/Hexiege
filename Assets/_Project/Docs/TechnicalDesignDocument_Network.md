@@ -21,6 +21,8 @@ Recipient poison/burn은 실제 writer의 `(target lifetime, TimedEffectKind.Dam
 
 **HP 차이 0 피격 재발행(지원 스킬 쉴드):** Client의 `NetworkHealthSync`는 서버 피격 RPC를 받아 HP 차이가 양수일 때 피격 이벤트(`OnEntityDamaged`)를 낸다. 쉴드가 피해를 전부 막아 서버 HP가 줄지 않은 피격은 차이가 0이라 종전에는 Client에서만 피격 표현이 빠졌다. 지금은 **차이가 정확히 0이고 서버 HP > 0**이면 같은 피격 이벤트를 한 번 다시 낸다(유닛 · 건물, 새 전송 없음). 근거: 피격 RPC는 서버가 피해를 처리할 때마다 정확히 한 번 보내고, Client HP는 이 RPC(감소) · 회복 전용 RPC · 사망 패킷으로만 바뀌므로 차이 0은 서버도 HP가 줄지 않은 피격일 때만 생긴다(그때 Host도 표현을 냈다). HP 0은 제외해 사망 표현이 두 번 돌지 않게 한다. 차이가 음수면 종전대로 아무것도 하지 않는다. 쉴드가 깨지는 순간은 별도 알림 `ShieldBrokenClientRpc`(아래 「경기 시작 호환 확인」의 9 → 10)로 전한다. 개발 진단 `[SKILL-SHIELD] ZeroDiffHitRepublished`. *(2026-11-17 추가 — 지원 스킬 새 상태 단계 C 결정 S-6 (b) · S-8, `1bd5669`, [그 Task Plan 13절](_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#13-stage-c-result). 멀티 1경기 Client 재발행 56건 관측)*
 
+**회복 동기화 재사용(지원 스킬 재생의 뿌리):** 재생의 뿌리의 재생 · 회복 증폭은 서버 전용 서비스(`SupportSkillEffectSystem`)가 계산하고, 늘어난 HP는 **기존 회복 동기화**로 Client에 간다 — 유닛은 `NetworkHealthSync.SyncHealClientRpc`, 건물은 `SyncBuildingHealClientRpc`(MistShrine 물안개와 같은 경로, 서버 `OnEntityHealed` 구독). 재생은 1초마다 한 번만 회복해 대상당 초당 RPC 1건이다(매 서버 틱 회복이면 초당 10건 이상). 새 RPC가 없어 전투 표현 스키마는 **10 그대로**다. 회복 텍스트 표시 여부는 같은 RPC의 기존 인자로 실린다. *(2026-11-17 추가 — 지원 스킬 새 상태 단계 B `c0c2ae7`, [그 Task Plan 14절](_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#14-stage-b-result))*
+
 위 현행 기술계약의 승인 원문과 당시 진행 단계는 [구현·검증 이력의 TDD 원문](History/ImplementationVerificationHistory.md#tdd-handoff)에 보존했다. preset 키·Mushroom marker와 에셋 연결 사양은 [VFXSFXList.md](Assets/VFXSFXList.md#2026-10-10-확정-연결-계약과-진행-단계), 현재 개별 연결·검증 범위는 해당 목록과 [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md)에서 확인한다. 이 기술계약 요약은 실기 수용이나 전체 migration 완료를 선언하지 않는다.
 
 <a id="server-authoritative-projectile-transport"></a>

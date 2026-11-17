@@ -349,6 +349,7 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 - 확인 범위(2026-11-11): 기존 힐 프리팹(`vfx_bloomfairy_heal`, 크기 2)을 전술 지령 칸에 임시로 넣어 붙이기 · 따라가기(반전 Client 포함) · 만료 꼬리 정지 · 사망 즉시 정지를 실기 로그와 육안으로 확인한 뒤 비웠다. 경기 종료 · 재경기 정지는 미관측.
 - *(2026-11-11 — 칸 이름이 「유닛 상태 VFX」로 바뀌었다(Inspector 헤더 · 스킬 규칙 7). 같은 칸을 지속 상태 구역도 쓴다 — 아래 13번.)*
 - *(2026-11-16 — 대지의 갑주(V19, 받는 피해 감소 — 새 상태 종류)도 이 계약 그대로 쓴다. 코드 변경 없이 같은 장치가 붙이고 뗀다. 임시 `vfx_bloomfairy_heal`로 붙이기 7/7 · 사망 즉시 정지 · 만료 꼬리 정지를 확인한 뒤 비웠다 — [지원 스킬 새 상태 Task Plan 12절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#12-stage-a-result). 전술 지령의 생산 속도에는 유닛 이펙트가 없다.)*
+- *(2026-11-17 — 재생의 뿌리(V22 유닛 몫, 새 상태 종류 `Regen`)도 이 계약 그대로 쓴다. 지속 회복(`HealOverTime`) 종류는 이 장치가 건너뛰므로 재생은 새 종류로 둔 것이다. 임시 `vfx_bloomfairy_heal`로 붙이기 · 사망 즉시 정지 · 만료 꼬리 정지 · Client 대상 수 일치를 확인했다 — [지원 스킬 새 상태 Task Plan 14절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#14-stage-b-result).)*
 
 **13. 지속 상태 구역 VFX — 구역 VFX(V3 · V9) · 유닛 구역 VFX(V4) 재생 계약 (2026-11-11 추가)**
 
@@ -364,7 +365,7 @@ Human 종족 유닛입니다. 화약과 금속 느낌의 사운드로 만들어 
 
 **14. 건물 상태 VFX — 신목의 각성 쉴드(V14 건물 몫) · 전술 지령 생산 건물(V17 건물 몫) 재생 계약 (2026-11-17 추가)**
 
-출처: [지원 스킬 새 상태 Task Plan 13절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#13-stage-c-result)(`1bd5669` · `74e8624`, 사용자 테스트 PASS 2026-11-17). 규칙: [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 「건물 상태 VFX」 · 13 · 25. 이 항목은 **지금 코드가 하는 일**을 적은 것이다. 단계 B(재생의 뿌리 건물 재생 — V22 건물 몫)도 같은 칸 · 장치를 쓸 예정이다.
+출처: [지원 스킬 새 상태 Task Plan 13절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#13-stage-c-result)(`1bd5669` · `74e8624`, 사용자 테스트 PASS 2026-11-17). 규칙: [스킬 규칙](../GameSystemRules/GameSystemRules_Skills.md) 규칙 7 「건물 상태 VFX」 · 13 · 25. 이 항목은 **지금 코드가 하는 일**을 적은 것이다. 단계 B(재생의 뿌리 건물 재생 — V22 건물 몫)도 같은 칸 · 장치를 쓴다 — 대상은 「건물 각각」 규칙(발동 순간 아군 건물), 코드 변경 없이 붙었다([지원 스킬 새 상태 Task Plan 14절](../_Tasks/2026-11-16/01_00_support-skill-new-statuses/Plan.md#14-stage-b-result)). *(2026-11-17 갱신 — 직전 「… 쓸 예정이다.」)*
 
 - 연결 칸은 **스킬 자산**(`SkillDefinition`)의 「건물 상태 VFX」 세 칸 — 프리팹 · **크기 배율**(스킬 하나에 하나 — 건물 종류별 표 없음) · **높이 보정(Y만)**. EMP 탑 무력화(위 11번 — `BuildingEffectConfig` 종족 프리셋)와는 별개 칸 · 별개 장치(`BuildingStatusVfxPresenter`)다.
 - **어느 건물에 붙나:** 「건물 각각」 효과가 있는 스킬(신목의 각성)은 발동 알림을 받은 순간 그 화면의 살아 있는 대상 팀 건물 전부(그 뒤 새 건물 없음). 팀 생산 속도 스킬(전술 지령)은 대상 팀의 **생산 건물 전부**(`BuildingTypeHelper.IsProductionBuilding` — 1 · 2 · 3단계 형태)이며, 효과 중 새로 짓거나 업그레이드한 생산 건물에도 남은 시간만큼 붙는다(진단 `BuildingVfxAttachedLate Reason=Built/Upgraded`). 성 · 스킬 건물처럼 생산 건물이 아닌 건물에는 붙지 않는다.
