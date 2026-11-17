@@ -261,12 +261,9 @@ namespace Hexiege.Presentation
             // 팀 · 슬롯으로 이 화면 빌드의 스킬 데이터를 찾는다. 못 찾으면 발동 VFX 구독자가 이미 Warn을 남긴다(같은 사건 중복 금지).
             SkillData skill = _skillActivation.FindSkillData(p.Team, p.Slot);
             if (skill == null) return;
-            // 타입 C이고 「건물 각각」 대상 효과가 있는 스킬만(신목의 각성 · 단계 B 재생의 뿌리). 그 밖의 스킬은 조용히 지나간다
-            //   — 포격 · EMP · 강화 4종 · 전술 지령 · 대지의 갑주의 로그가 이 장치 때문에 늘지 않는다.
-            // [2026-11-17 비활성화 — S-10 전술 지령도 받으려고 대상 기준 판단을 BuildingStatusVfxTargetPolicy로 옮김] 옛 줄:
-            // if (skill.Mechanic != SkillMechanicType.GlobalStatusChange || !skill.HasBuildingEffect()) return;
-            //   새 판단: 타입 C가 아니면 None → 지나감. 「건물 각각」 효과가 있으면 ActivationBuildings(옛 줄이 통과시키던 그 스킬 —
-            //   동작 동일). 「팀」 대상 생산 속도가 있으면 ProductionBuildings(전술 지령 — 새로 붙임). 그 밖은 None → 지나감(옛 줄과 같다).
+            // 대상 기준은 순수 규칙 BuildingStatusVfxTargetPolicy가 정한다. 타입 C이고 「건물 각각」 대상 효과가 있으면
+            //   ActivationBuildings(신목의 각성 · 단계 B 재생의 뿌리), 「팀」 대상 생산 속도가 있으면 ProductionBuildings(전술 지령).
+            //   그 밖의 스킬(포격 · EMP · 전술 지령 외 강화 스킬 · 대지의 갑주 등)은 None → 조용히 지나간다(이 장치 때문에 로그가 늘지 않는다).
             BuildingStatusVfxScope scope = BuildingStatusVfxTargetPolicy.Resolve(skill);
             if (scope == BuildingStatusVfxScope.None) return;
             // 지속이 없으면 서버도 효과를 걸지 않는다(서비스가 InvalidValue로 거부) — 붙이지 않는다.
@@ -300,9 +297,7 @@ namespace Hexiege.Presentation
             string firstFail = null;
             foreach (BuildingData building in _buildings.Buildings.Values)
             {
-                // [2026-11-17 비활성화 — 대상 기준별 판단(생산 건물만 등)을 순수 규칙으로] 옛 줄:
-                // if (building == null || !building.IsAlive || building.Team != targetTeam) continue;
-                //   ActivationBuildings는 옛 줄과 같은 조건(살아 있음 · 대상 팀)이고, ProductionBuildings는 거기에 「생산 건물」 조건이 더해진다.
+                // ActivationBuildings = 살아 있음 · 대상 팀. ProductionBuildings는 거기에 「생산 건물」 조건이 더해진다.
                 if (!BuildingStatusVfxTargetPolicy.IsTarget(scope, building, targetTeam)) continue;
                 targets++;
 
@@ -344,8 +339,6 @@ namespace Hexiege.Presentation
             }
 
             // [진단 C-L10] 발동 1건의 이 화면 요약 1줄.
-            // [2026-11-17 비활성화 — 대상 기준 키 Scope를 함께 남기려고 인자 추가] 옛 줄:
-            // LogStarted(p, channel, targetTeam, prefab.name, skill, targets, attached, extended, fallback, failed, firstFail, poolCreated);
             LogStarted(p, channel, targetTeam, prefab.name, skill, targets, attached, extended, fallback, failed, firstFail, poolCreated, scope);
             if (extended > 0) LogExtended(p, channel, extended, skill.Duration);
             FlushStopGroups();
@@ -407,10 +400,7 @@ namespace Hexiege.Presentation
         {
             try
             {
-                // [2026-11-17 비활성화 — 이펙트가 하나도 없어도 효과 중이면 새 건물을 대기 목록에 넣어야 해서 조기 반환 조건을 나눔] 옛 줄:
-                // if (this == null || _active.Count == 0) return;
-                // StopMatching(e.OldBuildingId, 0, requireShield: false, path: "Upgraded");
-                // FlushStopGroups();
+                // 이펙트가 하나도 없어도 효과 중이면 새 건물을 대기 목록에 넣어야 하므로, 정지(이펙트가 있을 때만)와 대기 등록을 나눈다.
                 if (this == null) return;
                 if (_active.Count > 0)
                 {
@@ -735,8 +725,6 @@ namespace Hexiege.Presentation
         {
             GameLog.Dev.Info("Skill", nameof(BuildingStatusVfxPresenter), "[SKILL-BVFX] BuildingVfxStarted",
                 FormattableString.Invariant(
-                    // [2026-11-17 비활성화 — 끝에 Scope 키 추가] 옛 줄:
-                    // $"Diag=BuildingStatusVfx, DiagRev=1, Event=BuildingVfxStarted, Role={DiagRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, Slot={p.Slot}, BuildingId={p.BuildingId}, TargetTeam={targetTeam}, Prefab={prefabName}, DurationMs={DiagMilli(skill.Duration)}, ScaleMilli={DiagMilli(skill.BuildingStatusVfxScale)}, OffsetYmm={DiagMilli(skill.BuildingStatusVfxOffsetY)}, Targets={targets}, Attached={attached}, Extended={extended}, TileCenterFallback={fallback}, StartFailed={failed}, FailReason={(firstFail ?? "None")}, PoolCreated={poolCreated}, ViewFlipped={ViewConverter.IsFlipped}"));
                     $"Diag=BuildingStatusVfx, DiagRev=1, Event=BuildingVfxStarted, Role={DiagRole()}, Channel={channel}, Sequence={p.Sequence}, Team={p.Team}, Slot={p.Slot}, BuildingId={p.BuildingId}, TargetTeam={targetTeam}, Prefab={prefabName}, DurationMs={DiagMilli(skill.Duration)}, ScaleMilli={DiagMilli(skill.BuildingStatusVfxScale)}, OffsetYmm={DiagMilli(skill.BuildingStatusVfxOffsetY)}, Targets={targets}, Attached={attached}, Extended={extended}, TileCenterFallback={fallback}, StartFailed={failed}, FailReason={(firstFail ?? "None")}, PoolCreated={poolCreated}, ViewFlipped={ViewConverter.IsFlipped}, Scope={BuildingStatusVfxTargetPolicy.DiagName(scope)}"));
         }
 

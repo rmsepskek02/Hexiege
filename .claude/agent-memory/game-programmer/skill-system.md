@@ -187,7 +187,8 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses
   lines (`UnitProductionUseCase` server tick + client mirror), setup tool's old field list and two old spec lines. **Kept:** points
   ② splash · ③ skill · ④ DoT · ⑤ tower instant (not hit in the test); the executor's old `kind == None` return (the widened case
   "main empty + extras" never ran); Sweep diagnostic old expression body (`UnitCombatUseCase` ~2056, Sweep writer not seen);
-  suite `SkillZones.cs` old `== 8` check (suite not run).
+  suite `SkillZones.cs` old `== 8` check (suite not run). **[2026-11-17 follow-up — original kept above: the `== 8` check and point
+  ④'s old line were deleted in the stage C cleanup (suite PASS / DoT absorb observed); ① ② ③ ⑤, executor, Sweep remain — see §6.]**
 - **Trap — point ① cannot be deleted by comment-only cleanup:** suite `RunUnitActionSelfValidation.cs` ~797 ("Actual writer hook
   ordering") finds the literal `target.TakeDamage(finalDamage)` between `"WriterBefore"` and `"WriterAfter"` with no comment
   filter — after S-14 that literal exists there **only as the commented old line**. Deleting it makes the next match be point ③'s
@@ -200,10 +201,23 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses
   restores the original references on Dispose. B-* / Z-T* passed in that run (they ran before S-T2). Write new HP-based fixtures
   inside this scope, and never compute a DoT expectation with `ApplyDefense` (DoT skips defense).
 
-## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — implemented, user test NOT run)
+## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — stage C user test PASS 2026-11-17)
 
-Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Uncommitted at writing time — commits are made by the main session; verify
-`git log` before trusting this line.
+Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Commits `1bd5669` · `f29626a` · `3b365fd` · `74e8624`; user test PASS 2026-11-17
+(multi Sacred Tree ×4 Host device + Client Editor, single Tactical Order building VFX) and **regression suite PASS** (errors 0).
+*(2026-11-17 — was "implemented, user test NOT run / uncommitted")*
+
+- **Post-test cleanup (2026-11-17, uncommitted at writing time):** temporary prefabs emptied (see last bullet). Deleted disabled lines
+  whose replacement ran: `IncomingDamage` old `TakeDamage(finalDamage)` / `return finalDamage`; `SupportSkillEffectSystem`
+  old `IsServiceKind` expr, old `IsSupported` unit line, old `Tick` one-line early return; `BuildingStatusVfxPresenter` old skill
+  filter, old building filter, old `LogStarted` call, old `OnBuildingUpgraded` early return, old `BuildingVfxStarted` string;
+  resolver's `= 9` record line; damage point ④ DoT old line (`UnitCombatUseCase`); suite old checks (schema `== 9` ×4 incl.
+  ServerProjectiles/SupportBuffSkills record lines, Z-T10 `== 8`/`== 9`, S-T8 old Sacred-Tree-unavailable, S-T9 two old, S-T2 old
+  `ApplyDefense(20, …)` expectation). **Kept:** `TickStore` old `gone` line (building-gone branch not observed — upgrade/death of a
+  shielded building not run); damage points ① (suite anchor ~797), ② ③ ⑤ (not hit in runtime); executor old `kind == None`;
+  Sweep diagnostic old body; setup tool's old Sacred Tree `InstantPlaceholder` line (tool rerun not evidenced); `SkillDefinition`
+  old tooltip records and `IncomingDamage` old-comment record (text, not logic); pre-stage-C record lines (`== 8` etc.).
+  Static harness run3 54 → 54, identical error set.
 
 - **Kind `StatusEffectKind.Shield = 8`** (service kind). Unit target = main effect, building target = extra row `{1, 8, 500}`.
   Building store `_buildingEffects` is separate from unit ids; buildings injected by setter `SetBuildingPlacement` (ctor unchanged).
@@ -224,11 +238,13 @@ Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Uncommitted at writing time
   `ProductionBuildings` = Team-target `ProductionSpeedMul` (Tactical Order — `BuildingTypeHelper.IsProductionBuilding`, stages 1-3,
   plus buildings built/upgraded during the effect via `OnBuildingPlaced` / upgrade `NewBuilding`, attached next Update with the
   batch's end time, log `BuildingVfxAttachedLate Reason=Built/Upgraded`). `BuildingVfxStarted` gained trailing `Scope=` key.
-  Implemented, user test NOT run at writing time. *(2026-11-17 — was "Tactical Order's building slot is not used (attach rule undecided)")*
+  User test PASS 2026-11-17 (Scope=ProductionBuildings, AttachedLate Built 4 / Upgraded 2). *(2026-11-17 — was "Tactical Order's building slot is not used (attach rule undecided)", then "user test NOT run")*
   Unit shield break stop: `UnitBuffVfxPresenter.ShieldDriver.cs` (Path=ShieldBroken).
 - **Suite:** `RunUnitActionSelfValidation.SupportShield.cs` Sh-T1~Sh-T10 (Sh-T10 = scope policy + presenter source gate). Editor check = copy the four partials + scratch stubs
   (scratchpad `a4_ed.tree/Ed/EdStubs.cs`, `SetupExtract.cs`) into a tree and run harness2 directly (run3.sh compiles runtime only).
 - **Temporary prefabs (S-17):** Sacred Tree `_statusVfxPrefab` = `vfx_bloomfairy_heal` (scale 2), `_buildingStatusVfxPrefab` =
-  `vfx_emp_disabled` (`{fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf}`, scale 1) — to be emptied after the test.
+  `vfx_emp_disabled` (`{fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf}`, scale 1).
   Tactical Order `_buildingStatusVfxPrefab` = same `vfx_emp_disabled` ref, scale 1 (added 2026-11-17; the asset had no such keys
-  before — empty value after the test = `{fileID: 0}`). Unit slot stays empty.
+  before). Unit slot stays empty. **Emptied 2026-11-17 after the test:** Sacred Tree `_statusVfxPrefab {fileID: 0}` scale 1,
+  `_buildingStatusVfxPrefab {fileID: 0}` scale 1; Tactical Order `_buildingStatusVfxPrefab {fileID: 0}` (scale 1 / offsetY 0 kept as
+  defaults). Suite Sh-T8 / B-6 / Z-T9 skip empty slots, and the presenter logs `NoPrefab`. *(was "to be emptied after the test")*

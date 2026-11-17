@@ -38,7 +38,6 @@ namespace Hexiege.Infrastructure
         //   NetworkSkillController.ShieldBrokenClientRpc(발동 순번, 유닛 Id 배열, 건물 Id 배열)가 새로 생겼다
         //   (8 → 9 「새 RPC가 생겼다」 선례와 같은 이유). 이 RPC를 모르는 빌드(스키마 9 — 단계 A 테스트 빌드)와 섞인 경기는
         //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다. 기존 RPC · 요청 RPC 모양은 그대로다.
-        //   옛 줄(기록용): public const int PresentationContractSchemaRevision = 9;
         public const int PresentationContractSchemaRevision = 10;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.

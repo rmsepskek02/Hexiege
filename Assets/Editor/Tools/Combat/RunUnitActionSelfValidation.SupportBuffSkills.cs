@@ -261,9 +261,7 @@ namespace Hexiege.Editor.Combat
             //   옛 줄(기록용):
             // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
             //     "B-8 support buff skills (D2 plan A) add no RPC — the presentation schema must stay 8.");
-            //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC 때문(강화 스킬과 무관한 변경). 옛 줄(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
-            //     "B-8 support buff skills (D2 plan A) add no RPC; the schema is 9 only because of the persistent-zone membership RPC.");
+            //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC 때문(강화 스킬과 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
                 "B-8 support buff skills (D2 plan A) add no RPC; the schema is 10 only because of the persistent-zone membership RPC (9) and the shield-broken RPC (10).");
 

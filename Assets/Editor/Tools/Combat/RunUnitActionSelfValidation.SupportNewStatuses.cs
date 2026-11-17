@@ -282,10 +282,8 @@ namespace Hexiege.Editor.Combat
                     () => f.Tower.ApplyTowerProjectileImpact(towerData, victims[5], 120, default));
 
                 // 상대 팀 유닛 · 건물은 언제나 그대로(대지의 갑주는 시전 팀 유닛만).
-                // [2026-11-17 비활성화 — 기대값 식 정정] 옛 줄:
-                // RequireSupportHit(tag, "enemy-team unit", enemyTeamUnit, DamageCalculator.ApplyDefense(20, enemyTeamUnit.Defense),
-                //   이 지점은 ④ 지속 피해(dot)로 때리는데, 지속 피해는 방어 감쇄를 거치지 않는다(ApplyTimedDamageToUnit → 틱 값 그대로).
-                //   옛 식은 Tank 방어가 0일 때만 우연히 20이었다(전역 스탯 값에 기대는 같은 종류의 결함). 같은 줄의 ④ · newcomer처럼 20 그대로를 기대한다.
+                //   이 지점은 ④ 지속 피해(dot)로 때리는데, 지속 피해는 방어 감쇄를 거치지 않는다(ApplyTimedDamageToUnit → 틱 값 그대로)
+                //   — 그래서 ④ · newcomer처럼 20 그대로를 기대한다(방어 감쇄 식을 쓰면 안 된다).
                 RequireSupportHit(tag, "enemy-team unit", enemyTeamUnit, 20,
                     () => dot.Invoke(f.Combat, new object[] { attacker, enemyTeamUnit, 20 }));
                 var blueBuilding = new BuildingData(97901, BuildingType.MiningPost, TeamId.Blue, new HexCoord(2, 0), 5000);
@@ -535,10 +533,7 @@ namespace Hexiege.Editor.Combat
                     && (StatusEffectKind)tactical.StatusKind == StatusEffectKind.AttackPowerMul && Mathf.Approximately(tactical.Magnitude, 1.5f),
                 "S-T8 Tactical Order keeps attack ×1.5 and has exactly one extra effect: team production speed ×1.5.");
 
-            // [2026-11-16 단계 C 비활성화 — 신목의 각성을 켰다(그 자산 계약은 SupportShield.cs Sh-T8이 본다)] 옛 검사:
-            // Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable
-            //         && !AssetDatabase.LoadAssetAtPath<SkillDefinition>(SacredTreeAssetPath).ToSkillData().IsAvailable,
-            //     "S-T8 Roots of Regeneration / Sacred Tree Awakening must stay unavailable in stage A.");
+            // 신목의 각성 자산 계약은 SupportShield.cs Sh-T8이 본다 — 여기서는 재생의 뿌리(단계 B)가 꺼져 있는지만 본다.
             Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
                 "S-T8 Roots of Regeneration must stay unavailable until stage B.");
         }
@@ -575,11 +570,6 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-16 단계 C 비활성화 — 신목의 각성을 켜 기대 수 9 → 10, 쉴드 깨짐 RPC로 스키마 9 → 10] 옛 검사 두 개:
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 9,
-            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 9 (Earth Armor enabled).");
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
-            //     "S-T9 stage A must keep the presentation schema at 9 (no new RPC).");
             Require(expected != null && (int)expected.GetRawConstantValue() == 10,
                 "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Earth Armor + Sacred Tree Awakening enabled).");
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,

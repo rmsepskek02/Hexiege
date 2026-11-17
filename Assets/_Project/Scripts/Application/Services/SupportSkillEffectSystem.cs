@@ -66,9 +66,6 @@ namespace Hexiege.Application
         /// <param name="kind">상태 종류.</param>
         public static bool IsServiceKind(StatusEffectKind kind)
         {
-            // [2026-11-16 단계 C 비활성화 — 쉴드 종류 추가(Plan 6-1)] 옛 식:
-            // return kind == StatusEffectKind.IncomingDamageMul
-            //     || kind == StatusEffectKind.ProductionSpeedMul;
             return kind == StatusEffectKind.IncomingDamageMul
                 || kind == StatusEffectKind.ProductionSpeedMul
                 || kind == StatusEffectKind.Shield;
@@ -82,8 +79,6 @@ namespace Hexiege.Application
         /// <param name="kind">효과 종류.</param>
         public static bool IsSupported(SkillEffectTarget target, StatusEffectKind kind)
         {
-            // [2026-11-16 단계 C 비활성화 — 유닛 쉴드 · 건물 쉴드 조합 추가(Plan 6-1)] 옛 줄:
-            // if (target == SkillEffectTarget.Unit) return kind == StatusEffectKind.IncomingDamageMul;
             if (target == SkillEffectTarget.Unit)
                 return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield;
             // 건물 대상(단계 C): 지금은 쉴드만. (단계 B 재생의 뿌리는 여기에 재생 종류를 더한다.)
@@ -395,9 +390,6 @@ namespace Hexiege.Application
         /// <param name="dt">경과 시간(초). 0 이하 · NaN이면 아무것도 하지 않는다.</param>
         public void Tick(float dt)
         {
-            // [2026-11-16 단계 C 비활성화 — 깨진 쉴드 알림을 「묶음이 모두 끝난 뒤」에도 보내야 해서 조건을 둘로 나눴다] 옛 줄:
-            // if (_closed || !(dt > 0f) || _activeBatches.Count == 0) return;
-            //   (마지막 대상의 쉴드가 깨지면 그 묶음이 끝나 _activeBatches가 0이 된다 — 옛 줄 그대로면 그 깨짐 알림이 영영 나가지 않는다.)
             if (_closed || !(dt > 0f)) return;
             // [단계 C] 지난 틱 사이에 깨진 쉴드를 한 번에 알린다(틱 단위 묶음 — 깨짐이 없으면 아무 일도 없다).
             FlushBrokenShields();

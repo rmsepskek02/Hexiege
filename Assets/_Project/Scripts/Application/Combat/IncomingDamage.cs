@@ -94,13 +94,9 @@ namespace Hexiege.Application
                 //   ⚠️ 아래 [SKILL-ARMOR] 진단에는 종전처럼 「배율 뒤 값」(finalDamage)을 넘긴다 — 대지의 갑주 판정 값의 뜻을 바꾸지 않는다.
                 int hpDamage = effects.AbsorbShield(unit, finalDamage, writer);
 
-                // [2026-11-16 단계 C 비활성화 — 쉴드 흡수 뒤 남은 피해만 HP로] 옛 줄:
-                // target.TakeDamage(finalDamage);
                 target.TakeDamage(hpDamage);
                 // [진단 [SKILL-ARMOR]] 감소 표본 · 지점별 계수(에디터 · 개발 빌드 전용 — 릴리스에서는 이 호출이 사라진다).
                 effects.DiagRecordIncomingDamage(unit, writer, rawBeforeDefense, damage, finalDamage, mul);
-                // [2026-11-16 단계 C 비활성화 — 반환값 = 실제로 TakeDamage에 넘긴 값(문서 주석과 같은 뜻)] 옛 줄:
-                // return finalDamage;
                 return hpDamage;
             }
 

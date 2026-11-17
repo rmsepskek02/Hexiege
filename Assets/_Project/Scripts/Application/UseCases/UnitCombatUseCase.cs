@@ -3130,8 +3130,6 @@ namespace Hexiege.Application
         {
             if (target == null || !target.IsAlive || amount <= 0) return;
 
-            // [2026-11-16 비활성화 — 피해 지점 ④를 단일 헬퍼로(Plan S-14 · S-4)] 옛 줄:
-            // target.TakeDamage(amount);
             //   지속 피해는 방어 감쇄가 없으므로(유닛 규칙 44) 감쇄 뒤 값 = 원래 틱 값이다. 대지의 갑주가 걸린 유닛이면
             //   그 틱 값에 0.7배를 곱한다(최소 1 — 예: 틱 2 → 1). DoT 총량 장부(AppliedAmount)는 원래 틱 값으로 센다(종전과 같다).
             IncomingDamage.Apply(_supportEffects, target, amount, amount, IncomingDamageWriter.DoT);

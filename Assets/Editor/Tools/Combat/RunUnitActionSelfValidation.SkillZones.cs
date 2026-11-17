@@ -341,20 +341,11 @@ namespace Hexiege.Editor.Combat
         /// <summary> Z-T10 — 스키마 · 셋업 기대 수 · 소스 게이트. </summary>
         private static void ValidateSkillZoneSourceGates()
         {
-            // [2026-11-16 지원 스킬 새 상태 Task 단계 C 비활성화] 쉴드 깨짐 알림 RPC로 스키마가 9 → 10이 됐다. 옛 검사:
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 9,
-            //     "Z-T10 the persistent-zone membership RPC must raise the presentation schema to 9.");
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
                 "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10).");
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-16 지원 스킬 새 상태 Task 단계 A — A-4 비활성화] 대지의 갑주를 켜 기대 수가 8 → 9가 됐다. 옛 검사:
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 8,
-            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 8 (six earlier skills + Frost Prison + Sap Swamp).");
-            // [2026-11-16 단계 C — C-4 비활성화] 신목의 각성을 켜 기대 수가 9 → 10이 됐다. 옛 검사:
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 9,
-            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 9 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor).");
             Require(expected != null && (int)expected.GetRawConstantValue() == 10,
                 "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening).");
 
