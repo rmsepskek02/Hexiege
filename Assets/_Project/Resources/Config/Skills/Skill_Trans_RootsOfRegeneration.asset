@@ -16,17 +16,34 @@ MonoBehaviour:
   _displayName: "\uC7AC\uC0DD\uC758 \uBFCC\uB9AC"
   _description: "\uB9F5 \uC804\uCCB4 \uC544\uAD70 \uC720\uB2DB\uACFC \uAC74\uBB3C\uC5D0
     \uCCB4\uB825 \uC7AC\uC0DD\uC744 \uBD80\uC5EC\uD558\uACE0 \uC99D\uD3ED\uD55C\uB2E4."
-  _isAvailable: 0
+  _isAvailable: 1
   _aimType: 0
   _cooldown: 15
   _mechanic: 2
   _radius: 0
-  _duration: 0
+  _duration: 8
   _totalDamage: 0
   _damagePerSecond: 0
-  _statusKind: 0
-  _magnitude: 0
+  _statusKind: 9
+  _magnitude: 20
   _targetsAllies: 1
   _impactDelay: 0
   _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
+  _zoneVfxPrefab: {fileID: 0}
+  _statusVfxPrefab: {fileID: 8266672880827664662, guid: ff068a5e9b80f3043a0517ebb1cfb00f, type: 3}
+  _statusVfxScale: 2
+  _statusVfxOffset: {x: 0, y: 0, z: 0}
+  _extraEffects:
+  - target: 1
+    statusKind: 9
+    magnitude: 40
+  - target: 0
+    statusKind: 10
+    magnitude: 1.5
+  - target: 1
+    statusKind: 10
+    magnitude: 1.5
+  _buildingStatusVfxPrefab: {fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf, type: 3}
+  _buildingStatusVfxScale: 1
+  _buildingStatusVfxOffsetY: 0

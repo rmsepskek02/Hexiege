@@ -21,6 +21,7 @@
 //        옛 9인자 컨텍스트(지원 다리 없음)도 전술 지령 공격력은 그대로 건다(B-5 보호).
 //   S-T8 자산 — 대지의 갑주(사용 가능 · 즉시 · 타입 C · 종류 6 · 0.7 · 8초 · 쿨 15 · 아군 · 정령 슬롯 3) · 전술 지령 추가 효과 1줄 ·
 //        재생의 뿌리 · 신목의 각성은 여전히 사용 불가 · 채워진 유닛 상태 VFX 칸은 상태 이펙트 계약.
+//        (2026-11-17 — 「재생의 뿌리 사용 불가」 검사는 단계 B에서 주석 비활성화. 재생의 뿌리 자산 계약은 SupportRegen.cs R-T8.)
 //   S-T9 소스 게이트 — 6곳 헬퍼 호출 · 남은 직접 TakeDamage 0 · 틱 자리(구역 틱 뒤 · 상태 틱 앞, 싱글 !IsNetworkMode) ·
 //        경기 종료 닫기 · 주입 · 셋업 기대 수 9 · 스키마 9 유지.
 //
@@ -70,7 +71,7 @@ namespace Hexiege.Editor.Combat
             ValidateSupportExecutorRouting();      // S-T7
             ValidateSupportNewStatusAssets();      // S-T8
             ValidateSupportNewStatusSourceGates(); // S-T9
-            Debug.Log("[UAS-DIAG][SKILL-ARMOR] self-validation PASS: rounding AwayFromZero + minimum 1 (S-T1), no-effect regression exact at all six damage points with and without the service (S-T2), Earth Armor ×0.7 at all six points while buildings / enemy team / units born after activation stay unchanged (S-T3), replace / expiry / death / Close / rejection lifecycle (S-T4), production dt × team multiplier incl. in-progress and newly registered barracks then exact restore (S-T5), pure-client progress mirror (S-T6), executor routing to the support bridge with Tactical Order attack path unchanged (S-T7), Earth Armor / Tactical Order asset contract with Roots still unavailable (S-T8), six helper call sites + tick / close / injection / setup 10 / schema 10 source gates (S-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-ARMOR] self-validation PASS: rounding AwayFromZero + minimum 1 (S-T1), no-effect regression exact at all six damage points with and without the service (S-T2), Earth Armor ×0.7 at all six points while buildings / enemy team / units born after activation stay unchanged (S-T3), replace / expiry / death / Close / rejection lifecycle (S-T4), production dt × team multiplier incl. in-progress and newly registered barracks then exact restore (S-T5), pure-client progress mirror (S-T6), executor routing to the support bridge with Tactical Order attack path unchanged (S-T7), Earth Armor / Tactical Order asset contract (S-T8), six helper call sites + tick / close / injection / setup 11 / schema 10 source gates (S-T9).");
         }
 
         // ── 피해 지점 fixture ─────────────────────────────────────────────
@@ -533,9 +534,10 @@ namespace Hexiege.Editor.Combat
                     && (StatusEffectKind)tactical.StatusKind == StatusEffectKind.AttackPowerMul && Mathf.Approximately(tactical.Magnitude, 1.5f),
                 "S-T8 Tactical Order keeps attack ×1.5 and has exactly one extra effect: team production speed ×1.5.");
 
-            // 신목의 각성 자산 계약은 SupportShield.cs Sh-T8이 본다 — 여기서는 재생의 뿌리(단계 B)가 꺼져 있는지만 본다.
-            Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
-                "S-T8 Roots of Regeneration must stay unavailable until stage B.");
+            // 신목의 각성 자산 계약은 SupportShield.cs Sh-T8이 본다.
+            // [2026-11-17 단계 B 비활성화 — 재생의 뿌리를 켰다. 자산 계약은 SupportRegen.cs R-T8이 본다] 옛 검사(기록용):
+            // Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
+            //     "S-T8 Roots of Regeneration must stay unavailable until stage B.");
         }
 
         /// <summary> S-T9 — 소스 게이트(6곳 · 틱 · 닫기 · 주입 · 셋업 · 스키마). </summary>
@@ -570,8 +572,11 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 10,
-                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Earth Armor + Sacred Tree Awakening enabled).");
+            // [2026-11-17 단계 B 비활성화 — 셋업 기대 수 10 → 11(재생의 뿌리)] 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 10,
+            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Earth Armor + Sacred Tree Awakening enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 11,
+                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration enabled).");
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
                 "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10.");
         }

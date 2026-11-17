@@ -1054,6 +1054,7 @@ namespace Hexiege.Editor.Combat
             ValidateSkillZones(); // [2026-11-11 지속 상태 구역(서리 감옥 · 수액 늪) — Z-T1~Z-T10]
             ValidateSupportNewStatusesStageA(); // [2026-11-16 지원 스킬 새 상태 단계 A(대지의 갑주 · 전술 지령 생산 속도) — S-T1~S-T9]
             ValidateSupportShieldStageC(); // [2026-11-16 지원 스킬 새 상태 단계 C(신목의 각성 쉴드 · 건물 상태 VFX · 깨짐 RPC) — Sh-T1~Sh-T9]
+            ValidateSupportRegenStageB(); // [2026-11-17 지원 스킬 새 상태 단계 B(재생의 뿌리 — 재생 · 받는 회복 배율) — R-T1~R-T9]
             ValidateFoxMagicianProductionTimeline();
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();

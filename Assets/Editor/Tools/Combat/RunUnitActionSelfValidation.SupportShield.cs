@@ -19,7 +19,7 @@
 //   Sh-T7 경기 종료 — Close 뒤 새 쉴드 거부 · 대기 중인 깨짐 알림 버림. 양이 1 미만이면 거부.
 //   Sh-T8 자산 · 실행기 — 신목의 각성(사용 가능 · 즉시 · 타입 C · 종류 8 · 150 · 8초 · 쿨 15 · 아군 · 초월 슬롯 2) ·
 //         추가 효과 정확히 1줄(건물 · 쉴드 · 500) · 채워진 상태 VFX 칸은 상태 이펙트 계약 · 실행기가 상태 다리 없이 지원 다리 2번 ·
-//         재생의 뿌리는 여전히 사용 불가.
+//         재생의 뿌리는 여전히 사용 불가. (2026-11-17 — 이 검사는 단계 B에서 주석 비활성화. 재생의 뿌리 계약은 SupportRegen.cs R-T8.)
 //   Sh-T9 소스 게이트 — 스키마 10 · 셋업 기대 수 10 · 헬퍼의 흡수 호출 2곳 · 깨짐 RPC · S-6 차이 0 재발행 2곳 · 배선 · 건물 VFX 장치.
 //
 // 실제 씬 · 멀티 전송 · 이펙트 모양은 여기서 확인하지 않는다(사용자 실기 항목 — Plan 6-1-7).
@@ -63,7 +63,7 @@ namespace Hexiege.Editor.Combat
             ValidateShieldSourceGates();         // Sh-T9
             ValidateBuildingVfxTargetScope();    // Sh-T10 [2026-11-17 S-10 — 전술 지령 건물 이펙트 = 아군 생산 건물 전부]
             Debug.Log("[UAS-DIAG][SKILL-BVFX] self-validation PASS: building status VFX target scope (Sh-T10) — Tactical Order → ProductionBuildings (late built / upgraded production buildings attach), Sacred Tree → ActivationBuildings (activation-time buildings only), Earth Armor / null → None; every production stage 1-3 of all three races is a target, non-production buildings / enemy team / dead buildings are not.");
-            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing with Roots still unavailable (Sh-T8), schema 10 / setup 10 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing (Sh-T8), schema 10 / setup 11 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
         }
 
         // 쉴드 깨짐 「확정」 이벤트를 모으는 도우미(검사 동안만 구독).
@@ -321,8 +321,9 @@ namespace Hexiege.Editor.Combat
                     Require(ps.main.scalingMode == ParticleSystemScalingMode.Hierarchy,
                         "Sh-T8 Sacred Tree status VFX particle '" + ps.name + "' must use Scaling Mode Hierarchy.");
             }
-            Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
-                "Sh-T8 Roots of Regeneration must stay unavailable until stage B.");
+            // [2026-11-17 단계 B 비활성화 — 재생의 뿌리를 켰다. 자산 계약은 SupportRegen.cs R-T8이 본다] 옛 검사(기록용):
+            // Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
+            //     "Sh-T8 Roots of Regeneration must stay unavailable until stage B.");
 
             // 실행기 — 주 효과(유닛 쉴드 150)와 추가 효과(건물 쉴드 500)가 모두 지원 다리로 가고 상태 시스템 다리는 부르지 않는다(R-7).
             var statusCalls = new List<StatusEffectKind>();
@@ -353,8 +354,11 @@ namespace Hexiege.Editor.Combat
                 "Sh-T9 the shield-broken RPC must raise the presentation schema to 10.");
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 10,
-                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Sacred Tree Awakening enabled).");
+            // [2026-11-17 단계 B 비활성화 — 셋업 기대 수 10 → 11(재생의 뿌리)] 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 10,
+            //     "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Sacred Tree Awakening enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 11,
+                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Sacred Tree Awakening + Roots of Regeneration enabled).");
 
             const string root = "Assets/_Project/Scripts/";
             string helper = File.ReadAllText(root + "Application/Combat/IncomingDamage.cs");

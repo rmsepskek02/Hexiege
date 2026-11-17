@@ -154,8 +154,9 @@ unit zone VFX start · Expire · UnitDied stop, `SlotLabels` Name 15/15. **Unobs
   V4 = `UnitBuffVfxPresenter` zone driver (`.ZoneDriver.cs`): entries carry `Driver` + `ZoneRefs`; stop groups log under the driver's
   prefix, so `[SKILL-BUFF]` keys are unchanged. Suite B-8 string gates read only the main presenter file — keep them there.
 - **Self-validation:** `RunUnitActionSelfValidation.SkillZones.cs` (Z-T1~Z-T10). Headless execution of `UnitCombatUseCase` /
-  `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` (reference UnityEngine
-  DLLs) — only the static compile harness works; the suite runs in the Editor.
+  `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` **when the real reference
+  UnityEngine DLLs are loaded**. *(2026-11-17 corrected — was "only the static compile harness works": it does work with a fake
+  `UnityEngine.CoreModule` assembly — see §7 「Headless fixture run」.)*
 - **Temporary test prefabs (Z-18):** Frost Prison `_zoneVfxPrefab` = `vfx_emp_disabled`, `_statusVfxPrefab` = `vfx_bloomfairy_heal`
   (scale 2, D14 precedent) were used for the test and **emptied after it** (`{fileID: 0}`, scale 1 — 2026-11-11). Every zone VFX
   slot is empty now: nothing is visible until real prefabs are made. Suite Z-T9 checks a filled slot's loop contract only when it
@@ -248,3 +249,35 @@ Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Commits `1bd5669` · `f2962
   before). Unit slot stays empty. **Emptied 2026-11-17 after the test:** Sacred Tree `_statusVfxPrefab {fileID: 0}` scale 1,
   `_buildingStatusVfxPrefab {fileID: 0}` scale 1; Tactical Order `_buildingStatusVfxPrefab {fileID: 0}` (scale 1 / offsetY 0 kept as
   defaults). Suite Sh-T8 / B-6 / Z-T9 skip empty slots, and the presenter logs `NoPrefab`. *(was "to be emptied after the test")*
+
+## 7. Stage B — Roots of Regeneration: regen channel + heal amplification (2026-11-17 — implemented, user test NOT run)
+
+Source: same Task, Plan §6-2 (B-1~B-4, B-L1~B-L18, RB-1~RB-9). Uncommitted at writing time — commits are made by the main session;
+verify `git log` before trusting this section.
+
+- **Kinds:** `StatusEffectKind.Regen = 9` (magnitude = HP per second) and `HealAmpMul = 10` (received-heal multiplier), both service
+  kinds, unit + building targets (`IsSupported`). Asset = main Regen 20 (unit) + extras `{Building, Regen, 40}`, `{Unit, HealAmpMul, 1.5}`,
+  `{Building, HealAmpMul, 1.5}` → one activation = **4 batches** (4 `RegenApplied` lines with `Kind=` / `Target=`). No executor change.
+- **Regen = 1 s pulses** (`SupportSkillEffectSystem.Regen.cs`, `TickRegen` runs inside `Tick` **before** `TickStore` so the last pulse
+  and its amplification happen before expiry). Why 1 s, not per tick: per-tick heals send one heal-sync RPC per target per server tick
+  (0.1 s → 10/s/unit). Final-slice tolerance 0.001 s makes 8 s give exactly 8 pulses even with 1/60 float sums. Full HP → pulse
+  skipped, record kept (B-L7). Text every 3rd pulse (mist interval 3 precedent). Heal event published by the service itself
+  (`OnEntityHealed`, healer = caster building, `healerIsUnit:false`) → existing `SyncHealClientRpc` / `SyncBuildingHealClientRpc`, schema 10.
+- **Amplification = one public `AmplifyHeal(target, amount, HealAmpSource)`** called right before `Heal` at the three heal points
+  (`ApplyHealToUnit` — new trailing optional `ampSource`; `MistShrineUseCase` unit + building via setter `SetSupportSkillEffectSystem`)
+  and by the regen pulse (which does not go through `ApplyHealToUnit` → amplified once, RB-5). Per-target carry on the HealAmpMul record
+  (`floor(amount × mag + carry)`), reset on replace, dropped with the record. No record / mag == 1 / dead → value returned unchanged.
+- **Diagnostics `[SKILL-REGEN]` (Diag=SkillRegen):** `RegenApplied`, `RegenTickSample` / `BuildingRegenSample` (first real heal per
+  target, `FullSkipsBefore=`), `HealAmpSample` (first per target × source, `Check=`), `NewTargetHealSample`, `RegenEnded` (Regen:
+  Pulses/BaseTotal/AmpTotal/HealedTotal/FullHpSkips; HealAmpMul: per-source Count/Req/Amp + `TotalCheck` with carry-loss bound).
+- **Suite:** `RunUnitActionSelfValidation.SupportRegen.cs` R-T1~R-T9 inside `SupportFixtureStatsScope`; old `== 10` setup checks
+  (Z-T10 · S-T9 · Sh-T9) and "Roots unavailable" checks (S-T8 · Sh-T8) commented out. Setup tool `ExpectedAvailableCount` 11.
+- **Temporary prefabs (S-17):** Roots `_statusVfxPrefab` = `vfx_bloomfairy_heal` (`{fileID: 8266672880827664662, guid: ff068a5e9b80f3043a0517ebb1cfb00f}`,
+  scale 2), `_buildingStatusVfxPrefab` = `vfx_emp_disabled` (scale 1). Empty both after the test.
+- **Headless fixture run (works — 2026-11-17):** build a fake `UnityEngine.CoreModule` **assembly** (AssemblyName must be exactly
+  that, so UniRx's reference binds to it; a same-namespace source file is not enough — CS0012 on UniRx `AddTo` overloads), compile
+  `Scripts/Domain` + `Scripts/Application` + the editor partials + small stubs (`SkillDefinition`, `SkillLoadoutConfig`, `EffectManager`,
+  setup-tool const, `UnityEditor.AssetDatabase`) as a net8.0 exe, drop the real Unity DLL references, and invoke the private fixture
+  methods by reflection inside `SupportFixtureStatsScope`. R-T1~R-T5 + S-T2/S-T3/S-T4 passed this way in both release and
+  `DEVELOPMENT_BUILD;UNITY_EDITOR` (diagnostic lines printed through GameLog's console fallback). Scratch: `rb_fakeunity/`, `rb_run/`.
+  Asset-reading checks (R-T6~R-T8) still need the Editor.
