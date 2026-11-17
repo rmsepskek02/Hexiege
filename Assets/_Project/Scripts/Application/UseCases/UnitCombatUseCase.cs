@@ -109,11 +109,13 @@ namespace Hexiege.Application
         private const int MaximumPresentationFactsPerImpact = 256;
         private const int SecondaryDamageEffectKind = 2;
         private AppliedPresentationFactCollector _activePresentationFactCollector;
+        // 이 UseCase의 동기 scope 사이에서만 재사용하는 대기 슬롯. 전역 pool이나 반환 결과 배열이 아니다.
+        private AppliedPresentationFactCollector _idlePresentationFactCollector;
 
         private sealed class AppliedPresentationFactCollector
         {
-            private readonly int _attackerId;
-            private readonly AttackResultKey _primaryKey;
+            private int _attackerId;
+            private AttackResultKey _primaryKey;
             private readonly List<AppliedAttackPresentationFact> _facts =
                 new List<AppliedAttackPresentationFact>(8);
             private int _nextSecondaryOrdinal;
@@ -125,6 +127,26 @@ namespace Hexiege.Application
             {
                 _attackerId = attackerId;
                 _primaryKey = primaryKey;
+            }
+
+            // idle에서 빌린 뒤에만 호출한다. active 중첩 호출은 기존 NestedCollection 경로를 사용한다.
+            public void BeginReset(int attackerId, AttackResultKey primaryKey)
+            {
+                _facts.Clear();
+                _attackerId = attackerId;
+                _primaryKey = primaryKey;
+                _nextSecondaryOrdinal = 0;
+                Status = AttackDamagePresentationBundleStatus.Complete;
+            }
+
+            // ToArray 결과는 별도 소유 배열이다. 내부 버퍼의 값과 scope 식별자만 지운다.
+            public void ClearScope()
+            {
+                _facts.Clear();
+                _attackerId = -1;
+                _primaryKey = default;
+                _nextSecondaryOrdinal = 0;
+                Status = AttackDamagePresentationBundleStatus.Complete;
             }
 
             public void Record(UnitData attacker, IDamageable target, int hpBefore,
@@ -916,7 +938,17 @@ namespace Hexiege.Application
         /// <param name="attacker">공격을 시도하는 유닛</param>
         /// <returns>공격 가능한 타겟이 있으면 (타겟 Id, 타겟이 유닛인지), 없으면 null</returns>
         public (int id, bool isUnit)? TryFindTarget(UnitData attacker)
+            => TryFindTarget(attacker, out _);
+
+        /// <summary>
+        /// 기존 타겟 검색 결과와 함께, 사거리 검색이 정상 완료되었는지를 돌려준다.
+        /// 적이 없어 null이어도 검색은 끝났으므로 같은 동기 호출에서 재검색할 필요가 없다.
+        /// 쿨다운·권한·사망 등으로 검색을 생략한 null과 구분하며, 틱 사이에 결과를 캐시하지 않는다.
+        /// 기존 1인자 진입점의 검사 순서와 최근접 선택 구현은 이 오버로드에 그대로 유지한다.
+        /// </summary>
+        public (int id, bool isUnit)? TryFindTarget(UnitData attacker, out bool rangeQueryPerformed)
         {
+            rangeQueryPerformed = false;
             if (attacker == null || !attacker.IsAlive) return null;
 
             // 멀티플레이 모드에서는 서버만 전투 처리.
@@ -928,6 +960,7 @@ namespace Hexiege.Application
 
             // 사거리 내 가장 가까운 적 탐색 (데미지 미적용)
             IDamageable target = FindFirstEnemyTarget(attacker);
+            rangeQueryPerformed = true;
             if (target == null) return null;
 
             return (target.Id, target is UnitData);
@@ -1103,24 +1136,42 @@ namespace Hexiege.Application
                     AttackDamagePresentationBundleStatus.NestedCollection);
             }
 
-            var collector = new AppliedPresentationFactCollector(
-                attacker != null ? attacker.Id : -1, presentationResultKey);
-            _activePresentationFactCollector = collector;
-            AttackDamageObservation primary;
+            // 기존: 호출마다 collector + List + 초기 backing 배열을 새로 만들었다.
+            // var collector = new AppliedPresentationFactCollector(
+            //     attacker != null ? attacker.Id : -1, presentationResultKey);
+            var collector = _idlePresentationFactCollector;
+            _idlePresentationFactCollector = null; // 대여 즉시 비운다. 반환 배열을 만든 뒤까지 로컬이 소유한다.
+            if (collector == null)
+                collector = new AppliedPresentationFactCollector(
+                    attacker != null ? attacker.Id : -1, presentationResultKey);
             try
             {
-                primary = ApplyAttackDamageCore(
-                    attacker, targetId, targetIsUnit,
-                    updateLegacyDomainFacing: false,
-                    presentationResultKey: presentationResultKey);
+                collector.BeginReset(attacker != null ? attacker.Id : -1, presentationResultKey);
+                _activePresentationFactCollector = collector;
+                AttackDamageObservation primary;
+                try
+                {
+                    primary = ApplyAttackDamageCore(
+                        attacker, targetId, targetIsUnit,
+                        updateLegacyDomainFacing: false,
+                        presentationResultKey: presentationResultKey);
+                }
+                finally
+                {
+                    // 기존과 같이 writer가 끝나는 즉시 active를 해제한다(ToArray보다 먼저).
+                    _activePresentationFactCollector = null;
+                }
+
+                return new AttackDamagePresentationBundleObservation(
+                    primary, collector.ToArray(), collector.Status);
             }
             finally
             {
-                _activePresentationFactCollector = null;
+                // writer/최종 배열 생성이 실패해도 다음 scope에 이전 fact나 상태를 넘기지 않는다.
+                collector.ClearScope();
+                if (_idlePresentationFactCollector == null)
+                    _idlePresentationFactCollector = collector;
             }
-
-            return new AttackDamagePresentationBundleObservation(
-                primary, collector.ToArray(), collector.Status);
         }
 
         private AttackDamageObservation ApplyAttackDamageCore(
