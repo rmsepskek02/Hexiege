@@ -21,7 +21,7 @@
 //        옛 9인자 컨텍스트(지원 다리 없음)도 전술 지령 공격력은 그대로 건다(B-5 보호).
 //   S-T8 자산 — 대지의 갑주(사용 가능 · 즉시 · 타입 C · 종류 6 · 0.7 · 8초 · 쿨 15 · 아군 · 정령 슬롯 3) · 전술 지령 추가 효과 1줄 ·
 //        재생의 뿌리 · 신목의 각성은 여전히 사용 불가 · 채워진 유닛 상태 VFX 칸은 상태 이펙트 계약.
-//        (2026-11-17 — 「재생의 뿌리 사용 불가」 검사는 단계 B에서 주석 비활성화. 재생의 뿌리 자산 계약은 SupportRegen.cs R-T8.)
+//        (2026-11-17 — 「재생의 뿌리 사용 불가」 검사는 단계 B 테스트 통과 뒤 삭제. 재생의 뿌리 자산 계약은 SupportRegen.cs R-T8.)
 //   S-T9 소스 게이트 — 6곳 헬퍼 호출 · 남은 직접 TakeDamage 0 · 틱 자리(구역 틱 뒤 · 상태 틱 앞, 싱글 !IsNetworkMode) ·
 //        경기 종료 닫기 · 주입 · 셋업 기대 수 9 · 스키마 9 유지.
 //
@@ -162,10 +162,6 @@ namespace Hexiege.Editor.Combat
                 _oldBuildingData = BuildingDataField.GetValue(null);
 
                 // 유닛 표 — 빈 표에 두 행만 넣는다(원래 표는 건드리지 않는다 — 새 Dictionary).
-                // [2026-11-17 비활성화 — 복사하면 Play 뒤 남은 실제 표의 다른 행이 섞인다(위 설명)] 옛 줄(기록용):
-                // var units = _oldUnitData is Dictionary<UnitType, UnitStats.StatValues> oldUnits
-                //     ? new Dictionary<UnitType, UnitStats.StatValues>(oldUnits)
-                //     : new Dictionary<UnitType, UnitStats.StatValues>();
                 var units = new Dictionary<UnitType, UnitStats.StatValues>();
                 units[UnitType.Pistoleer] = new UnitStats.StatValues { MaxHp = 300, AttackPower = AttackerAttackPower, AttackRange = 3f,
                     DetectRange = 3f, MoveSpeed = 1f, AttackCooldown = 1f, HitFrameTimes = new[] { .2f }, Defense = 0 };
@@ -174,11 +170,6 @@ namespace Hexiege.Editor.Combat
                 UnitStats.Initialize(units);
 
                 // 건물 표 — 마찬가지로 빈 표에 이 검사들이 쓰는 행만 넣는다.
-                // [2026-11-17 비활성화 — 복사하면 Play 뒤 남은 실제 표의 「초월 TrainingCamp HP 0」이 섞여 Sh-T5가 실패했다] 옛 줄(기록용):
-                // // 건물 표 — 마찬가지로 복사 후 초월 Castle 행만 덮는다(Spirit AutoTower 등 앞 검사가 넣은 행은 그대로 — ⑤가 그 값을 쓴다).
-                // var buildings = _oldBuildingData is Dictionary<(BuildingType, RaceId), BuildingStats.StatValues> oldBuildings
-                //     ? new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>(oldBuildings)
-                //     : new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
                 var buildings = new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
                 buildings[(BuildingType.Castle, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = CastleTranscendenceMaxHp };
                 // Sh-T5 — 초월 훈련소 배치 · 업그레이드(TrainingCamp → WarAcademy). 실제 표에서는 둘 다 초월 HP 0이다(인간 전용 건물).
@@ -189,12 +180,6 @@ namespace Hexiege.Editor.Combat
                     { MaxHp = 1000, AttackPower = SpiritTowerAttackPower, AttackCooldown = 1f, AttackRange = 3f };
                 BuildingStats.Initialize(buildings);
 
-                // [2026-11-17 비활성화 — 고정 행이 늘어 확인 조건을 넓혔다] 옛 확인(기록용):
-                // Require(UnitStats.GetMaxHp(UnitType.Tank) == VictimTankMaxHp && UnitStats.GetAttackPower(UnitType.Pistoleer) == AttackerAttackPower
-                //         && UnitStats.GetDefense(UnitType.Tank) == 0
-                //         && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp,
-                //     "S-T0 support fixture stats must be pinned (Tank HP " + VictimTankMaxHp + ", Pistoleer attack " + AttackerAttackPower
-                //     + ", Transcendence Castle HP " + CastleTranscendenceMaxHp + ").");
                 Require(UnitStats.GetMaxHp(UnitType.Tank) == VictimTankMaxHp && UnitStats.GetAttackPower(UnitType.Pistoleer) == AttackerAttackPower
                         && UnitStats.GetDefense(UnitType.Tank) == 0
                         && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp
@@ -571,9 +556,7 @@ namespace Hexiege.Editor.Combat
                 "S-T8 Tactical Order keeps attack ×1.5 and has exactly one extra effect: team production speed ×1.5.");
 
             // 신목의 각성 자산 계약은 SupportShield.cs Sh-T8이 본다.
-            // [2026-11-17 단계 B 비활성화 — 재생의 뿌리를 켰다. 자산 계약은 SupportRegen.cs R-T8이 본다] 옛 검사(기록용):
-            // Require(!AssetDatabase.LoadAssetAtPath<SkillDefinition>(RootsAssetPath).ToSkillData().IsAvailable,
-            //     "S-T8 Roots of Regeneration must stay unavailable until stage B.");
+            // 재생의 뿌리 자산 계약은 SupportRegen.cs R-T8이 본다.
         }
 
         /// <summary> S-T9 — 소스 게이트(6곳 · 틱 · 닫기 · 주입 · 셋업 · 스키마). </summary>
@@ -608,9 +591,6 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-17 단계 B 비활성화 — 셋업 기대 수 10 → 11(재생의 뿌리)] 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 10,
-            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (Earth Armor + Sacred Tree Awakening enabled).");
             Require(expected != null && (int)expected.GetRawConstantValue() == 11,
                 "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration enabled).");
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,

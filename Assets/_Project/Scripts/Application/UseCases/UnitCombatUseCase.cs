@@ -678,8 +678,7 @@ namespace Hexiege.Application
             for (int i = 0; i < _regenBuffer.Count; i++)
             {
                 // healer=null(자연회복은 시전자 없음). showText=false로 매 틱 힐 텍스트 스팸 방지.
-                // [2026-11-17 단계 B] 출처 Natural을 넘긴다(받는 회복 배율 진단 Source=Natural — 계산은 같다). 옛 줄(기록용):
-                // ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+                // [2026-11-17 단계 B] 출처 Natural을 넘긴다(받는 회복 배율 진단 Source=Natural — 계산은 같다).
                 ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false, ampSource: HealAmpSource.Natural);
             }
         }
@@ -2220,8 +2219,6 @@ namespace Hexiege.Application
             //   서비스가 「회복량 × 1.5 + 지난 나머지」의 정수를 돌려주고 1 미만 나머지는 그 유닛 몫으로 모아 둔다(소수 이월).
             //   효과가 없는 유닛 · 서비스 미주입(null)이면 amount 그대로다 → 기존 회복과 정확히 같다(회귀 안전).
             //   파도 진단(WaveWriterDiagnostic)은 기존대로 요청량(amount)을 남긴다 — 파도는 정령 회복이라 초월 효과와 만나지 않는다.
-            //   옛 줄(기록용):
-            // target.Heal(amount);
             int healAmount = _supportEffects != null ? _supportEffects.AmplifyHeal(target, amount, ampSource) : amount;
             target.Heal(healAmount);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -3009,8 +3006,7 @@ namespace Hexiege.Application
                         int hpBefore = target.Hp;
                         // [2026-11-17 단계 B] 출처를 넘긴다 — 시전자가 BloomFairy면 Bloom, 아니면(시전자 없음 · 다른 유닛) HoT.
                         //   받는 회복 배율 진단 Source= 값일 뿐 계산은 같다. 증폭되면 실제로 오른 HP(아래 ActualHealed)도 그만큼 커진다
-                        //   — 완료 텍스트가 「실제 회복량」 기준이라 그대로 맞는다. 옛 줄(기록용):
-                        // ApplyHealToUnit(healer, target, diff, showText: false);
+                        //   — 완료 텍스트가 「실제 회복량」 기준이라 그대로 맞는다.
                         ApplyHealToUnit(healer, target, diff, showText: false,
                             ampSource: healer != null && healer.Type == UnitType.BloomFairy ? HealAmpSource.Bloom : HealAmpSource.HoT);
                         effect.ActualHealed += target.Hp - hpBefore;

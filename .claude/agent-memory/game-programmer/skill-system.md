@@ -227,6 +227,8 @@ Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Commits `1bd5669` · `f2962
   Sweep diagnostic old body; setup tool's old Sacred Tree `InstantPlaceholder` line (tool rerun not evidenced); `SkillDefinition`
   old tooltip records and `IncomingDamage` old-comment record (text, not logic); pre-stage-C record lines (`== 8` etc.).
   Static harness run3 54 → 54, identical error set.
+  **[2026-11-17 stage B follow-up — original kept above: the setup tool's Sacred Tree `InstantPlaceholder` line and `= 9` record line
+  were deleted in the stage B cleanup (§7); `TickStore` `gone`, ① ② ③ ⑤, executor, Sweep, tooltips remain.]**
 
 - **Kind `StatusEffectKind.Shield = 8`** (service kind). Unit target = main effect, building target = extra row `{1, 8, 500}`.
   Building store `_buildingEffects` is separate from unit ids; buildings injected by setter `SetBuildingPlacement` (ctor unchanged).
@@ -258,10 +260,22 @@ Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Commits `1bd5669` · `f2962
   `_buildingStatusVfxPrefab {fileID: 0}` scale 1; Tactical Order `_buildingStatusVfxPrefab {fileID: 0}` (scale 1 / offsetY 0 kept as
   defaults). Suite Sh-T8 / B-6 / Z-T9 skip empty slots, and the presenter logs `NoPrefab`. *(was "to be emptied after the test")*
 
-## 7. Stage B — Roots of Regeneration: regen channel + heal amplification (2026-11-17 — implemented, user test NOT run)
+## 7. Stage B — Roots of Regeneration: regen channel + heal amplification (2026-11-17 — stage B user test PASS + full suite PASS)
 
-Source: same Task, Plan §6-2 (B-1~B-4, B-L1~B-L18, RB-1~RB-9). Uncommitted at writing time — commits are made by the main session;
-verify `git log` before trusting this section.
+Source: same Task, Plan §6-2 (B-1~B-4, B-L1~B-L18, RB-1~RB-9). Commits `c0c2ae7` · `9d723b7` · `284c8a9`; user test PASS 2026-11-17
+(two multi matches, Host device archive) and full regression suite PASS incl. Editor-only Sh-T8 · Sh-T10 · R-T6~R-T8.
+*(2026-11-17 — was "implemented, user test NOT run / uncommitted")*
+
+- **Post-test cleanup (2026-11-17, uncommitted at writing time):** temporary prefabs emptied (see below). Deleted disabled lines whose
+  replacement ran: `SupportSkillEffectSystem` old `IsServiceKind` expr + old `IsSupported` two lines; Mist heal points ② ③ old
+  `Heal(_healPerTick)`; `UnitCombatUseCase` heal point ① old `Heal(amount)`, Natural and Bloom/HoT old `ApplyHealToUnit` lines; suite
+  old `== 10` setup checks (Z-T10 · S-T9 · Sh-T9), "Roots unavailable" (S-T8 · Sh-T8), `SupportFixtureStatsScope` old copy lines ×2 +
+  old pinned-row check; setup tool old Roots + Sacred Tree `InstantPlaceholder` lines and `ExpectedAvailableCount = 9 / 10` record
+  lines. **Kept:** Wave old `ApplyHealToUnit` line (Wave writer not run); `TickStore` old `gone` line (building-gone not run); damage
+  points ① (suite anchor ~797) ② ③ ⑤; executor `kind == None`; Sweep old body; `SkillDefinition` old tooltips (text); zones-task
+  `== 8` / `= 8` record lines (other task). R-T9 / S-T9 gates use `SupportActiveLineCount` (comments excluded) → unaffected by
+  deleting the commented old heal lines (R-T9 failure-message text still says "old … only as a comment" — message only).
+  Static harness run3 54 → 54, identical error set; headless `shx/` null / real / poison 32 PASS each.
 
 - **Kinds:** `StatusEffectKind.Regen = 9` (magnitude = HP per second) and `HealAmpMul = 10` (received-heal multiplier), both service
   kinds, unit + building targets (`IsSupported`). Asset = main Regen 20 (unit) + extras `{Building, Regen, 40}`, `{Unit, HealAmpMul, 1.5}`,
@@ -279,9 +293,11 @@ verify `git log` before trusting this section.
   target, `FullSkipsBefore=`), `HealAmpSample` (first per target × source, `Check=`), `NewTargetHealSample`, `RegenEnded` (Regen:
   Pulses/BaseTotal/AmpTotal/HealedTotal/FullHpSkips; HealAmpMul: per-source Count/Req/Amp + `TotalCheck` with carry-loss bound).
 - **Suite:** `RunUnitActionSelfValidation.SupportRegen.cs` R-T1~R-T9 inside `SupportFixtureStatsScope`; old `== 10` setup checks
-  (Z-T10 · S-T9 · Sh-T9) and "Roots unavailable" checks (S-T8 · Sh-T8) commented out. Setup tool `ExpectedAvailableCount` 11.
+  (Z-T10 · S-T9 · Sh-T9) and "Roots unavailable" checks (S-T8 · Sh-T8) deleted after the suite PASS. Setup tool `ExpectedAvailableCount` 11.
+  *(2026-11-17 — was "commented out")*
 - **Temporary prefabs (S-17):** Roots `_statusVfxPrefab` = `vfx_bloomfairy_heal` (`{fileID: 8266672880827664662, guid: ff068a5e9b80f3043a0517ebb1cfb00f}`,
-  scale 2), `_buildingStatusVfxPrefab` = `vfx_emp_disabled` (scale 1). Empty both after the test.
+  scale 2), `_buildingStatusVfxPrefab` = `vfx_emp_disabled` (scale 1). **Emptied 2026-11-17 after the test:** `_statusVfxPrefab {fileID: 0}`
+  scale 1, `_buildingStatusVfxPrefab {fileID: 0}` scale 1. R-T8 / Sh-T8 / B-6 / Z-T9 / S-T8 skip empty slots. *(was "Empty both after the test")*
 - **Headless fixture run (works — 2026-11-17):** build a fake `UnityEngine.CoreModule` **assembly** (AssemblyName must be exactly
   that, so UniRx's reference binds to it; a same-namespace source file is not enough — CS0012 on UniRx `AddTo` overloads), compile
   `Scripts/Domain` + `Scripts/Application` + the editor partials + small stubs (`SkillDefinition`, `SkillLoadoutConfig`, `EffectManager`,

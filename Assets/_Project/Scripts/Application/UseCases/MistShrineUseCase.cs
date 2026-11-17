@@ -599,8 +599,6 @@ namespace Hexiege.Application
 
             int before = target.Hp;
             // [2026-11-17 단계 B — 회복 지점 ②] 받는 회복 배율(재생의 뿌리)을 거친 양으로 회복한다(효과 없으면 _healPerTick 그대로).
-            //   옛 줄(기록용):
-            // target.Heal(_healPerTick);
             target.Heal(AmplifiedMistHeal(target));
             // 실제로 회복이 일어난 대상만 이벤트를 발행한다(규칙 5·15 — 풀피 대상은 텍스트도 없다).
             if (target.Hp == before) return;
@@ -624,8 +622,7 @@ namespace Hexiege.Application
             if (target == null || !target.IsAlive) return;
 
             int before = target.Hp;
-            // [2026-11-17 단계 B — 회복 지점 ③] 건물도 받는 회복 배율을 거친다(Plan S-3 「건물 포함」). 옛 줄(기록용):
-            // target.Heal(_healPerTick);
+            // [2026-11-17 단계 B — 회복 지점 ③] 건물도 받는 회복 배율을 거친다(Plan S-3 「건물 포함」).
             target.Heal(AmplifiedMistHeal(target));
             if (target.Hp == before) return;
 

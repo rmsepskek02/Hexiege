@@ -72,10 +72,6 @@ namespace Hexiege.Application
         /// <param name="kind">상태 종류.</param>
         public static bool IsServiceKind(StatusEffectKind kind)
         {
-            // [2026-11-17 단계 B 비활성화 — 재생 · 받는 회복 배율 추가] 옛 식:
-            // return kind == StatusEffectKind.IncomingDamageMul
-            //     || kind == StatusEffectKind.ProductionSpeedMul
-            //     || kind == StatusEffectKind.Shield;
             return kind == StatusEffectKind.IncomingDamageMul
                 || kind == StatusEffectKind.ProductionSpeedMul
                 || kind == StatusEffectKind.Shield
@@ -91,10 +87,6 @@ namespace Hexiege.Application
         /// <param name="kind">효과 종류.</param>
         public static bool IsSupported(SkillEffectTarget target, StatusEffectKind kind)
         {
-            // [2026-11-17 단계 B 비활성화 — 유닛 · 건물에 재생 · 받는 회복 배율을 더했다] 옛 두 줄:
-            // if (target == SkillEffectTarget.Unit)
-            //     return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield;
-            // if (target == SkillEffectTarget.Building) return kind == StatusEffectKind.Shield;
             if (target == SkillEffectTarget.Unit)
                 return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield
                     || kind == StatusEffectKind.Regen || kind == StatusEffectKind.HealAmpMul;

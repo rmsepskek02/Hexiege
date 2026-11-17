@@ -346,9 +346,6 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-17 지원 스킬 새 상태 단계 B 비활성화 — 재생의 뿌리를 켜 셋업 기대 수가 10 → 11] 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 10,
-            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 10 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening).");
             Require(expected != null && (int)expected.GetRawConstantValue() == 11,
                 "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration).");
 
