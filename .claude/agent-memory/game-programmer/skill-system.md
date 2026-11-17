@@ -198,9 +198,17 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses
   suite run `UnitStats._data` is null (no bootstrap; SoloTiming ~4385 · Fox ~8250 · ServerProjectiles ~224 restore it to the old
   null), so `SpawnUnitWithId` gives fallbacks HP 10 / attack 1 / defense 0; `BuildingStats` holds only the Spirit AutoTower row that
   VfxConnections ~2066 injects without restore (Castle Trans → fallback 200). Fix: `SupportFixtureStatsScope` (`.SupportNewStatuses.cs`,
-  `using var` at both S-T / Sh-T entry points) copies both tables, pins Pistoleer atk 60 · Tank HP 10000 def 0 · Trans Castle 2000,
-  restores the original references on Dispose. B-* / Z-T* passed in that run (they ran before S-T2). Write new HP-based fixtures
-  inside this scope, and never compute a DoT expectation with `ApplyDefense` (DoT skips defense).
+  `using var` at the S-T / Sh-T / R-T entry points) **starts from empty tables** and pins Pistoleer atk 60 · Tank HP 10000 def 0 ·
+  Trans Castle 2000 · Trans TrainingCamp/WarAcademy 1000 · Spirit AutoTower atk 100, restores the original references on Dispose.
+  *(2026-11-17 — was "copies both tables"; second suite FAIL "Sh-T5 fixture TrainingCamp must be placed alive": after an Editor Play
+  session the statics keep GameBootstrapper's real config until the next recompile, and the real BuildingStatsConfig has Trans
+  TrainingCamp MaxHp 0 (Human-only building) → HP 0 = not alive; with null tables the fallback 48 passed. Also: VfxConnections does
+  restore in `finally` ~2135 — "without restore" above was wrong.)* B-* / Z-T* passed in that run (they ran before S-T2). Write new
+  HP-based fixtures inside this scope **and add a pinned row for every (type, race) they place**, and never compute a DoT expectation
+  with `ApplyDefense` (DoT skips defense).
+- **Lesson — test a fixture against three global states, not one:** null tables (fresh domain), real config tables (= after Play),
+  and poison tables (every row HP 0/1, attack 0). Only the poison run proves a fixture reads nothing outside its pinned rows.
+  Headless runner with all three modes: scratch `shx/` (Main.cs parses the two config .asset files like `GameBootstrapper.Setup`).
 
 ## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — stage C user test PASS 2026-11-17)
 

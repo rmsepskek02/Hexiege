@@ -120,17 +120,30 @@ namespace Hexiege.Editor.Combat
         //   그래서 이 검사들이 그 순간의 전역 값에 기대면, 스위트 안 순서나 그 전에 게임을 실행했는지에 따라 결과가 달라진다.
         //
         // [무엇을 하는가]
-        //   만들 때: 지금 표를 복사한 뒤(다른 행은 그대로 둔다) 이 검사들이 쓰는 행만 고정값으로 덮어 넣는다.
+        //   만들 때: 「빈 표」에서 시작해(2026-11-17 두 번째 수정 — 아래 설명) 이 검사들이 쓰는 행만 고정값으로 넣는다.
         //     - Pistoleer(공격자) 공격력 60: 0이 아니고, 쉴드 Sh-T3의 「공격력 > 20」 전제를 만족한다.
-        //     - Tank(피격 대상) HP 10000 · 방어 0: 가장 큰 기대 피해(③ 포격 150 · ⑤ Spirit AutoTower 실제 에셋 150)보다 훨씬 크다.
+        //     - Tank(피격 대상) HP 10000 · 방어 0: 가장 큰 기대 피해(③ 포격 150 · ⑤ Spirit AutoTower 100)보다 훨씬 크다.
         //     - 초월 Castle HP 2000: Sh-T3에서 공격력 60을 두 번 맞아도 살아 있다.
+        //     - 초월 TrainingCamp · WarAcademy HP 1000: Sh-T5가 훈련소를 놓고(살아 있어야 한다) 업그레이드한다(다음 단계 = WarAcademy).
+        //     - 정령 AutoTower(공격력 100 · 쿨 1 · 사거리 3 · HP 1000): S-T2 / S-T3 ⑤ 탑 즉발 피해가 이 공격력을 읽는다.
+        //   표에 없는 행은 조회 함수의 코드 폴백(상수)을 쓴다 — 전역 상태와 무관하게 언제나 같은 값이다.
         //   끝날 때(Dispose): 두 표의 「원래 참조」를 그대로 되돌린다(null이었으면 null로) — 뒤따르는 검사가 보는 전역 상태는 이전과 같다.
         //   (Initialize는 사본을 만들므로 되돌릴 때는 Initialize가 아니라 필드에 원래 참조를 직접 넣는다 — 서버 투사체 fixture와 같은 방식.)
+        //
+        // [2026-11-17 두 번째 스위트 실패 — 「Sh-T5 fixture TrainingCamp must be placed alive」 — 왜 복사를 그만두었나]
+        //   처음 버전은 「지금 표를 복사」한 뒤 몇 행만 덮었다. 그런데 에디터에서 게임을 한 번 실행(Play)하고 멈추면,
+        //   GameBootstrapper가 넣은 「실제 설정 에셋 표」가 정적 필드에 그대로 남는다(다음 스크립트 재컴파일 전까지).
+        //   실제 BuildingStatsConfig에서 TrainingCamp는 인간 전용 건물이라 초월(Transcendence) HP가 0이다(BuildingStatsConfig.asset
+        //   buildingType: 7 → transcendenceMaxHp: 0). 그 표를 복사하면 Sh-T5의 초월 훈련소가 HP 0(= IsAlive false)으로 놓인다.
+        //   표가 비어 있을 때(재컴파일 직후)는 폴백 48이라 통과했다 — 같은 코드가 「그 전에 Play를 했는지」에 따라 갈렸다.
+        //   그래서 복사하지 않고 빈 표 + 고정 행으로 바꿨다. 검사가 새 행을 쓰면 여기에 고정 행을 더한다.
         private sealed class SupportFixtureStatsScope : IDisposable
         {
             public const int AttackerAttackPower = 60;
             public const int VictimTankMaxHp = 10000;
             public const int CastleTranscendenceMaxHp = 2000;
+            public const int ProductionTranscendenceMaxHp = 1000;
+            public const int SpiritTowerAttackPower = 100;
 
             private static readonly FieldInfo UnitDataField =
                 typeof(UnitStats).GetField("_data", BindingFlags.Static | BindingFlags.NonPublic);
@@ -148,28 +161,49 @@ namespace Hexiege.Editor.Combat
                 _oldUnitData = UnitDataField.GetValue(null);
                 _oldBuildingData = BuildingDataField.GetValue(null);
 
-                // 유닛 표 — 기존 행을 복사하고 두 행만 덮는다(복사본에만 쓰므로 원래 표는 바뀌지 않는다).
-                var units = _oldUnitData is Dictionary<UnitType, UnitStats.StatValues> oldUnits
-                    ? new Dictionary<UnitType, UnitStats.StatValues>(oldUnits)
-                    : new Dictionary<UnitType, UnitStats.StatValues>();
+                // 유닛 표 — 빈 표에 두 행만 넣는다(원래 표는 건드리지 않는다 — 새 Dictionary).
+                // [2026-11-17 비활성화 — 복사하면 Play 뒤 남은 실제 표의 다른 행이 섞인다(위 설명)] 옛 줄(기록용):
+                // var units = _oldUnitData is Dictionary<UnitType, UnitStats.StatValues> oldUnits
+                //     ? new Dictionary<UnitType, UnitStats.StatValues>(oldUnits)
+                //     : new Dictionary<UnitType, UnitStats.StatValues>();
+                var units = new Dictionary<UnitType, UnitStats.StatValues>();
                 units[UnitType.Pistoleer] = new UnitStats.StatValues { MaxHp = 300, AttackPower = AttackerAttackPower, AttackRange = 3f,
                     DetectRange = 3f, MoveSpeed = 1f, AttackCooldown = 1f, HitFrameTimes = new[] { .2f }, Defense = 0 };
                 units[UnitType.Tank] = new UnitStats.StatValues { MaxHp = VictimTankMaxHp, AttackPower = 50, AttackRange = 3f,
                     DetectRange = 3f, MoveSpeed = .5f, AttackCooldown = 2f, HitFrameTimes = new[] { .4f }, Defense = 0 };
                 UnitStats.Initialize(units);
 
-                // 건물 표 — 마찬가지로 복사 후 초월 Castle 행만 덮는다(Spirit AutoTower 등 앞 검사가 넣은 행은 그대로 — ⑤가 그 값을 쓴다).
-                var buildings = _oldBuildingData is Dictionary<(BuildingType, RaceId), BuildingStats.StatValues> oldBuildings
-                    ? new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>(oldBuildings)
-                    : new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
+                // 건물 표 — 마찬가지로 빈 표에 이 검사들이 쓰는 행만 넣는다.
+                // [2026-11-17 비활성화 — 복사하면 Play 뒤 남은 실제 표의 「초월 TrainingCamp HP 0」이 섞여 Sh-T5가 실패했다] 옛 줄(기록용):
+                // // 건물 표 — 마찬가지로 복사 후 초월 Castle 행만 덮는다(Spirit AutoTower 등 앞 검사가 넣은 행은 그대로 — ⑤가 그 값을 쓴다).
+                // var buildings = _oldBuildingData is Dictionary<(BuildingType, RaceId), BuildingStats.StatValues> oldBuildings
+                //     ? new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>(oldBuildings)
+                //     : new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
+                var buildings = new Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
                 buildings[(BuildingType.Castle, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = CastleTranscendenceMaxHp };
+                // Sh-T5 — 초월 훈련소 배치 · 업그레이드(TrainingCamp → WarAcademy). 실제 표에서는 둘 다 초월 HP 0이다(인간 전용 건물).
+                buildings[(BuildingType.TrainingCamp, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = ProductionTranscendenceMaxHp };
+                buildings[(BuildingType.WarAcademy, RaceId.Transcendence)] = new BuildingStats.StatValues { MaxHp = ProductionTranscendenceMaxHp };
+                // S-T2 / S-T3 ⑤ — 정령 탑 즉발 공격력. 값은 ⑤의 「행이 없으면 넣는」 예비 값과 같다(그래서 그 예비 분기는 이제 타지 않는다).
+                buildings[(BuildingType.AutoTower, RaceId.Spirit)] = new BuildingStats.StatValues
+                    { MaxHp = 1000, AttackPower = SpiritTowerAttackPower, AttackCooldown = 1f, AttackRange = 3f };
                 BuildingStats.Initialize(buildings);
 
+                // [2026-11-17 비활성화 — 고정 행이 늘어 확인 조건을 넓혔다] 옛 확인(기록용):
+                // Require(UnitStats.GetMaxHp(UnitType.Tank) == VictimTankMaxHp && UnitStats.GetAttackPower(UnitType.Pistoleer) == AttackerAttackPower
+                //         && UnitStats.GetDefense(UnitType.Tank) == 0
+                //         && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp,
+                //     "S-T0 support fixture stats must be pinned (Tank HP " + VictimTankMaxHp + ", Pistoleer attack " + AttackerAttackPower
+                //     + ", Transcendence Castle HP " + CastleTranscendenceMaxHp + ").");
                 Require(UnitStats.GetMaxHp(UnitType.Tank) == VictimTankMaxHp && UnitStats.GetAttackPower(UnitType.Pistoleer) == AttackerAttackPower
                         && UnitStats.GetDefense(UnitType.Tank) == 0
-                        && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp,
+                        && BuildingStats.GetMaxHp(BuildingType.Castle, RaceId.Transcendence) == CastleTranscendenceMaxHp
+                        && BuildingStats.GetMaxHp(BuildingType.TrainingCamp, RaceId.Transcendence) == ProductionTranscendenceMaxHp
+                        && BuildingStats.GetMaxHp(BuildingType.WarAcademy, RaceId.Transcendence) == ProductionTranscendenceMaxHp
+                        && BuildingStats.GetAttackPower(BuildingType.AutoTower, RaceId.Spirit) == SpiritTowerAttackPower,
                     "S-T0 support fixture stats must be pinned (Tank HP " + VictimTankMaxHp + ", Pistoleer attack " + AttackerAttackPower
-                    + ", Transcendence Castle HP " + CastleTranscendenceMaxHp + ").");
+                    + ", Transcendence Castle HP " + CastleTranscendenceMaxHp + ", Transcendence TrainingCamp / WarAcademy HP "
+                    + ProductionTranscendenceMaxHp + ", Spirit AutoTower attack " + SpiritTowerAttackPower + ").");
             }
 
             public void Dispose()
@@ -261,6 +295,8 @@ namespace Hexiege.Editor.Combat
                     () => dot.Invoke(f.Combat, new object[] { attacker, victims[3], 20 }));
 
                 // ⑤ RuneSpire · VineTower 즉발(실제 탑 공격력 — 앞선 VfxConnections 검사가 Spirit AutoTower 행을 넣는다. 없으면 같은 방식으로 넣는다).
+                //   [2026-11-17 메모] 이제 SupportFixtureStatsScope가 이 행(공격력 100)을 고정해 넣으므로 아래 「없으면 넣기」 분기는 타지 않는다.
+                //   (VfxConnections는 끝날 때 원래 표를 되돌리므로 그 행이 여기까지 남아 있지도 않다.)
                 int power = BuildingStats.GetAttackPower(BuildingType.AutoTower, RaceId.Spirit);
                 if (power <= 0)
                 {

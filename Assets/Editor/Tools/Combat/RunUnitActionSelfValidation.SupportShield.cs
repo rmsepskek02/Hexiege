@@ -224,6 +224,8 @@ namespace Hexiege.Editor.Combat
             var f = new SupportDamageFixture(true);
             f.Effects.SetBuildingPlacement(f.Buildings);
             UnitData old = f.Unit(9940, TeamId.Blue, 10, 10, UnitType.Tank);
+            // 초월 훈련소의 HP는 SupportFixtureStatsScope가 1000으로 고정한다(2026-11-17 — 실제 설정 표에서는 초월 HP가 0이라
+            //   Play 뒤 남은 표를 그대로 쓰면 HP 0 = 죽은 건물로 놓인다. 업그레이드 결과 WarAcademy도 같은 이유로 고정).
             BuildingData camp = f.Buildings.PlaceBuildingWithId(97960, BuildingType.TrainingCamp, TeamId.Blue, new HexCoord(0, 0), RaceId.Transcendence);
             Require(camp != null && camp.IsAlive, "Sh-T5 fixture TrainingCamp must be placed alive.");
             f.Effects.Apply(51, TeamId.Blue, 2, 8, TeamId.Blue, SkillEffectTarget.Unit, StatusEffectKind.Shield, 150f, 8f);
