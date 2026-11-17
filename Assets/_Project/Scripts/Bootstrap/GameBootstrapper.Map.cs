@@ -292,6 +292,21 @@ namespace Hexiege.Bootstrap
                 _effectManager,
                 _config != null ? _config.SkillVfxGroundYOffset : SkillActivationVfxPresenter.DefaultGroundYOffset,
                 id => skillVfxPlacement?.GetBuilding(id));
+            //   [2026-11-17 공습 Task L-5 — U-14 · R-14] 공습 경고 · 폭격 연출의 「맵 안 유효 길이」용 맵 경계 사각형 함수.
+            //   서버 판정(_skillActivation.SetMapWorldBoundsProvider — Setup 쪽) · 조준 표시(_skillAimController)와 "같은 계산"
+            //   (HexMetrics.ComputeMapWorldBounds)을 넣어야 화면 이펙트 길이 · 폭격 자리가 서버가 때린 범위와 같다.
+            //   람다가 호출 시점의 _grid를 읽어 맵 재로드에도 최신 크기를 쓴다. 그리드가 없으면 false → 잘라내지 않는다.
+            skillVfxPresenter.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
+            {
+                if (_grid == null)
+                {
+                    boundsMin = Vector3.zero;
+                    boundsMax = Vector3.zero;
+                    return false;
+                }
+                HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
+                return true;
+            });
 
             // 10-3-1b. [2026-11-11 지속 상태 구역 Task 구현 단위 ③] 구역 VFX(서리 감옥 V3 · 수액 늪 V9) 화면 구독자.
             //   구역 스킬 발동 표현(확정 · 수신)을 받아 조준 지점 바닥에 스킬 자산 「구역 VFX」 칸의 프리팹을 구역 지속 시간 동안 띄운다

@@ -18,6 +18,8 @@
 //   - PersistentStatusZone: 조준 지점에 몇 초 동안 남는 원형 구역. 구역 안 대상 유닛에게 빙결 · 이동 배율을 건다.
 //        (2026-11-11 지속 상태 구역 Task — 서리 감옥 · 수액 늪. 실행기 = PersistentStatusZoneExecutor,
 //         상태 저장 = SkillZoneSystem.)
+//   - LineStrike        : 시작점 + 방향으로 정한 직사각형을 시작점 → 끝점 순서로 여러 번 폭격(공습 — 2026-11-17 공습 Task).
+//        실행기 = LineStrikeExecutor, 판정 계산 = LineStrikeGeometry, 예약 · 처리 = SkillActivationUseCase.
 //
 //   ⚠️ 정수 값 고정: 스킬 자산(SkillDefinition._mechanic)은 이 열거형을 "정수"로 저장한다.
 //      기존 멤버(0·1·2)의 값을 바꾸면 이미 만든 자산이 다른 타입으로 읽힌다. 새 멤버는 항상 맨 뒤에 추가한다.
@@ -57,6 +59,15 @@ namespace Hexiege.Domain
         /// 상태는 유닛 상태 시스템(StatusEffectSystem)이 아니라 별도 구역 서비스(SkillZoneSystem)가 들고 있다(사용자 결정 Z-1 Z3).
         /// 2026-11-11 지속 상태 구역 Task(Z-16)에서 추가 — 값 4는 맨 뒤 추가라 기존 자산(0~3)과 겹치지 않는다.
         /// </summary>
-        PersistentStatusZone = 4
+        PersistentStatusZone = 4,
+
+        /// <summary>
+        /// 직선 연속 폭격(공습 — 인간 FlightFacility 2번 칸). 조준한 시작점에서 지정한 방향으로 뻗은 직사각형(길이 · 폭)을
+        /// 시작점 → 끝점 순서로 여러 번(구간마다 1회) 나눠 폭격해 적 유닛 · 적 건물에 피해를 준다(사용자 결정 U-1).
+        /// 한 번 시전에 같은 대상은 최대 1회만 맞고(U-12), 직선 중 맵 밖 부분은 잘라낸다(U-14).
+        /// 판정 계산 = LineStrikeGeometry(Domain 순수 함수), 예약 · 처리 = SkillActivationUseCase(착탄 예약 재사용 — 서버 권위 틱).
+        /// 2026-11-17 지원 스킬 2-L 공습 Task(Plan P-1)에서 추가 — 값 5는 맨 뒤 추가라 기존 자산(0~4)과 겹치지 않는다.
+        /// </summary>
+        LineStrike = 5
     }
 }

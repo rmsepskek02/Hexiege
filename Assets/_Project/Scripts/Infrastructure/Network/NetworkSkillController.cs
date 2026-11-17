@@ -47,6 +47,11 @@
 //   서버의 이 컨트롤러가 구독해 새 RPC ShieldBrokenClientRpc(발동 순번, 유닛 Id 배열, 건물 Id 배열)를 브로드캐스트하고,
 //   순수 클라이언트는 IsServer 가드 뒤에서 GameEvents.OnShieldBrokenReceived로 발행한다(쉴드 이펙트 즉시 정지용). 스키마 9 → 10.
 //
+// 2026-11-17 변경(지원 스킬 2-L 공습 Task L-2 — Plan P-4):
+//   공습은 시작점 + 방향으로 직선을 정한다. 요청 RPC(RequestActivateSkillServerRpc)와 발동 알림 RPC(SkillActivatedClientRpc)에
+//   조준 방향(Vector3 aimDirection — 도메인 월드)을 덧붙였다. 즉시 발동 · 원형 지점 스킬은 0 벡터를 보내고 서버 · 화면이 읽지 않는다.
+//   RPC 모양이 바뀌었으므로 스키마 10 → 11(UnitAttackShadowProfileResolver) — 멀티 테스트는 두 빌드 모두 새로 설치해야 한다.
+//
 // 참고 패턴 = NetworkUpgradeController(main 병합 최신 관례):
 //   래퍼 → ServerRpc, 팀 소유권(SenderClientId), 브로드캐스트 ClientRpc,
 //   GameServicesLocator.Current 지연 해석(스폰 레이스 방지).
@@ -213,10 +218,14 @@ namespace Hexiege.Infrastructure
         /// <param name="skillSlot">발동한 슬롯 번호(0-based).</param>
         /// <param name="aimWorld">조준 좌표(도메인 월드 Vector3, 연속). 지점 지정에서만 사용.</param>
         /// <param name="hasAim">조준 좌표 유효 여부(즉시 발동이면 false).</param>
-        public void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim)
+        /// <param name="aimDirection">조준 방향(도메인 월드 — 공습만, 다른 스킬은 0 벡터). 2026-11-17 공습 Task L-2 추가.</param>
+        // [2026-11-17 공습 Task L-2] 방향 인자를 덧붙였다. 옛 시그니처 · 본문(기록용):
+        // public void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim)
+        //     RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim);
+        public void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim, Vector3 aimDirection = default)
         {
-            // NGO 2.9.2는 Vector3를 기본 직렬화하므로 연속 좌표를 그대로 전송한다(정수 분해 불필요).
-            RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim);
+            // NGO 2.9.2는 Vector3를 기본 직렬화하므로 연속 좌표 · 방향을 그대로 전송한다(정수 분해 불필요).
+            RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim, aimDirection);
         }
 
         // ====================================================================
@@ -228,9 +237,14 @@ namespace Hexiege.Infrastructure
         /// (건물 생존·쿨다운·좌표 유효성은 Activate 내부에서 재검증한다 — 규칙 26.)
         /// RequireOwnership=false: 어느 클라이언트든 호출 가능(팀 검증은 내부에서 수행).
         /// </summary>
+        // [2026-11-17 공습 Task L-2 — Plan P-4] 조준 방향(aimDirection)을 rpcParams 바로 앞에 덧붙였다 → RPC 모양이 바뀌어
+        //   전투 표현 스키마를 10 → 11로 올렸다(UnitAttackShadowProfileResolver). 방향은 공습만 쓰고, 서버 Activate가 0 · NaN이면
+        //   거부 · 정규화한다(클라 입력 불신뢰 — 규칙 26). 다른 스킬은 0 벡터를 보내고 서버는 읽지 않는다. 옛 시그니처(기록용):
+        // public void RequestActivateSkillServerRpc(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim,
+        //     ServerRpcParams rpcParams = default)
         [ServerRpc(RequireOwnership = false)]
         public void RequestActivateSkillServerRpc(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim,
-            ServerRpcParams rpcParams = default)
+            Vector3 aimDirection, ServerRpcParams rpcParams = default)
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
@@ -260,7 +274,9 @@ namespace Hexiege.Infrastructure
             //   OnSkillActivationConfirmedOnServer가 그것을 받아 양 클라 브로드캐스트를 보낸다.
             //   (종전에는 여기서 직접 SkillActivatedClientRpc(buildingId, cooldown)를 보냈다 —
             //    2026-11-03 C-1에서 브로드캐스트 자리를 「확정」 이벤트 구독으로 옮겼다. 보내는 조건 "발동 성공"은 같다.)
-            skill.Activate(buildingId, skillSlot, aim);
+            // [2026-11-17 공습 Task L-2] 방향을 함께 넘긴다(공습이 아니면 Activate가 읽지 않는다). 옛 줄(기록용):
+            // skill.Activate(buildingId, skillSlot, aim);
+            skill.Activate(buildingId, skillSlot, aim, aimDirection);
         }
 
         /// <summary>
@@ -277,8 +293,11 @@ namespace Hexiege.Infrastructure
             float cooldown = skill != null ? skill.GetCooldownTotal(p.BuildingId) : 0f;
 
             // 팀은 정수로 보낸다(StatusAppliedClientRpc 선례). 좌표는 도메인 좌표 그대로(NGO Vector3 기본 직렬화).
+            // [2026-11-17 공습 Task L-2] 맨 뒤에 방향(공습만 0이 아니다)을 덧붙였다. 옛 줄(기록용):
+            // SkillActivatedClientRpc(p.BuildingId, (int)p.Team, p.Slot, p.HasAim, p.AimWorld,
+            //                         p.Sequence, p.ImpactDelay, cooldown);
             SkillActivatedClientRpc(p.BuildingId, (int)p.Team, p.Slot, p.HasAim, p.AimWorld,
-                                    p.Sequence, p.ImpactDelay, cooldown);
+                                    p.Sequence, p.ImpactDelay, cooldown, p.AimDirection);
         }
 
         // ====================================================================
@@ -300,22 +319,31 @@ namespace Hexiege.Infrastructure
         /// <param name="sequence">서버 발동 순번.</param>
         /// <param name="impactDelay">착탄 지연(초).</param>
         /// <param name="cooldown">이번 발동의 쿨다운 총량(초) — 쿨다운 미러용.</param>
+        /// <param name="aimDirection">조준 방향(도메인 월드 — 공습만, 다른 스킬은 0 벡터). 2026-11-17 공습 Task L-2 추가.</param>
+        // [2026-11-17 공습 Task L-2 — Plan P-4] 맨 뒤에 방향을 덧붙였다 → RPC 모양 변경 · 스키마 10 → 11. 옛 시그니처(기록용):
+        // private void SkillActivatedClientRpc(int buildingId, int teamInt, int slot, bool hasAim, Vector3 aimWorld,
+        //                                      int sequence, float impactDelay, float cooldown)
         [ClientRpc]
         private void SkillActivatedClientRpc(int buildingId, int teamInt, int slot, bool hasAim, Vector3 aimWorld,
-                                             int sequence, float impactDelay, float cooldown)
+                                             int sequence, float impactDelay, float cooldown, Vector3 aimDirection)
         {
             if (IsServer) return; // 호스트는 서버 Activate에서 이미 쿨다운을 세웠고 「확정」으로 이미 재생했다.
 
             // [진단 L3] 순수 클라이언트 수신 1줄 — IsServer 가드 "뒤"에 둬서 Host에서는 남지 않는다(같은 사건 중복 금지, LogRules 1.14-9).
-            LogActivationReceived(buildingId, teamInt, slot, hasAim, aimWorld, sequence, impactDelay, cooldown);
+            //   [2026-11-17 공습 L-L16] 방향 키를 덧붙였다(Host LineStrikeScheduled와 같은 Seq의 방향 비교용). 옛 줄(기록용):
+            // LogActivationReceived(buildingId, teamInt, slot, hasAim, aimWorld, sequence, impactDelay, cooldown);
+            LogActivationReceived(buildingId, teamInt, slot, hasAim, aimWorld, sequence, impactDelay, cooldown, aimDirection);
 
             // ① 쿨다운 미러(종전과 같은 동작).
             SkillActivationUseCase skill = ResolveServices()?.GetSkillActivationUseCase();
             skill?.StartCooldownLocal(buildingId, cooldown);
 
             // ② 발동 표현 「수신」 발행. 화면 구독자 예외가 쿨다운 미러나 다른 RPC 처리를 깨지 않게 감싼다.
+            //   [2026-11-17 공습 Task L-2] 방향을 함께 담는다(생성자가 NaN · 무한대 · 조준 없음이면 0 벡터로 고친다). 옛 줄(기록용):
+            // var presentation = new SkillActivationPresentation(
+            //     buildingId, (TeamId)teamInt, slot, hasAim, aimWorld, sequence, impactDelay);
             var presentation = new SkillActivationPresentation(
-                buildingId, (TeamId)teamInt, slot, hasAim, aimWorld, sequence, impactDelay);
+                buildingId, (TeamId)teamInt, slot, hasAim, aimWorld, sequence, impactDelay, aimDirection);
             try
             {
                 GameEvents.OnSkillActivationReceived.OnNext(presentation);
@@ -571,12 +599,14 @@ namespace Hexiege.Infrastructure
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        // [2026-11-17 공습 Task L-2 — L-L16] 맨 뒤에 방향 키(DirXMilli · DirZMilli — 성분 × 1000 정수)를 덧붙였다. 공습이 아니면 0 · 0.
+        //   기존 키 · 순서는 그대로다. 옛 값 문자열 끝(기록용): "…, CooldownMs={DiagMilli(cooldown)}, ImpactDelayMs={DiagMilli(impactDelay)}"
         private static void LogActivationReceived(int buildingId, int teamInt, int slot, bool hasAim, Vector3 aimWorld,
-                                                  int sequence, float impactDelay, float cooldown)
+                                                  int sequence, float impactDelay, float cooldown, Vector3 aimDirection = default)
         {
             GameLog.Dev.Info("Network", nameof(NetworkSkillController), "[SKILL-VFX] ActivationReceived",
                 System.FormattableString.Invariant(
-                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationReceived, Role=Client, Team={(TeamId)teamInt}, BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aimWorld.x)}, AimZmm={DiagMilli(aimWorld.z)}, CooldownMs={DiagMilli(cooldown)}, ImpactDelayMs={DiagMilli(impactDelay)}"));
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationReceived, Role=Client, Team={(TeamId)teamInt}, BuildingId={buildingId}, Slot={slot}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aimWorld.x)}, AimZmm={DiagMilli(aimWorld.z)}, CooldownMs={DiagMilli(cooldown)}, ImpactDelayMs={DiagMilli(impactDelay)}, DirXMilli={DiagMilli(aimDirection.x)}, DirZMilli={DiagMilli(aimDirection.z)}"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]

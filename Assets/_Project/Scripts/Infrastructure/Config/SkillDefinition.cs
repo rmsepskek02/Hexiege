@@ -25,6 +25,12 @@
 //   「추가 효과 목록」(_extraEffects) — 주 효과 말고 함께 거는 효과(대상 종류 · 상태 종류 · 강도). 초기값은 빈 목록이라 기존 자산 무변경.
 //   단계 C: 「건물 상태 VFX」(_buildingStatusVfxPrefab · _buildingStatusVfxScale · _buildingStatusVfxOffsetY). 초기값은 프리팹 없음.
 //
+// 2026-11-17 추가 칸(지원 스킬 2-L 공습 Task — _Tasks/2026-11-17/09_12_support-skill-air-strike, L-1):
+//   「직선 연속 폭격」(_lineLength · _lineWidth · _lineStrikeCount · _lineStrikeInterval). 메커니즘 LineStrike(5)만 읽으므로
+//   다른 스킬 자산은 이 칸이 생겨도 동작이 같다.
+//   L-5: 「공습 VFX」(_lineVfxReferenceLength · _strikeVfxPrefab). 직선 경고는 기존 「발동 VFX」 칸을 쓰고(회전 + 길이 배율),
+//   폭격 1회분은 새 「폭격 VFX」 칸을 쓴다. 초기값은 기준 길이 6(= 임시 길이 → 배율 1) · 프리팹 없음이라 기존 자산 무변경.
+//
 // Infrastructure 레이어 — ScriptableObject. Application(SkillData)/Domain(enum) 참조.
 // ============================================================================
 
@@ -241,6 +247,60 @@ namespace Hexiege.Infrastructure
         [Tooltip("건물 상태 VFX 높이 보정(건물 위치 기준 Y만, 월드 단위). 예: 0.1 = 건물 바닥보다 0.1 위.")]
         [SerializeField] private float _buildingStatusVfxOffsetY = 0f;
 
+        [Header("직선 연속 폭격 (공습 — 메커니즘 LineStrike 전용)")]
+        // 직선 연속 폭격 칸(2026-11-17 추가 — 지원 스킬 2-L 공습 Task, Plan L-1 · P-3 · P-7).
+        //
+        // 무엇인가(초급자용 설명):
+        //   공습은 원이 아니라 길쭉한 직사각형을 폭격한다. 플레이어가 누른 자리가 시작점, 끈 쪽이 방향이고,
+        //   아래 「길이」만큼 뻗은 직선을 「폭격 횟수」개의 같은 길이 구간으로 나눠 시작점 쪽 구간부터 차례로 폭격한다.
+        //     - k번째 폭격 시각 = 위 「착탄 지연」(첫 폭격까지 — 공습은 0.4) + k × 아래 「폭격 간격」.
+        //     - 한 번 시전에 같은 대상은 최대 1회만 맞는다(U-12) — 1회 피해 = 위 「즉발 1회 총 피해」 칸 값(공습 임시 150).
+        //     - 직선 중 맵 밖 부분은 잘라내고 맵 안 부분에서만 폭격한다(U-14).
+        //   서버 틱이 0.1초라 간격은 0.1의 배수(0.2 등)로 두면 깔끔하다(Research 3절 4).
+        //
+        //   이 칸은 메커니즘이 LineStrike(5)인 스킬만 읽는다 — 다른 스킬 자산에 값이 있어도 아무 영향이 없다.
+        //   🔴 아래 초기값은 공습 시험용 임시값(P-7: 길이 6 · 폭 2 · 5회 · 간격 0.2)이다. 이 칸이 없는 자산은 이 값으로 읽힌다.
+        //      수치는 밸런싱 단계에서 정한다(Plan O-9). 0 이하로 넣으면 폭격하지 않는다(진단 「LineStrikeRejected」 Warn).
+        //   이번 단계(L-1)에서는 공습 자산이 아직 「사용 불가」라 이 값으로 폭격이 일어나지 않는다(자산 켜기 = Plan L-6).
+        //   [2026-11-17 L-6 정정 — 위 줄은 L-1 때의 상태] 이제 공습 자산은 「사용 가능」이고 이 네 칸 값(6 · 2 · 5 · 0.2)을 자산에 적어 두었다.
+        [Tooltip("(공습) 직선 길이(월드 단위). 시작점에서 끈 방향으로 이만큼 뻗는다. 헥스 인접 1칸이 대략 1.0. 임시 6.")]
+        [SerializeField] private float _lineLength = 6f;
+
+        [Tooltip("(공습) 직선 폭(월드 단위). 직선 양옆으로 폭 ÷ 2까지 맞는다. 임시 2.")]
+        [SerializeField] private float _lineWidth = 2f;
+
+        [Tooltip("(공습) 폭격 횟수 = 직선을 같은 길이로 나누는 구간 수. 시작점 쪽 구간부터 차례로 폭격한다. 임시 5(최대 20).")]
+        [Min(0)]
+        [SerializeField] private int _lineStrikeCount = 5;
+
+        [Tooltip("(공습) 폭격 사이 간격(초). 첫 폭격은 위 「착탄 지연」 뒤. 서버 틱 0.1초의 배수 권장. 임시 0.2.")]
+        [Min(0f)]
+        [SerializeField] private float _lineStrikeInterval = 0.2f;
+
+        [Header("공습 VFX (직선 경고 · 폭격 1회분 — 메커니즘 LineStrike 전용)")]
+        // 공습 VFX 칸(2026-11-17 추가 — 지원 스킬 2-L 공습 Task, Plan L-5 · P-6).
+        //
+        // 무엇인가(초급자용 설명):
+        //   공습은 화면에 이펙트를 두 종류 띄운다. 둘 다 서버가 확정한 발동 알림을 받은 각 화면(Host · Client)이 스스로 재생한다.
+        //     ① 직선 경고 = 위 「발동 VFX」 칸(_activationVfxPrefab)의 프리팹을 발동 순간 1번 재생한다.
+        //        - 위치 = 직선의 가운데(시작점에서 「맵 안 유효 길이」의 절반만큼 나아간 곳), 높이 = 지면 + 0.06.
+        //        - 회전 = 프리팹의 앞(로컬 +Z)이 직선 방향을 보게 돌린다.
+        //        - 크기 = 길이 방향(로컬 Z)만 「맵 안 유효 길이 ÷ 아래 기준 길이」배로 늘이고 줄인다(옆 · 높이는 원본 그대로).
+        //          → 프리팹은 「가운데가 원점 · 앞(+Z)으로 기준 길이만큼 길쭉한 모양」으로 만들면 직선과 정확히 겹친다.
+        //        - 포격 · EMP처럼 「기준 반경」 균일 배율은 쓰지 않는다(공습만 이 규칙 — 다른 스킬 재생은 그대로).
+        //     ② 폭격 1회분 = 아래 「폭격 VFX」 칸의 프리팹을 폭격마다 1번씩 재생한다(5회면 5번).
+        //        - 시각 = 발동 알림을 받은 때부터 「착탄 지연」 + k × 「폭격 간격」(서버 폭격 시각과 같은 계산 — 코드가 정한다).
+        //        - 위치 = k번째 구간의 맵 안 부분 가운데, 회전 = 직선 방향, 크기 = 프리팹 원본 그대로(배율 1).
+        //        - 맵 밖 구간(서버가 건너뛰는 폭격)은 재생하지 않는다(U-14).
+        //   두 칸 모두 비워도 피해는 그대로 들어간다(이펙트는 화면 표현일 뿐이다). 비어 있으면 진단 줄(NoPrefab)만 남는다.
+        //   🔴 프리팹의 파티클은 Scaling Mode = Hierarchy여야 루트 배율이 파티클에 먹는다(포격 프리팹과 같은 조건).
+        //      프리팹은 반복(Looping)하지 않아야 한다 — 1회 재생 뒤 풀로 돌아가는 방식이다.
+        [Tooltip("(공습) 직선 경고 VFX(위 「발동 VFX」 칸)가 만들어진 기준 길이(월드 단위). 길이 방향 배율 = 맵 안 유효 길이 ÷ 이 값. 0 이하면 배율 1. 초기 6(= 임시 직선 길이).")]
+        [SerializeField] private float _lineVfxReferenceLength = 6f;
+
+        [Tooltip("(공습) 폭격 1회분 VFX 프리팹. 폭격마다 그 구간 가운데에 1번 재생한다(비워도 피해는 동작).")]
+        [SerializeField] private GameObject _strikeVfxPrefab;
+
         /// <summary>
         /// 이 SO의 값을 Application 레이어 값 객체(SkillData)로 변환한다.
         /// 실행기/유스케이스/UI가 Infrastructure SO에 직접 의존하지 않도록 하는 경계(의존성 역전).
@@ -277,7 +337,15 @@ namespace Hexiege.Infrastructure
                 // 2026-11-16 단계 C 건물 상태 VFX 칸 3개(위 「건물 상태 VFX」 머리말).
                 _buildingStatusVfxPrefab,
                 _buildingStatusVfxScale,
-                _buildingStatusVfxOffsetY);
+                _buildingStatusVfxOffsetY,
+                // 2026-11-17 공습 직선 연속 폭격 칸 4개(위 「직선 연속 폭격」 머리말).
+                _lineLength,
+                _lineWidth,
+                _lineStrikeCount,
+                _lineStrikeInterval,
+                // 2026-11-17 공습 L-5 VFX 칸 2개(위 「공습 VFX」 머리말).
+                _lineVfxReferenceLength,
+                _strikeVfxPrefab);
         }
 
         /// <summary>

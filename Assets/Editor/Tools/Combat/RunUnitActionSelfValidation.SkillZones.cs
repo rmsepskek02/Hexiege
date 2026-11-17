@@ -341,13 +341,19 @@ namespace Hexiege.Editor.Combat
         /// <summary> Z-T10 — 스키마 · 셋업 기대 수 · 소스 게이트. </summary>
         private static void ValidateSkillZoneSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10).");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다. 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
+            //     "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10).");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10, the air-strike direction arguments to 11).");
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration).");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다. 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
+            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 12,
+                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike).");
 
             string net = File.ReadAllText("Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             int zoneTick = net.IndexOf("GetSkillActivationUseCase()?.TickZones(elapsed);", StringComparison.Ordinal);

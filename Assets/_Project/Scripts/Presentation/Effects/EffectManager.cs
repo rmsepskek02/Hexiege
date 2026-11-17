@@ -607,6 +607,52 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-11-17 지원 스킬 2-L 공습 Task L-5] 공습 VFX(직선 경고 · 폭격 1회분) — 회전 · 축별 배율 재생
+        //   위 PlaySkillActivationVfx는 "회전 없음 · 균일 배율"이라 원형 이펙트(포격 · EMP)에만 맞는다.
+        //   공습은 직선 방향으로 돌리고 길이 방향만 늘여야 해서 회전 · 축별(벡터) 배율을 받는 메서드를 따로 덧붙였다.
+        //   기존 메서드는 그대로다(포격 · EMP 재생 경로 무변경 — Plan 최상단 표 「EffectManager」 행).
+        //   VfxPoolItem.Play가 이미 회전 · 벡터 배율을 받으므로 그대로 넘기기만 한다(Research 11절).
+        // ====================================================================
+
+        /// <summary>
+        /// 스킬 VFX를 화면 좌표 · 회전 · 축별 배율로 1회 재생한다(공습 직선 경고 · 폭격 1회분 — 2026-11-17 L-5).
+        /// 루트 localScale = 프리팹 원본 스케일 × scaleMultiplier(축마다 곱). 오프셋 · 전진 이동은 쓰지 않는다.
+        /// </summary>
+        /// <param name="prefab">재생할 VFX 프리팹. null이면 아무것도 하지 않고 false.</param>
+        /// <param name="viewPosition">재생 위치(화면 좌표 — 호출 측이 ViewConverter.ToView로 바꾼 값, 지면 높이 포함).</param>
+        /// <param name="viewRotation">재생 회전(화면 기준). 프리팹의 앞(로컬 +Z)이 이 회전의 앞을 본다.</param>
+        /// <param name="scaleMultiplier">축별 배율(X = 옆, Y = 높이, Z = 길이 방향). 0 이하 · NaN · 무한대인 축은 1로 고쳐 재생한다.</param>
+        /// <returns>프리팹이 있어 재생했으면 true.</returns>
+        public bool PlaySkillVfxOriented(GameObject prefab, Vector3 viewPosition, Quaternion viewRotation, Vector3 scaleMultiplier)
+        {
+            if (prefab == null) return false;
+            // 잘못된 축 배율은 1로 — 한 축이 0이면 이펙트가 납작하게 사라지고, NaN이면 Transform이 깨진다(안 보이는 것보다 원본 크기가 낫다).
+            scaleMultiplier = new Vector3(
+                SanitizeAxisScale(scaleMultiplier.x),
+                SanitizeAxisScale(scaleMultiplier.y),
+                SanitizeAxisScale(scaleMultiplier.z));
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) return false;
+            // VfxPoolItem.Play는 위치 · 회전 · localScale(= 원본 × 배율)을 매번 다시 세팅한다(풀 재사용 잔여 없음).
+            item.Play(
+                viewPosition,
+                viewRotation,
+                Vector3.zero,
+                Vector3.zero,
+                scaleMultiplier,
+                0f,
+                0f);
+            return true;
+        }
+
+        // 축 배율 하나를 검사한다 — 0보다 크고 유한하면 그대로, 아니면 1.
+        private static float SanitizeAxisScale(float v)
+        {
+            return v > 0f && !float.IsInfinity(v) ? v : 1f;
+        }
+
+        // ====================================================================
         // [2026-11-04 EMP Task 커밋 3] 방어탑 상태 VFX(무력화 V6) — 시작 · 정지
         //   TowerDisableVfxPresenter가 무력화 표현 이벤트(확정 · 수신)를 받으면 탑마다 이 메서드로 시작하고,
         //   지속 시간이 끝나거나(꼬리 정지) 탑이 사라지면(즉시 정지) 아래 정지 메서드를 부른다.

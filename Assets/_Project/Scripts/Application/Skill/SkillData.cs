@@ -170,12 +170,48 @@ namespace Hexiege.Application
         /// </summary>
         public float BuildingStatusVfxOffsetY { get; }
 
+        // ── 2026-11-17 추가: 직선 연속 폭격(공습 — SkillMechanicType.LineStrike) 칸 ──
+        //   공습 Task(_Tasks/2026-11-17/09_12_support-skill-air-strike) Plan L-1 · P-3 · P-7.
+        //   값은 SkillDefinition의 「직선 연속 폭격」 칸에서 복사된다. LineStrike 실행기만 읽는다(다른 스킬은 무시).
+        //   첫 폭격 지연은 새 칸을 만들지 않고 기존 「착탄 지연」(ImpactDelay)을 쓴다 — 뜻이 같다(발동 → 첫 착탄).
+        //   1회 피해는 기존 「즉발 1회 총 피해」(TotalDamage)를 쓴다 — 한 시전에 대상당 1회만 맞으므로(U-12) 「대상 1개가 받는 피해」다.
+
+        /// <summary> 폭격 횟수 상한(자산 오입력으로 예약이 수천 개 생기는 것을 막는다). 임시 수치 5(P-7)보다 넉넉하다. </summary>
+        public const int MaxLineStrikeCount = 20;
+
+        /// <summary> (공습) 직선 길이(월드 단위). 0보다 크고 유한한 값만 인정, 아니면 0(= 폭격 없음 · 진단 Warn). </summary>
+        public float LineLength { get; }
+
+        /// <summary> (공습) 직선 폭(월드 단위). 직선 양옆으로 폭 ÷ 2까지가 범위다. 0보다 크고 유한한 값만 인정, 아니면 0. </summary>
+        public float LineWidth { get; }
+
+        /// <summary> (공습) 폭격 횟수 = 직선을 나누는 구간 수. 0 ~ MaxLineStrikeCount로 자른다(0 = 폭격 없음 · 진단 Warn). </summary>
+        public int LineStrikeCount { get; }
+
+        /// <summary> (공습) 폭격 사이 간격(초). 0 이상 유한한 값만 인정, 아니면 0(모든 폭격이 첫 폭격과 같은 틱에 떨어진다). </summary>
+        public float LineStrikeInterval { get; }
+
+        // ── 2026-11-17 추가: 공습 VFX 칸(Plan L-5 · P-6) ──
+        //   직선 경고는 기존 ActivationVfxPrefab을 쓰고(회전 + 길이 배율), 폭격 1회분은 StrikeVfxPrefab을 쓴다.
+        //   화면 쪽 SkillActivationVfxPresenter(LineStrike 부분)만 읽는다. 둘 다 비어도 피해(서버)는 그대로다.
+
+        /// <summary>
+        /// (공습) 직선 경고 VFX(ActivationVfxPrefab)가 만들어진 기준 길이(월드 단위). 길이 방향 배율 = 맵 안 유효 길이 ÷ 이 값.
+        /// 0보다 크고 유한한 값만 인정, 아니면 0(= 배율 1로 재생 — EffectManager.ComputeSkillVfxScale 규칙과 같다).
+        /// </summary>
+        public float LineVfxReferenceLength { get; }
+
+        /// <summary> (공습) 폭격 1회분 VFX 프리팹. 폭격마다 그 구간 가운데에 1번 재생한다. null이면 폭격 연출 없음(피해는 그대로). </summary>
+        public GameObject StrikeVfxPrefab { get; }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
         /// 그 뒤 인자(구역 VFX 프리팹, 2026-11-11 추가)도 생략하면 "프리팹 없음"이다.
         /// 맨 뒤 인자(추가 효과 목록, 2026-11-16 추가)도 생략하면 "추가 효과 없음"이다 — 기존 호출은 고치지 않아도 그대로 컴파일된다.
         /// 그 뒤 세 인자(건물 상태 VFX — 2026-11-16 단계 C)도 생략하면 "프리팹 없음 · 배율 1 · 높이 보정 0"이다.
+        /// 맨 뒤 네 인자(직선 연속 폭격 — 2026-11-17 공습 Task)도 생략하면 0(공습이 아닌 스킬은 쓰지 않는 칸)이다.
+        /// 그 뒤 두 인자(공습 VFX — 2026-11-17 L-5)도 생략하면 "기준 길이 0(= 배율 1) · 폭격 프리팹 없음"이다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -202,7 +238,13 @@ namespace Hexiege.Application
             IReadOnlyList<SkillExtraEffect> extraEffects = null,
             GameObject buildingStatusVfxPrefab = null,
             float buildingStatusVfxScale = 1f,
-            float buildingStatusVfxOffsetY = 0f)
+            float buildingStatusVfxOffsetY = 0f,
+            float lineLength = 0f,
+            float lineWidth = 0f,
+            int lineStrikeCount = 0,
+            float lineStrikeInterval = 0f,
+            float lineVfxReferenceLength = 0f,
+            GameObject strikeVfxPrefab = null)
         {
             Icon = icon;
             AimType = aimType;
@@ -254,6 +296,17 @@ namespace Hexiege.Application
             BuildingStatusVfxScale = buildingStatusVfxScale > 0f && !float.IsInfinity(buildingStatusVfxScale) ? buildingStatusVfxScale : 1f;
             BuildingStatusVfxOffsetY = !float.IsNaN(buildingStatusVfxOffsetY) && !float.IsInfinity(buildingStatusVfxOffsetY)
                 ? buildingStatusVfxOffsetY : 0f;
+
+            // 직선 연속 폭격(2026-11-17 공습). Inspector 오입력 방어 — 잘못된 값은 0(= 폭격 없음)으로 고쳐 두고,
+            //   받는 쪽(SkillActivationUseCase)이 0을 보면 예약하지 않고 진단 Warn 1줄을 남긴다(조용한 무효과를 로그로 드러냄).
+            LineLength = lineLength > 0f && !float.IsInfinity(lineLength) ? lineLength : 0f;
+            LineWidth = lineWidth > 0f && !float.IsInfinity(lineWidth) ? lineWidth : 0f;
+            LineStrikeCount = lineStrikeCount < 0 ? 0 : (lineStrikeCount > MaxLineStrikeCount ? MaxLineStrikeCount : lineStrikeCount);
+            LineStrikeInterval = lineStrikeInterval >= 0f && !float.IsInfinity(lineStrikeInterval) ? lineStrikeInterval : 0f;
+
+            // 공습 VFX(2026-11-17 L-5). 기준 길이는 잘못된 값(0 이하 · NaN · 무한대)을 0으로 고쳐 둔다 — 화면은 0을 보면 배율 1로 재생한다.
+            LineVfxReferenceLength = lineVfxReferenceLength > 0f && !float.IsInfinity(lineVfxReferenceLength) ? lineVfxReferenceLength : 0f;
+            StrikeVfxPrefab = strikeVfxPrefab;
         }
 
         /// <summary>

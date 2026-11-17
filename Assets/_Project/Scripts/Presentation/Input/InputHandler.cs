@@ -79,6 +79,14 @@ namespace Hexiege.Presentation
         private Vector2 _pointerDownPos;
         private bool _ignorePointerUntilReleased;
 
+        // [2026-11-17 공습 Task L-3 — 메인 세션 검토 d · Plan R-12 · R-18]
+        //   이번 접촉(첫 손가락이 닿고 ~ 모든 손가락이 떨어질 때까지) 중에 손가락이 두 개 이상 닿은 적이 있는가.
+        //   두 손가락은 이제 화면 이동 + 줌 제스처(CameraController — U-11)다. 두 손가락을 거의 움직이지 않고 떼면
+        //   아래 「10px 미만 = 클릭」 판정에 걸려 건물 패널이 열리거나 타일이 선택될 수 있으므로, 그런 접촉은 클릭으로 처리하지 않는다.
+        //   (첫 손가락을 먼저 떼면 primaryTouch 가 남은 손가락을 가리킬 수 있어 "어느 손가락의 release 인가"로는 가를 수 없다 —
+        //    그래서 손가락 하나하나가 아니라 "접촉 전체" 단위로 막는다.)
+        private bool _contactHadMultiTouch;
+
         private System.Func<bool> _gameplayInputBlocked;
         /// <summary>게임 입력 판정은 조합 루트가 주입한다. 없는 경우 기존 동작을 유지한다.</summary>
         public void SetGameplayInputGate(System.Func<bool> isBlocked)
@@ -173,6 +181,11 @@ namespace Hexiege.Presentation
             // 의존성 미주입 상태면 무시
             if (_mainCamera == null) return;
 
+            // [2026-11-17 L-3] 지금 눌려 있는 손가락 수를 세어, 두 개 이상이면 이번 접촉을 "두 손가락 제스처"로 표시한다(위 필드 설명).
+            var touchscreen = Touchscreen.current;
+            int pressedTouchCount = CountPressedTouches(touchscreen);
+            if (pressedTouchCount >= 2) _contactHadMultiTouch = true;
+
             // 마우스 입력 처리 (에디터/PC)
             var mouse = Mouse.current;
             if (mouse != null)
@@ -186,13 +199,19 @@ namespace Hexiege.Presentation
                 {
                     Vector2 currentPos = mouse.position.ReadValue();
                     float dragDist = Vector2.Distance(_pointerDownPos, currentPos);
+                    // [2026-11-17 L-3] 두 손가락 제스처였던 접촉이면 클릭으로 처리하지 않는다(터치 기기의 합성 마우스 release 대비).
+                    //   PC 마우스만 쓰는 에디터에서는 손가락이 없어 _contactHadMultiTouch 가 늘 false → 옛 동작 그대로.
+                    //   옛 줄(기록용): if (dragDist < ClickThreshold) HandleClick(currentPos);
                     if (dragDist < ClickThreshold)
-                        HandleClick(currentPos);
+                    {
+                        if (_contactHadMultiTouch) LogTapSuppressed("Mouse", dragDist);
+                        else HandleClick(currentPos);
+                    }
                 }
             }
 
             // 터치 입력 처리 (모바일)
-            var touchscreen = Touchscreen.current;
+            // [2026-11-17] touchscreen 변수는 위에서 먼저 읽는다(손가락 수 세기). 옛 줄(기록용): var touchscreen = Touchscreen.current;
             if (touchscreen != null)
             {
                 var primaryTouch = touchscreen.primaryTouch;
@@ -208,10 +227,45 @@ namespace Hexiege.Presentation
                 {
                     Vector2 currentPos = primaryTouch.position.ReadValue();
                     float dragDist = Vector2.Distance(_pointerDownPos, currentPos);
+                    // [2026-11-17 L-3] 두 손가락 제스처였던 접촉은 클릭으로 처리하지 않는다(R-18 — 두 손가락을 뗀 순간 패널 · 타일 선택 방지).
+                    //   옛 줄(기록용): if (dragDist < ClickThreshold) HandleClick(currentPos);
                     if (dragDist < ClickThreshold)
-                        HandleClick(currentPos);
+                    {
+                        if (_contactHadMultiTouch) LogTapSuppressed("TwoFinger", dragDist);
+                        else HandleClick(currentPos);
+                    }
                 }
             }
+
+            // 모든 손가락이 떨어졌고 마우스 왼쪽 버튼도 눌려 있지 않으면 접촉이 끝난 것 → 표시를 지운다(다음 탭은 정상 클릭).
+            //   release 판정(위)보다 "뒤"에 둬야 마지막 손가락을 뗀 프레임의 클릭까지 막는다.
+            bool mouseHeld = mouse != null && mouse.leftButton.isPressed;
+            if (pressedTouchCount == 0 && !mouseHeld) _contactHadMultiTouch = false;
+        }
+
+        /// <summary>
+        /// 지금 눌려 있는 손가락 수(2026-11-17 L-3). 터치스크린이 없으면 0.
+        /// primaryTouch 가 아니라 손가락 전체(touches)를 센다 — 두 번째 손가락까지 보기 위해서다.
+        /// </summary>
+        private static int CountPressedTouches(Touchscreen touchscreen)
+        {
+            if (touchscreen == null) return 0;
+            var touches = touchscreen.touches;
+            int n = 0;
+            for (int i = 0; i < touches.Count; i++)
+                if (touches[i].press.isPressed) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// [진단 — [CAM-GESTURE] TapSuppressed] 두 손가락 제스처를 뗀 순간 클릭이 될 뻔한 것을 막았을 때 1줄(L-L30 — 개발 축).
+        /// 접촉이 끝날 때만 남으므로 매 프레임 스팸이 아니다.
+        /// </summary>
+        private static void LogTapSuppressed(string input, float dragDistPx)
+        {
+            GameLog.Dev.Info("Input", nameof(InputHandler), "[CAM-GESTURE] TapSuppressed",
+                System.FormattableString.Invariant(
+                    $"Diag=CamGesture, DiagRev=1, Event=TapSuppressed, Input={input}, TapSuppressed=True, DragPx={Mathf.RoundToInt(dragDistPx)}, Aiming={SkillAimController.IsAiming}"));
         }
 
         // ====================================================================

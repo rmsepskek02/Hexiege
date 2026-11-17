@@ -591,10 +591,16 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration enabled).");
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-                "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10.");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(지원 스킬 새 상태와 무관한 변경). 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
+            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 12,
+                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike enabled).");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
+            //     "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+                "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11.");
         }
 
         // 주석(//로 시작하는 줄)을 빼고 그 문자열이 들어 있는 줄 수.

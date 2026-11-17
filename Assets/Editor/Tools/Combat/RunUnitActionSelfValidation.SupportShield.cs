@@ -350,12 +350,18 @@ namespace Hexiege.Editor.Combat
         /// <summary> Sh-T9 — 소스 게이트. </summary>
         private static void ValidateShieldSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-                "Sh-T9 the shield-broken RPC must raise the presentation schema to 10.");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다. 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
+            //     "Sh-T9 the shield-broken RPC must raise the presentation schema to 10.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+                "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11).");
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Sacred Tree Awakening + Roots of Regeneration enabled).");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(신목의 각성과 무관한 변경). 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
+            //     "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Sacred Tree Awakening + Roots of Regeneration enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 12,
+                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Sacred Tree Awakening + Roots of Regeneration + Air Strike enabled).");
 
             const string root = "Assets/_Project/Scripts/";
             string helper = File.ReadAllText(root + "Application/Combat/IncomingDamage.cs");

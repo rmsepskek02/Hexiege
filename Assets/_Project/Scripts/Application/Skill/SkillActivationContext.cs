@@ -12,6 +12,7 @@
 //   - 2026-11-11 지속 상태 구역 Task: 「구역 만들기」 다리 1개 추가(SkillZoneSystem 경유 — 생성자 맨 뒤 선택 인자).
 //   - 2026-11-16 지원 스킬 새 상태 Task 단계 A: 「지원 스킬 효과 걸기」 다리 1개 추가(SupportSkillEffectSystem 경유 —
 //     받는 피해 배율 · 생산 속도 배율처럼 서버만 계산하는 새 효과. 생성자 맨 뒤 선택 인자).
+//   - 2026-11-17 공습 Task: 조준 방향(AimDirection)과 「직선 연속 폭격 예약」 다리 1개 추가(생성자 맨 뒤 선택 인자 두 개).
 //
 // 왜 효과 적용을 델리게이트로 주입하는가(SpecialAttackContext와 동일한 이유):
 //   실행기가 UnitCombatUseCase의 private 로직(포지션 프로바이더·좌표 매퍼·이벤트 발행)에 직접
@@ -83,6 +84,19 @@ namespace Hexiege.Application
         private readonly Action<TeamId, SkillEffectTarget, StatusEffectKind, float, float> _supportEffect;
 
         /// <summary>
+        /// 조준 방향(도메인 월드, XZ · Y = 0, 길이 1). 공습(LineStrike)에서만 의미가 있다 — 시작점(AimWorld) → 손가락 쪽.
+        /// SkillActivationUseCase.Activate가 재검증 · 정규화한 값이다(0 · NaN이면 Activate가 미리 거부한다 — Plan P-11).
+        /// 다른 스킬은 언제나 0 벡터다(방향을 쓰지 않는다). (2026-11-17 공습 Task L-2)
+        /// </summary>
+        public Vector3 AimDirection { get; }
+
+        // 직선 연속 폭격(공습, SkillMechanicType.LineStrike) 예약 델리게이트(2026-11-17 공습 Task L-1).
+        //   인자: (시전 팀, 시작점 도메인 월드, 정규화 방향, 폭격 계획).
+        //   SkillActivationUseCase의 다리가 발동 순번 · 슬롯 · 건물 Id를 붙잡아 착탄 예약(PendingImpact) N개를 만든다.
+        //   null이면(옛 호출 · fixture) 아무 일도 일어나지 않는다.
+        private readonly Action<TeamId, Vector3, Vector3, LineStrikePlan> _lineStrike;
+
+        /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
         /// <param name="skill">시전 스킬 데이터.</param>
@@ -102,6 +116,12 @@ namespace Hexiege.Application
         /// 지원 스킬 효과 걸기 델리게이트(2026-11-16 추가). 같은 이유로 맨 뒤 선택 인자다 — 생략(null)하면
         /// 받는 피해 배율 · 생산 속도 배율 같은 새 효과는 걸리지 않는다(기존 효과 경로는 그대로).
         /// </param>
+        /// <param name="aimDirection">
+        /// 조준 방향(2026-11-17 공습 Task 추가 — 맨 뒤 선택 인자). 생략하면 0 벡터 = 방향 없음. 기존 호출은 그대로 컴파일된다.
+        /// </param>
+        /// <param name="lineStrike">
+        /// 직선 연속 폭격 예약 델리게이트(2026-11-17 공습 Task 추가 — 맨 뒤 선택 인자). 생략(null)하면 공습은 아무 일도 하지 않는다.
+        /// </param>
         public SkillActivationContext(
             SkillData skill,
             TeamId casterTeam,
@@ -113,10 +133,14 @@ namespace Hexiege.Application
             Action<TeamId, StatusEffectKind, float, float> globalStatus,
             Action<TeamId, Vector3, float, float> towerDisable,
             Action<TeamId, Vector3, float, float, StatusEffectKind, float, bool> persistentZone = null,
-            Action<TeamId, SkillEffectTarget, StatusEffectKind, float, float> supportEffect = null)
+            Action<TeamId, SkillEffectTarget, StatusEffectKind, float, float> supportEffect = null,
+            Vector3 aimDirection = default,
+            Action<TeamId, Vector3, Vector3, LineStrikePlan> lineStrike = null)
         {
             _persistentZone = persistentZone;
             _supportEffect = supportEffect;
+            AimDirection = aimDirection;
+            _lineStrike = lineStrike;
             Skill = skill;
             CasterTeam = casterTeam;
             CasterBuildingId = casterBuildingId;
@@ -209,6 +233,18 @@ namespace Hexiege.Application
         public void ApplySupportEffect(TeamId targetTeam, SkillEffectTarget target, StatusEffectKind kind, float magnitude, float duration)
         {
             _supportEffect?.Invoke(targetTeam, target, kind, magnitude, duration);
+        }
+
+        /// <summary>
+        /// 공습 — 시작점에서 방향으로 뻗은 직사각형을 시작점 → 끝점 순서로 여러 번 폭격하도록 예약한다(2026-11-17 공습 Task).
+        /// 실제 예약 · 서버 권위 틱 처리 · 시전당 1회 피해 · 맵 밖 잘라내기는 SkillActivationUseCase가 담당한다(스킬 규칙 25).
+        /// </summary>
+        /// <param name="start">시작점 도메인 월드 좌표(보통 <see cref="AimWorld"/>).</param>
+        /// <param name="direction">정규화된 방향(보통 <see cref="AimDirection"/>).</param>
+        /// <param name="plan">폭격 계획(길이 · 폭 · 횟수 · 지연 · 간격 · 1회 피해).</param>
+        public void ScheduleLineStrike(Vector3 start, Vector3 direction, LineStrikePlan plan)
+        {
+            _lineStrike?.Invoke(CasterTeam, start, direction, plan);
         }
     }
 }

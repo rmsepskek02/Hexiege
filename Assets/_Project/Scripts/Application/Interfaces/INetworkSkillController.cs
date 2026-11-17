@@ -32,6 +32,12 @@ namespace Hexiege.Application
         /// <param name="skillSlot">발동한 슬롯 번호(0-based, 0~4).</param>
         /// <param name="aimWorld">조준 좌표(도메인 월드 Vector3, 연속). 지점 지정 스킬에서만 사용.</param>
         /// <param name="hasAim">조준 좌표가 유효한지 여부(즉시 발동이면 false).</param>
-        void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim);
+        /// <param name="aimDirection">
+        /// 조준 방향(도메인 월드 — 2026-11-17 공습 Task L-2 추가, 맨 뒤 선택 인자). 공습(직선 연속 폭격)만 쓴다 — 시작점 → 손가락 쪽.
+        /// 서버가 0 · NaN이면 거부하고 정규화한다(규칙 26 재검증). 다른 스킬은 생략(0 벡터)한다.
+        /// </param>
+        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 인자를 덧붙였다. 옛 시그니처(기록용):
+        // void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim);
+        void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim, Vector3 aimDirection = default);
     }
 }

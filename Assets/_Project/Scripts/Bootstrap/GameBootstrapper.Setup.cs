@@ -427,6 +427,23 @@ namespace Hexiege.Bootstrap
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
 
+            // [2026-11-17 공습 Task L-1 — U-14 · P-13] 공습 직선의 「맵 밖 잘라내기」에 쓸 맵 경계 사각형 함수.
+            //   경계 계산(HexMetrics.ComputeMapWorldBounds — 위 재검증과 같은 사각형)은 Core에 있어 Application이 직접 부르지 못하므로
+            //   여기서 함수로 넣어 준다. 람다가 호출 시점의 _grid를 읽으므로 맵을 다시 불러와도 최신 그리드 크기를 쓴다.
+            //   그리드가 없으면 false → 공습은 잘라내지 않고 원래 길이를 쓴다(진단 MapBounds=Missing).
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 공습 자산은 아직 「사용 불가」(Plan L-6에서 켬)라 이 함수를 부르는 곳이 없다.
+            _skillActivation.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
+            {
+                if (_grid == null)
+                {
+                    boundsMin = Vector3.zero;
+                    boundsMax = Vector3.zero;
+                    return false;
+                }
+                HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
+                return true;
+            });
+
             // ────────────────────────────────────────────────────────────
             // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소, 서버 권위 — Plan 3-2 B1).
             //   맵을 불러올 때마다 새로 만든다(위 상태 시스템 · 스킬 UseCase와 같은 수명) → 이전 경기의 무력화가 남지 않는다.
@@ -735,6 +752,22 @@ namespace Hexiege.Bootstrap
                     domain => _grid != null ? HexMetrics.ClampToMapBounds(domain, _grid.Width, _grid.Height) : domain,
                     // 연속 도메인 좌표가 맵 경계 안인지 판정(기본 조준 위치 결정용).
                     domain => _grid == null || HexMetrics.IsWithinMapBounds(domain, _grid.Width, _grid.Height));
+
+                // [2026-11-17 공습 Task L-4 — U-14 · R-14] 공습 조준 표시의 「맵 안 유효 길이」용 맵 경계 사각형 함수.
+                //   서버 판정(_skillActivation.SetMapWorldBoundsProvider — SetupSkill 쪽)과 "같은 계산"(HexMetrics.ComputeMapWorldBounds)을
+                //   넣어야 화면에 그린 직사각형 길이와 서버가 폭격하는 길이가 같다. 람다가 호출 시점의 _grid 를 읽어 맵 재로드에도 최신 크기를 쓴다.
+                //   그리드가 없으면 false → 표시는 잘라내지 않고 원래 길이를 그린다.
+                _skillAimController.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
+                {
+                    if (_grid == null)
+                    {
+                        boundsMin = Vector3.zero;
+                        boundsMax = Vector3.zero;
+                        return false;
+                    }
+                    HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
+                    return true;
+                });
             }
         }
 

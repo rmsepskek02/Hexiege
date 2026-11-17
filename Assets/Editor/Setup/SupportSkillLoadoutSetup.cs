@@ -92,8 +92,10 @@ namespace Hexiege.EditorTools
         //   [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-4] 8 → 9. 대지의 갑주를 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-16 지원 스킬 새 상태 Task 단계 C — 구현 단위 C-4] 9 → 10. 신목의 각성을 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-4] 10 → 11. 재생의 뿌리를 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        private const int ExpectedAvailableCount = 11;
+        // private const int ExpectedAvailableCount = 11; // [2026-11-17 L-6] 옛 값(기록용 — 공습 켜기 전).
+        private const int ExpectedAvailableCount = 12;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -293,12 +295,37 @@ namespace Hexiege.EditorTools
                 ImpactDelay = 0f, UseBombardmentVfx = false, UseEmpPulseVfx = true
             };
 
+            // 공습 — [2026-11-17 지원 스킬 2-L 공습 Task L-6, Plan P-7 · L-L9] 자리표시(타입 A · 사용 불가)에서 실제 값으로 바꿨다.
+            //   타입 5(LineStrike — 직선 연속 폭격): 누른 자리 = 시작점, 끈 쪽 = 방향, 직선을 폭격 횟수만큼 나눠 시작점 쪽부터 차례로 폭격한다.
+            //   피해 150 = 폭격 1회가 대상 1개에 주는 피해(한 번 시전에 같은 대상은 1회만 — U-12). 착탄 지연 0.4 = 첫 폭격까지의 시간.
+            //   반경 2 · VFX 기준 반경 2는 자리표시 값 그대로다 — 공습은 반경으로 판정하지 않지만, 조준 모드에 들어간 직후(첫 터치 전)
+            //   기존 조준과 같은 원 표시에 반경을 쓴다(M-1 — BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘긴다).
+            //   수치는 모두 시험용 임시값이다(밸런싱 단계 — Plan O-9).
+            //   🔴 직선 칸(길이 6 · 폭 2 · 5회 · 간격 0.2)과 공습 VFX 칸(기준 길이 · 폭격 VFX)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다
+            //      (칸이 없는 자산은 SkillDefinition 초기값 6 · 2 · 5 · 0.2 · 6 · 없음으로 읽힌다).
+            //   ⚠️ 「발동 VFX」 칸은 이 도구가 매번 표 값으로 다시 쓴다(공습은 포격 · EMP VFX가 아니므로 비운다) — 도구를 다시 실행하면
+            //      테스트용으로 넣은 직선 경고 임시 프리팹(M-2)이 지워진다. 그때는 자산에 다시 넣는다.
+            var airStrike = new SkillSpec
+            {
+                FileName = "Skill_Human_AirStrike", Race = h, Slot = 1,
+                DisplayName = "공습",
+                Description = "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다.",
+                IsAvailable = true,
+                AimType = SkillAimType.PointTarget,
+                Mechanic = SkillMechanicType.LineStrike,
+                Cooldown = 10f, Radius = 2f, Duration = 0f, TotalDamage = 150, DamagePerSecond = 0f,
+                StatusKind = (int)StatusEffectKind.None, Magnitude = 0f, TargetsAllies = false,
+                ImpactDelay = 0.4f, UseBombardmentVfx = false
+            };
+
             return new List<SkillSpec>
             {
                 // ── 인간(race 0) — FlightFacility ──
                 bombardment,
-                PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
-                    "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
+                // [2026-11-17 L-6] 공습 자리표시 줄을 위 airStrike(직선 연속 폭격 · 사용 가능)로 바꿨다. 옛 줄(기록용):
+                // PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
+                //     "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
+                airStrike,
                 emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
@@ -449,9 +476,10 @@ namespace Hexiege.EditorTools
                 // [2026-11-16 A-4] 8개 → 9개 — 괄호 안에 대지의 갑주를 더했다.
                 // [2026-11-16 단계 C — C-4] 9개 → 10개 — 괄호 안에 신목의 각성을 더했다.
                 // [2026-11-17 단계 B — B-4] 10개 → 11개 — 괄호 안에 재생의 뿌리를 더했다(옛 문구는 「… · 대지의 갑주 · 신목의 각성)」).
+                // [2026-11-17 공습 L-6] 11개 → 12개 — 괄호 안에 공습을 더했다(옛 문구는 「… · 신목의 각성 · 재생의 뿌리)」).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
