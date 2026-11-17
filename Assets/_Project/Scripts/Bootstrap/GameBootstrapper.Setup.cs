@@ -534,6 +534,9 @@ namespace Hexiege.Bootstrap
                 mistCooldown,
                 mistRadius,
                 mistHealTextInterval);
+            // [2026-11-17 지원 스킬 새 상태 Task 단계 B — B-2] 물안개 회복에도 받는 회복 배율(재생의 뿌리)을 건다 — 위에서 만든 같은 서비스.
+            //   설정자 주입(생성자 무변경). 효과가 없는 대상이면 물안개 회복량은 지금과 같다(곱하지 않음).
+            _mistShrine.SetSupportSkillEffectSystem(_supportSkillEffects);
 
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.

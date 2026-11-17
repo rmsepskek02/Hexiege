@@ -678,7 +678,9 @@ namespace Hexiege.Application
             for (int i = 0; i < _regenBuffer.Count; i++)
             {
                 // healer=null(자연회복은 시전자 없음). showText=false로 매 틱 힐 텍스트 스팸 방지.
-                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+                // [2026-11-17 단계 B] 출처 Natural을 넘긴다(받는 회복 배율 진단 Source=Natural — 계산은 같다). 옛 줄(기록용):
+                // ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false, ampSource: HealAmpSource.Natural);
             }
         }
 
@@ -2191,8 +2193,13 @@ namespace Hexiege.Application
         /// 부유 힐 텍스트를 띄울지 여부. 기본 true(즉발/파도 힐은 종전대로 텍스트 표시).
         /// HoT(지속 회복) 틱은 false로 호출하여 매 틱 텍스트가 뜨는 것을 막는다(HP 적용/동기화는 그대로 진행).
         /// </summary>
+        /// <param name="presentationWave">파도 회복이면 그 파도(파도 표현 진단 · 소유권 키). 다른 회복은 null.</param>
+        /// <param name="ampSource">
+        /// [2026-11-17 단계 B 추가 — 맨 뒤 선택 인자] 회복 출처(재생의 뿌리 「받는 회복 배율」 진단의 Source= 값).
+        /// 계산에는 쓰지 않는다 — 출처와 관계없이 같은 배율을 한 번 곱한다. 기본값이라 다른 호출부는 바꾸지 않아도 컴파일된다.
+        /// </param>
         private void ApplyHealToUnit(UnitData healer, UnitData target, int amount, bool showText = true,
-            ActiveWave presentationWave = null)
+            ActiveWave presentationWave = null, HealAmpSource ampSource = HealAmpSource.Unspecified)
         {
             if (target == null || amount <= 0)
             {
@@ -2208,7 +2215,15 @@ namespace Hexiege.Application
             }
 
             int hpBefore = target.Hp;
-            target.Heal(amount);
+            // [2026-11-17 지원 스킬 새 상태 단계 B — 구현 단위 B-2 · Plan 6-2-4] 회복 지점 ① — 받는 회복 배율(재생의 뿌리).
+            //   자연회복 · BloomFairy 힐(지속 회복 틱) · 파도 회복이 모두 이 줄을 지난다. 대상에 「받는 회복 배율」이 걸려 있으면
+            //   서비스가 「회복량 × 1.5 + 지난 나머지」의 정수를 돌려주고 1 미만 나머지는 그 유닛 몫으로 모아 둔다(소수 이월).
+            //   효과가 없는 유닛 · 서비스 미주입(null)이면 amount 그대로다 → 기존 회복과 정확히 같다(회귀 안전).
+            //   파도 진단(WaveWriterDiagnostic)은 기존대로 요청량(amount)을 남긴다 — 파도는 정령 회복이라 초월 효과와 만나지 않는다.
+            //   옛 줄(기록용):
+            // target.Heal(amount);
+            int healAmount = _supportEffects != null ? _supportEffects.AmplifyHeal(target, amount, ampSource) : amount;
+            target.Heal(healAmount);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (presentationWave != null)
                 WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, amount, amount, true, "writer-applied");
@@ -2992,7 +3007,12 @@ namespace Hexiege.Application
                         //   또한 이 효과가 "실제로 올린 HP"를 누적한다(회복이 MaxHp에서 상한에 걸리면
                         //   실제 증가분은 diff보다 작을 수 있으므로 Heal 전후 Hp 차이로 정확히 잰다).
                         int hpBefore = target.Hp;
-                        ApplyHealToUnit(healer, target, diff, showText: false);
+                        // [2026-11-17 단계 B] 출처를 넘긴다 — 시전자가 BloomFairy면 Bloom, 아니면(시전자 없음 · 다른 유닛) HoT.
+                        //   받는 회복 배율 진단 Source= 값일 뿐 계산은 같다. 증폭되면 실제로 오른 HP(아래 ActualHealed)도 그만큼 커진다
+                        //   — 완료 텍스트가 「실제 회복량」 기준이라 그대로 맞는다. 옛 줄(기록용):
+                        // ApplyHealToUnit(healer, target, diff, showText: false);
+                        ApplyHealToUnit(healer, target, diff, showText: false,
+                            ampSource: healer != null && healer.Type == UnitType.BloomFairy ? HealAmpSource.Bloom : HealAmpSource.HoT);
                         effect.ActualHealed += target.Hp - hpBefore;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                         // 실제 writer 뒤 관찰만 한다. 다른 HoT의 default key는 기록하지 않는다.
@@ -3471,7 +3491,9 @@ namespace Hexiege.Application
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                     int before = ally.Hp;
 #endif
-                    ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
+                    // [2026-11-17 단계 B] 출처 Wave를 넘긴다(진단 값 — 정령 파도는 초월 효과와 만나지 않는다). 옛 줄(기록용):
+                    // ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
+                    ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave, ampSource: HealAmpSource.Wave);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                     WaveDiagnosticApplied(wave, "Unit", ally.Id, before, ally.Hp, "heal");
 #endif

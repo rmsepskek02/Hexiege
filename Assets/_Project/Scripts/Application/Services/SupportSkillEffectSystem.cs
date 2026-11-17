@@ -34,6 +34,12 @@
 //   - 만료 = 남은 양 버림, 재적용 = 교체(새 양 · 새 시간), 건물 파괴 · 업그레이드 = NotifyBuildingRemoved, 경기 종료 = Close.
 //   - 진단 [SKILL-SHIELD]는 SupportSkillEffectSystem.ShieldDiagnostics.cs.
 //
+// 2026-11-17 단계 B(재생의 뿌리 — Plan 6-2)에서 얹은 것:
+//   - 종류 Regen(유닛 · 건물 — 1초마다 「초당 회복량」만큼 회복하는 독립 재생 채널)과 HealAmpMul(유닛 · 건물 — 받는 회복 배율).
+//   - 재생 회복은 Tick 안 TickRegen이 만료 처리보다 먼저 한다. 회복 증폭은 AmplifyHeal 하나가 맡는다 — 회복이 HP에 들어가는
+//     자리(UnitCombatUseCase.ApplyHealToUnit · MistShrineUseCase 유닛 · 건물 · 이 서비스의 재생)가 Heal 직전에 부른다.
+//     소수는 대상별로 이월한다. 코드는 SupportSkillEffectSystem.Regen.cs, 진단 [SKILL-REGEN]은 .RegenDiagnostics.cs.
+//
 // 「묶음(batch)」이란:
 //   발동 한 번이 건 효과들의 모임이다(발동 순번 · 시전 팀 · 슬롯 · 대상 수 · 경과 시간). 진단 로그가
 //   「적용 → 끝」을 한 쌍으로 남기려고 쓴다(ArmorApplied ↔ ArmorEnded). 묶음의 대상이 모두 끝나면(만료 · 교체 · 사망) 그 묶음이 끝난다.
@@ -66,9 +72,15 @@ namespace Hexiege.Application
         /// <param name="kind">상태 종류.</param>
         public static bool IsServiceKind(StatusEffectKind kind)
         {
+            // [2026-11-17 단계 B 비활성화 — 재생 · 받는 회복 배율 추가] 옛 식:
+            // return kind == StatusEffectKind.IncomingDamageMul
+            //     || kind == StatusEffectKind.ProductionSpeedMul
+            //     || kind == StatusEffectKind.Shield;
             return kind == StatusEffectKind.IncomingDamageMul
                 || kind == StatusEffectKind.ProductionSpeedMul
-                || kind == StatusEffectKind.Shield;
+                || kind == StatusEffectKind.Shield
+                || kind == StatusEffectKind.Regen       // [단계 B] 재생의 뿌리 — 재생(초당 회복)
+                || kind == StatusEffectKind.HealAmpMul; // [단계 B] 재생의 뿌리 — 받는 회복 배율
         }
 
         /// <summary>
@@ -79,10 +91,16 @@ namespace Hexiege.Application
         /// <param name="kind">효과 종류.</param>
         public static bool IsSupported(SkillEffectTarget target, StatusEffectKind kind)
         {
+            // [2026-11-17 단계 B 비활성화 — 유닛 · 건물에 재생 · 받는 회복 배율을 더했다] 옛 두 줄:
+            // if (target == SkillEffectTarget.Unit)
+            //     return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield;
+            // if (target == SkillEffectTarget.Building) return kind == StatusEffectKind.Shield;
             if (target == SkillEffectTarget.Unit)
-                return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield;
-            // 건물 대상(단계 C): 지금은 쉴드만. (단계 B 재생의 뿌리는 여기에 재생 종류를 더한다.)
-            if (target == SkillEffectTarget.Building) return kind == StatusEffectKind.Shield;
+                return kind == StatusEffectKind.IncomingDamageMul || kind == StatusEffectKind.Shield
+                    || kind == StatusEffectKind.Regen || kind == StatusEffectKind.HealAmpMul;
+            // 건물 대상(단계 C 쉴드 + 단계 B 재생 · 받는 회복 배율). 받는 피해 배율(대지의 갑주)은 유닛 전용이라 여기 없다.
+            if (target == SkillEffectTarget.Building)
+                return kind == StatusEffectKind.Shield || kind == StatusEffectKind.Regen || kind == StatusEffectKind.HealAmpMul;
             if (target == SkillEffectTarget.Team) return kind == StatusEffectKind.ProductionSpeedMul;
             return false;
         }
@@ -138,6 +156,27 @@ namespace Hexiege.Application
             public int DiagExpiredLines;            // ShieldExpired 줄 수
             public int DiagNewTargetHits;           // 효과 중 같은 팀 「대상이 아닌」 유닛 · 건물(새로 나온 것)이 맞은 횟수(C-L7)
             public HashSet<long> DiagShieldSampled; // 첫 흡수 표본을 남긴 (대상 종류, Id) 키
+
+            // ── [2026-11-17 단계 B] 재생 · 받는 회복 배율 묶음 전용 칸(전부 진단 전용 — 개발 빌드에서만 채워진다 · 판정과 무관) ──
+            public int DiagRegenPulses;             // 재생 1초 주기가 돈 횟수(대상 합)
+            public long DiagRegenBaseTotal;         // 증폭 전 재생량 합(초당 회복량 × 회복한 주기 수)
+            public long DiagRegenAmpTotal;          // 증폭 뒤 재생량 합(Heal에 넘긴 값)
+            public long DiagRegenHealedTotal;       // 실제로 오른 HP 합(최대 HP에서 잘린 만큼 작을 수 있다)
+            public int DiagRegenHeals;              // 실제로 HP가 오른 재생 주기 수
+            public int DiagRegenTexts;              // 회복 텍스트를 띄운 주기 수(3주기마다 — 물안개 표시 주기 선례)
+            public int DiagRegenFullSkips;          // 체력이 가득이라 건너뛴 주기 수(효과는 남는다 — B-L7)
+            public int DiagRegenFullSkipTargets;    // 한 번이라도 가득으로 건너뛴 대상 수
+            public int DiagRegenSamples;            // RegenTickSample / BuildingRegenSample 줄 수
+            public int DiagRegenSamplesDropped;     // 상한 때문에 남기지 않은 표본 수
+            public int DiagRegenEventFaults;        // 회복 이벤트 구독자 예외 수(정상 0)
+            public readonly int[] DiagAmpCount = new int[8];    // 받는 회복 배율 — 출처(HealAmpSource)별 증폭 횟수
+            public readonly long[] DiagAmpReq = new long[8];    // 출처별 증폭 전 회복 합
+            public readonly long[] DiagAmpOut = new long[8];    // 출처별 증폭 뒤 회복 합
+            public int DiagAmpSamples;              // HealAmpSample 줄 수
+            public int DiagAmpSamplesDropped;       // 상한 때문에 남기지 않은 표본 수
+            public int DiagAmpMismatch;             // 표본 계산 대조가 어긋난 수(정상 0)
+            public int DiagNewTargetHeals;          // 효과 중 같은 팀 「대상이 아닌」 유닛 · 건물이 배율 없이 회복된 횟수(B-L8)
+            public HashSet<long> DiagAmpSampled;    // 표본을 남긴 (대상 종류 · Id · 출처) 키
         }
 
         // 대상 1개에 걸린 효과 1개(종류마다 하나 — 같은 종류는 교체).
@@ -150,6 +189,17 @@ namespace Hexiege.Application
             // [2026-11-16 단계 C] 쉴드 종류만 쓴다 — 남은 흡수량(피해를 받을 때마다 줄어든다. 0이 되면 깨짐).
             //   StatusEffect의 강도(Magnitude)는 고정값이라 「줄어드는 양」을 담을 수 없어 따로 둔다(Research 6-2).
             public int ShieldRemaining;
+
+            // [2026-11-17 단계 B] 재생(Regen) 종류만 쓴다 — 독립 재생 채널의 대상별 누적기(물안개 규칙 8-1 「독립 누적기」).
+            public float RegenClock;        // 지난 회복 주기 뒤 흐른 시간(초). 1초가 차면 한 번 회복하고 1초를 뺀다.
+            public double RegenBaseCarry;   // 초당 회복량이 소수일 때 정수로 떨어지지 않은 나머지(다음 주기에 넘긴다 — 지금 값 20 · 40은 0).
+            public int RegenPulses;         // 지금까지 돈 회복 주기 수(회복 텍스트 3주기마다 판정 · 진단용).
+            public int DiagRegenFullSkips;  // (진단) 이 대상이 체력 가득으로 건너뛴 주기 수 — 첫 회복 표본에 함께 남긴다(B-L7).
+            public bool DiagRegenSampled;   // (진단) 이 대상의 첫 회복 표본을 이미 남겼는가.
+            // [2026-11-17 단계 B] 받는 회복 배율(HealAmpMul) 종류만 쓴다 — 대상별 소수 이월(Plan 6-2-2 「소수 이월」 · RB-1 · RB-4).
+            public double AmpCarry;         // 「회복량 × 배율」에서 정수로 떨어지지 않은 나머지(0 이상 1 미만). 효과가 끝나면 기록과 함께 버린다.
+            public long AmpReqTotal;        // 이 대상이 받은 증폭 전 회복 합(표본 대조용 — 배율 × 이 값 = AmpOutTotal + AmpCarry)
+            public long AmpOutTotal;        // 이 대상이 받은 증폭 뒤 회복 합
         }
 
         private readonly UnitSpawnUseCase _unitSpawn;
@@ -357,6 +407,16 @@ namespace Hexiege.Application
                 if (previous != null && existing.Kind == StatusEffectKind.Shield)
                     previous.DiagDiscardedTotal += existing.ShieldRemaining;
                 existing.ShieldRemaining = batch.ShieldAmount;
+                // [2026-11-17 단계 B] 재생 · 받는 회복 배율 교체 — 누적기 · 소수 이월을 비우고 새 효과로 다시 센다
+                //   (「교체 = 새 시간」 — 앞 효과에서 남은 1 미만 소수는 버린다, Plan 6-2-2 · RB-1). 다른 종류는 이 칸을 쓰지 않는다.
+                existing.RegenClock = 0f;
+                existing.RegenBaseCarry = 0d;
+                existing.RegenPulses = 0;
+                existing.DiagRegenFullSkips = 0;
+                existing.DiagRegenSampled = false;
+                existing.AmpCarry = 0d;
+                existing.AmpReqTotal = 0;
+                existing.AmpOutTotal = 0;
                 existing.Magnitude = batch.Magnitude;
                 existing.Remaining = batch.Duration;
                 existing.Batch = batch;
@@ -396,6 +456,11 @@ namespace Hexiege.Application
             if (_activeBatches.Count == 0) return;
 
             for (int i = 0; i < _activeBatches.Count; i++) _activeBatches[i].Elapsed += dt;
+
+            // [2026-11-17 단계 B] 재생 회복을 「만료 처리보다 먼저」 한다 — 마지막 틱에 남은 시간만큼의 회복(8초째 주기)과
+            //   그 순간의 받는 회복 배율이 만료로 지워지기 전에 적용되게 하려는 순서다(SupportSkillEffectSystem.Regen.cs).
+            //   재생 기록이 하나도 없으면 사전 두 개의 개수만 보고 바로 끝난다(기존 효과만 있을 때 동작 무변경).
+            TickRegen(dt);
 
             TickStore(_unitEffects, dt, checkUnitAlive: true);
             TickStore(_teamEffects, dt, checkUnitAlive: false);

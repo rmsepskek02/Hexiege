@@ -7,6 +7,8 @@
 //   (WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 · Plan 7절). 이 파일은 공통 부분만 갖고, 종류별 줄의 모양은 따로 둔다:
 //     - 받는 피해 배율 → [SKILL-ARMOR]  (SupportSkillEffectSystem.ArmorDiagnostics.cs — 구현 단위 A-2)
 //     - 생산 속도 배율 → [SKILL-PROD]   (SupportSkillEffectSystem.ProductionDiagnostics.cs — 구현 단위 A-3)
+//     - 쉴드           → [SKILL-SHIELD] (SupportSkillEffectSystem.ShieldDiagnostics.cs — 단계 C)
+//     - 재생 · 받는 회복 배율 → [SKILL-REGEN] (SupportSkillEffectSystem.RegenDiagnostics.cs — 2026-11-17 단계 B)
 //   종류별 줄은 C#의 「partial 메서드」로 연결했다. 구현 파일이 없으면 컴파일러가 호출을 지운다 → 단위별로 나눠 커밋해도 컴파일된다.
 //
 // 지키는 것:
@@ -56,6 +58,8 @@ namespace Hexiege.Application
                 else if (batch.Kind == StatusEffectKind.ProductionSpeedMul) DiagProductionBatchApplied(batch);
                 // [2026-11-16 단계 C] 쉴드 → [SKILL-SHIELD] ShieldApplied(SupportSkillEffectSystem.ShieldDiagnostics.cs).
                 else if (batch.Kind == StatusEffectKind.Shield) DiagShieldBatchApplied(batch);
+                // [2026-11-17 단계 B] 재생 · 받는 회복 배율 → [SKILL-REGEN] RegenApplied(SupportSkillEffectSystem.RegenDiagnostics.cs).
+                else if (batch.Kind == StatusEffectKind.Regen || batch.Kind == StatusEffectKind.HealAmpMul) DiagRegenBatchApplied(batch);
             }
             catch { /* 진단 전용 — 서버 발동을 막지 않는다 */ }
         }
@@ -70,6 +74,8 @@ namespace Hexiege.Application
                 else if (batch.Kind == StatusEffectKind.ProductionSpeedMul) DiagProductionBatchEnded(batch, reason);
                 // [2026-11-16 단계 C] 쉴드 → [SKILL-SHIELD] ShieldEnded(합계 줄).
                 else if (batch.Kind == StatusEffectKind.Shield) DiagShieldBatchEnded(batch, reason);
+                // [2026-11-17 단계 B] 재생 · 받는 회복 배율 → [SKILL-REGEN] RegenEnded(합계 줄).
+                else if (batch.Kind == StatusEffectKind.Regen || batch.Kind == StatusEffectKind.HealAmpMul) DiagRegenBatchEnded(batch, reason);
             }
             catch { /* 진단 전용 — 서버 틱을 막지 않는다 */ }
         }
@@ -87,6 +93,8 @@ namespace Hexiege.Application
                 else if (kind == StatusEffectKind.ProductionSpeedMul) { head = "[SKILL-PROD]"; diag = "SkillProd"; }
                 // [2026-11-16 단계 C] 쉴드 거부(닫힌 뒤 · 잘못된 값 등)는 [SKILL-SHIELD] 머리로 — C-L13 「Close 뒤 ShieldApplied 0」 판정용.
                 else if (kind == StatusEffectKind.Shield) { head = "[SKILL-SHIELD]"; diag = "SkillShield"; }
+                // [2026-11-17 단계 B] 재생 · 받는 회복 배율 거부는 [SKILL-REGEN] 머리로 — B-L13 「Close 뒤 RegenApplied 0」 판정용.
+                else if (kind == StatusEffectKind.Regen || kind == StatusEffectKind.HealAmpMul) { head = "[SKILL-REGEN]"; diag = "SkillRegen"; }
                 else { head = "[SKILL-SUPPORT]"; diag = "SkillSupport"; }
                 GameLog.Dev.Warn("Skill", nameof(SupportSkillEffectSystem), head + " EffectRejected",
                     System.FormattableString.Invariant(
