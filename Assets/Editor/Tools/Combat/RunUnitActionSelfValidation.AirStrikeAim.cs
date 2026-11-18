@@ -437,10 +437,10 @@ namespace Hexiege.Editor.Combat
         {
             const string root = "Assets/_Project/Scripts/";
             string aim = File.ReadAllText(root + "Presentation/Input/SkillAimController.cs");
+            // [2026-11-18 L-7 정리] 옛 원 표시 주석 줄(// ShowReticleAtDomain(start);)은 사용자 테스트 통과 뒤 지웠다 — 주석 존재 검사도 뺐다.
             Require(SupportActiveLineCount(aim, "ShowLineGhost(start);") == 1
-                    && SupportActiveLineCount(aim, "ShowReticleAtDomain(start);") == 1
-                    && aim.Contains("// ShowReticleAtDomain(start);"),
-                "L7-5 UI-1: the air strike must enter with the ghost rectangle, the circle aim keeps its circle, and the old circle line stays as a comment.");
+                    && SupportActiveLineCount(aim, "ShowReticleAtDomain(start);") == 1,
+                "L7-5 UI-1: the air strike must enter with the ghost rectangle and the circle aim keeps its circle.");
             Require(SupportActiveLineCount(aim, "if (_isAiming) RefreshAimVisuals();") == 1
                     && SupportActiveLineCount(aim, "_lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth, _lineLength, _lineStrikeCount);") == 1
                     && SupportActiveLineCount(aim, "_lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth);") == 0,

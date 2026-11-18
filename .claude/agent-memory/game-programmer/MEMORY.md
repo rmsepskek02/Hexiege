@@ -160,9 +160,11 @@
   *(2026-11-11 updated — was "implemented — user test NOT run"; 3 test logs PASS, unobserved `Path=Exit` · `Reinit`)*
   §5–§6 (2026-11-16~17, user test PASS) new statuses stage A (Earth Armor · production speed) and stage C (shield · building status VFX,
   schema 10), `SupportFixtureStatsScope` (suite must not read the global stat tables).
-  §7 (2026-11-17, implemented, user test NOT run) stage B Roots of Regeneration: `Regen = 9` / `HealAmpMul = 10`, 1 s regen pulses,
+  §7 (2026-11-17, user test PASS + suite PASS) stage B Roots of Regeneration: `Regen = 9` / `HealAmpMul = 10`, 1 s regen pulses,
   `AmplifyHeal` with per-target carry at the three heal points, `[SKILL-REGEN]`, and **how to run fixtures headless with a fake
-  `UnityEngine.CoreModule` assembly**.
+  `UnityEngine.CoreModule` assembly**. *(2026-11-18 updated — was "implemented, user test NOT run"; topic §7 heading already said PASS)*
+  §8 (2026-11-17~18, user test PASS) Air Strike: touch-Id finger tracker + release cached coordinate, air-strike-only 1e-4 s due
+  epsilon, one shared effective-length function (server · reticle · VFX), comment-text source gates, new `.cs` without `.meta`, schema 11.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

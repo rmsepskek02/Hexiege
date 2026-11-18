@@ -29,11 +29,11 @@ MonoBehaviour:
   _magnitude: 0
   _targetsAllies: 0
   _impactDelay: 0.4
-  _activationVfxPrefab: {fileID: 3377341929981723768, guid: e246a9e13f016bd4196db7e80a16e362, type: 3}
+  _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
   _lineLength: 6
   _lineWidth: 2
   _lineStrikeCount: 5
   _lineStrikeInterval: 0.2
   _lineVfxReferenceLength: 6
-  _strikeVfxPrefab: {fileID: 3315358660161460936, guid: 8d261a35773d38c449b73148b79cfa01, type: 3}
+  _strikeVfxPrefab: {fileID: 0}

@@ -41,8 +41,7 @@ namespace Hexiege.Infrastructure
         // [2026-11-17 지원 스킬 2-L 공습 Task L-2 — Plan P-4] 10 → 11. 공습의 조준 방향(Vector3 aimDirection)이
         //   요청 RPC(NetworkSkillController.RequestActivateSkillServerRpc)와 발동 알림 RPC(SkillActivatedClientRpc) 맨 뒤에 붙어
         //   두 RPC 모양이 바뀌었다(6 → 7 「RPC 모양이 바뀌었다」 선례와 같은 이유). 방향 인자를 모르는 빌드(스키마 10)와 섞인 경기는
-        //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다. 옛 줄(기록용):
-        // public const int PresentationContractSchemaRevision = 10;
+        //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
         public const int PresentationContractSchemaRevision = 11;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.

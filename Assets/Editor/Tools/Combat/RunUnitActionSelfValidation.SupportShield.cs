@@ -63,7 +63,7 @@ namespace Hexiege.Editor.Combat
             ValidateShieldSourceGates();         // Sh-T9
             ValidateBuildingVfxTargetScope();    // Sh-T10 [2026-11-17 S-10 — 전술 지령 건물 이펙트 = 아군 생산 건물 전부]
             Debug.Log("[UAS-DIAG][SKILL-BVFX] self-validation PASS: building status VFX target scope (Sh-T10) — Tactical Order → ProductionBuildings (late built / upgraded production buildings attach), Sacred Tree → ActivationBuildings (activation-time buildings only), Earth Armor / null → None; every production stage 1-3 of all three races is a target, non-production buildings / enemy team / dead buildings are not.");
-            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing (Sh-T8), schema 10 / setup 11 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing (Sh-T8), schema 11 / setup 12 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
         }
 
         // 쉴드 깨짐 「확정」 이벤트를 모으는 도우미(검사 동안만 구독).
@@ -350,16 +350,12 @@ namespace Hexiege.Editor.Combat
         /// <summary> Sh-T9 — 소스 게이트. </summary>
         private static void ValidateShieldSourceGates()
         {
-            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다. 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-            //     "Sh-T9 the shield-broken RPC must raise the presentation schema to 10.");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다.
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
                 "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11).");
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(신목의 각성과 무관한 변경). 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-            //     "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Sacred Tree Awakening + Roots of Regeneration enabled).");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(신목의 각성과 무관한 변경).
             Require(expected != null && (int)expected.GetRawConstantValue() == 12,
                 "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Sacred Tree Awakening + Roots of Regeneration + Air Strike enabled).");
 

@@ -226,8 +226,7 @@ namespace Hexiege.Application
         /// 다른 스킬은 이 값을 읽지 않는다(생략 = 0 벡터 — 기존 호출은 그대로 컴파일 · 동작한다).
         /// </param>
         /// <returns>발동에 성공하면 true(호출자가 쿨다운 브로드캐스트에 사용), 재검증 실패면 false.</returns>
-        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 인자를 덧붙였다. 옛 시그니처(기록용):
-        // public bool Activate(int buildingId, int skillSlot, Vector3? aimWorld)
+        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 인자를 덧붙였다.
         public bool Activate(int buildingId, int skillSlot, Vector3? aimWorld, Vector3 aimDirection = default)
         {
             // ① 건물 생존 재검증(규칙 26).
@@ -350,9 +349,7 @@ namespace Hexiege.Application
             //   GetCooldownTotal(buildingId)을 읽어 클라 쿨다운 미러 값으로 함께 보내기 때문이다.
             //   발동 판정은 이미 끝났으므로, 화면 구독자에서 예외가 나도 발동 결과(true)는 바뀌지 않게 감싼다.
             // [진단 L1] 발동 확정 1줄(화면 VFX 줄보다 먼저 남도록 「확정」 발행 바로 앞에 둔다).
-            // [2026-11-17 공습 Task L-2] 두 줄 모두 방향을 덧붙였다(공습만 0이 아니다). 옛 줄(기록용):
-            // LogActivationConfirmed(building.Team, buildingId, skillSlot, skill, hasAim, aim, sequence);
-            // PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence);
+            // [2026-11-17 공습 Task L-2] 두 줄 모두 방향을 덧붙였다(공습만 0이 아니다).
             LogActivationConfirmed(building.Team, buildingId, skillSlot, skill, hasAim, aim, sequence, direction);
             PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence, direction);
             return true;
@@ -375,7 +372,6 @@ namespace Hexiege.Application
         private void PublishActivationConfirmed(TeamId team, int buildingId, int slot, bool hasAim, Vector3 aim,
                                                 float impactDelay, int sequence, Vector3 direction = default)
         {
-            // 옛 줄(기록용): var presentation = new SkillActivationPresentation(buildingId, team, slot, hasAim, aim, sequence, impactDelay);
             var presentation = new SkillActivationPresentation(
                 buildingId, team, slot, hasAim, aim, sequence, impactDelay, direction);
             try
@@ -521,8 +517,7 @@ namespace Hexiege.Application
                 // [2026-11-17 공습 Task L-1] 공습 폭격만 아주 작은 여유(LineStrikeDueEpsilon)를 두고 "다 됐다"로 본다.
                 //   이유: 0.4초에서 0.1초를 네 번 빼면 float 오차로 0이 아니라 아주 작은 양수가 남아(실측 — 0.4 · 0.6은 한 틱 늦은
                 //   0.5 · 0.7초에 떨어진다) 폭격 간격이 0.2초가 아니게 된다. 여유 0.0001초는 틱 0.1초보다 천 배 작아 다른 틱을 앞당기지 않는다.
-                //   포격 등 기존 원형 착탄은 여유 0 그대로라 착탄 시각이 바뀌지 않는다(Plan LS-T10 — 원형 스킬 무변경). 옛 줄(기록용):
-                // if (p.Remaining <= 0f) _dueImpactBuffer.Add(p);
+                //   포격 등 기존 원형 착탄은 여유 0 그대로라 착탄 시각이 바뀌지 않는다(Plan LS-T10 — 원형 스킬 무변경).
                 if (p.Remaining <= (p.IsLineStrike ? LineStrikeDueEpsilon : 0f)) _dueImpactBuffer.Add(p);
                 else _pendingImpacts[keep++] = p;
             }
@@ -829,8 +824,7 @@ namespace Hexiege.Application
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 키 두 개(DirXMilli · DirZMilli — 방향 성분 × 1000 정수)를 덧붙였다.
-        //   공습이 아닌 스킬은 0 · 0이다. 기존 키 · 순서는 그대로라 이 줄을 읽는 판정은 바뀌지 않는다. 옛 값 문자열 끝(기록용):
-        //   "… ImpactDelayMs={DiagMilli(skill.ImpactDelay)}, DurationMs={DiagMilli(skill.Duration)}"
+        //   공습이 아닌 스킬은 0 · 0이다. 기존 키 · 순서는 그대로라 이 줄을 읽는 판정은 바뀌지 않는다.
         private static void LogActivationConfirmed(TeamId team, int buildingId, int slot, SkillData skill, bool hasAim,
                                                    Vector3 aim, int sequence, Vector3 direction = default)
         {

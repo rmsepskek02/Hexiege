@@ -65,7 +65,7 @@ namespace Hexiege.Editor.Combat
             ValidateRegenVfxRouting();          // R-T7
             ValidateRegenAsset();               // R-T8
             ValidateRegenSourceGates();         // R-T9
-            Debug.Log("[UAS-DIAG][SKILL-REGEN] self-validation PASS: heal amplification ×1.5 with per-target carry (1,1,1,1 → 6) and pass-through without an effect (R-T1), the three heal points amplify exactly once and stay unchanged without the service or the effect (R-T2), regen pulses every 1 s (unit 20 / building 40, amplified once to 30 / 60), exactly 8 pulses in 8 s at 0.1 s and 1/60 s ticks, max-HP clamp, full-HP skip keeps the effect (R-T3), expiry / replace / death / destruction / upgrade / newcomer exclusion / Close / rejection (R-T4), healed events only on real gains with text every 3 pulses (R-T5), executor routing 4 support calls (R-T6), unit VFX not skipped + building scope ActivationBuildings (R-T7), Roots asset contract (R-T8), heal-point / tick-order / injection / setup 11 / schema 10 source gates (R-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-REGEN] self-validation PASS: heal amplification ×1.5 with per-target carry (1,1,1,1 → 6) and pass-through without an effect (R-T1), the three heal points amplify exactly once and stay unchanged without the service or the effect (R-T2), regen pulses every 1 s (unit 20 / building 40, amplified once to 30 / 60), exactly 8 pulses in 8 s at 0.1 s and 1/60 s ticks, max-HP clamp, full-HP skip keeps the effect (R-T3), expiry / replace / death / destruction / upgrade / newcomer exclusion / Close / rejection (R-T4), healed events only on real gains with text every 3 pulses (R-T5), executor routing 4 support calls (R-T6), unit VFX not skipped + building scope ActivationBuildings (R-T7), Roots asset contract (R-T8), heal-point / tick-order / injection / setup 12 / schema 11 source gates (R-T9).");
         }
 
         // ── fixture 도우미 ─────────────────────────────────────────────
@@ -516,14 +516,10 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(재생의 뿌리와 무관한 변경). 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-            //     "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Roots of Regeneration enabled).");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(재생의 뿌리와 무관한 변경).
             Require(expected != null && (int)expected.GetRawConstantValue() == 12,
                 "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Roots of Regeneration + Air Strike enabled).");
-            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(재생의 뿌리와 무관한 변경). 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-            //     "R-T9 stage B adds no RPC — the presentation schema stays 10 (heal HP uses the existing heal sync).");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(재생의 뿌리와 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
                 "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 11 only because of the air-strike direction arguments.");
         }

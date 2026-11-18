@@ -64,8 +64,9 @@ namespace Hexiege.Application
 
             // 직선 연속 폭격(공습 — 2026-11-17 공습 Task, Plan P-1).
             //   조준 시작점 + 방향의 직사각형을 시작점 → 끝점 순서로 여러 번 폭격한다(착탄 예약 재사용 — 서버 권위 틱).
-            //   ⚠️ 등록만으로 공습이 동작하지는 않는다 — 공습 자산은 Plan L-6 전까지 「사용 불가」 · 타입 A 자리표시로 남아 있어
-            //      SkillActivationUseCase가 실행기 조회 전에 거부한다(EMP 커밋 1과 같은 순서).
+            //   공습 자산은 L-6에서 「사용 가능」 · 메커니즘 LineStrike(5)로 켜져 이 실행기가 실제로 쓰인다.
+            //   *(2026-11-18 갱신 — 직전 「⚠️ 등록만으로 공습이 동작하지는 않는다 — 공습 자산은 Plan L-6 전까지 「사용 불가」 ·
+            //   타입 A 자리표시로 남아 있어 SkillActivationUseCase가 실행기 조회 전에 거부한다(EMP 커밋 1과 같은 순서)」)*
             _executors[SkillMechanicType.LineStrike] = new LineStrikeExecutor();
         }
 

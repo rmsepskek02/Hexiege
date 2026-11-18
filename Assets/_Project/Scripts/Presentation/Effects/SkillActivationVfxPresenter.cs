@@ -67,8 +67,7 @@ namespace Hexiege.Presentation
     /// 스킬 발동 표현 이벤트(확정 · 수신)를 받아 조준 지점에 스킬 발동 VFX를 재생하는 화면 구독자.
     /// </summary>
     // [2026-11-17 공습 Task L-5] 공습(직선 경고 · 폭격 1회분) 재생 코드를 별도 파일(SkillActivationVfxPresenter.LineStrike.cs)에 두려고
-    //   partial을 붙였다(partial = "이 클래스의 코드가 여러 파일에 나뉘어 있다"는 표시일 뿐 — 동작은 같다). 옛 선언(기록용):
-    // public sealed class SkillActivationVfxPresenter : MonoBehaviour
+    //   partial을 붙였다(partial = "이 클래스의 코드가 여러 파일에 나뉘어 있다"는 표시일 뿐 — 동작은 같다).
     public sealed partial class SkillActivationVfxPresenter : MonoBehaviour
     {
         // 팀 · 슬롯 → SkillData 조회에 쓰는 UseCase(로드아웃 제공자 · 팀→종족 변환을 서버 판정과 공유).

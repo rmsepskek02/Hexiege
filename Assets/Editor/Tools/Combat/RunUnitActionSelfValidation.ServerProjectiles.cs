@@ -262,9 +262,7 @@ namespace Hexiege.Editor.Combat
             // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 8,
             //     "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raises it to 8.");
             //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC(ShieldBrokenClientRpc)가 새로 생겼다.
-            //   [2026-11-17 지원 스킬 2-L 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC 맨 뒤에 붙었다. 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-            //     "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raises it to 10.");
+            //   [2026-11-17 지원 스킬 2-L 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC 맨 뒤에 붙었다.
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
                 "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raised it to 10; the air-strike direction arguments raise it to 11.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)

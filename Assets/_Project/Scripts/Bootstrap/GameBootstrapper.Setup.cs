@@ -431,7 +431,9 @@ namespace Hexiege.Bootstrap
             //   경계 계산(HexMetrics.ComputeMapWorldBounds — 위 재검증과 같은 사각형)은 Core에 있어 Application이 직접 부르지 못하므로
             //   여기서 함수로 넣어 준다. 람다가 호출 시점의 _grid를 읽으므로 맵을 다시 불러와도 최신 그리드 크기를 쓴다.
             //   그리드가 없으면 false → 공습은 잘라내지 않고 원래 길이를 쓴다(진단 MapBounds=Missing).
-            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 공습 자산은 아직 「사용 불가」(Plan L-6에서 켬)라 이 함수를 부르는 곳이 없다.
+            //   공습 자산은 L-6에서 「사용 가능」으로 켜져, 공습 발동 때 서버가 이 함수로 맵 안 유효 길이를 계산한다.
+            //   *(2026-11-18 갱신 — 직전 「⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 공습 자산은 아직 「사용 불가」(Plan L-6에서 켬)라
+            //   이 함수를 부르는 곳이 없다」)*
             _skillActivation.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
             {
                 if (_grid == null)

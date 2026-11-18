@@ -452,9 +452,7 @@ namespace Hexiege.Presentation
                         //   확정 콜백이 시작점 + 방향을 받아 발동 요청에 방향을 실어 보낸다(싱글 · 멀티 모두 — 아래 OnLineAimConfirm).
                         //   다른 지점 지정 스킬(포격 · EMP · 서리 감옥 · 수액 늪)은 아래 else 의 기존 원형 조준 그대로다(R-1).
                         // [2026-11-18 L-7] 폭격 횟수(LineStrikeCount)를 함께 넘긴다 — 조준 표시의 폭격 눈금 · 맞는 타일 하이라이트가
-                        //   서버와 같은 구간 기준으로 그려지게(Plan 14절 UI-2a · UI-2c). 조준 판정 · 발사 로직은 그대로다. 옛 호출(기록용):
-                        // _skillAimController.BeginLineAim(buildingId, slotIndex, skill.Radius,
-                        //     skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel);
+                        //   서버와 같은 구간 기준으로 그려지게(Plan 14절 UI-2a · UI-2c). 조준 판정 · 발사 로직은 그대로다.
                         _skillAimController.BeginLineAim(buildingId, slotIndex, skill.Radius,
                             skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel,
                             skill.LineStrikeCount);
@@ -517,11 +515,11 @@ namespace Hexiege.Presentation
         /// <param name="aimDirection">
         /// 조준 방향(도메인 월드 — 2026-11-17 공습 Task L-2 추가, 맨 뒤 선택 인자). 공습(직선 연속 폭격)만 쓴다.
         /// 공습 조준 확정(OnLineAimConfirm — L-3, 2026-11-17)만 이 인자를 넘기고, 그 밖의 호출(원형 조준 · 즉시 발동)은 생략(0 벡터)한다.
-        /// 공습 자산은 아직 「사용 불가」(자산 켜기 = Plan L-6)라 지금은 그 경로에 들어가지 않는다.
+        /// 공습 자산은 L-6에서 「사용 가능」으로 켜졌으므로 공습 버튼 → 직선 조준 → 이 경로로 방향이 실제로 전달된다.
+        /// *(2026-11-18 갱신 — 직전 「공습 자산은 아직 「사용 불가」(자산 켜기 = Plan L-6)라 지금은 그 경로에 들어가지 않는다」)*
         /// *(2026-11-17 L-3 갱신 — 직전 「지금은 모든 호출이 생략(0 벡터)한다 — … 다음 단계 L-3에서 이 인자로 넘긴다」)*
         /// </param>
-        // [2026-11-17 공습 Task L-2] 방향 인자를 덧붙였다. 옛 시그니처(기록용):
-        // private void ActivateSkill(int buildingId, int slotIndex, Vector3 aimWorld, bool hasAim)
+        // [2026-11-17 공습 Task L-2] 방향 인자를 덧붙였다.
         private void ActivateSkill(int buildingId, int slotIndex, Vector3 aimWorld, bool hasAim, Vector3 aimDirection = default)
         {
             bool isNetworkMode = _networkSkillController != null && NetworkContext.IsNetworkActive;
@@ -529,7 +527,6 @@ namespace Hexiege.Presentation
             if (isNetworkMode)
             {
                 // 서버가 재검증·실행·쿨다운 브로드캐스트를 담당한다(규칙 25·26).
-                // 옛 줄(기록용): _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimWorld, hasAim);
                 _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimWorld, hasAim, aimDirection);
             }
             else

@@ -329,30 +329,7 @@ namespace Hexiege.Presentation
         public void BeginAim(int buildingId, int skillSlot, float radius, Vector3 fallbackDomain,
             Action<int, int, Vector3> onConfirm, Action onCancel)
         {
-            // [2026-11-17 L-3] 본문을 BeginAimCore 로 옮겼다(원형 · 직선 공용). 원형 조준의 동작은 같다.
-            //   옛 본문(기록용 — 지금은 BeginAimCore 가 같은 순서로 실행한다):
-            // if (_gameplayInputBlocked?.Invoke() == true) return;
-            // _buildingId = buildingId;
-            // _skillSlot = skillSlot;
-            // _radius = radius;
-            // _onConfirm = onConfirm;
-            // _onCancel = onCancel;
-            //
-            // _isAiming = true;
-            // IsAiming = true;
-            // // 버튼 탭 gesture(현재 눌린 스킬 버튼 press)는 무시한다 — 이 gesture가 끝날 때까지 드래그로 넘어가지 않는다.
-            // _pendingButtonRelease = true;
-            // _dragging = false;
-            //
-            // if (_camera == null) _camera = Camera.main;
-            //
-            // // 조준 원 기본 위치 = 화면 중앙(맵 밖이면 시전 건물 위치). 진입 즉시 지도 위에 표시.
-            // Vector3 start = ResolveDefaultDomain(fallbackDomain);
-            // ShowReticleAtDomain(start);
-            //
-            // // 취소(X) 버튼을 조준하는 동안만 표시(규칙 20). 기준 스케일로 리셋.
-            // SetCancelButtonVisible(true);
-            // ApplyCancelHover(false);
+            // [2026-11-17 L-3] 본문을 BeginAimCore 로 옮겼다(원형 · 직선 공용). 원형 조준의 동작은 같다(같은 순서로 실행한다).
             if (_gameplayInputBlocked?.Invoke() == true) return;
             _mode = AimMode.Circle;
             _onConfirm = onConfirm;
@@ -362,15 +339,16 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 공습(직선 연속 폭격)의 조준 모드로 진입한다(2026-11-17 L-3 — U-2~U-8 · M-1).
-        /// 첫 터치 전에는 기존 조준과 같은 범위 원 · X 버튼만 보이고(M-1), 화면을 누르면 그 자리가 직사각형 시작점이 된다(U-2).
+        /// 첫 터치 전에는 화면 중앙에 흐릿한(고스트) 직사각형 + 화살표(기본 방향 = 화면 위쪽)와 X 버튼이 보이고(L-7 UI-1 — 옛 M-1 「기존 조준과 같은 범위 원」 대체),
+        /// 화면을 누르면 진하게 바뀌며 그 자리가 직사각형 시작점이 된다(U-2).
         /// 누른 채 끌면 끈 쪽으로 방향이 정해지고(U-3), 최소 드래그 이상 끈 뒤 손을 떼면 <paramref name="onConfirm"/>으로 발사한다(U-10).
         /// </summary>
         /// <param name="buildingId">발동할 스킬 건물 Id.</param>
         /// <param name="skillSlot">발동할 슬롯 번호(0-based).</param>
-        /// <param name="radius">첫 터치 전 범위 원 반경(스킬 데이터 Radius — 기존 조준과 같은 표시, M-1).</param>
+        /// <param name="radius">스킬 데이터 Radius. 공습 조준에서는 원을 그리지 않으므로 진단 로그(RadiusMilli)에만 남는다(L-7 UI-1 — 옛 M-1 첫 터치 전 원 반경).</param>
         /// <param name="lineLength">직선 길이(월드 — 스킬 데이터 LineLength).</param>
         /// <param name="lineWidth">직선 폭(월드 — 스킬 데이터 LineWidth).</param>
-        /// <param name="fallbackDomain">화면 중앙이 맵 밖일 때 범위 원을 둘 기본 도메인 좌표(보통 시전 건물 위치).</param>
+        /// <param name="fallbackDomain">화면 중앙이 맵 밖일 때 고스트 직사각형을 둘 기본 도메인 좌표(보통 시전 건물 위치).</param>
         /// <param name="onConfirm">발사 확정 콜백(buildingId, slot, 시작점(도메인), 방향(도메인, 정규화)).</param>
         /// <param name="onCancel">취소 콜백.</param>
         /// <param name="strikeCount">폭격 횟수(스킬 데이터 LineStrikeCount — 2026-11-18 L-7, 폭격 눈금 · 맞는 타일 하이라이트 표시용).
@@ -425,11 +403,10 @@ namespace Hexiege.Presentation
             _tileCentersDomain.Clear();
             _tileCenterSource?.Invoke(_tileCentersDomain);
 
-            // 조준 원 기본 위치 = 화면 중앙(맵 밖이면 시전 건물 위치). 진입 즉시 지도 위에 표시.
-            //   공습도 첫 터치 전에는 이 원을 그대로 보여 준다(M-1 — 「기존 조준과 같은 범위 표시」).
+            // 조준 표시 기본 위치 = 화면 중앙(맵 밖이면 시전 건물 위치). 진입 즉시 지도 위에 표시.
+            //   원형 조준은 이 자리에 원을, 공습은 이 자리를 가운데로 한 고스트 직사각형을 보인다(L-7 UI-1 — 옛 M-1 「공습도 첫 터치 전엔 같은 원」 대체).
             Vector3 start = ResolveDefaultDomain(fallbackDomain);
-            // [2026-11-18 L-7 UI-1 — M-1 대체] 공습은 원 대신 고스트 직사각형을 보인다. 원 표시 줄(옛 동작, 기록용):
-            // ShowReticleAtDomain(start);
+            // [2026-11-18 L-7 UI-1 — M-1 대체] 공습은 원 대신 고스트 직사각형을 보인다(원형 조준만 아래 else 에서 원을 그린다).
             _lineGhost = _mode == AimMode.Line;
             if (_mode == AimMode.Line)
             {
@@ -490,90 +467,17 @@ namespace Hexiege.Presentation
             TickCancelHover();
 
             // ────────────────────────────────────────────────────────────────
-            // [2026-11-17 공습 Task L-3] 아래 옛 1·2단계 판정(primaryTouch · 마우스 왼쪽 버튼 하나만 읽음)을 비활성화했다.
-            //   대신 손가락 추적기(SkillAimPointerTracker)가 "터치 Id"로 첫 손가락을 따라가며 같은 판정을 한다:
+            // [2026-11-17 공습 Task L-3] 옛 1·2단계 판정(primaryTouch · 마우스 왼쪽 버튼 하나만 읽음)을 손가락 추적기로 바꿨다.
+            //   손가락 추적기(SkillAimPointerTracker)가 "터치 Id"로 첫 손가락을 따라가며 같은 판정을 한다:
             //     · 옛 _pendingButtonRelease(버튼 gesture 무시)  → 추적기 Reset(waitForButtonRelease: true)
             //     · 옛 WasPointerPressedThisFrame(새 press)       → AimPointerEvent.Began
             //     · 옛 드래그 지속 + _lastDragScreenPos 캐시     → AimPointerEvent.Moved(추적 Id 좌표만 캐시)
             //     · 옛 WasPointerReleasedThisFrame → ResolveRelease(캐시 좌표) → AimPointerEvent.Released(같은 캐시 좌표로 판정)
-            //   🔴 「release 프레임에는 라이브 포인터를 읽지 않는다」(실기 취소 버그 수정 — 아래 옛 주석)는 그대로 지킨다:
+            //   🔴 「release 프레임에는 라이브 포인터를 읽지 않는다」(실기 취소 버그 수정)는 그대로 지킨다:
             //      추적기는 "이번 프레임에 눌려 있는" 손가락만 받고, 떨어진 손가락은 직전 프레임 캐시 좌표로만 판정한다.
-            //   옛 코드(기록용):
-            // // ── 1단계 유지 구간: 아직 화면 드래그가 시작되지 않음 ──────────────
-            // if (!_dragging)
-            // {
-            //     // 스킬 버튼 탭 gesture가 끝날 때까지(포인터가 떨어질 때까지) 기다렸다가,
-            //     // 그 다음에 오는 "새 press"부터 드래그(조준 이동)로 인정한다.
-            //     if (_pendingButtonRelease)
-            //     {
-            //         if (!IsPointerPressed()) _pendingButtonRelease = false; // 버튼에서 손을 뗌 → 대기 해제.
-            //         return; // 버튼 gesture 동안은 아무 것도 하지 않음(range/취소버튼은 이미 표시됨).
-            //     }
-            //
-            //     // 버튼을 뗀 뒤, 화면을 새로 누르면 그 순간부터 드래그 시작(규칙 17·19).
-            //     if (WasPointerPressedThisFrame())
-            //     {
-            //         _dragging = true;
-            //         // 방금 눌린 프레임이라 포인터가 유효하다 → 좌표를 얻어 캐시 초기값으로 삼는다.
-            //         Vector2 p = TryGetPointerScreenPos(out Vector2 pressPos) ? pressPos : _lastDragScreenPos;
-            //         _lastDragScreenPos = p;
-            //         UpdateAimPoint(p);
-            //         ApplyCancelHover(IsOverCancelZone(p));
-            //     }
-            //     return;
-            // }
-            //
-            // // ── 2단계: 드래그 중 — 범위 이동 + 엣지 스크롤 + X hover + release 발동/취소 ──
-            //
-            // // [핵심 — 실기기 취소 버그 근본 수정]
-            // //   ★ 손을 뗀 프레임(release)에는 "라이브 포인터를 절대 읽지 않는다".
-            // //
-            // //   왜냐하면(실기기 Android 터치에서만 재현되던 원인):
-            // //     - 손을 뗀 프레임엔 터치의 press.isPressed가 그 프레임에 false로 떨어진다.
-            // //     - 이때 InputSystem이 터치를 마우스로 합성하거나 시스템 포인터를 보고해서
-            // //       Mouse.current가 non-null인 경우가 많다. 그 합성 마우스 좌표는 (0,0)이거나
-            // //       지연/고정된 잘못된 값이다.
-            // //     - 그런데 TryGetPointerScreenPos는 "터치가 안 눌렸으면 마우스 좌표를 무조건
-            // //       유효(true)"로 반환하므로, 이 잘못된 (0,0)이 유효 좌표인 척 흘러들어온다.
-            // //     - 결과: (0,0)은 하단 취소(X) 영역 밖이라 IsOverCancelZone=false → 취소가 아니라
-            // //       발동(_onConfirm)이 실행되어 건물 글로벌 쿨다운이 걸린다.
-            // //
-            // //   그래서 release 프레임에는 라이브 좌표/ TryGetPointerScreenPos 결과를 완전히 무시하고,
-            // //   "드래그 중 매 프레임 캐시해 둔 마지막 유효 좌표(_lastDragScreenPos)"로만 취소/발동을
-            // //   판정한다. 그 캐시값 = 마지막으로 손가락이 눌려 있던 위치 = 실제로 손을 뗀 위치이므로
-            // //   취소 버튼 위에서 뗐다면 정확히 취소로 판정된다.
-            // //   (에디터 마우스도 동일하게 동작: 드래그 중 매 프레임 커서 위치가 캐시되고, 마우스는
-            // //    손을 떼도 좌표가 튀지 않으므로 캐시값 = 실제 뗀 커서 위치 → 회귀 없음.)
-            // if (WasPointerReleasedThisFrame())
-            // {
-            //     ResolveRelease(_lastDragScreenPos);
-            //     return;
-            // }
-            //
-            // // ── 여기부터는 "손을 아직 안 뗀" 드래그 지속 프레임 ──
-            // // 이번 프레임의 포인터 좌표를 얻는다.
-            // //   • 유효하면(터치가 눌린 상태 또는 에디터 마우스) 그 값을 쓰고, 캐시(_lastDragScreenPos)에 저장.
-            // //   • 유효하지 않으면 마지막으로 캐시한 드래그 좌표를 쓴다(표시/스크롤이 튀지 않도록).
-            // Vector2 screenPos;
-            // if (TryGetPointerScreenPos(out Vector2 livePos))
-            // {
-            //     screenPos = livePos;
-            //     _lastDragScreenPos = livePos; // 유효 좌표를 매 프레임 캐시(다음 release 프레임 대비 — 핵심).
-            // }
-            // else
-            // {
-            //     screenPos = _lastDragScreenPos; // 유효 좌표 없음 → 마지막 드래그 좌표 유지.
-            // }
-            //
-            // // 1) 조준점(범위 원) 위치·유효 좌표 갱신(맵 밖은 마지막 유효 위치로 clamp — 규칙 22).
-            // UpdateAimPoint(screenPos);
-            //
-            // // 2) 엣지 스크롤(조준점이 화면 가장자리 여백 안이면 카메라 팬 — 규칙 18·23).
-            // if (_cameraController != null)
-            //     _cameraController.EdgeScroll(screenPos, Time.deltaTime, _edgeMarginPx, _edgeScrollSpeed);
-            //
-            // // 3) 취소 버튼 위 hover면 확대 예고(규칙 20-1), 벗어나면 원래 크기.
-            // ApplyCancelHover(IsOverCancelZone(screenPos));
+            //   왜 — Android 실기에서 손을 뗀 프레임에는 합성 마우스 좌표((0,0) 등 잘못된 값)가 "유효 좌표"처럼 들어와,
+            //   X 위에서 손을 떼도 X 밖으로 판정되어 취소 대신 발동(쿨다운)이 걸렸다. 마지막으로 눌려 있던 위치(= 실제로 뗀 위치)의
+            //   캐시 좌표로 판정하면 X 위에서 뗀 경우 정확히 취소가 된다(에디터 마우스도 캐시 = 실제 커서 위치라 회귀 없음).
             // ────────────────────────────────────────────────────────────────
 
             // 이번 프레임에 눌려 있는 손가락(또는 마우스 왼쪽 버튼)을 모아 추적기에 넣는다.
@@ -794,8 +698,7 @@ namespace Hexiege.Presentation
             if (_lineReticle == null) _lineReticle = SkillLineAimReticle.CreateRuntime();
             Vector3 viewStart = ViewConverter.ToView(_lineAnchorDomain);
             Vector3 viewDirection = SkillLineAimMath.DomainDirectionToView(_lineAnchorDomain, _lineDirectionDomain);
-            // [2026-11-18 L-7] 원래 길이 · 폭격 횟수를 함께 넘겨 폭격 눈금을 그린다(UI-2c), 상태 색은 먼저 알린다(UI-2d). 옛 호출(기록용):
-            // _lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth);
+            // [2026-11-18 L-7] 원래 길이 · 폭격 횟수를 함께 넘겨 폭격 눈금을 그린다(UI-2c), 상태 색은 먼저 알린다(UI-2d).
             _lineReticle.SetState(ComputeVisualState());
             _lineReticle.Show(viewStart, viewDirection, effLength, _lineWidth, _lineLength, _lineStrikeCount);
         }
@@ -998,10 +901,6 @@ namespace Hexiege.Presentation
         {
             // [2026-11-18 L-7] DiagRev 1 → 2: VisualState(첫 상태 색) · HighlightTiles(하이라이트 타일 수 — L-L33) · TileCount(받은 타일 중심 수,
             //   0 이면 조합 루트 배선 누락) · StrikeCount · LineGhost 키를 더했고, 공습은 첫 터치 전부터 고스트 직사각형이 보여 LineShown=True 다.
-            //   옛 줄(기록용):
-            // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimBegin",
-            //     FormattableString.Invariant(
-            //         $"Diag=SkillAim, DiagRev=1, Event=AimBegin, Mode={ModeLabel}, BuildingId={_buildingId}, Slot={_skillSlot}, EdgeScroll={(_mode == AimMode.Line ? "Off" : "On")}, LineShown=False, RadiusMilli={Milli(_radius)}, LengthMilli={Milli(_mode == AimMode.Line ? _lineLength : 0f)}, WidthMilli={Milli(_mode == AimMode.Line ? _lineWidth : 0f)}, ThresholdMilli={Milli(_mode == AimMode.Line ? LineMinDragWorld : 0f)}"));
             bool line = _mode == AimMode.Line;
             GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimBegin",
                 FormattableString.Invariant(
@@ -1035,24 +934,16 @@ namespace Hexiege.Presentation
         {
             // [2026-11-18 L-7] DiagRev 1 → 2: HighlightTiles(손을 뗀 순간 하이라이트 타일 수 — L-L33) 키를 더했다.
             //   발사면 그 발동에서 서버가 대상을 고르는 기준(타일 중심 · 반경 / 직사각형 · 유효 길이)과 같은 기준으로 센 수다.
-            //   손을 뗀 순간의 좌표로 다시 맞춘 뒤 센다(조건이 같으면 다시 고르지 않는다). 옛 줄 2개는 아래 각 분기에 주석으로 남겼다.
+            //   손을 뗀 순간의 좌표로 다시 맞춘 뒤 센다(조건이 같으면 다시 고르지 않는다).
             int highlightTiles = RefreshHighlight();
             if (_mode == AimMode.Line)
             {
                 float eff = _lineAnchorSet ? ComputeLineEffectiveLength() : 0f;
-                // 옛 줄(기록용):
-                // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
-                //     FormattableString.Invariant(
-                //         $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Line, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, AnchorSet={_lineAnchorSet}, DragMilli={Milli(_lineDragDistance)}, ThresholdMilli={Milli(LineMinDragWorld)}, AnchorXmm={Milli(_lineAnchorDomain.x)}, AnchorZmm={Milli(_lineAnchorDomain.z)}, DirXMilli={Milli(_lineDirectionDomain.x)}, DirZMilli={Milli(_lineDirectionDomain.z)}, LengthMilli={Milli(_lineLength)}, EffLengthMilli={Milli(eff)}, WidthMilli={Milli(_lineWidth)}, Flipped={ViewConverter.IsFlipped}"));
                 GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
                     FormattableString.Invariant(
                         $"Diag=SkillAim, DiagRev=2, Event=AimReleaseResolved, Mode=Line, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, AnchorSet={_lineAnchorSet}, DragMilli={Milli(_lineDragDistance)}, ThresholdMilli={Milli(LineMinDragWorld)}, AnchorXmm={Milli(_lineAnchorDomain.x)}, AnchorZmm={Milli(_lineAnchorDomain.z)}, DirXMilli={Milli(_lineDirectionDomain.x)}, DirZMilli={Milli(_lineDirectionDomain.z)}, LengthMilli={Milli(_lineLength)}, EffLengthMilli={Milli(eff)}, WidthMilli={Milli(_lineWidth)}, StrikeCount={_lineStrikeCount}, HighlightTiles={highlightTiles}, VisualState={_visualState}, Flipped={ViewConverter.IsFlipped}"));
                 return;
             }
-            // 옛 줄(기록용):
-            // GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
-            //     FormattableString.Invariant(
-            //         $"Diag=SkillAim, DiagRev=1, Event=AimReleaseResolved, Mode=Circle, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, HasCoord={_hasValidCoord}, AimXmm={Milli(_lastValidDomain.x)}, AimZmm={Milli(_lastValidDomain.z)}, Flipped={ViewConverter.IsFlipped}"));
             GameLog.Dev.Info("Skill", nameof(SkillAimController), "[SKILL-AIM] AimReleaseResolved",
                 FormattableString.Invariant(
                     $"Diag=SkillAim, DiagRev=2, Event=AimReleaseResolved, Mode=Circle, BuildingId={_buildingId}, Slot={_skillSlot}, Result={result}, Reason={reason}, OverCancel={overCancel}, HasCoord={_hasValidCoord}, AimXmm={Milli(_lastValidDomain.x)}, AimZmm={Milli(_lastValidDomain.z)}, RadiusMilli={Milli(_radius)}, HighlightTiles={highlightTiles}, VisualState={_visualState}, Flipped={ViewConverter.IsFlipped}"));

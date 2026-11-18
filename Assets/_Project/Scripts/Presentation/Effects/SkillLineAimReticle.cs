@@ -33,13 +33,12 @@
 //   · 등장(UI-2d): 나타날 때 시작점을 중심으로 작게 시작해 커진다. 고스트 → 활성(첫 터치)일 때도 한 번 더 튼다(PlayAppear).
 //   · 메시 = 정점 고정 개수 · 하위 메시 2개(0 = 채움 · 테두리 · 눈금 — 주색, 1 = 화살촉 · 쉐브론 — 강조색). 쉐브론만 매 프레임
 //     정점 위치 · 알파를 고쳐 넣는다(미리 만든 배열 재사용 — 할당 없음).
-//   옛 구현(단색 상수 · 막대 화살표 · 정점 27개 메시)은 지우지 않고 이 파일 끝에 주석으로 남겼다(WORKFLOW [4]).
+//   (2026-11-17 L-4 의 옛 구현 — 단색 상수 · 막대 화살표 · 정점 27개 메시 — 을 대체했다. 머티리얼 생성은 SkillAimVisualStyle 로 옮겼다.)
 //
 // Presentation 레이어 — Unity MonoBehaviour 의존. 화면 전용(판정에 아무 영향 없음).
 // ============================================================================
 
 using UnityEngine;
-// using Hexiege.Application; // [2026-11-18 L-7] 옛 CreateOverlayMaterial 의 GameLog 용 — 머티리얼 생성이 SkillAimVisualStyle 로 옮겨 가 이 파일에서는 쓰지 않는다
 
 namespace Hexiege.Presentation
 {
@@ -310,7 +309,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 렌더러 · 메시 · 머티리얼 2개를 만든다(1회). 정점 수 · 삼각형 순서 · 하위 메시는 여기서 한 번만 정한다.
-        /// (2026-11-18 L-7 — 옛 Build 는 이 파일 끝 주석 블록.)
+        /// (2026-11-18 L-7 — 정점 27개 · 단색 정점 색이던 옛 Build 를 대체했다.)
         /// </summary>
         private void Build()
         {
@@ -532,149 +531,5 @@ namespace Hexiege.Presentation
         {
             return (byte)Mathf.RoundToInt(Mathf.Clamp01(a) * 255f);
         }
-
-        // ====================================================================
-        // [2026-11-18 L-7] 옛 구현(기록용 — WORKFLOW [4] 「기존 로직 제거 규칙」: 사용자 테스트 통과 뒤 최종 삭제 여부를 묻는다)
-        //   단색 정점 색 상수 · 막대 화살표 · 정점 27개 메시(Build · RebuildVertices). 위 새 구현이 대신한다:
-        //     · 단색 FillColor · EdgeColor · ArrowColor → 정점 알파(모양) × 머티리얼 상태 색(SkillAimVisualStyle)
-        //     · 화살표 막대(ShaftWidthRatio · ShaftStartRatio) → 흐르는 쉐브론(WriteChevrons)
-        //     · Build · RebuildVertices → Build · RebuildStatic(하위 메시 2개 · 눈금 · 쉐브론 추가)
-        //     · CreateOverlayMaterial → SkillAimVisualStyle.CreateOverlayMaterial(같은 순서 — 원형 · 하이라이트와 공용)
-        // ====================================================================
-        // /// <summary> 화살표 막대 폭 = 직선 폭 × 이 비율. </summary>
-        // private const float ShaftWidthRatio = 0.08f;
-
-        // /// <summary> 화살촉 반폭 = 직선 폭 × 이 비율. </summary>
-        // private const float HeadHalfWidthRatio = 0.28f;
-
-        // /// <summary> 화살촉 길이 = min(직선 폭 × 이 비율, 길이 × HeadMaxLengthRatio). </summary>
-        // private const float HeadLengthWidthRatio = 0.55f;
-
-        // /// <summary> 화살촉 길이의 상한(직선 길이 대비). 짧은 직선에서 화살촉이 직사각형 밖으로 나가지 않게. </summary>
-        // private const float HeadMaxLengthRatio = 0.4f;
-
-        // /// <summary> 화살표 막대가 시작하는 자리(길이 대비 — 시작점에서 조금 떨어져 시작). </summary>
-        // private const float ShaftStartRatio = 0.06f;
-        // /// <summary> 채움 색(반투명 붉은 — 원형 조준원 채움색과 같은 계열). </summary>
-        // private static readonly Color32 FillColor = new Color32(204, 51, 51, 64);
-
-        // /// <summary> 테두리 색(진한 붉은 — 원형 조준원 링 색과 같은 계열). </summary>
-        // private static readonly Color32 EdgeColor = new Color32(217, 38, 38, 230);
-
-        // /// <summary> 화살표 색(밝은 살구빛 — 붉은 채움 위에서 방향이 잘 보이도록). </summary>
-        // private static readonly Color32 ArrowColor = new Color32(255, 225, 205, 235);
-        // // 정점 · 삼각형 수(고정 — 배열 재사용).
-        // //   채움 4 + 테두리 띠 4개 × 4 + 화살표 막대 4 + 화살촉 3 = 27 정점,
-        // //   채움 2 + 테두리 8 + 막대 2 + 화살촉 1 = 13 삼각형.
-        // private const int VertexCount = 27;
-        // private const int TriangleIndexCount = 13 * 3;
-        // /// <summary> 렌더러 · 메시 · 머티리얼을 만든다(1회). 정점 색과 삼각형 순서는 여기서 한 번만 정한다. </summary>
-        // private void Build()
-        // {
-        //     if (_mesh != null) return;
-        //     _material = CreateOverlayMaterial();
-
-        //     _filter = gameObject.AddComponent<MeshFilter>();
-        //     _renderer = gameObject.AddComponent<MeshRenderer>();
-        //     _renderer.sharedMaterial = _material;
-        //     _renderer.enabled = _material != null; // 머티리얼이 없으면 분홍색으로 보이지 않게 꺼 둔다
-        //     _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        //     _renderer.receiveShadows = false;
-
-        //     _mesh = new Mesh { name = "SkillLineAimReticle (runtime)" };
-        //     _mesh.MarkDynamic(); // 조준 중 길이가 자주 바뀐다 — 정점 갱신이 잦은 메시라고 알려 준다
-
-        //     // 정점 색 — 순서: 채움(0~3) · 테두리(4~19) · 막대(20~23) · 화살촉(24~26).
-        //     var colors = new Color32[VertexCount];
-        //     for (int i = 0; i < 4; i++) colors[i] = FillColor;
-        //     for (int i = 4; i < 20; i++) colors[i] = EdgeColor;
-        //     for (int i = 20; i < VertexCount; i++) colors[i] = ArrowColor;
-
-        //     // 삼각형 — 반투명(ZWrite Off) 셰이더는 한 메시 안에서 "삼각형 순서대로" 그린다.
-        //     //   그래서 채움을 먼저, 테두리 · 화살표를 나중에 둬야 위에 덮여 보인다.
-        //     var triangles = new int[TriangleIndexCount];
-        //     int t = 0;
-        //     t = AddQuad(triangles, t, 0);   // 채움
-        //     t = AddQuad(triangles, t, 4);   // 테두리 왼쪽
-        //     t = AddQuad(triangles, t, 8);   // 테두리 오른쪽
-        //     t = AddQuad(triangles, t, 12);  // 테두리 앞(시작점 쪽)
-        //     t = AddQuad(triangles, t, 16);  // 테두리 끝(끝점 쪽)
-        //     t = AddQuad(triangles, t, 20);  // 화살표 막대
-        //     triangles[t] = 24; triangles[t + 1] = 26; triangles[t + 2] = 25; // 화살촉(셰이더가 Cull Off 라 감는 방향과 무관하게 보인다)
-
-        //     RebuildVertices(0f, 0f);
-        //     _mesh.vertices = _vertices;
-        //     _mesh.colors32 = colors;
-        //     _mesh.triangles = triangles;
-        //     _mesh.RecalculateBounds();
-        //     _filter.sharedMesh = _mesh;
-        // }
-        // /// <summary>
-        // /// 길이 · 폭에 맞춰 정점 위치를 다시 계산한다(로컬 XZ — +Z = 앞, X = 옆). 정점 수 · 삼각형 순서는 바뀌지 않는다.
-        // /// </summary>
-        // /// <param name="length">길이(월드 m).</param>
-        // /// <param name="width">폭(월드 m).</param>
-        // private void RebuildVertices(float length, float width)
-        // {
-        //     float h = width * 0.5f;
-        //     // 테두리 두께는 직사각형의 반폭 · 반길이를 넘지 않게 줄인다(아주 짧은 직선에서 띠가 겹쳐 뒤집히지 않게).
-        //     float b = Mathf.Min(BorderThickness, h, length * 0.5f);
-        //     float y0 = 0f, y1 = LayerStep, y2 = LayerStep * 2f;
-
-        //     // 채움(직사각형 전체).
-        //     SetQuad(0, -h, h, 0f, length, y0);
-        //     // 테두리 띠 4개(안쪽으로 두께 b).
-        //     SetQuad(4, -h, -h + b, 0f, length, y1);           // 왼쪽
-        //     SetQuad(8, h - b, h, 0f, length, y1);             // 오른쪽
-        //     SetQuad(12, -h, h, 0f, b, y1);                    // 앞(시작점)
-        //     SetQuad(16, -h, h, length - b, length, y1);       // 끝
-
-        //     // 화살표 — 가운데 막대 + 끝 쪽 삼각형 화살촉. 짧은 직선에서는 비율로 줄여 직사각형 안에 머물게 한다.
-        //     float headLen = Mathf.Min(width * HeadLengthWidthRatio, length * HeadMaxLengthRatio);
-        //     float tip = Mathf.Max(0f, length - b * 1.5f);
-        //     float headBase = Mathf.Max(0f, tip - headLen);
-        //     float shaftStart = Mathf.Min(length * ShaftStartRatio + b, headBase);
-        //     float sh = width * ShaftWidthRatio * 0.5f;
-        //     float hh = Mathf.Min(width * HeadHalfWidthRatio, h - b);
-        //     if (hh < 0f) hh = 0f;
-        //     SetQuad(20, -sh, sh, shaftStart, headBase, y2);
-        //     _vertices[24] = new Vector3(-hh, y2, headBase);
-        //     _vertices[25] = new Vector3(hh, y2, headBase);
-        //     _vertices[26] = new Vector3(0f, y2, tip);
-
-        //     if (_mesh != null)
-        //     {
-        //         _mesh.vertices = _vertices; // 같은 배열을 다시 넣는다(새 배열 할당 없음)
-        //         _mesh.RecalculateBounds();
-        //     }
-        // }
-        // /// <summary>
-        // /// 지면 데칼 머티리얼 복사본을 만든다(TowerRangeIndicator.CreateOverlayMaterial 과 같은 순서).
-        // /// 1순위 Resources 의 NoBuildHatch.mat 복사, 2순위 셰이더 직접 찾기. 둘 다 실패하면 null(표시만 안 될 뿐 게임은 정상 — 경고 1줄).
-        // /// </summary>
-        // private static Material CreateOverlayMaterial()
-        // {
-        //     Material source = Resources.Load<Material>(OverlayMaterialResourcePath);
-        //     Material material = null;
-        //     if (source != null)
-        //     {
-        //         material = new Material(source);
-        //     }
-        //     else
-        //     {
-        //         Shader shader = Shader.Find("Hexiege/SkillAimOverlay");
-        //         if (shader == null) shader = Shader.Find("Sprites/Default");
-        //         if (shader != null) material = new Material(shader);
-        //         // [개발] Warn + 개발 — 에셋 구성 문제(모든 기기 공통)이고, 셰이더를 찾았으면 계속 보이므로 대체 경로가 있다.
-        //         GameLog.Dev.Warn("Skill", nameof(SkillLineAimReticle),
-        //                          "[SKILL-AIM] 직선 조준 표시용 지면 데칼 머티리얼 에셋을 찾지 못했다 — 셰이더를 직접 찾아 대체한다",
-        //                          $"Diag=SkillAim, DiagRev=1, Event=LineReticleMaterialFallback, Path=Resources/{OverlayMaterialResourcePath}, ShaderFound={(material != null)}");
-        //     }
-        //     if (material == null) return null;
-        //     material.name = "SkillLineAimReticleMaterial (runtime)";
-        //     if (material.HasProperty("_Color")) material.SetColor("_Color", MaterialTint);
-        //     if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", MaterialTint);
-        //     return material;
-        // }
     }
 }

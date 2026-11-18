@@ -239,36 +239,8 @@ namespace Hexiege.Presentation
             // --- 모바일 핀치 ---
             // [2026-11-17 공습 Task L-3 — U-11] 두 손가락 핀치 줌은 「두 손가락 = 화면 이동(중점) + 줌(거리)」 한 처리로 옮겼다
             //   (HandleTwoFingerGesture — HandlePan 안). 줌 계산식(거리 변화 × 줌 속도 × 0.01)은 그대로 옮겼으므로 줌 크기는 같다(R-13).
-            //   옛 코드(기록용 — 비활성화):
-            // var touchscreen = Touchscreen.current;
-            // if (touchscreen != null && UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count == 2)
-            // {
-            //     var touches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
-            //     Vector2 t0Pos = touches[0].screenPosition;
-            //     Vector2 t1Pos = touches[1].screenPosition;
-            //     Vector2 t0Delta = touches[0].delta;
-            //     Vector2 t1Delta = touches[1].delta;
-            //
-            //     // 이전 프레임과 현재 프레임의 두 터치 사이 거리 비교
-            //     float prevDist = Vector2.Distance(t0Pos - t0Delta, t1Pos - t1Delta);
-            //     float currDist = Vector2.Distance(t0Pos, t1Pos);
-            //
-            //     float diff = prevDist - currDist;
-            //     zoomDelta = diff * zoomSpeed * 0.01f;
-            // }
 
-            // [2026-11-17] 아래 적용 블록은 두 손가락 제스처도 함께 쓰도록 ApplyZoomDelta 로 옮겼다(같은 코드). 옛 블록(기록용):
-            // if (Mathf.Abs(zoomDelta) > 0.001f)
-            // {
-            //     _targetZoom = Mathf.Clamp(_targetZoom + zoomDelta, zoomMin, zoomMax);
-            //     _zoomTween?.Kill();
-            //     _zoomTween = DOTween.To(
-            //         () => _cam.orthographicSize,
-            //         x => _cam.orthographicSize = x,
-            //         _targetZoom,
-            //         _zoomDuration
-            //     ).SetEase(Ease.OutCubic);
-            // }
+            // [2026-11-17] 줌 적용(목표 줌 + DOTween 보간)은 두 손가락 제스처도 함께 쓰도록 ApplyZoomDelta 로 옮겼다(같은 코드).
             ApplyZoomDelta(zoomDelta, zoomMin, zoomMax);
         }
 
@@ -328,24 +300,10 @@ namespace Hexiege.Presentation
         {
             // [2026-11-17 공습 Task L-3 — U-11] 아래 조준 중 가드를 "뒤로" 옮겼다.
             //   조준 중에도 두 손가락(화면 이동 + 줌)과 마우스 오른쪽 버튼 끌기(화면 이동)는 통과시키고,
-            //   한 손가락 · 왼쪽 버튼 팬만 지금처럼 억제한다(한 손가락은 조준 전용 — U-9). 옛 가드(기록용):
-            // // 스킬 지점 조준 중에는 카메라 드래그 팬을 억제한다(입력 소유권 — 조준 컨트롤러가 엣지 스크롤로만 이동).
-            // // 랠리 모드가 InputHandler 타일 선택을 억제하는 것과 동일한 우선순위 가드다.
-            // if (SkillAimController.IsAiming)
-            // {
-            //     _isDragging = false;
-            //     return;
-            // }
+            //   한 손가락 · 왼쪽 버튼 팬만 지금처럼 억제한다(한 손가락은 조준 전용 — U-9).
 
-            // [2026-11-17 — U-11] 「2터치 중에는 팬 비활성화」 가드를 비활성화했다. 이제 두 손가락 = 화면 이동(중점) + 줌(거리)이다
-            //   (아래 HandleTwoFingerGesture — 평소 · 조준 중 모두). 옛 가드(기록용):
-            // // 2터치(핀치 줌) 중에는 팬 비활성화 (마우스/터치 공통 가드)
-            // var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
-            // if (activeTouches.Count >= 2)
-            // {
-            //     _isDragging = false;
-            //     return;
-            // }
+            // [2026-11-17 — U-11] 「2터치 중에는 팬 비활성화」 가드를 없앴다. 이제 두 손가락 = 화면 이동(중점) + 줌(거리)이다
+            //   (아래 HandleTwoFingerGesture — 평소 · 조준 중 모두).
             var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
             bool aiming = SkillAimController.IsAiming;
 
@@ -384,7 +342,6 @@ namespace Hexiege.Presentation
             // activeTouches.Count == 0: 모바일에서 Mouse.current가 null이 아닐 수 있으므로
             // 터치가 없을 때만 마우스 팬 처리 (터치 팬과 충돌 방지)
             // [2026-11-17] `!_isRightDragging` 을 더했다 — 오른쪽 버튼으로 끄는 중에는 왼쪽 버튼 팬이 같은 프레임에 겹쳐 움직이지 않게.
-            //   옛 조건(기록용): if (mouse != null && activeTouches.Count == 0)
             if (mouse != null && activeTouches.Count == 0 && !_isRightDragging)
             {
                 // 드래그 시작 (마우스 왼쪽 버튼)
@@ -413,37 +370,11 @@ namespace Hexiege.Presentation
             // --- 터치 팬 (실제 모바일 디바이스) ---
             // Touchscreen.current != null: 실제 터치스크린 기기에서만 처리
             // (mouse == null 조건은 Android에서 가상 마우스 때문에 항상 false가 될 수 있음)
-            // [2026-11-17 공습 Task L-3 — 메인 세션 검토 c · R-17] 아래 옛 한 손가락 팬을 비활성화했다.
+            // [2026-11-17 공습 Task L-3 — 메인 세션 검토 c · R-17] 한 손가락 팬을 아래처럼 고쳤다.
             //   옛 코드는 기준점(_dragOrigin)을 터치 Began 에서만 잡아서, 두 손가락 → 한 손가락으로 돌아오면 남은 손가락은 Began 이 아니라
             //   예전 기준점으로 계산되어 화면이 튀었다. 또 activeTouches.Count == 1 조건은 "손을 뗀 프레임의 손가락"까지 세어
-            //   두 손가락 중 하나를 뗀 프레임에는 한 손가락 팬이 돌지 않았다. 옛 코드(기록용):
-            // if (Touchscreen.current != null && activeTouches.Count == 1)
-            // {
-            //     var touch = activeTouches[0];
-            //
-            //     // 터치 시작 — 드래그 원점 기록
-            //     if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
-            //     {
-            //         _dragOrigin = ScreenToXZPlane(touch.screenPosition);
-            //         _isDragging = true;
-            //     }
-            //
-            //     // 터치 이동 — XZ 평면상 월드 좌표 차이만큼 카메라 이동
-            //     if (_isDragging && (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved
-            //         || touch.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
-            //     {
-            //         Vector3 currentPos = ScreenToXZPlane(touch.screenPosition);
-            //         Vector3 diff = _dragOrigin - currentPos;
-            //         transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
-            //     }
-            //
-            //     // 터치 종료
-            //     if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended
-            //         || touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
-            //     {
-            //         _isDragging = false;
-            //     }
-            // }
+            //   두 손가락 중 하나를 뗀 프레임에는 한 손가락 팬이 돌지 않았다. 그래서 "지금 눌려 있는" 손가락 수로 세고,
+            //   팬이 꺼져 있다가 한 손가락이 되면 그 순간의 손가락 위치를 기준점으로 다시 잡는다.
             if (Touchscreen.current != null)
             {
                 if (pressedTouches == 1 && TryGetFirstPressedTouch(activeTouches, out var touch))

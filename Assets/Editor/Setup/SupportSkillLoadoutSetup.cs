@@ -94,7 +94,6 @@ namespace Hexiege.EditorTools
         //   [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-4] 10 → 11. 재생의 뿌리를 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        // private const int ExpectedAvailableCount = 11; // [2026-11-17 L-6] 옛 값(기록용 — 공습 켜기 전).
         private const int ExpectedAvailableCount = 12;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
@@ -298,8 +297,10 @@ namespace Hexiege.EditorTools
             // 공습 — [2026-11-17 지원 스킬 2-L 공습 Task L-6, Plan P-7 · L-L9] 자리표시(타입 A · 사용 불가)에서 실제 값으로 바꿨다.
             //   타입 5(LineStrike — 직선 연속 폭격): 누른 자리 = 시작점, 끈 쪽 = 방향, 직선을 폭격 횟수만큼 나눠 시작점 쪽부터 차례로 폭격한다.
             //   피해 150 = 폭격 1회가 대상 1개에 주는 피해(한 번 시전에 같은 대상은 1회만 — U-12). 착탄 지연 0.4 = 첫 폭격까지의 시간.
-            //   반경 2 · VFX 기준 반경 2는 자리표시 값 그대로다 — 공습은 반경으로 판정하지 않지만, 조준 모드에 들어간 직후(첫 터치 전)
-            //   기존 조준과 같은 원 표시에 반경을 쓴다(M-1 — BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘긴다).
+            //   반경 2 · VFX 기준 반경 2는 자리표시 값 그대로다 — 공습은 반경으로 판정하지 않고, 조준 표시도 원을 그리지 않는다
+            //   (첫 터치 전엔 고스트 직사각형 — L-7 UI-1). BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘기지만
+            //   조준 진단 로그(RadiusMilli)에만 남는다. *(2026-11-18 갱신 — 직전 「조준 모드에 들어간 직후(첫 터치 전)
+            //   기존 조준과 같은 원 표시에 반경을 쓴다(M-1 — BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘긴다)」)*
             //   수치는 모두 시험용 임시값이다(밸런싱 단계 — Plan O-9).
             //   🔴 직선 칸(길이 6 · 폭 2 · 5회 · 간격 0.2)과 공습 VFX 칸(기준 길이 · 폭격 VFX)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다
             //      (칸이 없는 자산은 SkillDefinition 초기값 6 · 2 · 5 · 0.2 · 6 · 없음으로 읽힌다).
@@ -322,9 +323,7 @@ namespace Hexiege.EditorTools
             {
                 // ── 인간(race 0) — FlightFacility ──
                 bombardment,
-                // [2026-11-17 L-6] 공습 자리표시 줄을 위 airStrike(직선 연속 폭격 · 사용 가능)로 바꿨다. 옛 줄(기록용):
-                // PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
-                //     "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
+                // [2026-11-17 L-6] 공습 자리표시 줄을 위 airStrike(직선 연속 폭격 · 사용 가능)로 바꿨다.
                 airStrike,
                 emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",

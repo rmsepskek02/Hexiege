@@ -71,7 +71,7 @@ namespace Hexiege.Editor.Combat
             ValidateSupportExecutorRouting();      // S-T7
             ValidateSupportNewStatusAssets();      // S-T8
             ValidateSupportNewStatusSourceGates(); // S-T9
-            Debug.Log("[UAS-DIAG][SKILL-ARMOR] self-validation PASS: rounding AwayFromZero + minimum 1 (S-T1), no-effect regression exact at all six damage points with and without the service (S-T2), Earth Armor ×0.7 at all six points while buildings / enemy team / units born after activation stay unchanged (S-T3), replace / expiry / death / Close / rejection lifecycle (S-T4), production dt × team multiplier incl. in-progress and newly registered barracks then exact restore (S-T5), pure-client progress mirror (S-T6), executor routing to the support bridge with Tactical Order attack path unchanged (S-T7), Earth Armor / Tactical Order asset contract (S-T8), six helper call sites + tick / close / injection / setup 11 / schema 10 source gates (S-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-ARMOR] self-validation PASS: rounding AwayFromZero + minimum 1 (S-T1), no-effect regression exact at all six damage points with and without the service (S-T2), Earth Armor ×0.7 at all six points while buildings / enemy team / units born after activation stay unchanged (S-T3), replace / expiry / death / Close / rejection lifecycle (S-T4), production dt × team multiplier incl. in-progress and newly registered barracks then exact restore (S-T5), pure-client progress mirror (S-T6), executor routing to the support bridge with Tactical Order attack path unchanged (S-T7), Earth Armor / Tactical Order asset contract (S-T8), six helper call sites + tick / close / injection / setup 12 / schema 11 source gates (S-T9).");
         }
 
         // ── 피해 지점 fixture ─────────────────────────────────────────────
@@ -591,14 +591,10 @@ namespace Hexiege.Editor.Combat
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(지원 스킬 새 상태와 무관한 변경). 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 11,
-            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 11 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration enabled).");
+            // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(지원 스킬 새 상태와 무관한 변경).
             Require(expected != null && (int)expected.GetRawConstantValue() == 12,
                 "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike enabled).");
-            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경). 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 10,
-            //     "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10.");
+            // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
                 "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11.");
         }
