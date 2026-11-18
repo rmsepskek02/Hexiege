@@ -1057,6 +1057,7 @@ namespace Hexiege.Editor.Combat
             ValidateSupportRegenStageB(); // [2026-11-17 지원 스킬 새 상태 단계 B(재생의 뿌리 — 재생 · 받는 회복 배율) — R-T1~R-T9]
             ValidateAirStrikeLineStrike(); // [2026-11-17 지원 스킬 2-L 공습 L-1 · L-2(직선 연속 폭격 서버 판정 · 방향 전송 · 스키마 11) — LS-T1~T12 (L-5 · L-6 자산 켜기 LS-T9 포함)]
             ValidateAirStrikeAimInput(); // [2026-11-17 지원 스킬 2-L 공습 L-3 · L-4(조준 입력 떼는 순서 · 터치 Id · 뷰 변환 방향) — LS-T13 · P-10]
+            ValidateMeteorSkill(); // [2026-11-18 지원 스킬 2-D 메테오(타입 A 착탄 화상 · 착탄 예약 연출 · 자산 켜기) — M-T1~M-T10]
             ValidateFoxMagicianProductionTimeline();
             ValidateFoxMagicianProductionTimelineDiagnostics();
             ValidateFoxMagicianPrimaryPresentation();

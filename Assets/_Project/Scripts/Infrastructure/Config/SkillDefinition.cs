@@ -31,6 +31,11 @@
 //   L-5: 「공습 VFX」(_lineVfxReferenceLength · _strikeVfxPrefab). 직선 경고는 기존 「발동 VFX」 칸을 쓰고(회전 + 길이 배율),
 //   폭격 1회분은 새 「폭격 VFX」 칸을 쓴다. 초기값은 기준 길이 6(= 임시 길이 → 배율 1) · 프리팹 없음이라 기존 자산 무변경.
 //
+// 2026-11-18 추가 칸(지원 스킬 2-D 메테오 Task — _Tasks/2026-11-18/03_34_support-skill-meteor):
+//   「착탄 화상」(_impactBurnDamagePerSecond · _impactBurnDuration) — 타입 A 착탄 순간 살아 남은 적 유닛에게 화상. 초기값 0 = 화상 없음.
+//   「착탄 예약 연출」(_warningVfxReferenceTime · _fallingBodyVfxPrefab · _fallingBodyStartOffset · _fallingBodyEulerOffset · _impactVfxPrefab)
+//   — 예고 재생 속도 맞춤 · 떨어지는 몸체 · 착탄 폭발. 초기값은 기준 시간 0(맞춤 안 함) · 프리팹 없음이라 기존 자산 무변경.
+//
 // Infrastructure 레이어 — ScriptableObject. Application(SkillData)/Domain(enum) 참조.
 // ============================================================================
 
@@ -301,6 +306,60 @@ namespace Hexiege.Infrastructure
         [Tooltip("(공습) 폭격 1회분 VFX 프리팹. 폭격마다 그 구간 가운데에 1번 재생한다(비워도 피해는 동작).")]
         [SerializeField] private GameObject _strikeVfxPrefab;
 
+        [Header("착탄 화상 (타입 A — 메테오용 · 착탄 순간 살아 남은 적 유닛에게)")]
+        // 착탄 화상 칸(2026-11-18 추가 — 지원 스킬 2-D 메테오 Task, Plan M-3 · P-2 · P-3 · U-7).
+        //
+        // 무엇인가(초급자용 설명):
+        //   메테오는 떨어지는 순간 원 안의 적에게 피해를 주고, 그 피해를 맞고도 「살아 남은 적 유닛」에게 화상을 건다.
+        //   화상은 InfernoSpirit이 거는 화상과 같은 장치 · 같은 이펙트다(1초마다 「초당 피해」만큼 · 「지속」초 동안 — 유닛 규칙 40).
+        //   이미 화상이 붙어 있는 유닛에 또 걸리면 화상이 둘이 되지 않고 하나만 남아 시간이 처음부터 다시 돈다(갱신 — 값은 새로 걸린 쪽).
+        //   건물에는 걸지 않는다(상위 결정 18). 착탄 뒤에 원에 들어온 유닛에게도 걸지 않는다(착탄 순간 판정).
+        //
+        //   두 칸이 모두 0보다 커야 화상이 걸린다. 0(기본값)이면 화상 없음 → 포격 등 다른 스킬은 이 칸이 생겨도 동작이 같다.
+        //   🔴 InfernoSpirit 설정(SpecialAttackConfig)을 읽지 않고 여기 따로 둔다 — 유닛 밸런스를 바꿔도 스킬 화상이 함께 바뀌지 않게(M-3).
+        //   메테오 값(초당 50 × 3초 = 총 150)은 시험용 임시값이다(U-7 — 밸런싱 단계에서 정한다). ×10 스케일로 저작한다.
+        //   셋업 도구(SupportSkillLoadoutSetup)가 이 두 칸을 표 값으로 다시 쓴다(메테오 50 · 3, 나머지 0).
+        [Tooltip("(타입 A) 착탄 화상 초당 피해(×10 스케일). 착탄 순간 원 안에서 살아 남은 적 유닛에게 건다. 0이면 화상 없음. 메테오 임시 50.")]
+        [Min(0f)]
+        [SerializeField] private float _impactBurnDamagePerSecond = 0f;
+
+        [Tooltip("(타입 A) 착탄 화상 지속 시간(초). 0이면 화상 없음. 메테오 임시 3.")]
+        [Min(0f)]
+        [SerializeField] private float _impactBurnDuration = 0f;
+
+        [Header("착탄 예약 연출 (타입 A — 메테오용 · 예고 재생 속도 · 떨어지는 몸체 · 착탄 폭발)")]
+        // 착탄 예약 연출 칸(2026-11-18 추가 — 메테오 Task, Plan P-4 · P-5 · P-15 · U-6 · U-10, 결정 27 · 28 · 29).
+        //
+        // 무엇인가(초급자용 설명):
+        //   메테오는 화면에 이펙트를 세 가지 띄운다. 모두 서버가 확정한 발동 알림을 받은 각 화면(Host · Client)이 스스로 재생한다.
+        //     ① 예고 = 위 「발동 VFX」 칸의 프리팹. 받은 순간 조준점 바닥(지면 + 0.06)에 1번, 크기 = 반경 ÷ 기준 반경(포격과 같다).
+        //        재생 속도 = 아래 「예고 기준 시간」 ÷ 착탄 지연. 예고 프리팹이 1.5초 낙하에 맞춰 만들어졌는데 착탄 지연을 0.75초로
+        //        줄이면 예고를 2배 빠르게 틀어 운석 도착과 예고 끝이 맞는다. 풀로 돌아갈 때 원래 속도로 되돌린다.
+        //     ② 떨어지는 몸체 = 아래 「몸체 VFX」 칸(반복 재생 프리팹). 받은 순간 하늘 한쪽(착탄 지점 + 「시작 위치 보정」)에서 출발해
+        //        착탄 지연 동안 착탄 지점까지 곧게(선형) 비스듬히 이동하고, 착탄 시각에 꼬리 정지(새 입자만 멈춤)한다.
+        //        안전장치: 착탄 지연 + 0.5초가 지나도 아직 돌고 있으면 스스로 꼬리 정지한다(반복 프리팹이 풀에 영영 안 돌아오는 것 방지).
+        //     ③ 착탄 = 아래 「착탄 VFX」 칸(1회 재생). 받은 시각 + 착탄 지연에 조준점 바닥에서 1번, 크기 = 반경 ÷ 기준 반경.
+        //   세 칸이 모두 비어도 피해 · 화상은 그대로다(이펙트는 화면 표현일 뿐). 비어 있으면 진단 줄(MeteorVfxSkipped NoPrefab)만 남는다.
+        //   🔴 예고 · 착탄 프리팹은 반복(Looping)하지 않아야 한다(1회 재생 뒤 풀로 돌아간다). 몸체 프리팹은 반대로 모든 파티클이
+        //      Looping ON · Stop Action None이어야 한다(「상태 이펙트 계약」 — 어기면 재생하지 않는다, MeteorVfxSkipped LoopContract).
+        //   이 세 칸 중 하나라도 채워진 타입 A 착탄 지연 스킬만 이 연출 경로를 탄다(SkillData.UsesImpactPresentation) — 포격은 그대로.
+        //   셋업 도구는 이 칸들을 쓰지 않는다(다시 실행해도 넣은 값 · 프리팹이 남는다). 단 「발동 VFX」(예고) 칸은 도구가 다시 쓴다.
+        [Tooltip("예고 VFX(위 「발동 VFX」 칸)가 만들어진 기준 시간(초). 예고 재생 속도 = 이 값 ÷ 착탄 지연. 0이면 재생 속도 맞춤 안 함(배율 1). 메테오 1.5.")]
+        [Min(0f)]
+        [SerializeField] private float _warningVfxReferenceTime = 0f;
+
+        [Tooltip("떨어지는 몸체 VFX(반복 재생 · Looping). 하늘 한쪽에서 착탄 지점까지 착탄 지연 동안 비스듬히 이동하고 착탄 때 꼬리 정지한다. 비워도 피해는 동작.")]
+        [SerializeField] private GameObject _fallingBodyVfxPrefab;
+
+        [Tooltip("몸체 출발 위치 = 착탄 지점 + 이 값(화면 기준 월드 단위: X 오른쪽 · Y 위 · Z 화면 위쪽). 양쪽 화면에서 같은 쪽 하늘에서 떨어진다.")]
+        [SerializeField] private Vector3 _fallingBodyStartOffset = new Vector3(-3f, 6f, 2f);
+
+        [Tooltip("몸체 회전 보정(도). 몸체 앞(로컬 +Z)이 낙하 방향을 본 뒤 이만큼 더 돌린다(프리팹 모양 맞춤용).")]
+        [SerializeField] private Vector3 _fallingBodyEulerOffset = Vector3.zero;
+
+        [Tooltip("착탄 VFX(1회 재생). 착탄 시각에 조준점 바닥에서 1번 재생한다(크기 = 반경 ÷ 기준 반경). 비워도 피해는 동작.")]
+        [SerializeField] private GameObject _impactVfxPrefab;
+
         /// <summary>
         /// 이 SO의 값을 Application 레이어 값 객체(SkillData)로 변환한다.
         /// 실행기/유스케이스/UI가 Infrastructure SO에 직접 의존하지 않도록 하는 경계(의존성 역전).
@@ -345,7 +404,15 @@ namespace Hexiege.Infrastructure
                 _lineStrikeInterval,
                 // 2026-11-17 공습 L-5 VFX 칸 2개(위 「공습 VFX」 머리말).
                 _lineVfxReferenceLength,
-                _strikeVfxPrefab);
+                _strikeVfxPrefab,
+                // 2026-11-18 메테오 착탄 화상 칸 2개 · 착탄 예약 연출 칸 5개(위 두 머리말).
+                _impactBurnDamagePerSecond,
+                _impactBurnDuration,
+                _warningVfxReferenceTime,
+                _fallingBodyVfxPrefab,
+                _fallingBodyStartOffset,
+                _fallingBodyEulerOffset,
+                _impactVfxPrefab);
         }
 
         /// <summary>

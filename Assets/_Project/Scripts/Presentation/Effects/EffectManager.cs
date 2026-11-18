@@ -653,6 +653,105 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-11-18 지원 스킬 2-D 메테오 Task — Plan P-4 · P-5 · P-15 · U-6 · U-10] 착탄 예약 연출(예고 · 떨어지는 몸체)
+        //   SkillActivationVfxPresenter(메테오 부분 — SkillActivationVfxPresenter.Meteor.cs)가 부른다.
+        //   위 PlaySkillActivationVfx(원형 1회 재생)는 그대로 두고, 「재생 속도」를 받는 판과 「반복 몸체 이동」 시작 · 정지를 덧붙였다.
+        //   착탄 폭발(1회)은 기존 PlaySkillActivationVfx를 그대로 쓴다. 피해 · 화상 판정과 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 스킬 발동 VFX를 1회 재생하되 파티클 재생 속도에 배율을 곱한다(메테오 예고 — 기준 시간 ÷ 착탄 지연, U-10).
+        /// 위치 · 회전 · 크기 규칙은 PlaySkillActivationVfx와 같다(회전 없음 · 루트 균일 배율). 바꾼 속도는 풀 반환 때 원래대로 돌아간다.
+        /// </summary>
+        /// <param name="prefab">재생할 VFX 프리팹. null이면 아무것도 하지 않고 false.</param>
+        /// <param name="viewPosition">재생 위치(화면 좌표, 지면 높이 포함).</param>
+        /// <param name="uniformScale">루트 균일 배율(ComputeSkillVfxScale). 0 이하 · NaN · 무한대면 1.</param>
+        /// <param name="playbackSpeed">재생 속도 배율(1이면 원래 속도). 0 이하 · NaN · 무한대면 1.</param>
+        /// <param name="appliedSpeed">실제로 적용된 배율(바꾸지 않았으면 1) — 진단 로그용.</param>
+        /// <returns>프리팹이 있어 재생했으면 true.</returns>
+        public bool PlaySkillActivationVfx(GameObject prefab, Vector3 viewPosition, float uniformScale, float playbackSpeed,
+                                           out float appliedSpeed)
+        {
+            appliedSpeed = 1f;
+            if (prefab == null) return false;
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) return false;
+            item.Play(viewPosition, Quaternion.identity, Vector3.zero, Vector3.zero, Vector3.one * uniformScale, 0f, 0f);
+            // Play "뒤에" 속도를 바꾼다(Play가 시작할 때 이전 재생의 속도를 먼저 되돌린다 — VfxPoolItem.PlaybackSpeed.cs).
+            item.SetPlaybackSpeed(playbackSpeed);
+            appliedSpeed = item.PlaybackSpeedMultiplier;
+            return true;
+        }
+
+        /// <summary>
+        /// 반복(Looping) VFX를 출발점에서 도착점까지 duration초 동안 곧게(선형) 옮기며 재생하고 확인 번호(lease)를 돌려준다(메테오 몸체).
+        /// 회전 = 앞(로컬 +Z)이 이동 방향을 본 뒤 eulerOffset만큼 더 돈다. 크기 = 프리팹 원본(루트 배율 1 — 상위 결정 28).
+        /// 정지는 부르는 쪽이 착탄 시각에 StopSkillTravelLoopVfx로 하고, 그걸 못 하면 safetySeconds 뒤 항목이 스스로 꼬리 정지한다(R-6).
+        /// 항목은 VFX 컨테이너 아래에 둔다(다른 상태 VFX와 같다).
+        /// </summary>
+        /// <param name="prefab">몸체 프리팹(「상태 이펙트 계약」 — 모든 파티클 Looping ON · Stop Action None).</param>
+        /// <param name="startView">출발 위치(화면 좌표).</param>
+        /// <param name="endView">도착 위치(화면 좌표 — 착탄 지점 + 지면 높이).</param>
+        /// <param name="eulerOffset">회전 보정(도).</param>
+        /// <param name="duration">이동 시간(초 — 착탄 지연). 0 이하면 시작하지 않는다.</param>
+        /// <param name="safetySeconds">안전 마감까지의 시간(초 — 착탄 지연 + 0.5). 0 이하면 마감을 걸지 않는다.</param>
+        /// <param name="deadlineTag">안전 마감 진단 줄 꼬리표(예: "Seq=3").</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · LoopContract · ZeroTravel · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartSkillTravelLoopVfx(GameObject prefab, Vector3 startView, Vector3 endView, Vector3 eulerOffset,
+                                                   float duration, float safetySeconds, string deadlineTag,
+                                                   out ulong lease, out string failReason)
+        {
+            lease = 0;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            // 반복 재생 계약 — 유닛 상태 VFX · 구역 VFX와 같은 검사 함수(기준 한 곳, 결과는 프리팹별 캐시).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+            Vector3 travel = endView - startView;
+            float distance = travel.magnitude;
+            if (!(duration > 0f) || float.IsInfinity(duration) || !(distance > 0.0001f) || float.IsInfinity(distance))
+            {
+                failReason = "ZeroTravel";
+                return null;
+            }
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            // 앞(+Z)이 이동 방향을 보는 회전. Play의 전진 이동은 이 회전의 앞 방향으로 distance만큼 duration초 동안 곧게 옮긴다
+            //   (VfxPoolItem.UpdateForwardTravel — 회전 보정 eulerOffset은 모양만 돌리고 이동 방향에는 섞이지 않는다).
+            Quaternion facing = Quaternion.LookRotation(travel / distance, Vector3.up);
+            item.Play(startView, facing, Vector3.zero, eulerOffset, Vector3.one, distance, duration);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            if (safetySeconds > 0f) item.SetStatusLoopDeadline(lease, safetySeconds, deadlineTag);
+            return item;
+        }
+
+        /// <summary>
+        /// 반복 몸체 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartSkillTravelLoopVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartSkillTravelLoopVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(재초기화 · 파괴). false = 꼬리 정지(착탄 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopSkillTravelLoopVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
+        // ====================================================================
         // [2026-11-04 EMP Task 커밋 3] 방어탑 상태 VFX(무력화 V6) — 시작 · 정지
         //   TowerDisableVfxPresenter가 무력화 표현 이벤트(확정 · 수신)를 받으면 탑마다 이 메서드로 시작하고,
         //   지속 시간이 끝나거나(꼬리 정지) 탑이 사라지면(즉시 정지) 아래 정지 메서드를 부른다.

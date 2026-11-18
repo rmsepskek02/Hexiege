@@ -489,6 +489,11 @@ namespace Hexiege.Presentation
             //   귀속되지 않은 이펙트는 곧바로 false라 아래 기존 흐름이 그대로 실행된다(VfxPoolItem.CasterOwned.cs).
             if (PollCasterOwnership()) return;
 
+            // [2026-11-18 메테오 Task — Plan P-4 · R-6 · O-7] 반복 재생(상태 루프)의 안전 마감. 마감을 건 재생(메테오 몸체)만
+            //   검사하고, 그 시각이 지났는데도 아직 돌고 있으면 스스로 꼬리 정지한다(VfxPoolItem.PlaybackSpeed.cs).
+            //   마감이 없는 다른 이펙트는 곧바로 빠져나와 아래 기존 흐름이 그대로 실행된다.
+            PollStatusLoopDeadline();
+
             if (_bloomLoop)
             {
                 // 활성 loop는 particle gap으로 반환하지 않는다. scaled pause 중 tail도 유지한다.
@@ -556,6 +561,10 @@ namespace Hexiege.Presentation
             // [2026-11-04 EMP 커밋 3] 건물 상태 루프(탑 무력화 V6) 표시도 재생별 상태다. 새 재생 · 풀 반환 때 비운다.
             //   (BeginStatusLoop는 Play 뒤에 호출되므로, Play 안의 이 초기화가 새 표시를 지우지 않는다 — VfxPoolItem.StatusLoop.cs.)
             ResetStatusLoop();
+            // [2026-11-18 메테오 Task — Plan P-15 · R-7] 예고 재생 속도 맞춤으로 바꾼 파티클 재생 속도도 재생별 상태다.
+            //   새 재생 시작(Play 등) · 풀 반환(Return)이 모두 여기를 거치므로, 다음 재사용에 바뀐 속도가 남지 않는다
+            //   (VfxPoolItem.PlaybackSpeed.cs). 속도를 바꾼 적이 없으면 아무것도 하지 않는다 → 다른 이펙트는 결과가 같다.
+            RestorePlaybackSpeed();
         }
 
         /// <summary>

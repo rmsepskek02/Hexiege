@@ -113,6 +113,8 @@ namespace Hexiege.Presentation
             _statusLoop = false;
             // [2026-11-10 강화 상태 VFX] 따라가기 보정도 재생별 상태다 — 풀 재사용 때 이전 유닛의 보정이 남지 않게 비운다.
             _statusFollowOffset = Vector3.zero;
+            // [2026-11-18 메테오 Task] 안전 마감 시각도 재생별 상태다 — 재사용된 항목에 옛 마감이 남지 않게 비운다(VfxPoolItem.PlaybackSpeed.cs).
+            ResetStatusLoopDeadline();
         }
 
         // ====================================================================

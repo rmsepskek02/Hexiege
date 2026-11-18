@@ -255,6 +255,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+            // [2026-11-18 메테오 Task] 메테오 몸체 정지 · 착탄 폭발 재생 시각도 같은 Update에서 본다(SkillActivationVfxPresenter.Meteor.cs).
+            //   한 컴포넌트에 Update는 하나뿐이라 여기서 먼저 부르고, 아래 공습 처리(대기열이 비면 바로 끝남)는 그대로 둔다.
+            UpdateMeteorVfx();
             if (_pendingStrikeVfx.Count == 0) return;
             // 의존성이 사라졌으면(파괴 직전 등) 남은 연출을 조용히 버린다 — 재생할 수단이 없다.
             if (_effects == null)

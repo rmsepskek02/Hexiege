@@ -72,7 +72,8 @@ namespace Hexiege.Editor.Combat
             ValidateLineStrikeSourceGates();         // LS-T8
             ValidateLineStrikeAssetEnabled();        // LS-T9 (+ L-5 VFX 칸 · 재생 경로 게이트) — 2026-11-17 L-5 · L-6 추가
             // [2026-11-17 L-5 · L-6] PASS 문구 끝에 LS-T9를 덧붙였다(옛 문구는 「… out-of-map strikes skipped (LS-T12).」로 끝났다).
-            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 11 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 12 / VFX slot contract and playback gates (LS-T9).");
+            // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup count 12」를 13으로 바꿨다(메테오를 켜 셋업 기대 수가 13이 됐다 — 문구만).
+            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 11 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 13 / VFX slot contract and playback gates (LS-T9).");
         }
 
         // ── fixture 전용 스탯 고정 ─────────────────────────────────────────
@@ -625,8 +626,11 @@ namespace Hexiege.Editor.Combat
             // ① 셋업 도구 기대 수 12(다른 스위트 4파일의 같은 검사와 같은 값 — 표와 개수가 어긋나면 도구가 쓰기 전에 멈춘다).
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 12,
-                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Air Strike enabled).");
+            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다. 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 12,
+            //     "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Air Strike enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
+                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Air Strike enabled, then Meteor).");
 
             // ② 자산 값(Plan P-7 · L-L9 — 시험용 임시값). 칸이 없으면 SkillDefinition 초기값으로 읽히므로 ToSkillData 결과로 본다.
             SkillDefinition def = UnityEditor.AssetDatabase.LoadAssetAtPath<SkillDefinition>(AirStrikeAssetPath);

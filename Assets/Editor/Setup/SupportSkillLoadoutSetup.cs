@@ -93,8 +93,10 @@ namespace Hexiege.EditorTools
         //   [2026-11-16 지원 스킬 새 상태 Task 단계 C — 구현 단위 C-4] 9 → 10. 신목의 각성을 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-4] 10 → 11. 재생의 뿌리를 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-18 지원 스킬 2-D 메테오 Task — Plan S2-4 · P-6] 12 → 13. 메테오를 「사용 가능」(타입 A · 착탄 지연 1.5 · 착탄 화상)으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        private const int ExpectedAvailableCount = 12;
+        // private const int ExpectedAvailableCount = 12; // [2026-11-18 메테오] 옛 값(기록용) — 아래 13으로 바꿨다.
+        private const int ExpectedAvailableCount = 13;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -121,13 +123,25 @@ namespace Hexiege.EditorTools
         private const string F_ExtraTarget = "target";
         private const string F_ExtraStatusKind = "statusKind";
         private const string F_ExtraMagnitude = "magnitude";
+        // [2026-11-18 메테오 Task — Plan P-6] 착탄 화상 칸 두 개(SkillDefinition 「착탄 화상」 머리말). 표가 곧 정답이라 모든 스킬에 쓴다
+        //   (메테오 50 · 3, 나머지 0 — 0은 「화상 없음」이라 다른 스킬 동작은 같다).
+        private const string F_ImpactBurnDps = "_impactBurnDamagePerSecond";
+        private const string F_ImpactBurnDuration = "_impactBurnDuration";
 
         // [2026-11-16 A-4] 끝에 F_ExtraEffects를 더했다(쓰기 전 칸 이름 확인 대상).
+        // [2026-11-18 메테오] 끝에 착탄 화상 두 칸을 더했다. 옛 목록(기록용):
+        // private static readonly string[] AllFieldNames =
+        // {
+        //     F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
+        //     F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
+        //     F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects
+        // };
         private static readonly string[] AllFieldNames =
         {
             F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
             F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
-            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects
+            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects,
+            F_ImpactBurnDps, F_ImpactBurnDuration
         };
 
         // SkillLoadoutConfig 의 직렬화 칸 이름.
@@ -171,6 +185,9 @@ namespace Hexiege.EditorTools
             public bool UseEmpPulseVfx;    // [EMP 커밋 4] true면 EMP 고리 VFX 프리팹을 연결(포격 VFX와 동시에 켜면 ValidateSpecs가 멈춘다).
             // [2026-11-16 A-4] 추가 효과 목록(대상 · 종류 · 강도). 비어 있으면 자산의 목록도 비운다(표가 곧 정답 — 다른 칸과 같은 멱등 규칙).
             public List<SkillExtraEffect> ExtraEffects = new List<SkillExtraEffect>();
+            // [2026-11-18 메테오] 착탄 화상(초당 피해 · 지속). 0이면 화상 없음 — 메테오만 값이 있다.
+            public float ImpactBurnPerSecond;
+            public float ImpactBurnDuration;
         }
 
         // [2026-11-16 A-4] 표의 한 줄에 추가 효과 한 줄을 붙여 그 줄을 그대로 돌려준다(표 안에서 줄여 쓰기 위한 도우미).
@@ -319,6 +336,26 @@ namespace Hexiege.EditorTools
                 ImpactDelay = 0.4f, UseBombardmentVfx = false
             };
 
+            // 메테오 — [2026-11-18 지원 스킬 2-D 메테오 Task S2-4, Plan P-1 · P-6 · U-7 · U-8] 자리표시(타입 A · 지연 0 · 사용 불가)에서
+            //   실제 값으로 바꿨다. 타입 A(즉발 범위 피해) 그대로 + 착탄 지연 1.5초(포격과 같은 착탄 예약 장치) + 착탄 화상(초당 50 × 3초).
+            //   피해 150 · 반경 2 · 쿨 10 · 지점 조준은 자리표시 값 그대로(U-8 「그대로 둡니다」). 모든 수치는 시험용 임시값(밸런싱 B-2).
+            //   🔴 착탄 예약 연출 칸(예고 기준 시간 · 몸체 · 착탄 VFX · 몸체 시작 보정 · 회전 보정)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다.
+            //   ⚠️ 「발동 VFX」(예고) 칸은 이 도구가 매번 표 값으로 다시 쓴다(메테오는 포격 · EMP VFX가 아니므로 비운다) — 도구를 다시
+            //      실행하면 테스트용으로 넣은 예고 임시 프리팹(vfx_meteor_fall)이 지워진다(Plan R-5). 그때는 자산에 다시 넣는다.
+            var meteor = new SkillSpec
+            {
+                FileName = "Skill_Spirit_Meteor", Race = s, Slot = 0,
+                DisplayName = "메테오",
+                Description = "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다.",
+                IsAvailable = true,
+                AimType = SkillAimType.PointTarget,
+                Mechanic = SkillMechanicType.InstantAreaDamage,
+                Cooldown = 10f, Radius = 2f, Duration = 0f, TotalDamage = 150, DamagePerSecond = 0f,
+                StatusKind = (int)StatusEffectKind.None, Magnitude = 0f, TargetsAllies = false,
+                ImpactDelay = 1.5f, UseBombardmentVfx = false,
+                ImpactBurnPerSecond = 50f, ImpactBurnDuration = 3f
+            };
+
             return new List<SkillSpec>
             {
                 // ── 인간(race 0) — FlightFacility ──
@@ -336,8 +373,10 @@ namespace Hexiege.EditorTools
                     SkillEffectTarget.Team, StatusEffectKind.ProductionSpeedMul, 1.5f),
 
                 // ── 정령(race 1) — MagicSpirit ──
-                PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
-                    "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
+                // [2026-11-18 메테오 S2-4] 메테오 자리표시 줄을 위 meteor(타입 A · 착탄 지연 1.5 · 착탄 화상 · 사용 가능)로 바꿨다. 옛 줄(기록용):
+                // PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
+                //     "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
+                meteor,
                 // [2026-11-11 Z-10 · Z-20] 서리 감옥 — 빙결 구역 · 반경 2 · 4초 · 쿨 15.
                 PersistentZone("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
                     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다.",
@@ -476,9 +515,10 @@ namespace Hexiege.EditorTools
                 // [2026-11-16 단계 C — C-4] 9개 → 10개 — 괄호 안에 신목의 각성을 더했다.
                 // [2026-11-17 단계 B — B-4] 10개 → 11개 — 괄호 안에 재생의 뿌리를 더했다(옛 문구는 「… · 대지의 갑주 · 신목의 각성)」).
                 // [2026-11-17 공습 L-6] 11개 → 12개 — 괄호 안에 공습을 더했다(옛 문구는 「… · 신목의 각성 · 재생의 뿌리)」).
+                // [2026-11-18 메테오 S2-4] 12개 → 13개 — 괄호 안에 메테오를 더했다(옛 문구는 「… · 재생의 뿌리 · 공습)」).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
@@ -699,6 +739,9 @@ namespace Hexiege.EditorTools
                 row.FindPropertyRelative(F_ExtraStatusKind).intValue = (int)spec.ExtraEffects[i].Kind;
                 row.FindPropertyRelative(F_ExtraMagnitude).floatValue = spec.ExtraEffects[i].Magnitude;
             }
+            // [2026-11-18 메테오] 착탄 화상 두 칸(메테오 50 · 3, 나머지 0 = 화상 없음).
+            so.FindProperty(F_ImpactBurnDps).floatValue = spec.ImpactBurnPerSecond;
+            so.FindProperty(F_ImpactBurnDuration).floatValue = spec.ImpactBurnDuration;
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def); // 저장 대상으로 표시(빠지면 SaveAssets가 파일에 쓰지 않는다).
@@ -778,6 +821,9 @@ namespace Hexiege.EditorTools
                         Note(F_ExtraEffects + "[" + i + "]", "다름", $"{e.Target}/{e.Kind}/{e.Magnitude:0.###}");
                 }
             }
+            // [2026-11-18 메테오] 착탄 화상 두 칸.
+            CheckFloat(F_ImpactBurnDps, spec.ImpactBurnPerSecond);
+            CheckFloat(F_ImpactBurnDuration, spec.ImpactBurnDuration);
 
             return sb.ToString();
         }
@@ -921,6 +967,10 @@ namespace Hexiege.EditorTools
                                  && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay)
                                  // [2026-11-16 A-4] 추가 효과 목록 줄 수도 표와 같아야 한다.
                                  && data.ExtraEffects.Count == spec.ExtraEffects.Count;
+                    // [2026-11-18 메테오] 착탄 화상 값도 표와 같아야 한다(위 식에 끼워 넣지 않고 따로 더한다 — 위 식은 그대로).
+                    match = match
+                            && Mathf.Approximately(data.ImpactBurnDamagePerSecond, spec.ImpactBurnPerSecond)
+                            && Mathf.Approximately(data.ImpactBurnDuration, spec.ImpactBurnDuration);
                     if (!match)
                     {
                         Debug.LogError($"{LogPrefix} race {(int)race} 슬롯 {slot + 1} 이 표와 다르다 " +
@@ -934,6 +984,8 @@ namespace Hexiege.EditorTools
                     if (data != null && data.Mechanic == SkillMechanicType.AreaTowerDisable)
                         line.Append($", 탑 무력화 {data.Duration:0.##}초");
                     if (data != null && data.ImpactDelay > 0f) line.Append($", 착탄 지연 {data.ImpactDelay:0.##}초");
+                    // [2026-11-18 메테오] 착탄 화상이 있으면 그 값도 보여 준다.
+                    if (data != null && data.HasImpactBurn) line.Append($", 착탄 화상 {data.ImpactBurnDamagePerSecond:0.##}/초 × {data.ImpactBurnDuration:0.##}초");
                     if (data != null && data.ActivationVfxPrefab != null) line.Append($", VFX {data.ActivationVfxPrefab.name}");
                     line.Append(")");
                 }

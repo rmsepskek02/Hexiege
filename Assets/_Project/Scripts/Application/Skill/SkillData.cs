@@ -204,6 +204,85 @@ namespace Hexiege.Application
         /// <summary> (공습) 폭격 1회분 VFX 프리팹. 폭격마다 그 구간 가운데에 1번 재생한다. null이면 폭격 연출 없음(피해는 그대로). </summary>
         public GameObject StrikeVfxPrefab { get; }
 
+        // ── 2026-11-18 추가: 착탄 화상(메테오 — 지원 스킬 2-D Task, Plan M-3 · P-2 · P-3 · U-7) ──
+        //   _Tasks/2026-11-18/03_34_support-skill-meteor. 타입 A(즉발 범위 피해)가 착탄 순간 원 안에 「살아 남은 적 유닛」에게
+        //   화상(InfernoSpirit 화상과 같은 장치 · 같은 표시)을 거는 선택 칸 두 개다. 두 값이 모두 0보다 커야 화상이 걸린다.
+        //   0(기본값)이면 화상 없음 → 포격 등 기존 타입 A 스킬은 동작이 같다. 값은 SkillDefinition의 「착탄 화상」 칸에서 복사된다.
+        //   인페르노 설정(SpecialAttackConfig)을 읽지 않는 이유(M-3): 유닛 밸런스를 바꿀 때 스킬 화상이 함께 바뀌지 않게 하기 위해서다.
+
+        /// <summary> (타입 A 착탄 화상) 초당 피해(×10 스케일). 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음). </summary>
+        public float ImpactBurnDamagePerSecond { get; }
+
+        /// <summary> (타입 A 착탄 화상) 지속 시간(초). 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음). </summary>
+        public float ImpactBurnDuration { get; }
+
+        /// <summary> 착탄 화상을 거는 스킬인가(초당 피해와 지속이 모두 0보다 크다). </summary>
+        public bool HasImpactBurn => ImpactBurnDamagePerSecond > 0f && ImpactBurnDuration > 0f;
+
+        // ── 2026-11-18 추가: 착탄 예약 연출(메테오 — 예고 · 떨어지는 몸체 · 착탄 폭발, Plan P-4 · P-5 · P-15 · U-6 · U-10) ──
+        //   예고 = 기존 「발동 VFX」 칸(ActivationVfxPrefab)을 받은 순간 조준점에 1번 재생하되, 재생 속도를 「기준 시간 ÷ 착탄 지연」으로 맞춘다.
+        //   몸체 = 새 「떨어지는 몸체 VFX」 칸(반복 재생)을 하늘 한쪽(시작 위치 보정)에서 조준점까지 착탄 지연 동안 비스듬히 옮긴다.
+        //   착탄 = 새 「착탄 VFX」 칸을 받은 시각 + 착탄 지연에 조준점에서 1번 재생한다.
+        //   화면 쪽 SkillActivationVfxPresenter(메테오 부분)만 읽는다. 서버 판정 · 피해는 이 칸을 읽지 않는다(비어도 피해 · 화상 동작).
+
+        /// <summary>
+        /// 예고 VFX(발동 VFX 칸)가 만들어진 기준 시간(초 — 그 프리팹이 「몇 초 뒤 떨어지는 운석」에 맞춰 만들어졌나).
+        /// 예고 재생 속도 = 이 값 ÷ 착탄 지연. 0 이하 · NaN · 무한대는 0(= 재생 속도 맞춤 안 함 · 배율 1)으로 고쳐 보관한다.
+        /// </summary>
+        public float WarningVfxReferenceTime { get; }
+
+        /// <summary> 떨어지는 몸체 VFX 프리팹(반복 재생 — 상태 이펙트 계약). null이면 몸체 연출 없음(피해는 그대로). </summary>
+        public GameObject FallingBodyVfxPrefab { get; }
+
+        /// <summary>
+        /// 몸체가 출발하는 자리 = 착탄 지점(화면 좌표, 지면 높이 포함) + 이 값(화면 기준 월드 단위 — X 오른쪽 · Y 위 · Z 화면 위쪽).
+        /// 화면 기준이라 Host · Client 어느 화면에서나 같은 쪽 하늘에서 떨어지는 것처럼 보인다. NaN · 무한대가 섞이면 0 벡터.
+        /// </summary>
+        public Vector3 FallingBodyStartOffset { get; }
+
+        /// <summary>
+        /// 몸체 회전 보정(도). 몸체의 앞(로컬 +Z)이 낙하 방향을 보게 돌린 뒤 이 값만큼 더 돌린다(프리팹 모양이 앞을 안 볼 때 맞추는 각도).
+        /// NaN · 무한대가 섞이면 0 벡터.
+        /// </summary>
+        public Vector3 FallingBodyEulerOffset { get; }
+
+        /// <summary> 착탄 VFX 프리팹(1회 재생). null이면 착탄 폭발 연출 없음(피해는 그대로). </summary>
+        public GameObject ImpactVfxPrefab { get; }
+
+        /// <summary>
+        /// 이 스킬이 「착탄 예약 연출」(예고 재생 속도 맞춤 · 몸체 · 착탄 VFX)을 쓰는가.
+        /// 타입 A이고 착탄 지연이 있으며, 세 칸(예고 기준 시간 · 몸체 · 착탄) 중 하나라도 채워진 스킬만 true다.
+        /// 포격(세 칸 모두 비어 있음)은 false → 화면 재생이 예전 원형 재생 그대로다.
+        /// </summary>
+        public bool UsesImpactPresentation =>
+            Mechanic == SkillMechanicType.InstantAreaDamage && ImpactDelay > 0f
+            && (WarningVfxReferenceTime > 0f || FallingBodyVfxPrefab != null || ImpactVfxPrefab != null);
+
+        /// <summary> 예고 재생 속도 하한(아주 긴 착탄 지연에서 예고가 거의 멈춘 것처럼 보이지 않게). </summary>
+        public const float MinWarningPlaybackSpeed = 0.1f;
+
+        /// <summary> 예고 재생 속도 상한(아주 짧은 착탄 지연에서 예고가 한 프레임에 끝나지 않게). </summary>
+        public const float MaxWarningPlaybackSpeed = 10f;
+
+        /// <summary>
+        /// 예고 VFX 재생 속도 배율 = 기준 시간 ÷ 착탄 지연(U-10 · P-15). 예: 기준 1.5초 · 지연 1.5초 → 1(그대로),
+        /// 지연 0.75초 → 2(두 배 빠르게 — 운석이 절반 시간에 떨어지니 예고도 절반 시간에 끝나야 한다).
+        /// 기준 시간 또는 지연이 0 이하 · NaN · 무한대면 1(맞춤 안 함). 결과는 [0.1, 10]으로 자른다.
+        /// </summary>
+        /// <param name="referenceTime">예고 프리팹이 만들어진 기준 시간(초).</param>
+        /// <param name="impactDelay">이번 발동의 착탄 지연(초).</param>
+        /// <returns>파티클 재생 속도에 곱할 배율(항상 0보다 큼).</returns>
+        public static float ComputeWarningPlaybackSpeed(float referenceTime, float impactDelay)
+        {
+            if (!(referenceTime > 0f) || float.IsInfinity(referenceTime)) return 1f;
+            if (!(impactDelay > 0f) || float.IsInfinity(impactDelay)) return 1f;
+            float speed = referenceTime / impactDelay;
+            if (float.IsNaN(speed) || float.IsInfinity(speed)) return 1f;
+            if (speed < MinWarningPlaybackSpeed) return MinWarningPlaybackSpeed;
+            if (speed > MaxWarningPlaybackSpeed) return MaxWarningPlaybackSpeed;
+            return speed;
+        }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
@@ -212,6 +291,8 @@ namespace Hexiege.Application
         /// 그 뒤 세 인자(건물 상태 VFX — 2026-11-16 단계 C)도 생략하면 "프리팹 없음 · 배율 1 · 높이 보정 0"이다.
         /// 맨 뒤 네 인자(직선 연속 폭격 — 2026-11-17 공습 Task)도 생략하면 0(공습이 아닌 스킬은 쓰지 않는 칸)이다.
         /// 그 뒤 두 인자(공습 VFX — 2026-11-17 L-5)도 생략하면 "기준 길이 0(= 배율 1) · 폭격 프리팹 없음"이다.
+        /// 맨 뒤 일곱 인자(메테오 — 2026-11-18: 착탄 화상 2 · 예고 기준 시간 · 몸체 프리팹 · 몸체 시작 보정 · 몸체 회전 보정 · 착탄 프리팹)도
+        /// 생략하면 "화상 없음 · 재생 속도 맞춤 없음 · 프리팹 없음 · 보정 0"이다 — 기존 호출은 고치지 않아도 그대로 컴파일 · 동작한다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -244,7 +325,15 @@ namespace Hexiege.Application
             int lineStrikeCount = 0,
             float lineStrikeInterval = 0f,
             float lineVfxReferenceLength = 0f,
-            GameObject strikeVfxPrefab = null)
+            GameObject strikeVfxPrefab = null,
+            // [2026-11-18 메테오 Task] 맨 뒤 일곱 인자(위 요약 참고). 모두 생략 가능 — 기존 스킬은 값이 들어오지 않는다.
+            float impactBurnDamagePerSecond = 0f,
+            float impactBurnDuration = 0f,
+            float warningVfxReferenceTime = 0f,
+            GameObject fallingBodyVfxPrefab = null,
+            Vector3 fallingBodyStartOffset = default,
+            Vector3 fallingBodyEulerOffset = default,
+            GameObject impactVfxPrefab = null)
         {
             Icon = icon;
             AimType = aimType;
@@ -307,6 +396,18 @@ namespace Hexiege.Application
             // 공습 VFX(2026-11-17 L-5). 기준 길이는 잘못된 값(0 이하 · NaN · 무한대)을 0으로 고쳐 둔다 — 화면은 0을 보면 배율 1로 재생한다.
             LineVfxReferenceLength = lineVfxReferenceLength > 0f && !float.IsInfinity(lineVfxReferenceLength) ? lineVfxReferenceLength : 0f;
             StrikeVfxPrefab = strikeVfxPrefab;
+
+            // 착탄 화상(2026-11-18 메테오). Inspector 오입력 방어 — 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음).
+            //   (NaN > 0 은 false라 NaN도 0이 된다.) 둘 중 하나라도 0이면 서버는 화상 단계를 건너뛴다(HasImpactBurn).
+            ImpactBurnDamagePerSecond = impactBurnDamagePerSecond > 0f && !float.IsInfinity(impactBurnDamagePerSecond) ? impactBurnDamagePerSecond : 0f;
+            ImpactBurnDuration = impactBurnDuration > 0f && !float.IsInfinity(impactBurnDuration) ? impactBurnDuration : 0f;
+
+            // 착탄 예약 연출(2026-11-18 메테오). 기준 시간은 잘못된 값을 0(= 재생 속도 맞춤 안 함)으로, 보정 벡터는 0 벡터로 고친다.
+            WarningVfxReferenceTime = warningVfxReferenceTime > 0f && !float.IsInfinity(warningVfxReferenceTime) ? warningVfxReferenceTime : 0f;
+            FallingBodyVfxPrefab = fallingBodyVfxPrefab;
+            FallingBodyStartOffset = IsFiniteVector(fallingBodyStartOffset) ? fallingBodyStartOffset : Vector3.zero;
+            FallingBodyEulerOffset = IsFiniteVector(fallingBodyEulerOffset) ? fallingBodyEulerOffset : Vector3.zero;
+            ImpactVfxPrefab = impactVfxPrefab;
         }
 
         /// <summary>

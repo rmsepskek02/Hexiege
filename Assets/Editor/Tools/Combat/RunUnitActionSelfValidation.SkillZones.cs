@@ -63,7 +63,8 @@ namespace Hexiege.Editor.Combat
             ValidateSkillZoneExecutor();           // Z-T8
             ValidateSkillZoneAssets();             // Z-T9
             ValidateSkillZoneSourceGates();        // Z-T10
-            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb still unavailable (Z-T9), schema 11 + setup expected count 12 + tick/subscription/RPC source gates (Z-T10).");
+            // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup expected count 12」를 13으로 바꿨다(문구만 — 검사는 Z-T10).
+            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb still unavailable (Z-T9), schema 11 + setup expected count 13 + tick/subscription/RPC source gates (Z-T10).");
         }
 
         // 구역 fixture — 새 유닛 목록 · 전투 UseCase · 상태 시스템 · 구역 서비스 + 구성원 알림 수집.
@@ -348,8 +349,11 @@ namespace Hexiege.Editor.Combat
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 12,
-                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike).");
+            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다. 옛 검사(기록용):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 12,
+            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
+                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor).");
 
             string net = File.ReadAllText("Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             int zoneTick = net.IndexOf("GetSkillActivationUseCase()?.TickZones(elapsed);", StringComparison.Ordinal);
