@@ -69,14 +69,18 @@ namespace Hexiege.Application
 
         // 특수 유닛(MushroomBomber 버섯폭격기) 착탄 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
         // _blastRadius: 착탄 폭발 판정 반경(월드, 기본 1.0 = 인접 1칸 거리, 핸들러가 읽음).
-        // _blastDotPerSecond: DoT 초당 피해(기본 2). _blastDotDuration: DoT 지속시간(초, 기본 3).
+        // _blastDotPerSecond: DoT 초당 피해. _blastDotDuration: DoT 지속시간(초, 기본 3).
+        //   실제 게임 값 = 초당 20(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자 2는 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 2」)
         private readonly float _blastRadius;
         private readonly float _blastDotPerSecond;
         private readonly float _blastDotDuration;
 
         // 특수 유닛(InfernoSpirit 지옥불 정령) 단일 대상 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
-        // _infernoDotPerSecond: DoT 초당 피해(기본 5). _infernoDotDuration: DoT 지속시간(초, 기본 3).
-        // ⚠️ MushroomBomber(_blastDotPerSecond=2/3초)와 값이 다른 "별도" 필드다.
+        // _infernoDotPerSecond: DoT 초당 피해. _infernoDotDuration: DoT 지속시간(초, 기본 3).
+        //   실제 게임 값 = 초당 50(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자 5는 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 5」)
+        // ⚠️ MushroomBomber(_blastDotPerSecond=20/3초)와 값이 다른 "별도" 필드다. (2026-11-23 정정 — 직전 「=2/3초」)
         //    두 유닛이 같은 DoT 초 단위 틱 시스템(규칙 40)을 재사용하되 값은 완전히 분리한다.
         private readonly float _infernoDotPerSecond;
         private readonly float _infernoDotDuration;
@@ -2401,8 +2405,10 @@ namespace Hexiege.Application
         ///   - HoT는 매 프레임 조금씩 부드럽게 회복(diff 방식)하고 완료 시 텍스트 1회.
         ///   - DoT는 <b>틱 간격(예: 1초)마다 한 번씩 뚝뚝</b> 피해가 들어가고, 매 틱 데미지 텍스트(남은 체력)가 뜬다.
         ///
-        /// 틱당 피해 = 초당 피해 × 틱 간격을 <b>올림</b>(CeilToInt)한다(예: ceil(2×1)=2).
-        /// 총량 = 초당 피해 × 지속을 반올림해 상한으로 두어(예: 2×3=6), 올림 때문에 총 피해가 6을 넘지 않도록 클램프한다.
+        /// 틱당 피해 = 초당 피해 × 틱 간격을 <b>올림</b>(CeilToInt)한다(예: MushroomBomber ceil(20×1)=20).
+        /// 총량 = 초당 피해 × 지속을 반올림해 상한으로 두어(예: 20×3=60), 올림 때문에 총 피해가 60을 넘지 않도록 클램프한다.
+        /// (MushroomBomber 실제 값 초당 20 · 3초 = SpecialAttackConfig.asset, ×10 스케일.
+        ///  2026-11-23 정정 — 직전 예 「ceil(2×1)=2」·「2×3=6」·「6을 넘지 않도록」은 ×10 스케일 이전 값이었다.)
         /// </summary>
         /// <param name="source">DoT를 건 공격자(없으면 null — attribution만 영향).</param>
         /// <param name="target">DoT를 받을 대상 유닛.</param>
@@ -2419,11 +2425,13 @@ namespace Hexiege.Application
             // 방어적: 틱 간격이 비정상(0 이하)이면 1초로 보정(0 나눗셈/무한 루프 방지).
             float interval = tickInterval > 0.0001f ? tickInterval : 1f;
 
-            // 총량 상한(올림 초과 방지 클램프) = 초당 피해 × 지속(반올림). 예: 2×3=6.
+            // 총량 상한(올림 초과 방지 클램프) = 초당 피해 × 지속(반올림). 예: MushroomBomber 20×3=60.
+            //   (2026-11-23 정정 — 직전 「예: 2×3=6」)
             int totalAmount = Mathf.Max(0, Mathf.RoundToInt(perSecond * duration));
             if (totalAmount <= 0) return;
 
-            // 틱당 피해 = 초당 피해 × 틱 간격(올림). 예: ceil(2×1)=2. 최소 1 보장.
+            // 틱당 피해 = 초당 피해 × 틱 간격(올림). 예: MushroomBomber ceil(20×1)=20. 최소 1 보장.
+            //   (2026-11-23 정정 — 직전 「예: ceil(2×1)=2」)
             int tickAmount = Mathf.Max(1, Mathf.CeilToInt(perSecond * interval));
 
             AddOrRefreshTimedEffect(source, target, TimedEffectKind.Damage, totalAmount, duration,
@@ -2445,8 +2453,8 @@ namespace Hexiege.Application
         /// <summary>
         /// InfernoSpirit 단일 대상 DoT 부여 진입점. SpecialAttackContext.ApplyInfernoDot 델리게이트로 주입되어
         /// InfernoAttackBehavior가 주 타깃(적 유닛 1명)에 대해 호출한다.
-        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 2/3초)와는 "별도" 진입점으로,
-        ///    InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
+        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 20/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「초당 2/3초」)와는 "별도" 진입점으로,
+        ///    InfernoSpirit 자기 튜닝값(초당 50/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-18 정정 — 직전 「초당 5/3초」)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
         ///    재사용하되 초당 피해/지속 값은 완전히 분리되어 서로 영향을 주지 않는다.
         /// </summary>
         /// <param name="attacker">DoT를 건 공격자(지옥불 정령).</param>
@@ -3122,11 +3130,13 @@ namespace Hexiege.Application
         /// 힐(HoT)의 "프레임마다 부드러운 diff"와 달리, 누적 시간이 틱 간격(예: 1초)을 넘을 때마다
         /// 그 틱의 피해를 한 번에 적용한다(그때 OnEntityDamaged가 발행되어 남은 체력 텍스트가 뜬다).
         ///
-        /// 총량 정확성(요구 7 — 총 6 정확, 초과 없음):
+        /// 총량 정확성(요구 7 — 총량 정확, 초과 없음. MushroomBomber 실제 값 기준 총 60 = 초당 20 × 3초, SpecialAttackConfig.asset·×10 스케일.
+        ///  2026-11-23 정정 — 직전 「총 6 정확」은 ×10 스케일 이전 값이었다):
         ///   - 정기 틱: 누적 시간이 틱 간격을 넘긴 만큼 TickAmount(올림값)를 적용하되, 남은 총량(TotalAmount−AppliedAmount)을 넘지 않게 클램프.
         ///   - 마지막 정산: 지속시간이 끝났는데 프레임 타이밍상 마지막 틱이 아직 안 들어갔으면(누적 시간이
         ///     틱 간격에 살짝 못 미쳐 정기 틱이 스킵된 경우) 남은 총량을 마지막 한 틱으로 정산한다.
-        ///     → 이렇게 하면 프레임레이트와 무관하게 정확히 3틱(1s/2s/3s 부근)·총 6이 보장된다.
+        ///     → 이렇게 하면 프레임레이트와 무관하게 정확히 3틱(1s/2s/3s 부근)·총 60(MushroomBomber 실제 값)이 보장된다.
+        ///       (2026-11-23 정정 — 직전 「총 6」)
         /// </summary>
         /// <param name="effect">진행할 DoT 레코드(참조 타입이라 필드 변경이 그대로 반영됨).</param>
         /// <param name="target">DoT 대상 유닛(호출부에서 생존 확인 완료).</param>

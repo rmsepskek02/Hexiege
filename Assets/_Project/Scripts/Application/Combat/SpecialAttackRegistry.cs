@@ -48,7 +48,8 @@ namespace Hexiege.Application
             _behaviors[UnitType.MushroomBomber] = new BlastAttackBehavior();
 
             // 지옥불 정령: 단일 대상 DoT(직접 25는 주 타깃 단일 피해가 담당, 핸들러는 주 타깃 1명에게 DoT만).
-            //   MushroomBomber와 달리 반경 없음(AoE 아님) — 때린 그 1명에게만. DoT 값도 분리(초당 5/3초).
+            //   MushroomBomber와 달리 반경 없음(AoE 아님) — 때린 그 1명에게만. DoT 값도 분리(초당 50/3초 — SpecialAttackConfig.asset 값, ×10 스케일.
+            //   2026-11-23 정정 — 직전 「초당 5/3초」).
             _behaviors[UnitType.InfernoSpirit] = new InfernoAttackBehavior();
 
             // 대지의 정령: 착탄형 즉발 AoE(직접 100%는 주 타깃 단일 피해가 담당, 핸들러는 반경 내

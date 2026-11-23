@@ -165,6 +165,9 @@
   `UnityEngine.CoreModule` assembly**. *(2026-11-18 updated — was "implemented, user test NOT run"; topic §7 heading already said PASS)*
   §8 (2026-11-17~18, user test PASS) Air Strike: touch-Id finger tracker + release cached coordinate, air-strike-only 1e-4 s due
   epsilon, one shared effective-length function (server · reticle · VFX), comment-text source gates, new `.cs` without `.meta`, schema 11.
+  §9 (2026-11-18, user test PASS) Meteor: burn carried on both type-A bridge branches (delay 0 still burns), `UsesImpactPresentation`
+  predicate, warning playback speed set after `Play` + restored on return, travelling looping body (lease + delay + 0.5 s deadline,
+  view-space start offset, root scale 1), time-scheduled impact VFX, ring outer edge = R0 size lesson, schema 11 unchanged.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

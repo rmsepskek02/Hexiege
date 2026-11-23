@@ -308,7 +308,7 @@ namespace Hexiege.Application
             // ⑦ 실행 — 피해/DoT의 실제 적용은 UnitCombatUseCase가 담당(델리게이트 주입).
             //   타입 A 즉발 피해 다리는 「착탄 지연」에 따라 둘 중 하나를 넘긴다(2026-11-03 포격 — 커밋 4, Plan D1).
             //     - 지연 0(기존 스킬 · 기본값): 지금까지와 같은 즉시 피해 다리 → 동작 변화 없음.
-            //     - 지연 > 0(포격 0.4초 · 이후 메테오 1.5초): 피해를 바로 주지 않고 "착탄 예약"만 저장한다.
+            //     - 지연 > 0(포격 0.4초 · 메테오 1.5초): 피해를 바로 주지 않고 "착탄 예약"만 저장한다.
             //       예약은 권위 전용 틱(TickPendingImpacts)이 남은 시간을 줄여 0 이하가 되는 순간
             //       기존 ApplySkillInstantAreaDamage를 1회 호출한다 → "착탄 순간 범위 안 대상"이 맞는다.
             //   실행기(InstantAreaDamageExecutor)는 바뀌지 않는다 — 실행기는 "피해를 줘"라고만 하고,
@@ -327,8 +327,8 @@ namespace Hexiege.Application
                 hasAim,
                 // [2026-11-18 메테오 Task — Plan P-2] 타입 A 다리에 「착탄 화상」 값(초당 피해 · 지속)도 함께 붙잡게 했다.
                 //   즉시 다리 · 예약 다리 둘 다 화상을 넘기므로 착탄 지연을 0으로 바꿔도 화상이 사라지지 않는다(위험 R-9).
-                //   화상 칸이 0인 스킬(포격 등)은 예전과 같은 다리를 돌려받는다(동작 무변경). 옛 줄(기록용):
-                // SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
+                //   화상 칸이 0인 스킬(포격 등)은 예전과 같은 다리를 돌려받는다(동작 무변경).
+                //   (2026-11-18 메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 이 줄이 실기 메테오 4회에서 실행됐다.)
                 SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence, skill.ImpactBurnDamagePerSecond, skill.ImpactBurnDuration),
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge,
@@ -499,9 +499,8 @@ namespace Hexiege.Application
                     ApplyInstantAreaDamageWithBurnNow(team, center, radius, rawDamage, sourceBuildingId, burnPerSecond, burnDuration, sequence);
 
             // 지연이 있는 스킬만 작은 람다를 하나 만든다(발동은 드문 사건이라 할당 1회는 무시할 수준).
-            // [2026-11-18 메테오] 옛 람다(기록용) — 화상 값을 예약에 함께 싣도록 아래로 바꿨다(화상 0이면 결과 같다):
-            // return (team, center, radius, rawDamage, sourceBuildingId) =>
-            //     ScheduleImpact(team, center, radius, rawDamage, sourceBuildingId, impactDelay, sequence);
+            // [2026-11-18 메테오] 화상 값을 예약에 함께 싣는다(화상 0이면 예전 람다와 결과 같다).
+            //   (메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 람다를 지웠다 — 이 예약 경로가 실기 메테오 4회에서 실행됐다.)
             return (team, center, radius, rawDamage, sourceBuildingId) =>
                 ScheduleImpact(team, center, radius, rawDamage, sourceBuildingId, impactDelay, sequence, burnPerSecond, burnDuration);
         }
@@ -580,8 +579,8 @@ namespace Hexiege.Application
                 // [진단 L18] 착탄 "직전" 원 안 대상을 판정과 같은 기준으로 붙잡아 둔다(피해 뒤 사망 수를 세기 위해).
                 DiagCaptureImpactTargets(p);
                 // [2026-11-18 메테오 Task — Plan P-3] 착탄 화상이 있는 예약이면 피해 + 화상을 함께 처리한다(SkillActivationUseCase.ImpactBurn.cs).
-                //   화상 칸이 0인 예약(포격)은 아래 메서드 안에서 옛 줄과 같은 호출을 한다. 옛 줄(기록용):
-                // ApplyInstantAreaDamageBridge(p.Team, p.Center, p.Radius, p.RawDamage, p.SourceBuildingId);
+                //   화상 칸이 0인 예약(포격)은 아래 메서드 안에서 예전과 같은 ApplyInstantAreaDamageBridge 호출을 한다.
+                //   (메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 이 줄이 실기 메테오 착탄에서 실행됐다.)
                 ApplyPendingImpactDamage(p);
                 // [진단 L18] 실제 착탄 피해 1줄 — 발동 뒤 몇 ms · 맞은 수 · 죽은 수 · 시전 건물 생존 여부.
                 LogImpactApplied(p);

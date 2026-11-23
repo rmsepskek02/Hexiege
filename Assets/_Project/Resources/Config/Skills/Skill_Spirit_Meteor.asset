@@ -29,15 +29,12 @@ MonoBehaviour:
   _magnitude: 0
   _targetsAllies: 0
   _impactDelay: 1.5
-  _activationVfxPrefab: {fileID: 2436766912649168651, guid: ad277cd3c00f3e14e8f350fdc9b132a2,
-    type: 3}
+  _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
   _impactBurnDamagePerSecond: 50
   _impactBurnDuration: 3
   _warningVfxReferenceTime: 1.5
-  _fallingBodyVfxPrefab: {fileID: 6779314864722708033, guid: 2f9b7aef60859344f818b70f1cdbe0bb,
-    type: 3}
+  _fallingBodyVfxPrefab: {fileID: 0}
   _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
   _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
-  _impactVfxPrefab: {fileID: 8574492271501716183, guid: ddfd4327b83815848a621d292ac2b220,
-    type: 3}
+  _impactVfxPrefab: {fileID: 0}

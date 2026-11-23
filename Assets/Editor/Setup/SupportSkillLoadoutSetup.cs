@@ -95,7 +95,6 @@ namespace Hexiege.EditorTools
         //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
         //   [2026-11-18 지원 스킬 2-D 메테오 Task — Plan S2-4 · P-6] 12 → 13. 메테오를 「사용 가능」(타입 A · 착탄 지연 1.5 · 착탄 화상)으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        // private const int ExpectedAvailableCount = 12; // [2026-11-18 메테오] 옛 값(기록용) — 아래 13으로 바꿨다.
         private const int ExpectedAvailableCount = 13;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
@@ -340,8 +339,10 @@ namespace Hexiege.EditorTools
             //   실제 값으로 바꿨다. 타입 A(즉발 범위 피해) 그대로 + 착탄 지연 1.5초(포격과 같은 착탄 예약 장치) + 착탄 화상(초당 50 × 3초).
             //   피해 150 · 반경 2 · 쿨 10 · 지점 조준은 자리표시 값 그대로(U-8 「그대로 둡니다」). 모든 수치는 시험용 임시값(밸런싱 B-2).
             //   🔴 착탄 예약 연출 칸(예고 기준 시간 · 몸체 · 착탄 VFX · 몸체 시작 보정 · 회전 보정)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다.
-            //   ⚠️ 「발동 VFX」(예고) 칸은 이 도구가 매번 표 값으로 다시 쓴다(메테오는 포격 · EMP VFX가 아니므로 비운다) — 도구를 다시
-            //      실행하면 테스트용으로 넣은 예고 임시 프리팹(vfx_meteor_fall)이 지워진다(Plan R-5). 그때는 자산에 다시 넣는다.
+            //   ⚠️ 「발동 VFX」(예고) 칸은 이 도구가 매번 표 값으로 다시 쓴다(메테오는 포격 · EMP VFX가 아니므로 비운다) — 예고 칸에
+            //      프리팹을 넣은 뒤 도구를 다시 실행하면 그 프리팹이 지워진다(Plan R-5). 그때는 자산에 다시 넣는다.
+            //      (테스트 때 넣었던 예고 임시 프리팹 vfx_meteor_fall은 2026-11-18 테스트 PASS 뒤 몸체 · 착탄 임시 프리팹과 함께 비웠다 —
+            //      지금 세 칸 모두 비어 있다. 직전 문구 「테스트용으로 넣은 예고 임시 프리팹(vfx_meteor_fall)이 지워진다」)
             var meteor = new SkillSpec
             {
                 FileName = "Skill_Spirit_Meteor", Race = s, Slot = 0,
@@ -373,9 +374,7 @@ namespace Hexiege.EditorTools
                     SkillEffectTarget.Team, StatusEffectKind.ProductionSpeedMul, 1.5f),
 
                 // ── 정령(race 1) — MagicSpirit ──
-                // [2026-11-18 메테오 S2-4] 메테오 자리표시 줄을 위 meteor(타입 A · 착탄 지연 1.5 · 착탄 화상 · 사용 가능)로 바꿨다. 옛 줄(기록용):
-                // PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
-                //     "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
+                // [2026-11-18 메테오 S2-4] 메테오 자리표시 줄을 위 meteor(타입 A · 착탄 지연 1.5 · 착탄 화상 · 사용 가능)로 바꿨다.
                 meteor,
                 // [2026-11-11 Z-10 · Z-20] 서리 감옥 — 빙결 구역 · 반경 2 · 4초 · 쿨 15.
                 PersistentZone("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",

@@ -29,7 +29,8 @@
 //   LS-T12 유효 길이 밖 폭격 — 유효 길이 2.5(L의 절반 미만): 구간 3 일부만 판정 · 구간 4 · 5 건너뜀 · 맵 밖 대상 피해 0.
 //
 //   LS-T9  [2026-11-17 L-5 · L-6 추가] 공습 자산 켜기 — 사용 가능 · 지점 지정 · 메커니즘 5 · P-7 임시 수치(길이 6 · 폭 2 · 5회 · 간격 0.2 ·
-//          첫 지연 0.4 · 150 · 쿨 10) · 인간 로드아웃 슬롯 1 · 셋업 기대 수 12 · 셋업 표의 공습 줄(자리표시 아님).
+//          첫 지연 0.4 · 150 · 쿨 10) · 인간 로드아웃 슬롯 1 · 셋업 기대 수 13 · 셋업 표의 공습 줄(자리표시 아님).
+//          *(2026-11-18 메테오 — 셋업 기대 수 12 → 13. 직전 「셋업 기대 수 12」)*
 //          덧붙여 L-5: VFX 칸 초기값(기준 길이 6 · 폭격 프리팹 없음) · 기준 길이 정리 · 칸에 든 프리팹의 1회 재생 계약(반복 없음 · Hierarchy) ·
 //          재생 경로 소스 게이트(공습 분기가 원형 「프리팹 없음」 검사보다 앞 · 공용 유효 길이 함수 · 맵 밖 구간 건너뜀 · 회전 재생 · 경계 배선).
 //
@@ -613,22 +614,21 @@ namespace Hexiege.Editor.Combat
                 "LS-T8 SkillData must sanitize bad line values (NaN / negative → 0, count capped at " + SkillData.MaxLineStrikeCount + ").");
         }
 
-        // ── LS-T9 (L-6 자산 켜기 · 셋업 기대 수 12) + L-5 VFX 칸 · 재생 경로 게이트 ─────────────
+        // ── LS-T9 (L-6 자산 켜기 · 셋업 기대 수 13 — 2026-11-18 메테오로 12 → 13) + L-5 VFX 칸 · 재생 경로 게이트 ─────────────
 
         private const string AirStrikeAssetPath = "Assets/_Project/Resources/Config/Skills/Skill_Human_AirStrike.asset";
 
         /// <summary>
         /// LS-T9 — 공습 자산이 Plan 값으로 켜졌는지(사용 가능 · 지점 지정 · 메커니즘 5 · P-7 임시 수치) · 인간 로드아웃 슬롯 1 ·
-        /// 셋업 도구 기대 수 12 · 셋업 표의 공습 줄. 덧붙여 L-5(VFX 칸 초기값 · 칸에 든 프리팹의 1회 재생 계약 · 재생 경로 소스 게이트)도 본다.
+        /// 셋업 도구 기대 수 13(2026-11-18 메테오로 12 → 13) · 셋업 표의 공습 줄. 덧붙여 L-5(VFX 칸 초기값 · 칸에 든 프리팹의 1회 재생 계약 · 재생 경로 소스 게이트)도 본다.
         /// </summary>
         private static void ValidateLineStrikeAssetEnabled()
         {
-            // ① 셋업 도구 기대 수 12(다른 스위트 4파일의 같은 검사와 같은 값 — 표와 개수가 어긋나면 도구가 쓰기 전에 멈춘다).
+            // ① 셋업 도구 기대 수 13(다른 스위트 5파일의 같은 검사와 같은 값 — 표와 개수가 어긋나면 도구가 쓰기 전에 멈춘다).
+            //   *(2026-11-18 메테오 — 직전 「기대 수 12(다른 스위트 4파일 …)」. 메테오를 켜 13이 됐고 메테오 스위트 M-T8이 같은 검사를 더해 5파일)*
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다. 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 12,
-            //     "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Air Strike enabled).");
+            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
             Require(expected != null && (int)expected.GetRawConstantValue() == 13,
                 "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Air Strike enabled, then Meteor).");
 

@@ -7,14 +7,16 @@
 //   - 포격을 맞은 딱 1마리(주 타깃)에게는 "직접 25" 피해가 들어간다.
 //     → 이 직접 피해는 이 핸들러가 아니라 ExecuteAttack의 "주 타깃 단일 피해" 경로가 담당한다.
 //       (그래서 ReplacesPrimaryAttack = false — 단일 피해를 대체하지 않는다.)
-//   - 이 핸들러는 그 "주 타깃 1명"에게 추가로 DoT(3초간 초당 5, 총 15)를 부여한다.
+//   - 이 핸들러는 그 "주 타깃 1명"에게 추가로 DoT(3초간 초당 50, 총 150 — SpecialAttackConfig.asset 값, ×10 스케일)를 부여한다.
+//     (2026-11-23 정정 — 직전 「3초간 초당 5, 총 15」는 ×10 스케일 이전 값이었다.)
 //     따라서 주 타깃이 적 유닛이면 직접 25 + DoT를 함께 받는다.
 //
 // MushroomBomber(BlastAttackBehavior)와의 차이(더 단순함):
 //   - MushroomBomber는 착탄 지점 "원형 반경" 안의 적 유닛 전원에게 DoT를 건다(AoE).
 //   - InfernoSpirit은 "때린 그 1명"에게만 건다(반경 수집 없음 — AoE 아님).
 //     그래서 반경 순회 코드가 전혀 없고, 주 타깃 1명만 판정한다.
-//   - DoT 값도 분리되어 있다: MushroomBomber = 초당 2/3초, InfernoSpirit = 초당 5/3초.
+//   - DoT 값도 분리되어 있다: MushroomBomber = 초당 20/3초, InfernoSpirit = 초당 50/3초
+//     (SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「초당 2/3초」·「초당 5/3초」).
 //     그래서 MushroomBomber용 ctx.ApplyDot이 아니라, InfernoSpirit 전용 ctx.ApplyInfernoDot을 호출한다.
 //
 // 대상 규칙(설계 확정):
@@ -64,8 +66,9 @@ namespace Hexiege.Application
             if (!victim.IsAlive) return;             // 직접 25에 이미 사망(제거됨) → DoT 스킵(자연 배제).
             if (victim.Team == attacker.Team) return; // 방어적: 아군이면 제외(규칙 16). 실제로는 적만 주 타깃이 됨.
 
-            // 주 타깃 1명에게만 InfernoSpirit 전용 DoT(초당 5/3초)를 부여.
-            // 실제 초당 피해/지속/틱 간격(1초 discrete·올림·총 15 클램프·매초 남은 체력 텍스트·갱신 리셋)은
+            // 주 타깃 1명에게만 InfernoSpirit 전용 DoT(초당 50/3초 — SpecialAttackConfig.asset 값, ×10 스케일)를 부여.
+            // 실제 초당 피해/지속/틱 간격(1초 discrete·올림·총 150 클램프·매초 남은 체력 텍스트·갱신 리셋)은
+            // (2026-11-23 정정 — 직전 「초당 5/3초」·「총 15 클램프」)
             // UnitCombatUseCase에 캡슐화돼 있고(서버 권위), 이 핸들러는 "누구에게 걸지"만 결정한다.
             ctx.ApplyInfernoDot(attacker, victim);
         }

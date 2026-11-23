@@ -592,9 +592,7 @@ namespace Hexiege.Editor.Combat
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(지원 스킬 새 상태와 무관한 변경).
-            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다. 옛 검사(기록용):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 12,
-            //     "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 12 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike enabled).");
+            // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
             Require(expected != null && (int)expected.GetRawConstantValue() == 13,
                 "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor enabled).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경).
