@@ -629,8 +629,11 @@ namespace Hexiege.Editor.Combat
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Air Strike enabled, then Meteor).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다. 옛 검사:
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 13,
+            //     "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Air Strike enabled, then Meteor).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Air Strike enabled, then Meteor, then Smoke Bomb).");
 
             // ② 자산 값(Plan P-7 · L-L9 — 시험용 임시값). 칸이 없으면 SkillDefinition 초기값으로 읽히므로 ToSkillData 결과로 본다.
             SkillDefinition def = UnityEditor.AssetDatabase.LoadAssetAtPath<SkillDefinition>(AirStrikeAssetPath);

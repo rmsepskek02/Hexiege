@@ -452,8 +452,11 @@ namespace Hexiege.Editor.Combat
             // M-T8 — 셋업 기대 수 13(다른 스위트 5파일의 같은 검사와 같은 값).
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Meteor enabled).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다. 옛 검사:
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 13,
+            //     "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Meteor enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Meteor enabled, then Smoke Bomb).");
             string setup = File.ReadAllText("Assets/Editor/Setup/SupportSkillLoadoutSetup.cs");
             Require(SupportActiveLineCount(setup, "PointPlaceholder(\"Skill_Spirit_Meteor\"") == 0
                     && SupportActiveLineCount(setup, "FileName = \"Skill_Spirit_Meteor\", Race = s, Slot = 0,") == 1

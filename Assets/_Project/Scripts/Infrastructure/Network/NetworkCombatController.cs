@@ -1393,6 +1393,16 @@ namespace Hexiege.Infrastructure
                     shadowHitIndex,
                     legacyObservation,
                     GetAuthoritativeServerTime());
+                // [2026-11-23 연막탄 S-2 진단 E-L4] 연막 회피한 타격이 C2 결과 「회피」로 닫혔는지 1줄([SKILL-EVADE] EvadeResolved).
+                //   진단 전용([Conditional] — 릴리스에서는 이 호출이 사라진다). 피해 · 결과 · 전송 순서는 바꾸지 않는다.
+                if (legacyResult == AttackDamageApplyStatus.Evaded)
+                    combat.DiagNoteEvadeResolved(
+                        attacker.Id,
+                        attackShadowResult.HasResult,
+                        attackShadowResult.HasResult ? attackShadowResult.Result.Outcome : AttackImpactOutcome.None,
+                        attackShadowResult.CompletionStatus,
+                        attackShadowResult.Reason,
+                        attackShadowResult.HasResult ? attackShadowResult.Result.Key : default);
                 if (attackShadowResult.ShouldPublishSnapshot)
                     PublishAttackShadowPublication(attacker.Id, attackShadowResult.Publication);
                 if (attackShadowResult.HasResult)

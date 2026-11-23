@@ -1231,10 +1231,33 @@ namespace Hexiege.Application
                 : target is BuildingData targetBuilding
                     ? (int)targetBuilding.Type
                     : -1;
+
+            // [2026-11-23 연막탄 단계 S-2 — Plan P-3 · P-4] 연막 회피 관문(UnitCombatUseCase.Evasion.cs).
+            //   총잡이 3종 · 유닛 대상 · 투사체 착탄 중 아님 · 맞을 유닛이 연막 안(확률 > 0)일 때만 서버가 결정적 해시로 판정한다.
+            //   피했으면 ExecuteAttack(실제 피해 · 피해 이벤트 · 특수 효과)을 부르지 않고 「회피」 관측을 돌려준다
+            //   → HP 그대로 · 피해 숫자 없음(피해 이벤트가 없으니 저절로) · 멀티 C2는 결과 「회피(Evaded)」로 닫는다.
+            //   조건이 맞지 않으면(평상시 — 연막 없음) 판정 없이 아래 기존 줄 그대로다.
+            bool evadeRolled = TryRollHitscanEvasion(
+                attacker, target, presentationResultKey, out HitscanEvadeGate evadeGate);
+            if (evadeRolled && evadeGate.Evaded)
+            {
+                DiagHitscanEvadeRoll(attacker, evadeGate, hpAfter: hpBefore);
+                return new AttackDamageObservation(
+                    AttackDamageApplyStatus.Evaded,
+                    0,
+                    Mathf.Max(0, hpBefore),
+                    victimPresentationType,
+                    (int)target.Team,
+                    hasImpactPosition,
+                    impactPosition);
+            }
+
             ExecuteAttack(
                 attacker, target, updateLegacyDomainFacing, presentationResultKey);
             int resultingHp = Mathf.Max(0, target.Hp);
             int appliedAmount = Mathf.Max(0, hpBefore - resultingHp);
+            // [연막탄 S-2] 판정은 했지만 맞았다 — 피해를 준 뒤 HP로 진단 1줄(Evaded=0).
+            if (evadeRolled) DiagHitscanEvadeRoll(attacker, evadeGate, hpAfter: resultingHp);
 
             // 쿨다운 리셋은 여기서 하지 않음 — 위 주석 참조(다중 히트 호환).
             return new AttackDamageObservation(

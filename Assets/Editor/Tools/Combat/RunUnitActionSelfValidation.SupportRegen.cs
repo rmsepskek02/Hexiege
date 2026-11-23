@@ -518,8 +518,11 @@ namespace Hexiege.Editor.Combat
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(재생의 뿌리와 무관한 변경).
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Roots of Regeneration + Air Strike + Meteor enabled).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다. 옛 검사:
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 13,
+            //     "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Roots of Regeneration + Air Strike + Meteor enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(재생의 뿌리와 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
                 "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 11 only because of the air-strike direction arguments.");

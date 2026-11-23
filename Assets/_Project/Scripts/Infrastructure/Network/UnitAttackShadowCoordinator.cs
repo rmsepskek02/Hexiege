@@ -910,6 +910,15 @@ namespace Hexiege.Infrastructure
             {
                 outcome = AttackImpactOutcome.Miss;
             }
+            // [2026-11-23 연막탄 단계 S-2 — Plan P-4] 승인은 명중(공간 · 방향 판정 통과)인데, writer가 연막 회피 판정에서
+            //   「피했다(Evaded)」고 돌려준 경우. 두 사실은 서로 모순이 아니다 — "맞을 수 있는 공격을 대상이 피했다"는 하나의 사건이다.
+            //   그래서 거절(InvalidInput)로 닫지 않고 기존 결과 종류 「회피(AttackImpactOutcome.Evaded)」로 닫는다
+            //   (피해 0 · 결과 HP = 지금 HP. 생성 검사 · 순서기 · Client 수신 검사 · 화면 필터가 모두 이미 Evaded를 받는다 — Research 7-2).
+            else if (authorization.Outcome == ImpactAuthorizationOutcome.AuthorizedHit
+                && legacy.Status == AttackDamageApplyStatus.Evaded)
+            {
+                outcome = AttackImpactOutcome.Evaded;
+            }
             else
             {
                 // authorization과 실제 Legacy writer 결과가 서로 다른 사실을 주장하면

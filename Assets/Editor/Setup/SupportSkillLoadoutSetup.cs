@@ -94,8 +94,11 @@ namespace Hexiege.EditorTools
         //   [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-4] 10 → 11. 재생의 뿌리를 「사용 가능」으로 켠 표와 개수를 맞춘다.
         //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
         //   [2026-11-18 지원 스킬 2-D 메테오 Task — Plan S2-4 · P-6] 12 → 13. 메테오를 「사용 가능」(타입 A · 착탄 지연 1.5 · 착탄 화상)으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-23 지원 스킬 연막탄 Task — Plan S-1(메인 세션 결정: 「사용 가능」을 S-1부터 켬)] 13 → 14.
+        //   연막탄을 「사용 가능」(타입 4 지속 상태 구역 · 아군 대상 · 회피 확률 0.5)으로 켠 표와 개수를 맞춘다.
         // private const int ExpectedAvailableCount = 8;
-        private const int ExpectedAvailableCount = 13;
+        // private const int ExpectedAvailableCount = 13;
+        private const int ExpectedAvailableCount = 14;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -249,11 +252,17 @@ namespace Hexiege.EditorTools
 
         // [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-10 · Z-16 · Z-20] 지속 상태 구역(서리 감옥 · 수액 늪) 「사용 가능」 값.
         //   타입 4(PersistentStatusZone) · 지점 조준 · 적 대상. 실행기는 반경 · 지속 · 상태 종류 · 강도 · 아군 여부만 읽는다.
+        //   [2026-11-23 연막탄 Task S-1 — Plan P-11] 연막탄도 이 함수로 만든다. 연막은 「아군 대상」 구역이라 끝 인자 targetsAllies를 더했다
+        //   (기본값 false — 서리 감옥 · 수액 늪 두 줄은 인자를 넘기지 않으므로 값이 그대로다). 연막탄 줄만 targetsAllies: true.
         //   피해 0 — 구역 실행기는 피해 칸을 읽지 않지만, 자산을 보는 사람이 "피해가 있는 스킬"로 오해하지 않게 0으로 둔다(EMP 선례).
         //   수치는 시험용 임시값이다(Z-10). 밸런싱 단계에서 확정한다.
         //   🔴 새 칸(구역 VFX · 유닛 상태 VFX 프리팹 · 크기 · 위치)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
+        // 옛 머리(아군 인자 없음 — 대상이 항상 적):
+        // private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
+        //                                         StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown)
         private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
-                                                StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown)
+                                                StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown,
+                                                bool targetsAllies = false)
         {
             return new SkillSpec
             {
@@ -262,7 +271,8 @@ namespace Hexiege.EditorTools
                 AimType = SkillAimType.PointTarget,
                 Mechanic = SkillMechanicType.PersistentStatusZone,
                 Cooldown = cooldown, Radius = radius, Duration = duration, TotalDamage = 0, DamagePerSecond = 0f,
-                StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = false,
+                // 옛 줄(대상 항상 적): StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = false,
+                StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = targetsAllies,
                 ImpactDelay = 0f, UseBombardmentVfx = false
             };
         }
@@ -364,8 +374,15 @@ namespace Hexiege.EditorTools
                 // [2026-11-17 L-6] 공습 자리표시 줄을 위 airStrike(직선 연속 폭격 · 사용 가능)로 바꿨다.
                 airStrike,
                 emp,
-                PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
-                    "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
+                // [2026-11-23 연막탄 Task S-1 — Plan P-11 · 사용자 결정 U-2] 연막탄 자리표시 줄을 지속 상태 구역(아군 대상 · 회피 확률)으로 바꿨다.
+                //   회피 확률 0.5 · 반경 2 · 6초 · 쿨 15 · 피해 0(모두 시험용 임시값 — 밸런싱 O-9). 설명 문구는 그대로(동작과 맞다).
+                //   🔴 구역 VFX 칸(테스트용 임시 프리팹 vfx_emp_disabled 포함)은 이 도구가 쓰지 않는다 — 다시 실행해도 지워지지 않는다.
+                //   옛 줄(타입 A 자리표시 · 사용 불가):
+                // PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
+                //     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
+                PersistentZone("Skill_Human_SmokeBomb", h, 3, "연막탄",
+                    "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다.",
+                    StatusEffectKind.EvadeChance, 0.5f, duration: 6f, radius: 2f, cooldown: 15f, targetsAllies: true),
                 // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
                 // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1 · S-9] 주 효과(공격력 1.5배 · 8초 · 쿨 15)는 그대로,
                 //   추가 효과 목록에 「팀 · 생산 속도 1.5배」 한 줄. 설명 문구가 이제 실제 동작과 맞는다.
@@ -515,9 +532,10 @@ namespace Hexiege.EditorTools
                 // [2026-11-17 단계 B — B-4] 10개 → 11개 — 괄호 안에 재생의 뿌리를 더했다(옛 문구는 「… · 대지의 갑주 · 신목의 각성)」).
                 // [2026-11-17 공습 L-6] 11개 → 12개 — 괄호 안에 공습을 더했다(옛 문구는 「… · 신목의 각성 · 재생의 뿌리)」).
                 // [2026-11-18 메테오 S2-4] 12개 → 13개 — 괄호 안에 메테오를 더했다(옛 문구는 「… · 재생의 뿌리 · 공습)」).
+                // [2026-11-23 연막탄 S-1] 13개 → 14개 — 괄호 안에 연막탄을 더했다(옛 문구는 「… · 공습 · 메테오)」).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오 · 연막탄). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else

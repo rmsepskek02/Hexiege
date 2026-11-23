@@ -278,6 +278,9 @@ namespace Hexiege.Bootstrap
         //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호). 멀티 서버 틱은
         //   SkillActivationUseCase.TickZones로 같은 인스턴스에 닿는다.
         private SkillZoneSystem _skillZoneSystem;
+        // [2026-11-23 연막탄 Task 단계 S-1] 연막 회피 판정 서비스(경기 seed + 연막 확률 조회, 서버 권위). 맵마다 Setup에서 새로 만든다.
+        //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호) — 전투 UseCase에 설정자로 준다.
+        private SkillEvasionSystem _skillEvasionSystem;
         // [2026-11-16 지원 스킬 새 상태 Task 단계 A — A-1] 지원 스킬 효과 서비스(대지의 갑주 받는 피해 · 전술 지령 생산 속도, 서버 권위).
         //   맵마다 Setup에서 새로 만든다. ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호) —
         //   멀티 서버 틱은 SkillActivationUseCase.TickSupportEffects로 같은 인스턴스에 닿는다.
@@ -575,6 +578,9 @@ namespace Hexiege.Bootstrap
             // [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-8] 경기가 끝나면 모든 구역을 풀고 이후 새 구역을 만들지 않는다.
             //   위 무력화 닫기와 같은 방식 — 람다가 호출 시점의 _skillActivation을 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
             GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.CloseZones()).AddTo(this);
+            // [2026-11-23 연막탄 S-1] 경기가 끝나면 회피 판정 요약 1줄([SKILL-EVADE] EvadeSummary — 개발 빌드 진단)을 남긴다.
+            //   판정 자체는 구역이 위에서 닫혀 확률이 0이 되므로 더 일어나지 않는다. 호출 시점의 필드를 읽는다(위와 같은 방식).
+            GameEvents.OnGameEnd.Subscribe(_ => _skillEvasionSystem?.Close()).AddTo(this);
             // [2026-11-16 지원 스킬 새 상태 — A-1] 경기가 끝나면 지원 스킬 효과(대지의 갑주 · 전술 지령 생산 속도)를 모두 지우고
             //   이후 새 효과를 받지 않는다(진단 끝 줄 Reason=GameEnd). 위 구역 닫기와 같은 방식(호출 시점의 필드를 읽는다).
             GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.CloseSupportEffects()).AddTo(this);

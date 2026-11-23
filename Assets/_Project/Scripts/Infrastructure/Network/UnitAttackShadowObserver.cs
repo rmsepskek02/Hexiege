@@ -2833,7 +2833,11 @@ namespace Hexiege.Infrastructure
                     return true;
             }
 
-            bool legacyApplied = legacyResult == AttackDamageApplyStatus.Applied;
+            // [2026-11-23 연막탄 단계 S-2] 「회피(Evaded)」도 승인 명중과 일치하는 writer 결과다 — 승인된 명중을 연막 회피 판정이
+            //   피해 0으로 바꾼 것이지 표적 · 회차 불일치가 아니다. 옛 줄(아래)은 회피를 불일치로 세어 진단 FAIL을 만든다.
+            // bool legacyApplied = legacyResult == AttackDamageApplyStatus.Applied;
+            bool legacyApplied = legacyResult == AttackDamageApplyStatus.Applied
+                || legacyResult == AttackDamageApplyStatus.Evaded;
             return shadowApplied != legacyApplied;
         }
 
@@ -2922,6 +2926,10 @@ namespace Hexiege.Infrastructure
                 || legacy.Status == AttackDamageApplyStatus.TargetUnavailable
                 || legacy.Status == AttackDamageApplyStatus.CombatConditionFailed)
                 return result.Outcome != AttackImpactOutcome.Miss;
+
+            // [2026-11-23 연막탄 단계 S-2] writer 회피(Evaded)는 C2 결과 「회피」와 짝이다(코디네이터가 그렇게 닫는다).
+            if (legacy.Status == AttackDamageApplyStatus.Evaded)
+                return result.Outcome != AttackImpactOutcome.Evaded;
 
             return true;
         }
