@@ -51,7 +51,8 @@ namespace Hexiege.Application
         private readonly SpecialAttackRegistry _specialAttacks = new SpecialAttackRegistry();
 
         // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 GameBootstrapper가
-        // 읽어 float로 주입한다. SO가 없으면 생성자 기본값(1.0 / 120)이 폴백으로 쓰인다.
+        // 읽어 float로 주입한다. SO가 없으면 생성자 기본값(0.75 / 120)이 폴백으로 쓰인다.
+        //   (2026-11-23 정정 — 직전 「1.0 / 120」. 반경 기본값을 SpecialAttackConfig.asset 의 0.75 에 맞췄다.)
         // Application이 Infrastructure의 SO를 직접 참조하지 않도록 원시값만 보관한다.
         private readonly float _sweepReach;
         private readonly float _sweepArcHalfAngle;
@@ -65,7 +66,8 @@ namespace Hexiege.Application
         // 특수 유닛(BloomFairy 힐러) 지속 회복(HoT) 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
         // _bloomHealAmount: 지속 회복 총량(HP). _bloomHealDuration: 지속시간(초, 기본 3).
         //   실제 게임 값 = 총 200(SpecialAttackConfig.asset _bloomHealAmount, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
-        //   생성자 기본 인자 20은 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 20」)
+        //   생성자 기본 인자도 200이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 20」, 그다음 「생성자 기본 인자 20은 …」. 같은 날 기본 인자를 에셋 값 200으로 맞췄다.)
         private readonly int _bloomHealAmount;
         private readonly float _bloomHealDuration;
 
@@ -73,7 +75,8 @@ namespace Hexiege.Application
         // _blastRadius: 착탄 폭발 판정 반경(월드, 기본 1.0 = 인접 1칸 거리, 핸들러가 읽음).
         // _blastDotPerSecond: DoT 초당 피해. _blastDotDuration: DoT 지속시간(초, 기본 3).
         //   실제 게임 값 = 초당 20(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
-        //   생성자 기본 인자 2는 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 2」)
+        //   생성자 기본 인자도 20이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 2」, 그다음 「생성자 기본 인자 2는 …」. 같은 날 기본 인자를 에셋 값 20으로 맞췄다.)
         private readonly float _blastRadius;
         private readonly float _blastDotPerSecond;
         private readonly float _blastDotDuration;
@@ -81,7 +84,8 @@ namespace Hexiege.Application
         // 특수 유닛(InfernoSpirit 지옥불 정령) 단일 대상 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
         // _infernoDotPerSecond: DoT 초당 피해. _infernoDotDuration: DoT 지속시간(초, 기본 3).
         //   실제 게임 값 = 초당 50(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
-        //   생성자 기본 인자 5는 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 5」)
+        //   생성자 기본 인자도 50이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 5」, 그다음 「생성자 기본 인자 5는 …」. 같은 날 기본 인자를 에셋 값 50으로 맞췄다.)
         // ⚠️ MushroomBomber(_blastDotPerSecond=20/3초)와 값이 다른 "별도" 필드다. (2026-11-23 정정 — 직전 「=2/3초」)
         //    두 유닛이 같은 DoT 초 단위 틱 시스템(규칙 40)을 재사용하되 값은 완전히 분리한다.
         private readonly float _infernoDotPerSecond;
@@ -394,7 +398,7 @@ namespace Hexiege.Application
 
         /// <param name="sweepReach">
         ///   도끼병 휩쓸기 전방 부채꼴 판정의 월드 반경. SpecialAttackConfig에서 주입.
-        ///   미주입 시 기본값 1.0(코드 폴백) 사용.
+        ///   미주입 시 기본값 0.75(코드 폴백, SpecialAttackConfig.asset 값과 같음) 사용. (2026-11-23 정정 — 직전 「1.0」)
         /// </param>
         /// <param name="sweepArcHalfAngle">
         ///   도끼병 휩쓸기 전방 부채꼴의 반각(도 단위). SpecialAttackConfig에서 주입.
@@ -403,13 +407,13 @@ namespace Hexiege.Application
         /// <param name="waveWidth">TorrentSpirit 파도 가로 폭(월드). 미주입 시 기본값 3.</param>
         /// <param name="waveLength">TorrentSpirit 파도 전방 길이(월드). 미주입 시 기본값 3.</param>
         /// <param name="waveTravelTime">TorrentSpirit 파도 이동 시간(초). 미주입 시 기본값 0.5.</param>
-        /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 10.</param>
-        /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 20.</param>
+        /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 100(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「10」)</param>
+        /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 200(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「20」)</param>
         /// <param name="bloomHealDuration">BloomFairy 지속 회복(HoT) 지속시간(초). 미주입 시 기본값 3.</param>
         /// <param name="blastRadius">MushroomBomber 착탄 폭발 판정 반경(월드). 미주입 시 기본값 1.0.</param>
-        /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 2.</param>
+        /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 20(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「2」)</param>
         /// <param name="blastDotDuration">MushroomBomber 착탄 DoT 지속시간(초). 미주입 시 기본값 3.</param>
-        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 5.</param>
+        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 50(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「5」)</param>
         /// <param name="infernoDotDuration">InfernoSpirit 단일 대상 DoT 지속시간(초). 미주입 시 기본값 3.</param>
         /// <param name="quakeRadius">QuakeSpirit 착탄 즉발 스플래시 판정 반경(월드). 미주입 시 기본값 1.0.</param>
         /// <param name="quakeSplashRatio">QuakeSpirit 착탄 스플래시 피해 비율(공격력 대비, 올림 적용). 미주입 시 기본값 0.5.</param>
@@ -419,18 +423,27 @@ namespace Hexiege.Application
             BuildingPlacementUseCase buildingPlacement,
             IEntityPositionProvider positionProvider,
             IHexCoordinateMapper mapper,
-            float sweepReach = 1.0f,
+            // [2026-11-23 기본값 정정] 아래 「= 숫자」는 값을 넘기지 않고 이 클래스를 만들 때만 쓰이는 대체값이다.
+            //   실제 게임은 GameBootstrapper.Setup 이 SpecialAttackConfig.asset 의 값을 읽어 전부 넘기므로 이 숫자를 쓰지 않는다.
+            //   예전 숫자 5개(휩쓸기 반경 1.0 · 파도 회복 10 · 꽃요정 회복 20 · 버섯 독 2 · 지옥불 화상 5)는
+            //   ×10 스케일 이전 값이거나 에셋과 달라, 에셋 값(0.75 · 100 · 200 · 20 · 50)으로 맞췄다. 옛 줄은 바로 위 주석에 남긴다.
+            // float sweepReach = 1.0f,
+            float sweepReach = 0.75f,
             float sweepArcHalfAngle = 120f,
             float waveWidth = 3f,
             float waveLength = 3f,
             float waveTravelTime = 0.5f,
-            float waveHeal = 10f,
-            float bloomHealAmount = 20f,
+            // float waveHeal = 10f,
+            float waveHeal = 100f,
+            // float bloomHealAmount = 20f,
+            float bloomHealAmount = 200f,
             float bloomHealDuration = 3f,
             float blastRadius = 1.0f,
-            float blastDotPerSecond = 2f,
+            // float blastDotPerSecond = 2f,
+            float blastDotPerSecond = 20f,
             float blastDotDuration = 3f,
-            float infernoDotPerSecond = 5f,
+            // float infernoDotPerSecond = 5f,
+            float infernoDotPerSecond = 50f,
             float infernoDotDuration = 3f,
             float quakeRadius = 1.0f,
             float quakeSplashRatio = 0.5f)

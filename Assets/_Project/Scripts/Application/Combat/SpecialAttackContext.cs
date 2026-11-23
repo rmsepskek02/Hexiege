@@ -55,7 +55,8 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 휩쓸기 전방 부채꼴 판정의 월드 반경(공격자로부터의 XZ 평면 거리 한계).
-        /// SpecialAttackConfig.SweepReach에서 주입(미주입 시 코드 기본값 1.0).
+        /// SpecialAttackConfig.SweepReach에서 주입(미주입 시 코드 기본값 0.75 — SpecialAttackConfig.asset 값과 같음).
+        /// (2026-11-23 정정 — 직전 「코드 기본값 1.0」. UnitCombatUseCase 생성자 기본값을 에셋 값 0.75로 맞췄다.)
         /// </summary>
         public float SweepReach { get; }
 

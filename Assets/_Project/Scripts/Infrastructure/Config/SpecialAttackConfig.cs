@@ -22,7 +22,8 @@
 //   (또는 CreateAssetMenu 경로). 권장 저장 위치는
 //   Assets/_Project/Resources/Config/SpecialAttackConfig.asset.
 //   에셋을 만든 뒤 GameBootstrapper의 Config 섹션 필드에 연결한다.
-//   ※ 에셋을 연결하지 않아도 코드 기본값(1.0 / 120)이 폴백으로 동작한다.
+//   ※ 에셋을 연결하지 않아도 코드 기본값(0.75 / 120)이 폴백으로 동작한다.
+//     (2026-11-23 정정 — 직전 「1.0 / 120」. 반경 기본값을 에셋 값 0.75에 맞췄다.)
 //
 // Infrastructure 레이어 — Unity 의존 허용 (ScriptableObject).
 // ============================================================================
@@ -42,9 +43,16 @@ namespace Hexiege.Infrastructure
         // ── 도끼병(BattleAxe) 휩쓸기형 AoE ─────────────────────────────
         [Header("BattleAxe Sweep (휩쓸기)")]
 
+        // [2026-11-23 기본값 정정] 코드 기본값을 실제 에셋(SpecialAttackConfig.asset)에 저장된 0.75 로 맞췄다.
+        //   왜 바꾸나(초급자용): 에셋에 저장된 값이 항상 코드 기본값보다 우선하므로 게임 동작은 원래도 0.75 였다.
+        //   하지만 코드에 1.0 이 적혀 있으면 「휩쓸기 반경은 1.0」으로 잘못 읽히고, 새로 에셋을 만들면 1.0 으로 시작한다.
+        //   (StatsReference.md 「BattleAxe ... sweepReach0.75」 와도 같다.) 옛 줄(기록용):
+        // [Tooltip("휩쓸기 전방 부채꼴 판정의 월드 반경. 공격자로부터의 XZ 평면 거리가 이 값 이하인 적만 대상. " +
+        //          "인접 타일 중심 간 거리(≈0.9~1.0)를 기준으로 조정. 기본값 1.0")]
+        // [SerializeField] private float _sweepReach = 1.0f;
         [Tooltip("휩쓸기 전방 부채꼴 판정의 월드 반경. 공격자로부터의 XZ 평면 거리가 이 값 이하인 적만 대상. " +
-                 "인접 타일 중심 간 거리(≈0.9~1.0)를 기준으로 조정. 기본값 1.0")]
-        [SerializeField] private float _sweepReach = 1.0f;
+                 "인접 타일 중심 간 거리(≈0.9~1.0)를 기준으로 조정. 기본값 0.75")]
+        [SerializeField] private float _sweepReach = 0.75f;
 
         [Tooltip("휩쓸기 전방 부채꼴의 반각(도 단위). forward(주 타깃 방향)와 적이 이루는 각도가 " +
                  "이 값 이하이면 피격. 120이면 전방 240° 범위(등 뒤 60° 제외). 기본값 120")]

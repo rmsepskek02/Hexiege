@@ -302,9 +302,12 @@ namespace Hexiege.Bootstrap
                 new PresentationPoseProvider(_unitFactory, _buildingFactory);
 
             // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 float로 읽어 주입.
-            // SO가 연결되지 않았으면 코드 기본값(반경 1.0 / 반각 120°)을 폴백으로 사용하여
+            // SO가 연결되지 않았으면 코드 기본값(반경 0.75 / 반각 120°)을 폴백으로 사용하여
             // 미주입 상태에서도 휩쓸기가 동작하게 한다. (Application이 SO를 직접 참조하지 않음)
-            float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
+            // [2026-11-23 기본값 정정] 폴백 반경을 실제 에셋 값 0.75 로 맞췄다(직전 1.0).
+            //   SO가 연결되어 있으면(Game 씬은 연결돼 있다) 이 폴백은 쓰이지 않으므로 게임 동작은 바뀌지 않는다. 옛 줄(기록용):
+            // float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
+            float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 0.75f;
             float sweepArcHalfAngle = _specialAttackConfig != null ? _specialAttackConfig.SweepArcHalfAngle : 120f;
 
             // TorrentSpirit 파도 튜닝값 — 마찬가지로 SO에서 float로 읽어 주입(미연결 시 코드 폴백).

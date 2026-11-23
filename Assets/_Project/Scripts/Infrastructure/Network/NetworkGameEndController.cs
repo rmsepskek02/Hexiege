@@ -203,11 +203,17 @@ namespace Hexiege.Infrastructure
         /// 인터넷 도달 확인기. 판정 직전에만 쓰므로 처음 필요할 때 만든다(지연 생성).
         /// </summary>
         private InternetReachabilityProbe _reachabilityProbe;
-#if UNITY_EDITOR
-        // 검사는 실제 감시 코루틴을 진행시키면서 도달 확인의 완료 시점만 통제한다.
-        // 런타임 정책이나 타임아웃을 바꾸지 않으며 릴리스/기기 빌드에는 존재하지 않는다.
-        private System.Func<System.Threading.Tasks.Task<InternetReachabilityResult>> _refactoringReachabilityProbe;
-#endif
+        // [2026-11-23 비활성화 — 검증 메뉴 삭제]
+        //   아래 필드는 에디터 메뉴 「Hexiege/Combat/Verification/Run Result Heartbeat Check」 전용 끼움 자리(seam)였다.
+        //   그 메뉴가 「도달 확인 결과가 언제 끝날지」를 직접 정하려고 이 칸에 가짜 확인 함수를 넣었다.
+        //   메뉴를 지웠으므로(사용자 결정 2026-11-23) 이 칸에 값을 넣는 코드가 하나도 없다.
+        //   이 칸은 원래 늘 비어 있어(null) 게임은 언제나 진짜 확인기(_reachabilityProbe)를 썼다 — 그래서 꺼도 동작은 같다.
+        //   (원래 에디터 빌드에만 있었고 기기/릴리스 빌드에는 처음부터 없었다.) 옛 줄(기록용):
+        // #if UNITY_EDITOR
+        //         // 검사는 실제 감시 코루틴을 진행시키면서 도달 확인의 완료 시점만 통제한다.
+        //         // 런타임 정책이나 타임아웃을 바꾸지 않으며 릴리스/기기 빌드에는 존재하지 않는다.
+        //         private System.Func<System.Threading.Tasks.Task<InternetReachabilityResult>> _refactoringReachabilityProbe;
+        // #endif
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private int _refactoringFreshSignals;
 #endif
@@ -1483,12 +1489,15 @@ namespace Hexiege.Infrastructure
                 //      넘긴다」를 쓴다. async void 로 빼지 않는 이유는 그렇게 하면 예외가 조용히
                 //      사라지고, 판정 순서(확인 → 결론)도 코드에서 보이지 않게 되기 때문이다.
                 if (_reachabilityProbe == null) _reachabilityProbe = new InternetReachabilityProbe();
-#if UNITY_EDITOR
-                var probeTask = _refactoringReachabilityProbe != null
-                    ? _refactoringReachabilityProbe() : _reachabilityProbe.CheckAsync();
-#else
+                // [2026-11-23 비활성화 — 검증 메뉴 삭제] 에디터에서만 검사용 가짜 확인 함수를 먼저 보던 갈래를 껐다.
+                //   그 함수 칸(_refactoringReachabilityProbe)은 늘 비어 있었으므로 에디터도 원래 아래 한 줄과 똑같이 동작했다.
+                //   이제 에디터 · 기기 · 릴리스 모두 진짜 인터넷 확인기 한 갈래만 쓴다. 옛 줄(기록용):
+                // #if UNITY_EDITOR
+                //                 var probeTask = _refactoringReachabilityProbe != null
+                //                     ? _refactoringReachabilityProbe() : _reachabilityProbe.CheckAsync();
+                // #else
                 var probeTask = _reachabilityProbe.CheckAsync();
-#endif
+                // #endif
                 while (!probeTask.IsCompleted) yield return null;
 
                 // 확인기는 예외를 던지지 않도록 만들어 뒀지만, 만약 그래도 터졌다면
