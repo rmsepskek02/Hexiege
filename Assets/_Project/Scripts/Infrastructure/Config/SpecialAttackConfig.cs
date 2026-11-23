@@ -86,7 +86,8 @@ namespace Hexiege.Infrastructure
         [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 20(×10 스케일)")]
         [SerializeField] private float _blastDotPerSecond = 20f;
 
-        [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 2×3 = 6). 기본값 3")]
+        // (2026-11-23 정정 — 아래 툴팁 예시의 직전 문구 「예: 2×3 = 6」은 ×10 스케일 이전 값이었다. 현재 초당 20 × 3초.)
+        [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 20×3 = 60). 기본값 3")]
         [SerializeField] private float _blastDotDuration = 3f;
 
         // ── 지옥불 정령(InfernoSpirit) 피격 대상 DoT ──────────────────
@@ -96,7 +97,8 @@ namespace Hexiege.Infrastructure
                  "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 50(×10 스케일)")]
         [SerializeField] private float _infernoDotPerSecond = 50f;
 
-        [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 5×3 = 15). 기본값 3")]
+        // (2026-11-23 정정 — 아래 툴팁 예시의 직전 문구 「예: 5×3 = 15」는 ×10 스케일 이전 값이었다. 현재 초당 50 × 3초.)
+        [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 50×3 = 150). 기본값 3")]
         [SerializeField] private float _infernoDotDuration = 3f;
 
         // ── 대지의 정령(QuakeSpirit) 착탄형 즉발 AoE ──────────────────
@@ -106,8 +108,10 @@ namespace Hexiege.Infrastructure
                  "적 유닛·적 건물에 스플래시 피해를 준다. 기본값 = '인접 1칸' 타일 거리(≈1.0). 기본값 1.0")]
         [SerializeField] private float _quakeRadius = 1.0f;
 
+        // (2026-11-23 정정 — 아래 툴팁 예시의 직전 문구 「예: 공격력 20 × 0.5 = 10」은 ×10 스케일 이전 값이었다.
+        //  QuakeSpirit 공격력 200 = UnitStatsConfig.asset type 15.)
         [Tooltip("착탄 즉발 스플래시의 피해 비율(공격력 대비). 스플래시 피해 = 올림(공격력 × 이 값). " +
-                 "예: 공격력 20 × 0.5 = 10. 주 타깃은 100%(스플래시 제외)만 받는다. 기본값 0.5")]
+                 "예: 공격력 200 × 0.5 = 100. 주 타깃은 100%(스플래시 제외)만 받는다. 기본값 0.5")]
         [SerializeField] private float _quakeSplashRatio = 0.5f;
 
         // ── MistShrine(초월 회복 건물) 물안개 힐 ───────────────────────

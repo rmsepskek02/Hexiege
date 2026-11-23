@@ -63,7 +63,9 @@ namespace Hexiege.Application
         private readonly float _waveHeal;
 
         // 특수 유닛(BloomFairy 힐러) 지속 회복(HoT) 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
-        // _bloomHealAmount: 지속 회복 총량(HP, 기본 20). _bloomHealDuration: 지속시간(초, 기본 3).
+        // _bloomHealAmount: 지속 회복 총량(HP). _bloomHealDuration: 지속시간(초, 기본 3).
+        //   실제 게임 값 = 총 200(SpecialAttackConfig.asset _bloomHealAmount, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자 20은 값을 넘기지 않고 생성할 때만 쓰인다. (2026-11-23 정정 — 직전 「기본 20」)
         private readonly int _bloomHealAmount;
         private readonly float _bloomHealDuration;
 
@@ -2299,7 +2301,8 @@ namespace Hexiege.Application
         // ====================================================================
         // HoT/DoT 시간 지속 효과 공용 시스템 [핵심 신규]
         //   "유닛에 붙는 시간 지속 효과"를 서버 권위로 관리한다.
-        //   - HoT(회복): BloomFairy가 부상 아군에 3초간 총 20HP 회복 버프를 건다.
+        //   - HoT(회복): BloomFairy가 부상 아군에 3초간 총 200HP 회복 버프를 건다
+        //     (SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「총 20HP」).
         //   - DoT(피해): 후속 QuakeSpirit·MushroomBomber가 동일 구조를 재사용한다
         //               (이번 작업에서는 Heal만 실제 배선, Damage 분기는 구조로 수용).
         //   서버 틱 진입점: 싱글=GameBootstrapper.Update / 멀티=NetworkCombatController(IsServer).
@@ -2328,7 +2331,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// BloomFairy 힐 시전 진입점. 상태머신(UnitView.EnterHealLoopV3)이 힐 타격 타이밍에 호출한다.
-        /// 대상에게 "3초간 총 20HP 회복" HoT를 1회 부여(갱신 규칙 적용 — 아래 ApplyTimedEffect 참조).
+        /// 대상에게 "3초간 총 200HP 회복"(SpecialAttackConfig.asset 값. 2026-11-23 정정 — 직전 「총 20HP」) HoT를 1회 부여(갱신 규칙 적용 — 아래 ApplyTimedEffect 참조).
         ///
         /// 서버 권위: UnitView의 이동/전투 코루틴은 서버(싱글=로컬 서버/멀티=서버)에서만 도므로
         /// 이 메서드도 서버에서만 호출된다. 클라이언트는 HP/치유 텍스트를 NetworkHealthSync로 수신한다.
@@ -2469,7 +2472,8 @@ namespace Hexiege.Application
         /// 주입되어 QuakeAttackBehavior가 반경 판정으로 고른 각 적(유닛/건물)에 대해 호출한다.
         ///
         /// ⚠️ DoT(ApplyBlastDot/ApplyInfernoDot)와 달리 "즉발 1회 피해"다.
-        ///    스플래시 피해량 = 올림(공격력 × _quakeSplashRatio). 예: 공격력 20 × 0.5 = 10.
+        ///    스플래시 피해량 = 올림(공격력 × _quakeSplashRatio). 예: QuakeSpirit 공격력 200 × 0.5 = 100
+        ///    (UnitStatsConfig.asset type 15 공격력 200. 2026-11-23 정정 — 직전 「공격력 20 × 0.5 = 10」).
         ///    주 타깃은 이미 ExecuteAttack에서 100%(공격력 그대로)를 받았으므로 여기 스플래시에서 제외된다
         ///    (제외는 핸들러 QuakeAttackBehavior가 담당 — 이 메서드는 넘어온 대상에만 피해를 준다).
         /// </summary>
