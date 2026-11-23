@@ -67,28 +67,66 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
         private System.IDisposable _attackEffectSubscription;
+        // [2026-11-23 연막탄 단계 S-4 — Plan P-8 · 메인 기본안 M-12] 탑 공격 표현 RPC 끝에 evaded(연막 회피 여부) 한 칸을 붙였다.
+        //   회피면 스냅샷 Impact가 대상 발밑이 아니라 서버가 고정한 「빗나간 지점」이다(빗나간 지점 칸을 따로 두지 않는다 — Impact 한 칸).
+        //   Client는 회피를 다시 판정하지 않고 받은 값을 그대로 화면에 넘긴다(스킬 규칙 25). RPC 모양이 바뀌었으므로 스키마 12 묶음
+        //   (S-3이 이미 11 → 12로 올렸고, 아직 커밋 전이라 추가 상향 없음 — UnitAttackShadowProfileResolver 주석).
+        //   옛 보내기 · 받기(아래 주석)는 evaded 칸이 없었다.
+        // private void PublishAttackEffect(AttackEffectPresentation s)
+        // {
+        //     if (!IsServer || !IsSpawned || _combatStopped || !s.IsValid) return;
+        //     AttackEffectClientRpc(s.Match, s.Lifetime, s.Sequence, s.AttackerId, s.TargetId, (byte)s.Visual,
+        //         (int)s.Race, s.Source, s.Impact, s.ImpactTime, s.AppliedDamage, s.ResultHp,
+        //         s.ResultKey.AttackerInstanceId.Value, s.ResultKey.SequenceId.Value, s.ResultKey.HitIndex,
+        //         s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal);
+        //     AttackEffectIdentity.Record("Publish", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+        // }
+        // [ClientRpc]
+        // private void AttackEffectClientRpc(ulong match, ulong lifetime, ulong sequence, int attacker, int target,
+        //     byte visual, int race, Vector3 source, Vector3 impact, double time, int applied, int hp,
+        //     ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal)
+        // {
+        //     if (IsServer || _combatStopped) return;
+        //     var s = new AttackEffectPresentation { Match = match, Lifetime = lifetime, Sequence = sequence,
+        //         AttackerId = attacker, TargetId = target, Visual = (AttackEffectVisual)visual,
+        //         Race = (Hexiege.Domain.RaceId)race, Source = source, Impact = impact, ImpactTime = time, AppliedDamage = applied, ResultHp = hp,
+        //         ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal) };
+        //     if (s.IsValid)
+        //     {
+        //         AttackEffectIdentity.Record("Receive", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+        //         try { GameEvents.OnAttackEffectReceived.OnNext(s); }
+        //         catch (System.Exception ex) { AttackEffectIdentity.Record("Fault", s, "ReceiveSubscriber:" + ex.Message); }
+        //     }
+        //     else AttackEffectIdentity.Record("Fault", s, "InvalidWireSnapshot");
+        // }
         private void PublishAttackEffect(AttackEffectPresentation s)
         {
             if (!IsServer || !IsSpawned || _combatStopped || !s.IsValid) return;
             AttackEffectClientRpc(s.Match, s.Lifetime, s.Sequence, s.AttackerId, s.TargetId, (byte)s.Visual,
                 (int)s.Race, s.Source, s.Impact, s.ImpactTime, s.AppliedDamage, s.ResultHp,
                 s.ResultKey.AttackerInstanceId.Value, s.ResultKey.SequenceId.Value, s.ResultKey.HitIndex,
-                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal);
-            AttackEffectIdentity.Record("Publish", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal,
+                s.Evaded);
+            // [연막탄 S-4] 회피 스냅샷이면 기록 사유에 SmokeEvaded를 남긴다(줄 모양은 그대로 — Reason 칸만 다르다).
+            AttackEffectIdentity.Record("Publish", s, s.Evaded ? "SmokeEvaded" : "None",
+                NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
         }
         [ClientRpc]
         private void AttackEffectClientRpc(ulong match, ulong lifetime, ulong sequence, int attacker, int target,
             byte visual, int race, Vector3 source, Vector3 impact, double time, int applied, int hp,
-            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal)
+            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal,
+            bool evaded)
         {
             if (IsServer || _combatStopped) return;
             var s = new AttackEffectPresentation { Match = match, Lifetime = lifetime, Sequence = sequence,
                 AttackerId = attacker, TargetId = target, Visual = (AttackEffectVisual)visual,
                 Race = (Hexiege.Domain.RaceId)race, Source = source, Impact = impact, ImpactTime = time, AppliedDamage = applied, ResultHp = hp,
-                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal) };
+                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal),
+                Evaded = evaded };
             if (s.IsValid)
             {
-                AttackEffectIdentity.Record("Receive", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                AttackEffectIdentity.Record("Receive", s, s.Evaded ? "SmokeEvaded" : "None",
+                    NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
                 try { GameEvents.OnAttackEffectReceived.OnNext(s); }
                 catch (System.Exception ex) { AttackEffectIdentity.Record("Fault", s, "ReceiveSubscriber:" + ex.Message); }
             }

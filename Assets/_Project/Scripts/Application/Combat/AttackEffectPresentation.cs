@@ -16,12 +16,30 @@ namespace Hexiege.Application
         public double ImpactTime;
         public int AppliedDamage, ResultHp;
         public AttackResultKey ResultKey;
+        /// <summary>
+        /// [2026-11-23 연막탄 단계 S-4 — Plan P-8] 서버가 「연막 회피」로 정한 즉발 탑 공격인가(정령 RuneSpire 번개 · 초월 VineTower).
+        /// true면 피해가 없었다(AppliedDamage = 0 · 피해 이벤트 없음 → 피해 숫자 없음)이고, <see cref="Impact"/>는 대상 발밑이 아니라
+        /// 서버가 공격 순간 고정한 <b>빗나간 지점</b>(대상 옆 반경 + 0.3 · 탑 반대쪽으로 0.5)이다 — 빗나간 지점 칸을 따로 두지 않고
+        /// Impact 한 칸에 싣는다(같은 뜻의 칸이 둘이면 어긋날 수 있다).
+        /// 화면: 번개는 대상을 따라가지 않고 이 지점을 끝점으로 고정해 그린다(대상 옆으로 빗나간 번개). VineTower는 공격 이펙트가 원래 없다.
+        /// 기본값 false — 옛 스냅샷(MushroomImpact · 명중 탑 공격)은 모두 false라 동작이 같다.
+        /// </summary>
+        public bool Evaded;
+        // [2026-11-23 연막탄 S-4] 옛 검사식(아래 주석)에 「회피면 탑 스냅샷이고 적용 피해가 0이어야 한다」 한 조건만 덧붙였다
+        //   (회피가 아니면 옛 식과 결과가 같다). 네트워크로 받은 스냅샷도 이 검사를 지나야 화면에 쓴다.
+        // public bool IsValid => Match != 0 && Lifetime != 0 && Sequence != 0 && AttackerId >= 0 && TargetId >= 0
+        //     && (Visual == AttackEffectVisual.MushroomImpact || Visual == AttackEffectVisual.Tower)
+        //     && (Race == RaceId.Human || Race == RaceId.Spirit || Race == RaceId.Transcendence)
+        //     && AppliedDamage >= 0 && ResultHp >= 0
+        //     && !double.IsNaN(ImpactTime) && !double.IsInfinity(ImpactTime)
+        //     && Finite(Source) && Finite(Impact);
         public bool IsValid => Match != 0 && Lifetime != 0 && Sequence != 0 && AttackerId >= 0 && TargetId >= 0
             && (Visual == AttackEffectVisual.MushroomImpact || Visual == AttackEffectVisual.Tower)
             && (Race == RaceId.Human || Race == RaceId.Spirit || Race == RaceId.Transcendence)
             && AppliedDamage >= 0 && ResultHp >= 0
             && !double.IsNaN(ImpactTime) && !double.IsInfinity(ImpactTime)
-            && Finite(Source) && Finite(Impact);
+            && Finite(Source) && Finite(Impact)
+            && (!Evaded || (Visual == AttackEffectVisual.Tower && AppliedDamage == 0));
         private static bool Finite(Vector3 v) => !float.IsNaN(v.x) && !float.IsInfinity(v.x)
             && !float.IsNaN(v.y) && !float.IsInfinity(v.y) && !float.IsNaN(v.z) && !float.IsInfinity(v.z);
     }

@@ -26,11 +26,23 @@
 // 회귀 안전(핵심): 회피 서비스가 없거나(미주입) · 연막 구성원이 없으면(평상시) 확률 0 → 판정 자체를 하지 않는다
 //   → 기존 writer와 한 줄도 다르지 않은 경로로 ExecuteAttack까지 간다.
 //
-// Application 레이어 — Domain · Application 의존(UnityEngine 참조 없음).
+// [2026-11-23 단계 S-3 — 서버 권위 투사체 회피(Plan P-5 · 상위 R-11 「발사 시점 판정」)]
+//   날아가는 투사체(Tank · CannonCart · InfernoSpirit · StreamSpirit · FoxMagician · EagleArcher + 인간 대포탑)는
+//   "쏘는 순간"에 피할지 정한다. 착탄 순간에 정하면 화면이 빗나감을 그릴 시간이 없기 때문이다(Host · 싱글은 화면 지연 0이라
+//   결과가 화면 착탄과 같은 프레임에 와서, 투사체가 대상에 닿는 순간 옆으로 튀는 그림이 된다 — Research 8-2).
+//     · TryRollProjectileEvasion : 발사 순간 판정. 피했으면 빗나간 지점(대상 옆 반경 + 0.3, 진행 방향 + 0.5, 좌우 = 난수 비트)을 고정.
+//                                  열쇠 = 발사 번호표(epoch · id) — 발사마다 유일하고, 같은 seed면 언제나 같은 결과.
+//     · ResolveEvadedProjectileImpact : 착탄 시각 — writer를 부르지 않고 결과 「회피」만 발행(피해 · 화상 · 숫자 없음).
+//   MushroomBomber는 착탄 범위 폭발이라 「단일」이 아니어서 판정하지 않는다(메인 기본안 M-1). 건물 대상도 판정하지 않는다(M-7).
+//   이중 판정 없음: 회피하지 않은 투사체는 착탄 때 writer를 지나지만, 그때는 「투사체 착탄 중」 표시가 서 있어 위 Hitscan 관문이 건너뛴다.
+//
+// Application 레이어 — Domain · Application 의존. UnityEngine은 Vector3 계산에만 쓴다(S-3 — 빗나간 지점).
+//   (2026-11-23 S-3: 옛 문구 「UnityEngine 참조 없음」 → 빗나간 지점 계산 때문에 Vector3를 쓰게 됐다.)
 // ============================================================================
 
 using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Domain;
+using UnityEngine;
 
 namespace Hexiege.Application
 {
@@ -135,5 +147,151 @@ namespace Hexiege.Application
         {
             _skillEvasion?.DiagOnResolved(attackerId, hasResult, outcome, completion, reason, key);
         }
+
+        // ====================================================================
+        // [2026-11-23 연막탄 단계 S-3] 서버 권위 투사체 — 발사 순간 회피 판정 · 회피 착탄
+        // ====================================================================
+
+        // 투사체 발사 순간 판정 한 번의 기록(발사 기록 · 진단에 쓴다).
+        private struct ProjectileEvadeGate
+        {
+            public SkillEvasionPath Path;    // Projectile(유닛) 또는 TowerShell(인간 대포탑)
+            public ulong Key;                // 공격 열쇠 = 발사 번호표(epoch · id) 해시
+            public ulong Roll;               // 64비트 roll
+            public int ChanceBasisPoints;    // 확률(만분율)
+            public bool Evaded;              // 회피했는가
+            public UnitData Victim;          // 맞을 유닛
+            public int Hp;                   // 발사 순간 HP(투사체는 피해가 착탄 때라 판정 줄의 전후 HP가 같다)
+            public Vector3 MissPoint;        // 회피면 빗나간 지점(도메인 월드)
+            public float MissTravel;         // 회피면 발사 위치 → 빗나간 지점 XZ 거리
+        }
+
+        /// <summary>
+        /// (서버 권위 — 발사 순간) 투사체 회피 관문. 판정 조건이 맞으면 굴려서 gate에 담고 true를 돌려준다.
+        /// 조건이 맞지 않으면(평상시 — 연막 없음) 아무것도 하지 않고 false — 발사는 기존대로 대상을 향한다.
+        /// </summary>
+        /// <param name="record">발사할 투사체 기록(번호 · 공격자 · 팀이 이미 채워져 있다).</param>
+        /// <param name="target">원래 대상(발사 순간 살아 있음이 확인됨).</param>
+        /// <param name="source">발사 위치(도메인 월드 — 유닛 위치 또는 대포탑 포구).</param>
+        /// <param name="center">발사 순간 대상 중심(도메인 월드).</param>
+        /// <param name="radius">대상 반경(표면 지점 계산과 같은 값).</param>
+        /// <param name="gate">판정 기록.</param>
+        private bool TryRollProjectileEvasion(ProjectileRecord record, IDamageable target, Vector3 source, Vector3 center,
+                                              float radius, out ProjectileEvadeGate gate)
+        {
+            gate = default;
+            if (_skillEvasion == null || record == null) return false;
+            // 연막은 유닛만 보호한다(M-7) — 건물 대상 투사체는 판정하지 않는다.
+            //   (Id만으로 묻지 않는 이유: 건물 Id와 유닛 Id는 번호가 겹칠 수 있어, 같은 번호의 연막 속 유닛 확률을 잘못 읽을 수 있다.)
+            if (!record.TargetIsUnit || !(target is UnitData victim)) return false;
+            // 적의 공격만(같은 팀끼리는 원래 싸우지 않지만, 혹시라도 판정하지 않는다).
+            if (victim.Team == record.Team) return false;
+            // 맞을 유닛이 연막 안인가(M-2) — 연막 밖이면 확률 0 → 판정 없음(평상시 비용 = 사전 조회 한 번 없이 바로 0).
+            int chance = SkillEvasionRoll.ToChanceBasisPoints(_skillEvasion.GetEvadeChance(victim.Id));
+            if (chance <= 0) return false;
+            // 「원거리 단일」 투사체만(M-1) — 유닛 6종(MushroomBomber 제외) · 투사체 탑(인간 대포탑).
+            bool evadable = record.AttackerIsUnit
+                ? SkillEvasionRoll.IsProjectileEvadableAttacker(record.AttackerType)
+                : record.AttackerBuilding != null
+                  && SkillEvasionRoll.IsTowerShellEvadableAttacker(record.AttackerBuilding.Type, record.AttackerRace);
+            if (!evadable)
+            {
+                // [진단 E-L11] 연막 안 대상에게 쐈지만 회피 대상이 아닌 발사(MushroomBomber)를 센다 — 제외가 실제로 일어났다는 증거.
+                if (record.AttackerIsUnit) _skillEvasion.DiagNoteProjectileNotEvadable(record.AttackerType);
+                return false;
+            }
+
+            gate.Path = record.AttackerIsUnit ? SkillEvasionPath.Projectile : SkillEvasionPath.TowerShell;
+            gate.ChanceBasisPoints = chance;
+            gate.Victim = victim;
+            gate.Hp = victim.Hp;
+            // 열쇠 = 발사 번호표(epoch · id). 발사마다 유일하므로 다른 시스템이 무엇을 하든 이 발의 결과는 바뀌지 않는다.
+            gate.Key = SkillEvasionRoll.KeyFromProjectile(ProjectileEpoch, record.Id);
+            gate.Evaded = _skillEvasion.Roll(gate.Key, chance, out gate.Roll);
+            if (gate.Evaded)
+            {
+                // 빗나간 지점은 서버 판정 · 양쪽 화면이 같은 이 함수 하나로 정한다(공습 「한 함수」 교훈). 좌우는 같은 roll의 맨 위 비트.
+                gate.MissPoint = SkillEvasionRoll.ComputeMissPoint(source, center, radius, gate.Roll);
+                gate.MissTravel = SkillEvasionRoll.MissTravelDistance(source, gate.MissPoint);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// (서버 권위 — 착탄 시각) 발사 순간 「회피」로 정한 투사체를 닫는다. 피해 writer를 부르지 않는다
+        /// → HP · 피해 이벤트 · 피해 숫자 · 화상(InfernoSpirit)이 모두 없다. 결과 「회피」를 빗나간 지점과 함께 한 번 발행한다.
+        /// 호출 전에 record.Active = false로 이미 소비됐다(같은 착탄이 두 번 나지 않는다). writer를 부르지 않으므로 재진입도 없다.
+        /// </summary>
+        /// <param name="record">착탄한 회피 투사체 기록.</param>
+        /// <param name="key">투사체 번호표.</param>
+        /// <param name="diag">진단용 복사본(ProcessProjectileFlight가 만든 것).</param>
+        /// <param name="now">서버 시계 현재 시각(진단 — 착탄 지연).</param>
+        private void ResolveEvadedProjectileImpact(ProjectileRecord record, ProjectileDeliveryKey key,
+                                                   ProjectileImpactDiagnosticSnapshot diag, double now)
+        {
+            Vector3 point = record.MissPoint;
+            int targetId = record.TargetId;
+            bool targetIsUnit = record.TargetIsUnit;
+            double impactTime = record.ImpactTime;
+            // 비행 중 대상 추적(ProcessProjectileFlight 맨 앞)이 이번 프레임까지 확인했다 — 사라졌으면 TargetLost가 서 있다(진단 전용).
+            bool targetAlive = !record.TargetLost && record.Target != null && record.Target.IsAlive;
+            int hpNow = targetAlive ? record.Target.Hp : -1;
+
+            DiagProjectileEvadedImpact(diag, now);   // [진단] 서버 END 수 맞춤(launched = hit + targetLost + evaded + closedInFlight)
+            ProjectileLog("evaded", diag, impactTime,
+                EvadedImpactLogDetail(targetAlive, point));
+            DiagProjectileEvadeImpactLine(record, key, targetAlive, hpNow, point, impactTime);   // [진단 E-L6 · E-L7]
+            PublishProjectileResolved(new ProjectileImpactPresentation(key, ProjectileImpactOutcome.Evaded,
+                point, targetId, targetIsUnit, -1, 0, impactTime));
+        }
+
+        // [진단] [PROJECTILE] stage=evaded 줄의 끝 칸(개별 로그 형식은 다른 stage와 같다 — 끝에 cause= 등만 붙는다).
+        private static string EvadedImpactLogDetail(bool targetAlive, Vector3 point)
+            => System.FormattableString.Invariant(
+                $"cause=smoke-evade, writer=NotInvoked, targetAlive={(targetAlive ? 1 : 0)}, miss=({point.x:F3},{point.z:F3})");
+
+        // [진단 E-L5 · E-L8] 발사 순간 판정 1줄(+ 회피면 빗나간 지점 1줄). [Conditional]이라 릴리스 빌드에서는 호출 · 문자열 조립이 사라진다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagProjectileEvadeRoll(ProjectileRecord record, ProjectileEvadeGate gate, Vector3 source, Vector3 center,
+                                             float radius, double flightSeconds)
+        {
+            if (_skillEvasion == null || record == null) return;
+            string projectile = new ProjectileDeliveryKey(ProjectileEpoch, record.Id).ToString();
+            int attackerId = record.AttackerIsUnit
+                ? (record.Attacker != null ? record.Attacker.Id : -1)
+                : (record.AttackerBuilding != null ? record.AttackerBuilding.Id : -1);
+            string attackerType = record.AttackerIsUnit ? record.AttackerType.ToString() : "tower-" + record.AttackerRace;
+            _skillEvasion.DiagOnRoll(gate.Path, SkillEvasionKeySource.ProjectileKey, gate.Key, 0UL, gate.Roll,
+                gate.ChanceBasisPoints, gate.Evaded, attackerId, attackerType, record.Team, gate.Victim, gate.Hp, gate.Hp,
+                "Projectile=" + projectile);
+            if (gate.Evaded)
+                _skillEvasion.DiagOnMissPoint(gate.Path, projectile, source, center, radius, gate.MissPoint,
+                    SkillEvasionRoll.MissSideIsLeft(gate.Roll), flightSeconds);
+        }
+
+        // [진단 E-L6 · E-L7] 회피 착탄 1줄(WriterInvoked=0). [Conditional] — 릴리스에서는 사라진다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagProjectileEvadeImpactLine(ProjectileRecord record, ProjectileDeliveryKey key, bool targetAlive,
+                                                   int hpNow, Vector3 point, double impactTime)
+        {
+            if (_skillEvasion == null || record == null) return;
+            SkillEvasionPath path = record.AttackerIsUnit ? SkillEvasionPath.Projectile : SkillEvasionPath.TowerShell;
+            string attackerType = record.AttackerIsUnit ? record.AttackerType.ToString() : "tower-" + record.AttackerRace;
+            _skillEvasion.DiagOnProjectileImpact(path, key.ToString(), attackerType, record.TargetId, targetAlive, hpNow,
+                point, impactTime);
+        }
+
+        // ====================================================================
+        // [2026-11-23 연막탄 단계 S-4] 즉발 탑 회피가 빌려 쓰는 읽기 전용 질의
+        // ====================================================================
+
+        /// <summary>
+        /// 투사체가 쓰는 대상 반경(ProjectileSettings 표 — 유닛 종류별, 없으면 기본값)을 돌려준다. 상태를 바꾸지 않는다.
+        /// [연막탄 S-4] 즉발 탑(TowerCombatUseCase)이 빗나간 지점의 옆 거리(반경 + 0.3)를 포탄 · 유닛 투사체와 같은 반경으로 정하려고 읽는다.
+        /// </summary>
+        /// <param name="target">대상(유닛 또는 건물).</param>
+        public float GetProjectileTargetRadius(IDamageable target) => _projectileSettings.GetTargetRadius(target);
     }
 }

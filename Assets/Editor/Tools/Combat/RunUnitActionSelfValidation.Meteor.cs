@@ -446,8 +446,11 @@ namespace Hexiege.Editor.Combat
         private static void ValidateMeteorSourceAndSetupGates()
         {
             // M-T10 — 메테오는 RPC · 동기화 형식을 바꾸지 않는다(Plan O-2 · Research 12절 끝).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "M-T10 the Meteor adds no RPC or sync field — the presentation schema stays 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+            // "M-T10 the Meteor adds no RPC or sync field — the presentation schema stays 11.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "M-T10 the Meteor adds no RPC or sync field — the presentation schema is 12 only because of the smoke-bomb projectile launch RPC arguments.");
 
             // M-T8 — 셋업 기대 수 13(다른 스위트 5파일의 같은 검사와 같은 값).
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",

@@ -22,8 +22,14 @@
 //     · 싱글 Hitscan : 결과 키가 없다(TickPendingHits가 presentationResultKey: default로 부른다 — Research 10절).
 //                     → 대체 열쇠 = (공격자 Id, 그 공격자의 회피 판정 순번 1, 2, 3 …) — O-10 해결안.
 //                     순번은 "연막 안 대상에게 쏜 그 공격자의 판정"에만 늘어나므로, 다른 공격자 · 다른 시스템과 무관하다.
-//     · 투사체(S-3에서 사용 예정)   : 발사 번호표(ProjectileDeliveryKey — epoch · id)
+//     · 투사체(S-3 — 유닛 6종 · 인간 대포탑) : 발사 번호표(ProjectileDeliveryKey — epoch · id). 발사마다 유일하다.
+//                     (2026-11-23 S-3: 「사용 예정」 → 실제로 LaunchProjectile · TryLaunchTowerProjectile가 쓴다.)
 //     · 즉발 탑(S-4에서 결정)       : 이 파일에 아직 없다 — S-4에서 표현 스냅샷 순번으로 만든다.
+//                     [2026-11-23 S-4 결정 — 위 줄은 S-1 때 예정이라 남겨 둔다] 표현 스냅샷 순번이 아니라
+//                     (탑 Id, 그 탑의 회피 판정 순번 1, 2, 3 …)으로 만든다(KeyFromTowerOrdinal — 열린 항목 O-10 탑 몫).
+//                     표현 스냅샷(AttackEffectIdentity)은 경기 번호(Match)를 GUID로 뽑아 실행마다 달라지고,
+//                     그 클래스 주석이 「화면 표현 전용 — 피해 · 판정 승인에 쓰지 않는다」고 못박아 두었기 때문이다.
+//                     탑 순번은 싱글 · 멀티(Host)가 같은 규칙으로 센다 — 연막 안 대상에게 쏜 그 탑의 판정에서만 늘어난다.
 //
 // 빗나간 지점(Plan P-10 · 사용자 결정 U-4 — 투사체 · 탑 화면이 쓴다, S-1에서는 판정 호출 없음):
 //   M = C + n × (r + 0.3) + d × 0.5
@@ -69,7 +75,12 @@ namespace Hexiege.Application
         /// <summary> 싱글 대체 열쇠 = (공격자 Id, 그 공격자의 회피 판정 순번) — O-10 해결안. </summary>
         AttackerOrdinal = 2,
         /// <summary> 투사체 발사 번호표(epoch · id) — 단계 S-3에서 사용. </summary>
-        ProjectileKey = 3
+        ProjectileKey = 3,
+        /// <summary>
+        /// [2026-11-23 단계 S-4] 즉발 탑 열쇠 = (탑 Id, 그 탑의 회피 판정 순번) — 열린 항목 O-10 탑 몫.
+        /// 정수 값은 로그(KeySrc=)에만 쓰인다(맨 뒤에 붙였다 — 기존 0~3 무변경).
+        /// </summary>
+        TowerOrdinal = 4
     }
 
     /// <summary>
@@ -90,6 +101,9 @@ namespace Hexiege.Application
         private const ulong KeyTagResultKey = 0x5245534B45590001UL;       // "RESKEY" + 1
         private const ulong KeyTagAttackerOrdinal = 0x4154544F52440002UL; // "ATTORD" + 2
         private const ulong KeyTagProjectile = 0x50524F4A45430003UL;      // "PROJEC" + 3
+        // [2026-11-23 S-4] 즉발 탑 꼬리표. 탑 Id와 유닛 Id는 서로 다른 번호 세기에서 나와 같은 숫자일 수 있으므로,
+        //   싱글 Hitscan 열쇠(공격자 Id + 순번)와 다른 꼬리표를 섞어 "같은 번호의 유닛 공격"과 절대 같은 roll이 나오지 않게 한다.
+        private const ulong KeyTagTowerInstant = 0x544F57494E530004UL;    // "TOWINS" + 4
 
         /// <summary>
         /// 이 공격자가 「즉발 총탄(Hitscan)」 회피 대상인가 — Pistoleer · Assault · Sniper(메인 기본안 M-1).
@@ -103,6 +117,100 @@ namespace Hexiege.Application
         /// </remarks>
         public static bool IsHitscanEvadableAttacker(UnitType type)
             => type == UnitType.Pistoleer || type == UnitType.Assault || type == UnitType.Sniper;
+
+        // ── [2026-11-23 연막탄 단계 S-3] 서버 권위 투사체 회피 분류 ──────────────────────────────
+
+        /// <summary>
+        /// [연막탄 S-3 — 메인 기본안 M-1] 이 유닛 종류의 투사체가 「발사 순간 회피 판정」 대상인가.
+        /// = 서버 권위 투사체 유닛(ServerProjectileDeliveryPolicy 분류 7종) 중 MushroomBomber를 뺀 6종
+        ///   (Tank · CannonCart · InfernoSpirit · StreamSpirit · FoxMagician · EagleArcher).
+        /// MushroomBomber를 빼는 이유: 착탄하면 주변에 포자를 터뜨리는 「범위」 공격이라 「원거리 단일 공격」이 아니다
+        ///   (넣으면 폭발 범위의 다른 유닛까지 한꺼번에 보호된다 — 유닛 규칙 39).
+        /// 투사체 분류 목록을 여기 다시 적지 않고 분류 질문을 그대로 부른다 — 분류가 바뀌면 회피 대상도 같이 바뀐다.
+        /// </summary>
+        /// <param name="type">쏘는 유닛 종류.</param>
+        public static bool IsProjectileEvadableAttacker(UnitType type)
+            => ServerProjectileDeliveryPolicy.IsProjectileUnit(type) && type != UnitType.MushroomBomber;
+
+        /// <summary>
+        /// [연막탄 S-3] 이 건물(종류 + 종족)의 포탄이 「발사 순간 회피 판정」 대상인가 = 서버 권위 투사체 탑(지금은 인간 CannonTower만).
+        /// 탑은 유닛만 쏘므로(방어 타워 규칙 1) 대상은 항상 유닛이다. 즉발 탑(RuneSpire · VineTower)은 단계 S-4에서 따로 다룬다.
+        /// </summary>
+        /// <param name="type">쏘는 건물 종류.</param>
+        /// <param name="race">그 건물 소유 팀의 종족.</param>
+        public static bool IsTowerShellEvadableAttacker(BuildingType type, RaceId race)
+            => ServerProjectileDeliveryPolicy.IsProjectileTower(type, race);
+
+        /// <summary>
+        /// [2026-11-23 연막탄 단계 S-4 — 사용자 결정 U-1 「모든 방어탑 포함」] 이 탑의 「즉발 공격」(맞는 순간 바로 피해가 들어가는 공격)이
+        /// 회피 판정 대상인가 = 방어탑(AutoTower) 중 서버 권위 투사체 탑이 아닌 것 — 지금은 정령 RuneSpire(번개) · 초월 VineTower.
+        /// 인간 CannonTower는 여기가 아니라 포탄 발사 순간 판정(IsTowerShellEvadableAttacker — 단계 S-3)이다.
+        /// 투사체 탑 분류를 다시 적지 않고 그 질문의 "반대"로 계산한다 — 분류가 바뀌면(예: 어떤 탑이 투사체로 바뀌면) 같이 바뀐다.
+        /// </summary>
+        /// <param name="type">쏘는 건물 종류(AutoTower가 아니면 false).</param>
+        /// <param name="race">그 건물 소유 팀의 종족.</param>
+        public static bool IsTowerInstantEvadableAttacker(BuildingType type, RaceId race)
+            => type == BuildingType.AutoTower && !ServerProjectileDeliveryPolicy.IsProjectileTower(type, race);
+
+        /// <summary>
+        /// [연막탄 S-3 — 메인 기본안 M-11] 경기 시작 handshake 해시에 넣는 「회피 대상 분류」 요약 문자열.
+        /// 형식: "hitscan:0,1,2;projectile:6,7,12,17,21,24;tower-shell:human" (유닛 번호 오름차순, 탑은 종족 소문자).
+        /// [2026-11-23 S-4] 지금 형식: "hitscan:0,1,2;projectile:6,7,12,17,21,24;tower-shell:human;tower-instant:spirit,transcendence"
+        ///   (위 줄은 S-3 때 형식 — 끝에 즉발 탑 칸이 붙었다).
+        ///
+        /// [왜 해시에 넣나 — 유니티 초급자용]
+        ///   회피 판정은 서버(Host)만 한다. 그런데 Host와 Client가 "어떤 공격이 회피 대상인가"를 다르게 아는 두 빌드라면,
+        ///   Host는 빗나감을 보냈는데 Client 화면은 다른 규칙을 기대하는 엇갈림이 생긴다. 투사체 분류 토큰(ManifestToken)처럼
+        ///   이 문자열을 handshake 해시에 넣어 두면 분류가 다른 빌드끼리는 경기가 아예 시작되지 않는다(의도된 안전장치).
+        ///   단계 S-4(즉발 탑 회피)가 분류를 넓히면 이 문자열도 바뀐다 — 그것도 의도다(같은 스키마 12 묶음).
+        /// 목록을 손으로 적지 않고 위 분류 질문으로 계산한다(분류와 토큰이 어긋날 수 없게). 공백이 없어야 한다 — handshake 원문은 "|" · "=" 로 칸을 나눈다.
+        /// </summary>
+        public static string ManifestToken
+        {
+            get
+            {
+                var hitscan = new System.Collections.Generic.List<int>(4);
+                var projectile = new System.Collections.Generic.List<int>(8);
+                foreach (UnitType type in System.Enum.GetValues(typeof(UnitType)))
+                {
+                    if (IsHitscanEvadableAttacker(type)) hitscan.Add((int)type);
+                    if (IsProjectileEvadableAttacker(type)) projectile.Add((int)type);
+                }
+                hitscan.Sort();
+                projectile.Sort();
+                var towers = new System.Collections.Generic.List<string>(3);
+                // [2026-11-23 S-4] 즉발 탑(번개 · 덩굴) 종족 목록도 같은 방식(종족 소문자, 이름순)으로 만든다.
+                var instantTowers = new System.Collections.Generic.List<string>(3);
+                foreach (RaceId race in System.Enum.GetValues(typeof(RaceId)))
+                {
+                    if (IsTowerShellEvadableAttacker(BuildingType.AutoTower, race)) towers.Add(race.ToString().ToLowerInvariant());
+                    if (IsTowerInstantEvadableAttacker(BuildingType.AutoTower, race)) instantTowers.Add(race.ToString().ToLowerInvariant());
+                }
+                towers.Sort(System.StringComparer.Ordinal);
+                instantTowers.Sort(System.StringComparer.Ordinal);
+                // [2026-11-23 연막탄 S-4] 옛 반환(아래 주석, S-3)은 즉발 탑 칸이 없었다. S-4가 즉발 탑(RuneSpire · VineTower)을
+                //   회피 대상에 넣었으므로 끝에 ";tower-instant:spirit,transcendence" 한 칸을 붙였다 → handshake 해시가 바뀐다
+                //   (S-3만 들어간 빌드와는 경기를 시작하지 않는다 — 의도된 안전장치, 스키마는 같은 12 묶음).
+                // return "hitscan:" + string.Join(",", hitscan) + ";projectile:" + string.Join(",", projectile)
+                //     + ";tower-shell:" + string.Join(",", towers);
+                return "hitscan:" + string.Join(",", hitscan) + ";projectile:" + string.Join(",", projectile)
+                    + ";tower-shell:" + string.Join(",", towers)
+                    + ";tower-instant:" + string.Join(",", instantTowers);
+            }
+        }
+
+        /// <summary>
+        /// [연막탄 S-3 — Plan P-5] 회피한 투사체의 비행 거리 = 발사 위치 → 빗나간 지점의 XZ 평면 거리(높이 차는 보지 않는다).
+        /// 명중 투사체는 「중심 거리 − 대상 반경」(표면까지)이지만, 빗나간 투사체는 대상 표면이 아니라 빗나간 지점(땅)까지 날아가므로
+        /// 반경을 빼지 않는다. 서버가 이 거리 ÷ 속도로 착탄 시각을 한 번 고정한다(유닛 투사체 · 대포탑 공통).
+        /// </summary>
+        /// <param name="source">발사 위치(도메인 월드).</param>
+        /// <param name="missPoint">빗나간 지점(도메인 월드).</param>
+        public static float MissTravelDistance(Vector3 source, Vector3 missPoint)
+        {
+            float dx = missPoint.x - source.x, dz = missPoint.z - source.z;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
 
         /// <summary>
         /// 확률(0~1 실수)을 만분율 정수로 바꾼다. 0 이하 · NaN → 0(판정 안 함), 1 이상 → 10000(항상 회피).
@@ -179,6 +287,19 @@ namespace Hexiege.Application
         {
             ulong h = MapRandom.Combine(KeyTagProjectile, epoch);
             return MapRandom.Combine(h, id);
+        }
+
+        /// <summary>
+        /// [2026-11-23 단계 S-4 — 열린 항목 O-10 탑 몫] 즉발 탑 열쇠 — 탑 Id와 "그 탑의 회피 판정 순번"(1부터)을 섞는다.
+        /// 싱글 · 멀티(Host) 공통 규칙이고 결정적이다(같은 seed · 같은 탑 · 같은 순번 → 같은 roll).
+        /// 순번은 연막 안 대상에게 쏜 그 탑의 판정에서만 늘어나므로, 다른 탑 · 다른 시스템 · 연막 밖 공격과 무관하다.
+        /// </summary>
+        /// <param name="towerId">쏜 탑(건물) Id.</param>
+        /// <param name="ordinal">그 탑의 회피 판정 순번(1, 2, 3 …).</param>
+        public static ulong KeyFromTowerOrdinal(int towerId, ulong ordinal)
+        {
+            ulong h = MapRandom.Combine(KeyTagTowerInstant, (ulong)(uint)towerId);
+            return MapRandom.Combine(h, ordinal);
         }
 
         // ── 빗나간 지점 ───────────────────────────────────────────────────────

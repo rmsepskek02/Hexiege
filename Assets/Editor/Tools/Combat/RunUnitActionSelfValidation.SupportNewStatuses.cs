@@ -599,8 +599,11 @@ namespace Hexiege.Editor.Combat
             Require(expected != null && (int)expected.GetRawConstantValue() == 14,
                 "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+            // "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "S-T9 stage A added no RPC (schema stayed 9); stage C's shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11; the smoke-bomb projectile launch RPC arguments raised it to 12.");
         }
 
         // 주석(//로 시작하는 줄)을 빼고 그 문자열이 들어 있는 줄 수.

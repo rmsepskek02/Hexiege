@@ -41,6 +41,9 @@ namespace Hexiege.Application
         private readonly ulong _matchSeed;
         // 싱글 대체 열쇠용 — 공격자 Id → 지금까지의 회피 판정 순번(마지막으로 쓴 값).
         private readonly Dictionary<int, ulong> _attackerOrdinals = new Dictionary<int, ulong>();
+        // [2026-11-23 단계 S-4] 즉발 탑 열쇠용 — 탑(건물) Id → 지금까지의 회피 판정 순번.
+        //   유닛 순번 표와 따로 둔다: 건물 Id와 유닛 Id는 서로 다른 번호 세기라 같은 숫자일 수 있다(같은 표면 순번이 섞인다).
+        private readonly Dictionary<int, ulong> _towerOrdinals = new Dictionary<int, ulong>();
         // 경기 끝 요약을 이미 남겼는가(Close 멱등).
         private bool _closed;
 
@@ -79,6 +82,21 @@ namespace Hexiege.Application
             ordinal = last + 1UL;
             _attackerOrdinals[attackerId] = ordinal;
             return SkillEvasionRoll.KeyFromAttackerOrdinal(attackerId, ordinal);
+        }
+
+        /// <summary>
+        /// [2026-11-23 단계 S-4 — O-10 탑 몫] 즉발 탑(RuneSpire · VineTower) 열쇠를 하나 만든다 — 이 탑의 회피 판정 순번을 1 늘리고
+        /// (탑 Id, 순번)을 섞는다. 연막 안 대상에게 쏜 판정에서만 부르므로 다른 탑 · 다른 시스템이 무엇을 하든 이 탑의 열쇠 순서는 바뀌지 않는다.
+        /// 싱글 · 멀티(Host) 모두 같은 규칙이다(서버 권위 — 순수 Client는 부르지 않는다).
+        /// </summary>
+        /// <param name="towerId">쏜 탑(건물) Id.</param>
+        /// <param name="ordinal">이번 판정의 순번(1부터 — 로그에 남긴다).</param>
+        public ulong NextTowerOrdinalKey(int towerId, out ulong ordinal)
+        {
+            _towerOrdinals.TryGetValue(towerId, out ulong last);
+            ordinal = last + 1UL;
+            _towerOrdinals[towerId] = ordinal;
+            return SkillEvasionRoll.KeyFromTowerOrdinal(towerId, ordinal);
         }
 
         /// <summary>

@@ -524,8 +524,11 @@ namespace Hexiege.Editor.Combat
             Require(expected != null && (int)expected.GetRawConstantValue() == 14,
                 "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(재생의 뿌리와 무관한 변경).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 11 only because of the air-strike direction arguments.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+            // "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 11 only because of the air-strike direction arguments.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 12 only because of the air-strike direction arguments (11) and the smoke-bomb projectile launch RPC arguments (12).");
         }
     }
 }

@@ -351,8 +351,11 @@ namespace Hexiege.Editor.Combat
         private static void ValidateShieldSourceGates()
         {
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11).");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+            // "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11).");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11, the smoke-bomb projectile launch RPC arguments to 12).");
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(신목의 각성과 무관한 변경).

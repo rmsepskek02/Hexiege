@@ -575,8 +575,11 @@ namespace Hexiege.Editor.Combat
         /// <summary> LS-T8 — 스키마 11 · RPC 방향 인자 · 서버 재검증 · 배선 소스 게이트 · 메커니즘 5 · 자산 칸 초기값. </summary>
         private static void ValidateLineStrikeSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "LS-T8 the air-strike direction arguments must raise the presentation schema to 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
+            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
+            // "LS-T8 the air-strike direction arguments must raise the presentation schema to 11.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "LS-T8 the air-strike direction arguments raised the presentation schema to 11 (the smoke-bomb projectile launch RPC arguments then raised it to 12).");
             Require((int)SkillMechanicType.LineStrike == 5 && new SkillExecutorRegistry().TryGet(SkillMechanicType.LineStrike) is LineStrikeExecutor,
                 "LS-T8 SkillMechanicType.LineStrike must be 5 (appended last) and registered to LineStrikeExecutor.");
 
