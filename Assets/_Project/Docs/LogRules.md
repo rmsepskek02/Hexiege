@@ -443,6 +443,8 @@ LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 �
 
 ### 정확두진단 Warning의 native 중복생략 (2026-10-30 승인·구현/정적검증완료)
 
+진단 적용 범위: writer가 명시한 IsTimedDamage이며 unit/ImmediatePresentation·결과/파도/투사체 키 모두 default·유한 비음수 관측 시각인 독립 지속 피해만 일반 Legacy 공격 감사에서 분리한다(교정 구현·검증 진행). 피해/Emit·기록 보관 정책은 유지하고 일반 공격·nondefault/손상 key·NaN과 실제 구조 오류 검출을 완화하지 않는다. 이는 모든 FAIL 숨김이나 DoT 피해 생략 정책이 아니다.
+
 archive성공후에만 다음두경로를선택한다. (1) Warn/Network/UnitAttackShadowObserver의 message 정확히 `[UAS-ATTACK-SHADOW] presentation-shadow-failure`. (2) Warn/Network/TimedDamageEffectChannel의 sourceRecord 전체고정필드 grammar·순서·경계를검증하고 Stage=Drop,Visual=Poison,Reason=StaleStopOrClosed,Writer=Damage인경우다. 부분문자열포함이나유사메시지로확대하지않는다. Ops `Event=`/Exception객체·writerfault/reentry/unavailable는선택하지않으며nativefallback을유지한다.
 
 레벨·본문·횟수·순서·callerstack·archive전체보존은유지한다. sourceowner의실패/Stopguard·UAScap/drop판정은바꾸지않는 **출력운송교정**이며게임오류원인을해결한것이아니다. 실제코드/QA·CLR/정적검증은Task에기록하고native공유핵심·Android실기효과는별도검증으로구분한다. 종전모든Warning native보존문구는 [LogHistory H16](LogHistory.md#h16)에보존했다.

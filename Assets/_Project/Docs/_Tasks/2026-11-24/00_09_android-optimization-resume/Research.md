@@ -16,7 +16,7 @@
 
 ## 2. 완료·추가 후보·조사 분야의 구분
 
-기존 Research (`Assets/_Project/Docs/_Tasks/2026-10-28/14_10_android-performance-correction/Research.md`, opt 근거)와 기존 Plan (`Assets/_Project/Docs/_Tasks/2026-10-28/14_10_android-performance-correction/Plan.md`, opt 근거)은10/28부터의 누적 최적화·측정·이동 교정 이력이다. 이번 새 Task가 그 원문을 덮어쓰거나 대량 복제하지 않는다.
+[기존 Research](../../2026-10-28/14_10_android-performance-correction/Research.md)와 [기존 Plan](../../2026-10-28/14_10_android-performance-correction/Plan.md)은10/28부터의 누적 최적화·측정·이동 교정 이력이다. 이번 새 Task가 그 원문을 덮어쓰거나 대량 복제하지 않는다.
 
 2026-11-24 1차 요약의 혼동을 정정하고 작업별 메서드·현재 행·기존 Task 절·구현 증거·성능 한계를 아래4절에 연결했다. 넓은 분야 이름을 미완 작업으로 나열했던 설명을 아래처럼 정정한다. Android FPS 등 실기 효과가 미측정이라는 이유로 구현 완료 항목을 미구현으로 되돌리지 않는다.
 
@@ -53,7 +53,7 @@ VFX는 기존 pool·cache·증분 fixed-step이 이미 있고 이번 제한 조�
 
 검수 기준은 D 작업 트리의 `codex/android-performance-optimization`, HEAD `a64b31d16b788ad413739f0b31be809453384f82`와 현재 dirty 소스다. 원격 main 반영 여부를 검증한 표가 아니다. 전문 담당·메인의 작업별 소스 대조를 정리했으며 아래 과거 fixture/native 수치는 오늘 재실행한 결과가 아니다. 동일 항목을 다른 분야에서 다시 합산하지 않는다. 아래 각 행은 현재 구현 근거가 확인됐지만 검증 종류·효과 한계는 서로 다르다.
 
-기존 절 번호는 10/28 Research (`Assets/_Project/Docs/_Tasks/2026-10-28/14_10_android-performance-correction/Research.md`, opt 근거) 기준이며 Plan 표기는 기존 Plan (`Assets/_Project/Docs/_Tasks/2026-10-28/14_10_android-performance-correction/Plan.md`, opt 근거)이다.
+기존 절 번호는 [10/28 Research](../../2026-10-28/14_10_android-performance-correction/Research.md) 기준이며 Plan 표기는 [기존 Plan](../../2026-10-28/14_10_android-performance-correction/Plan.md)이다.
 
 | 작업 단위 | 현재 소스·메서드/행 | 기존 절 | 구현 상태·과거 근거·효과 한계 |
 |---|---|---|---|
@@ -70,7 +70,7 @@ VFX는 기존 pool·cache·증분 fixed-step이 이미 있고 이번 제한 조�
 | NCC 빈 검색 결과 재사용 | [NetworkCombatController:910](../../../../Scripts/Infrastructure/Network/NetworkCombatController.cs) — 910~914 + UnitCombatUseCase1000~1018 | §39/Plan36 | 구현 근거 확인. 과거36case232assert; 완료 empty 조회만2→1, 실제 발생 수/K 미측정 |
 | 복귀 후보6이웃 | [UnitMovementUseCase:711](../../../../Scripts/Application/UseCases/UnitMovementUseCase.cs) — 711~731 Neighbor/GetTile | §36 | 구현 근거 확인. 과거21case79assert 중 이동9case; 전체 grid 대신6조회·A* 전체 비용 제거 아님 |
 | retire 제거 버퍼·retained 집합 | [UnitAttackResultPresentationShadow:285](../../../../Scripts/Application/Combat/Sequencing/UnitAttackResultPresentationShadow.cs) — 285~287/427~446/715~722 | §3 | 구현 근거 확인. 임시 제거 목록 재사용 구조; 실기 절감량 미측정 |
-| 타일 mesh bake | BakeHexTileRuntimeMesh:25 (`Assets/Editor/Tools/Combat/BakeHexTileRuntimeMesh.cs`, opt 근거) — Run25/93~112; HexTile.prefab95/117 baked mesh2개 참조 | §18/18.1, Plan14 | 구현 근거 확인. runtime ProBuilder2개 제거. 과거187tile246ms→211tile6.879ms는 다른 조건이므로 개선율 아님 |
+| 타일 mesh bake | [BakeHexTileRuntimeMesh:25](../../../../../Editor/Tools/Combat/BakeHexTileRuntimeMesh.cs) — Run25/93~112; HexTile.prefab95/117 baked mesh2개 참조 | §18/18.1, Plan14 | 구현 근거 확인. runtime ProBuilder2개 제거. 과거187tile246ms→211tile6.879ms는 다른 조건이므로 개선율 아님 |
 | top material만 복제 | [HexTileView:98](../../../../Scripts/Presentation/Grid/HexTileView.cs) — InitializeColorMaterial98/ReleaseColorMaterial137 | §37~37.3 | 구현 근거 확인. 동일 Editor231tile 8배치:462→231개,1326864→723492B/net603372B. Android 전체 RAM/FPS 아님 |
 | 빗금 combined mesh | [HexGridRenderer:318](../../../../Scripts/Presentation/Grid/HexGridRenderer.cs) — BatchNoBuildHatches318/CombineMeshes349/Release394 | §38.1 | 구현 근거 확인. 동일 Editor53draw→1/pixelDiff0; 정점636→828(+30.19%), 추가42.76KiB. GPU instancing 아님/Android ms 미측정 |
 | private Visual 반환 재사용 | [ProjectilePresentationPresenter:106](../../../../Scripts/Presentation/Effects/ProjectilePresentationPresenter.cs) — 106/BeginVisual275/RecycleVisual477~492 cap512 | §3/35.1 | 구현 근거 확인. 최대512 private Visual pool; 모든 Unit GameObject pool 완료라는 뜻 아님 |
@@ -114,5 +114,3 @@ VFX는 기존 pool·cache·증분 fixed-step이 이미 있고 이번 제한 조�
 발열/전력: 프로젝트 소스의 frame-rate writer는 확인되지 않았고 Quality vSync0/runInBackground0/URP Adaptive1은 실제 기기 열 대응 보장이 아니다. 과거32.2→33.5°C는 배터리 snapshot이며 post 지연·연속 열/전력 trace 부재 때문에 SoC throttling이나 몇%/몇°C 절감 가능량을 산정할 수 없다.
 
 판단: 숨겨진 로비 preview는 필요 없는 추가 GPU 반복과 작은 범위가 확인되는 후보지만 전투 성능에는 효과가 없다. 전투 공간 후보 제한은 잠재 규모가 큰 대신 포함·순서·수명 안전 설계 위험이 높다. 둘을 절대 ms1위로 비교할 근거는 아직 없다. 나머지도 발생 빈도와 기존 동작 보존 조건을 확인한 구체안을 공유한 뒤 구현 여부를 정한다.
-
-제품판 구분: 이 문서의 측정·진단 근거는 opt 측정판에서 확보했다. main 선별 제품판에는 해당 Dev 진단·실험 코드/도구를 포함하지 않으며, opt 전용 원문·private 증거는 제품 산출물이 아니다.

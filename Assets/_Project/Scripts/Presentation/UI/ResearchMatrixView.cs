@@ -7,7 +7,7 @@
 // 하는 일:
 //   1) 패널이 열리면 소유 팀 종족에 맞는 격자를 구성한다.
 //        · 인간/정령: 3그룹 × (공/방/속) = 3행 × 3열.
-//        · 초월: 2그룹 × (공/방/속) = 2행 × 3열 + 자연회복 전체폭 셀 1개(격자 아래, 그룹 무관).
+//        · 초월: 2그룹 × (공/방/속) = 2행 × 3열 + 자연회복 첫 열 셀 1개 + 빈 열 2칸(격자 아래, 그룹 무관).
 //   2) RefreshRequested(팀 상태·골드·연구 착수 변화)가 올 때, 패널이 열려 있으면
 //      모든 셀의 Refresh()를 호출한다. 닫혀 있으면 아무것도 하지 않는다.
 //   3) 트랙 식별은 이름 매칭이 아니라 (group, stat) 데이터로 한다(.claude 교훈: 이름 기반 오연결 위험).
@@ -64,7 +64,7 @@ namespace Hexiege.Presentation
         [Tooltip("행 내부 요소 간격(px).")]
         [SerializeField] private float _rowSpacing = 6f;
 
-        // 열 순서(공/방/속). 자연회복은 초월 전용 별도 전체폭 셀로 추가한다.
+        // 열 순서(공/방/속). 자연회복은 초월 전용 별도 행의 첫 열 한 칸 셀로 추가한다.
         private static readonly UnitUpgradeStat[] Columns =
         {
             UnitUpgradeStat.Attack,
@@ -140,7 +140,7 @@ namespace Hexiege.Presentation
         // 격자 생성
         // ====================================================================
 
-        // 현재 팀 종족에 맞는 그룹 행(공/방/속) + 초월이면 자연회복 전체폭 셀을 만든다.
+        // 현재 팀 종족에 맞는 그룹 행(공/방/속) + 초월이면 자연회복 첫 열 셀과 빈 열 2칸을 만든다.
         private void BuildMatrix()
         {
             Clear();
@@ -167,14 +167,24 @@ namespace Hexiege.Presentation
                     CreateCell(row.transform, group, Columns[c], _cellWeight);
             }
 
-            // ── 초월 종족 전용 자연회복 전체폭 셀(그룹 무관 — 정규화 그룹 키) ──
+            // ── 초월 종족 전용 자연회복 첫 열 셀(그룹 무관 — 정규화 그룹 키) ──
             if (_panel.CurrentTeamIsTranscendence())
             {
                 GameObject row = CreateRow("Row_Regen");
                 CreateRowLabel(row.transform, ResearchPanelUI.StatDisplayName(UnitUpgradeStat.Regen));
-                // 전체폭: 3열 자리를 한 셀이 차지하도록 비중을 열 3칸 합으로 준다.
+                // 기존 전체폭 생성 줄은 검증 전 원문으로 보존한다.
+                // CreateCell(row.transform, UpgradeGroupHelper.RegenCanonicalGroup, UnitUpgradeStat.Regen,
+                //     _cellWeight * Columns.Length);
+                // 일반 행과 같은 세 열을 유지한다. 실제 연구 셀은 첫 열 하나뿐이며,
+                // 나머지 두 열은 입력/표시 컴포넌트가 없는 빈 자리라 버튼 폭과 열 간격만 맞춘다.
                 CreateCell(row.transform, UpgradeGroupHelper.RegenCanonicalGroup, UnitUpgradeStat.Regen,
-                    _cellWeight * Columns.Length);
+                    _cellWeight);
+                for (int c = 1; c < Columns.Length; c++)
+                {
+                    var emptySlot = new GameObject($"EmptyColumn_{c}", typeof(RectTransform), typeof(LayoutElement));
+                    emptySlot.transform.SetParent(row.transform, false);
+                    SetColumnWidth(emptySlot.GetComponent<LayoutElement>(), _cellWeight);
+                }
             }
 
             _built = true;

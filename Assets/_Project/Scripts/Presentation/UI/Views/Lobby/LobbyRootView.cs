@@ -86,10 +86,17 @@ namespace Hexiege.Presentation
         private CanvasGroup _profilePanelGroup;
         private CanvasGroup _settingPanelGroup;
         private CanvasGroup _rankingPanelGroup;
+
         private bool _previewGateReady;
         private bool _previewOriginallyEnabled;
         private bool _previewBoundToTabs;
         private bool _previewBattleSelected = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private const int PreviewTraceLimit = 64;
+        private bool _previewTraceSubscribed, _previewTraceReported, _previewVisibleForTrace;
+        private bool _previewAwaitingRender;
+        private int _previewEnableFrame, _previewTraceLines, _previewRendered, _previewHiddenRendered;
+#endif
 
         // ====================================================================
         // Unity 생명주기
@@ -106,14 +113,27 @@ namespace Hexiege.Presentation
             _profilePanelGroup = _profilePanel?.GetComponent<CanvasGroup>();
             _settingPanelGroup = _settingPanel?.GetComponent<CanvasGroup>();
             _rankingPanelGroup = _rankingPanel?.GetComponent<CanvasGroup>();
+
+            // 카메라는 UI와 별도의 씬 루트다. 잘못 연결된 카메라를 숨기지 않도록
+            // 전용 RT와 같은 씬의 소유권, 기존 패널 표시 제어가 모두 있을 때만 관리한다.
             _previewGateReady = _characterPreviewCamera != null && _battlePanelGroup != null
                 && _characterPreviewCamera.gameObject.scene == gameObject.scene
                 && _characterPreviewCamera.targetTexture != null;
             if (_previewGateReady) _previewOriginallyEnabled = _characterPreviewCamera.enabled;
+            else ObservePreviewWiringFailure();
         }
 
-        private void OnEnable() => ApplyPreviewCameraVisibility(isActiveAndEnabled);
-        private void OnDisable() => ApplyPreviewCameraVisibility(false);
+        private void OnEnable()
+        {
+            SubscribePreviewRenderTrace();
+            ApplyPreviewCameraVisibility("enable", true);
+        }
+
+        private void OnDisable()
+        {
+            ApplyPreviewCameraVisibility("disable", false);
+            UnsubscribePreviewRenderTrace();
+        }
 
         private void Start()
         {
@@ -132,7 +152,8 @@ namespace Hexiege.Presentation
                 //   같은 사건에는 같은 축 값을 준다 — 계층마다 판정이 흔들리면 지표가 갈라진다.
                 GameLog.Dev.Warn("Network", nameof(LobbyRootView),
                                  "NetworkGameManager 를 찾을 수 없다 — 로비 기능을 초기화하지 못한다");
-                ApplyPreviewCameraVisibility(isActiveAndEnabled);
+                // 초기 탭 바인딩이 없어도 현재 표시 중인 Battle 패널의 미리보기는 보존한다.
+                ApplyPreviewCameraVisibility("manager-missing", isActiveAndEnabled);
                 return;
             }
 
@@ -161,7 +182,9 @@ namespace Hexiege.Presentation
                 {
                     _previewBoundToTabs = true;
                     _previewBattleSelected = tab == LobbyViewModel.LobbyTab.Battle;
-                    ApplyPreviewCameraVisibility(isActiveAndEnabled);
+                    // 패널을 보여주기 전에 켠다. 다음 정상 SRP 렌더가 RT를 갱신하며,
+                    // 수동 Render/추가 렌더나 캐러셀 재시작은 하지 않는다.
+                    ApplyPreviewCameraVisibility("tab", isActiveAndEnabled);
                     SetPanelVisible(_battlePanelGroup, tab == LobbyViewModel.LobbyTab.Battle);
                     SetPanelVisible(_shopPanelGroup, tab == LobbyViewModel.LobbyTab.Shop);
                     SetPanelVisible(_profilePanelGroup, tab == LobbyViewModel.LobbyTab.Profile);
@@ -189,18 +212,10 @@ namespace Hexiege.Presentation
                 Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.LobbyStartCompleted, measurementTicket);
         }
 
-        // 원래 disabled인 카메라는 켜지 않는다. 패널 표시와 일치할 때만 기존 enabled를 복원한다.
-        private void ApplyPreviewCameraVisibility(bool ownerActive)
-        {
-            if (!_previewGateReady || _characterPreviewCamera == null) return;
-            bool visible = _previewBoundToTabs ? _previewBattleSelected : _battlePanelGroup.alpha > 0f;
-            bool enabled = _previewOriginallyEnabled && ownerActive && visible;
-            if (_characterPreviewCamera.enabled != enabled) _characterPreviewCamera.enabled = enabled;
-        }
-
         private void OnDestroy()
         {
-            ApplyPreviewCameraVisibility(false);
+            ApplyPreviewCameraVisibility("destroy", false);
+            UnsubscribePreviewRenderTrace();
             // 하위 View 구독 해제
             if (_tabBarView != null)
                 _tabBarView.Unbind();
@@ -216,6 +231,80 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 헬퍼
         // ====================================================================
+
+        private void ApplyPreviewCameraVisibility(string reason, bool ownerActive)
+        {
+            if (!_previewGateReady || _characterPreviewCamera == null) return;
+            // Start가 초기화에 실패하면 ViewModel의 기본값을 추측하지 않고 실제 패널을 따른다.
+            // 원래 Inspector에서 꺼 둔 카메라는 이 최적화가 강제로 켜지 않는다.
+            bool visible = _previewBoundToTabs ? _previewBattleSelected : _battlePanelGroup.alpha > 0f;
+            bool enabled = _previewOriginallyEnabled && ownerActive && visible;
+            bool before = _characterPreviewCamera.enabled;
+            if (before != enabled) _characterPreviewCamera.enabled = enabled;
+            ObservePreviewGate(reason, before, enabled);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ObservePreviewWiringFailure()
+        {
+            GameLog.Dev.Warn("UI", nameof(LobbyRootView), "[LOBBY-PREVIEW] gate unavailable; existing camera state preserved",
+                "schema=lobby-preview-v1, stage=wiring-invalid, action=fail-open");
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void SubscribePreviewRenderTrace()
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!_previewGateReady || _previewTraceSubscribed) return;
+            UnityEngine.Rendering.RenderPipelineManager.endCameraRendering += OnPreviewCameraRendered;
+            _previewTraceSubscribed = true;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void UnsubscribePreviewRenderTrace()
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!_previewTraceSubscribed) return;
+            UnityEngine.Rendering.RenderPipelineManager.endCameraRendering -= OnPreviewCameraRendered;
+            _previewTraceSubscribed = false;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ObservePreviewGate(string reason, bool before, bool enabled)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            bool first = !_previewTraceReported;
+            _previewVisibleForTrace = enabled;
+            if (enabled && (!before || first))
+            {
+                _previewEnableFrame = Time.frameCount;
+                _previewAwaitingRender = true;
+            }
+            else if (!enabled) _previewAwaitingRender = false;
+            if (!first && before == enabled) return;
+            _previewTraceReported = true;
+            if (_previewTraceLines++ < PreviewTraceLimit)
+                GameLog.Dev.Info("UI", nameof(LobbyRootView), "[LOBBY-PREVIEW] gate",
+                    $"schema=lobby-preview-v1, stage=gate, reason={reason}, owner={GetInstanceID()}, camera={_characterPreviewCamera.GetInstanceID()}, battle={_previewBattleSelected}, enabledBefore={before}, enabled={enabled}, rendered={_previewRendered}, hiddenRendered={_previewHiddenRendered}, frame={Time.frameCount}");
+            _previewRendered = _previewHiddenRendered = 0;
+#endif
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void OnPreviewCameraRendered(UnityEngine.Rendering.ScriptableRenderContext context, Camera camera)
+        {
+            if (camera != _characterPreviewCamera) return;
+            if (_previewRendered < int.MaxValue) _previewRendered++;
+            if (!_previewVisibleForTrace && _previewHiddenRendered < int.MaxValue) _previewHiddenRendered++;
+            if (!_previewAwaitingRender) return;
+            _previewAwaitingRender = false;
+            if (_previewTraceLines++ < PreviewTraceLimit)
+                GameLog.Dev.Info("UI", nameof(LobbyRootView), "[LOBBY-PREVIEW] resumed render",
+                    $"schema=lobby-preview-v1, stage=resume-rendered, owner={GetInstanceID()}, camera={camera.GetInstanceID()}, frameDelta={Time.frameCount - _previewEnableFrame}, frame={Time.frameCount}");
+        }
+#endif
 
         /// <summary>
         /// 패널 표시/숨김 처리 (CanvasGroup 기반).

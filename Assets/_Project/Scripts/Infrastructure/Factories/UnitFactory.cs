@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitFactory.cs
 // UnitData(Domain 데이터)를 받아 Unity 프리팹 인스턴스(GameObject)를 생성하는 팩토리.
 //
@@ -51,6 +51,7 @@ namespace Hexiege.Infrastructure
         private IEntityPositionProvider _depPositionProvider;
         private bool _hasDependencies;
 
+        // 슬롯 하나만 교체하므로 같은 Factory에서 이전 경기 provider 구독이 남지 않는다.
         private ICombatUnitCandidateSource _combatCandidateSource;
         public void BindCombatCandidateSource(ICombatUnitCandidateSource source)
         {
@@ -214,6 +215,13 @@ namespace Hexiege.Infrastructure
             // 뷰 좌표에 유닛 높이 오프셋 적용 — ViewConverter는 XZ만 반전하고 Y 높이는 유지함
             viewPos.y += HexMetrics.UnitYOffset;
 
+            // UnitView.Initialize의 기존 {60,120,180,240,300,0} 매핑과 동일하다.
+            // NetworkObject.Spawn 전에 첫 pose를 확정해 Client가 기본 identity 방향을 먼저 받지 않게 한다.
+            int facingIndex = (int)unitData.Facing;
+            Quaternion initialRotation = facingIndex >= 0 && facingIndex < HexDirectionExtensions.Count
+                ? Quaternion.Euler(0f, ((facingIndex + 1) % HexDirectionExtensions.Count) * 60f, 0f)
+                : Quaternion.identity;
+
             // 프리팹 인스턴스 생성.
             // 멀티플레이 서버: 부모 없이 월드 루트에 생성 (NGO Spawn 후 SetParent 필요)
             // 싱글플레이: 직접 _unitParent 아래에 생성
@@ -221,12 +229,12 @@ namespace Hexiege.Infrastructure
             if (NetworkContext.IsNetworkActive)
             {
                 // 서버: 월드 루트에 Instantiate (NGO는 루트 오브젝트만 Spawn 가능)
-                unitObj = Instantiate(prefab, viewPos, Quaternion.identity);
+                unitObj = Instantiate(prefab, viewPos, initialRotation);
             }
             else
             {
                 // 싱글플레이: 기존 방식 — 부모 아래에 직접 생성
-                unitObj = Instantiate(prefab, viewPos, Quaternion.identity, _unitParent);
+                unitObj = Instantiate(prefab, viewPos, initialRotation, _unitParent);
             }
 
             // 오브젝트 이름을 실제 프리팹 이름 + Id로 설정 (에디터 디버깅용)

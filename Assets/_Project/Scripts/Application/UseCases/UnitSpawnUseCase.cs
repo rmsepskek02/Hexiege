@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitSpawnUseCase.cs
 // 유닛 생성 요청을 처리하는 UseCase.
 //
@@ -29,6 +29,9 @@ namespace Hexiege.Application
     {
         // 타일 존재 여부 확인용 그리드 참조
         private readonly HexGrid _grid;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private int _spawnPreparationFaultLogs;
+#endif
 
         // 생성된 모든 유닛을 Id로 인덱싱하여 관리.
         // UnitView 생성, 유닛 조회, 삭제 등에 사용.
@@ -52,6 +55,7 @@ namespace Hexiege.Application
 
         /// <summary> 현재 존재하는 모든 유닛 목록 (읽기 전용). </summary>
         public IReadOnlyDictionary<int, UnitData> Units => _units;
+        // 등록/삭제/교체만 증가한다. tile 이동과 실제 Root 위치는 별도 수명이다.
         public ulong CombatRosterRevision { get; private set; }
 
         public UnitSpawnUseCase(HexGrid grid)
@@ -75,6 +79,14 @@ namespace Hexiege.Application
         /// <param name="position">생성 위치 (헥스 좌표)</param>
         /// <returns>생성된 UnitData. 실패 시 null.</returns>
         public UnitData SpawnUnit(UnitType type, TeamId team, HexCoord position)
+            => SpawnUnit(type, team, position, null);
+
+        /// <summary>
+        /// 생산 경로가 정해진 경우에만 생성 방향을 publication 전에 준비한다.
+        /// 새 준비 작업의 예외는 기존 스폰을 막지 않으며, 실제 spawn 이벤트의 예외는 삼키지 않는다.
+        /// </summary>
+        public UnitData SpawnUnit(UnitType type, TeamId team, HexCoord position,
+            System.Action<UnitData> beforePublish)
         {
             // 타일 존재 여부 확인
             HexTile tile = _grid.GetTile(position);
@@ -103,6 +115,21 @@ namespace Hexiege.Application
             // 타일을 유닛의 팀으로 점령
             _grid.SetOwner(position, team);
 
+            if (beforePublish != null)
+            {
+                HexDirection originalFacing = unit.Facing;
+                try { beforePublish(unit); }
+                catch (System.Exception)
+                {
+                    unit.Facing = originalFacing;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (_spawnPreparationFaultLogs++ < 4)
+                        GameLog.Dev.Warn("Unit", nameof(UnitSpawnUseCase),
+                            "[SPAWN-PREP] 초기 경로 준비 실패: 기존 스폰/정렬 경로를 유지한다",
+                            $"UnitId={unit.Id}, Type={unit.Type}, Stage=before-publish, SpawnCancelled=false");
+#endif
+                }
+            }
             // 이벤트 발행 → UnitFactory가 프리팹 생성, HexTileView가 색상 변경
             GameEvents.OnUnitSpawned.OnNext(new UnitSpawnedEvent(unit));
             GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));

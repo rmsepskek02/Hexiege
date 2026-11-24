@@ -47,6 +47,13 @@ namespace Hexiege.Presentation
     // [2026-10-26 수정안 (a)] partial로 바꿨다 — 투사체 사망타 사망 표현 보류(사망 대역) 코드를 UnitView.DeathDeferral.cs에 따로 둔다.
     public partial class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
+        // 이 View가 옛 ID를 가진 채 늦게 파괴돼도 새 binding의 index를 변경하지 않는다.
+        private int _combatSpatialBindingId;
+        private void OnDestroy()
+        {
+            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
+        }
+
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private static readonly Unity.Profiling.ProfilerMarker _disableSpawnFacingMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.SpawnFacing");
@@ -59,11 +66,6 @@ namespace Hexiege.Presentation
         private static readonly Unity.Profiling.ProfilerMarker _disablePostCombatMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.PostCombat");
         private static readonly Unity.Profiling.ProfilerMarker _disableInfernoRetireMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.InfernoRetire");
 #endif
-        private int _combatSpatialBindingId;
-        private void OnDestroy()
-        {
-            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
-        }
 
         private static ulong _nextHealLifetime;
         private ulong _healLifetime, _healSequence;
@@ -1821,6 +1823,7 @@ _slot = _nextEviction;
             _healGameEndSubscription = GameEvents.OnGameEnd.Subscribe(e =>
             {
                 EndHealPresentation("game-end", terminal: true);
+                _combatUseCase?.ObserveCombatSpatialEnd();
             }).AddTo(this);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             PostCombatTraceEvent("view-reinitialize", retire: true);
@@ -1883,6 +1886,7 @@ _slot = _nextEviction;
             _movementPendingCommand = false;
             _movementPendingSegment = false;
             _movementAuthorityReducer = new UnitMovementReducer();
+            ResetCenterCurveRuntime();
             ClearCombatTargetTracking();
             _attackPresentationImpactLease.Close();
             _attackPresentationSourceMarkerLease.Close();

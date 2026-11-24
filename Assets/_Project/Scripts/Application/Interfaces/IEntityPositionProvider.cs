@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // IEntityPositionProvider.cs
 // 유닛/건물의 실제 월드 좌표를 반환하는 인터페이스.
 //
@@ -43,6 +43,9 @@ namespace Hexiege.Application
         void UnitPoseChanged(UnitData unit, int rootInstanceId, Vector3 worldPosition);
         void UnitBindingChanged(int unitId);
         void ClearUnitBindings();
+        void ObserveCombatIndexEnd();
+        void RecordQueryComparison(bool matched, int indexedInspections, int baselineInspections,
+            bool faulted, int indexedId, int baselineId, int category);
     }
 
 }

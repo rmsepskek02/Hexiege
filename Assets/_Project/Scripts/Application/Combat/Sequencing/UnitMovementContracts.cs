@@ -729,7 +729,9 @@ namespace Hexiege.Application.Combat.Sequencing
             double consumedDistanceWorld,
             bool requiresStationaryAlignment,
             bool reachedCurrentWaypoint,
-            bool isValid)
+            bool isValid,
+            bool cornerTravelLimited = false,
+            double curveParameter = double.NaN)
         {
             CandidatePosition = candidatePosition;
             TrajectoryDirection = trajectoryDirection;
@@ -737,10 +739,508 @@ namespace Hexiege.Application.Combat.Sequencing
             RequiresStationaryAlignment = requiresStationaryAlignment;
             ReachedCurrentWaypoint = reachedCurrentWaypoint;
             IsValid = isValid;
+            CornerTravelLimited = cornerTravelLimited;
+            CurveParameter = curveParameter;
         }
+
+        internal bool CornerTravelLimited { get; }
+        public double CurveParameter { get; }
 
         internal static UnitTrajectoryStep Invalid()
             => new UnitTrajectoryStep(default, default, 0d, false, false, false);
+    }
+
+    /// <summary>
+    /// 두 타일 중심을 실제로 통과하는 개발 중인 권위 곡선 계획이다.
+    /// 공유 edge의 실제 교차점에서 원래 cubic을 둘로 나눈다. 각 half의 control hull이 해당
+    /// convex hex 안에 있으면 곡선 전체가 안전하다. 실제 frame chord의 공간 검사는
+    /// 호출자가 별도로 수행한다. 이 객체는 기하/길이 cache만 보존하며 진행 u를 쓰지 않는다.
+    /// </summary>
+    public sealed class UnitCenterCurvePlan
+    {
+        public const string Version = "center-curve-v1";
+        private const int ArcBins = 32;
+        private const int ArcSearchIterations = 20;
+        private const int TrialReductions = 12;
+        private readonly double[] _upperPrefix = new double[ArcBins * 2 + 1];
+        private Cubic _first, _second;
+        private double _splitU;
+        public double MaximumCurvature { get; private set; }
+        private bool _linear;
+        private double _turnAngleDegrees;
+        public bool IsValid { get; private set; }
+        public double UpperLength => _upperPrefix[ArcBins];
+        public WorldPointXZ Start { get; private set; }
+        public WorldPointXZ End { get; private set; }
+
+        private readonly struct Cubic
+        {
+            internal readonly WorldPointXZ A, B, C, D;
+            internal Cubic(WorldPointXZ a, WorldPointXZ b, WorldPointXZ c, WorldPointXZ d)
+            { A = a; B = b; C = c; D = d; }
+        }
+
+        public bool TryBuild(WorldPointXZ actualStart, WorldPointXZ fromCenter,
+            WorldPointXZ targetCenter, bool hasPrevious, WorldPointXZ previousCenter,
+            bool hasNext, WorldPointXZ nextCenter)
+        {
+            IsValid = false;
+            if (!actualStart.IsValid || !fromCenter.IsValid || !targetCenter.IsValid
+                || (hasPrevious && !previousCenter.IsValid) || (hasNext && !nextCenter.IsValid))
+                return false;
+            double length = Distance(fromCenter, targetCenter);
+            if (length <= UnitMovementEvaluationAdapter.PositionTolerance) return false;
+            if (!Direction(fromCenter, targetCenter, out ActionDirectionXZ edge)) return false;
+            ActionDirectionXZ startDirection = edge, endDirection = edge;
+            double startLength = length, endLength = length;
+            if (hasPrevious)
+            {
+                if (!Direction(previousCenter, fromCenter, out ActionDirectionXZ incoming)
+                    || !SharedTangent(incoming, edge, out startDirection)) return false;
+                startLength = Math.Min(length, Distance(previousCenter, fromCenter));
+            }
+            if (hasNext)
+            {
+                if (!Direction(targetCenter, nextCenter, out ActionDirectionXZ outgoing)
+                    || !SharedTangent(edge, outgoing, out endDirection)) return false;
+                endLength = Math.Min(length, Distance(targetCenter, nextCenter));
+            }
+            // 먼저 원래 중심 통과 cubic을 만든다. 임의 edge 중점/중간 접선을 강제하지 않는다.
+            // 같은 중심의 양쪽 Bezier handle 길이는 min(인접 길이)/3로 공유한다.
+            Cubic whole = new Cubic(actualStart, Offset(actualStart, startDirection, startLength/3d),
+                Offset(targetCenter, endDirection, -endLength/3d), targetCenter);
+            WorldPointXZ edgeMidpoint = Lerp(fromCenter, targetCenter, 0.5d);
+            double f0 = Projection(whole.A, edgeMidpoint, edge);
+            double f1 = Projection(whole.B, edgeMidpoint, edge);
+            double f2 = Projection(whole.C, edgeMidpoint, edge);
+            double f3 = Projection(whole.D, edgeMidpoint, edge);
+            // control projection이 단조이면 공유 edge 교차는 한 번이다. 그 외 입력은 fallback한다.
+            double tolerance = UnitMovementEvaluationAdapter.PositionTolerance;
+            if (f0 > tolerance || f3 <= 0d || f1 < f0-tolerance
+                || f2 < f1-tolerance || f3 < f2-tolerance) return false;
+            double lowCross = 0d, highCross = 1d;
+            for (int search = 0; search < 40; search++)
+            {
+                double middle = (lowCross+highCross)*0.5d;
+                Split(whole,middle,out Cubic left,out _);
+                if (Projection(left.D,edgeMidpoint,edge) <= 0d) lowCross=middle;
+                else highCross=middle;
+            }
+            _splitU = (lowCross+highCross)*0.5d;
+            Split(whole,_splitU,out _first,out _second);
+            Start = actualStart;
+            End = targetCenter;
+            _turnAngleDegrees = UnitActionPoseSample.GetYawDegrees(startDirection,edge)
+                + UnitActionPoseSample.GetYawDegrees(edge,endDirection);
+            _upperPrefix[0] = 0d;
+            MaximumCurvature = 0d;
+            for (int index = 0; index < ArcBins; index++)
+            {
+                double from = (double)index/ArcBins, to = (double)(index+1)/ArcBins;
+                _upperPrefix[index+1] = _upperPrefix[index] + IntervalUpper(from,to);
+                double curvature = CurvatureUpper(from,to);
+                _upperPrefix[ArcBins+1+index] = curvature;
+                MaximumCurvature = Math.Max(MaximumCurvature, curvature);
+            }
+            _linear = Math.Abs(Cross(whole.B.X-whole.A.X,whole.B.Z-whole.A.Z,edge.X,edge.Z)) <= 1e-12d
+                && Math.Abs(Cross(whole.D.X-whole.C.X,whole.D.Z-whole.C.Z,edge.X,edge.Z)) <= 1e-12d
+                && Distance(actualStart,fromCenter) <= UnitMovementEvaluationAdapter.PositionTolerance;
+            IsValid = Finite(UpperLength) && UpperLength > 0d;
+            return IsValid;
+        }
+
+        public WorldPointXZ ControlPoint(int half, int index)
+        {
+            Cubic c = half == 0 ? _first : _second;
+            switch (index) { case 0: return c.A; case 1: return c.B; case 2: return c.C; default: return c.D; }
+        }
+
+        public WorldPointXZ Evaluate(double u)
+        {
+            if (u <= 0d) return Start;
+            if (u >= 1d) return End;
+            Cubic c = u <= _splitU ? _first : _second;
+            double t = u <= _splitU ? u/_splitU : (u-_splitU)/(1d-_splitU);
+            Split(c, t, out Cubic left, out _);
+            return left.D;
+        }
+
+        public double ArcUpperBetween(double from, double to)
+        {
+            if (to <= from) return 0d;
+            from = Math.Max(0d, from); to = Math.Min(1d, to);
+            int first = Math.Min(ArcBins-1, (int)(from*ArcBins));
+            int last = Math.Min(ArcBins-1, (int)(to*ArcBins));
+            if (first == last) return IntervalUpper(from, to);
+            return IntervalUpper(from, (double)(first+1)/ArcBins)
+                + _upperPrefix[last]-_upperPrefix[first+1]
+                + IntervalUpper((double)last/ArcBins, to);
+        }
+
+        /// <summary>
+        /// u 등속이 아니라 실제 subcurve control polygon 길이 상한으로 budget을 역산한다.
+        /// 모든 trial은 읽기 전용이다. 호출자는 최종 공간/권위 commit 성공 후에만
+        /// 반환된 CurveParameter를 저장한다. 끝점도 남은 arc budget 안일 때만 도달한다.
+        /// </summary>
+        public bool TryStep(double fromU, WorldPointXZ actualPosition, ActionDirectionXZ facing,
+            double distanceBudget, double maximumTurnDegrees, out UnitTrajectoryStep step)
+        {
+            step = UnitTrajectoryStep.Invalid();
+            if (!IsValid || !actualPosition.IsValid || !facing.IsValid || !Finite(fromU)
+                || fromU < 0d || fromU > 1d || !Finite(distanceBudget) || distanceBudget < 0d
+                || !Finite(maximumTurnDegrees) || maximumTurnDegrees < 0d) return false;
+            if (Distance(Evaluate(fromU), actualPosition) > UnitMovementEvaluationAdapter.PositionTolerance)
+                return false;
+            // float commit은 이미 중심에 도달했는데 수치 u만 1 미만일 수 있다.
+            // 위치를 바꾸거나 남은 거리를 스냅하지 않고, 실제 도달한 checkpoint만 완료한다.
+            if (actualPosition.Equals(End))
+            {
+                step = new UnitTrajectoryStep(actualPosition,facing,0d,false,true,true,false,1d);
+                return true;
+            }
+            if (distanceBudget == 0d || fromU == 1d)
+            {
+                step = new UnitTrajectoryStep(actualPosition, facing, 0d, false, fromU == 1d,
+                    true, false, fromU);
+                return true;
+            }
+            // 곡률 k에서 한 틱의 접선 변화는 이동거리*k 이하다. 미리 회전 예산 안으로
+            // 진입해 중심 후에야 급격히 trial을 줄이는 현상을 피한다. 새 회전속도는 만들지 않는다.
+            // [초기 안전안] MaximumCurvature로 전 구간을 같은 속도로 제한했다.
+            // 현재는 현재 bin과 회전 준비 거리(v * turnTime) 안의 보수적 상한만 사용한다.
+            double localCurvature = LookAheadCurvature(fromU,distanceBudget,maximumTurnDegrees);
+            if (localCurvature > 0d && Finite(localCurvature))
+                distanceBudget = Math.Min(distanceBudget, maximumTurnDegrees*Math.PI/180d/localCurvature);
+            double endU = 1d;
+            if (_linear)
+                endU = Math.Min(1d,fromU+distanceBudget/UpperLength);
+            else if (ArcUpperBetween(fromU, 1d) > distanceBudget)
+            {
+                double low = fromU, high = 1d;
+                for (int index = 0; index < ArcSearchIterations; index++)
+                {
+                    double mid = (low+high)*0.5d;
+                    if (ArcUpperBetween(fromU, mid) <= distanceBudget) low = mid;
+                    else high = mid;
+                }
+                endU = low;
+            }
+            double rejectedU = endU;
+            for (int trial = 0; trial < TrialReductions; trial++)
+            {
+                if (TryCandidate(fromU, endU, actualPosition, facing, distanceBudget, maximumTurnDegrees, out step))
+                {
+                    // 절반 축소의 첫 성공을 그대로 채택하면 속도가 불필요하게 양자화된다.
+                    // 실제 float chord가 허용되는 인접 구간의 최대 진행량을 유한 횟수로 찾는다.
+                    double low = endU, high = rejectedU;
+                    for (int search = 0; search < ArcSearchIterations && high > low; search++)
+                    {
+                        double mid = (low+high)*0.5d;
+                        if (TryCandidate(fromU, mid, actualPosition, facing, distanceBudget, maximumTurnDegrees,
+                                out UnitTrajectoryStep candidate))
+                        { low = mid; step = candidate; }
+                        else high = mid;
+                    }
+                    return true;
+                }
+                rejectedU = endU;
+                endU = (fromU+endU)*0.5d;
+            }
+            // 시작 120도/반전/큰 dt 등은 무리한 전진 대신 현재 곡선의 첫 접선으로 안전 정렬한다.
+            ActionDirectionXZ tangent = Tangent(fromU);
+            ActionDirectionXZ rotated = RotateTowards(facing, tangent, maximumTurnDegrees);
+            step = new UnitTrajectoryStep(actualPosition, rotated, 0d, true, false, true, false, fromU);
+            return true;
+        }
+
+        public ActionDirectionXZ AlignmentDirection(double u) => Tangent(u);
+
+        public UnitTrajectoryCorridorResolution Resolve(double u, WorldPointXZ position,
+            ActionDirectionXZ facing, double budget, double turnBudget,
+            Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict> validate,
+            out UnitTrajectoryStep step, out UnitSpatialCandidateVerdict verdict)
+        {
+            step = UnitTrajectoryStep.Invalid();
+            verdict = UnitSpatialCandidateVerdict.Fatal;
+            if (validate == null) return UnitTrajectoryCorridorResolution.Invalid;
+            double trialBudget = budget;
+            for (int trial = 0; trial < TrialReductions; trial++)
+            {
+                if (!TryStep(u,position,facing,trialBudget,turnBudget,out step))
+                    return UnitTrajectoryCorridorResolution.Invalid;
+                verdict = validate(step);
+                if (verdict == UnitSpatialCandidateVerdict.Accepted)
+                    return step.RequiresStationaryAlignment ? UnitTrajectoryCorridorResolution.StationaryAlignment
+                        : trial == 0 ? UnitTrajectoryCorridorResolution.FullSmooth : UnitTrajectoryCorridorResolution.ReducedSmooth;
+                if (verdict == UnitSpatialCandidateVerdict.Fatal) return UnitTrajectoryCorridorResolution.Invalid;
+                if (verdict == UnitSpatialCandidateVerdict.RouteInvalidated) return UnitTrajectoryCorridorResolution.RepathRequired;
+                trialBudget *= 0.5d;
+            }
+            step = new UnitTrajectoryStep(position,RotateTowards(facing,Tangent(u),turnBudget),
+                0d,true,false,true,false,u);
+            verdict = validate(step);
+            return verdict == UnitSpatialCandidateVerdict.Accepted
+                ? UnitTrajectoryCorridorResolution.StationaryAlignment : UnitTrajectoryCorridorResolution.RepathRequired;
+        }
+
+        private double LookAheadCurvature(double u,double distanceBudget,double turnBudgetDegrees)
+        {
+            if (_linear) return 0d;
+            int first = Math.Min(ArcBins-1,(int)(u*ArcBins));
+            double lookAhead = turnBudgetDegrees > 0d
+                ? Math.Max(distanceBudget,distanceBudget*_turnAngleDegrees/turnBudgetDegrees)
+                : distanceBudget;
+            double until = _upperPrefix[first]+lookAhead;
+            double result = 0d;
+            // 준비 거리는 품질 계획용이다. 실제 이동은 뒤의 subcurve arc/chord 검사를 다시 통과한다.
+            for (int index = first; index < ArcBins; index++)
+            {
+                result = Math.Max(result,_upperPrefix[ArcBins+1+index]);
+                if (_upperPrefix[index+1] >= until) break;
+            }
+            return result;
+        }
+
+        private bool TryCandidate(double fromU, double u, WorldPointXZ actualPosition, ActionDirectionXZ facing,
+            double budget, double turnLimit, out UnitTrajectoryStep step)
+        {
+            step = UnitTrajectoryStep.Invalid();
+            WorldPointXZ precise = Evaluate(u);
+            // 실제 Unity commit 경계와 같은 float 좌표에서 chord를 만든다.
+            WorldPointXZ.TryCreate((float)precise.X, (float)precise.Z, out WorldPointXZ position);
+            // endpoint로 조기 양자화되는 후보를 그대로 commit하면 다음 frame의 chord가 0이 된다.
+            // 남은 전체 arc도 budget 안인 경우에만 u=1로 완료하고, 아니면 더 작은 후보를 찾는다.
+            if (position.Equals(End) && u < 1d)
+            {
+                if (ArcUpperBetween(fromU,1d) > budget) return false;
+                u = 1d;
+            }
+            double distance = Distance(actualPosition, position);
+            if (distance <= 0d || distance > budget
+                || !Direction(actualPosition, position, out ActionDirectionXZ chord)
+                || UnitActionPoseSample.GetYawDegrees(facing, chord) > turnLimit) return false;
+            step = new UnitTrajectoryStep(position, chord, distance, false,
+                u == 1d, true, false, u);
+            return true;
+        }
+
+        private ActionDirectionXZ Tangent(double u)
+        {
+            Cubic c = u <= _splitU ? _first : _second;
+            double t = u <= _splitU ? u/_splitU : (u-_splitU)/(1d-_splitU);
+            double a = (1d-t)*(1d-t), b = 2d*(1d-t)*t, d = t*t;
+            ActionDirectionXZ.TryCreate(a*(c.B.X-c.A.X)+b*(c.C.X-c.B.X)+d*(c.D.X-c.C.X),
+                a*(c.B.Z-c.A.Z)+b*(c.C.Z-c.B.Z)+d*(c.D.Z-c.C.Z), out ActionDirectionXZ result);
+            return result;
+        }
+        private static double Projection(WorldPointXZ p, WorldPointXZ origin, ActionDirectionXZ direction)
+            => (p.X-origin.X)*direction.X+(p.Z-origin.Z)*direction.Z;
+
+        private static bool SharedTangent(ActionDirectionXZ a, ActionDirectionXZ b,
+            out ActionDirectionXZ tangent)
+        {
+            tangent = default;
+            return UnitActionPoseSample.GetYawDegrees(a,b) < UnitServerTrajectoryPlanner.ReverseAlignmentDegrees
+                && ActionDirectionXZ.TryCreate(a.X+b.X, a.Z+b.Z, out tangent);
+        }
+        private static ActionDirectionXZ RotateTowards(ActionDirectionXZ from, ActionDirectionXZ to, double cap)
+        {
+            if (!to.IsValid) return from;
+            double a = Math.Atan2(from.X, from.Z), b = Math.Atan2(to.X,to.Z);
+            double delta = Math.Atan2(Math.Sin(b-a),Math.Cos(b-a));
+            double limit = cap*Math.PI/180d;
+            double yaw = a+Math.Max(-limit,Math.Min(limit,delta));
+            ActionDirectionXZ.TryCreate(Math.Sin(yaw),Math.Cos(yaw),out ActionDirectionXZ result);
+            return result;
+        }
+        private double IntervalUpper(double from, double to)
+        {
+            if (to <= from) return 0d;
+            if (from < _splitU && to > _splitU)
+                return IntervalUpper(from,_splitU)+IntervalUpper(_splitU,to);
+            Cubic c = to <= _splitU ? _first : _second;
+            double a = to <= _splitU ? from/_splitU : (from-_splitU)/(1d-_splitU);
+            double b = to <= _splitU ? to/_splitU : (to-_splitU)/(1d-_splitU);
+            Split(c,b,out Cubic left,out _);
+            if (a > 0d) Split(left,a/b,out _,out left);
+            return Distance(left.A,left.B)+Distance(left.B,left.C)+Distance(left.C,left.D);
+        }
+        private double CurvatureUpper(double from,double to)
+        {
+            if (from < _splitU && to > _splitU)
+                return Math.Max(CurvatureUpper(from,_splitU),CurvatureUpper(_splitU,to));
+            Cubic c = to <= _splitU ? _first : _second;
+            double a = to <= _splitU ? from/_splitU : (from-_splitU)/(1d-_splitU);
+            double b = to <= _splitU ? to/_splitU : (to-_splitU)/(1d-_splitU);
+            Split(c,b,out Cubic part,out _);
+            if (a > 0d) Split(part,a/b,out _,out part);
+            if (!Direction(part.A,part.D,out ActionDirectionXZ axis)) return double.PositiveInfinity;
+            double x0=3d*(part.B.X-part.A.X),z0=3d*(part.B.Z-part.A.Z);
+            double x1=3d*(part.C.X-part.B.X),z1=3d*(part.C.Z-part.B.Z);
+            double x2=3d*(part.D.X-part.C.X),z2=3d*(part.D.Z-part.C.Z);
+            double minimum = Math.Min(x0*axis.X+z0*axis.Z,
+                Math.Min(x1*axis.X+z1*axis.Z,x2*axis.X+z2*axis.Z));
+            if (minimum <= 0d) return double.PositiveInfinity;
+            double ax0=2d*(x1-x0),az0=2d*(z1-z0),ax1=2d*(x2-x1),az1=2d*(z2-z1);
+            double cross = Math.Max(Math.Abs(Cross(x0,z0,ax0,az0)),Math.Abs(Cross(x0,z0,ax1,az1)));
+            cross = Math.Max(cross,Math.Max(Math.Abs(Cross(x1,z1,ax0,az0)),Math.Abs(Cross(x1,z1,ax1,az1))));
+            cross = Math.Max(cross,Math.Max(Math.Abs(Cross(x2,z2,ax0,az0)),Math.Abs(Cross(x2,z2,ax1,az1))));
+            return cross/(minimum*minimum*minimum);
+        }
+        private static double Cross(double ax,double az,double bx,double bz) => ax*bz-az*bx;
+
+        private static void Split(Cubic c,double t,out Cubic left,out Cubic right)
+        {
+            WorldPointXZ a=Lerp(c.A,c.B,t),b=Lerp(c.B,c.C,t),d=Lerp(c.C,c.D,t);
+            WorldPointXZ e=Lerp(a,b,t),f=Lerp(b,d,t),g=Lerp(e,f,t);
+            left=new Cubic(c.A,a,e,g);right=new Cubic(g,f,d,c.D);
+        }
+        private static WorldPointXZ Lerp(WorldPointXZ a,WorldPointXZ b,double t)
+        { WorldPointXZ.TryCreate(a.X+(b.X-a.X)*t,a.Z+(b.Z-a.Z)*t,out WorldPointXZ p);return p; }
+        private static WorldPointXZ Offset(WorldPointXZ a,ActionDirectionXZ d,double length)
+        { WorldPointXZ.TryCreate(a.X+d.X*length,a.Z+d.Z*length,out WorldPointXZ p);return p; }
+        private static bool Direction(WorldPointXZ a,WorldPointXZ b,out ActionDirectionXZ d)
+            => ActionDirectionXZ.TryCreate(b.X-a.X,b.Z-a.Z,out d);
+        private static double Distance(WorldPointXZ a,WorldPointXZ b)
+        { double x=b.X-a.X,z=b.Z-a.Z;return Math.Sqrt(x*x+z*z); }
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+    }
+
+    /// <summary>한 코너의 중심·다음 중심과 기하 정보만 보존한다.</summary>
+    public struct UnitCornerSpeedProfile
+    {
+        public bool Valid;
+        public bool HasGeometry;
+        public WorldPointXZ Corner, Next;
+        public double AngleDegrees, Length;
+    }
+
+    /// <summary>현재 접근과 직전 코너 회복을 분리해 중심 통과 때 감속이 끊기지 않게 한다.</summary>
+    public struct UnitCornerSpeedState
+    {
+        public UnitCornerSpeedProfile Approach, Outgoing;
+        public bool IsActive => Approach.Valid || Outgoing.Valid;
+        public UnitCornerSpeedProfile ObservedCorner => Outgoing.Valid ? Outgoing : Approach;
+    }
+
+    /// <summary>방향·회전·중심 판정은 바꾸지 않고 코너 전후 실제 이동량만 제한한다.</summary>
+    public static class UnitCornerSpeedPolicy
+    {
+        public const string Version = "corner-speed-v1";
+        // 정지/이동 임계가 아니라 정규화 방향의 영각 근처 수치 정밀도(도)다.
+        private const double AnglePrecisionDegrees = 0.00001d;
+
+        public static double Evaluate(ref UnitCornerSpeedState state,
+            WorldPointXZ current, ActionDirectionXZ facing, WorldPointXZ waypoint,
+            bool hasNext, WorldPointXZ next, double nominalTravel, double deltaTime,
+            double maximumTurnDegrees, double incomingSegmentLengthWorld = 0d)
+        {
+            if (!current.IsValid || !facing.IsValid || !waypoint.IsValid
+                || !FinitePositive(nominalTravel) || !FinitePositive(deltaTime)
+                || !FinitePositive(maximumTurnDegrees))
+            { state = default; return nominalTravel; }
+
+            double speed = nominalTravel / deltaTime;
+            double degreesPerSecond = maximumTurnDegrees / deltaTime;
+            if (state.Approach.HasGeometry && !Same(state.Approach.Corner, waypoint))
+            {
+                state.Outgoing = state.Approach.Valid && Same(state.Approach.Next, waypoint)
+                    ? state.Approach : default;
+                state.Approach = default;
+            }
+            if (state.Outgoing.Valid && !Same(state.Outgoing.Next, waypoint))
+                state.Outgoing = default;
+
+            double distance = Distance(current, waypoint);
+            if (hasNext && next.IsValid && !Same(waypoint, next)
+                && (!state.Approach.HasGeometry || !Same(state.Approach.Next, next)))
+            {
+                // 직선 판정도 같은 waypoint/next 수명 동안 보존해 반복 정규화·각도 계산을 피한다.
+                state.Approach = new UnitCornerSpeedProfile
+                    { HasGeometry = true, Corner = waypoint, Next = next };
+                if (ActionDirectionXZ.TryCreate(waypoint.X-current.X, waypoint.Z-current.Z, out var incoming)
+                    && ActionDirectionXZ.TryCreate(next.X-waypoint.X, next.Z-waypoint.Z, out var outgoing))
+                {
+                    double angle = UnitActionPoseSample.GetYawDegrees(incoming, outgoing);
+                    double incomingLength = incomingSegmentLengthWorld
+                        > UnitMovementEvaluationAdapter.PositionTolerance
+                        ? incomingSegmentLengthWorld : distance;
+                    double length = Math.Min(incomingLength, Distance(waypoint, next));
+                    if (angle > AnglePrecisionDegrees
+                        && angle < UnitServerTrajectoryPlanner.ReverseAlignmentDegrees
+                        && length > UnitMovementEvaluationAdapter.PositionTolerance)
+                        state.Approach = new UnitCornerSpeedProfile { Valid=true, HasGeometry=true,
+                            Corner=waypoint, Next=next, AngleDegrees=angle, Length=length };
+                }
+            }
+            if (!hasNext) state.Approach = default;
+
+            double factor = 1d;
+            if (state.Approach.Valid)
+            {
+                double turnTime = state.Approach.AngleDegrees / degreesPerSecond;
+                double segmentTime = state.Approach.Length / speed;
+                double cornerFactor = segmentTime / (segmentTime + turnTime);
+                double approach = Smooth(1d - distance / (speed * turnTime));
+                factor = 1d - (1d-cornerFactor) * approach;
+            }
+            if (state.Outgoing.Valid
+                && ActionDirectionXZ.TryCreate(waypoint.X-current.X, waypoint.Z-current.Z, out var desired))
+            {
+                double yaw = UnitActionPoseSample.GetYawDegrees(facing, desired);
+                double turnTime = state.Outgoing.AngleDegrees / degreesPerSecond;
+                double segmentTime = state.Outgoing.Length / speed;
+                double cornerFactor = segmentTime / (segmentTime+turnTime);
+                double recovery = Smooth(1d-yaw/state.Outgoing.AngleDegrees);
+                factor = Math.Min(factor, cornerFactor+(1d-cornerFactor)*recovery);
+                if (yaw <= AnglePrecisionDegrees)
+                    state.Outgoing = default;
+            }
+            return nominalTravel * Math.Max(0d, Math.Min(1d, factor));
+        }
+
+        // 절대 이동량 상한이므로 여러 probe와 최종 stage에 같은 값을 적용해도 중복 감속하지 않는다.
+        // 원 planner의 capture/회전 판단은 nominal budget을 그대로 사용한다.
+        public static UnitTrajectoryStep Limit(UnitTrajectoryStep step, WorldPointXZ current,
+            WorldPointXZ waypoint, double cap)
+        {
+            if (!step.IsValid || double.IsPositiveInfinity(cap)) return step;
+            if (double.IsNaN(cap) || cap < 0d || double.IsNegativeInfinity(cap))
+                return UnitTrajectoryStep.Invalid();
+            if (step.CornerTravelLimited && step.ConsumedDistanceWorld <= cap) return step;
+            double dx = step.CandidatePosition.X - current.X;
+            double dz = step.CandidatePosition.Z - current.Z;
+            double distance = Math.Sqrt(dx * dx + dz * dz);
+            if (distance <= cap || distance <= 0d) return step;
+            double travel = Math.Max(0d, cap);
+            if (!WorldPointXZ.TryCreate(current.X + dx * (travel / distance),
+                    current.Z + dz * (travel / distance), out var candidate))
+                return UnitTrajectoryStep.Invalid();
+            double ex = candidate.X - waypoint.X;
+            double ez = candidate.Z - waypoint.Z;
+            double tolerance = UnitMovementEvaluationAdapter.PositionTolerance;
+            return new UnitTrajectoryStep(candidate, step.TrajectoryDirection, travel,
+                step.RequiresStationaryAlignment, ex * ex + ez * ez <= tolerance * tolerance, true, true);
+        }
+
+        private static bool Same(WorldPointXZ a, WorldPointXZ b)
+            => Distance(a, b) <= UnitMovementEvaluationAdapter.PositionTolerance;
+
+        private static double Distance(WorldPointXZ a, WorldPointXZ b)
+        {
+            double x = a.X - b.X;
+            double z = a.Z - b.Z;
+            return Math.Sqrt(x * x + z * z);
+        }
+
+        private static bool FinitePositive(double x)
+            => !double.IsNaN(x) && !double.IsInfinity(x) && x > 0d;
+
+        private static double Smooth(double x)
+        {
+            x = Math.Max(0d, Math.Min(1d, x));
+            return x * x * (3d - 2d * x);
+        }
     }
 
     /// <summary>

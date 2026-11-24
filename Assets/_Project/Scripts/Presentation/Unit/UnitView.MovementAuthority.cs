@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,6 +13,26 @@ namespace Hexiege.Presentation
 {
     public partial class UnitView
     {
+        // 한 UnitView가 같은 geometry/길이 배열을 재사용한다. trial은 진행 u를 변경하지 않는다.
+        private UnitCenterCurvePlan _centerCurvePlan;
+        private UnitMovementReducer _centerCurveOwner;
+        private IReadOnlyList<HexCoord> _centerCurvePath;
+        private ulong _centerCurveCommand, _centerCurveSegment, _centerCurveRevision;
+        private int _centerCurveIndex = -1;
+        private HexCoord _centerCurveBefore, _centerCurveFrom, _centerCurveTarget, _centerCurveNext, _centerCurveGoal;
+        private bool _centerCurveSafe;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private string _centerCurveFallbackReason = "not-prepared";
+        private bool _centerCurveCellsWalkableForTrace;
+#endif
+        private ulong _centerCurveGeneration, _centerCurveCommittedGeneration;
+        private double _centerCurveU;
+
+        private UnitCornerSpeedState _cornerSpeedState;
+        private UnitMovementReducer _cornerSpeedOwner;
+        private ulong _cornerSpeedCommand, _cornerSpeedSegment;
+        private double _activeCornerTravelCap = double.PositiveInfinity;
+        private WorldPointXZ _activeCornerPosition, _activeCornerWaypoint;
         /// <summary>
         /// Legacy가 이미 계산한 실제 목표만 복사한다. A2를 위해 새 경로나 좌표 변환을 만들지 않는다.
         /// </summary>
@@ -33,6 +53,22 @@ namespace Hexiege.Presentation
             _unitActionShadowDesiredTarget = default;
             _hasUnitActionShadowDesiredTarget = false;
             _movementIntentReason = UnitMovementIntentReason.None;
+            ResetCenterCurveRuntime();
+        }
+
+        private void ResetCenterCurveRuntime()
+        {
+            _centerCurveOwner = null;
+            _centerCurvePath = null;
+            _centerCurveSafe = false;
+            _centerCurveIndex = -1;
+            _centerCurveU = 0d;
+            _centerCurveCommittedGeneration = 0UL;
+            _centerCurveGeneration++;
+            SetCenterCurveFallbackReason("lifecycle-reset");
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _centerCurveCellsWalkableForTrace = false;
+#endif
         }
 
         private static bool IsFiniteXZ(Vector3 value)
@@ -275,8 +311,56 @@ namespace Hexiege.Presentation
             Func<Vector3, bool> candidateAcquirePredicate = null,
             Func<bool> targetAcquirePresentationHandoff = null)
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // 관측 실패는 원래 이동 return/예외에 영향을 주지 않는다. Release에는 인자 계산도 없다.
+            UnitMovementAuthorityObserver.DirectionTraceToken directionTrace = default;
+            Vector3 directionBefore = default, directionCandidate = default;
+            float directionYawBefore = 0f;
+            bool directionCandidateKnown = false, directionStaged = false;
+            bool directionCommitted = false, directionFaulted = false;
+            string directionVerdict = "unknown";
+            string directionTrajectoryPolicy = "not-planned", directionCurveStatus = "not-evaluated";
+            int directionWalkable = -1, directionNextWalkable = -1;
+            try
+            {
+                directionTrace = UnitMovementAuthorityObserver.BeginDirectionTrace(
+                    _unitData, logicalCorridorPath, logicalCorridorWaypointIndex,
+                    _movementCommandRevision, _movementSegmentRevision, _navigationEnvironmentRevision,
+                    fallbackIntentReason, _pendingPath, _currentDestination, _activeRallyPoint,
+                    _movementAuthorityReducer != null ? (int)_movementAuthorityReducer.Snapshot.Phase : -1,
+                    transform.position, transform.forward, desiredTarget);
+                if (directionTrace.IsActive)
+                {
+                    directionBefore = transform.position;
+                    directionYawBefore = transform.eulerAngles.y;
+                    if (directionTrace.First && _movementUseCase != null)
+                    {
+                        directionWalkable = _movementUseCase.IsWalkable(logicalCorridorPath[logicalCorridorWaypointIndex]) ? 1 : 0;
+                        if (logicalCorridorWaypointIndex+1 < logicalCorridorPath.Count)
+                            directionNextWalkable = _movementUseCase.IsWalkable(logicalCorridorPath[logicalCorridorWaypointIndex+1]) ? 1 : 0;
+                    }
+                }
+            }
+            catch { directionTrace = default; }
+            try
+            {
+#endif
             _lastMovementTrajectoryReachedWaypoint = false;
             _lastMovementCandidateAcquiredTarget = false;
+            UnitCornerSpeedState proposedCornerSpeed = default;
+            UnitCornerSpeedState previousCornerSpeed = default;
+            double cornerTravelCap = double.PositiveInfinity;
+            bool cornerSpeedPrepared = false;
+            bool cornerSafetyAlignment = false;
+            bool centerCurveSelected = false;
+            double centerCurveFromU = 0d;
+            ulong centerCurveTrialGeneration = 0UL;
+            if (_unitData == null || !_unitData.IsAlive || targetAcquirePriority
+                || _rootRotationOwnership.ActionOwnsRoot)
+            {
+                _cornerSpeedState = default;
+                _centerCurveOwner = null;
+            }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             if (_postCombatTrace != null && _postCombatTrace.Active && !_postCombatTrace.Retired)
             {
@@ -485,6 +569,51 @@ namespace Hexiege.Presentation
 
                 if (logicalCorridorPath != null)
                 {
+                    centerCurveSelected = TryPrepareCenterCurve(logicalCorridorPath,
+                        logicalCorridorWaypointIndex,evaluatedCommandRevision,evaluatedSegmentRevision,
+                        currentPoint,out centerCurveFromU);
+                    centerCurveTrialGeneration = _centerCurveGeneration;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (directionTrace.IsActive)
+                    {
+                        directionTrajectoryPolicy = centerCurveSelected ? UnitCenterCurvePlan.Version : UnitCornerSpeedPolicy.Version;
+                        directionCurveStatus = centerCurveSelected ? "active" : _centerCurveFallbackReason;
+                    }
+#endif
+                    if (!centerCurveSelected)
+                    {
+                        // [보존] 곡선 전체 hull을 보증하지 못하는 특수/차단 경로는 기존 계획을 사용한다.
+                    // 1 frame당 한 번만 계산한다. 아래 resolver의 여러 probe는 이 절대 cap만 읽는다.
+                    previousCornerSpeed = ReferenceEquals(_cornerSpeedOwner, _movementAuthorityReducer)
+                        && _cornerSpeedCommand == evaluatedCommandRevision
+                        && _cornerSpeedSegment == evaluatedSegmentRevision
+                        ? _cornerSpeedState : default;
+                    proposedCornerSpeed = previousCornerSpeed;
+                    double incomingSegmentLength = 0d;
+                    if (hasNext && logicalCorridorWaypointIndex > 0
+                        && logicalCorridorWaypointIndex < logicalCorridorPath.Count
+                        && (!proposedCornerSpeed.Approach.HasGeometry
+                            || !proposedCornerSpeed.Approach.Corner.Equals(waypoint)
+                            || !proposedCornerSpeed.Approach.Next.Equals(nextWaypoint)))
+                    {
+                        Vector3 previousCenter = ViewConverter.ToView(HexMetrics.HexToWorld(
+                            logicalCorridorPath[logicalCorridorWaypointIndex - 1]));
+                        double px = previousCenter.x - waypoint.X;
+                        double pz = previousCenter.z - waypoint.Z;
+                        incomingSegmentLength = Math.Sqrt(px * px + pz * pz);
+                    }
+                    cornerTravelCap = UnitCornerSpeedPolicy.Evaluate(ref proposedCornerSpeed,
+                        currentPoint, currentFacing, waypoint, hasNext, nextWaypoint,
+                        planningDistance, Time.deltaTime, _rotationSpeed * Time.deltaTime,
+                        incomingSegmentLength);
+                    if (!proposedCornerSpeed.IsActive && !previousCornerSpeed.IsActive)
+                        cornerTravelCap = double.PositiveInfinity;
+                    cornerSpeedPrepared = true;
+                    }
+                    // center curve는 자체 arc/곡률 budget을 사용한다. 기존 corner-speed와 곱하지 않는다.
+                    _activeCornerTravelCap = cornerTravelCap;
+                    _activeCornerPosition = currentPoint;
+                    _activeCornerWaypoint = waypoint;
                     _lastCorridorRepathEvidence = default;
                     bool selectedStartTileEgress = false;
                     UnitTrajectoryCorridorResolution corridorResolution;
@@ -497,6 +626,11 @@ namespace Hexiege.Presentation
                     _activeCorridorHasEvaluation = false;
                     try
                     {
+                        if (centerCurveSelected)
+                            corridorResolution = _centerCurvePlan.Resolve(centerCurveFromU,
+                                currentPoint,currentFacing,planningDistance,_rotationSpeed*Time.deltaTime,
+                                _corridorStepValidator,out trajectoryStep,out corridorFinalVerdict);
+                        else
                         corridorResolution = UnitTrajectoryCorridorResolver.Resolve(
                             currentPoint,
                             currentFacing,
@@ -533,6 +667,7 @@ namespace Hexiege.Presentation
                     }
                     finally
                     {
+                        _activeCornerTravelCap = double.PositiveInfinity;
                         _activeCorridorPath = null;
                         _activeCorridorWaypointIndex = -1;
                         _activeCorridorSelectedStartTileEgress = false;
@@ -565,6 +700,8 @@ namespace Hexiege.Presentation
                     }
                     selectedProbeEvaluation = corridorFinalEvaluation;
                     hasSelectedProbeEvaluation = true;
+                    cornerSafetyAlignment = corridorResolution
+                        == UnitTrajectoryCorridorResolution.StationaryAlignment;
                 }
                 else if (!UnitServerTrajectoryPlanner.TryPlan(
                              currentPoint,
@@ -581,10 +718,24 @@ namespace Hexiege.Presentation
                     return MovementWriteOutcome.Rejected;
                 }
 
+                // callback에서 검사한 것과 같은 제한 후보를 최종 stage/commit에도 사용한다.
+                trajectoryStep = UnitCornerSpeedPolicy.Limit(
+                    trajectoryStep, currentPoint, waypoint, cornerTravelCap);
+                if (ActionDirectionXZ.TryCreate(waypoint.X-currentPoint.X,
+                        waypoint.Z-currentPoint.Z, out var cornerRawDirection))
+                    cornerSafetyAlignment |= UnitActionPoseSample.GetYawDegrees(
+                        currentFacing, cornerRawDirection) >= UnitServerTrajectoryPlanner.ReverseAlignmentDegrees;
                 Vector3 plannedCandidate = transform.position;
                 plannedCandidate.x = (float)trajectoryStep.CandidatePosition.X;
                 plannedCandidate.z = (float)trajectoryStep.CandidatePosition.Z;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (directionTrace.IsActive)
+                {
+                    directionCandidate = plannedCandidate;
+                    directionCandidateKnown = true;
+                }
+#endif
                 // planner가 실제 후보 pose를 확정한 직후, stateful reducer보다 먼저
                 // Root 경계 전이 전체를 검증한다. 실패하면 scope/reducer/pose/domain 모두 그대로다.
                 if (!TryStageSpatialCommit(
@@ -595,6 +746,13 @@ namespace Hexiege.Presentation
                         out spatialTransitionCount,
                         out SpatialCandidateEvaluation stagedSpatialEvaluation))
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (directionTrace.IsActive)
+                    {
+                        directionStaged = true;
+                        directionVerdict = stagedSpatialEvaluation.Verdict.ToString();
+                    }
+#endif
                     return stagedSpatialEvaluation.Verdict
                             == UnitSpatialCandidateVerdict.RouteInvalidated
                         || stagedSpatialEvaluation.Verdict
@@ -602,6 +760,13 @@ namespace Hexiege.Presentation
                         ? MovementWriteOutcome.RepathRequired
                         : MovementWriteOutcome.Rejected;
                 }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (directionTrace.IsActive)
+                {
+                    directionStaged = true;
+                    directionVerdict = stagedSpatialEvaluation.Verdict.ToString();
+                }
+#endif
                 if (hasSelectedProbeEvaluation
                     && (selectedProbeEvaluation.Verdict != stagedSpatialEvaluation.Verdict
                         || selectedProbeEvaluation.TransitionStatus
@@ -639,7 +804,11 @@ namespace Hexiege.Presentation
                     trajectoryStep.TrajectoryDirection;
                 // 150도 이상 반전은 planner가 위치 진행을 0으로 막는다. reducer에도
                 // raw 목표 방향을 전달해 AlignToMove 상태가 명시적으로 게시되게 한다.
-                if (trajectoryStep.RequiresStationaryAlignment
+                if (trajectoryStep.RequiresStationaryAlignment && centerCurveSelected)
+                {
+                    reducerDirection = _centerCurvePlan.AlignmentDirection(centerCurveFromU);
+                }
+                else if (trajectoryStep.RequiresStationaryAlignment
                     && !ActionDirectionXZ.TryCreate(
                         desiredTarget.x - transform.position.x,
                         desiredTarget.z - transform.position.z,
@@ -750,6 +919,13 @@ namespace Hexiege.Presentation
             CommitPreparedMovementScope(
                 evaluatedCommandRevision,
                 evaluatedSegmentRevision);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            directionCommitted = true;
+#endif
+            _cornerSpeedState = cornerSpeedPrepared ? proposedCornerSpeed : default;
+            _cornerSpeedOwner = _movementAuthorityReducer;
+            _cornerSpeedCommand = evaluatedCommandRevision;
+            _cornerSpeedSegment = evaluatedSegmentRevision;
 
             if (hasTrajectoryStep)
             {
@@ -804,6 +980,13 @@ namespace Hexiege.Presentation
                     _combatUseCase?.CombatPoseChanged(_unitData, _combatSpatialBindingId, transform.position);
                 }
                 outcome = MovementWriteOutcome.Advanced;
+                if (centerCurveSelected && hasTrajectoryStep
+                    && !double.IsNaN(trajectoryStep.CurveParameter))
+                {
+                    // 실제 Root 위치를 적용한 뒤에만 진행을 commit한다. 검사/축소 trial은 모두 rollback된다.
+                    _centerCurveU = trajectoryStep.CurveParameter;
+                    _centerCurveCommittedGeneration = centerCurveTrialGeneration;
+                }
             }
 
             if (outcome == MovementWriteOutcome.Advanced
@@ -894,11 +1077,80 @@ namespace Hexiege.Presentation
 #endif
             if (evaluation.Decision.Phase == UnitMovementPhase.NoIntent)
             {
+                _cornerSpeedState = default;
+                _centerCurveOwner = null;
                 _movementIntentReason = UnitMovementIntentReason.None;
                 _movementPendingCommand = false;
                 _movementPendingSegment = false;
             }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // 진단 예외는 원래 이동 결과/예외에 영향을 주지 않는다.
+            try
+            {
+                if (logicalCorridorPath != null && logicalCorridorWaypointIndex >= 1
+                    && logicalCorridorWaypointIndex < logicalCorridorPath.Count)
+                {
+                    WorldPointXZ peakFrom = CurveCenter(logicalCorridorPath[logicalCorridorWaypointIndex - 1]);
+                    UnitMovementAuthorityObserver.ObserveMotionPeak(_unitData, logicalCorridorPath,
+                        logicalCorridorWaypointIndex, fallbackIntentReason,
+                        _centerCurveCellsWalkableForTrace && ReferenceEquals(_centerCurvePath, logicalCorridorPath)
+                            && _centerCurveIndex == logicalCorridorWaypointIndex
+                            && _centerCurveCommand == evaluatedCommandRevision
+                            && _centerCurveSegment == evaluatedSegmentRevision
+                            && _centerCurveRevision == _navigationEnvironmentRevision,
+                        centerCurveSelected, _centerCurveFallbackReason, evaluatedCommandRevision,
+                        evaluatedSegmentRevision, _navigationEnvironmentRevision, positionBefore,
+                        transform.position, rotationBefore.eulerAngles.y, transform.eulerAngles.y,
+                        new Vector3((float)peakFrom.X, 0f, (float)peakFrom.Z), desiredTarget, ViewConverter.IsFlipped);
+                }
+            }
+            catch { }
+            UnitMovementAuthorityObserver.ObserveCenterCurveFrame(centerCurveSelected);
+            if (previousCornerSpeed.IsActive || proposedCornerSpeed.IsActive)
+            {
+                UnitCornerSpeedProfile profile = proposedCornerSpeed.IsActive
+                    ? proposedCornerSpeed.ObservedCorner : previousCornerSpeed.ObservedCorner;
+                UnitMovementAuthorityObserver.ObserveCornerSpeedFrame(
+                    _unitData.Id, _unitData.Type, previousCornerSpeed, proposedCornerSpeed,
+                    profile, positionBefore, transform.position, Time.deltaTime,
+                    planningDistance, cornerTravelCap, Quaternion.Angle(rotationBefore, transform.rotation),
+                    _rotationSpeed * Time.deltaTime, proposedCornerSpeed.Outgoing.Valid,
+                    cornerSafetyAlignment, targetAcquirePriority || evaluation.Decision.IsTargetAcquirePriority,
+                    _lastMovementTrajectoryReachedWaypoint);
+            }
+#endif
             return outcome;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            }
+            catch
+            {
+                directionFaulted = true;
+                throw;
+            }
+            finally
+            {
+                if (directionTrace.IsActive)
+                {
+                    try
+                    {
+                        Transform observedVisual = _visualRootProjector != null
+                            ? _visualRootProjector.ObservedVisualRoot : null;
+                        UnitMovementAuthorityObserver.EndDirectionTrace(directionTrace,
+                            directionBefore, directionYawBefore, desiredTarget, nextTrajectoryTarget, directionCandidate,
+                            directionCandidateKnown, transform.position, transform.eulerAngles.y,
+                            transform.forward, observedVisual != null ? observedVisual.position : default,
+                            observedVisual != null, directionStaged, directionVerdict,
+                            directionCommitted, directionFaulted,
+                            _movementAuthorityReducer != null ? (int)_movementAuthorityReducer.Snapshot.Phase : -1,
+                            directionWalkable, directionNextWalkable,
+                            _unitData != null ? _unitData.Position : default, _unitData != null,
+                            _movementCommandRevision, _movementSegmentRevision, Time.deltaTime,
+                            directionTrajectoryPolicy, directionCurveStatus);
+                    }
+                    catch { /* 진단 오류는 gameplay 예외/return을 덮어쓰지 않는다. */ }
+                }
+            }
+#endif
         }
 
         /// <summary>
@@ -1145,6 +1397,93 @@ namespace Hexiege.Presentation
             return Mathf.Sqrt(deltaX * deltaX + deltaZ * deltaZ);
         }
 
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void SetCenterCurveFallbackReason(string reason)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _centerCurveFallbackReason = reason;
+#endif
+        }
+
+        private bool TryPrepareCenterCurve(IReadOnlyList<HexCoord> path,int index,
+            ulong command,ulong segment,WorldPointXZ actualStart,out double fromU)
+        {
+            fromU = 0d;
+            if (path == null || index < 1 || index >= path.Count || _movementUseCase == null)
+                return false;
+            HexCoord before = index >= 2 ? path[index-2] : default;
+            HexCoord from = path[index-1], target = path[index];
+            HexCoord next = index+1 < path.Count ? path[index+1] : default;
+            HexCoord goal = path[path.Count-1];
+            bool same = ReferenceEquals(_centerCurveOwner,_movementAuthorityReducer)
+                && ReferenceEquals(_centerCurvePath,path) && _centerCurveIndex == index
+                && _centerCurveCommand == command && _centerCurveSegment == segment
+                && _centerCurveRevision == _navigationEnvironmentRevision
+                && _centerCurveBefore == before && _centerCurveFrom == from
+                && _centerCurveTarget == target && _centerCurveNext == next && _centerCurveGoal == goal;
+            if (!same)
+            {
+                _centerCurveOwner = _movementAuthorityReducer;
+                _centerCurvePath = path;
+                _centerCurveIndex = index;
+                _centerCurveCommand = command; _centerCurveSegment = segment;
+                _centerCurveRevision = _navigationEnvironmentRevision;
+                _centerCurveBefore = before; _centerCurveFrom = from;
+                _centerCurveTarget = target; _centerCurveNext = next; _centerCurveGoal = goal;
+                _centerCurveGeneration++;
+                _centerCurveSafe = false;
+                SetCenterCurveFallbackReason("blocked-or-terminal-cell");
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                _centerCurveCellsWalkableForTrace = false;
+#endif
+                _centerCurvePlan ??= new UnitCenterCurvePlan();
+                // 이동 불가 start egress와 castle 최종 접근은 기존 공간/정렬 fallback에 맡긴다.
+                if (_movementUseCase.IsWalkable(from) && _movementUseCase.IsWalkable(target))
+                {
+                    #if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    _centerCurveCellsWalkableForTrace = true;
+#endif
+                    WorldPointXZ fromCenter = CurveCenter(from), targetCenter = CurveCenter(target);
+                    SetCenterCurveFallbackReason("curve-build-or-crossing");
+                    _centerCurveSafe = _centerCurvePlan.TryBuild(actualStart,fromCenter,targetCenter,
+                        index >= 2,index >= 2 ? CurveCenter(before) : default,
+                        index+1 < path.Count,index+1 < path.Count ? CurveCenter(next) : default);
+                    for (int half = 0; half < 2 && _centerCurveSafe; half++)
+                    {
+                        WorldPointXZ center = half == 0 ? fromCenter : targetCenter;
+                        for (int point = 0; point < 4; point++)
+                            if (!CurvePointInsideHex(_centerCurvePlan.ControlPoint(half,point),center))
+                            { _centerCurveSafe = false; SetCenterCurveFallbackReason("control-hull-outside-cell"); break; }
+                    }
+                }
+            }
+            if (!_centerCurveSafe) return false;
+            SetCenterCurveFallbackReason("none");
+            fromU = _centerCurveCommittedGeneration == _centerCurveGeneration ? _centerCurveU : 0d;
+            return true;
+        }
+
+        private static WorldPointXZ CurveCenter(HexCoord coord)
+        {
+            Vector3 center = ViewConverter.ToView(HexMetrics.HexToWorld(coord));
+            WorldPointXZ.TryCreate(center.x,center.z,out WorldPointXZ result);
+            return result;
+        }
+
+        private static bool CurvePointInsideHex(WorldPointXZ point,WorldPointXZ center)
+        {
+            double x = Math.Abs(point.X-center.X), z = Math.Abs(point.Z-center.Z);
+            double width = HexMetrics.TileWidth, height = HexMetrics.TileHeight;
+            double tolerance = UnitMovementEvaluationAdapter.PositionTolerance;
+            if (width <= 0d || height <= 0d) return false;
+            if (HexMetrics.Orientation == HexOrientation.FlatTop)
+                return z <= height*0.5d+tolerance
+                    && x <= width*0.5d-z*width/(2d*height)+tolerance;
+            return x <= width*0.5d+tolerance
+                && z <= height*0.5d-x*height/(2d*width)+tolerance;
+        }
+
         private UnitSpatialCandidateVerdict ValidateActiveCorridorStep(
             UnitTrajectoryStep step)
         {
@@ -1154,6 +1493,8 @@ namespace Hexiege.Presentation
                 return UnitSpatialCandidateVerdict.Fatal;
             }
 
+            step = UnitCornerSpeedPolicy.Limit(step, _activeCornerPosition,
+                _activeCornerWaypoint, _activeCornerTravelCap);
             Vector3 candidate = transform.position;
             candidate.x = (float)step.CandidatePosition.X;
             candidate.z = (float)step.CandidatePosition.Z;

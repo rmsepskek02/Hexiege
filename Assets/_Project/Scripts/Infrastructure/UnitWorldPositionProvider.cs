@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitWorldPositionProvider.cs
 // IEntityPositionProvider 구현체.
 // UnitFactory/BuildingFactory의 GameObject Dictionary를 통해
@@ -70,8 +70,63 @@ namespace Hexiege.Infrastructure
         private readonly List<int> _removedIds = new List<int>();
         private readonly Comparison<SpatialEntry> _entryOrder;
         private ulong _rosterRevision;
-        private bool _hasRoster, _leased, _faulted;
+        private bool _hasRoster, _leased, _faulted, _endObserved;
         private double _cellWidth;
+        #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private readonly string _combatIndexScope = Guid.NewGuid().ToString("N");
+        private long _queries, _indexedGlobalUnits, _fallbackGlobalUnits, _candidateCount;
+        private long _maintenanceReads, _poseUpdates, _fullScanFallbacks, _rosterRebuilds, _rosterVisits;
+        private int _comparisonSamples, _comparisonMismatches, _comparisonFaults;
+        private readonly int[] _sampleCategories = new int[8];
+        private long _indexedInspections, _baselineInspections;
+        private int _firstMismatchIndexed = -1, _firstMismatchBaseline = -1;
+#endif
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CountQuery() {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _queries++;
+#endif
+        }
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CountFallback(int global) {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _fullScanFallbacks++; _fallbackGlobalUnits += global;
+#endif
+        }
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CountIndexed(int global, int candidates) {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _indexedGlobalUnits += global; _candidateCount += candidates;
+#endif
+        }
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CountMaintenance(bool read) {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (read) _maintenanceReads++; else _poseUpdates++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void CountRoster(int count)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _rosterRebuilds++; _rosterVisits += count;
+#endif
+        }
+        public void RecordQueryComparison(bool matched, int indexedInspections, int baselineInspections,
+            bool faulted, int indexedId, int baselineId, int category)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            _comparisonSamples++;
+            if (category >= 0 && category < _sampleCategories.Length) _sampleCategories[category]++;
+            _indexedInspections += indexedInspections; _baselineInspections += baselineInspections;
+            if (faulted) _comparisonFaults++;
+            else if (!matched)
+            {
+                if (_comparisonMismatches++ == 0) { _firstMismatchIndexed = indexedId; _firstMismatchBaseline = baselineId; }
+            }
+#endif
+        }
 
         private static int CompareEntryOrder(SpatialEntry left, SpatialEntry right) => left.Order.CompareTo(right.Order);
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
@@ -125,7 +180,7 @@ namespace Hexiege.Infrastructure
         private void RefreshBinding(SpatialEntry entry)
         {
             var obj = _unitFactory.GetUnitObject(entry.Unit.Id);
-
+            CountMaintenance(true);
             entry.Binding = obj != null ? obj.GetInstanceID() : 0;
             Place(entry, obj != null ? obj.transform.position : default, obj != null);
         }
@@ -136,7 +191,7 @@ namespace Hexiege.Infrastructure
             foreach (var pair in _entries)
                 if (!units.TryGetValue(pair.Key, out var live) || !ReferenceEquals(live, pair.Value.Unit))
                     _removedIds.Add(pair.Key);
-
+            CountRoster(_entries.Count + units.Count + _removedIds.Count);
             foreach (int id in _removedIds) { RemoveLocation(_entries[id]); _entries.Remove(id); }
             int ordinal = 0;
             // 삭제 slot 재사용까지 포함한 현재 Dictionary 열거 순서다. ID/생성 순서로 대체하지 않는다.
@@ -159,18 +214,18 @@ namespace Hexiege.Infrastructure
             Vector3 center, float radius, out IReadOnlyList<UnitData> candidates)
         {
             candidates = null;
-
+            CountQuery();
             // provider 불일치·재진입·비정상 수치는 기존 getter의 전체 검색으로 돌아간다. 판정값은 바꾸지 않는다.
             if (!OwnsFactory || _faulted || _leased || units == null
                 || (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) || !Finite(radius) || !(radius > 0f)
                 || !Finite(center.x) || !Finite(center.y) || !Finite(center.z)
                 || (double)radius * radius < 1.1754943508222875e-38d)
-            {  return false; }
+            { CountFallback(units != null ? units.Count : 0); return false; }
             try
             {
                 double width = HexMetrics.TileHeight;
                 if (!(width > 0d) || double.IsNaN(width) || double.IsInfinity(width))
-                {  return false; }
+                { CountFallback(units != null ? units.Count : 0); return false; }
                                 // 최종 거리는 원래 Vector3.Distance만 사용한다. 2배 AABB는 float 경계를 포함하는 보수적 후보 범위다.
                 double extent = (double)radius * 2d;
                 double minXd = Math.Floor((center.x - extent) / width), maxXd = Math.Floor((center.x + extent) / width);
@@ -178,7 +233,7 @@ namespace Hexiege.Infrastructure
                 double cellCount = (maxXd - minXd + 1d) * (maxZd - minZd + 1d);
                 if (minXd <= int.MinValue || maxXd >= int.MaxValue || minZd <= int.MinValue || maxZd >= int.MaxValue
                     || cellCount > Math.Max(1, units.Count) || !(cellCount > 0d))
-                {  return false; }
+                { CountFallback(units != null ? units.Count : 0); return false; }
                 if (_cellWidth != width) { ClearIndex(); _cellWidth = width; }
                 if (!_hasRoster || _rosterRevision != rosterRevision) RebuildRoster(units, rosterRevision);
                 _gather.Clear(); _candidateUnits.Clear();
@@ -188,16 +243,16 @@ namespace Hexiege.Infrastructure
                 _gather.AddRange(_overflow);
                 if (_gather.Count >= units.Count)
                 {
-                    _gather.Clear();  return false;
+                    _gather.Clear(); CountFallback(units.Count); return false;
                 }
                 _gather.Sort(_entryOrder);
                 foreach (var entry in _gather) _candidateUnits.Add(entry.Unit);
-
+                CountIndexed(units.Count, _candidateUnits.Count);
                 _leased = true;
                 candidates = _candidateUnits;
                 return true;
             }
-            catch { _faulted = true;  ClearIndex(); return false; }
+            catch { _faulted = true; CountFallback(units != null ? units.Count : 0); ClearIndex(); return false; }
         }
 
         public void EndUnitCandidates()
@@ -220,7 +275,7 @@ namespace Hexiege.Infrastructure
             try
             {
                 if (_entries.TryGetValue(unit.Id, out var entry) && ReferenceEquals(entry.Unit, unit)
-                    && entry.Binding == rootInstanceId) {  Place(entry, worldPosition, true); }
+                    && entry.Binding == rootInstanceId) { CountMaintenance(false); Place(entry, worldPosition, true); }
             }
             catch { _faulted = true; ClearIndex(); }
         }
@@ -237,9 +292,23 @@ namespace Hexiege.Infrastructure
         }
         public void ClearUnitBindings()
         {
-            ClearIndex();
+            ObserveCombatIndexEnd(); ClearIndex();
         }
-
+        public void ObserveCombatIndexEnd()
+        {
+            if (_endObserved) return;
+            _endObserved = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            try
+            {
+                GameLog.Dev.Info("Combat", nameof(UnitWorldPositionProvider), "[COMBAT-SPATIAL] WORK",
+                    $"scope={_combatIndexScope};policy=live-unit-index-v1;queries={_queries};indexedGlobalUnits={_indexedGlobalUnits};fallbackGlobalUnits={_fallbackGlobalUnits};candidateListEntries={_candidateCount};candidateMeaning=not-loop-inspections;maintenanceReads={_maintenanceReads};poseUpdates={_poseUpdates};fullScanFallbacks={_fullScanFallbacks};building=fullscan;indexFaulted={_faulted};rosterRebuilds={_rosterRebuilds};rosterVisits={_rosterVisits};nativeMs=unmeasured");
+                GameLog.Dev.Info("Combat", nameof(UnitWorldPositionProvider), "[COMBAT-SPATIAL] COMPARE",
+                    $"scope={_combatIndexScope};policy=live-unit-index-v1;runtimeBaselineSamples={_comparisonSamples};sampleKindsDetectFirstFound={string.Join(",", _sampleCategories)};sampleInspectionsIndexed={_indexedInspections};sampleInspectionsBaseline={_baselineInspections};sampleMismatches={_comparisonMismatches};sampleFaults={_comparisonFaults};firstMismatchIndexedId={_firstMismatchIndexed};firstMismatchBaselineId={_firstMismatchBaseline};sampleCost=extra-baseline-excluded-from-index-work");
+            }
+            catch { }
+#endif
+        }
 
     }
 }

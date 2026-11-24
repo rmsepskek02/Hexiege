@@ -42,7 +42,10 @@ namespace Hexiege.Infrastructure
         //   요청 RPC(NetworkSkillController.RequestActivateSkillServerRpc)와 발동 알림 RPC(SkillActivatedClientRpc) 맨 뒤에 붙어
         //   두 RPC 모양이 바뀌었다(6 → 7 「RPC 모양이 바뀌었다」 선례와 같은 이유). 방향 인자를 모르는 빌드(스키마 10)와 섞인 경기는
         //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
-        public const int PresentationContractSchemaRevision = 11;
+        // [2026-11-24 main/WIP 통합] 11 → 12. main의 쉴드/공습 RPC 변경과 독립적인 WIP DoT 출처 변경을 합친다.
+        //   이전 WIP 계약: PresentationContractSchemaRevision = 10 (기준 9 → 10).
+        //   NetworkHealthSync.SyncHealthClientRpc 맨 뒤 bool isTimedDamage가 추가되므로 main 스키마 11과 혼합을 거부한다.
+        public const int PresentationContractSchemaRevision = 12;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

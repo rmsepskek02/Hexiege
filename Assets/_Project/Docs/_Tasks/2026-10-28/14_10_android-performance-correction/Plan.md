@@ -982,8 +982,546 @@ PROJECT_STATUS/WORK_HISTORY는 자동 병합됐고 현재 HEAD 원문의 비어 
 
 다음 실기 확인은 새 병합 빌드의 source 귀속을 먼저 확인한 뒤 공격·이동 정상 동작과 새 지속 스킬의 진입/이탈·만료/경기 종료 동작을 최소 확인하도록 권고한다. 새 테스트를 실행했거나 완료한 것으로 기록하지 않으며 자동 재시험·임의 빌드는 하지 않는다. 추가 리팩토링·코드/설정 수정 없이 이번 병합 검증을 위 범위로 마감한다.
 
-### 32.4 제품 선별 커밋 준비 상태
+### 32.4 제품 main 반영·push 완료 상태
 
 제품 선별 커밋 object `14247c6fa4aafaa9a47bfb0c561765b8020524d0`을 준비했다(부모 eaa883d4). 제품23파일은 타일 mesh·존재 조회·표현/버퍼·문자열·랭킹과 승인 로그 정책 및 필수4문서이며 측정 define/FrameTiming 설정·helper/tools·raw·Task/실수 기록은 제품 main 대상에서 제외한다. 제품 분리본 대표4구성 컴파일과 합성 tree 문서 검사는 통과했지만 native 검증은 이전 혼합본 범위이고 실기 전체·FPS 효과는 미증명이다.
 
-제품23파일을 로컬 main14247c6에 반영했고 현재 codex/android-performance-optimization은 제품 부모와 측정 전용 분리를 담은49db109a로 fast-forward했다. 원격 push는 실행하지 않았다. 측정 설정/도구와 기존 Task·문서 이력은 최적화 브랜치에 보존했다. Task/메타는 기존 GUID를 그대로 복사했으며 새 Task/Testcase를 만든 것이 아니다. autostash3c66f2c4 재적용의 문서5충돌은 먼저 private 백업 후 검증 feature 원문으로 해결했다. 자동 병합 WORK_HISTORY는 feature와 전체 텍스트 동일·고유행 누락0을 확인했다. 원본 autostash와 충돌 백업을 보존하며 이번 Git add는 메인이 담당한다. 새 빌드·실기는 없고 분리본4구성 컴파일/문서 검사 통과와 이전 혼합본 native 검증의 범위를 구분한다.
+제품23파일을 로컬 main14247c6에 반영했고 현재 codex/android-performance-optimization은 제품 부모와 측정 전용 분리를 담은49db109a로 fast-forward했다. 2026-11-12 사용자 명시 승인 후 제품 main만 원격 push를 완료했고 메인은 origin/main도14247c6과 동일함을 Git 출력으로 확인했다. 측정 브랜치는 push하지 않았다. 이는 새 검증·빌드·실기 실행을 뜻하지 않는다. 측정 설정/도구와 기존 Task·문서 이력은 최적화 브랜치에 보존했다. Task/메타는 기존 GUID를 그대로 복사했으며 새 Task/Testcase를 만든 것이 아니다. autostash3c66f2c4 재적용의 문서5충돌은 먼저 private 백업 후 검증 feature 원문으로 해결했다. 자동 병합 WORK_HISTORY는 feature와 전체 텍스트 동일·고유행 누락0을 확인했다. 원본 autostash와 충돌 백업을 보존하며 이번 Git add는 메인이 담당한다. 새 빌드·실기는 없고 분리본4구성 컴파일/문서 검사 통과와 이전 혼합본 native 검증의 범위를 구분한다.
+
+
+## 33. 기능 보존을 우선하는 결과 묶음·복귀 후보 최적화
+
+공격·이동 결과를 바꾸지 않고 중간 할당과 필요 없는 후보 순회만 줄인다. 사용자의 이번 구현 승인과 기존 Task 지속 기록 승인에 따라 두 파일만 작업한다. **기존 코드는 검증 전 주석 비활성화로 보존한다.** UI 캐시/material은 보류하며 별도 신규 계측/테스트 도구는 만들지 않는다.
+
+1. NetworkAttackPresentationBundle.TryCreate의 중간 List/ToArray를 호출별 독립 배열+count로 바꾼다. 기존 validation·정렬 비교·prefix 중복·실패 false/results null과 owned 전송 배열을 유지한다. invalid nonHit+복수 facts가 capacity 초과 예외를 만들지 않는 검증 gate를 포함한다.
+2. UnitMovementUseCase.TryFindReachableForwardRejoinTile의 fallback 전체 Tiles 열거만 인접6좌표 Neighbor/GetTile로 줄인다. 후보 List·distance/Q/R Sort·route 검증/early 성공·최종 선택·RequestMoveCore는 유지한다.
+3. Research36.1의 계약을 기준으로 baseline/new 동등성·독립 소유권·invalid·경계 맵·동률·경로 실패와 성공을 기존 수단으로 검증하고 해당 구성 컴파일/QA를 확인한다. 기존 행동 코드 삭제는 검증·사용자 수용 경계를 따른다.
+
+완료 기준은 결과/선택/실패 계약 동등과 불필요 작업 감소를 근거로 확인하는 것이다. 구현만으로 실기·FPS·전체 기능 회귀를 PASS로 쓰지 않는다. 현재 구현·CLR/SDK 컴파일 검증을 완료했으며 새 빌드·사용자 실기·절감ms는 없다/미증명이다. 원본/기존 dirty를 보존한다.
+
+배열 용량 구체화: HitApplied && facts.Length>0이면 facts.Length, 그 외는 facts.Length+1로 확보한다. invalid nonHit의 복수 facts도 prefix가 capacity를 넘지 않게 하며 기존 거절 순서·false/results null을 유지한다. 정상 성공 결과는 정확 길이의 호출별 owned 배열1개다. 이 크기 규칙도 아래 baseline/new 검증에 포함했다. native·실기 수용은 별도다.
+
+
+**최종 구현·검증 결과(2026-11-13):** `.utmp/combat-allocation-neighbors-20261113/FinalVerificationReceipt.json`, FinalSourceHashes/FinalCompileResults/SourceIdentity/HarnessResults를 직접 대조했고 live2파일 hash가 일치했다. 실제 before/new 추출 메서드21case/79assert(bundle12·movement9)가 통과했다. 실제 제품 계약 타입 DLL·Unity/HexCoord/HexDirection을 사용했으며 주변 grid/mapper/route는 fixture라 native/RPC·실기 검증은 아니다.4구성(Editor/AndroidDevIL2CPP/Release/EditorTools) SDK compile exit0/error0, 기존 경고24/27/31/0·변경 파일 경고0, runtime357개 누락0이다. QA는 전체 소스/추출 hash와 fixture·컴파일 주장도 독립 검수해 중대 결함0을 확인했다.
+
+movement의121타일 fixture에서 전체 열거 대신6조회로 같은 후보·선택 결과를 얻었고 교체 루프 밖은 exact 보존했다. bundle은 List 객체+backing+ToArray 중간 단계를 호출별 owned 배열1개로 줄이는 코드 구조이며 할당 바이트·ms는 실측하지 않았다. 동등성·검사 감소 근거를 실제 게임 FPS·경로/RPC 전체 수용으로 확대하지 않는다. 기존 동작 코드는 주석 비활성화로 보존했고 제품 변경은2파일뿐이다. 기존 dirty를 유지했으며 UI 정수 캐시/material은 계속 보류한다.
+
+이번 완료 범위는 구현·private 검증 scratch·SDK compile·정적 QA다. 새 제품 로그/측정 도구·설정·빌드·사용자 실기·전체 기능 회귀는 실행하지 않았다. 실제 절감ms/FPS와 native 동작은 미검증이다. 추가 문서·새 Task/Testcase는 만들지 않는다.
+
+정리 완료: 이번 private 검증 scratch에서 생성한 DLL/PDB11개7,801,856바이트만 CleanupReceipt.json으로 확인·삭제했다. Before/source/fixture/rsp/results/log/receipt와 다른 기존 자료는 보존했다.
+
+
+### 33.1 비용·기능 보존 확인 로그 준비 계획
+
+Research36.2의 사용자 승인에 따라 Development Android helper1개+2method hook을 준비한다. 기존 GameEvents.OnGameEnd/GameLog.Dev와 Application 경계를 유지하고 자동 시작/READY·END만 사용한다. 새 private flag·mode·90초·채팅 trigger는 없다.
+
+| 확인 항목 | 진단 근거 | 판정 경계 |
+|---|---|---|
+| bundle 작업 감소 | 실제 success/false/throw·원소 수, 성공당 List1/backing1/copy1·복사 원소 구조 집계 | byte/ms/FPS 실측 아님 |
+| bundle 동등성 | 최대16회 순수 baseline/new verdict·null·전체 field/order·독립 배열 대조 | 공격/피해/RPC 재실행 금지 |
+| 이동 fallback 감소·동등 | N tiles 대6lookup 및 최대16회 순수 후보/정렬 대조 | A*·이동 writer 재실행 금지 |
+| coverage·완결성 | READY/END·호출 수·diagFault |0은 NotExercised, END 없음 Incomplete |
+
+메인은 검증 후 기존2 Release 측정 토글OFF/Development ON을 UI에서 준비한다. 사용자 요청 범위의 빌드는 File Build And Run 시도까지만 하며 감시·완료 확인은 하지 않는다. 새 빌드의 source 귀속·로그 준비를 먼저 확인하고 간단한 자연 플레이 절차를 안내할 예정이다. 현재 진단 구현·정적 검증은 완료했고 새 빌드·실기는 미완이며 기존 원본/주석·측정 도구 코드는 보존한다. 새 Task/Testcase는 만들지 않는다.
+
+귀속 보완: 기존 PerformanceCaptureBuildManifest.cs의 Sources에 이번 helper·UnitMovementUseCase·NetworkAttackPresentationBundle3경로만 추가한다. 새 도구를 만드는 것이 아니라 실제 빌드 소스 귀속 확인 누락을 막는 범위다. 진단 구현과 아래 최종 검증을 완료했다. 사용자 절차는 정상 종료→로비 복귀만으로 하며 결과 화면10초·90초 유지를 요구하지 않는다. 요약 누락은 Incomplete, 관측 호출0인 분기만 NotExercised로 구분한다.
+
+
+**진단 준비 최종 결과:** `.utmp/combat-allocation-neighbors-20261113/development-check/FinalVerificationReceipt.json`과 FinalSourceHashes를 직접 읽고 helper/meta·2hook·manifest의 live5hash 일치를 확인했다.4 SDK 구성 오류0·변경 파일 경고0, runtime358개 누락0이다. Release/Editor의 진단 전처리 블록을 제외한 기존2method 본문은 공백 무시 exact 보존했다. 실제 helper 본문의 대체 event/sink11assert와 기존 제품 추출21case/79assert가 통과했고 QA 독립 검수 중대 결함0이다. native/IL2CPP 변환·실기·전체회귀 PASS를 뜻하지 않는다.
+
+[COMBAT-OPT] READY는 Protocol1·Session/Round·Role·Build=ArchiveHeader를 남긴다. GameEnd SUMMARY Complete=True/Faults0/각 Mismatches0과 해당 Samples>0일 때 그 부분을 Observed로 수용한다. 호출0은 NotExercised, SUMMARY 없음은 Incomplete다. 구조 카운터는 실제 제거 객체·복사·조회 작업량의 계산이며 byte/ms/FPS/net GC가 아니다. 최대16회 비교의 추가 작업·할당은 별도 진단 오버헤드다.
+
+메인은 USB unauthorized 확인으로 사용자 연결 승인 대기와 기존2 Release 토글OFF/Development ON 준비를 진행 중이다. 실제 UI 설정 완료·File Build And Run 시도·새 기기 실행은 아직 미완이며 이후 클릭 결과를 받은 뒤 상태를 갱신한다. 사용자 절차는 Android Host+Editor Client 일반 전투→적 처치 후 이동→경기 정상 종료→로비 복귀→완료 알림이다.90초·교전 채팅 trigger·결과10초 유지를 요구하지 않는다. source/build 귀속과 READY/SUMMARY 원문 확인은 메인이 담당한다.
+
+진단 준비 후 정리: development-check/CleanupReceipt.json의 중간 DLL/PDB10개7,847,212바이트만 삭제했고 다른 원본/소스/검증 자료는 보존했다. UI에서 Development ON·Autoconnect Profiler/Deep/Script Debugging OFF와 Detect 토글OFF를 메인이 확인했다. 이후 메인이 File Save Project 후 Android defines가 DOTWEEN만 남아 두 Release 측정 define OFF임을 확인했다. Development ON·Autoconnect Profiler/Deep/Script Debugging OFF를 화면에서 재확인하고 실제 File > Build And Run을1회 클릭했다. 직후 HoldOn MonoCompiler.Tick 화면만 관측했으며 빌드 완료 감시는 하지 않았다. 성공·설치·새 실행·실기 PASS는 미확인이다. ADB는 unauthorized 상태를2회 확인해 사용자 USB 허용 답변을 기다린다. 새 앱 실행 보고 뒤 Android Host+Editor Client 일반 전투·적 처치 후 이동·정상 종료→로비→완료 알림 절차를 안내하며90초·결과10초 대기는 요구하지 않는다.
+
+
+### 33.2 실기 확인 결과와 마감 경계
+
+Research36.3의 원문 archive와 SUMMARY를 확인했다. Complete=True/Faults0, bundle279성공·16표본 mismatch0, movement32fallback·16후보 비교 mismatch0으로 해당 부분은 Observed다. 구조 계산은 중간 객체558개/copy279회286원소와 기존7,392타일 방문 대192이웃 조회이며 net GC·byte·ms·FPS가 아니다. baseline16회씩의 진단 부담도 별도다.
+
+Editor Client 역할·동일 경기 근거는 확인했으나 prebuild GUID0의 runtime 직접 연결은 미해결이다. result END279/실패0과 별도 UAS presentationInvalid8/END FAIL은 분리하고 전체 게임 PASS로 쓰지 않는다. 자동 파일은 기존 RuntimeLogger 확장이며 최초 도입일을 이번 main 반영일로 단정하지 않는다. 관측된 작업량/동등성 범위로 마감하고 원본은 보존한다. 새 Task/Testcase·코드·설정·Git·삭제는 없다.
+
+사용자 수용 범위 정리: 이번 두 최적화가 잘 됐다는 의미는 실제 호출에서 불필요 작업 감소와 표본 기능 동등성 근거를 확인했다는 범위다. 실제ms/FPS/net GC 절감·전체 게임 정상은 입증하지 않았고 별도 UAS FAIL은 미해결이다. 사용자의 이번 문서 정리 요청에 따라 이 경계를 유지한다.
+
+로거 현행 원문 읽기 감사: core RuntimeLogger/LogSessionOwner/ConsoleSink의 승인 Dev archive·선택 NoStack 정책은 이미 제품 main14247c6에 반영됐다. 이번 COMBAT-OPT helper와2hook은 별도이며 로거의 최초 도입 또는 새 main 반영 완료로 혼동하지 않는다. LogRules1.10은 Editor 일별 이어쓰기·Android Development 실행별 private 원본, 회수/완결·hash 검증과 승인 private 업로드, 자동 삭제 철회와 수동 Editor30일/90일 정리를 구분한다. 이 수동 메뉴는 `_editor`만 대상으로 하며 Android 원본/회수 사본의 새 보관기간·자동삭제 정책을 정한 것이 아니다. 당시 읽기 감사에서는 정책을 바꾸지 않았고 이후 설명 보강과 아래 사용자 선택을 반영했다. 원시 삭제·Git 변경은 없다.
+
+로거 설명 보강 완료: LogRules1.10/1.12에 Editor 일별·Android Dev 실행별 자동 파일과 일반 Release archive 없음, 각 메뉴의 실제 정리/회수/ZIP 범위 표를 추가했다. 정책 변경은 아니며 새 LogHistory 원문은 만들지 않았다. core GameLog/Owner/FileSink는 main14247c6과 동일하고 branch RuntimeLogger/ConsoleSink의 남은 차이는 측정 marker/getpath 등이다. LogcatCapture23~25의 오래된 주석은 이번 코드 변경 범위가 아니므로 후속 확인 사항으로만 남긴다. 별도 ADB 회수 성공과 기존 메뉴의 앱 파일 자동 회수 완성을 구분한다. 회수 검증 후 종료 세션 선택 삭제 권고와 기간/용량 자동 정리 중 사용자는 PC 복사·검증 후 종료 세션 선택 삭제를 확정했다. 기간/용량 자동 정리는 도입하지 않으며 보관일수·quota·자동삭제를 추가하지 않았다. 동기 파일/flush 비용은 무료가 아니고 기존 실패/완결성 계약을 유지한다.
+
+보관 정책 선택 확정: 기기→PC 복사·원문hash/record 검증 뒤 종료·비활성 세션만 사용자 선택 확인 후 기기 원본을 삭제한다. 미회수·진행 중·검증 실패는 보호하고 PC 원본 정리는 기존 업로드 검증·별도 삭제 승인 계약을 유지한다. 정책 선택과 실제 기기 삭제·업로드 실행 승인은 다르다. 회수·ZIP 연결 지원 공백은 남아 있고 구현 계획은 준비 중이며 완료가 아니다. 이번 기기 삭제/코드/Git 실행은 없다.
+
+### 33.3 로거 보관 정책의 지원 도구 구현
+
+사용자는 선택한 보관 정책의 나머지 구현 완료를 지시했다. 새 EditorAndroidDevelopmentLogArchive.cs+meta, 기존 LogcatCapture의 internal ADB3API/결과형·오래된 주석 정정, 기존 LogArchiveZip의 고정 private root 후보 추가가 범위다. 기존 Task 지속 승인으로 기록하며 새 Task/Testcase·규칙 사본은 만들지 않는다.
+
+메뉴는 `Hexiege/Logs/Android Development Logs`에서 목록→PC 복사 검증→선택 삭제로 진행한다. 회수 원문 RuntimeLog.txt와 CollectionReceipt.json의2고정 파일만 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`에 둔다. ZIP은 기존 Assets 후보를 보존하고 이 private root의2파일만 추가한다. raw는 소스 Git에서 제외하고 업로드는 사용자 수동·private 검증 계약을 유지한다.
+
+기기 삭제 gate는 PC 원문/receipt 검증, remote 전후 size/SHA, seq·UTF-8길이·END/footer와 현재 PID 부재 확인이다. 심볼릭/경로 이탈·unknown은 fail-closed로 보호한다. 목록 checkbox와 bytes 표시 후2단계 확인을 거쳐 정확 RuntimeLog.txt만 rm하며 폴더를 삭제하지 않는다. 활성 파일은 snapshot 수집 가능하지만 삭제하지 않고, 완전 footer 없는 kill 원본도 정리를 허용하지 않는다. 자동 삭제·quota·기간은 추가하지 않는다.
+
+순수 경계·receipt 변조·active PID·취소·remote 변경 fixture와 Editor SDK compile 후 메인이 읽기 전용 기기 수집·ZIP 실행을 확인할 예정이다. 현재 메뉴 구현·아래 수집/ZIP과 최종 safety/compile QA 결과를 확인했다. 실제 기기 삭제·업로드는0/미실행이다. 실제 결과 수신 뒤 LogRules 지원 상태를 갱신한다. 완료 후 main에는 로거 관련 코드/docs만 선별하고 실험 COMBAT-OPT·측정 옵션은 제외할 계획이다. 기존 원본과 사용자 dirty를 보존한다.
+
+
+**실제 메뉴 수집·ZIP 검증(2026-11-14):** 메인이 Unity Android Development Logs 메뉴에서 기기 목록7개→최신 선택→PC 복사·검증을 실행했다. 고정 private root의 CollectionReceipt를 직접 읽었으며 원문9,649,377바이트·SHA f09f03f4…50c8679, remote 전후/PC size·hash 일치를 확인했다. 정상 종료 footer가 없어 SnapshotIncomplete:NoFooterActiveOrKilled로 분류했고 삭제 불가 보호는 예상 동작이다. 수집·분석 보관은 가능하지만 종료 세션 삭제 수용이 아니다.
+
+기존 Create Log Archive ZIP UI로 android-logger-collection ZIP을 생성했다. 원문+receipt2entry/원본 총9,650,044바이트·압축540,970바이트·SHA0efbbf70…e13f68을 메인이 검수했다. raw256MiB/receipt64KiB는 도구 읽기 한도이며 앱 보관 quota가 아니다. `.utmp/android-development-logs-20261114/SafetyResults.txt`의 실제 safety36검사와 DeleteFlowResults의 DeleteSelected orchestration9모의 검사를 직접 확인했다. device 명령/삭제는0이며 ADB/dialog/JSON을 대체한 범위다. CompileResults는 MainRuntime/ToolsMainRuntime/ToolsCurrentRuntime3구성 오류0이다. QA source blocker0을 확인했으나 최종 설명 수정 뒤 sourcehash/compile을 다시 확인했고 QA5hash 일치·blocker0이다. 실제 기기 삭제·업로드는 미실행이며 main 선별 통합은 아래 결과로 완료했다. raw 본문을 문서에 복제하지 않고 원본을 보존한다.
+
+
+**최종 검증·로컬 main 선별 통합 완료:** `.utmp/android-development-logs-20261114/FinalVerificationReceipt.json`과 `.utmp/logger-main-integration-20261114/IntegrationReceipt.json`을 직접 읽었다. main runtime354소스 exact byte mismatch0, 최종 main compile 오류0/기존 경고24, tools-main/current 오류·경고0이다. safety36/삭제 흐름 모의9와 QA5hash 일치·blocker0을 확인했다. 최종 후속 수정은 UI/manifest 문구와 private-source kind/note였고 SDK 재검증은 했으나 native 최종 metadata 화면 재실행까지 했다고 주장하지 않는다. junction 실행 검사는 sandbox 제한으로 NOT RUN, 실제 기기 삭제·업로드는0이다.
+
+로컬 main9dd0ce93에는 새 AndroidDevelopmentLogArchive+meta·LogcatCapture·LogArchiveZip·LogRules의5파일만 통합했다. 현재 최적화 브랜치는9c8b7fd4로 병합했고 unrelated staged/worktree를 보존했다. main runtime·설정·COMBAT-OPT/측정 도구/Task 이력은 이번 선별에 포함하지 않았다. push는 아직 실행하지 않았다. 파일 I/O·연결/OS race의 절대 atomic 보장은 하지 않고 PC 원본과 검증 근거를 보존한다.
+
+### 33.4 한 번 수집 흐름과 raw Git 제외의 조사 계획
+
+사용자는 하나의 메뉴에서 앱 로그와 Logcat을 함께 회수해 ZIP까지 만들고, 자동 생성 raw/meta/저장 폴더가 소스 Git에 나타나지 않도록 하는 후속 기능과 삭제 시점의 쉬운 설명을 요청했다. 기존 Task 지속 승인으로 조사 계획을 기록한다. 구체 설계 공유와 진행 지시를 거쳐 아래 범위를 구현 중이며 아래 최종 검증과 실제 메뉴 실행을 완료했다.
+
+기존 Log.md·Task 문서는 raw 산출물과 구분해 보존한다. Git 제외는 실제 자동 생성 경로와 meta를 좁게 확인한 뒤 정하며 `_Logs` 전체·전체 txt·기존 문서를 광범위하게 무시하지 않는다. 수집 원문/receipt/ZIP의 완결·hash·private 보관, 활성/미검증 보호·PC 검증 후 종료 세션 선택 삭제 계약을 유지한다. 자동 삭제나 원격 업로드 실행을 요청한 것으로 해석하지 않는다.
+
+다음은 메뉴 입구·기기/세션 선택·앱 원본/Logcat의 범위·ZIP/manifest·실패/취소 상태·중복/부분 자료·Git 제외 경로·삭제 시점 안내를 설계 대조하는 것이다. 아직 LogRules의 지원 완료 계약을 바꾸지 않으며 추가 main 병합·push·기기 삭제·업로드는 실행하지 않는다. 새 Task/Testcase는 만들지 않는다.
+
+
+구체 흐름은 기존 AndroidDevelopmentLogArchive 창의 「선택 앱 로그+Logcat 수집·ZIP」 버튼1개다. 동일 기기·선택 session 원문을 회수하고 Logcat은 private `.utmp/raw-logs/_Logs/Logcat/<YYYY-MM-DD>/<collection-id>/RuntimeLog_device.txt`에 저장한 뒤 기존 ZIP 생성을 호출한다. 선택0은 중단하고 실제 명령/부분 수집 실패 시 ZIP도 중단하되 이미 회수한 원문은 보존한다. 명령 성공0건은 오류로 취급하지 않는 후속 경계는 아래를 따른다. 삭제는 수집 버튼과 별도로 둔다.
+
+구현은 기존 Editor3파일+.gitignore 범위이며 LogRules 설명은 검증 결과에 맞춰 문서 담당이 갱신한다. raw/meta와 자동 `_editor`·HH_mm_logcat 폴더/date parent meta만 좁게 Git 제외하며 Log.md 문서는 보존한다. 기존 tracked metadata는 메인이 추적만 해제하고 PC 파일은 보존할 계획으로 실제 삭제가 아니다. 당시 추가 main 통합·push 전 상태였으며 아래 통합 결과를 확인했고 구현·검증은 아래 범위로 완료했다.
+
+Git 제외 적용 결과: `.utmp/log-git-exclusion-20261114/Receipt.json`을 직접 확인했다. 이미 추적되던 자동 raw/meta/전용 폴더 산출물295개를 index에서만 해제했고 PC295파일 SHA 전후 동일·실제 삭제0이다. Log.md 등 문서.md/meta20개와 다른 staged 항목은 보존했다. 기존 .utmp/_zip 제외를 유지하고 `_editor`·HH_mm_logcat의 자동 경로/meta, 날짜 parent meta, `_Logs` raw txt/meta만 추가 제외한다. .gitignore는 staging됐으나 commit/push는 아직0이며 단일 수집 코드 검증·main 추가 통합도 미완이다. LogRules 지원 계약은 기능 마감 뒤 갱신한다.
+
+통합 버튼 첫 실제 시도는 앱 원문 회수 성공 후 Logcat의 실패/빈 결과 공통 분기에서 중단됐다. 별도 동일 ADB 필터가 exit0/lines0여서 현재 Unity/crash 등 수집 필터에 일치하는 Logcat이0건임을 확인했다. 전체 Android 버퍼가 비었다는 증거는 아니다. 이전 중단은 이력으로 보존하고, 명령 성공0건을 명시 파일로 기록해 앱 원문+ZIP을 허용하도록 최소 보완을 완료했다. 실제 명령 실패는 계속 중단한다. RootMetaReceipt 추가로 추적 해제 총296항목·PC 삭제0·commit/push0이며 문서 파일은 보존했다.
+
+
+**단일 수집 최종 검증·실행 완료:** `.utmp/unified-log-collection-20261114/FinalVerificationReceipt.json`과 NativeCollectionZipReceipt를 직접 대조했다. 최종4hash QA 일치·blocker0, 실제2method flow19assert와 tools-main/current compile 오류·경고0을 확인했다. 영수증의 native pending은 생성 당시 한계이며 이후 메인이 실제 통합 버튼 실행을 완료했다.
+
+최종 상태는 앱 로그·Logcat 수집 및 ZIP 검증 완료/기기 원본 유지/자동 업로드 없음이다. 현재 필터 일치 Logcat0건을 조회 성공으로 명시했고0건 표시 파일을 포함했다. ZIP android-logs_01은1,082,426바이트·SHA f97adc3a…1f2e9e,5entry다. 앞선 중단 때 회수한 앱 원문/receipt2개+최종 원문/receipt2개+0건 Logcat1개로, 오늘 미보관 후보 전체라는 기존 ZIP 날짜 범위의 정상 동작이다. 메인은 .NET 재열기로5entry 각 bytes/hash·전체 ZIP SHA·0건 marker를 확인했다.
+
+별도 GitHub 페이지는 기존 도구가 열었으나 업로드·로그인·원격 존재 검증은 하지 않았다. 실제 기기 삭제·업로드·새 commit/push·추가 main 병합은0이다. 추적 해제296개는 PC 삭제0이며 문서/meta를 보존했다. 수집 성공을 자동 정리·자동 업로드 승인으로 확대하지 않고 원문과 실패 이력도 보존한다.
+
+**통합 메뉴 설명·중복 정리 후속 계획:** 사용자는 창 설명과 중복 메뉴 정리를 요청했고 메인이 구조를 공유한 뒤 구현을 위임했다. root의 Collect Device Logs and Create ZIP은 유지하고 같은 창을 여는 Android Development Logs alias MenuItem은 주석 비활성화한다. 단독 Save Device Logs/Create Log Archive ZIP은 Logs/Advanced, Clear Device Buffer/Clean Old Editor Logs는 Logs/Maintenance로 옮긴다. 통합 창 제목·상단 도움말을 맞추고 단독 PC 복사는 가능하면 고급 접기 안에 배치한다. runtime/data/delete/ZIP 로직은 바꾸지 않는다.
+
+사용 안내는 세션=앱 실행1회(여러 경기 포함), Logcat=현재 버퍼 snapshot(선택한 과거 앱 세션 당시의 Logcat 복원 아님), ZIP=오늘 KST 이후 미보관 후보도 포함(선택 세션만 한정 아님)을 분명히 한다. 메뉴 구현은 freeze했고 LogRules 현행 경로를 정합화했다. 아래 정적 검증과 후속 native 메뉴 확인을 완료했다. 실제 삭제·업로드·새 문서/TC·Git 쓰기는 없다.
+
+메뉴 정리 freeze 결과: MenuCleanupProof.json에서 활성5경로·중복0과 기존16method 본문 exact를 직접 확인했다. root Collect Device Logs and Create ZIP/Advanced의 단독 Save·ZIP/Maintenance의 Clear·Clean으로 분리했고 alias는 주석 비활성, 단독 앱 복사는 고급 foldout에 유지했다. Editor SDK1구성 오류·경고0을 확인했으며 새 fixture·수집/삭제/빌드 실행은 없다. 이 시점은 새 commit/push/main 추가 통합 전 이력이며 아래 완료 결과를 따른다. 메인은 Unity 재컴파일 후 root의 Maintenance/Advanced/통합메뉴만 표시되고 중복 alias가 없음을 확인했다. Advanced의 Save/ZIP·Maintenance의 Clear/Clean submenu는 열어 읽기만 했고 실행하지 않았다. 통합 창을 실제 열어 Device Logs and ZIP 제목·새 도움말·접힌 PC 복사 고급 foldout·별도 삭제 버튼을 확인했다. 이번 실제 기기 수집·삭제·빌드·업로드 재실행은0이다. 과거 실행 이력의 메뉴 경로는 소급 변경하지 않았다.
+
+**후속 로그 방향(이번 구현 아님):** 사용자는 로거 main 통합 뒤 최적화를 재개하도록 승인했다. 향후 서버 전송→보관→분석/원본 다운로드 흐름과 직접 기기·Editor 수집을 병행하는 방향을 검토한다. offline·업로드 실패 시 로컬 원본을 보존하고 업로드 뒤 원격 hash 검증·접근 권한·개인정보·보관/삭제 정책을 먼저 확정해야 한다. 현재 서버 전송/보관 기능을 구현·완료한 것이 아니며 LogRules 현행도 바꾸지 않는다. 실제 원격 업로드·삭제는 실행하지 않는다.
+
+로거 추가 main 통합 영수증을 수신·확인했다. 최적화 다음 후보는 전문 담당이 조사 중이고 구체 계획 전에는 새 구현 대상을 확정하지 않는다. 새 Task/Testcase·Git 작업은 하지 않는다.
+
+
+**통합 메뉴·Git 제외의 로컬 main 반영 완료:** `.utmp/logger-unified-main-integration-20261114/IntegrationReceipt.json`을 직접 읽었다. 로컬 main85e032fc(부모9dd0ce93), 최적화 브랜치0e18a649에 반영했다. 제품 변경은 .gitignore·Editor3파일·LogRules5파일이고 자동 산출물336개 추적을 제거했다. 실파일296개는 그대로 보존하고 기존 missing40개는 absence를 유지했다. 다른 staged/worktree를 보존했으며 runtime/gameplay/settings는 변경하지 않았다. Task는 main 제품 대상이 아니며 push는0이다.
+
+수집·ZIP·메뉴 검증과 실제 삭제/업로드는 계속 구분한다. 미래 서버 전송/보관 계획은 이번 구현이 아니고 다음 최적화 대상도 아직 조사 결과 대기다. 새 코드·빌드·실기·원시 삭제를 추가하지 않는다.
+
+
+## 34. 타일 top material만 소유 복제하는 국소 교정
+
+기능을 유지하며 사용하지 않는 side 복제만 줄인다. 먼저 전역 side 쓰기·재초기화·외부 교체의 소유권 계약을 확인한 뒤 HexTileView.Initialize1파일을 교정한다. sharedMaterials에서 기존 top 우선/fallback0 규칙으로 top1개만 복제하고 다른 slot의 exact 참조를 유지한다. 정리는 명시 소유 material만 대상으로 하며 외부 교체 소유권을 침범하지 않는다.
+
+색상·선택/해제·NoBuild·geometry/transform을 보존하고 MPB·shader·품질·계측은 바꾸지 않는다. 원래 동작과 출력/소유권·반복 초기화를 검증한 뒤 구현 완료를 판단한다. 기대 제거량은 side clone T개라는 구조 계산이며 byte/ms/FPS 이득 또는 누수 증거가 아니다. 최대 절감 순위 확정으로 쓰지 않는다.
+
+현재 국소 구현·정적/SDK와 아래 native EditMode 검증을 완료했다. GPU pass 원인 조사는 보류하고 작은 UI 캐시·타워·범용 로거로 범위를 넓히지 않는다. 새 Task/Testcase·빌드·기기 테스트는 추가하지 않는다.
+
+검증 수단 보완: 전문 담당은 전역 C# 타일 material 사용을 대조해 Initialize 실호출이 HexGridRenderer1곳이고 선택/팀색은 top에만 쓰며 side 쓰기는 없음을 확인했다. 현 prefab은 top/side2slot이다. 제품 교정은 HexTileView1파일로 진행한다. 기존 ranking fixture 패턴의 작은 임시 Editor driver.cs/meta를 만들어 메뉴1회로 native 검증하며 자동 실행하지 않는다. 테스트 객체는 try/finally로 정리하고 private .utmp에 source SHA와 팀색/선택·slot 참조·재초기화·외부 교체·owned 정리 결과를 남긴다. 실행 뒤 자기 신규 driver만 경로/hash 확인 후 제거해 상시 계측 도구를 남기지 않는다. 아래 native EditMode PASS를 확인했으며 새 빌드·사용자 교전 재시험은 없다.
+
+
+**타일 교정 검증 결과(2026-11-14):** `.utmp/tile-material-ownership-20261114/native-0be64ef3757f4f9e865ccfe1ea7e9b90.json`을 직접 읽었다. 메인은20:36:35 임시 메뉴1회에서21checks PASS를 확인했고 제품 SHA9A137A…DA6B60/payload DLL SHA915B82…7534AA가 결부됐다. 기존 materials2clone 대 top1clone·side 공유 참조, 팀/선택색·기하/hatch·재초기화·외부 교체·명시 OnDestroy 소유 정리·shared asset 생존과 prefab/material3asset bytes 동일을 검증했다.
+
+CompileResults는 Editor/Release/Tools3구성 오류0·기존 경고24/31/0·변경 파일 경고0이다. StaticPreservationProof는 event subscription/팀·선택색 본문 exact와 runtime358개 누락0을 확인했다. 새 영구 진단을 추가한 것이 아니며 FinalVerificationReceipt로 임시 Editor driver 정리·최종 QA까지 완료했다.
+
+검증 범위는 native EditMode material API와 제품 OnDestroy 본문 직접 호출이다. PlayMode 지연 Destroy·기기 외형·실제 메모리 byte/ms/FPS는 미검증이며 누수 확정이 아니다. 해제 때 sharedMaterials 배열 readback·참조 복구 setter·명시 Destroy1회 비용도 새로 있어 순수 이득을 실측한 것은 아니다. 새 빌드·실기 교전 테스트는 없고 이번1파일 교정은 최적화 브랜치 미커밋/main 미포함·push0이다. 로거 main85e032fc 완료와 분리한다.
+
+타일 최종 마감: FinalVerificationReceipt.json을 직접 읽어 QA native21/livehash 일치·blocker0과 신규 임시 driver.cs/meta2개+중간 SDK DLL/PDB6개 총8파일5,468,835바이트의 경로/hash 확인 삭제를 검증했다. private payload/source/Before/driver 사본/rsp/results/native 영수증은 보존했다. main85e032fc·최적화 브랜치0e18a649의 로거 통합과 달리 타일1파일은 현재 최적화 브랜치 미커밋/main 미포함·push0이다. PlayMode 지연 Destroy·실기 외형·memory byte/ms/FPS 미검증 한계는 그대로 유지한다.
+
+
+### 34.1 기기 확인 결과와 완료 범위
+
+Research37.1의 사용자 「표시 정상, 재진입도 확인」과 새 실행 원문/싱글2경기·복귀 근거로 타일 focused 기능 확인을 PASS로 수용한다. native21검증과 결합하되 실제memory byte/ms/FPS·전체 게임·PlayMode 지연 Destroy 수용으로 확대하지 않는다.
+
+기존 ZIP은 이전 앱 세션+새 Logcat이었고 새 앱 원문은 메인이 읽기 전용으로 추가 회수했다. record2,252/UTF-8길이/END·tail0은 유효하지만 정상 close footer는 없으며 추가 원문은 앞 ZIP에 포함되지 않았다. installed/local APK·runtime build 일치와 소유권 메서드 존재는 확인했으나 GUID0 prebuild로 exact product source SHA 귀속은 미완이다. 재시험·추가 빌드·삭제·업로드 없이 이 범위로 기록을 마감하고 원본을 보존한다.
+
+보관 보완: 메인이 통합 창 세션 목록을 갱신해 이번11/14 실행을 선택한 뒤22:41 android-logs_03 ZIP을 생성했다. CorrectedArchiveIntegrity.json을 직접 확인한 결과 ZIP169,979바이트·SHA24154dc6…cb42331, 이번 원문2,645,705바이트(SHA48809887…9e9d4a8)+receipt667바이트+Logcat40,265바이트의3entry/전체 및 각 hash·길이가 정상이다. 따라서 이번 원문은 현재03 ZIP에 정확히 보관됐다. 이전02 ZIP에 이번 원문이 없었다는 기록은02 범위의 이력으로 유지한다. AnalysisReceipt SHA30CE9061…BCDBCE7도 대조했다. 새 테스트·앱 조작·빌드·코드 변경·기기 삭제·업로드는0이며 focused PASS/효과 한계는 유지한다. 최종 독립 QA 읽기에서 record2,252/싱글2경기·관련 WARN/ERROR0/03 ZIP3entry·hash와 사용자 표시·재진입 수용 주장 blocker0을 확인했다. exact source SHA·기기 material 수·PlayMode 지연 Destroy·멀티·byte/ms/FPS는 미검증이며 footer 부재의 삭제 불가 보호도 유지한다.
+
+### 34.2 사용자 추가 플레이 없는 자동 비교 검증
+
+2026-11-15 KST 사용자는 동일 타일 효과의 자동 비교 측정 재개를 승인했다. 이미 수용한 표시·재진입 focused 기능 PASS는 유지하고 추가 사용자 테스트를 요구하지 않는다. 같은 실제 prefab·동일 타일 수(대표231)에서 before materials API의2clone과 current top-only1clone을 비교한다. 실제 Unity EditMode native Material 수와 Profiler.GetRuntimeMemorySizeLong 합계,3~5회 반복 정리 뒤 잔존을 기록한다.
+
+전문 담당이 작은 임시 driver/private payload를 준비하고 메인이 메뉴 실행·저장·분석을 담당한다. product SHA9A137…DA6B60은 바꾸지 않으며 새2 APK 빌드·상시 계측은 없다. 아래 native 비교 결과를 확보했고 정리·QA 최종 마감까지 완료했다. Editor 측정은 Android 실기 메모리·FPS가 아니며 시간값이 있어도 보조 관측으로만 해석하고 전체 원인·효과를 확정하지 않는다. 새 Task/Testcase·메모리 범위 확대는 없다.
+
+
+최종 자동 비교는 Research37.2의 native receipt/CSV/분석을 기준으로 마감한다. 같은231타일 ABBAABBA 각4회에서 Material462→231(50%), unique material runtime-size 합1,326,864→723,492B(net603,372B/589.230469KiB·약45.473538%)를 관측했다. top 합 증가가 있어 side894,432B 삭제와 net을 구분한다. fixture 정리 후 context358→358과 Current 명시 OnDestroy 후 추적0을 확인했다.
+
+이는 Editor 통제 관측이며 Android 전체 메모리/실기 ms·FPS·맵로비/지연 Destroy·누수 증명이 아니다. 초반 저장 누락/측정 NullReference 이력은 보존하고 최종 저장 CSV만 수치 근거로 사용한다. 제품 불변·기존 기능 PASS 유지, 임시 도구 cleanup/최종 QA까지 아래 범위로 완료했다.
+
+최종 마감: FinalVerificationReceipt/CleanupReceipt를 직접 확인했다. QA가8행/CSV hash·net603,372B·45.473538%를 독립 검산해 일치·blocker0이다. 신규 Assets driver.cs/meta와 불필요 Driver DLL/PDB4파일34,516바이트만 경로/hash 확인 후 삭제했고 private payload/source/CSV·3회 native 이력/log/proofs는 보존했다. 제품9A137…DA6B60은 불변이며 로거 main85e032fc와 달리 타일은 최적화 브랜치 미커밋/main 미포함이다. 제품·기기·빌드·Git 추가 변경0, 실제 맵/로비·PlayMode 지연 Destroy·Android수명/메모리·FPS 미검증 한계는 유지한다.
+
+### 34.3 제품 선별 통합·push 완료와 다음 조사
+
+사용자는 로그 창 PC 복사 접기를 없애고 삭제 글자를 빨갛게 표시하는 최소 UI 수정, 완료 제품 최적화의 main 병합·push와 다음 후보 선정을 명시 승인했다. 기존 메뉴 구조와 수집/검증/ZIP/삭제 로직은 유지하며 전문 담당의 UI 구현과 아래 native 확인·제품 반영을 완료했다. LogRules는 PC 복사 항상 표시·삭제 적색 글자의 현행 안내만 최소 수정했다. native UI·main 통합·push 완료 범위는 아래 영수증으로 확인했다.
+
+메인은 origin/main fetch 후 아래 제품 선별 통합·push를 완료했다. 대상은 타일 top material 소유 교정·이동 fallback6이웃·Bundle owned 배열 교정이며 COMBAT-OPT/측정 설정·임시 도구·raw·Task는 최적화 브랜치에 유지한다. PROJECT_STATUS/WORK_HISTORY는 다른 이력 혼입을 피하려고 이번에 수정하지 않고 실제 제품 반영 영수증은 이 Task에 기록한다. merge/push는 메인만 담당한다.
+
+다음 최적화 후보는 전문 담당 조사 중이며 아직 구현을 확정하지 않았다. 실제 제거 가능 작업·빈도·안전성·검증 부담을 확인하고 사용자 기존 우선순위에 따라 비교한다. 현재 UI/제품 통합은 아래 범위로 완료됐으며 새 빌드·실기·메모리 문서 확대·삭제/업로드를 추가하지 않는다.
+
+다음 조사 방향 확정: 렌더링에서 실제 화면에 필요 없는 중복 pass/연산이 있는지 먼저 점검한다. GPU 평균27.456/p9535.562ms·2,699표본 중227개>33.333ms는 큰 관측 비용의 근거이지 제거 가능량이 아니다. 조사 순서는 렌더 구조→전투 tick(900개 wall평균1.850/최대6.198ms)→작은 UI로 두되 구현 절감 순위로 단정하지 않는다. 쿨다운 문자열 cache를 작은 확실 작업으로 우선 추천했던 안은 실제 절감 최우선 근거가 부족해 철회했다.
+
+품질 낮춤·pass 비활성화·새 계측 도구를 먼저 추가하지 않는다. 실제 중복/불필요함이 입증된 항목만 구현 계획을 세우며 현재 새 구현은 아니다. 제품 선별은 GP/QA PASS·대표4컴파일 오류0/변경 경고0·수집삭제 Safe~EOF exact를 확인했고 후속 native UI 확인과 Git 반영 영수증을 아래에서 확정했다. LogRules는 추가 수정 없이 freeze한다.
+
+
+**제품 main·push 최종 완료(2026-11-15):** `.utmp/product-integration-20261115/git/IntegrationReceipt.json`을 직접 읽었다. 로컬 main a42ba8d9, 현재 최적화 브랜치 f4b2b942에 반영했고 메인은 push origin main 성공(14247c6f..a42ba8d9)과 remote refs/heads/main exact 일치를 확인했다. 포함한5파일은 로그 창 최소 UI·LogRules와 타일/이동/Bundle3제품 교정이다. 진단·측정 설정·Task·raw는 main에서 제외했고 unrelated staged·dirty/untracked 원문 hash는 보존했다.
+
+실제 Unity 최신 화면에서 PC 복사 항상 표시/foldout 없음·삭제 적색·다른 버튼 일반색을 확인했다. 이번 삭제 클릭·수집 실행은0이며 QA 차단0이다. LogRules는 main 포함 freeze 상태로 추가 변경하지 않는다. 다음 렌더 조사는 방향 선정만 완료했고 구현은 미착수다. push/제품 반영을 새 실기·전체 FPS 효과 검증으로 해석하지 않는다.
+
+
+## 35. 렌더 조사 마감과 다음 증거 조건
+
+Research38의 설정·참조 대조에서는 동일 화면을 보존하며 제거할 명백한 중복을 찾지 못해 현재 구현안은 없다. 실제 사용 중인 Bloom/Vignette·Lobby preview/캐러셀을 끄거나 품질을 낮추지 않는다. 관측 GPU시간은 제거 가능량이 아니며 절감0 확정도 아니다.
+
+후속 판단에는 대표 전투 화면의 기존 Frame Debugger draw/pass 검수가 필요하다. Research38.1의 실제 Editor 프레임 구조 검수는 완료했고 새 계측 도구·코드/설정·빌드·Git 변경은 없다. 실제 화면 비교 근거 없이 효과를 제거하지 않으며 추가 구현은 중복/불필요 연산이 확인된 뒤 계획한다.
+
+
+### 35.1 hatch-only combined mesh 구현·검증 진행
+
+사용자가 반복 호출 감소 수정·테스트·비용 보고를 명시 승인했다. 현행은 single combined mesh/Renderer 구현과 아래 native 제한 검증을 완료하고 최종 우회 제거·제품 compile까지 완료한 상태다. 초기 단순 probe와 StaticBatch.Combine 안은 종료된 단계다. 실제 draw 감소는 확인했고, 사용자 실기 표시·동작 수용은 PASS이며 Android GPU시간/FPS 개선량과 정량 수명 검증은 남아 있다.
+
+초기 Editor 직접 전투 검수의 Mobile2 visible20과18:9 preview28은 해상도/aspect가 달라 전후 효과가 아니다. 이후 같은 맵의1차 static batch는 H87/visible67에서 event67→1/total105→39로 바뀌었지만 상세 DrawCalls67로 실제 감소0이었다. native268/3cycle 검증은 그1차 안의 이력으로만 보존하고 새 안 검증에 재사용하지 않는다. 상세 원문·해상도는 Research38.1을 따른다.
+
+현행 구현은 Mesh.CombineMeshes(mergeSubMeshes=true/useMatrices=true)로 grid-local NoBuildHatchCombined GO/Renderer1개를 소유한다. 각 hatch world 행렬·UV/color/indices, shader/material·layer/shadow/sorting을 유지하고 성공 후 원 renderer.enabled만false로 한다. 예외면 원 renderer를 복구한다. 원래 생성 경로를 남기고 Clear/OnDestroy에서 소유 combined mesh/GO만 정리한다. 타일 collider/selection/TileKind·맵과 조준/타워/힐 shader 기능은 바꾸지 않는다. 전체H와 visible 수를 구분하며 표본20/67을 hardcode하지 않는다.
+
+| 수용 항목 | 검증 근거 | 미확정·실패 시 |
+|---|---|---|
+| 실제 draw 감소 | 같은 맵/control의 임시 native 영수증·Frame Debugger 상세 DrawCalls | event 수만 감소하면 수용하지 않음 |
+| 기존 표시·선택·정렬 | world geometry/UV/color/indices·overlay/camera·선택/collider 비교 | 단일 bounds/투명 sort 거리 tradeoff를 실제 검증 |
+| 비용·수명 | 전체H geometry·메모리 증감·생성/정리 CPU(가능 시)·Clear/OnDestroy | 실패 시 원래 renderer 복구, AndroidGPU27ms/FPS 효과로 환산 금지 |
+
+single bounds/culling·투명 sort 거리1개와 전체H geometry 제출은 명시적 tradeoff다. 작은 임시 driver/private payload로 새 안의 SDK/native 결과를 확보하고 Play OFF로 원복한다. 아래 검증 결과를 확인했으며 픽셀·수명 전체·Android GPUms/FPS 수용이 아니다. asset·품질·새 빌드·사용자 재시험·원격 push·새 Task/Testcase는 없다.
+
+
+최종 native 관측은 Research38.1의 새 영수증을 따른다. 같은 맵 visible53draw→1(52/98.113208%감소), H69의 geometry636→828(+30.19%)와 source2,784+combined43,788=46,572B tradeoff를 확인했다. event89→37을 draw 절감과 혼동하지 않는다. fixture3508/live3734·정지 CameraRT1080×2340 PNGdiff0은 제한된 Editor 근거이며 FD target864×1872와 별도다.
+
+안내한 타일 선택/카메라, 빗금 위 조준 원·타워 범위·힐 효과 겹침, 종료→로비→재진입은 사용자의 전체 이상 없음 보고로 표시·동작 수용 PASS다(Research38.1). 항목별 로그·개별 관측값과 기기/빌드/역할·각 VFX 발동의 구체 증거는 없다. 다른 역할/카메라 전범위, Play 지연 mesh 참조·누수 정량 검증, Android GPU시간/FPS 개선량은 미확인이다. 임시 우회/driver 제거·LogArchiveZip exact 원복·최종 compile은 완료했고 cleanup 영수증까지 확인했다.
+
+최종 제품 마감 근거: FinalCoreProof.json에서 native 검증 B8EC0331…A29FA6 대 최종69106FA6…021AE는 Editor 우회2block 제거 외 core byte exact임을 확인했다. FinalProductCompileResults의 Editor/AndroidRelease 오류0·변경 파일 경고0(기존24/31)이다. 메인은 LogArchiveZip 원본 SHA 일치/diff0과 임시 driver.cs/meta 부재를 확인했다. 따라서 제품 구현·Editor 국소 draw 효과 확인은 완료이며 앞의 geometry/메모리 tradeoff와 정량 수명·기기 성능 한계는 유지하며, 안내한 표시·동작은 사용자 전체 판정으로 수용했다.
+
+정리 최종 확인: FinalVerificationReceipt/TemporarySourceCleanupReceipt/IntermediateCleanupReceipt를 직접 읽었다. 신규 임시 driver.cs/meta2개1,364바이트와 중간 DLL/PDB8개4,346,928바이트만 경로/hash 확인 후 삭제했다. LogArchiveZip87,640바이트/SHA A45653…2D34CF 원본 exact 복구를 확인했다. 최종 SDK/payload/source/baseline/rsp/log와 모든 native JSON/CSV/PNG는 보존했다. 기존 효과·tradeoff·미검증 경계는 유지하며 다른 문서·Git 작업은 없다.
+
+최종 Unity 반영: 메인은 Runtime DLL16:50:27/Editor DLL16:50:37 재컴파일 이후 Login·Play OFF와 정상 편집 응답, 임시 Validation 하위 메뉴 부재를 직접 확인했다. Frame Debugger는 닫고 Mobile2 원래 preset을 유지했다. Console의 기존 MCP npm 실패2건은 제품 컴파일 오류와 구분하며 오류0으로 보고하지 않는다. 새 Android 실행·성능 검증은 아니다.
+
+제품 반영·다음 제안(2026-11-15): LocalMergeReceipt/ProductCommitReceipt를 직접 확인했다. 메인은 HexGridRenderer.cs1파일(+106줄)만 main c1db2c41(부모a42ba8d9)에 반영하고 최적화 브랜치를328c400c로 통합했다. 제품 SHA69106FA6…021AE는 검증본과 같고 unrelated staging binary patch도 전후 동일하다. 측정 도구/define/settings/raw/Task는 main에서 제외했다. 메인이 push 성공 출력(main a42→c1db)과 ls-remote의 refs/heads/main c1db2c4115b62fe16abf5d1d590d189a26095b00 일치를 확인했다. PushVerificationReceipt를 직접 대조했으며 local main/origin main 동일·최적화 HEAD328c400c, 해당 제품 파일 main/HEAD 차이0과 기존 staging patch SHA775AB389…E5C0A7 동일을 확인했다. 작업폴더 checkout/reset/stash 없이 alternate index를 사용했고 기존 dirty는 보존했다. 이것은 새 실기·성능 검증이 아니다.
+
+다음 제안은 NCC의 TryFindTarget→null 뒤 HasEnemyInRange 재호출에서 동일한 false 전수 검색을 재사용할 수 있는지 검토하는 것이다. 공격 가능·cooldown0·첫 실제 전체 검색에서 적 없음 조건과 null 사유/검색 실행 여부를 구분해야 한다. 권위·cooldown·거리·NaN/fallback·결과 동등성을 보존한 국소2회→1회 제거 가능성을 먼저 확인한다. 이전 early-exit 완료 기능의 재작업이 아니며 빈도/ms/FPS 절감은 미측정이다. 최대 절감 후보 확정이나 구현 승인이 아니라 제안만이며 새 코드·테스트는 없다. Bloom16events는 불필요 pass 근거가 없어 보류하고 최대5slot UI 정수 문자열은 작은 규모로 후순위에 둔다.
+
+## 36. 중복 대상 검색 결과의 국소 재사용 계획
+
+적이 없다고 이미 확인한 경우에만 같은 검색을 반복하지 않게 한다. 먼저 검색 실행 여부를 명시해 공격을 못 하는 다른 이유와 구분하고, 기존 타겟·이동 판단이 동일한지 검증한 뒤 구현 여부를 결정한다. 조사·계획 보고 후 사용자가 교정·자동 비교·컴파일·빌드 시도를 승인해 제품2파일 구현·검증을 진행 중이다. 아직 검증 결과나 빌드 성공을 확정하지 않았다. 기존 로직은 검증 전에 삭제하지 않고 주석 비활성화로 보존하는 기본 절차를 따른다.
+
+### 36.1 제품2파일 수정안과 불변 계약
+
+- UnitCombatUseCase.cs: 기존 public TryFindTarget(UnitData)는 호환 wrapper로 유지한다. out bool rangeQueryPerformed overload를 추가해 false로 시작하고 기존 null/사망·권한·cooldown guard 순서를 유지한다. 기존 FindFirstEnemyTarget이 정상 반환한 뒤만 true로 설정하고 원래 nullable tuple 결과를 반환한다. 검색 예외는 기존대로 전파한다.
+- NetworkCombatController.cs: CanAttack을 현재 위치에서 정확히 한 번 평가하고 true일 때 overload를 호출한다. hasEnemy는 attackResult.HasValue 또는 검색 미실행일 때만 기존 HasEnemyInRange 결과를 사용한다. 실제 검색에서 적 없음이 확인된 경우만 두 번째 호출을 생략한다.
+
+거리 계산/순회/동률/NaN·Hex fallback, cooldown·stun, 권위·HP·RPC·공격 및 이동 writer는 바꾸지 않는다. 새 fields/cache/목록/전역 상태도 추가하지 않는다. 근거는 Units의 전투 사거리 판정·전투 진입/공격 커밋 계약과 CombatSynchronization NET-AUTH-001·NET-ROOT-001·NET-ACTION-SEQ/IDEMPOTENT다. 상세 조사 근거는 Research39.1을 따른다.
+
+### 36.2 검증 계획과 중단 기준
+
+| 확인 항목 | 준비할 검증·진단 근거 | 수용/중단 기준 |
+|---|---|---|
+| 정상 검색에서 적 없음 | before/new 동일 입력의 결과·검색/provider 검사 횟수 | 결과 동일·해당 검색2→1, 불일치 시 중단 |
+| guard로 검색 생략·타겟 발견 | null/사망·Client·cooldown·CanAttack false/true 조합의 결과와 호출 순서 | 원래 존재조회가 필요한 경로 유지, CanAttack 재평가 금지 |
+| 거리·fallback·예외 | 경계/zero/NaN·Hex fallback 및 예외 전파 비교 | 기존 결과·예외 계약 변경 시 중단 |
+| 실제 기능 수용 | 기존 전투 진단의 타겟·공격·이동 결과와 소스/빌드 귀속 | 기존 ROOT/UAS/MOVE/session 로그는 보조이며, K·StopCombat 완전 동등성·실기 수용은 아직 미지원/미실행 |
+
+새 피해/RPC/writer 재실행으로 검증하지 않는다. 순수 동일 입력 비교와 SDK 컴파일의 범위, 실제 native/실기 범위를 분리한다. provider 부작용·중간 상태 변경으로 재사용 동등성을 보장할 수 없거나 호환 caller가 깨지면 안을 보류한다. 새 대규모 계측·캐시를 먼저 만들지 않는다. 기대 절감은 조건부 작업량이며 실제 빈도/ms/FPS는 별도 근거가 없으면 미측정으로 보고한다.
+
+검증·진단 매핑 확정: 기존 actual-source 하네스를 재사용해 nullable target/hasEnemy/호출수, World/Hex·provider null/zero·NaN/Infinity/floatMax·역할·cooldown·throw 경계를 bounded 비교한다. cooldown은 기존 >0 guard 결과를 사용하며 <=0으로 재추정하지 않는다. Units 규칙6·U-TARGET-COMMIT 및 NET-AUTH-001·NET-ROOT-001에 따라 target/damage/RPC/StopCombat/pending projectile·상태 진단 순서를 보존한다. 기존 TargetQueries marker는 여러 검색의 묶음 시간이고 중복 K counter가 아니다. ROOT/UAS/MOVE 보조 로그는 기능 맥락 확인용이며 K·FPS 또는 전체 동등성 보증으로 대체하지 않는다. 신규 상시 계측은 제안하지 않는다. 전문 조사·설계는 완료했고 사용자 승인에 따라 구현·검증을 진행 중이다.
+
+최종 검증 수단은 기존 private attack-range-existence의 BuildHarness.py/SmallHarness 실제 메서드 추출 패턴이다. before/new TryFindTarget·nearest·HasEnemy와 NCC 소비자 결정식을 같은 입력으로 비교한다. CanAttack 호출 위치/1회·provider/mapper 호출수까지 출력하고, target 발견1→1·검색 생략 시 존재조회 유지·동률/건물/친군/사망/null·역할·throw를 포함한다. At/Detect/nearest 원문을 보존하며 HP/RPC/A* writer를 바꾸지 않는다. SDK Editor/AndroidRelease는 fresh reference/current source로 검증 중이며 최종 결과 수신 전이다.
+
+| 테스트 항목 | 직접 증거 | runtime 보조·미지원 경계 |
+|---|---|---|
+| nullable target/hasEnemy/flag·guard·예외 동등 | 실제 메서드 before/new 하네스 출력 | 기존 로그만으로 전체 동등 판정 불가 |
+| World/Hex 검색2→1 및 target 발견1→1 | provider/mapper/CanAttack 호출수 출력 | TargetQueries 묶음 marker로 K 측정 불가 |
+| 권위/상태/HP/RPC/이동 writer 불변 | 소스 대조·fresh SDK 컴파일 | ROOT/UAS/MOVE/session END는 관측 보조, StopCombat 완전 동등 증명 아님 |
+| 실제 기기 빈도·ms/FPS·멀티 기능 | 이번 미지원/미실행 | 구현 뒤 별도 수용 단계, 채팅 타이밍/동일 대규모 전투 재현 요구 없음 |
+
+NCC1파일에서 cooldown/권한을 재추정하는 대안은 guard 중복·NaN drift 위험으로 제외했다. 새 result struct/enum은 범위가 크고 cross-tick cache는 시점/수명 위험이 있어 사용하지 않는다. 제품 범위는2파일이며 현재 구현·검증 진행 중이다.
+
+### 36.3 승인 후 진행 상태와 사용자 확인 초안
+
+메인이 Login·Play OFF를 확인했고 전문 담당의 제품2파일과 private actual-source 하네스/SDK 검증 결과를 확인했다. 기존 로직은 검증 전 주석 보존 원칙을 유지한다. 검증 수치는 아래 범위로 확보했으며 다른 dirty·staging은 보존하고 Git 작업·새 Task/Testcase·메모리는 추가하지 않는다. 메인은 최종 검증 뒤 File→Build And Run을 시도했고 진행창 관찰 후 완료 감시를 중단했다.
+
+사용자 확인은 Android Host+Editor Client 커스텀방에서 생산→사거리 접근·교전→적이 사라진 뒤 전투 해제·이동 재개가 최소 범위다. 같은 대규모 전투·정확90초·채팅 시점을 요구하지 않는다. cooldown/stun/수치 경계는 자동 동일 입력 비교에서 먼저 확인한다. 새 진단은 추가하지 않았다. 기존 로그만으로 K/StopCombat 전체 동등성을 입증했다고 쓰지 않는다. 기기 로그는 기존 Collect Device Logs and Create ZIP을 사용하며 같은 테스트의 Editor 로그 보관 메뉴/범위는 실제 소스 확인 뒤 확정한다.
+
+최종 소스·SDK 결과: private ncc-target-query-reuse의 FinalVerificationReceipt/SourcePreservationProof를 직접 대조했다. 실제 추출 before/new 메서드와 NCC 소비자36case/232assert PASS, 빈 World provider/후보 열거6→3·Hex 열거6→3으로 해당 fixture의 검색2→1을 확인했다. found/gated/initial throw는 동일하다. 기존 CanAttack 본문·1회 평가와 거리/nearest/At/Detect·나머지 소스 보존을 확인했다. 실제 Unity 수학을 사용했으나 CanAttack/NetworkContext는 제어 seam인 CLR 검증이며 native gameplay·NGO/RPC 실기 실행이 아니다. Editor/AndroidRelease SDK 오류0(기존 경고24/31), 변경 메서드 새 경고0이며 Release 변경 파일 내 기존 CS0168경고2개는 이번 블록 밖이다. 현재 source358개 누락0이다.
+
+새 상시 진단/로그는0이며 실기 K·ms·FPS·GCbytes는 미측정이다. 기존 로그에는 생략 횟수 counter가 없고 기능 관측 보조에 한정한다. 메인은 Android Development ON·Samsung SM-N971N 선택을 확인했다. Unity Refresh·QA 검토와 빌드 시도는 아래 범위로 완료했으며 성공·설치·실기 PASS는 아직 기록하지 않는다.
+
+사용자 절차: Android Host+Editor Client 커스텀방에서 생산→접근/교전의 공격·HP를 확인하고, 적 소멸 뒤 전투 해제·이동 재개를 확인한다. 가능하면 사거리 내 적과 cooldown 상태에서도 성급히 전투가 해제되지 않는지 본다. 조건을 재현하지 못하면 해당 항목은 미검증으로 남긴다. 정상 종료→로비 복귀 후 Editor Play를 중지하고 Collect Device Logs and Create ZIP에서 최신 실행 세션을 선택해 작업명 target-query-reuse로 보관한다. 같은 테스트의 Editor 로그도 함께 보존하며 정확90초·대규모 재현·채팅 trigger는 없다.
+
+최종 native·빌드 시도 상태: 메인이 Unity Refresh·도메인 재로드 뒤 정상 편집 응답과 제품 C# 컴파일 오류0을 확인했다. Console의2error는 기존 MCP npm install/run build 오류로 제품 컴파일과 구분한다. QA는36case/232assert를 독립 재현했고 blocker0이다. 메인이 File→Build And Run을 클릭해 Detect Java Development Kit(JDK)/Checking JDK 진행창을 관찰한 뒤 사용자 요청에 따라 UI/로그를 통한 빌드 완료 감시를 중단했다. 시도 완료이며 빌드 성공·설치·실행은 미확인이다. 새 실기 검증·K/ms/FPS 측정이나 다른 파일/Git 변경으로 확대하지 않는다.
+
+### 36.4 정상 재시도 결과 분석과 ZIP 완료창 분리(2026-11-16)
+
+사용자는 정상 재시도·테스트 저장 뒤 분석과 ZIP 완료창 동작 수정을 요청했다. 로그 QA 분석과 완료창 구현·SDK 검증은 아래 범위로 완료했다. 실기 전체 기능 PASS나 실제 K/ms/FPS는 확정하지 않는다.
+
+완료창은 확인=닫기만, 웹페이지 열기=사용자가 명시 선택할 때 기존 URL과 저장 폴더를 함께 여는 동작으로 분리한다. 확인/닫기/Esc에는 자동 열기가 없고 결과 경로 표시는 유지한다. 수집/검증/ZIP 내용·삭제·업로드 정책은 바꾸지 않으며 자동 업로드를 추가하지 않는다. LogRules의 현행 자동 열기 설명을 코드 freeze에 맞춰 갱신했고 TechnicalDesignDocument에는 해당 설명이 없었다. 새 Task/Testcase·메모리·Git 변경이나 원시 로그 본문 복제는 없다. 구현·분석 결과는 아래 범위로 마감한다.
+
+최종 결과: 메인은 target-query-reuse_01 ZIP4,927,901바이트/4entry의 전체 ZIP SHA와4개 source bytes/SHA 일치를 검증했다. 정상 재시도의 Editor Client는03:55:47.522 시작 수신→03:58:37.432 결과→03:59:15.366 로비 복귀가 관측됐고 Host/Client 교전·client accepted3903/rejected0을 확인했다. 기존 Bundle1596/sample16 mismatch0·Movement30/sample16 mismatch0/Fault0은 이전 최적화 증거이며 이번 query 절감 증거가 아니다. 실기 K/ms/FPS·cooldown 개별 조건·적 소멸 뒤 이동 재개는 직접 검증하지 못했다.
+
+Observer dropped203/10과 FAIL은 그대로 기록한다. 소스의 라인/UTF8 예산에 따른 관측 로그 생략 counter이며 네트워크 패킷 손실이 아니다. dropped>0만으로도 FAIL 조건을 충족하지만 유일 원인·다른 오류 배제나 이번 query 교정 인과는 입증하지 않았다. 스폰 순서 경고286건은 별도 관측이며 객체 미출현 회귀로 확정하지 않는다. 이전03:40:41의404는 잘못된 코드 참가 실패다. 정정 뒤03:40:49 참가·03:40:52 맵 검증 성공 이후 Host Ready1/2 무한 로딩은 별도 사건으로,404를 그 원인으로 연결하지 않으며 정상 재시도가 근본 원인 해결을 뜻하지 않는다.
+
+ZIP 완료창은 FinalVerificationReceipt를 직접 확인했다. 확인/닫기/Esc는 닫기만, 웹페이지 열기(choice2)만 기존 URL OpenURL이었던 최초 분리를 검증했다. 이후2026-11-16 사용자 요청으로 choice2에만 저장 폴더 열기도 함께 연결하는 후속 수정을 완료했으며 확인/닫기/Esc는 열기0을 유지한다. ZIP/hash 수집 helper 본문은 exact이며 대표 Editor compile 오류0/경고0이다. 실제 변경 후 완료창 UI 선택은 미실행이므로 native UI 수용 PASS는 아니다. 원문 보존·자동 업로드/삭제 없음, 추가 코드·빌드·테스트·Git 작업은 없다.
+
+후속 요청(2026-11-16): 사용자는 웹페이지 버튼 선택 시 저장 폴더도 함께 열도록 요청했다. 전문 담당이 그 분기만 수정했고 최종 source freeze·EditorTools 컴파일 오류0/경고0을 확인했다. choice2만 RevealInFinder(names.ZipAbsolute)+기존 OpenURL을 실행하며0/1/Esc는 열기0이다. Source SHA CCDF344F…696184C, 설명도 일치한다. 실제 UI 선택 실행은0으로 native 동작 수용은 미확인이다. 남은 최적화는 기존 Research35.2 장부의 완료 근거를 유지한 채 현시점 분류·추천을 준비한다. 전문 조사/QA 최종 후보 수신 전 순위·새 구현을 확정하지 않는다. 로그 완료창 외 새 최적화·Git 작업은0이다.
+
+로그 작업 main 반영(2026-11-16): MergeReceipt를 직접 대조했다. 메인은 LogArchiveZip.cs+LogRules.md2파일만 local main a0ff3838(부모c1db2c41)에 반영하고 최적화 브랜치30437f43로 통합했다. 확인/닫기/Esc는 열기0, 웹 선택만 폴더+Release를 연다. 저장·수집·ZIP·선택 삭제·런타임 로거는 기존 main에 이미 포함된 기능이며 이번 추가는 완료창2파일이다. 기존 staged patch SHA775AB389…E5C0A7와 dirty tracked14개 hash를 보존했다. 최적화 코드·계측·raw/private Task는 이번 main 대상이 아니다. 사용자 push 요청이 없어 push0/원격 미반영이며 새 기기·성능 검증이 아니다.
+
+## 37. 남은 후보의 다음 조사 선택
+
+Research40의 현재 분류를 따른다. 완료 제품36~39를 재구현하지 않고 미측정 Android 성능은 검증 잔여로 관리한다. 비용 절감 규모 우선이면 공격 결과 임시 collector의 반복 생성과 재사용 수명 안전성을 먼저 조사한다. 작은 범위에서 동일 동작의 반복 제거 확실성을 우선하면 cooldown 정수 캐시를 검토한다. 둘 다 비용 감소 후보이며 절대 절감 순위나 구현 승인은 아직 확정하지 않는다.
+
+collector는 owned 결과 배열·RPC/validation/order·예외/재진입을 유지할 수 있는지 확인하고 UI는 최대5slot의 표시·초 경계·초기화 불변을 확인한 뒤 구체안을 제시한다. 실기 Bundle1596을 collector 할당 횟수로 사용하지 않는다. 다른 탐색/경로/AI/풀/VFX/렌더/GC/네트워크/UI/물리/로딩/발열 범주는 실제 비용·빈도·제거 가능 부담을 확인하기 전 억지 순위를 붙이지 않는다. 이번 새 최적화 구현·설정·빌드·테스트는0이다.
+
+### 37.1 collector 재사용 구체안과 착수 조건
+
+Research40.1의 조사에 따라 호출별 owned 결과를 유지하면서 instance-local idle1개만 재사용하는 안을 검토한다. 기존 invalid scope/reject/nested guard 순서·core1회·동기 callback 재진입·예외를 보존한다. 3guard 뒤 lazy acquire/BeginReset→active 지정→inner try core/finally active=null→owned ToArray/Status/Observation 반환→outer finally clear/reset·idle 반환이 최종안이다. active reset/반환은 금지하고 reset 대상 attacker/key/ordinal/status/count를 빠짐없이 확인한다. 기존 코드 검증 전에는 주석 비활성화로 보존하는 원칙을 따른다. 최종 조사·설계는 수신했으며 제품 UnitCombatUseCase.cs1파일 구현을 제안한다. 사용자 승인 구현·자동 비교와 Unity 반영 결과를 아래 범위로 확인했으며 최종 SDK/보존 영수증·QA까지 완료했다. 빌드 시도 완료와 성공/설치/실행 미확인을 구분한다. 기존 query dirty 변경은 보존한다.
+
+| 검증 예정 | 비교할 직접 근거 | 중단 기준 |
+|---|---|---|
+|0/1/AoE 결과·순서·ordinal·duplicate·invalid fact·256/257 | before/new 실제 메서드 동일 입력의 verdict/전체 facts/Status | 필터·완결 상태·순서 불일치 |
+| invalid scope/reject/nested | guard 순서·core 호출수·외부 collector 결과 | 피해 재실행/외부 수집 변화 |
+| core throw 후 다음 호출 | 예외 전파·active 해제·reset 상태 | 기존 예외 소실/상태 잔존 |
+| 이전 owned array·2UseCase 독립 | 이전 반환값 불변·instance 분리 | 다음 호출이 과거 결과 변경/교차 오염 |
+| 재사용 비용 | 생성 회피 구조·잔존 capacity·최종 array/copy 구분 | 상주 tradeoff나 빈도 근거 없이 bytes/ms/FPS 효과 단정 |
+
+자동 비교1차 결과는 아래 범위로 확인했으며 최종 SDK/보존 영수증·QA 독립 검수까지 확인했다. 기존 NET-AUTH-001·NET-ACTION-IDEMPOTENT·NET-PRESENT-003의 피해 권위/결과 완결·독립 소유 계약을 유지한다. 새로운 공용 풀·전역 cache·로그·측정 mode·RPC/피해 writer 변경은 제안하지 않는다. SDK 검증·Unity 반영과 빌드 시도는 완료했고 실기 수용·빌드 성공/설치/실행은 미확인이다.
+
+collector 소유권 최종 보완: Setup348에서 맵마다 새 UseCase를 생성하므로 cache는 경기 간 공유하지 않는다(이전 instance 실제 수명은 잔여 참조에 따름). nested push/pop·stack pool을 추가하지 않고 nested core의 피해가 outer collector에 들어갈 수 있는 기존 정책을 그대로 유지한다. Record/필터 본문과 writer는 바꾸지 않는다. 범용 pool이 아닌 UseCase instance-local idle1슬롯에서3guard 뒤 참조를 대여하며 즉시 idle=null로 비우고 최초 필요 시만 new→BeginReset한다. 로컬 collector는 owned 배열·Status snapshot·Observation 반환 완료까지 보유하고, 기존 inner finally의 active=null 시점을 유지한 뒤 outer finally ClearScope 후 idle이 빈 경우만 반납한다(최대1슬롯). readonly attacker/key2필드는 호출 scope 초기화를 허용하도록 바꿀 예정이며 Clear 비용0을 주장하지 않는다. 제품1파일 구현·자동 비교1차 결과와 Unity 반영은 아래 범위로 확인했고 SDK/QA 최종 마감까지 완료했다.
+
+승인 후 진행 상태: 메인이 Login·Android·Play OFF를 확인해 Assets 편집을 허용했다. idle1슬롯 대여/반환, owned 배열, nested·순서·throw 보존 범위만 구현하며 다른 dirty·새 문서·메모리·Git 작업은 없다. 메인은 최종 검증 후 File→Build And Run을 시도했고 진행창 관찰 뒤 완료 감시를 중단했다. 사용자 최소 확인은 Android Host+Editor Client에서 일반 직격과 가능할 때 AoE 공격의 피해·처치/파괴→결과·로비 복귀이며, 통합 ZIP을 새 작업명 collector-reuse로 보관한다. 미관측 조건은 미검증으로 남긴다.
+
+1차 검증 결과: private applied-fact-collector-reuse/HarnessResults.txt를 직접 확인했다. 실제 소스 collector/wrapper·Observed 거절 경로, 실제 값형과 core1회 stub의16case/1,170assert PASS다. eligible2회·facts<=8 표본에서 collector/List/backing은 각2→1,256facts2회 backing 생성12→6이며 최종 nonempty owned 배열2개는 유지했다. 이는 CLR fixture 작업량으로 실제 bytes/ms/FPS 절감이 아니다. 메인은 source E088… 유지와 Unity Refresh 뒤 Runtime DLL09:55:27 신규 생성·도메인 재로드·제품 컴파일 오류0을 확인했다. 기존24warnings와 MCP npm2error는 별도다. 이후 아래 최종 SDK·소스 보존·QA 및 빌드 시도까지 확인했다.
+
+최종 마감: FinalVerificationReceipt SHA28AA77A0…4342016을 직접 확인했다. 제품 source E088E32D…28106FD, source 보존 proof8개 true·현재358source 누락0이다. QA가16case/1,170assert를 독립 재현했고 Editor/Release SDK 오류0(기존 경고24/31)·변경 파일 경고0을 확인했다. 실제 HP/RPC 실행·Android 생성 횟수/bytes/ms/FPS 검증은 아니며 owned 결과 배열·copy·capacity 보관 tradeoff는 남는다.
+
+메인은 동일 제품의 Unity 새 DLL·도메인 reload·정상 편집 응답과 제품 컴파일 오류0을 확인했다. Android Development ON·Samsung SM-N971N 선택을 유지한 채 File→Build And Run을 클릭해 Detect JDK/Checking JDK 진행창을 관찰하고 사용자 요청에 따라 UI/로그 완료 감시를 중단했다. **빌드 시도 완료, 성공·설치·실행 미확인**이다. 새 앱에서 Android Host+Editor Client 일반/가능한 범위 공격의 피해·처치/파괴→결과·로비를 확인한 뒤 Editor Play를 중지하고 통합 ZIP 최신 세션을 작업명 collector-reuse로 보관하는 절차다. 새 문서·Git 작업이나 실기 PASS를 추가하지 않는다.
+
+최신 사용자 실기 분석(2026-11-16): 메인은21:43 collector-reuse_01 ZIP7,309,297바이트/34entry(Android16+receipt16+Logcat1+Editor1)의 전체 ZIP과34개 bytes/SHA 일치를 확인했다. 구 세션이 섞여 있어 이번 최신 앱 실행만 분리했다. QA 대조에서 동일 shared session의 Host21:37:04.626→END21:42:00.597→로비21:42:03.228, Client21:37:05.061 시작→로비21:42:02.022를 확인했다. C3 server 결과/완결 bundle215→양쪽 released215, ready220·필수 표현190/190이며 Client resultAccepted215/reject0·transportFailure0·targetMismatch0·correlationFailure0이다. 이것만으로 실제 writer/직격·AoE 전종 전체 기능 수용을 확정하지 않는다.
+
+기존 COMBAT-OPT Bundle215/sample16 mismatch0, Movement26(old6006→new156)/sample16 mismatch0·Fault0은 이전 두 최적화의 관측이다. collector 실기 직접 할당 횟수는 측정하지 않았으며215를 곱해 객체/bytes 절감량으로 쓰지 않는다. 실제 ms/FPS도 미검증이다. prebuild10:00:45의 E088 source 일치는 확인했으나 prebuild GUID0과 runtime GUID를 직접 join할 수 없어 완전한 installed source 귀속은 미확정이다.
+
+이번 shadow FAIL은 dropped0이며 이전 예산 생략 사례로 설명하지 않는다. 별도 legacy presentation-shadow invalid 상세 로그는 Host/Client 각각 상한16이며 정확히16개 실패라는 뜻이 아니다. invalid 관측은 소스2563~2575/3284의 전체 FAIL 충분 조건이다. C3 presentation END failures0과 구분하며 유일 원인·전체 기능 정상으로 확대하지 않는다. Host MOVE의 MissingTile/RouteInvalidated 복구 반복62 FAIL도 별도 미해결 관측으로 남긴다. 새 collector와 인과 증거는 없으나 무시하거나 완료 판정하지 않는다. 따라서 정상 경기 진행/결과 전달 관측과 미해결 진단·collector 정량 효과 미검증을 분리한다. 추가 코드·새 Task·Git·raw 삭제는 없다.
+
+최신 사용자 요청의 로그창·collector 결론(2026-11-16): 완료창은 별도 닫기 버튼을 제거한 확인/웹페이지 열기2버튼 구현을 freeze했다. 확인·Enter·Esc·창 X는 안내창만 닫고, 웹페이지 명시 선택만 폴더+페이지를 연다. 기존3버튼 검증은 이전 세대 이력이며2버튼 source SHA74F48666…445050E와 TwoButtonVerificationReceipt SHA E889ECF6…5E047D1을 직접 대조했다. 대표 Editor3tools 컴파일 exit0/오류0/경고0·로그0바이트이며 수집/ZIP/hash/검증/삭제 helper exact를 확인했다. 실제 native UI·브라우저/폴더 열기·빌드·Git 실행은0이다. ZIP 취소·삭제를 뜻하지 않는다.
+
+collector는 실제 소스16case/1,170assert와 eligible warm 호출의 collector/List/backing3개 신규 생성 회피·owned 결과 유지로 구조적 목표를 달성했다. 실기215bundle의 Client reject0/transportFailure0과 GameEnd·로비는 관측했지만 실제 절감 bytes/ms/FPS를 측정하지 않았다. 공격 관측 invalid 상세 상한16 및 한 유닛 이동 복구 반복62 FAIL은 별도 미해결이며 이번 교정과의 인과 미확정이다. 따라서 구조 목표/범위 내 동등성 근거와 전체 회귀 PASS를 구분한다.
+
+제품 선별 반영·push 완료(2026-11-16): 사용자는 최적화 결과 문서와 제품 main 병합·push를 승인했고 아래 영수증 범위로 완료했다. query+collector 및 로그 완료창/LogRules와 이번 제품 현황·이력 신규 행만 선별 반영했다. 기존 측정 행·설정·도구·raw/private Task는 main에 포함하지 않는다. PROJECT_STATUS/WORK_HISTORY의 main 공통 표에 이번 결과·한계만 추가했고 기존 본문은 보존했다. main 반영·push 완료와 별도 진단 FAIL 미해결을 구분한다. Git 실행은 메인만 담당한다.
+
+QA 진단 분류 정정(2026-11-16): invalid16은 Host/Client 각각 상세 로그 상한으로 정확16실패가 아니다. 최초3표본에서는 DoT SourceId의 유닛 lookup 실패로 attacker=-1/key0을 허용하는 지속 피해/즉시 표현과 일반 LegacyIsValid의 조건 충돌을 확인했다. 같은 tick Enqueued/Emitted가 이중 관측되며16전체의 유일 원인으로 확대하지 않는다. 다음은 진단 적격 범위 조사이며 피해 삭제로 해결하지 않는다.
+
+MOVE62는 Rabbit 한 유닛이(10,7)에서 존재하지 않는(11,6) 후보를 약2.05초 여러 frame 반복 거부한 뒤 사망한 관측이다. unsafe commit 차단·RepathRequired 자체는 안전 계약을 지켰지만 같은 후보 반복 원인은 post-combat/world-hex/경계/progress guard의 별도 조사 대상이다. FAIL을 낮춰 판정하지 않는다. collector 교정 원인이라는 주장과 기존부터 동일 문제였다는 주장 모두 확정하지 않는다. 제품 후보 문서의 상세 상한/한 유닛 반복 표현도 함께 바로잡았다.
+
+최종 main·원격 반영: optimization-main-merge의 MergeReceipt/CandidateVerificationReceipt/PushVerificationReceipt를 직접 대조했다. main eda2dca0와 origin ls-remote exact 일치·push exit0, 최적화 브랜치 a64b31d1 통합을 확인했다. 제품2파일의 신규 hunk+로그2파일+제품 문서 신규2행의6파일만 포함했다. 작업본 통복사가 아니라 HEAD→working patch를 main에 적용해 기존 committed 진단을 제외했고 측정 도구/설정/raw/private Task는 포함하지 않았다. main354source 누락0·Editor/Release/Tools 오류0(기존 경고24/31/0), staging patch SHA775AB389…E5C0A7와 tracked working16개 hash 보존이다. 최신2버튼 완료창도 포함됐으며 이번 신규 빌드는0이다. 상세 상한16·한 유닛 복구 반복62 FAIL과 제한된 원인 근거/실기 bytes·ms·FPS 미검증은 유지한다. 제품 문서 추가 수정이나 Git 실행은 하지 않았다.
+
+## 38. 이동·DoT 원인 조사와 교정 준비
+
+Android/Editor 양쪽의 교전 전 일반 이동에서도 중심 미도달/다음 타일 증상이 관측됐다는 사용자 설명에 따라 일반 A* centre checkpoint를 우선 조사한다. PostCombat 복구62회와 동일 원인으로 가정하지 않는다. 공격 쪽은 허용 DoT 표현과 일반 legacy 유효성 판정의 적용 범위를 감사한다. FAIL을 낮추거나 피해를 삭제하는 방식으로 완료하지 않으며 unsafe 이동 commit·실제 잘못된 공격 결과 보호는 유지한다.
+
+현행은 재현·설계 뒤 DoT8파일 구현·소스/SDK/독립 QA 조건부 검증과 이동1파일 C native 제한 검증을 완료한 상태다. Units/CombatSynchronization 계약을 유지하며 실제 NGO·멀티와 사용자 일반 중심 증상 수용은 별도 미완이다. 최종 임시 driver cleanup 영수증을 확인해 정리까지 완료했다. 재현 실패/근거 부족은 미확정으로 남기고 새 Task/Testcase·메모리·규칙·Git 변경은 없다. 이전 제품 main push 완료를 이번 증상 해결이나 회귀 PASS로 해석하지 않는다. compile/native 직전 요청이 오면 Assets 문서 쓰기를 freeze한다.
+
+조사 분리 이력(2026-11-17 초기): 일반 A* centre checkpoint와 DoT provenance를 독립 조사했다. 이후 DoT8파일과 같은-cell 경계 추격1파일 교정·검증을 진행해 아래 결과까지 완료했다. 로그 판정도 Host16은 archive record 내부 DoT stack 근거가 있지만 Client16은 해당 stack0으로 직접 caller 미확인이다. source/교차 peer 대응은 추론으로만 사용한다. 고정24줄 오귀속 인계는 정정했고 실수 기록에 남겼으며 사용자에게 Client14확정으로 보고하지 않았다. 사용자 일반 중심 증상 해결이나 전체 실기 PASS는 없다.
+
+DoT 재현·교정 진행(2026-11-17): 전문 담당 actual-source 재현은 owner 없음에서 HP100→90/TakeDamage1/Emit1은 정상인데 감사2회 invalid2, owner 있음은 같은 피해·Emit에 invalid0이었다. 명시 IsTimedDamage+unit/Immediate+세 키 default·유한 비음수 시각만 일반 Legacy 감사에서 분리하는 제안은 invalid0을 보였고 broken ordinary/정규 valid·손상 nondefault key/NaN 검출은 유지했다. 이는 교정 설계 재현이며 실제 NGO/멀티 PASS가 아니다.
+
+메인은8파일 구현을 승인했다. GameEvents optional bool(false 기본)→ApplyTimedDamage writer true→NetworkHealth RPC 전달→HitQueue ObserveLegacy 적격 분리와 Resolver schema9→10, 기존 schema9 검증3파일 기대값10 갱신(검사 유지) 범위다. HP/Emit 순서·피해·정규 공격 검사는 보존한다. DoT 실제 코드·최종 소스/SDK와 독립 QA 조건부 검증은 완료했으며 후속 멀티는 양쪽 새 코드가 필요하다. Network 기술 문서의 현행 출처/schema와 LogRules 감사 적용 범위만 정합 수정했으며 과거 schema9 이력은 바꾸지 않았다.
+
+일반 이동은 순수24path/1,353step에서 증상 미재현인 음성 결과다. 이 순수 음성 결과 이후 실제 MonoBehaviour의 A/B/C를 실행하고 경계 추격1파일을 교정했다(아래 별도 결과). 일반 이동 중심 이탈을 이 음성 결과로 부정하거나 DoT 교정과 같은 원인으로 확정하지 않는다.
+
+실제 native1차 이동 결과(2026-11-17): Play OFF/Login 복원 뒤 native-bcbd…json/CSV·NativeFirstIndependentAnalysis를 직접 확인했다. Single Legacy 직선/꺾임과 실제 Host Reducer 직선/꺾임4case,627행에서 gap0·다음 target4전환 직전 오차0·조기 전환0, loopback/cleanup true였다. 증상은 미재현이며 전체 정상·사용자 증상 해결로 해석하지 않는다. Visual 측정에 쓴 PresentationPosition getter가 ProjectNow를 호출하는 부작용이 있어 root trajectory 근거와 자연 Visual 갱신 검증을 구분한다.
+
+후속 실행 이력: private payload를 순수 Transform 읽기로 고쳐 실제 경기 Outer 맵 조건의 B/C 경계 probe를 완료했다. 이전 내부16×16 단순4case와 분리하고 captured exact root가 없으면 synthetic probe로 표시한다. 원래 실기 MOVE62와 exact root/yaw 인과는 미확정이지만 B synthetic 실제 추격 루프의 반복 정체와 C 교정 후 안전 접근을 확인했다. 이후 같은-cell 경계 추격 교정의 B/C 검증은 아래에 구분한다. 사용자 일반 이동 중심 증상은 미재현이며 추가 native 실행 전 문서 쓰기를 freeze한다.
+
+공격 최종 상태는8파일 freeze·독립 QA 소스/CLR 조건부 PASS, SDK 오류0(기존 경고24/31/0)와 음성 변이 검출 확인이다. SkillZones의 현행 PASS 요약은 schema10으로 정정했고 역사9주석은 유지했다. 해당 source hash6AA1741…24B8·EditorTools 재컴파일 오류/경고0, 나머지7파일 불변이다. 실제 NGO 전송·양쪽 새 앱 멀티 수용은 미실행이므로 schema10에 맞는 새 코드 양쪽 검증이 필요하다.
+
+경계 추격 B/C 독립 판독: B native-083989…는5case/795행이며 이전 A4case/627행과 다르다. 실제 loopback Host·spawned server·실제 Rabbit stats(range0.5/detect1)와 원래 EnterCombatPursuitV3 coroutine을 사용했고, frame마다 MoveNext해62연속 MissingTile·동일 root/yaw·이동0을 확인했다. 실제 Outer 맵의 같은 cell이지만 root0.499/140°는 synthetic 배치로 원래 Rabbit49 exact pose 재현이 아니다.
+
+제품 교정은 UnitView.Movement.cs15줄 추가로 ReducerAuthoritative의 walkable 같은-cell 추격에만 [liveRootTile,liveRootTile]/index1 corridor를 제공한다. 기존 resolver의 거리 축소·제한 회전과 안전 commit 검사를 재사용한다. 공격 range/권위/Legacy·Single 직접 이동/다른-cell 경로는 바꾸지 않는다. 추격당2Hex 배열 lazy1개 비용이 있으며 일반 중심 증상을 고쳤다는 근거는 아니다. Editor/AndroidRelease SDK 오류0(기존 경고24/31)이다.
+
+C native-f9dd3c…json/CSV/chase를 직접 읽고 독립 집계했다.5case848행·gap0/조기 중심 전환0, synthetic chase54frame에서 MissingTile0/안정거부0·전진25frame·회전53frame·진입 요청1을 확인했다. B62정체와 C안전 접근을 구분하며 같은 frame/dt 통제 향상률로 쓰지 않는다. 거리0.6000003→0.3605458은 world XZ이며 raw AttackRange0.5를 직접 임계거리로 비교하지 않는다. 기존 CalculateRangeLimits783~810은 근접 AttackRange<1에 MeleeContactDist0.3+Epsilon0.05=0.35world를 사용한다. C의 root0.3605458은0.35world 밖이고 다음 안전 후보<=0.35만 실제 HasEnemyInRangeAt true여서 원래 진입 요청1이 발생했다. fixture에 NCC/RPC ACK가 없어 원래 원자 guard가 후보 Root commit을 보류했다. 실제 Root 범위 도달·공격 commit·피해 실행은 검증하지 않았다.
+
+C는 같은-cell 경계 추격의 제한된 안전 접근 근거다. 사용자 일반 중심 증상·정확한 발생 구간/유닛은 여전히 불확실하고, 실제 tile mesh pivot/model feet·Android/Client 보간·전체 기능/성능 수용은 미검증이다. 공격 DoT의 schema10·실제 NGO 미실행 한계도 유지한다.
+
+임시 driver 정리 마감: TemporaryDriverCleanupReceipt를 직접 확인했다. 이번 own driver843바이트/meta62바이트2파일만 hash 검증·private 사본 보존 뒤 삭제했고 메인이 두 Assets 경로 부재와 제품 hash4A114… 불변을 확인했다. 제품/증거 payload·native JSON/CSV와 기존 자료는 유지하며 추가 코드 작업은 없다.
+
+최신 사용자 테스트 조사(2026-11-17): 사용자는 “주로 속도가 빠른 토끼전사나 불정령2단계유닛과같은유닛”에서 중심 오버가 계속 보였고 멈춤·회전은 없으며 공격·피해는 육안상 문제없었다고 보고했다. 중심 현상의 구간/유닛 해석과 원인은 아직 확정하지 않는다. 이는 앞 synthetic 경계 추격 C의 제한 PASS와 구분하며 일반 중심 증상 해결로 기록하지 않는다. 최신2026-11-17_17_18_android-logs-test1_01.zip의 최종 분석은 아래 범위로 완료했고 로그 완료창 원복의 최종 native2버튼 표시·확인 닫기는 아래 범위로 검증 완료했다. 작업명 안내 누락으로 사용자가 임의 이름을 정한 사실을 수용하며 원본을 그 이름으로 식별한다. 이동 증상은 미해결이며 아래 관측을 새 전체 PASS·원인 교정 완료로 확대하지 않는다.
+
+최신 로그·빠른 이동 재분석(2026-11-17): LatestLogAndFastMovementAnalysis-20261117.json을 직접 읽었다. 사용자 원본 test1_01 ZIP은277,096바이트·hash/각 source 검증을 확인한 자료이며 결과창 시험용 새 ZIP과 혼합하지 않는다. 마지막 실제 경기 Host13,641frame·센터 checkpoint497의 기록 오차0·반복 경계 거부0이다. 앞6개 MOVE FAIL은 관측0의 별도 run으로 분리한다. checkpoint 기록은 연속 궤적/모델 발이 타일 중심에 닿는 모습 전체의 증거가 아니므로 사용자 빠른 이동 중심 오버가 해결됐다고 하지 않는다. 사용자 표현의2단계는 불정령 유닛을 수식하며 토끼/중심 단계에 붙이지 않는다. 실제 enum 타입 매핑은 미확정이다.
+
+같은 마지막 경기 C3 결과246·표현202/202·양쪽 result/presentation failures0을 확인했다. 명시 DoT 출처 로그0/legacy invalid 상세0은 관측이며 총 counter가 없어 source-lost DoT 전달/전종 수용을 입증하지 않는다. canonical clock invalid Host2/Client1·coverageUnknown true는 별도 한계로 유지한다. 사용자 공격·피해 육안 이상 없음 보고와 실제 NGO/DoT 완전 수용을 구분한다.
+
+기존 C native Host 꺾임의 outgoing 횡이탈0.09589184world는 이전 fixture 재분석으로 이번 사용자 경기 재현이 아니다. 이전 중심은 정확히 소비했어도 다음 구간의 raw checkpoint Desired와 planned trajectory tangent 판정이 다를 가능성이1순위 가설이다. 정상60° 연속 회전 규칙이 있어 raw15°를 즉시 정지 조건으로 적용하지 않는다. 기존 CSV 각도 의미를 ALIGN1/3/5 의도와 대조한 뒤 구체안을 제안하는 단계이며 후속 교정은 미승인·미구현이다. Client 보간·발/pivot 대 root 차이도 가설로 남기고 추가 logger/빌드·사용자 재테스트는 요청하지 않는다.
+
+로그 완료창 원복은 native 빈 cancel 방식에서3버튼이 보여 시각 검증을 통과하지 못했다. 최종 native bool2버튼 코드는 웹=ok/확인=cancel로 반영해 SDK 오류/경고0을 확인했다. Escape/X는 닫기이고 Enter는 기본 웹 버튼을 실행하는 한계가 있다. 메인은 Refresh 뒤17:39 fresh Unity 기본창에서 웹페이지 열기/확인 정확2버튼·별도 닫기/Cancel 없음과 확인 클릭의 창 닫기·외부창 열기0을 확인했다. 웹 버튼은 미클릭이며 소스 bool true 분기로만 확인했다. Escape/X는 native API 계약, Enter 기본 웹 동작은 한계로 유지한다. SDK 오류/경고0·source63F2B…4681 일치다. 원본 test1 분석 결과와 별도 UI 시험 산출물을 구분한다.
+
+원복 UI 확인 산출물 구분: 메인의 결과창 시험용17:33 android-logs-test1_02 및17:38 _03 ZIP은 추가 수집 산출물이며 사용자 실전 분석은17:18 _01 원본만 사용했다. 기기 원본 삭제0이고 이번 원복 확인을 새 사용자 테스트/이동 증상 해결로 해석하지 않는다. 새 테스트 요청·추가 이동 제품 수정은 없다.
+
+## 39. 코너 접근 감속의 사용자 합의와 설계 준비
+
+사용자는 방향을 바꿀 때 멈추지 않고, 비정상적으로 빠르게 회전하지 않으며, 코너에 접근할수록 차량처럼 서서히 감속하는 교정 방향과 기존 Task 문서 작성을 명시 승인했다. 목적은 타일 중심 통과 순서를 지키면서 정상 코너를 연속적으로 부드럽게 이동하게 하는 것이다. 기존 로그·native 분석과 일반 중심 증상 미해결 기록은 유지하고 새 방향 합의를 전체 버그 해결로 쓰지 않는다.
+
+정상 코너는 비영속도·중심 checkpoint 순서·기존270°/s 회전 상한을 유지한다. 차단/반전/공격 안전 stop은 정상 방향 전환과 별도이며 제거하지 않는다. 실제 이동 속도 배율을 보존하고 코너 이후 재가속을 고려한다. 사용자가 기존 Task 작성과 구현 진행을 승인했고 메인은 아래3파일 최소 설계를 승인했다. 전문 담당이 구현을 준비/진행하며 아직 제품 변경·측정 결과는 확정하지 않았다. 진단 필드·수용 대응의 최종 상세는 담당 결과 수신 뒤 정합 갱신한다. 새로운 Task/Testcase·메모리·규칙·Git 변경은 없다.
+
+### 39.1 승인된3파일 최소 설계
+
+제품 범위는 UnitMovementContracts.cs의 순수 속도 정책, UnitView.MovementAuthority.cs의 작은 코너 state·이동 예산 cap, 기존 UnitMovementAuthorityObserver의 종결 요약이다. 이동/회전 방향·270°/s·중심 checkpoint 순서·corridor·기존10/15° 판정 기준은 유지하고 속도 예산만 조절한다. ReducerAuthoritative만 적용하며 Single Legacy 직접 이동과 Client의 서버 복제 소비를 바꾸지 않는다.
+
+초기 후보식은 코너 회전각 θ/270으로 회전시간 T, 다음 선분 길이 L/실효속도 v로 통과시간 S를 계산해 cornerSpeed=v×S/(S+T)로 둔다. 코너 전 v×T 거리에서 연속적으로 감속하고 중심 통과 후 남은 회전각이 줄수록 원래 실효속도로 연속 회복한다. 새로운 임의0.x 상수를 정답으로 고정한 것이 아니라 검증 대기인 초기식이다. v에는 기존 연구/둔화/빙결 등 속도 배율을 반영하고 직선 기본속도·재가속을 보존한다. 코너 식은 비선형이므로 최종 코너 속도가 버프 전후 정확히 같은 배율이라고 보장하지 않으며 stats/연구계수 자체는 바꾸지 않는다.
+
+capture 판단에는 원래 이동 budget을 사용하고 실제 이동 travel cap만 감속한 값으로 제한한다. 감속 때문에 capture 범위가 축소되거나 travel cap을 넘겨 중심을 스냅하지 않아야 한다. 코너 state는 command/path 교체·취소·target acquire·빙결·사망·Initialize 때 stale 상태가 이어지지 않도록 수명을 정한다. 정상 코너는 비영속도를 목표로 하며 차단/반전/공격의 안전 정지는 별도 계약으로 유지한다.
+
+위험은 감속 전후 budget 혼동·짧은 선분/고속/dt 경계·상태 잔존·멀티 표현 속도와 실제 이동의 불일치다. 기존 Units 이동규칙2·U-MOV-ALIGN의 중심/회전/속도 계약에 사용자 승인 감속 설명만 최소 정합 반영하며 새 기획 규칙을 임의 추가하지 않는다. 진단 대응은 기존 종결 요약의 최종 필드가 정해지면 테스트 항목과 연결한다. 구현·소스 CLR/SDK 결과는 아래 범위로 확인했으며 native/실기와 사용자 일반 중심 증상 전체 해결은 미확정이다.
+
+### 39.2 소스 CLR·SDK 결과와 남은 한계
+
+private corner-speed의 CurveResults.Frozen.csv/BoundaryResults/ProductCompileResults/EditorToolsCompileResults/TerminalBudgetResults를 직접 확인했다. 이는 기존 ActualCorner source CLR fixture의 두 구간 비교이며 사용자 실전 재현이나 native가 아니다. 정상30/60fps의 speed1/2/2.64 표본에서 정지0을 유지하고 횡이탈이 약14~32% 감소했다. speed2·60fps는0.1714287→0.1280133world, 구간 통과시간1.066667→1.133333초(+6.25%)다.30fps는0.1594017→0.1174338world,1.066667→1.166667초(+9.375%)다. 횡이탈 감소와 통과시간 증가를 함께 보고하며 전체 이동 해결/FPS 개선으로 해석하지 않는다.
+
+큰 dt0.12/0.333초에서는 전후 모두 기존 direction gate에 따른 정지1~2frame이 남아 정상 코너 정지0 목표를 전범위 달성하지 못했다. 기존15° 판정은 이번 승인 범위에서 바꾸지 않고 OPEN으로 유지한다. 초기 cap 검사는 double1ULP 재적용 동일성 문제를 발견해 원문을 보존했고 최종 metadata 멱등 capErrors0이다. Boundary40검사 PASS·maxDoubleCapExcess0·float 변환 미소 초과 약1.776×10^-15이며 실제 float pose 동일성과 무한 정밀도 보장을 혼동하지 않는다.
+
+Editor/AndroidRelease SDK 오류0·기존 경고24/31·변경 파일 경고0·현재358source 누락0, EditorTools28source 오류/경고0이다. 종결 budget valid/reset true·32줄·최대968bytes로 확인했다. UnitViewAnimator·Client 계산·Single Legacy 경로와 로그 메뉴는 변경하지 않았고 새 영구 계측 도구도 없다. 위 CLR 검증 시점의 native/실기는 미실행 이력이다. 이후 사용자 실기 보고와 미해결 판정은 아래에 별도 기록한다. 로그 작업명은 android-performance-correction이다.
+
+| 확인 항목 | 기존 observer 확장 근거 | 한계/별도 근거 |
+|---|---|---|
+| 코너 구간·완결성 | cornerPolicy/Frames/Starts/Completed/Incomplete | 미완 구간을 완료로 취급하지 않음 |
+| 정상 정지와 안전 정지 분리 | cornerNormalStops/cornerSafetyStops | 큰 dt OPEN·차단/공격 정지 별도 |
+| 속도·기하·회전 | cornerMinMovingSpeed/MinRatio/MaxCross/MaxTurnExcess | minMovingSpeed는 정지0 증거를 대신하지 않음 |
+| 관측 시간 | cornerFrameTimeSum | 여러 유닛 누적 관측시간, 경기 통과시간 아님. 통제 비교 시간은 private fixture CSV |
+
+corner-end는 상태 변화 때만 bounded 기존 Dev observer 로그를 확장한다. 최종 필드 해석과 실제 수용은 지원/관측 범위에 한정하며 로그가 없는 조건은 미검증으로 남긴다.
+
+최종 freeze 마감: FinalVerificationReceipt/FinalSourceHashes를 직접 읽었다. 최종 효과 근거는 CurveResults.Frozen.csv(SHA ACB1918…7167)이며 이전 Final.csv와 값/바이트 동일을 확인했다.3파일 최종 source hash는 Contracts C80A…B7024·Authority23D8…385D6·Observer07C0…9C33이며 메인이3/3독립 대조했다. 분류는 제품3파일 구현·CLR/SDK 검증 완료, 큰 dt 정지 잔여로 전체 요구 미달, 해당 freeze 시점의 native·실기/빌드 시도0은 이력이며 이후 사용자 테스트는 아래 재점검 범위로 분리한다. 기존 수치·비선형 배율/통과시간 tradeoff와 OPEN을 유지하고 추가 교정·코드 수정 요청은 없다.
+
+### 39.3 감속 후 사용자 증상 지속·탐색 경로 재점검
+
+사용자는 이번 감속 후에도 현상이 그대로이며 다음 이동 방향이 잘못된 것은 아닌지, 탐색 최적화가 관련됐는지 의문을 제기했다. 현행 판정은 실기 증상 미해결이다. 앞 source CLR의 횡이탈 감소·통과시간 증가는 사용자 현상 해결 증거가 아니다. 감속 rollback 승인은 없으므로 자동 원복하지 않고 추가 제품 수정 없이 조사한다.
+
+메인이 최신20:44 android-performance-correction_01 ZIP442,295바이트/SHA1cc5b92d…e23e36·4entry를 검증했다. 최신 Host run의 corner-end107은 Rabbit93/Flame14,complete103/false4다. Host 최신 END/terminal이 없으나 raw tail20:43:08.015라는 사실만으로 단순 잘림을 단정하지 않고 원인을 미확정으로 둔다. terminal minRatio/maxCross 등은 확인 불가다. 따라서 부분 corner-end만으로 전체 감속 수용·효과를 확정하지 않는다.
+
+두 담당의 독립 소스 재점검에서 a42ba8d9는 복귀 후보의 전체 grid 열거→인접6조회만 바꿨고 정렬·도달 검증·일반 FlowField·path index·현재/다음 tile 전달은 바꾸지 않았다. eda2dca0은 전투 범위 중복 조회를 제거한 변경이다. 탐색이 원인이라는 증거는 없지만 해당 소스가 그대로라는 이유만으로 원인을 배제하지도 않는다. 실제 path[i±1]/pending/rally 자료가 없어 방향 오류를 입증하기 부족하다.
+
+기존 native case3 궤적 재시각화를 완료했다. HostReducer225samples(frame15198~15422)에서 B중심(4,-1.5)→C(4.5,-2.25),15313 Root가 B에 정확 도달한 뒤15314 targetC/첫 Root delta(+0.008872509,-0.000118136)이며 첫 진행과 B→C 방향각은55.547°다. A중심은 없어 첫 Root를 A*(3.007872105,-1.504115701)로 표기했으며 임의 중심을 만들지 않았다. private existing-native-case3-root-direction.svg/png의 최종 PNG1260×890/SHA d8e6f0b3…b4cf2를 메인이 시각 확인했다. 이는 감속 전 통제 fixture 재시각화로 이번 실기 재현·새 게임 테스트가 아니다. 그림 형태와 실제 증상이 같은지 사용자 응답은 대기하며 원인 확정·픽스 승인/PASS는 아니다. 실제 경로와 전달값 증거 확보 전 방향 교정·전체 원인·PASS는 확정하지 않는다. 새 제품/도구·Task/Testcase·메모리·Git 변경은 없다.
+
+### 39.4 방향 분류를 위한 제한 진단 계획
+
+사용자는 비어 있고 이동 가능한 타일 방향에서도 현상이 발생하며 그림/설명 구분이 어려우니 정확히 분류할 로그를 요청했고, 기존 Task 이어 기록도 승인했다. 이번 단계는 원인 분류 증거 추가이며 버그 교정이 아니다. 실제 Move 입력과 Root/표현 관측을 묶어 ActualPathVsMotion을 대조하고, 사용자에게 그림 판단이나 정확한 채팅 시점을 다시 요구하지 않는다.
+
+최종 제품 범위는 기존 UnitView.MovementAuthority.cs와 UnitMovementAuthorityObserver.cs2파일이다. path0/prev/current/next/goal·index/count, command/segment/reason/map revision·live tile/pending goal/rally와 Root before/after·desired/actual 방향·몸 방향·순수 VisualRoot·role/flip을 연결한다. 순수 관측만 추가하며 이동/탐색/감속/네트워크·규칙 기능은 바꾸지 않는다. Editor/Development만 호출과 인자 평가를 남기고 Release는 제거한다. 기존 GameLog 개발 Info와 observer 예산을 재사용한다.
+
+| 사용자 현상 구분 | 예정 증거 | 단독 판정 금지·한계 |
+|---|---|---|
+| 잘못된 다음 tile 입력인지 | path index/count와 prev/current/next/goal·scope/revision | live tile≠prev path tile만으로 오류 아님: 공간 경계가 checkpoint보다 먼저 commit될 수 있음 |
+| 올바른 입력인데 회전 궤적이 다른지 | Root before/after·desired/actual 방향·몸 방향 | angle 차이만으로 현재 규칙 FAIL 아님, EVIDENCE로 기록 |
+| root와 관측 VisualRoot 위치 차이인지 | 순수 VisualRoot position·role/flip | pre-LateUpdate 표본이며 실제 화면 LateUpdate·모델 발/mesh·모델 자식 yaw 증거 아님 |
+| 뒤늦은 고속 유닛/불완전 경기 | 타입별 표본·전이 후 짧은 buffer·skip/drop·개별 record | END 없어도 확보 record는 읽되 전체 coverage로 확대하지 않음 |
+
+route/step/window/coverage/budget의 schema movement-direction-v1로 기존 Dev observer를 확장했다. 타입별 실제 코너 유닛 순번1/4/16/64의4사건+route/scope/phase 합산2사건+index1 초기 heading1사건=7×25타입×3줄의 최대525줄이며 기존 normal736을 공유하고 terminal32는 유지한다. 설정은1회다. followCalls2는 서로 다른2frame 보장이 아니므로 각 f값으로 해석한다. scopeBefore/After와 고정 runId/tokenSample로 route 교체 혼합을 차단하고 commit 관측값은 실제 commit 직후다. END가 없어도 확보 route+step 묶음은 판독하되 skip/drop·미관측 범위를 명시한다. 현재 진단 구현·CLR/SDK 검증 완료이며 사용자 원인/픽스/실기 PASS는 아니다. 이후 사용자가 새 빌드로 평소 플레이한11/18 실기 로그를 확보했고 아래에서 분석했다. 에이전트의 추가 빌드 시도는0이며 사용자 실행과 구분한다. 새 Task/Testcase·메모리·Git 변경은 없다.
+
+최종 진단 검증: SDK Editor/Release358source 오류0(기존 경고24/31), 변경 파일 경고0·membership 누락0이다. fixture91검사(진단89+return/throw guard2) PASS, terminal32·최대968bytes·reset true, Release 전처리 후 공백 정규화한2파일 동등을 확인했다. 추가 원인 교정·속도 조정·로그 메뉴 변경은0이며 이 문단의 구현 freeze 시점에는 native/빌드/기기 수집 미실행이었으며, 이후 사용자 새 빌드·실기 수집은 아래 최신 분석으로 대체한다. 최종 Tools/hash 영수증까지 아래 범위로 마감했다.
+
+당시 안내한 절차는 새 Development Build의 Android Host+Editor Client에서 토끼전사·불정령2단계 유닛의 평소 이동/교전 후 로비로 복귀하고 앱을 켜둔 채 통합 ZIP 최신 실행을 저장하는 것이다. 특정 채팅 시점·그림 판단을 요구하지 않으며1회로 모든 원인을 확정한다고 약속하지 않는다. 로그올리기:android-performance-correction.
+
+최종 구현 마감: movement-direction-trace의 FinalVerificationReceipt(SHA AD742B3F…1F62CC7)를 직접 확인했다. Authority4D8FC…77D092/Observer7E28…F9B82D의2파일 freeze·메인2/2 hash 대조, 실제 추출 fixture91검사·최대 sample638bytes, terminal32/max968/reset true, Editor/Release358source 누락0·오류0(기존 경고24/31, 변경0)과 Tools 오류/경고0이다. Release 동등은 전처리 후 공백 정규화 소스2/2이며 IL/binary 불변을 검증한 것은 아니다.
+
+rev는 유닛 navigation 관측 revision으로 FlowField cache 동일성의 증거가 아니며 reason은 fallback 입력이다. header/corner-end에 schema/frame 맥락을 보강했다. 진단 구현과 사용자 새 빌드 실행·기기 로그 수집은 완료했으며 실제 분석 범위는 아래와 같다. 에이전트 추가 빌드 시도는0이다. 원인 확정·증상 교정은 미완이며 Client 서버 path는 unknown·순수 VisualRoot 위치는 pre-LateUpdate 관측으로 한정한다. 새 파일·메모리·Git 작업은 없다.
+
+### 39.5 11/18 방향 진단 실기와 구현 이력 대조
+
+사용자 승인으로 기존 최신 분석을 기록한다.09:27 android-performance-correction1_01 ZIP132,910바이트/SHA cf89bd40…d9fe26과4entry를 직접 열어 확인했다. 앱 원문1,036,779바이트/SHA d6626458…b3d0cf는 회수 remote 전후와 local이 일치했다. 앱 footer는 미완성이지만 해당 Host/Client 경기 END가 존재하므로 앱 종료 완전성과 경기 분석 가능성을 구분한다. 원시 본문/전체 identity는 문서에 복제하지 않는다.
+
+movement-direction-v1 route/step/window는 각16개다. trigger는 initial3/route-scope-phase6/geometric-corner7, window 완전11/partial5다. 실제 pose39호출 중 각도 계산 가능38·정지1unknown이며 stageAccepted39/throwfalse39다.16표본 모두 prev→current와 존재하는 current→next가 인접하고 desired는 current tile센터와 일치했다(최대 float 잔차 약6×10^-7world). 이는 해당 입력 표본 정합이며 전체 BFS/최단성·goal 의도 정상 판정이 아니다.
+
+sample4 Rabbit은 prev(6,10)→current(5,10), target(3.75,-10.825)에 대해 Root(4.5,-11.258)가 이전 중심인 상태에서 실제 방향 오차51.0168195→44.1441458→37.141605°였다. geometric7의 첫 각차는21.0120641~51.6305453°다. sample1 Rabbit 출발은 몸120°·목표+Z에서9.029° 회전 후 몸 방향으로 전진해 실제 진행 대 목표각110.970998°와 거리0.8660002→0.888377→0.908818world의 초기 멀어짐을 보였다. 회전 중 몸 방향 전진 메커니즘을 이번 실기에서 확인했으며 잘못된 tile 선택 증거는 없었다. 사용자가 본 모든 장면의 원인까지 확정하지 않는다.
+
+Host terminal은14,221frame(move13,960/align104)·centers413/maxCenterError 출력0·spatial477 planned=commit·repeat0/invalid0/dropped0·END EVIDENCE다. 감속 전체 active corner 집계는5,424frame/minRatio0.654909/maxCross0.236436/normalStops0/safety53이며 선정7표본과 같은 집합이 아니다. Client는 replicated333/invalid0·presentation91,598/attackStarts73이며 Client 서버 path는 설계상 unknown이다. 이 수치로 연속 궤적·모든 타일/유닛·전체 증상 해결 PASS를 선언하지 않는다.
+
+역사 대조: Legacy는 Vector3.Lerp(fromPos,toPos,t)로 중심 간 직선 위치를 만들고 몸 회전은 Quaternion.RotateTowards로 분리한다. 현재 Reducer는 TrajectoryDirection/CandidatePosition을 결합한다. 핵심 planner는65ee51fa(2026-08-18),center capture는7b4a8927(08-25)에서 도입됐다. Game.unity의 _serverMovementPipelineMode=1은65ee51fa부터 있으며 최적화 직전070ddcaf^/070ddcaf(10/27 KST)와 현재가 같다. 코드 default Legacy와 씬 override1을 구분한다.070ddcaf^→HEAD의 Contracts/Authority/Game.unity committed diff0, Movement의 committed 변화는 ProfilerMarker이며 최근 dirty 감속/추격/진단은 별도다.
+
+따라서 최적화 작업이 Legacy→Reducer를 켜서 원인이 됐다는 가설은 이력 근거가 없다. 다만 당시 실제 APK/실행 mode·체감 발생 시점은 미확정이므로 원래부터 사용자 증상이 있었다고 단정하지 않는다. 확인된 기계적 경로와 역사 근거만 기록하며 신규 교정 설계 승인·제품 변경·빌드·merge/push는 이번 분석에서0이다. 다음 수정은 사용자와 의도/범위를 합의한 뒤 별도 계획으로 결정한다.
+
+회전 기반 전진의 계산 대조(2026-11-18): sample4는60.0006954−270×0.0332739316=51.016733868°로 실측51.0168195°와 대응하고, sample1은120.000008−270×0.0334406942=110.971020566°로 실측110.970998°와 대응한다. 현재 몸 회전 한도 후 그 방향으로 전진한다는 해석을 직접 계산으로 뒷받침하지만 사용자 전체 관측 장면·발생 시점까지 확정하는 것은 아니다.
+
+### 39.6 옆걸음 없는 연속 코너 궤적의 사용자 의도
+
+사용자는 몸이 회전하는 동안 옆걸음하는 모습을 최우선으로 금지하며, 위치만 중심 간 직선으로 보내고 몸 회전을 분리하는 안을 거부했다. 그 후속 후보는 철회·미채택이다. 과거 Legacy 구조 설명은 역사 분석으로 보존하지만 새 교정 방향으로 채택하지 않는다.
+
+새 승인 방향은 코너에 앞서 회전을 준비하고 중심을 정확히 통과하는 연속 trajectory다. 옆걸음·정상 코너 강제 정지·급회전·중심 cut/스냅을 하지 않는 것이 목적이다. 사용자가 pre-turn·중심 통과·몸/이동 방향 일치 방향을 승인했고 메인이1차안을 공유한 뒤 전문 담당에게 구현을 지시했다. 제품4파일 연결과 아래 소스 제한 검증까지 완료했고 최종 SDK/Tools/hash 영수증까지 확인해 구현·제한 검증을 마감했다. 추가 승인 대기 상태가 아니다. 기존 “중심 소비 전 next 입력 금지” 계약과의 충돌을 검토해야 하므로 규칙을 임의로 바꾸지 않는다. 아래1차 설계 원리로 구현하며 최종 파일·실제 검증/수용 결과는 구현 결과를 받은 뒤 정합 갱신한다. 이번에는 기존 Task 기록만 수정하며 새 파일·제품 코드·Git 변경은 없다.
+
+승인된 연속 궤적1차안: 공유 edge 중점을 강제하던1차안은 속도 급감으로 미채택했다. 현행은 whole center-to-center Bezier(handle=minL/3, Hermite 도함수 minL)를 먼저 구성하고 실제 Hex edge 교차 u를 역산해 분할한다. edge 교차점은 게임 checkpoint가 아니며 중심 공통 접선·동일 도함수 길이로 C1 연속을 준비하고 직선은 직선으로 유지한다. 단순 lookahead blend로 중심을 cut하지 않는다. 몸은 실제 Root→candidate chord 방향과 일치시키고270×dt 이내 회전으로 수용 가능한 진행량만 채택한다. curve의 진행 하위 구간 전체 안전 검사·거리 기반 진행·trial rollback·scope 원자 commit을 유지하며 기존 감속의 중복 적용 제거는 전문 담당이 설계/구현 중이다.
+
+수용 범위는 빈 통로의 정상60° 코너 비정지·중심 정확 통과·급회전/옆걸음 없음이다. 초기 heading 불일치·150° 반전·차단 fallback은 정상 코너와 분리한다. 실제 결과는 아직 미검증으로 전체 해결/PASS를 쓰지 않는다. 기존 중심 소비 전 next 입력 금지 항목은 사용자 승인 pre-turn 준비 curve만 허용하도록 제한 정합이 필요하지만 승인 뒤 규칙1/3·동일 충돌2문장만 한정 정합했고 값·다른 계약은 바꾸지 않았다. 중심 소비·도메인 공간 commit·공격 권위·Client 서버 복제는 보존해야 한다.
+
+구체화된 설계(구현 검증 미완): 두 half의 control point를 각각 해당 walkable Hex 안에 두어 convex hull로 curve 전체 통로 안전을 확보하는 안이다. 실제 frame chord는 기존 spatial sweep으로 별도 검증한다. 실제 진행 subcurve control-polygon 길이 상한과 local curvature bound로 arc budget을 보수적으로 제한하고 chord거리/270×dt를 별도 검사한다.32bin/고정 반복 캐시·읽기 전용 trial 후 최종 Root commit 뒤 u를 저장한다. Domain 예외까지 전체 rollback을 보장한다고 확대하지 않는다. geometry cache와 진행 u를 분리해 trial 복사 후 최종 commit에서만 저장하며 정상 frame마다 배열 생성·전체 path 검사를 하지 않는다. curve에는 기존 감속을 중복 적용하지 않고 fallback에는 기존 처리를 유지한다.
+
+제품 범위는 Contracts/Authority/Observer와 UnitView.Initialize의 ResetCenterCurveRuntime1줄을 포함한4파일이며 Movement는 바꾸지 않는다.120° 초기 heading 불일치·150° 반전·차단·공격 전환 안전 처리는 유지한다. 초기 계획 뒤 제품 연결·소스 제한 검증으로 진행했으며 실제 게임 PASS는 아니고 승인된 규칙1/3과 같은 충돌2문장만 아래 근거로 한정 정합 수정했고 통합 검증 결과는 대기한다.
+
+규칙 정합 이력(2026-11-18): 사용자의 pre-turn·중심 정확 통과·몸/이동 일치 승인에 따라 Units U-MOV-ALIGN1/3 및 상단·이동규칙2의 같은 충돌 문장만 제자리 갱신했다.2의270°/s·몸/실제변위1°와4~11 안전/공격 계약·StatsReference 값은 유지했다. 규칙에는 행동 원칙만 두고 고급 구현은 이 Task에 남긴다. 순수 정상32경로와 실제 메서드 추출 통합 fixture를 통과했으나 MonoBehaviour/NGO·실기/시각 수용은 미확인으로 전체 PASS가 아니다.
+
+변경 전 원문 보존:
+
+> incoming 선분은 현재 중심까지 완료하고, 다음 outgoing 선분의 첫 frame부터 이동과 회전을 함께 적용한다.
+
+> 정상 코너는 중심을 소비한 다음 outgoing 선분에서 이동 중 점진 회전하고, 안전하게 이동 선회할 수 없는 경우에만 정지 정렬 후 진행한다.
+
+> 1. 서버는 현재 위치와 현재 경유 중심으로 이번 틱의 `DesiredMoveDirection`을 계산한다. 기본 A*의 위치 trajectory는 현재 checkpoint까지 center-to-center로 진행한다. 다음 경유 중심은 현재 중심을 실제로 소비한 다음 선분부터 방향 입력이 되며, look-ahead를 현재 선분 위치에 섞어 중심을 자르거나 되돌아오는 곡선을 만들지 않는다.
+
+> 3. 정상 코너에서는 현재 중심을 소비한 다음 frame부터 다음 경로 방향으로 이동과 회전을 함께 적용한다. 타일 경계나 waypoint 변경만을 이유로 속도를 0으로 만들지 않으며, 60° 전환은 outgoing 선분에서 이동 중 점진 회전한다. 단, 150° 반전 또는 10°/15° 방향 안전을 이동 중 만족할 수 없는 코너에서는 `AlignToMove`가 우선한다.
+
+제품 연결·소스 제한 검증 상태(2026-11-18):4파일 연결 완료 후 최종 순수32경로/5,820검사에서 zero/center/turn/arc 오류0, 실제 TryPrepare/Reset/curve Resolve 추출38검사와 float 끝점 경계5검사를 통과했다. walkability는 stub이고 실제 MonoBehaviour/NGO/게임 실행이 아니다. trial 상태 불변·accepted u 재사용·scope/revision/owner reset·sliced index1·blocked 후 revision 재개·flip/hull/unsafe 축소·freeze/reverse를 확인한 범위다. SDK/Tools/hash 최종 영수증은 아래 범위로 확인했다.
+
+독립 검토에서 Root==floatEnd/u0.99999999가 valid true/reached false/distance0으로 남는 문제를 실제 소스로 재현해 수정했다. Before 원문은 EndpointBoundary.Before.txt에 보존한다. 최종은 이미 Root==floatEnd일 때 zero 완료하고, 처음 floatEnd 후보를 사용할 때는 남은 arc budget 충족 시에만 u1/완료를 허용한다.
+
+local profile은 코너 감속을 없애는 안이 아니다. 같은 S경로 명목2.28624world/s 대비 최저/진입1.275107world/s이며, profile을 끈 통제 variant의 비끝점 순간 속도0.477213world/s 급감과 비교해 비끝점 연속 frame 최대 감속폭1.782588→0.440294world/s로 완화했다. 변화는 여전히 남고 실제 자연스러움은 미검증이다. CPU 개선·전체 속도 보존·체감 PASS로 쓰지 않는다. 추가 튜닝 없이 최종 freeze했고 이후 사용자 실기 평가는 아래와 같이 일부 개선이나 부족이며 전체 runtime/visual 수용은 미완이다.
+
+최종 구현·제한 검증 마감: center-curve FinalVerificationReceipt(SHA EEAABECF…7ED2FB5),FinalSourceHashes/FinalSourceIdentity/FinalSource.diff를 확인했다.4파일 최종 SHA는 Contracts1C1898B8…EBE49C1·Authority4FB92D0C…4529687·Observer70EA1017…59E127B·UnitViewABDF0A00…9C4016D다. 실제 pure block/Authority helper fixture exact·Reducer 원문 exact·Movement byte exact·UnitView Initialize Reset1호출 외 exact를 확인한 범위다.
+
+Editor/Release358source 누락0·오류0(기존 경고24/31)이며 최종 영수증의 정확4파일 필터 기존 경고는 Release의 UnitView attackCrossFadeApplied(CS0219)와 _spatialRecoverablePending(CS0414)2개·신규0이다. 인계의1개 대신 영수증 원문2개로 대조했다. 이전3파일만의 변경 경고0을4파일 전체로 확대하지 않는다. Tools 오류/경고0이며 같은 runtime SHA7FEB4F99…D8E088A를 참조했다. pure32경로/5,820검사에서 float Root/yaw·normal zero0·중심 exact·270초과0, 몸/chord 최대 오차 약9.39×10^-6°,hull 잔차1.50×10^-6world(기존 tolerance10^-5 안),arc 잔차 최대3.11×10^-15를 확인했다. 무한 정밀도0이나 모든 지형/속도 보증은 아니다.
+
+실제 추출 연결38·끝점5·진단91(최대631bytes)·terminal32(최대968bytes/reset true)도 통과했다. S명목2.28624world/s의60/30fps최저는1.275107/1.274192이며 비끝점 frame 감속폭0.4403world/s가 남는다. 독립 source 리뷰에서 끝점 문제 수정과 다른 확정 연결 결함 미발견을 확인했지만 해당 최종 freeze 검증 시점에는 실제 MonoBehaviour/NGO·Acquire/HP/RPC·Unity/Android 실기·빌드 실행0이었다. 이후 사용자 실기는 아래 회차로 분리한다. 따라서4파일 구현·소스 제한 검증 완료/실제 시각 자연스러움 미확인으로 분류하고 full runtime/전체25종 PASS는 선언하지 않는다.
+
+### 39.7 실기 일부 개선과 생산 초기 방향 지연 재점검
+
+사용자는 조금 개선됐지만 아직 부족하고, 남은 현상은 “중심을 지나 크게 돌아감”이라고 구체화했다. 감속 불만으로 해석하지 않는다. 별도로 생산 직후 이동 방향과 몸 방향이 다르면 제자리 회전으로 늦어지는 점도 개선해 달라고 보고했다. 현행은 일반 코너/정지 체감 수용 미완·생성 방향 개선 필요다. 이번 결과를 전체 실기 PASS로 쓰지 않는다. 생산 초기4파일과 기존 진단2파일 구현은 완료했고2026-11-23 재개 시점 소스 제한 검증까지 완료했고 실기를 기다린다. 큰 회전·terminal FAIL2 원인 분석과 실제 체감 수용은 별도 미완이다.
+
+메인은14:41 android-performance-correction_02 ZIP379,685바이트/SHA d309a922…2715d64·6entry와 앞14:23 _01 ZIP198,877바이트/SHA1960719c…4f4d5c4·4entry 전체 일치를 확인했다. 최신 ZIP에 옛 Android session이 재포함되어 같은 경기를 중복 계산하지 않는다. 빈 setup FAIL과 실제 경기 run도 분리한다.
+
+실제 Host07954b5a…14:02~04는 frames10,081/curve7,992/align699/centers432·maxCenterError출력0/repeat0/fatal0·END EVIDENCE이며 두 ZIP에 중복 포함됐다. 새 Host9cd1b8f3…14:38~39는 frames11,658/curve10,184/align843/centers540·maxCenterError출력0/repeat0/fatal2·END FAIL이다. 실제 adapter 거부2건은 별도 원인 분석 중이며 Client28c27dc5…는 다른 run이다. checkpoint 출력0이 전체 연속 궤적/육안 증상 해결을 뜻하지 않는다.
+
+새 run 생산 초기 Rabbit unit0은 몸120°→경로300°의 약180° 불일치를 보였다. frame22200부터22220의 전진 관측까지 약0.667초이나 정확한 최초 전진은 window 분석 중으로 지연의 상한 근처 관측만으로 해석한다. 앞079 run의 unit0은 초기120°→60° 약60° 불일치에서도 이동0 정렬이 관측됐다. 전문 담당의 아래 spawn 초기 route pose안 구현·제한 검증은 완료했고 별도 담당은 fatal2와 큰 회전 경로를 조사한다. 구현·제한 검증 완료와 원인 전체 확정/실기 PASS를 구분한다. 새 Task/규칙·제품 코드·Git 변경은 없다.
+
+생산 초기 정지 교정1차안: 현행 CompleteProductionSpawnUnit→기본Facing E→OnSpawn→Factory Instantiate identity→NGO Spawn→Initialize→OnProduced→Ticker 실제 경로 선택의 순서에서 초기 Root120°/desired300°의 지연이 발생한다. 승인안은 SpawnUnit의 호환 optional beforePublish callback으로 실제 UnitData 등록 뒤 OnSpawn 전에 생산 context의 실제 rally/혼잡/BFS 경로를1회 준비하고 initialFacing을 정하는 것이다. Ticker OnProduced는 같은 owned route를 소비해 정상 경로의 중복 검색을 추가하지 않는다. Factory Instantiate 때부터 Facing pose를 사용해 NGO Spawn 전에 확정하며 Client Root writer/RPC 서명은 바꾸지 않는다.
+
+예정 제품은 UnitSpawnUseCase/UnitProductionUseCase/ProductionTicker/UnitFactory4파일이다. 준비 결과는 짧은 동기 handoff로 소유하고 예외/불일치/게임 종료에 정리한다. prepare 실패는 기존 spawn+안전 정렬로 복귀하며 callback 범위만 격리해 ghost unit을 막고 전체 예외를 삼키지 않는다. 기존 curve4파일은 추가 튜닝하지 않는다. “중심 지난 큰 회전”은 새 curve active 자체인지 이전 몸 방향 전진 fallback/route 교체 partial 처리인지 미확정으로 별도 조사하며 terminal2건 미완도 유지한다. 현재6파일 구현·제한 검증은 완료했으며 이안이 큰 회전까지 해결했다고 하지 않는다.
+
+재개 상태(2026-11-23): 생산 초기4파일 및 initial-start/walkable A* curve·fallback peak2case END 관측을 위한 기존 진단2파일이 반영됐다. 기존 trajectory 식은 추가 수정하지 않았다. private spawn-initial-facing/Verification/Spawn.Results.txt의 source CLR8assert PASS와 Editor/Release358source 오류0(기존 경고24/31)을 확인했다. 소스/독립 제한 검증을11/23 결과로 마감했으며 통합 FinalReceipt 경로/SHA까지 확인했다.  실제 실기·빌드는 아직 미실행이다. 원래 “중심 지난 큰 회전”과 terminal FAIL2는 미완으로 유지하고 이번 구현을 사용자 증상 해결/PASS로 쓰지 않는다. 기존 기록은 보존하고 새 Task/메모리·제품 코드·Git 작업은 없다.
+
+11/23 최종 소스 제한 검증: FinalSourceHashes6파일과 Verification/VerificationReceipt·FinalSourceIdentity를 대조했다. 공백 정리 후 scope를 재추출해 Spawn8/Ticker19(앞13 포함, 합산하지 않음)/Scope9 actual-source seam 검사, Factory6yaw 및 Instantiate pose의 NGO Spawn 이전 적용 source를 확인했다. 초기 curve는 관측 Root와 경로 첫3점만 제어한 비교로 old yaw120에서 held19·20번째 frame 이동→new yaw300에서 held0·첫 frame 이동, 첫 거리0.05772252584world 동일이다. 전체21점·native/NGO/BFS 완전 경로·UnitView 생명주기 실행이 아니다.
+
+6파일 SDK Editor/Release358source 오류0·누락0(기존 경고24/31), 이번6파일 경고0·Tools 오류/경고0이다. 진단104검사·peak 최대519UTF8bytes/direction631bytes·terminal32줄/최대968/reset true를 확인했다. initial-start는 최초 command 각도0이어도 기존 타입별1budget을 쓰며 peak는 일반 walkable A*/PendingRepath의 curve/fallback 각1case를 END에만 남긴다. 큰 회전 해결 기능이 아니라 원인 분류 진단이다. Release Authority의 Dev 블록 제거 text는 Before와 동일하며 IL/binary 불변 증명은 아니다.
+
+현행은 생산4+진단2파일 구현·소스 제한 검증 완료/신규 실기·빌드0이다. trajectory 수식·속도 추가 튜닝은 없으며 “중심 지난 큰 회전” 원인unknown·terminal FAIL2는 미완이다. 실제 자연스러움·NGO/생산 생명주기 전체 수용은 별도 사용자 검증이 필요하다. 통합 FinalReceipt까지 확인했으며 새 문서·코드·Git 작업은 없다.
+
+11/23 통합 영수증 마감: private spawn-initial-facing-20261118/FinalReceipt.json을 직접 읽고 SHA CFBCD3F8832C00B08B6801CE48E3DF25F0EA4DAC6DA1C3FA74CD13F49F1E8D0E와 대조했다. 기존 소스 제한 검증·SDK/Tools 결과와 일치하며6파일 freeze다. 다음 실기 목적은 생산 초기 정렬 지연 확인과 “중심 후 큰 회전”의 curve/fallback 분류 증거 확보이지 큰 회전 교정 완료를 입증한 상태가 아니다. native/실기·빌드0과 terminal FAIL2 미해결은 유지한다.
+
+### 39.8 11/23 실기 생산 초기 방향과 잔여 코너 이탈
+
+사용자 승인으로22:58 android-performance-correction_01 ZIP184,674바이트/SHA177324a3…8d78c87·4entry size/hash 검증 자료를 기록한다. 실제 경기 Host b5d02354…/Client27e64ba0…와 관측0 setup Host/Client FAIL은 분리한다. 이번 로그를 새 제품 교정·빌드·Git 실행으로 확대하지 않는다.
+
+initial-start 실기2표본은 type10/unit0 yaw180→180·bodyTargetAngle0·delta(0,-0.0577669144),Rabbit type25/unit2 yaw0→1.754432·bodyTargetAngle0·delta(0.00176882744,0.0577478409)에서 firstMoveAccepted였다. 생산 초기 교정이 이 두 표본에서 발현한 근거이며 모든 생산/유닛 전체 PASS는 아니다. 앞 source CLR held19→0의 첫3점 통제와 별도 증거다.
+
+Host9,000frame·align478/move8,365·centers403/maxCenterError출력0, fatal/adapter/invalid/repeat/drop0·END EVIDENCE와 Client replicated396/invalid0·EVIDENCE를 확인했다. 앞 terminal FAIL2는 이번 경기 미재현이지 해당 원인을 고쳤다는 뜻이 아니다.
+
+END의 peak-route/pose4행을 확보했다. curve active는 unit27/frame33098·index3/count11·path0(3,8),prev(5,6),target(5,5),next(5,4)·cmd1/seg3/rev3에서 cross0.113194704world였다. Root before(3.85776877,-7.0268507)→after(3.8631947,-6.98651743),yaw15.477→7.662다. fallback은 unit31/frame33093·index2/count19·path0(7,13),prev(6,13),target(6,12),next(7,11)·cmd1/seg2/rev2·reason curve-build-or-crossing에서 cross0.100157261world였다. before(4.391813,-13.4117622)→after(4.39984274,-13.3545084),yaw358.971→7.984다. fallback의 before cross0.108187보다 after0.100157이 작아 해당 frame은 이미 있던 offset을 줄이는 중이며 fallback이 이탈을 처음 만들었다고 단정하지 않는다.
+
+cross는 prev→target 중심 직선까지 수직거리로 tile 중심 거리·mesh 발 위치가 아니다. 일반 walkable A* 조건의 경기 최대 curve/fallback2case만 기록한 자료다. 새 curve active에서도 이탈이 관측돼 큰 회전 전체 해결은 아니다. 두 담당이 source를 분석 중이며 중간 replan의 actualStart 재생성 가능성 등은 후보일 뿐 확정 원인은 아니다. 생산 초기 focused 관측과 남은 코너 원인 미확정을 구분하고 추가 제품 변경·빌드·Git 작업은0이다.
+
+최종 좁힘·조건부 반증(11/23): 메인/독립 담당 계산은 active peak의 index3/path0(3,8)/prev path2(5,6)가 정상 인접 경로라면 path1=(4,7)이 강제됨을 확인했다. prev(5,6)→target(5,5)→next(5,4),시작 bisector약30°/끝0°·L약0.866의 정상 center-start C1 곡선은 측방 control0.144334921/max cross0.0641488533world다. 실제0.113194704는 약1.7645631배이므로 이 정상 center-start 곡선만으로 설명하기 부족하다. 인접 경로·좌표·기록 의미가 맞다는 전제의 반증이며 모든 원인 확정은 아니다.
+
+확인 source 판본은 Contracts1C1898…49C1/Authority8E9673…BBDF0이다. TryPrepare는 path reference/index/command/segment/navigation revision 불일치 시 actualStart에서 Build/u0으로 재구성하되 기존 center 기반 tangent를 유지한다. unit27은 sampled frame32897(cmd1/seg1/rev0/count23)→peak33098(cmd1/seg3/rev3/count11)로 path/scope가 바뀌었다. 따라서 중간 actualStart 재구성이 이탈 확대의 유력 후보이나 생성 frame/Start/u·이전 path는 관측하지 못해 원인은 미확정이다. peak before를 그대로 새 Start에 넣으면 projection 단조 조건에서 거부되므로 해당 peak frame에 재생성됐다고 주장하지 않는다.
+
+후속 추천은 기하가 같으면 curve 진행을 보존하면서 안전을 재검증하고 실제 경로 교체는 현재 pose 접선으로 재접속하는 방안을 검토하는 것이다. 설계 제안만이며 구현 승인/제품 변경은 아직 없다. 생산 초기2표본 firstMove 수용·큰 회전 미완·이전 terminal2 이번 미재현의 기존 판정은 유지한다.

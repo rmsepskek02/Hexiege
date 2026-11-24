@@ -263,8 +263,9 @@ namespace Hexiege.Editor.Combat
             //     "B-8 support buff skills (D2 plan A) add no RPC — the presentation schema must stay 8.");
             //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC 때문(강화 스킬과 무관한 변경).
             //   [2026-11-17 지원 스킬 2-L 공습 Task L-2] 10 → 11 — 공습 조준 방향 때문(강화 스킬과 무관한 변경).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "B-8 support buff skills (D2 plan A) add no RPC; the schema is 11 only because of the persistent-zone membership RPC (9), the shield-broken RPC (10) and the air-strike direction arguments (11).");
+            // [2026-11-24 통합] 이전 WIP 기대값은 DoT 출처 단독 schema 10; main의 schema 11과 합쳐 12.
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
+                "B-8 support buff skills (D2 plan A) add no RPC; the schema is 12 because of the persistent-zone membership RPC (9), the shield-broken RPC (10) and the air-strike direction arguments (11) and the independently merged HP RPC DoT provenance field (12).");
 
             string presenter = File.ReadAllText("Assets/_Project/Scripts/Presentation/Effects/UnitBuffVfxPresenter.cs");
             int project = presenter.IndexOf("entry.Projector.ProjectNow();\n            entry.Item.FollowStatusLoop(", StringComparison.Ordinal);

@@ -2227,6 +2227,7 @@ namespace Hexiege.Presentation
             // 바뀔 때만 경로를 갱신하여 움직이는 타겟 때문에 매 frame FlowField를 요청하거나,
             // 동일한 막힌 후보를 무한 반복하지 않게 한다.
             List<HexCoord> pursuitPath = null;
+            HexCoord[] directSameTileCorridor = null;
             int pursuitWaypointIndex = 1;
             HexCoord pursuitTargetTile = default;
             bool hasPursuitTargetTile = false;
@@ -2422,6 +2423,20 @@ namespace Hexiege.Presentation
                     Vector3? nextPursuitWaypointView = null;
                     IReadOnlyList<HexCoord> pursuitCorridor = null;
                     int corridorWaypointIndex = -1;
+
+                    // 같은 타일에서도 회전 궤적은 경계를 벗어날 수 있다. 기존 corridor
+                    // 판정으로 안전한 이동량 또는 제한 회전을 선택하며, 배열은 추격당 재사용한다.
+                    // 기존 direct 경로는 corridor=null/index=-1로 후보를 바로 검사했다.
+                    if (directInsideSameTile
+                        && _lockedMovementPipelineMode
+                            == UnitMovementPipelineMode.ReducerAuthoritative)
+                    {
+                        directSameTileCorridor ??= new HexCoord[2];
+                        directSameTileCorridor[0] = liveRootTile;
+                        directSameTileCorridor[1] = liveRootTile;
+                        pursuitCorridor = directSameTileCorridor;
+                        corridorWaypointIndex = 1;
+                    }
 
                     if (!directInsideSameTile)
                     {

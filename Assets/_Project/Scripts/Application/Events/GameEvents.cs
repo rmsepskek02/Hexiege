@@ -212,6 +212,12 @@ namespace Hexiege.Application
     /// </summary>
     public readonly struct EntityDamagedEvent
     {
+        /// <summary>
+        /// 실제 지속 피해 writer가 발행한 독립 DoT 틱인지 표시한다. 공격자 사망으로 Id가 없어져도
+        /// 일반 공격 회차와 혼동하지 않도록 HP 동기화 RPC에도 그대로 전달한다.
+        /// 기본 false인 일반 피해의 검증과 실제 HP/표현 처리는 바꾸지 않는다.
+        /// </summary>
+        public readonly bool IsTimedDamage;
         /// <summary> 피격당한 엔티티. </summary>
         public readonly IDamageable Entity;
 
@@ -280,8 +286,9 @@ namespace Hexiege.Application
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
             AttackResultKey presentationResultKey, WaveDeliveryKey wavePresentationKey = default,
-            ProjectileDeliveryKey projectilePresentationKey = default)
+            ProjectileDeliveryKey projectilePresentationKey = default, bool isTimedDamage = false)
         {
+            IsTimedDamage = isTimedDamage;
             Entity = entity;
             CurrentHp = currentHp;
             IsUnit = isUnit;

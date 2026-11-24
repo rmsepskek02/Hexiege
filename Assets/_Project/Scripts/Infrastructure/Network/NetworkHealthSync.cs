@@ -169,7 +169,8 @@ namespace Hexiege.Infrastructure
                 e.WavePresentationKey.Epoch, e.WavePresentationKey.Id,
                 // [2026-10-20 서버 권위 투사체] 투사체 착탄 피해면 그 번호표도 함께 보낸다 —
                 //   Client 피격 표현 큐가 공격자 FIFO 대신 "화면상 착탄 순간"에 숫자를 1회 방출하게 한다(Q7).
-                e.ProjectilePresentationKey.Epoch, e.ProjectilePresentationKey.Id);
+                // [2026-11-17 DoT 출처] 옛 마지막 인자: e.ProjectilePresentationKey.Id);
+                e.ProjectilePresentationKey.Epoch, e.ProjectilePresentationKey.Id, e.IsTimedDamage);
         }
 
         /// <summary>
@@ -235,7 +236,8 @@ namespace Hexiege.Infrastructure
             int attackerId, bool attackerIsUnit, bool immediatePresentation,
             ulong attackerInstanceId, ulong attackSequenceId, int hitIndex,
             int victimKind, int victimId, int effectKind, int resultOrdinal,
-            ulong waveEpoch, ulong waveId, ulong projectileEpoch, ulong projectileId)
+            // [2026-11-17 DoT 출처] 옛 마지막 인자: ulong projectileId)
+            ulong waveEpoch, ulong waveId, ulong projectileEpoch, ulong projectileId, bool isTimedDamage)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -259,7 +261,7 @@ namespace Hexiege.Infrastructure
             {
                 SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit,
                     immediatePresentation, presentationResultKey, new WaveDeliveryKey(waveEpoch, waveId),
-                    new ProjectileDeliveryKey(projectileEpoch, projectileId));
+                    new ProjectileDeliveryKey(projectileEpoch, projectileId), isTimedDamage);
             }
             else
             {
@@ -338,7 +340,8 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncUnitHealth(int unitId, int serverHp, int attackerId, bool attackerIsUnit,
             bool immediatePresentation, AttackResultKey presentationResultKey, WaveDeliveryKey waveKey = default,
-            ProjectileDeliveryKey projectileKey = default)
+            // [2026-11-17 DoT 출처] 옛 마지막 인자: ProjectileDeliveryKey projectileKey = default)
+            ProjectileDeliveryKey projectileKey = default, bool isTimedDamage = false)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -382,7 +385,8 @@ namespace Hexiege.Infrastructure
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit,
                     immediatePresentation: immediatePresentation,
                     presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
-                    projectilePresentationKey: projectileKey));
+                    // [2026-11-17 DoT 출처] 옛 마지막 인자: projectilePresentationKey: projectileKey));
+                    projectilePresentationKey: projectileKey, isTimedDamage: isTimedDamage));
             }
             // [2026-11-16 지원 스킬 새 상태 Task 단계 C — Plan S-6 (b)] HP 차이 0 = 서버가 피해를 처리했지만 HP가 줄지 않은 피격
             //   (신목의 각성 쉴드가 피해를 전부 막은 경우). Host는 이 피격에 숫자 · 피격 VFX · 타격 반응을 그대로 내므로(서버가
