@@ -326,7 +326,9 @@ namespace Hexiege.Presentation
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 UnitMovementAuthorityObserver.ObserveLegacyWriterSelection();
 #endif
+                _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
                 transform.position = candidatePosition;
+                _combatUseCase?.CombatPoseChanged(_unitData, _combatSpatialBindingId, transform.position);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation,
                     targetRotation,
@@ -787,7 +789,9 @@ namespace Hexiege.Presentation
                     Vector3 plannedPosition = transform.position;
                     plannedPosition.x = (float)trajectoryStep.CandidatePosition.X;
                     plannedPosition.z = (float)trajectoryStep.CandidatePosition.Z;
+                    _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
                     transform.position = plannedPosition;
+                    _combatUseCase?.CombatPoseChanged(_unitData, _combatSpatialBindingId, transform.position);
                     _lastMovementTrajectoryReachedWaypoint =
                         trajectoryStep.ReachedCurrentWaypoint;
                     _lastMovementCandidateAcquiredTarget =
@@ -795,7 +799,9 @@ namespace Hexiege.Presentation
                 }
                 else
                 {
+                    _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
                     transform.position = candidatePosition;
+                    _combatUseCase?.CombatPoseChanged(_unitData, _combatSpatialBindingId, transform.position);
                 }
                 outcome = MovementWriteOutcome.Advanced;
             }

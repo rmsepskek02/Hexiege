@@ -40,6 +40,7 @@ namespace Hexiege.Application
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
         private readonly IEntityPositionProvider _positionProvider;
+        private readonly ICombatUnitCandidateSource _combatCandidates;
 
         // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
         private readonly IHexCoordinateMapper _mapper;
@@ -452,6 +453,7 @@ namespace Hexiege.Application
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
             _positionProvider = positionProvider;
+            _combatCandidates = positionProvider as ICombatUnitCandidateSource;
             _mapper = mapper;
             _sweepReach = sweepReach;
             _sweepArcHalfAngle = sweepArcHalfAngle;
@@ -1648,6 +1650,18 @@ namespace Hexiege.Application
             return best != null ? (int?)best.Id : null;
         }
 
+        // 실제 Root writer 통지는 검색 인덱스만 갱신한다. 이동/전투 판정은 변경하지 않는다.
+        public void CombatPoseChanging(UnitData unit, int rootInstanceId)
+            => _combatCandidates?.UnitPoseChanging(unit, rootInstanceId);
+        public void CombatPoseChanged(UnitData unit, int rootInstanceId, Vector3 worldPosition)
+            => _combatCandidates?.UnitPoseChanged(unit, rootInstanceId, worldPosition);
+        private bool TryBeginCombatCandidates(Vector3 center, float radius, out IReadOnlyList<UnitData> candidates)
+        {
+            candidates = null;
+            return _combatCandidates != null && _combatCandidates.TryBeginUnitCandidates(
+                _unitSpawn.Units, _unitSpawn.CombatRosterRevision, center, radius, out candidates);
+        }
+
         /// <summary>
         /// 감지 사거리(DetectRange) 기준으로 가장 가까운 적 엔티티(유닛/건물)를 탐색.
         ///
@@ -1686,57 +1700,68 @@ namespace Hexiege.Application
             // 감지 사거리 기반 판정 거리 계산 (DetectRange × TileHeight + 건물 여유 거리)
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: true);
 
-            IDamageable closestTarget = null;
-            float minWorldDist = float.MaxValue;
-
-            // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
-            foreach (var unit in _unitSpawn.Units.Values)
+            IReadOnlyList<UnitData> indexedUnits = null;
+            bool ownsCandidates = TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            try
             {
-                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
+                IDamageable closestTarget = null;
+                float minWorldDist = float.MaxValue;
 
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
-                    : Vector3.zero;
-
-                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(unit.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= unitMaxDist && dist < minWorldDist)
+                // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
+                // 기존: foreach (var unit in _unitSpawn.Units.Values)
+                IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
+                foreach (var unit in candidateUnits)
                 {
-                    // 존재 여부만 필요하면 나머지 최근접 후보를 읽지 않는다.
-                    // 실제 타겟을 고르는 호출은 끝까지 기존 순서로 탐색한다.
-                    if (stopAtFirstMatch) return unit;
-                    minWorldDist = dist;
-                    closestTarget = unit;
-                }
-            }
+                    if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-            // 2. 모든 적 건물을 월드 거리 기반으로 탐색
-            foreach (var building in _buildingPlacement.Buildings.Values)
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                        : Vector3.zero;
+
+                    // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(unit.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= unitMaxDist && dist < minWorldDist)
+                    {
+                        // 존재 여부만 필요하면 나머지 최근접 후보를 읽지 않는다.
+                        // 실제 타겟을 고르는 호출은 끝까지 기존 순서로 탐색한다.
+                        if (stopAtFirstMatch) return unit;
+                        minWorldDist = dist;
+                        closestTarget = unit;
+                    }
+                }
+
+                // 2. 모든 적 건물을 월드 거리 기반으로 탐색
+                foreach (var building in _buildingPlacement.Buildings.Values)
+                {
+                    if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                        : Vector3.zero;
+
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(building.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= buildingMaxDist && dist < minWorldDist)
+                    {
+                        if (stopAtFirstMatch) return building;
+                        minWorldDist = dist;
+                        closestTarget = building;
+                    }
+                }
+
+                return closestTarget;
+            }
+            finally
             {
-                if (building.Team == attacker.Team || !building.IsAlive) continue;
-
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetBuildingWorldPosition(building.Id)
-                    : Vector3.zero;
-
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(building.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= buildingMaxDist && dist < minWorldDist)
-                {
-                    if (stopAtFirstMatch) return building;
-                    minWorldDist = dist;
-                    closestTarget = building;
-                }
+                if (ownsCandidates) _combatCandidates.EndUnitCandidates();
             }
-
-            return closestTarget;
         }
 
         /// <summary>
@@ -1779,57 +1804,68 @@ namespace Hexiege.Application
             // 공격 사거리 기반 판정 거리 계산 (근접/원거리 + 건물 여유 거리 포함)
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: false);
 
-            IDamageable closestTarget = null;
-            float minWorldDist = float.MaxValue;
-
-            // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
-            foreach (var unit in _unitSpawn.Units.Values)
+            IReadOnlyList<UnitData> indexedUnits = null;
+            bool ownsCandidates = TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            try
             {
-                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
+                IDamageable closestTarget = null;
+                float minWorldDist = float.MaxValue;
 
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
-                    : Vector3.zero;
-
-                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(unit.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= unitMaxDist && dist < minWorldDist)
+                // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
+                // 기존: foreach (var unit in _unitSpawn.Units.Values)
+                IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
+                foreach (var unit in candidateUnits)
                 {
-                    // 존재 판정은 첫 유효 후보에서 끝내고, 최근접 선택은 계속 탐색한다.
-                    if (stopAtFirstMatch) return unit;
-                    minWorldDist = dist;
-                    closestTarget = unit;
-                }
-            }
+                    if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-            // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
-            foreach (var building in _buildingPlacement.Buildings.Values)
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                        : Vector3.zero;
+
+                    // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(unit.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= unitMaxDist && dist < minWorldDist)
+                    {
+                        // 존재 판정은 첫 유효 후보에서 끝내고, 최근접 선택은 계속 탐색한다.
+                        if (stopAtFirstMatch) return unit;
+                        minWorldDist = dist;
+                        closestTarget = unit;
+                    }
+                }
+
+                // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
+                foreach (var building in _buildingPlacement.Buildings.Values)
+                {
+                    if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                        : Vector3.zero;
+
+                    // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(building.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= buildingMaxDist && dist < minWorldDist)
+                    {
+                        if (stopAtFirstMatch) return building;
+                        minWorldDist = dist;
+                        closestTarget = building;
+                    }
+                }
+
+                return closestTarget;
+            }
+            finally
             {
-                if (building.Team == attacker.Team || !building.IsAlive) continue;
-
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetBuildingWorldPosition(building.Id)
-                    : Vector3.zero;
-
-                // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(building.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= buildingMaxDist && dist < minWorldDist)
-                {
-                    if (stopAtFirstMatch) return building;
-                    minWorldDist = dist;
-                    closestTarget = building;
-                }
+                if (ownsCandidates) _combatCandidates.EndUnitCandidates();
             }
-
-            return closestTarget;
         }
 
         /// <summary>
