@@ -155,10 +155,8 @@ namespace Hexiege.Application
                 // [2026-11-23 연막탄 S-1] 연막(EvadeChance) 겹침이면 "1번만 들어간 회피 확률"을 끝 칸 EvadeMilli로 덧붙인다
                 //   (이동 배율 칸 ZoneMulMilli는 연막이면 1000 — 연막은 이동을 바꾸지 않는다). 다른 종류는 EvadeMilli=0.
                 float appliedEvade = zone.Kind == StatusEffectKind.EvadeChance ? zone.Magnitude : 0f;
-                // 옛 줄(끝 칸 EvadeMilli 없음):
-                // GameLog.Dev.Info("Skill", nameof(SkillZoneSystem), "[SKILL-ZONE] ZoneOverlap",
-                //     System.FormattableString.Invariant(
-                //         $"Diag=SkillZone, DiagRev=1, Event=ZoneOverlap, Role={DiagRole()}, Seq={zone.Sequence}, OtherSeq={otherSeq}, Team={zone.CasterTeam}, Slot={zone.Slot}, Kind={zone.Kind}, UnitId={unitId}, Applied=Once, ZoneMulMilli={DiagMilli(appliedMul)}"));
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄(끝 칸 EvadeMilli 없음)을 지웠다 — 실기 멀티 로그에 아래 줄이
+                //    Kind=EvadeChance · EvadeMilli=500으로 찍혔다.)
                 GameLog.Dev.Info("Skill", nameof(SkillZoneSystem), "[SKILL-ZONE] ZoneOverlap",
                     System.FormattableString.Invariant(
                         $"Diag=SkillZone, DiagRev=1, Event=ZoneOverlap, Role={DiagRole()}, Seq={zone.Sequence}, OtherSeq={otherSeq}, Team={zone.CasterTeam}, Slot={zone.Slot}, Kind={zone.Kind}, UnitId={unitId}, Applied=Once, ZoneMulMilli={DiagMilli(appliedMul)}, EvadeMilli={DiagMilli(appliedEvade)}"));

@@ -986,11 +986,9 @@ namespace Hexiege.Editor.Combat
         {
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
                 "E-T12 the smoke-bomb projectile launch RPC arguments must raise the presentation schema to 12.");
-            // [2026-11-23 S-4] 옛 검사(아래 주석, S-3)는 즉발 탑 칸이 없던 토큰을 기대했다. S-4가 즉발 탑을 회피 대상에 넣어
-            //   토큰 끝에 ";tower-instant:spirit,transcendence"가 붙었다 — 새 기대값은 ValidateSmokeTowerInstantSourceGates(E-T9 · E-T12)도 함께 본다.
-            // Require(SkillEvasionRoll.ManifestToken == "hitscan:0,1,2;projectile:6,7,12,17,21,24;tower-shell:human",
-            //     "E-T12 the evasion classification token must be hitscan 0,1,2 · projectile 6,7,12,17,21,24 (no Mushroom 26) · tower-shell human: "
-            //     + SkillEvasionRoll.ManifestToken);
+            // [2026-11-23 S-4] S-4가 즉발 탑을 회피 대상에 넣어 토큰 끝에 ";tower-instant:spirit,transcendence"가 붙었다
+            //   (S-3 때 기대값은 「…;tower-shell:human」까지) — 새 기대값은 ValidateSmokeTowerInstantSourceGates(E-T9 · E-T12)도 함께 본다.
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 S-3 옛 검사를 지웠다 — 이 검사가 회귀 스위트에서 통과했고, 같은 토큰이 든 handshake로 실기 멀티 경기가 시작됐다.)
             Require(SkillEvasionRoll.ManifestToken == "hitscan:0,1,2;projectile:6,7,12,17,21,24;tower-shell:human;tower-instant:spirit,transcendence",
                 "E-T12 the evasion classification token must be hitscan 0,1,2 · projectile 6,7,12,17,21,24 (no Mushroom 26) · tower-shell human · tower-instant spirit,transcendence: "
                 + SkillEvasionRoll.ManifestToken);

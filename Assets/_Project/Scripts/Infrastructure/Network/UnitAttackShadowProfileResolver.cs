@@ -47,8 +47,8 @@ namespace Hexiege.Infrastructure
         //   RPC 모양이 바뀌었고, 착탄 결과 RPC의 결과 값에 3(Evaded)이 생겼다(옛 빌드는 이 값을 수신 검사에서 버린다).
         //   또 아래 해시 원문에 「회피 대상 분류」 토큰(smoke-evasion=)이 들어간다(메인 기본안 M-11). 스키마 11 빌드와 섞인 경기는
         //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
-        //   단계 S-4(즉발 탑 회피 — 탑 공격 표현 RPC 인자)도 같은 12 묶음으로 둔다(M-12). 옛 줄(아래 주석).
-        // public const int PresentationContractSchemaRevision = 11;
+        //   단계 S-4(즉발 탑 회피 — 탑 공격 표현 RPC 인자)도 같은 12 묶음으로 둔다(M-12).
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 11 줄을 지웠다 — 실기 멀티 경기가 c3-schema=12로 시작됐다.)
         public const int PresentationContractSchemaRevision = 12;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.

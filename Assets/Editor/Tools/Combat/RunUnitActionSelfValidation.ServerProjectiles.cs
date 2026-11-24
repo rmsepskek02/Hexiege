@@ -263,9 +263,7 @@ namespace Hexiege.Editor.Combat
             //     "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raises it to 8.");
             //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC(ShieldBrokenClientRpc)가 새로 생겼다.
             //   [2026-11-17 지원 스킬 2-L 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC 맨 뒤에 붙었다.
-            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC(이 파일이 검사하는 바로 그 RPC)에 회피 여부 · 빗나간 지점이 붙었다. 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-            // "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raised it to 10; the air-strike direction arguments raise it to 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC(이 파일이 검사하는 바로 그 RPC)에 회피 여부 · 빗나간 지점이 붙었다.
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
                 "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11; the smoke-bomb evaded / miss-point launch RPC arguments raise it to 12.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
@@ -356,8 +354,7 @@ namespace Hexiege.Editor.Combat
                 // [단계 B — B-3] 서버 END 1줄 형식: 전 경기 합계 · 수 맞춤(balance) · 판정.
                 //   [2026-10-27 P5 정리 — 결정 P5-E] v=2: 이행 전용 switch= 칸과 유닛 path= 의 /l(기존 경로) 칸이 없다.
                 string end = f.Combat.BuildProjectileEndLine("fixture");
-                //   [2026-11-23 연막탄 Task 단계 S-3] v=2 → v=3: targetLost= 뒤에 evaded= 칸(착탄 결과 「회피」 발 수)이 붙었다. 옛 머리 검사(기록용):
-                // Require(end.StartsWith("side=server v=2 role=Single authority=local ") && end.Contains(" reason=fixture ")
+                //   [2026-11-23 연막탄 Task 단계 S-3] v=2 → v=3: targetLost= 뒤에 evaded= 칸(착탄 결과 「회피」 발 수)이 붙었다.
                 Require(end.StartsWith("side=server v=3 role=Single authority=local ") && end.Contains(" reason=fixture ")
                         && end.Contains(" targetLost=0 evaded=0 ")
                         && !end.Contains(" switch=") && end.Contains(" reserved=1 ") && end.Contains(" launched=1 ")

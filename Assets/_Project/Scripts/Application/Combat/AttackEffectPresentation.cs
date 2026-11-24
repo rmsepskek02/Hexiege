@@ -25,14 +25,10 @@ namespace Hexiege.Application
         /// 기본값 false — 옛 스냅샷(MushroomImpact · 명중 탑 공격)은 모두 false라 동작이 같다.
         /// </summary>
         public bool Evaded;
-        // [2026-11-23 연막탄 S-4] 옛 검사식(아래 주석)에 「회피면 탑 스냅샷이고 적용 피해가 0이어야 한다」 한 조건만 덧붙였다
-        //   (회피가 아니면 옛 식과 결과가 같다). 네트워크로 받은 스냅샷도 이 검사를 지나야 화면에 쓴다.
-        // public bool IsValid => Match != 0 && Lifetime != 0 && Sequence != 0 && AttackerId >= 0 && TargetId >= 0
-        //     && (Visual == AttackEffectVisual.MushroomImpact || Visual == AttackEffectVisual.Tower)
-        //     && (Race == RaceId.Human || Race == RaceId.Spirit || Race == RaceId.Transcendence)
-        //     && AppliedDamage >= 0 && ResultHp >= 0
-        //     && !double.IsNaN(ImpactTime) && !double.IsInfinity(ImpactTime)
-        //     && Finite(Source) && Finite(Impact);
+        // [2026-11-23 연막탄 S-4] 그전 검사식 끝에 「회피면 탑 스냅샷이고 적용 피해가 0이어야 한다」 한 조건만 덧붙였다
+        //   (회피가 아니면 그전 식과 결과가 같다). 네트워크로 받은 스냅샷도 이 검사를 지나야 화면에 쓴다.
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 검사식을 지웠다 — 실기 멀티에서 RuneSpire 회피 스냅샷이 이 검사를 지나
+        //    Host에서 보내지고 Client에서 받아졌다(AttackEffectIdentity Publish · Receive 줄 Reason=SmokeEvaded).)
         public bool IsValid => Match != 0 && Lifetime != 0 && Sequence != 0 && AttackerId >= 0 && TargetId >= 0
             && (Visual == AttackEffectVisual.MushroomImpact || Visual == AttackEffectVisual.Tower)
             && (Race == RaceId.Human || Race == RaceId.Spirit || Race == RaceId.Transcendence)

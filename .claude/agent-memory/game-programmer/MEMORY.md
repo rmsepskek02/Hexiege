@@ -168,6 +168,9 @@
   §9 (2026-11-18, user test PASS) Meteor: burn carried on both type-A bridge branches (delay 0 still burns), `UsesImpactPresentation`
   predicate, warning playback speed set after `Play` + restored on return, travelling looping body (lease + delay + 0.5 s deadline,
   view-space start offset, root scale 1), time-scheduled impact VFX, ring outer edge = R0 size lesson, schema 11 unchanged.
+  §10 (2026-11-23~24, user test PASS) Smoke Bomb evasion: `EvadeChance = 11` ally zone, `SkillEvasionSystem` seed + key hash, cut
+  **before the writer** on three paths (hitscan gate + C2 `Evaded`, projectile judged at launch + `MissPoint` + outcome `Evaded`,
+  instant tower snapshot `evaded`), observer fix outside the plan, schema 11 → 12 + `smoke-evasion` token; single unobserved.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

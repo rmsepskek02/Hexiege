@@ -96,8 +96,8 @@ namespace Hexiege.EditorTools
         //   [2026-11-18 지원 스킬 2-D 메테오 Task — Plan S2-4 · P-6] 12 → 13. 메테오를 「사용 가능」(타입 A · 착탄 지연 1.5 · 착탄 화상)으로 켠 표와 개수를 맞춘다.
         //   [2026-11-23 지원 스킬 연막탄 Task — Plan S-1(메인 세션 결정: 「사용 가능」을 S-1부터 켬)] 13 → 14.
         //   연막탄을 「사용 가능」(타입 4 지속 상태 구역 · 아군 대상 · 회피 확률 0.5)으로 켠 표와 개수를 맞춘다.
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 13 줄을 지웠다 — 회귀 스위트 6곳이 이 상수 14를 읽어 통과했다.)
         // private const int ExpectedAvailableCount = 8;
-        // private const int ExpectedAvailableCount = 13;
         private const int ExpectedAvailableCount = 14;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
@@ -376,10 +376,11 @@ namespace Hexiege.EditorTools
                 emp,
                 // [2026-11-23 연막탄 Task S-1 — Plan P-11 · 사용자 결정 U-2] 연막탄 자리표시 줄을 지속 상태 구역(아군 대상 · 회피 확률)으로 바꿨다.
                 //   회피 확률 0.5 · 반경 2 · 6초 · 쿨 15 · 피해 0(모두 시험용 임시값 — 밸런싱 O-9). 설명 문구는 그대로(동작과 맞다).
-                //   🔴 구역 VFX 칸(테스트용 임시 프리팹 vfx_emp_disabled 포함)은 이 도구가 쓰지 않는다 — 다시 실행해도 지워지지 않는다.
-                //   옛 줄(타입 A 자리표시 · 사용 불가):
-                // PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
-                //     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
+                //   🔴 구역 VFX 칸은 이 도구가 쓰지 않는다 — 칸에 프리팹을 넣은 뒤 다시 실행해도 지워지지 않는다.
+                //      (테스트 때 넣었던 임시 프리팹 vfx_emp_disabled는 2026-11-24 연막탄 테스트 PASS 뒤 비웠다 — 지금 칸은 비어 있다.
+                //      직전 문구 「구역 VFX 칸(테스트용 임시 프리팹 vfx_emp_disabled 포함)은 …」)
+                //   (같은 PASS 뒤 주석으로 남겨 둔 옛 자리표시 줄 PointPlaceholder(…) 를 지웠다 — 아래 줄로 켠 자산이 실기에서 시전됐고,
+                //    회귀 스위트 E-T12가 이 표 줄과 자산 계약을 확인한다.)
                 PersistentZone("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다.",
                     StatusEffectKind.EvadeChance, 0.5f, duration: 6f, radius: 2f, cooldown: 15f, targetsAllies: true),

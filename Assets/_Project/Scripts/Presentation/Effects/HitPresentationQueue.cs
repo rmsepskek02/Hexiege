@@ -427,10 +427,9 @@ namespace Hexiege.Presentation
                     //   그래서 boltTarget을 비워 둔 채(default) 사유 "Evaded"를 넘긴다 → 번개는 「고정 끝점」 갈래로 스냅샷 Impact
                     //   (= 서버가 고정한 빗나간 지점, 대상 옆 · 조금 뒤)까지 그려지고, 진단 상태는 「Untracked(Evaded)」가 된다.
                     //   높이(가슴 높이)는 명중 번개의 고정 갈래와 같은 규칙(받는 순간 잡아 둔 대상 종류의 표 값)이다 — Plan O-7 결정:
-                    //   번개가 대상과 같은 높이로 옆을 스쳐 지나가 「빗나갔다」고 읽힌다. 회피가 아니면 아래 옛 조건 그대로 해석한다.
-                    // if (s.Visual == AttackEffectVisual.Tower && EffectManager.Instance != null
-                    //     && EffectManager.Instance.TowerAttackNeedsTargetTracking(s.Race))
-                    //     boltTarget = ResolveTowerBoltTarget(s.TargetId, out boltUntracked);
+                    //   번개가 대상과 같은 높이로 옆을 스쳐 지나가 「빗나갔다」고 읽힌다. 회피가 아니면 아래 else 조건(그전 조건 그대로)으로 해석한다.
+                    //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 조건을 지웠다 — 실기 멀티 양쪽 화면 TowerBoltEnd 줄에
+                    //    UntrackedByReason=Evaded:N이 찍혔다.)
                     if (s.Evaded) boltUntracked = "Evaded";
                     else if (s.Visual == AttackEffectVisual.Tower && EffectManager.Instance != null
                         && EffectManager.Instance.TowerAttackNeedsTargetTracking(s.Race))
@@ -722,8 +721,8 @@ namespace Hexiege.Presentation
                     int h = BoltHorizontalMm(impactView, recvView);
                     // [2026-11-23 연막탄 S-4] 회피 번개는 Impact가 일부러 대상 옆(빗나간 지점)이라 수평 차가 크다(≈ 반경 + 0.3m 이상).
                     //   끝점 오차를 재는 최댓값(MaxHDiffmm — F0 판정)에 섞이지 않게 회피 스냅샷은 최댓값 갱신에서 뺀다(상세 줄 HDiffmm에는 그대로 남는다).
-                    //   옛 줄(아래 주석)은 모든 스냅샷을 셌다.
-                    // if (h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
+                    //   (그전 줄은 모든 스냅샷을 셌다. 2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 그 옛 줄을 지웠다 — 실기 멀티에서 회피 번개가
+                    //    있었는데도 End 줄 MaxHDiffmm이 0 · 31 · 40으로 남았다.)
                     if (!s.Evaded && h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
                     hDiff = h.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     vDiff = BoltMm(recvView.y - impactView.y).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -804,8 +803,8 @@ namespace Hexiege.Presentation
                 if (started && info.HasEndpoint && viewState == "Present" && TryReadBoltViewPosition(go, out Vector3 viewNow))
                 {
                     int h = BoltHorizontalMm(info.Endpoint, viewNow);
-                    // [연막탄 S-4] 위 Receive와 같은 이유로 회피 번개는 최댓값 갱신에서 뺀다. 옛 줄(아래 주석).
-                    // if (h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
+                    // [연막탄 S-4] 위 Receive와 같은 이유로 회피 번개는 최댓값 갱신에서 뺀다.
+                    //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 회피 번개 Begin 줄 EndHDiffmm≈660인데 End 줄 MaxHDiffmm은 그 값을 담지 않았다.)
                     if (!s.Evaded && h > _boltDiagMaxHDiffMm) _boltDiagMaxHDiffMm = h;
                     endHDiff = h.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }

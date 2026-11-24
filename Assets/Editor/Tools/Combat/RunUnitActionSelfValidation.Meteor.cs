@@ -23,9 +23,9 @@
 //         (독이 있는 유닛은 검사하지 않는다 — 지금 동작은 덮어쓰기이고 U-2와 다르며 경기에서 생기지 않는다, Plan 12절)
 //   M-T6  시전 건물 파괴 뒤 착탄 = 피해 + 화상(U-5) / 경기 종료(ClosePendingImpacts) 뒤 = 피해 · 화상 0.
 //   M-T7  포격 회귀(화상 칸 0) — 0.4초 예약 · 피해 1회 · 화상 없음 · 화면 메테오 경로 아님(UsesImpactPresentation false).
-//   M-T8  사용 가능 수 13 — SupportSkillLoadoutSetup.ExpectedAvailableCount == 13, 셋업 표의 메테오 줄(자리표시 아님 · 화상 50 · 3).
+//   M-T8  사용 가능 수 14 — SupportSkillLoadoutSetup.ExpectedAvailableCount == 14(2026-11-23 연막탄으로 13 → 14 — 직전 「13」), 셋업 표의 메테오 줄(자리표시 아님 · 화상 50 · 3).
 //   M-T9  예고 재생 속도 — 기준 1.5 · 지연 1.5 → 1, 지연 0.75 → 2, 잘못된 값 → 1, 상한 · 하한, 풀 항목에서 바꾼 속도가 Return 뒤 원래 값.
-//   M-T10 스키마 11 그대로(메테오는 RPC · 동기화 형식 변경 없음).
+//   M-T10 메테오는 RPC · 동기화 형식 변경 없음 — 스키마 값은 12(2026-11-23 연막탄이 11 → 12로 올림 — 직전 「스키마 11 그대로」).
 //   덧붙여 소스 게이트 — 화면 메테오 분기가 원형 「프리팹 없음」 검사보다 앞 · Update 연결 · 재생 속도 복원 · 안전 마감 연결.
 //
 // 하지 않는 것: 실제 멀티 전송 · 화면 이펙트의 실제 모양 · 비스듬한 궤적 · 타이밍(Plan T2-L9 — 사용자 실기 · 육안 항목),
@@ -62,7 +62,7 @@ namespace Hexiege.Editor.Combat
             ValidateMeteorSourceAndSetupGates();       // M-T8 · M-T10 · 소스 게이트
             ValidateMeteorAssetContract();             // M-T1
             ValidateMeteorWarningSpeedPoolRestore();   // M-T9(풀 항목 — ParticleSystem)
-            Debug.Log("[UAS-DIAG][SKILL-METEOR] self-validation PASS: Meteor asset available as type A / point / delay 1.5 / burn 50 × 3 / Spirit slot 0 with filled-slot VFX contracts (M-T1), impact exactly at the 15th 0.1 s tick with cooldown at activation (M-T2), circle judged at impact incl. moved-out / moved-in units (M-T3), burn only on surviving enemy units with source −1 and 50 per second for 3 s, none on buildings / killed / allies / outside, delay-0 burn kept (M-T4), existing burn refreshed as one record with the new values (M-T5), impact + burn after caster loss and nothing after game end (M-T6), Bombardment unchanged without burn (M-T7), setup count 13 with the Meteor spec (M-T8), warning playback speed math and pool restore (M-T9), schema 11 (M-T10).");
+            Debug.Log("[UAS-DIAG][SKILL-METEOR] self-validation PASS: Meteor asset available as type A / point / delay 1.5 / burn 50 × 3 / Spirit slot 0 with filled-slot VFX contracts (M-T1), impact exactly at the 15th 0.1 s tick with cooldown at activation (M-T2), circle judged at impact incl. moved-out / moved-in units (M-T3), burn only on surviving enemy units with source −1 and 50 per second for 3 s, none on buildings / killed / allies / outside, delay-0 burn kept (M-T4), existing burn refreshed as one record with the new values (M-T5), impact + burn after caster loss and nothing after game end (M-T6), Bombardment unchanged without burn (M-T7), setup count 14 with the Meteor spec (M-T8), warning playback speed math and pool restore (M-T9), schema 12 (M-T10).");
         }
 
         /// <summary> 서버 판정 fixture 묶음(M-T2 ~ M-T7)과 순수 계산(M-T9 앞부분). 헤드리스 하네스가 이 메서드만 부른다. </summary>
@@ -442,22 +442,18 @@ namespace Hexiege.Editor.Combat
 
         // ── M-T8 · M-T10 · 소스 게이트 ───────────────────────────────────
 
-        /// <summary> M-T8 — 셋업 기대 수 13 · 메테오 표 줄, M-T10 — 스키마 11, 소스 게이트(서버 · 화면 연결). </summary>
+        /// <summary> M-T8 — 셋업 기대 수 14 · 메테오 표 줄, M-T10 — 스키마 12(2026-11-23 연막탄으로 13 → 14 · 11 → 12), 소스 게이트(서버 · 화면 연결). </summary>
         private static void ValidateMeteorSourceAndSetupGates()
         {
             // M-T10 — 메테오는 RPC · 동기화 형식을 바꾸지 않는다(Plan O-2 · Research 12절 끝).
-            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경). 옛 검사(기록용):
-            // Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-            // "M-T10 the Meteor adds no RPC or sync field — the presentation schema stays 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
                 "M-T10 the Meteor adds no RPC or sync field — the presentation schema is 12 only because of the smoke-bomb projectile launch RPC arguments.");
 
-            // M-T8 — 셋업 기대 수 13(다른 스위트 5파일의 같은 검사와 같은 값).
+            // M-T8 — 셋업 기대 수 14(다른 스위트 5파일의 같은 검사와 같은 값. 2026-11-23 연막탄 — 직전 「13」).
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다. 옛 검사:
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-            //     "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Meteor enabled).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
             Require(expected != null && (int)expected.GetRawConstantValue() == 14,
                 "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Meteor enabled, then Smoke Bomb).");
             string setup = File.ReadAllText("Assets/Editor/Setup/SupportSkillLoadoutSetup.cs");

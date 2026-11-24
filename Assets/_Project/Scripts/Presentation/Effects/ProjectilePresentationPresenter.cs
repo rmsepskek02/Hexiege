@@ -637,9 +637,8 @@ namespace Hexiege.Presentation
             double displayLag = double.NaN;
             if (withResult)
             {
-                // [연막탄 S-3] 옛 두 줄(아래 주석)은 명중이 아니면 모두 「대상 소실」로 셌다. 회피(Evaded)는 따로 센다.
-                // if (slot.Result.Outcome == ProjectileImpactOutcome.Hit) _view.FinishHit++;
-                // else _view.FinishLost++;
+                // [연막탄 S-3] 그전 두 줄은 명중이 아니면 모두 「대상 소실」로 셌다. 회피(Evaded)는 따로 센다.
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 두 줄을 지웠다 — 실기 멀티 양쪽 화면 END 줄에 finish=…|evaded:N이 찍혔다.)
                 if (slot.Result.Outcome == ProjectileImpactOutcome.Hit) _view.FinishHit++;
                 else if (slot.Result.Outcome == ProjectileImpactOutcome.Evaded) _view.FinishEvaded++;
                 else _view.FinishLost++;
@@ -677,21 +676,19 @@ namespace Hexiege.Presentation
             //   [2026-10-27 P5 정리] v=2 → v=3: 1줄째 switch= 칸(고정 토큰) 삭제, 2줄째 markers 조각의 path= /l 칸 · legacyTracer= 칸 삭제
             //   (ServerProjectileDiagnostics.DescribeView). 투사체 유닛은 항상 서버 경로라 그 칸들은 늘 같은 값이었다.
             // [2026-11-23 연막탄 S-3] v=3 → v=4: 1줄째 finish= 칸에 |evaded:N(화면 착탄 중 결과 「회피」 수), begins= 칸에 |evaded:N
-            //   (회피 발사 기록을 꺼낸 수)를 붙였다. 다른 칸은 그대로다. 옛 머리(아래 주석).
-            // string head = FormattableString.Invariant(
-            //     $"side=view v=3 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
+            //   (회피 발사 기록을 꺼낸 수)를 붙였다. 다른 칸은 그대로다.
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 v=3 옛 머리 · begins= · finish= 옛 조각을 지웠다 — v=4 줄이 실기 멀티
+            //    Host · Client 양쪽에서 찍혔다.)
             string head = FormattableString.Invariant(
                 $"side=view v=4 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
             string part1 = head + "part=1/2 "
                 + FormattableString.Invariant(
                 $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
-                // [연막탄 S-3] 옛 begins= 조각: $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing} cue=played…"
                 + FormattableString.Invariant(
                 $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing}|evaded:{v.BeginsEvaded} cue=played:{v.CuePlayed}|vfxStarted:{v.CueVfxStarted}|skippedMidFlight:{v.CueSkippedMidFlight}|noAttackerView:{v.CueNoAttackerView} ")
                 // [단계 C] 타워 발사 신호 칸(건물 공격자만). 옛 1줄째에는 이 칸이 없었다.
                 + FormattableString.Invariant(
                 $"towerCue=played:{v.TowerCuePlayed}|skippedMidFlight:{v.TowerCueSkippedMidFlight}|noPreset:{v.TowerCueNoPreset} ")
-                // [연막탄 S-3] 옛 finish= 조각: $"finish=hit:{v.FinishHit}|lost:{v.FinishLost} impactVfx=…"
                 + FormattableString.Invariant(
                 $"finish=hit:{v.FinishHit}|lost:{v.FinishLost}|evaded:{v.FinishEvaded} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
                 + _coordinator.DescribeForDiagnostics()

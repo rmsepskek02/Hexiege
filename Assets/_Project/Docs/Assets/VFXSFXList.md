@@ -300,8 +300,9 @@ recipient HoT의 writer→current-state replication→presenter 연결과 양 pe
 | Spirit | 서리 감옥 — 바닥 얼음 구역(V3) | — | **칸 준비됨 · 미제작** — `Skill_Spirit_FrostPrison` 「구역 VFX」. 반경 2 · 기준 반경 2라 배율 1(지름 4의 원에 맞춰 만든다). 시험 때 `vfx_emp_disabled`를 임시로 넣어 자리 · 크기 · 양쪽 화면 · 만료 꼬리 정지를 확인한 뒤 비웠다(`92a1fc8`) |
 | Spirit | 서리 감옥 — 유닛 얼음 상태(V4) | — | **칸 준비됨 · 미제작** — 같은 자산 「유닛 상태 VFX」. 크기는 유닛 크기 표 × 스킬 크기 배율로 시작한다(큰 유닛 보정은 프리팹이 나온 뒤 — 같은 Task Z-12). 시험 때 `vfx_bloomfairy_heal`을 임시로 넣어 진입 부착 · 만료 꼬리 · 사망 즉시 정지를 확인한 뒤 비웠다. **구역을 나갈 때의 정지 · 재경기 정리는 미관측** |
 | Transcendence | 수액 늪 — 호박색 수액 바닥(V9) | — | **칸 준비됨 · 미제작** — `Skill_Trans_SapSwamp` 「구역 VFX」(배율 1, 서리와 같은 크기 기준). 유닛 칸은 비워 둔다(기획에 수액 상태 VFX 없음 — 같은 Task Z-14) |
+| Human | 연막탄 — 연막 구역(V7) | — | **칸 준비됨 · 미제작** — `Skill_Human_SmokeBomb` 「구역 VFX」(반경 2 · 기준 반경 2 — 배율 1). 시험 때 `vfx_emp_disabled`를 임시로 넣어 확인한 뒤 비웠다(2026-11-24 정리). 유닛 상태 VFX 칸은 비어 있고 둘지는 열린 항목(연막탄 Task O-1). 회피 투사체 · 번개가 빗나가는 그림은 코드(프리팹 불필요). [연막탄 Task Plan 13절](../_Tasks/2026-11-23/15_28_support-skill-smoke-bomb/Plan.md#13-final-result) |
 
-- 칸이 비어 있으면 효과만 동작하고 `[SKILL-ZONE]` `ZoneVfxSkipped` / `UnitZoneVfxSkipped` `Reason=NoPrefab` 1줄씩 남는다(정상). 연막탄(V7)은 스킬이 「사용 불가」라 행을 두지 않았다. [지속 상태 구역 Task Plan 11-7](../_Tasks/2026-11-10/16_02_support-skill-persistent-zones/Plan.md#11-7-final-result)
+- 칸이 비어 있으면 효과만 동작하고 `[SKILL-ZONE]` `ZoneVfxSkipped` / `UnitZoneVfxSkipped` `Reason=NoPrefab` 1줄씩 남는다(정상). 연막탄(V7)은 위 표 마지막 행이다 *(2026-11-24 — 직전 「연막탄(V7)은 스킬이 「사용 불가」라 행을 두지 않았다.」)*. [지속 상태 구역 Task Plan 11-7](../_Tasks/2026-11-10/16_02_support-skill-persistent-zones/Plan.md#11-7-final-result)
 
 #### 골드 채집 이펙트
 

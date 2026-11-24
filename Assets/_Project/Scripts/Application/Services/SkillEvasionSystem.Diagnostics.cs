@@ -67,10 +67,8 @@ namespace Hexiege.Application
             return true;
         }
 
-        // [2026-11-23 연막탄 S-3] 옛 서명(아래 주석)에 맨 뒤 선택 인자 extra 하나만 붙였다. S-2 Hitscan 호출은 그대로이고 줄 모양도 같다.
-        // public void DiagOnRoll(SkillEvasionPath path, SkillEvasionKeySource keySource, ulong attackKey, ulong ordinal,
-        //                        ulong roll, int chanceBasisPoints, bool evaded, int attackerId, string attackerType,
-        //                        TeamId attackerTeam, UnitData target, int hpBefore, int hpAfter)
+        // [2026-11-23 연막탄 S-3] S-2 서명 맨 뒤에 선택 인자 extra 하나만 붙였다. S-2 Hitscan 호출은 그대로이고 줄 모양도 같다.
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 서명을 지웠다 — 실기 멀티에서 Hitscan · 투사체 · 대포탑 · 즉발 탑 판정 줄이 모두 이 서명으로 찍혔다.)
         /// <summary>
         /// [진단 E-L3 · E-L13] 회피 판정 1건 = 1줄(상한 96 안에서). 명중이면 피해를 적용한 뒤 HpAfter를 넣어 부른다.
         /// </summary>
@@ -103,10 +101,8 @@ namespace Hexiege.Application
                     if (evaded) _diagEvaded[p]++;
                 }
                 if (!DiagTakeLine()) return;
-                // [S-3] 옛 줄(아래 주석)과 같은 칸 · 같은 순서이고, extra가 있을 때만 끝에 ", " + extra가 붙는다.
-                // GameLog.Dev.Info("Skill", nameof(SkillEvasionSystem), "[SKILL-EVADE] EvadeRoll",
-                //     System.FormattableString.Invariant(
-                //         $"Diag=SkillEvade, DiagRev=1, Event=EvadeRoll, ... HpBefore={hpBefore}, HpAfter={hpAfter}, Detail={_diagLines}/{DiagnosticLineLimit}"));
+                // [S-3] S-2 줄과 같은 칸 · 같은 순서이고, extra가 있을 때만 끝에 ", " + extra가 붙는다.
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 S-2 옛 줄을 지웠다 — 아래 줄이 실기 멀티 로그에 경로별로 찍혔다.)
                 string tail = string.IsNullOrEmpty(extra) ? string.Empty : ", " + extra;
                 GameLog.Dev.Info("Skill", nameof(SkillEvasionSystem), "[SKILL-EVADE] EvadeRoll",
                     System.FormattableString.Invariant(
@@ -280,14 +276,13 @@ namespace Hexiege.Application
                 int totalRolls = 0, totalEvaded = 0;
                 for (int i = 0; i < _diagRolls.Length; i++) { totalRolls += _diagRolls[i]; totalEvaded += _diagEvaded[i]; }
                 int ratePermille = totalRolls > 0 ? (int)System.Math.Round(totalEvaded * 1000.0 / totalRolls) : -1;
-                // [2026-11-23 연막탄 S-3] 옛 줄(아래 주석, DiagRev=1)의 칸은 이름 · 순서 그대로 두고, 끝에 투사체 착탄 칸 넷을 붙였다
+                // [2026-11-23 연막탄 S-3] S-2 줄(DiagRev=1)의 칸은 이름 · 순서 그대로 두고, 끝에 투사체 착탄 칸 넷을 붙였다
                 //   → 줄 모양이 바뀌었으므로 DiagRev=2.
                 //   ProjectileImpactEvaded / TowerShellImpactEvaded = 착탄 때 「회피」로 닫힌 수(정상 = 같은 경로의 …Evaded 수 — 경기 끝에
                 //   아직 날고 있던 투사체는 착탄 전에 닫혀 1~2 적을 수 있다), ImpactTargetGone = 그중 비행 중 대상이 죽은 수(O-6, 결과는 그래도 Evaded),
                 //   MushroomInSmokeSkipped = 연막 안 대상에게 쐈지만 회피 대상이 아니라 판정하지 않은 MushroomBomber 발사 수(E-L11).
-                // GameLog.Dev.Info("Skill", nameof(SkillEvasionSystem), "[SKILL-EVADE] EvadeSummary",
-                //     System.FormattableString.Invariant(
-                //         $"Diag=SkillEvade, DiagRev=1, Event=EvadeSummary, ... C2Evaded={_diagC2Evaded}, C2Other={_diagC2Other}, DetailLines={_diagLines}, Suppressed={_diagSuppressed}"));
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 DiagRev=1 옛 줄을 지웠다 — 아래 DiagRev=2 줄이 실기 멀티 경기 끝마다 찍혔다
+                //    (MushroomInSmokeSkipped · ImpactTargetGone 값 포함).)
                 GameLog.Dev.Info("Skill", nameof(SkillEvasionSystem), "[SKILL-EVADE] EvadeSummary",
                     System.FormattableString.Invariant(
                         $"Diag=SkillEvade, DiagRev=2, Event=EvadeSummary, Role={DiagRole()}, Seed={Hex(_matchSeed)}, Rolls={totalRolls}, Evaded={totalEvaded}, RatePermille={ratePermille}, HitscanRolls={_diagRolls[(int)SkillEvasionPath.Hitscan]}, HitscanEvaded={_diagEvaded[(int)SkillEvasionPath.Hitscan]}, ProjectileRolls={_diagRolls[(int)SkillEvasionPath.Projectile]}, ProjectileEvaded={_diagEvaded[(int)SkillEvasionPath.Projectile]}, TowerShellRolls={_diagRolls[(int)SkillEvasionPath.TowerShell]}, TowerShellEvaded={_diagEvaded[(int)SkillEvasionPath.TowerShell]}, TowerInstantRolls={_diagRolls[(int)SkillEvasionPath.TowerInstant]}, TowerInstantEvaded={_diagEvaded[(int)SkillEvasionPath.TowerInstant]}, C2Evaded={_diagC2Evaded}, C2Other={_diagC2Other}, DetailLines={_diagLines}, Suppressed={_diagSuppressed}, ProjectileImpactEvaded={_diagImpactEvaded[(int)SkillEvasionPath.Projectile]}, TowerShellImpactEvaded={_diagImpactEvaded[(int)SkillEvasionPath.TowerShell]}, ImpactTargetGone={_diagImpactTargetGone}, MushroomInSmokeSkipped={_diagMushroomInSmokeSkipped}"));

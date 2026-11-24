@@ -331,15 +331,15 @@ namespace Hexiege.Application
             ProjectileDiagnosticCounters d = _projectileDiag;
             int cancelled = d.CancelledTotal;
             bool reserveBalanced = d.Reserved == d.Launched + cancelled + d.ClosedReserved;
-            // [2026-11-23 연막탄 S-3] 옛 식(아래 주석)에 착탄 결과 「회피」 발 수(evaded)를 더했다. 연막이 없으면 evaded = 0이라 옛 식과 같다.
-            // bool flightBalanced = d.Launched == d.Hit + d.TargetLost + d.ClosedInFlight;
+            // [2026-11-23 연막탄 S-3] 그전 식(Launched == Hit + TargetLost + ClosedInFlight)에 착탄 결과 「회피」 발 수(evaded)를 더했다.
+            //   연막이 없으면 evaded = 0이라 그전 식과 같다.
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 식을 지웠다 — 실기 멀티 서버 END 줄이 회피 발을 포함해 balance=ok로 닫혔다.)
             bool flightBalanced = d.Launched == d.Hit + d.TargetLost + d.Evaded + d.ClosedInFlight;
             bool authority = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
             var text = new StringBuilder(900);
             // [2026-10-27 P5 정리] v=1 → v=2: switch= 칸 삭제 · path= 유닛 칸의 /l(기존 경로) 삭제(파일 머리 설명).
             // [2026-11-23 연막탄 S-3] v=2 → v=3: targetLost= 바로 뒤에 evaded=N(착탄 때 「회피」로 닫힌 발 수 — 유닛 + 대포탑) 칸 하나를 더했다.
-            //   옛 머리 줄(아래 주석). 다른 칸의 이름 · 순서는 그대로다.
-            // text.Append("side=server v=2 role=").Append(ServerProjectileDiagnostics.RoleName)
+            //   다른 칸의 이름 · 순서는 그대로다. (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 v=2 옛 머리 줄을 지웠다 — v=3 줄이 실기에서 찍혔다.)
             text.Append("side=server v=3 role=").Append(ServerProjectileDiagnostics.RoleName)
                 .Append(" authority=").Append(authority ? "local" : "remote")
                 .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))

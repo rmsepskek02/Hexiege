@@ -326,13 +326,8 @@ namespace Hexiege.Application
             record.LastTargetCenter = center;
             record.TargetRadius = radius;
             record.AttackPower = attackPower;
-            // [연막탄 S-3] 옛 줄(아래 주석)에 회피 여부 · 빗나간 지점 두 인자만 붙였다(회피가 아니면 false · 0 — 옛 기록과 같다).
-            // record.Launch = new ProjectileLaunchPresentation(
-            //     new ProjectileDeliveryKey(ProjectileEpoch, record.Id), tower.Id, attackerIsUnit: false,
-            //     attackerKind: (int)tower.Type, attackerRace: (int)race, team: tower.Team,
-            //     targetId: target.Id, targetIsUnit: true,
-            //     source: source, targetCenter: center, targetRadius: radius,
-            //     launchTime: now, impactTime: impactTime, homing: true);
+            // [연막탄 S-3] 회피 여부 · 빗나간 지점 두 인자만 끝에 붙였다(회피가 아니면 false · 0 — 그전 기록과 같다).
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 실기 멀티에서 인간 대포탑 포탄 회피가 이 줄로 기록됐다.)
             record.Launch = new ProjectileLaunchPresentation(
                 new ProjectileDeliveryKey(ProjectileEpoch, record.Id), tower.Id, attackerIsUnit: false,
                 attackerKind: (int)tower.Type, attackerRace: (int)race, team: tower.Team,
@@ -654,14 +649,9 @@ namespace Hexiege.Application
                 record.Attacker.Facing = FacingDirection.FromCoords(record.Attacker.Position, target.Position);
 
             int race = 0;
-            // [연막탄 S-3] 옛 줄(아래 주석)에 회피 여부 · 빗나간 지점 두 인자만 붙였다(회피가 아니면 false · 0 — 옛 기록과 같다).
-            //   늦은 접속 스냅샷(CopyActiveProjectileLaunches)도 이 기록을 그대로 복사하므로 회피 정보가 함께 실린다.
-            // record.Launch = new ProjectileLaunchPresentation(
-            //     new ProjectileDeliveryKey(ProjectileEpoch, record.Id), record.Attacker.Id, attackerIsUnit: true,
-            //     attackerKind: (int)record.AttackerType, attackerRace: race, team: record.Team,
-            //     targetId: record.TargetId, targetIsUnit: record.TargetIsUnit,
-            //     source: source, targetCenter: center, targetRadius: radius,
-            //     launchTime: launchTime, impactTime: impactTime, homing: true);
+            // [연막탄 S-3] 회피 여부 · 빗나간 지점 두 인자만 끝에 붙였다(회피가 아니면 false · 0 — 그전 기록과 같다).
+            //   늦은 접속 스냅샷(CopyActiveProjectileLaunches)도 이 기록을 그대로 복사하므로 회피 정보가 함께 실린다(늦은 접속은 실기 미관측).
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 실기 멀티에서 유닛 투사체 회피가 이 줄로 기록됐다.)
             record.Launch = new ProjectileLaunchPresentation(
                 new ProjectileDeliveryKey(ProjectileEpoch, record.Id), record.Attacker.Id, attackerIsUnit: true,
                 attackerKind: (int)record.AttackerType, attackerRace: race, team: record.Team,

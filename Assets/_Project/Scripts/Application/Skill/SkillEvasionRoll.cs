@@ -24,14 +24,16 @@
 //                     순번은 "연막 안 대상에게 쏜 그 공격자의 판정"에만 늘어나므로, 다른 공격자 · 다른 시스템과 무관하다.
 //     · 투사체(S-3 — 유닛 6종 · 인간 대포탑) : 발사 번호표(ProjectileDeliveryKey — epoch · id). 발사마다 유일하다.
 //                     (2026-11-23 S-3: 「사용 예정」 → 실제로 LaunchProjectile · TryLaunchTowerProjectile가 쓴다.)
-//     · 즉발 탑(S-4에서 결정)       : 이 파일에 아직 없다 — S-4에서 표현 스냅샷 순번으로 만든다.
-//                     [2026-11-23 S-4 결정 — 위 줄은 S-1 때 예정이라 남겨 둔다] 표현 스냅샷 순번이 아니라
+//     · 즉발 탑(S-4 — RuneSpire · VineTower) : 표현 스냅샷 순번이 아니라
 //                     (탑 Id, 그 탑의 회피 판정 순번 1, 2, 3 …)으로 만든다(KeyFromTowerOrdinal — 열린 항목 O-10 탑 몫).
+//                     (2026-11-24 정정 — 직전 줄 「즉발 탑(S-4에서 결정) : 이 파일에 아직 없다 — S-4에서 표현 스냅샷 순번으로 만든다」는
+//                      S-1 때 예정이었고 S-4 결정과 달라 사실이 아니게 됐다.)
 //                     표현 스냅샷(AttackEffectIdentity)은 경기 번호(Match)를 GUID로 뽑아 실행마다 달라지고,
 //                     그 클래스 주석이 「화면 표현 전용 — 피해 · 판정 승인에 쓰지 않는다」고 못박아 두었기 때문이다.
 //                     탑 순번은 싱글 · 멀티(Host)가 같은 규칙으로 센다 — 연막 안 대상에게 쏜 그 탑의 판정에서만 늘어난다.
 //
-// 빗나간 지점(Plan P-10 · 사용자 결정 U-4 — 투사체 · 탑 화면이 쓴다, S-1에서는 판정 호출 없음):
+// 빗나간 지점(Plan P-10 · 사용자 결정 U-4 — 서버가 투사체 발사 · 즉발 탑 공격 순간 정하고, 투사체 · 탑 화면이 그대로 쓴다):
+//   (2026-11-24 정정 — 직전 「S-1에서는 판정 호출 없음」은 S-1 때 상태였다. S-3 · S-4부터 서버가 부른다.)
 //   M = C + n × (r + 0.3) + d × 0.5
 //     C = 발사 순간 대상 중심, r = 대상 반경, d = 쏜 쪽 → 대상 방향(수평 단위벡터), n = d에 수직인 단위벡터.
 //     좌 / 우는 같은 roll의 "가장 위 비트"로 정한다(확률 비교는 아래 자리 나머지를 쓰므로 서로 거의 독립이다).
@@ -188,11 +190,11 @@ namespace Hexiege.Application
                 }
                 towers.Sort(System.StringComparer.Ordinal);
                 instantTowers.Sort(System.StringComparer.Ordinal);
-                // [2026-11-23 연막탄 S-4] 옛 반환(아래 주석, S-3)은 즉발 탑 칸이 없었다. S-4가 즉발 탑(RuneSpire · VineTower)을
+                // [2026-11-23 연막탄 S-4] S-3 반환은 즉발 탑 칸이 없었다. S-4가 즉발 탑(RuneSpire · VineTower)을
                 //   회피 대상에 넣었으므로 끝에 ";tower-instant:spirit,transcendence" 한 칸을 붙였다 → handshake 해시가 바뀐다
                 //   (S-3만 들어간 빌드와는 경기를 시작하지 않는다 — 의도된 안전장치, 스키마는 같은 12 묶음).
-                // return "hitscan:" + string.Join(",", hitscan) + ";projectile:" + string.Join(",", projectile)
-                //     + ";tower-shell:" + string.Join(",", towers);
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 S-3 옛 반환을 지웠다 — 이 토큰이 든 handshake로 실기 멀티 경기가
+                //    스키마 12에서 시작됐다.)
                 return "hitscan:" + string.Join(",", hitscan) + ";projectile:" + string.Join(",", projectile)
                     + ";tower-shell:" + string.Join(",", towers)
                     + ";tower-instant:" + string.Join(",", instantTowers);
