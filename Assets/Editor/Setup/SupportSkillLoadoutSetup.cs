@@ -89,7 +89,13 @@ namespace Hexiege.EditorTools
         //   이 값을 그대로 2로 두면 표의 사용 가능 수(6)와 달라 ValidateSpecs 가 쓰기 전에 멈춰 도구를 실행할 수 없다.
         //   (멈추는 것 자체는 안전하다 — 아무 자산도 쓰지 않는다. 그래도 도구를 다시 쓸 수 있게 표와 같은 수로 고친다.)
         //   [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-20] 6 → 8. 서리 감옥 · 수액 늪을 「사용 가능」으로 켠 표와 개수를 맞춘다.
-        private const int ExpectedAvailableCount = 8;
+        //   [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-4] 8 → 9. 대지의 갑주를 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-16 지원 스킬 새 상태 Task 단계 C — 구현 단위 C-4] 9 → 10. 신목의 각성을 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-4] 10 → 11. 재생의 뿌리를 「사용 가능」으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-17 지원 스킬 2-L 공습 Task — Plan L-6] 11 → 12. 공습을 「사용 가능」(직선 연속 폭격 LineStrike)으로 켠 표와 개수를 맞춘다.
+        //   [2026-11-18 지원 스킬 2-D 메테오 Task — Plan S2-4 · P-6] 12 → 13. 메테오를 「사용 가능」(타입 A · 착탄 지연 1.5 · 착탄 화상)으로 켠 표와 개수를 맞춘다.
+        // private const int ExpectedAvailableCount = 8;
+        private const int ExpectedAvailableCount = 13;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -111,12 +117,30 @@ namespace Hexiege.EditorTools
         private const string F_ImpactDelay = "_impactDelay";
         private const string F_ActivationVfx = "_activationVfxPrefab";
         private const string F_VfxReferenceRadius = "_vfxReferenceRadius";
+        // [2026-11-16 A-4] 추가 효과 목록 칸과 그 한 줄의 칸 이름(SkillDefinition.ExtraEffectEntry의 public 필드 이름).
+        private const string F_ExtraEffects = "_extraEffects";
+        private const string F_ExtraTarget = "target";
+        private const string F_ExtraStatusKind = "statusKind";
+        private const string F_ExtraMagnitude = "magnitude";
+        // [2026-11-18 메테오 Task — Plan P-6] 착탄 화상 칸 두 개(SkillDefinition 「착탄 화상」 머리말). 표가 곧 정답이라 모든 스킬에 쓴다
+        //   (메테오 50 · 3, 나머지 0 — 0은 「화상 없음」이라 다른 스킬 동작은 같다).
+        private const string F_ImpactBurnDps = "_impactBurnDamagePerSecond";
+        private const string F_ImpactBurnDuration = "_impactBurnDuration";
 
+        // [2026-11-16 A-4] 끝에 F_ExtraEffects를 더했다(쓰기 전 칸 이름 확인 대상).
+        // [2026-11-18 메테오] 끝에 착탄 화상 두 칸을 더했다. 옛 목록(기록용):
+        // private static readonly string[] AllFieldNames =
+        // {
+        //     F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
+        //     F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
+        //     F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects
+        // };
         private static readonly string[] AllFieldNames =
         {
             F_Icon, F_DisplayName, F_Description, F_IsAvailable, F_AimType, F_Cooldown, F_Mechanic,
             F_Radius, F_Duration, F_TotalDamage, F_DamagePerSecond, F_StatusKind, F_Magnitude,
-            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius
+            F_TargetsAllies, F_ImpactDelay, F_ActivationVfx, F_VfxReferenceRadius, F_ExtraEffects,
+            F_ImpactBurnDps, F_ImpactBurnDuration
         };
 
         // SkillLoadoutConfig 의 직렬화 칸 이름.
@@ -158,6 +182,18 @@ namespace Hexiege.EditorTools
             public float ImpactDelay;      // 착탄 지연(초).
             public bool UseBombardmentVfx; // true면 포격 VFX 프리팹을 연결.
             public bool UseEmpPulseVfx;    // [EMP 커밋 4] true면 EMP 고리 VFX 프리팹을 연결(포격 VFX와 동시에 켜면 ValidateSpecs가 멈춘다).
+            // [2026-11-16 A-4] 추가 효과 목록(대상 · 종류 · 강도). 비어 있으면 자산의 목록도 비운다(표가 곧 정답 — 다른 칸과 같은 멱등 규칙).
+            public List<SkillExtraEffect> ExtraEffects = new List<SkillExtraEffect>();
+            // [2026-11-18 메테오] 착탄 화상(초당 피해 · 지속). 0이면 화상 없음 — 메테오만 값이 있다.
+            public float ImpactBurnPerSecond;
+            public float ImpactBurnDuration;
+        }
+
+        // [2026-11-16 A-4] 표의 한 줄에 추가 효과 한 줄을 붙여 그 줄을 그대로 돌려준다(표 안에서 줄여 쓰기 위한 도우미).
+        private static SkillSpec WithExtra(SkillSpec spec, SkillEffectTarget target, StatusEffectKind kind, float magnitude)
+        {
+            spec.ExtraEffects.Add(new SkillExtraEffect(target, kind, magnitude));
+            return spec;
         }
 
         // 자리표시 값 — 지점 조준 스킬용(기존 Skill_Human_Bomb 값: 타입 A · 반경 2 · 피해 150 · 쿨 10).
@@ -274,22 +310,72 @@ namespace Hexiege.EditorTools
                 ImpactDelay = 0f, UseBombardmentVfx = false, UseEmpPulseVfx = true
             };
 
+            // 공습 — [2026-11-17 지원 스킬 2-L 공습 Task L-6, Plan P-7 · L-L9] 자리표시(타입 A · 사용 불가)에서 실제 값으로 바꿨다.
+            //   타입 5(LineStrike — 직선 연속 폭격): 누른 자리 = 시작점, 끈 쪽 = 방향, 직선을 폭격 횟수만큼 나눠 시작점 쪽부터 차례로 폭격한다.
+            //   피해 150 = 폭격 1회가 대상 1개에 주는 피해(한 번 시전에 같은 대상은 1회만 — U-12). 착탄 지연 0.4 = 첫 폭격까지의 시간.
+            //   반경 2 · VFX 기준 반경 2는 자리표시 값 그대로다 — 공습은 반경으로 판정하지 않고, 조준 표시도 원을 그리지 않는다
+            //   (첫 터치 전엔 고스트 직사각형 — L-7 UI-1). BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘기지만
+            //   조준 진단 로그(RadiusMilli)에만 남는다. *(2026-11-18 갱신 — 직전 「조준 모드에 들어간 직후(첫 터치 전)
+            //   기존 조준과 같은 원 표시에 반경을 쓴다(M-1 — BuildingSkillPanelUI가 BeginLineAim에 skill.Radius를 넘긴다)」)*
+            //   수치는 모두 시험용 임시값이다(밸런싱 단계 — Plan O-9).
+            //   🔴 직선 칸(길이 6 · 폭 2 · 5회 · 간격 0.2)과 공습 VFX 칸(기준 길이 · 폭격 VFX)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다
+            //      (칸이 없는 자산은 SkillDefinition 초기값 6 · 2 · 5 · 0.2 · 6 · 없음으로 읽힌다).
+            //   ⚠️ 「발동 VFX」 칸은 이 도구가 매번 표 값으로 다시 쓴다(공습은 포격 · EMP VFX가 아니므로 비운다) — 도구를 다시 실행하면
+            //      테스트용으로 넣은 직선 경고 임시 프리팹(M-2)이 지워진다. 그때는 자산에 다시 넣는다.
+            var airStrike = new SkillSpec
+            {
+                FileName = "Skill_Human_AirStrike", Race = h, Slot = 1,
+                DisplayName = "공습",
+                Description = "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다.",
+                IsAvailable = true,
+                AimType = SkillAimType.PointTarget,
+                Mechanic = SkillMechanicType.LineStrike,
+                Cooldown = 10f, Radius = 2f, Duration = 0f, TotalDamage = 150, DamagePerSecond = 0f,
+                StatusKind = (int)StatusEffectKind.None, Magnitude = 0f, TargetsAllies = false,
+                ImpactDelay = 0.4f, UseBombardmentVfx = false
+            };
+
+            // 메테오 — [2026-11-18 지원 스킬 2-D 메테오 Task S2-4, Plan P-1 · P-6 · U-7 · U-8] 자리표시(타입 A · 지연 0 · 사용 불가)에서
+            //   실제 값으로 바꿨다. 타입 A(즉발 범위 피해) 그대로 + 착탄 지연 1.5초(포격과 같은 착탄 예약 장치) + 착탄 화상(초당 50 × 3초).
+            //   피해 150 · 반경 2 · 쿨 10 · 지점 조준은 자리표시 값 그대로(U-8 「그대로 둡니다」). 모든 수치는 시험용 임시값(밸런싱 B-2).
+            //   🔴 착탄 예약 연출 칸(예고 기준 시간 · 몸체 · 착탄 VFX · 몸체 시작 보정 · 회전 보정)은 이 도구가 쓰지 않는다 — 자산 값 그대로 남는다.
+            //   ⚠️ 「발동 VFX」(예고) 칸은 이 도구가 매번 표 값으로 다시 쓴다(메테오는 포격 · EMP VFX가 아니므로 비운다) — 예고 칸에
+            //      프리팹을 넣은 뒤 도구를 다시 실행하면 그 프리팹이 지워진다(Plan R-5). 그때는 자산에 다시 넣는다.
+            //      (테스트 때 넣었던 예고 임시 프리팹 vfx_meteor_fall은 2026-11-18 테스트 PASS 뒤 몸체 · 착탄 임시 프리팹과 함께 비웠다 —
+            //      지금 세 칸 모두 비어 있다. 직전 문구 「테스트용으로 넣은 예고 임시 프리팹(vfx_meteor_fall)이 지워진다」)
+            var meteor = new SkillSpec
+            {
+                FileName = "Skill_Spirit_Meteor", Race = s, Slot = 0,
+                DisplayName = "메테오",
+                Description = "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다.",
+                IsAvailable = true,
+                AimType = SkillAimType.PointTarget,
+                Mechanic = SkillMechanicType.InstantAreaDamage,
+                Cooldown = 10f, Radius = 2f, Duration = 0f, TotalDamage = 150, DamagePerSecond = 0f,
+                StatusKind = (int)StatusEffectKind.None, Magnitude = 0f, TargetsAllies = false,
+                ImpactDelay = 1.5f, UseBombardmentVfx = false,
+                ImpactBurnPerSecond = 50f, ImpactBurnDuration = 3f
+            };
+
             return new List<SkillSpec>
             {
                 // ── 인간(race 0) — FlightFacility ──
                 bombardment,
-                PointPlaceholder("Skill_Human_AirStrike", h, 1, "공습",
-                    "지정한 방향의 직선 범위를 폭격해 적 유닛과 적 건물에 피해를 준다."),
+                // [2026-11-17 L-6] 공습 자리표시 줄을 위 airStrike(직선 연속 폭격 · 사용 가능)로 바꿨다.
+                airStrike,
                 emp,
                 PointPlaceholder("Skill_Human_SmokeBomb", h, 3, "연막탄",
                     "연막 안의 아군 유닛이 원거리 단일 공격을 확률로 피한다."),
                 // [2026-11-10 D4 · D5 · D10] 전술 지령 — 공격력만 켬(생산 속도는 2-S 후속). 설명 문구는 그대로(D5 — 불일치는 Plan에 기록).
-                InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1 · S-9] 주 효과(공격력 1.5배 · 8초 · 쿨 15)는 그대로,
+                //   추가 효과 목록에 「팀 · 생산 속도 1.5배」 한 줄. 설명 문구가 이제 실제 동작과 맞는다.
+                WithExtra(InstantBuff("Skill_Human_TacticalOrder", h, 4, "전술 지령",
                     "맵 전체 아군의 공격력과 생산 속도를 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
+                    SkillEffectTarget.Team, StatusEffectKind.ProductionSpeedMul, 1.5f),
 
                 // ── 정령(race 1) — MagicSpirit ──
-                PointPlaceholder("Skill_Spirit_Meteor", s, 0, "메테오",
-                    "지정한 지점에 운석이 떨어져, 착탄 순간 범위 안의 적에게 피해와 화상을 준다."),
+                // [2026-11-18 메테오 S2-4] 메테오 자리표시 줄을 위 meteor(타입 A · 착탄 지연 1.5 · 착탄 화상 · 사용 가능)로 바꿨다.
+                meteor,
                 // [2026-11-11 Z-10 · Z-20] 서리 감옥 — 빙결 구역 · 반경 2 · 4초 · 쿨 15.
                 PersistentZone("Skill_Spirit_FrostPrison", s, 1, "서리 감옥",
                     "바닥 얼음이 남아 있는 동안 구역 안의 적 유닛을 얼린다.",
@@ -297,8 +383,9 @@ namespace Hexiege.EditorTools
                 // [2026-11-10 D4 · D10] 화염의 축복 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Spirit_FlameBlessing", s, 2, "화염의 축복",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
-                InstantPlaceholder("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
-                    "맵 전체 아군 유닛이 받는 피해를 줄인다.", allies: true),
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1] 대지의 갑주 — 받는 피해 0.7배 · 8초 · 쿨 15(시험용 임시값).
+                InstantBuff("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
+                    "맵 전체 아군 유닛이 받는 피해를 줄인다.", StatusEffectKind.IncomingDamageMul, 0.7f, 8f),
                 // 원소 공명 — 기능 보류 · 이름만 등록(상위 결정 15). 대상이 정해지지 않아 targetsAllies=false.
                 InstantPlaceholder("Skill_Spirit_ElementalResonance", s, 4, "원소 공명",
                     "기능 기획 보류 중인 스킬이다(이름만 등록).", allies: false),
@@ -308,10 +395,21 @@ namespace Hexiege.EditorTools
                 PersistentZone("Skill_Trans_SapSwamp", t, 0, "수액 늪",
                     "지정한 범위 바닥에 수액을 깔아, 안에 있는 적 유닛을 크게 느리게 한다.",
                     StatusEffectKind.MoveSpeedMul, 0.4f, duration: 6f, radius: 2f, cooldown: 15f),
-                InstantPlaceholder("Skill_Trans_RootsOfRegeneration", t, 1, "재생의 뿌리",
-                    "맵 전체 아군 유닛과 건물에 체력 재생을 부여하고 증폭한다.", allies: true),
-                InstantPlaceholder("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
-                    "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", allies: true),
+                // [2026-11-17 지원 스킬 새 상태 Task 단계 B — Plan S-1 · 6-2] 재생의 뿌리 — 주 효과 = 유닛 재생 초당 20 · 8초 · 쿨 15,
+                //   추가 효과 = 「건물 각각 · 재생 초당 40」 · 「유닛 각각 · 받는 회복 배율 1.5」 · 「건물 각각 · 받는 회복 배율 1.5」 세 줄
+                //   (모두 시험용 임시값). 도구를 다시 실행해도 자리표시로 돌아가지 않게 줄을 바꿨다.
+                //   🔴 유닛 · 건물 상태 VFX 칸(임시 프리팹 포함)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
+                WithExtra(WithExtra(WithExtra(InstantBuff("Skill_Trans_RootsOfRegeneration", t, 1, "재생의 뿌리",
+                    "맵 전체 아군 유닛과 건물에 체력 재생을 부여하고 증폭한다.", StatusEffectKind.Regen, 20f, 8f),
+                    SkillEffectTarget.Building, StatusEffectKind.Regen, 40f),
+                    SkillEffectTarget.Unit, StatusEffectKind.HealAmpMul, 1.5f),
+                    SkillEffectTarget.Building, StatusEffectKind.HealAmpMul, 1.5f),
+                // [2026-11-16 지원 스킬 새 상태 Task 단계 C — Plan S-1 · 6-1] 신목의 각성 — 주 효과 = 유닛 쉴드 150 · 8초 · 쿨 15,
+                //   추가 효과 = 「건물 각각 · 쉴드 500」 한 줄(모두 시험용 임시값). 도구를 다시 실행해도 자리표시로 돌아가지 않게 줄을 바꿨다.
+                //   🔴 유닛 · 건물 상태 VFX 칸(임시 프리팹 포함)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
+                WithExtra(InstantBuff("Skill_Trans_SacredTreeAwakening", t, 2, "신목의 각성",
+                    "맵 전체 아군 유닛과 건물에 쉴드를 씌운다.", StatusEffectKind.Shield, 150f, 8f),
+                    SkillEffectTarget.Building, StatusEffectKind.Shield, 500f),
                 // [2026-11-10 D4 · D10] 숲의 포효 — 공격력 1.5배 · 8초.
                 InstantBuff("Skill_Trans_ForestRoar", t, 3, "숲의 포효",
                     "맵 전체 아군 유닛의 공격력을 높인다.", StatusEffectKind.AttackPowerMul, 1.5f, 8f),
@@ -412,9 +510,14 @@ namespace Hexiege.EditorTools
                 // [EMP 커밋 4] 사용 가능 스킬 수 문구 1개(포격 지원) → 2개(포격 지원 · EMP).
                 // [2026-11-10 D10] 2개 → 6개 — 괄호 안 스킬 이름에 강화 스킬 네 개를 더했다(개수는 위 상수를 그대로 읽는다).
                 // [2026-11-11 Z-20] 6개 → 8개 — 괄호 안에 서리 감옥 · 수액 늪을 더했다.
+                // [2026-11-16 A-4] 8개 → 9개 — 괄호 안에 대지의 갑주를 더했다.
+                // [2026-11-16 단계 C — C-4] 9개 → 10개 — 괄호 안에 신목의 각성을 더했다.
+                // [2026-11-17 단계 B — B-4] 10개 → 11개 — 괄호 안에 재생의 뿌리를 더했다(옛 문구는 「… · 대지의 갑주 · 신목의 각성)」).
+                // [2026-11-17 공습 L-6] 11개 → 12개 — 괄호 안에 공습을 더했다(옛 문구는 「… · 신목의 각성 · 재생의 뿌리)」).
+                // [2026-11-18 메테오 S2-4] 12개 → 13개 — 괄호 안에 메테오를 더했다(옛 문구는 「… · 재생의 뿌리 · 공습)」).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else
@@ -625,6 +728,19 @@ namespace Hexiege.EditorTools
             //   ↑ [EMP 커밋 4] 포격 VFX만 고르던 종전 줄. EMP VFX도 고를 수 있게 아래 줄로 대체(포격 결과는 같다).
             so.FindProperty(F_ActivationVfx).objectReferenceValue = ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx);
             so.FindProperty(F_VfxReferenceRadius).floatValue = DefaultVfxReferenceRadius;
+            // [2026-11-16 A-4] 추가 효과 목록 — 표의 줄 수만큼 배열 크기를 맞추고 줄마다 정수 코드 · 강도를 쓴다(빈 표면 빈 배열).
+            SerializedProperty extras = so.FindProperty(F_ExtraEffects);
+            extras.arraySize = spec.ExtraEffects.Count;
+            for (int i = 0; i < spec.ExtraEffects.Count; i++)
+            {
+                SerializedProperty row = extras.GetArrayElementAtIndex(i);
+                row.FindPropertyRelative(F_ExtraTarget).intValue = (int)spec.ExtraEffects[i].Target;
+                row.FindPropertyRelative(F_ExtraStatusKind).intValue = (int)spec.ExtraEffects[i].Kind;
+                row.FindPropertyRelative(F_ExtraMagnitude).floatValue = spec.ExtraEffects[i].Magnitude;
+            }
+            // [2026-11-18 메테오] 착탄 화상 두 칸(메테오 50 · 3, 나머지 0 = 화상 없음).
+            so.FindProperty(F_ImpactBurnDps).floatValue = spec.ImpactBurnPerSecond;
+            so.FindProperty(F_ImpactBurnDuration).floatValue = spec.ImpactBurnDuration;
 
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def); // 저장 대상으로 표시(빠지면 SaveAssets가 파일에 쓰지 않는다).
@@ -686,6 +802,27 @@ namespace Hexiege.EditorTools
             CheckFloat(F_ImpactDelay, spec.ImpactDelay);
             CheckRef(F_ActivationVfx, ResolveActivationVfx(spec, bombardmentVfx, empPulseVfx));
             CheckFloat(F_VfxReferenceRadius, DefaultVfxReferenceRadius);
+            // [2026-11-16 A-4] 추가 효과 목록 — 줄 수와 줄마다 값을 비교한다.
+            SerializedProperty extras = so.FindProperty(F_ExtraEffects);
+            if (extras.arraySize != spec.ExtraEffects.Count)
+            {
+                Note(F_ExtraEffects, extras.arraySize + "줄", spec.ExtraEffects.Count + "줄");
+            }
+            else
+            {
+                for (int i = 0; i < spec.ExtraEffects.Count; i++)
+                {
+                    SerializedProperty row = extras.GetArrayElementAtIndex(i);
+                    SkillExtraEffect e = spec.ExtraEffects[i];
+                    if (row.FindPropertyRelative(F_ExtraTarget).intValue != (int)e.Target
+                        || row.FindPropertyRelative(F_ExtraStatusKind).intValue != (int)e.Kind
+                        || !Mathf.Approximately(row.FindPropertyRelative(F_ExtraMagnitude).floatValue, e.Magnitude))
+                        Note(F_ExtraEffects + "[" + i + "]", "다름", $"{e.Target}/{e.Kind}/{e.Magnitude:0.###}");
+                }
+            }
+            // [2026-11-18 메테오] 착탄 화상 두 칸.
+            CheckFloat(F_ImpactBurnDps, spec.ImpactBurnPerSecond);
+            CheckFloat(F_ImpactBurnDuration, spec.ImpactBurnDuration);
 
             return sb.ToString();
         }
@@ -826,7 +963,13 @@ namespace Hexiege.EditorTools
                                  && Mathf.Approximately(data.Radius, spec.Radius)
                                  && Mathf.Approximately(data.Duration, spec.Duration)
                                  && data.TotalDamage == spec.TotalDamage
-                                 && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay);
+                                 && Mathf.Approximately(data.ImpactDelay, spec.ImpactDelay)
+                                 // [2026-11-16 A-4] 추가 효과 목록 줄 수도 표와 같아야 한다.
+                                 && data.ExtraEffects.Count == spec.ExtraEffects.Count;
+                    // [2026-11-18 메테오] 착탄 화상 값도 표와 같아야 한다(위 식에 끼워 넣지 않고 따로 더한다 — 위 식은 그대로).
+                    match = match
+                            && Mathf.Approximately(data.ImpactBurnDamagePerSecond, spec.ImpactBurnPerSecond)
+                            && Mathf.Approximately(data.ImpactBurnDuration, spec.ImpactBurnDuration);
                     if (!match)
                     {
                         Debug.LogError($"{LogPrefix} race {(int)race} 슬롯 {slot + 1} 이 표와 다르다 " +
@@ -840,6 +983,8 @@ namespace Hexiege.EditorTools
                     if (data != null && data.Mechanic == SkillMechanicType.AreaTowerDisable)
                         line.Append($", 탑 무력화 {data.Duration:0.##}초");
                     if (data != null && data.ImpactDelay > 0f) line.Append($", 착탄 지연 {data.ImpactDelay:0.##}초");
+                    // [2026-11-18 메테오] 착탄 화상이 있으면 그 값도 보여 준다.
+                    if (data != null && data.HasImpactBurn) line.Append($", 착탄 화상 {data.ImpactBurnDamagePerSecond:0.##}/초 × {data.ImpactBurnDuration:0.##}초");
                     if (data != null && data.ActivationVfxPrefab != null) line.Append($", VFX {data.ActivationVfxPrefab.name}");
                     line.Append(")");
                 }

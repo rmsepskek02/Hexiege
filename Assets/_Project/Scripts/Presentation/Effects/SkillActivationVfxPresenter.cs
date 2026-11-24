@@ -32,6 +32,15 @@
 //   예전에는 조준이 없으면 맨 먼저 「NoAim」(Info)으로 끝냈다 — 그 return은 주석으로 남겨 두었다(WORKFLOW [4]).
 //   지금 즉시 발동 스킬의 발동 VFX 칸은 모두 비어 있어, 화면 결과가 바뀌는 스킬은 없다(칸이 빈 즉시 스킬은 NoPrefab Warn 1줄).
 //
+// 공습(직선 연속 폭격 — 2026-11-17 공습 Task L-5):
+//   메커니즘이 LineStrike인 스킬은 위 원형 재생을 타지 않는다. 직선 경고(발동 VFX 칸 — 방향 회전 + 길이 배율)와
+//   폭격 1회분(폭격 VFX 칸 — 첫 지연 + k × 간격 시각에 구간 가운데) 재생은 SkillActivationVfxPresenter.LineStrike.cs에 있다.
+//
+// 메테오(착탄 예약 연출 — 2026-11-18 메테오 Task):
+//   SkillData.UsesImpactPresentation인 스킬(타입 A · 착탄 지연 · 예고 기준 시간/몸체/착탄 칸 중 하나 채워짐)도 위 원형 재생을 타지 않는다.
+//   예고(발동 VFX 칸 — 재생 속도 = 기준 시간 ÷ 착탄 지연) · 떨어지는 몸체(반복 · 비스듬한 선형 이동) · 착탄 폭발(받은 시각 + 착탄 지연)
+//   재생은 SkillActivationVfxPresenter.Meteor.cs에 있다. 포격은 세 칸이 비어 있어 원형 재생 그대로다.
+//
 // 배치: 씬에 수동 배치하지 않는다. GameBootstrapper(LoadMap)가 자기 GameObject에 AddComponent하고
 //   Initialize를 부른다(WavePresentationPresenter · BloomHealEffectPresenter와 같은 방식).
 //
@@ -62,7 +71,9 @@ namespace Hexiege.Presentation
     /// <summary>
     /// 스킬 발동 표현 이벤트(확정 · 수신)를 받아 조준 지점에 스킬 발동 VFX를 재생하는 화면 구독자.
     /// </summary>
-    public sealed class SkillActivationVfxPresenter : MonoBehaviour
+    // [2026-11-17 공습 Task L-5] 공습(직선 경고 · 폭격 1회분) 재생 코드를 별도 파일(SkillActivationVfxPresenter.LineStrike.cs)에 두려고
+    //   partial을 붙였다(partial = "이 클래스의 코드가 여러 파일에 나뉘어 있다"는 표시일 뿐 — 동작은 같다).
+    public sealed partial class SkillActivationVfxPresenter : MonoBehaviour
     {
         // 팀 · 슬롯 → SkillData 조회에 쓰는 UseCase(로드아웃 제공자 · 팀→종족 변환을 서버 판정과 공유).
         private SkillActivationUseCase _skillActivation;
@@ -117,6 +128,13 @@ namespace Hexiege.Presentation
             // 채널 이름을 진단 로그에 남기려고 블록 본문 람다로 감싼다(처리 자체는 두 채널이 같다).
             _confirmedSubscription = GameEvents.OnSkillActivationConfirmed.Subscribe(p => { OnSkillActivation(p, ChannelConfirmed); });
             _receivedSubscription = GameEvents.OnSkillActivationReceived.Subscribe(p => { OnSkillActivation(p, ChannelReceived); });
+
+            // [2026-11-17 공습 Task L-5] 공습 폭격 연출 대기열을 비우고(이전 맵에서 남은 폭격 연출이 새 맵에 뜨지 않게)
+            //   경기 종료 구독을 다시 건다(SkillActivationVfxPresenter.LineStrike.cs).
+            InitializeLineStrike();
+            // [2026-11-18 메테오 Task] 메테오 연출 대기열(몸체 · 착탄 폭발)도 같은 방식으로 정리하고 경기 종료 구독을 다시 건다
+            //   (SkillActivationVfxPresenter.Meteor.cs — 재초기화 = 몸체 즉시 정지).
+            InitializeMeteor();
         }
 
         // 진단 로그의 Channel= 값(확정 = 싱글 · Host 화면, 수신 = 순수 클라이언트 화면).
@@ -135,6 +153,10 @@ namespace Hexiege.Presentation
             _confirmedSubscription = null;
             _receivedSubscription?.Dispose();
             _receivedSubscription = null;
+            // [2026-11-17 공습 Task L-5] 공습 쪽 경기 종료 구독도 함께 해제한다(파괴 · 재초기화 때).
+            DisposeLineStrikeSubscription();
+            // [2026-11-18 메테오 Task] 메테오 쪽 경기 종료 구독도 함께 해제한다(파괴 · 재초기화 때).
+            DisposeMeteorSubscription();
         }
 
         /// <summary>
@@ -158,6 +180,27 @@ namespace Hexiege.Presentation
 
             // 팀 · 슬롯으로 이 화면 빌드의 스킬 데이터를 찾는다(두 기기 빌드가 같다는 것은 스키마 7 일치 확인이 보장).
             SkillData skill = _skillActivation.FindSkillData(p.Team, p.Slot);
+
+            // [2026-11-17 공습 Task L-5] 공습(직선 연속 폭격)은 아래 원형 재생(조준점 · 회전 없음 · 반경 배율)을 타지 않고
+            //   전용 경로로 간다 — 직선 경고(회전 + 길이 배율)와 폭격 1회분 연출 예약(SkillActivationVfxPresenter.LineStrike.cs).
+            //   이 분기는 메커니즘이 LineStrike일 때만 타므로 포격 · EMP · 즉시 발동 스킬의 재생은 바뀌지 않는다.
+            //   발동 VFX(경고) 칸이 비어도 폭격 연출은 따로 예약해야 해서, 아래 「프리팹 없음」 검사보다 먼저 둔다.
+            if (skill != null && skill.Mechanic == SkillMechanicType.LineStrike)
+            {
+                PlayLineStrike(p, channel, skill);
+                return;
+            }
+
+            // [2026-11-18 메테오 Task — Plan P-4] 착탄 예약 연출(메테오 — 예고 재생 속도 맞춤 · 떨어지는 몸체 · 착탄 폭발)을 쓰는 스킬은
+            //   전용 경로로 간다(SkillActivationVfxPresenter.Meteor.cs). 예고(발동 VFX) 칸이 비어도 몸체 · 착탄은 따로 재생해야 해서
+            //   공습과 같은 이유로 아래 「프리팹 없음」 검사보다 먼저 둔다. 타입 A · 착탄 지연 · 세 칸 중 하나가 채워진 스킬만
+            //   이 분기를 타므로(SkillData.UsesImpactPresentation) 포격 · EMP · 즉시 발동 스킬의 재생은 바뀌지 않는다.
+            if (skill != null && skill.UsesImpactPresentation)
+            {
+                PlayMeteor(p, channel, skill);
+                return;
+            }
+
             if (skill == null || skill.ActivationVfxPrefab == null)
             {
                 LogVfxSkipped(p, channel, skill == null ? "NoSkillData" : "NoPrefab", isWarning: true);

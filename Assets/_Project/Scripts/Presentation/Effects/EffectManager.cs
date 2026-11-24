@@ -607,6 +607,151 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // [2026-11-17 지원 스킬 2-L 공습 Task L-5] 공습 VFX(직선 경고 · 폭격 1회분) — 회전 · 축별 배율 재생
+        //   위 PlaySkillActivationVfx는 "회전 없음 · 균일 배율"이라 원형 이펙트(포격 · EMP)에만 맞는다.
+        //   공습은 직선 방향으로 돌리고 길이 방향만 늘여야 해서 회전 · 축별(벡터) 배율을 받는 메서드를 따로 덧붙였다.
+        //   기존 메서드는 그대로다(포격 · EMP 재생 경로 무변경 — Plan 최상단 표 「EffectManager」 행).
+        //   VfxPoolItem.Play가 이미 회전 · 벡터 배율을 받으므로 그대로 넘기기만 한다(Research 11절).
+        // ====================================================================
+
+        /// <summary>
+        /// 스킬 VFX를 화면 좌표 · 회전 · 축별 배율로 1회 재생한다(공습 직선 경고 · 폭격 1회분 — 2026-11-17 L-5).
+        /// 루트 localScale = 프리팹 원본 스케일 × scaleMultiplier(축마다 곱). 오프셋 · 전진 이동은 쓰지 않는다.
+        /// </summary>
+        /// <param name="prefab">재생할 VFX 프리팹. null이면 아무것도 하지 않고 false.</param>
+        /// <param name="viewPosition">재생 위치(화면 좌표 — 호출 측이 ViewConverter.ToView로 바꾼 값, 지면 높이 포함).</param>
+        /// <param name="viewRotation">재생 회전(화면 기준). 프리팹의 앞(로컬 +Z)이 이 회전의 앞을 본다.</param>
+        /// <param name="scaleMultiplier">축별 배율(X = 옆, Y = 높이, Z = 길이 방향). 0 이하 · NaN · 무한대인 축은 1로 고쳐 재생한다.</param>
+        /// <returns>프리팹이 있어 재생했으면 true.</returns>
+        public bool PlaySkillVfxOriented(GameObject prefab, Vector3 viewPosition, Quaternion viewRotation, Vector3 scaleMultiplier)
+        {
+            if (prefab == null) return false;
+            // 잘못된 축 배율은 1로 — 한 축이 0이면 이펙트가 납작하게 사라지고, NaN이면 Transform이 깨진다(안 보이는 것보다 원본 크기가 낫다).
+            scaleMultiplier = new Vector3(
+                SanitizeAxisScale(scaleMultiplier.x),
+                SanitizeAxisScale(scaleMultiplier.y),
+                SanitizeAxisScale(scaleMultiplier.z));
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) return false;
+            // VfxPoolItem.Play는 위치 · 회전 · localScale(= 원본 × 배율)을 매번 다시 세팅한다(풀 재사용 잔여 없음).
+            item.Play(
+                viewPosition,
+                viewRotation,
+                Vector3.zero,
+                Vector3.zero,
+                scaleMultiplier,
+                0f,
+                0f);
+            return true;
+        }
+
+        // 축 배율 하나를 검사한다 — 0보다 크고 유한하면 그대로, 아니면 1.
+        private static float SanitizeAxisScale(float v)
+        {
+            return v > 0f && !float.IsInfinity(v) ? v : 1f;
+        }
+
+        // ====================================================================
+        // [2026-11-18 지원 스킬 2-D 메테오 Task — Plan P-4 · P-5 · P-15 · U-6 · U-10] 착탄 예약 연출(예고 · 떨어지는 몸체)
+        //   SkillActivationVfxPresenter(메테오 부분 — SkillActivationVfxPresenter.Meteor.cs)가 부른다.
+        //   위 PlaySkillActivationVfx(원형 1회 재생)는 그대로 두고, 「재생 속도」를 받는 판과 「반복 몸체 이동」 시작 · 정지를 덧붙였다.
+        //   착탄 폭발(1회)은 기존 PlaySkillActivationVfx를 그대로 쓴다. 피해 · 화상 판정과 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 스킬 발동 VFX를 1회 재생하되 파티클 재생 속도에 배율을 곱한다(메테오 예고 — 기준 시간 ÷ 착탄 지연, U-10).
+        /// 위치 · 회전 · 크기 규칙은 PlaySkillActivationVfx와 같다(회전 없음 · 루트 균일 배율). 바꾼 속도는 풀 반환 때 원래대로 돌아간다.
+        /// </summary>
+        /// <param name="prefab">재생할 VFX 프리팹. null이면 아무것도 하지 않고 false.</param>
+        /// <param name="viewPosition">재생 위치(화면 좌표, 지면 높이 포함).</param>
+        /// <param name="uniformScale">루트 균일 배율(ComputeSkillVfxScale). 0 이하 · NaN · 무한대면 1.</param>
+        /// <param name="playbackSpeed">재생 속도 배율(1이면 원래 속도). 0 이하 · NaN · 무한대면 1.</param>
+        /// <param name="appliedSpeed">실제로 적용된 배율(바꾸지 않았으면 1) — 진단 로그용.</param>
+        /// <returns>프리팹이 있어 재생했으면 true.</returns>
+        public bool PlaySkillActivationVfx(GameObject prefab, Vector3 viewPosition, float uniformScale, float playbackSpeed,
+                                           out float appliedSpeed)
+        {
+            appliedSpeed = 1f;
+            if (prefab == null) return false;
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) return false;
+            item.Play(viewPosition, Quaternion.identity, Vector3.zero, Vector3.zero, Vector3.one * uniformScale, 0f, 0f);
+            // Play "뒤에" 속도를 바꾼다(Play가 시작할 때 이전 재생의 속도를 먼저 되돌린다 — VfxPoolItem.PlaybackSpeed.cs).
+            item.SetPlaybackSpeed(playbackSpeed);
+            appliedSpeed = item.PlaybackSpeedMultiplier;
+            return true;
+        }
+
+        /// <summary>
+        /// 반복(Looping) VFX를 출발점에서 도착점까지 duration초 동안 곧게(선형) 옮기며 재생하고 확인 번호(lease)를 돌려준다(메테오 몸체).
+        /// 회전 = 앞(로컬 +Z)이 이동 방향을 본 뒤 eulerOffset만큼 더 돈다. 크기 = 프리팹 원본(루트 배율 1 — 상위 결정 28).
+        /// 정지는 부르는 쪽이 착탄 시각에 StopSkillTravelLoopVfx로 하고, 그걸 못 하면 safetySeconds 뒤 항목이 스스로 꼬리 정지한다(R-6).
+        /// 항목은 VFX 컨테이너 아래에 둔다(다른 상태 VFX와 같다).
+        /// </summary>
+        /// <param name="prefab">몸체 프리팹(「상태 이펙트 계약」 — 모든 파티클 Looping ON · Stop Action None).</param>
+        /// <param name="startView">출발 위치(화면 좌표).</param>
+        /// <param name="endView">도착 위치(화면 좌표 — 착탄 지점 + 지면 높이).</param>
+        /// <param name="eulerOffset">회전 보정(도).</param>
+        /// <param name="duration">이동 시간(초 — 착탄 지연). 0 이하면 시작하지 않는다.</param>
+        /// <param name="safetySeconds">안전 마감까지의 시간(초 — 착탄 지연 + 0.5). 0 이하면 마감을 걸지 않는다.</param>
+        /// <param name="deadlineTag">안전 마감 진단 줄 꼬리표(예: "Seq=3").</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · LoopContract · ZeroTravel · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartSkillTravelLoopVfx(GameObject prefab, Vector3 startView, Vector3 endView, Vector3 eulerOffset,
+                                                   float duration, float safetySeconds, string deadlineTag,
+                                                   out ulong lease, out string failReason)
+        {
+            lease = 0;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            // 반복 재생 계약 — 유닛 상태 VFX · 구역 VFX와 같은 검사 함수(기준 한 곳, 결과는 프리팹별 캐시).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+            Vector3 travel = endView - startView;
+            float distance = travel.magnitude;
+            if (!(duration > 0f) || float.IsInfinity(duration) || !(distance > 0.0001f) || float.IsInfinity(distance))
+            {
+                failReason = "ZeroTravel";
+                return null;
+            }
+
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            // 앞(+Z)이 이동 방향을 보는 회전. Play의 전진 이동은 이 회전의 앞 방향으로 distance만큼 duration초 동안 곧게 옮긴다
+            //   (VfxPoolItem.UpdateForwardTravel — 회전 보정 eulerOffset은 모양만 돌리고 이동 방향에는 섞이지 않는다).
+            Quaternion facing = Quaternion.LookRotation(travel / distance, Vector3.up);
+            item.Play(startView, facing, Vector3.zero, eulerOffset, Vector3.one, distance, duration);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            if (safetySeconds > 0f) item.SetStatusLoopDeadline(lease, safetySeconds, deadlineTag);
+            return item;
+        }
+
+        /// <summary>
+        /// 반복 몸체 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartSkillTravelLoopVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartSkillTravelLoopVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(재초기화 · 파괴). false = 꼬리 정지(착탄 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopSkillTravelLoopVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
+        // ====================================================================
         // [2026-11-04 EMP Task 커밋 3] 방어탑 상태 VFX(무력화 V6) — 시작 · 정지
         //   TowerDisableVfxPresenter가 무력화 표현 이벤트(확정 · 수신)를 받으면 탑마다 이 메서드로 시작하고,
         //   지속 시간이 끝나거나(꼬리 정지) 탑이 사라지면(즉시 정지) 아래 정지 메서드를 부른다.
@@ -849,6 +994,74 @@ namespace Hexiege.Presentation
         /// <param name="immediate">true = 즉시 정지(재경기 · 파괴). false = 꼬리 정지(구역 끝 · 경기 종료).</param>
         /// <returns>실제로 멈췄으면 true.</returns>
         public bool StopSkillZoneVfx(VfxPoolItem item, ulong lease, bool immediate)
+        {
+            if (item == null) return false;
+            return item.StopStatusLoop(lease, immediate);
+        }
+
+        // ====================================================================
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 C] 일반 건물 상태 VFX(신목의 각성 건물 쉴드 등) — 시작 · 정지
+        //   BuildingStatusVfxPresenter가 건물 대상 효과가 있는 스킬의 발동 표현(확정 · 수신)을 받으면 대상 건물마다 이 메서드로 시작하고,
+        //   효과 시간 끝 · 경기 종료면 꼬리 정지, 쉴드 깨짐 · 파괴 · 업그레이드 · 재경기면 즉시 정지한다(Plan 6-1-3).
+        //   EMP 탑 무력화 VFX(StartTowerStatusVfx)와 같은 "Play → BeginStatusLoop → 확인 번호" 순서 · 같은 높이 보정(Y만) 규칙이지만,
+        //   프리팹 · 배율은 종족 프리셋이 아니라 스킬 데이터(「건물 상태 VFX」 칸)에서 온다 — 탑 장치와 분리(EMP 판정과 얽히지 않게).
+        //   건물은 움직이지 않으므로 따라가기는 없다. 효과 판정과 무관한 화면 표현 전용이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 위에 건물 상태 VFX(반복 재생)를 시작하고 확인 번호(lease)를 돌려준다.
+        /// 위치 = 건물 위치 + 높이 보정(Y만), 회전 = 항등, 크기 = 프리팹 원본 × uniformScale. 항목은 VFX 컨테이너 아래에 둔다
+        /// (건물의 자식으로 붙이지 않는다 — 건물 파괴 · 업그레이드 때 풀 항목이 함께 파괴되지 않게).
+        /// </summary>
+        /// <param name="prefab">스킬 데이터의 건물 상태 VFX 프리팹.</param>
+        /// <param name="buildingViewPosition">건물 위치(이 화면 좌표 — 건물 GameObject 위치. 빨강 화면 변환이 이미 끝난 값).</param>
+        /// <param name="uniformScale">루트 균일 배율(스킬 데이터 — 0 이하 · NaN · 무한대면 1).</param>
+        /// <param name="offsetY">높이 보정(월드 단위, Y만).</param>
+        /// <param name="lease">시작한 재생의 확인 번호. 시작하지 못했으면 0.</param>
+        /// <param name="createdNew">풀에 남은 항목이 없어 새로 만들었는가(진단 PoolCreated용).</param>
+        /// <param name="failReason">시작하지 못한 이유(성공이면 null). NoPrefab · LoopContract · NotStarted.</param>
+        /// <returns>시작한 풀 항목. 시작하지 못했으면 null.</returns>
+        public VfxPoolItem StartBuildingStatusVfx(GameObject prefab, Vector3 buildingViewPosition, float uniformScale, float offsetY,
+                                                  out ulong lease, out bool createdNew, out string failReason)
+        {
+            lease = 0;
+            createdNew = false;
+            failReason = null;
+            if (prefab == null) { failReason = "NoPrefab"; return null; }
+            // 반복 재생 계약(Looping ON · Stop Action None) — 유닛 상태 VFX와 같은 검사 함수(기준 한 곳, 결과는 프리팹별 캐시).
+            if (!IsUnitBuffLoopContractSatisfied(prefab)) { failReason = "LoopContract"; return null; }
+            if (!(uniformScale > 0f) || float.IsInfinity(uniformScale)) uniformScale = 1f;
+            if (float.IsNaN(offsetY) || float.IsInfinity(offsetY)) offsetY = 0f;
+
+            int createdBefore = _vfxInstancesCreated;
+            VfxPoolItem item = GetOrCreateVfx(prefab);
+            createdNew = _vfxInstancesCreated != createdBefore;
+            if (item == null) { failReason = "NotStarted"; return null; }
+
+            // 높이(Y)만 보정한다 — 회전이 항등이라 Play의 "회전 × 보정"은 보정 그대로다(EMP 탑 VFX와 같은 규칙).
+            item.Play(buildingViewPosition, Quaternion.identity, new Vector3(0f, offsetY, 0f), Vector3.zero,
+                      Vector3.one * uniformScale, 0f, 0f);
+
+            // Play 뒤에 상태 루프로 표시하고 확인 번호를 받는다(순서 규칙 — VfxPoolItem.StatusLoop.cs).
+            lease = item.BeginStatusLoop();
+            if (lease == 0)
+            {
+                // 재생이 시작되지 않은 비정상 상황 — 반복 재생이 남지 않게 즉시 돌려보낸다(탑 상태 VFX와 같은 처리).
+                item.Return();
+                failReason = "NotStarted";
+                return null;
+            }
+            return item;
+        }
+
+        /// <summary>
+        /// 건물 상태 VFX를 멈춘다. 확인 번호가 맞을 때만 멈춘다(이미 풀로 돌아가 다른 재생에 쓰이는 항목은 건드리지 않는다).
+        /// </summary>
+        /// <param name="item">StartBuildingStatusVfx가 돌려준 풀 항목(파괴됐으면 아무 일도 하지 않는다).</param>
+        /// <param name="lease">StartBuildingStatusVfx가 돌려준 확인 번호.</param>
+        /// <param name="immediate">true = 즉시 정지(입자까지 지움 — 깨짐 · 파괴 · 업그레이드 · 재경기). false = 꼬리 정지(효과 끝 · 경기 종료).</param>
+        /// <returns>실제로 멈췄으면 true.</returns>
+        public bool StopBuildingStatusVfx(VfxPoolItem item, ulong lease, bool immediate)
         {
             if (item == null) return false;
             return item.StopStatusLoop(lease, immediate);

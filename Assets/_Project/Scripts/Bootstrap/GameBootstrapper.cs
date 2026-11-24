@@ -278,6 +278,10 @@ namespace Hexiege.Bootstrap
         //   ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호). 멀티 서버 틱은
         //   SkillActivationUseCase.TickZones로 같은 인스턴스에 닿는다.
         private SkillZoneSystem _skillZoneSystem;
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — A-1] 지원 스킬 효과 서비스(대지의 갑주 받는 피해 · 전술 지령 생산 속도, 서버 권위).
+        //   맵마다 Setup에서 새로 만든다. ⚠️ IGameServices에 getter를 추가하지 않는다(Editor fixture 대역 구현 보호) —
+        //   멀티 서버 틱은 SkillActivationUseCase.TickSupportEffects로 같은 인스턴스에 닿는다.
+        private SupportSkillEffectSystem _supportSkillEffects;
         // [MistShrine] 물안개 힐(시전·물안개 수명·회복·쿨다운·자동 모드). 서버 권위 UseCase.
         private MistShrineUseCase _mistShrine;
 
@@ -341,6 +345,14 @@ namespace Hexiege.Bootstrap
 
         // [2026-11-11 지속 상태 구역 Task] 유닛 사망 시 구역 구성원에서 바로 빼는 구독. ClearAll에서 정리.
         private System.IDisposable _skillZoneUnitDiedSub;
+
+        // [2026-11-16 A-1] 유닛 사망 시 지원 스킬 효과(받는 피해 배율)를 바로 지우는 구독. ClearAll에서 정리.
+        private System.IDisposable _supportEffectUnitDiedSub;
+        // [2026-11-16 A-3] 순수 클라이언트: 스킬 발동 알림 → 생산 진행 막대 거울 기록 구독. ClearAll에서 정리.
+        private System.IDisposable _productionMirrorActivationSub;
+        // [2026-11-16 단계 C — C-1] 건물 파괴 · 업그레이드 시 지원 스킬 효과(건물 쉴드)를 바로 지우는 구독 2개. ClearAll에서 정리.
+        private System.IDisposable _supportEffectBuildingDiedSub;
+        private System.IDisposable _supportEffectBuildingUpgradedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -563,6 +575,11 @@ namespace Hexiege.Bootstrap
             // [2026-11-11 지속 상태 구역 Task — 사용자 결정 Z-8] 경기가 끝나면 모든 구역을 풀고 이후 새 구역을 만들지 않는다.
             //   위 무력화 닫기와 같은 방식 — 람다가 호출 시점의 _skillActivation을 읽으므로 맵이 다시 로드돼도 현재 서비스를 닫는다.
             GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.CloseZones()).AddTo(this);
+            // [2026-11-16 지원 스킬 새 상태 — A-1] 경기가 끝나면 지원 스킬 효과(대지의 갑주 · 전술 지령 생산 속도)를 모두 지우고
+            //   이후 새 효과를 받지 않는다(진단 끝 줄 Reason=GameEnd). 위 구역 닫기와 같은 방식(호출 시점의 필드를 읽는다).
+            GameEvents.OnGameEnd.Subscribe(_ => _skillActivation?.CloseSupportEffects()).AddTo(this);
+            // [2026-11-16 — A-3] 순수 클라이언트 생산 막대 거울도 닫는다(서버 · 싱글은 거울을 쓰지 않아 아무 일도 없다).
+            GameEvents.OnGameEnd.Subscribe(_ => _unitProduction?.CloseProductionSpeedMirror()).AddTo(this);
             // [진단 — 2026-11-09 인간 대포탑 전방 120° [TOWER-ARC] End] 경기가 끝나면 탑 판정 합계 1줄(종족별 발사 · 대기 · Verdict).
             //   싱글 · 멀티 서버 공통으로 이 구독 한 곳에서 부른다(위 무력화 닫기와 같은 자리 — 멀티 Host 에도 이 Bootstrapper 가 있다).
             //   경기당 1회만 남기는 중복 방지와 "Client 에서는 남기지 않음"은 DiagArcWriteEnd 안에서 처리한다.
@@ -763,6 +780,16 @@ namespace Hexiege.Bootstrap
             if (!IsNetworkMode() && _skillActivation != null)
             {
                 _skillActivation.TickZones(Time.deltaTime);
+            }
+
+            // [2026-11-16 지원 스킬 새 상태 — A-1] 지원 스킬 효과(받는 피해 배율 · 생산 속도 배율) 남은 시간 — 권위 전용.
+            //   - 싱글: 여기서 처리(권위). 매 프레임이라 8초 끝이 프레임 하나만큼만 늦다.
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 구역 틱 바로 뒤에서 처리 → 여기선 스킵(이중 감소 금지 — R-5).
+            //   - 멀티 순수 클라: 돌리지 않는다(클라에는 효과가 없다 — 생산 막대 거울은 UnitProductionUseCase가 따로 센다).
+            //   ⚠️ 가드는 구역 틱과 같은 !IsNetworkMode() 하나뿐이다. 아래 상태 틱 가드(싱글 "또는 순수 클라")와 합치지 말 것.
+            if (!IsNetworkMode() && _skillActivation != null)
+            {
+                _skillActivation.TickSupportEffects(Time.deltaTime);
             }
 
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소.

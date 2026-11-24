@@ -1,4 +1,4 @@
-#if UNITY_ANDROID && !UNITY_EDITOR && !DEVELOPMENT_BUILD && HEXIEGE_DETECT_RANGE_COMPARISON
+﻿#if UNITY_ANDROID && !UNITY_EDITOR && !DEVELOPMENT_BUILD && HEXIEGE_DETECT_RANGE_COMPARISON
 #define DETECT_RANGE_COMPARISON
 #endif
 // ============================================================================
@@ -123,6 +123,7 @@ namespace Hexiege.Application
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
         private readonly IEntityPositionProvider _positionProvider;
+        private readonly ICombatUnitCandidateSource _combatCandidates;
 
         // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
         private readonly IHexCoordinateMapper _mapper;
@@ -134,7 +135,8 @@ namespace Hexiege.Application
         private readonly SpecialAttackRegistry _specialAttacks = new SpecialAttackRegistry();
 
         // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 GameBootstrapper가
-        // 읽어 float로 주입한다. SO가 없으면 생성자 기본값(1.0 / 120)이 폴백으로 쓰인다.
+        // 읽어 float로 주입한다. SO가 없으면 생성자 기본값(0.75 / 120)이 폴백으로 쓰인다.
+        //   (2026-11-23 정정 — 직전 「1.0 / 120」. 반경 기본값을 SpecialAttackConfig.asset 의 0.75 에 맞췄다.)
         // Application이 Infrastructure의 SO를 직접 참조하지 않도록 원시값만 보관한다.
         private readonly float _sweepReach;
         private readonly float _sweepArcHalfAngle;
@@ -146,20 +148,29 @@ namespace Hexiege.Application
         private readonly float _waveHeal;
 
         // 특수 유닛(BloomFairy 힐러) 지속 회복(HoT) 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
-        // _bloomHealAmount: 지속 회복 총량(HP, 기본 20). _bloomHealDuration: 지속시간(초, 기본 3).
+        // _bloomHealAmount: 지속 회복 총량(HP). _bloomHealDuration: 지속시간(초, 기본 3).
+        //   실제 게임 값 = 총 200(SpecialAttackConfig.asset _bloomHealAmount, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자도 200이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 20」, 그다음 「생성자 기본 인자 20은 …」. 같은 날 기본 인자를 에셋 값 200으로 맞췄다.)
         private readonly int _bloomHealAmount;
         private readonly float _bloomHealDuration;
 
         // 특수 유닛(MushroomBomber 버섯폭격기) 착탄 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
         // _blastRadius: 착탄 폭발 판정 반경(월드, 기본 1.0 = 인접 1칸 거리, 핸들러가 읽음).
-        // _blastDotPerSecond: DoT 초당 피해(기본 2). _blastDotDuration: DoT 지속시간(초, 기본 3).
+        // _blastDotPerSecond: DoT 초당 피해. _blastDotDuration: DoT 지속시간(초, 기본 3).
+        //   실제 게임 값 = 초당 20(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자도 20이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 2」, 그다음 「생성자 기본 인자 2는 …」. 같은 날 기본 인자를 에셋 값 20으로 맞췄다.)
         private readonly float _blastRadius;
         private readonly float _blastDotPerSecond;
         private readonly float _blastDotDuration;
 
         // 특수 유닛(InfernoSpirit 지옥불 정령) 단일 대상 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
-        // _infernoDotPerSecond: DoT 초당 피해(기본 5). _infernoDotDuration: DoT 지속시간(초, 기본 3).
-        // ⚠️ MushroomBomber(_blastDotPerSecond=2/3초)와 값이 다른 "별도" 필드다.
+        // _infernoDotPerSecond: DoT 초당 피해. _infernoDotDuration: DoT 지속시간(초, 기본 3).
+        //   실제 게임 값 = 초당 50(SpecialAttackConfig.asset, ×10 스케일) — GameBootstrapper.Setup이 읽어 생성자에 넘긴다.
+        //   생성자 기본 인자도 50이다 — 값을 넘기지 않고 생성할 때만 쓰인다.
+        //   (2026-11-23 정정 — 직전 「기본 5」, 그다음 「생성자 기본 인자 5는 …」. 같은 날 기본 인자를 에셋 값 50으로 맞췄다.)
+        // ⚠️ MushroomBomber(_blastDotPerSecond=20/3초)와 값이 다른 "별도" 필드다. (2026-11-23 정정 — 직전 「=2/3초」)
         //    두 유닛이 같은 DoT 초 단위 틱 시스템(규칙 40)을 재사용하되 값은 완전히 분리한다.
         private readonly float _infernoDotPerSecond;
         private readonly float _infernoDotDuration;
@@ -471,7 +482,7 @@ namespace Hexiege.Application
 
         /// <param name="sweepReach">
         ///   도끼병 휩쓸기 전방 부채꼴 판정의 월드 반경. SpecialAttackConfig에서 주입.
-        ///   미주입 시 기본값 1.0(코드 폴백) 사용.
+        ///   미주입 시 기본값 0.75(코드 폴백, SpecialAttackConfig.asset 값과 같음) 사용. (2026-11-23 정정 — 직전 「1.0」)
         /// </param>
         /// <param name="sweepArcHalfAngle">
         ///   도끼병 휩쓸기 전방 부채꼴의 반각(도 단위). SpecialAttackConfig에서 주입.
@@ -480,13 +491,13 @@ namespace Hexiege.Application
         /// <param name="waveWidth">TorrentSpirit 파도 가로 폭(월드). 미주입 시 기본값 3.</param>
         /// <param name="waveLength">TorrentSpirit 파도 전방 길이(월드). 미주입 시 기본값 3.</param>
         /// <param name="waveTravelTime">TorrentSpirit 파도 이동 시간(초). 미주입 시 기본값 0.5.</param>
-        /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 10.</param>
-        /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 20.</param>
+        /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 100(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「10」)</param>
+        /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 200(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「20」)</param>
         /// <param name="bloomHealDuration">BloomFairy 지속 회복(HoT) 지속시간(초). 미주입 시 기본값 3.</param>
         /// <param name="blastRadius">MushroomBomber 착탄 폭발 판정 반경(월드). 미주입 시 기본값 1.0.</param>
-        /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 2.</param>
+        /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 20(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「2」)</param>
         /// <param name="blastDotDuration">MushroomBomber 착탄 DoT 지속시간(초). 미주입 시 기본값 3.</param>
-        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 5.</param>
+        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 50(×10 스케일, 에셋 값과 같음). (2026-11-23 정정 — 직전 「5」)</param>
         /// <param name="infernoDotDuration">InfernoSpirit 단일 대상 DoT 지속시간(초). 미주입 시 기본값 3.</param>
         /// <param name="quakeRadius">QuakeSpirit 착탄 즉발 스플래시 판정 반경(월드). 미주입 시 기본값 1.0.</param>
         /// <param name="quakeSplashRatio">QuakeSpirit 착탄 스플래시 피해 비율(공격력 대비, 올림 적용). 미주입 시 기본값 0.5.</param>
@@ -496,18 +507,27 @@ namespace Hexiege.Application
             BuildingPlacementUseCase buildingPlacement,
             IEntityPositionProvider positionProvider,
             IHexCoordinateMapper mapper,
-            float sweepReach = 1.0f,
+            // [2026-11-23 기본값 정정] 아래 「= 숫자」는 값을 넘기지 않고 이 클래스를 만들 때만 쓰이는 대체값이다.
+            //   실제 게임은 GameBootstrapper.Setup 이 SpecialAttackConfig.asset 의 값을 읽어 전부 넘기므로 이 숫자를 쓰지 않는다.
+            //   예전 숫자 5개(휩쓸기 반경 1.0 · 파도 회복 10 · 꽃요정 회복 20 · 버섯 독 2 · 지옥불 화상 5)는
+            //   ×10 스케일 이전 값이거나 에셋과 달라, 에셋 값(0.75 · 100 · 200 · 20 · 50)으로 맞췄다. 옛 줄은 바로 위 주석에 남긴다.
+            // float sweepReach = 1.0f,
+            float sweepReach = 0.75f,
             float sweepArcHalfAngle = 120f,
             float waveWidth = 3f,
             float waveLength = 3f,
             float waveTravelTime = 0.5f,
-            float waveHeal = 10f,
-            float bloomHealAmount = 20f,
+            // float waveHeal = 10f,
+            float waveHeal = 100f,
+            // float bloomHealAmount = 20f,
+            float bloomHealAmount = 200f,
             float bloomHealDuration = 3f,
             float blastRadius = 1.0f,
-            float blastDotPerSecond = 2f,
+            // float blastDotPerSecond = 2f,
+            float blastDotPerSecond = 20f,
             float blastDotDuration = 3f,
-            float infernoDotPerSecond = 5f,
+            // float infernoDotPerSecond = 5f,
+            float infernoDotPerSecond = 50f,
             float infernoDotDuration = 3f,
             float quakeRadius = 1.0f,
             float quakeSplashRatio = 0.5f)
@@ -516,6 +536,7 @@ namespace Hexiege.Application
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
             _positionProvider = positionProvider;
+            _combatCandidates = positionProvider as ICombatUnitCandidateSource;
             _mapper = mapper;
             _sweepReach = sweepReach;
             _sweepArcHalfAngle = sweepArcHalfAngle;
@@ -580,6 +601,37 @@ namespace Hexiege.Application
         public void SetSkillZoneSystem(SkillZoneSystem zoneSystem)
         {
             _zoneSystem = zoneSystem;
+        }
+
+        // ====================================================================
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-2] 지원 스킬 효과 서비스 — 대지의 갑주(받는 피해 배율) 조회.
+        //   GameBootstrapper가 SetSupportSkillEffectSystem으로 주입한다. 피해 지점 4곳(이 클래스)의 TakeDamage 줄이
+        //   단일 헬퍼 IncomingDamage.Apply로 바뀌었고, 헬퍼가 이 서비스에 배율을 묻는다. 미주입(null) · 효과 없음이면 배율을 곱하지 않는다
+        //   → 기존 피해와 완전히 같다(회귀 안전). 탑 피해 2곳은 TowerCombatUseCase가 같은 인스턴스를 받는다.
+        // ====================================================================
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — SkillActivationUseCase · TowerCombatUseCase와 같은 인스턴스).
+        /// 미주입(null)이면 받는 피해 배율이 없다 → 기존 전투와 완전히 동일(하위호환). 생성자는 바꾸지 않는다(Editor fixture 보호).
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
+        // [2026-11-16 진단 분류] 지금 처리 중인 피해가 도끼병 휩쓸기(SpecialAttackContext의 2-인자 피해 다리)에서 왔는가.
+        //   피해 지점 ①의 진단 Writer=Sweep을 가르는 데만 쓴다(피해 계산 · 판정과 무관). 휩쓸기 경로의 3-인자 오버로드가 켜고 끈다.
+        private bool _sweepVictimInProgress;
+
+        // 피해 지점 ①(ApplyDamageToVictim)의 진단 분류 — 파도 > 투사체 착탄 > 휩쓸기 > 직접 공격 순서로 가른다.
+        private IncomingDamageWriter ResolveVictimWriter(ActiveWave presentationWave)
+        {
+            if (presentationWave != null) return IncomingDamageWriter.Wave;
+            if (ProjectileImpactInProgress) return IncomingDamageWriter.Projectile;
+            if (_sweepVictimInProgress) return IncomingDamageWriter.Sweep;
+            return IncomingDamageWriter.Direct;
         }
 
         // [진단] 구역 이동 표본(에디터 · 개발 빌드 전용 — 계산식에는 관여하지 않는다).
@@ -752,7 +804,8 @@ namespace Hexiege.Application
             for (int i = 0; i < _regenBuffer.Count; i++)
             {
                 // healer=null(자연회복은 시전자 없음). showText=false로 매 틱 힐 텍스트 스팸 방지.
-                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+                // [2026-11-17 단계 B] 출처 Natural을 넘긴다(받는 회복 배율 진단 Source=Natural — 계산은 같다).
+                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false, ampSource: HealAmpSource.Natural);
             }
         }
 
@@ -1663,6 +1716,18 @@ namespace Hexiege.Application
             return best != null ? (int?)best.Id : null;
         }
 
+        // 실제 Root writer 통지는 검색 인덱스만 갱신한다. 이동/전투 판정은 변경하지 않는다.
+        public void CombatPoseChanging(UnitData unit, int rootInstanceId)
+            => _combatCandidates?.UnitPoseChanging(unit, rootInstanceId);
+        public void CombatPoseChanged(UnitData unit, int rootInstanceId, Vector3 worldPosition)
+            => _combatCandidates?.UnitPoseChanged(unit, rootInstanceId, worldPosition);
+        private bool TryBeginCombatCandidates(Vector3 center, float radius, out IReadOnlyList<UnitData> candidates)
+        {
+            candidates = null;
+            return _combatCandidates != null && _combatCandidates.TryBeginUnitCandidates(
+                _unitSpawn.Units, _unitSpawn.CombatRosterRevision, center, radius, out candidates);
+        }
+
         /// <summary>
         /// 감지 사거리(DetectRange) 기준으로 가장 가까운 적 엔티티(유닛/건물)를 탐색.
         ///
@@ -1681,9 +1746,6 @@ namespace Hexiege.Application
             Vector3 attackerPositionOverride,
             bool usePositionOverride,
             bool stopAtFirstMatch = false
-#if DETECT_RANGE_COMPARISON
-            , DetectComparisonSnapshot comparisonSnapshot = null
-#endif
             )
         {
 #if DETECT_RANGE_COMPARISON
@@ -1691,7 +1753,7 @@ namespace Hexiege.Application
 #else
             IEntityPositionProvider positions = _positionProvider;
 #endif
-            // _positionProvider가 없으면 HexCoord 기반 폴백.
+            // positions가 없으면 HexCoord 기반 폴백.
             // HexCoord 폴백은 이미 threshold=1로 인접 타일까지 탐색하므로
             // DetectRange(1.0)와 일치 — 별도 폴백 메서드 불필요.
             if (positions == null && !usePositionOverride)
@@ -1709,63 +1771,78 @@ namespace Hexiege.Application
             // 감지 사거리 기반 판정 거리 계산 (DetectRange × TileHeight + 건물 여유 거리)
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: true);
 
-            IDamageable closestTarget = null;
-            float minWorldDist = float.MaxValue;
-
-            // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
-            foreach (var unit in _unitSpawn.Units.Values)
-            {
+            IReadOnlyList<UnitData> indexedUnits = null;
+            bool ownsCandidates =
 #if DETECT_RANGE_COMPARISON
-                if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
+                comparisonSnapshot == null &&
 #endif
-                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
-
-                Vector3 targetPos = positions != null
-                    ? positions.GetUnitWorldPosition(unit.Id)
-                    : Vector3.zero;
-
-                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(unit.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= unitMaxDist && dist < minWorldDist)
-                {
-                    // 존재 여부만 필요하면 나머지 최근접 후보를 읽지 않는다.
-                    // 실제 타겟을 고르는 호출은 끝까지 기존 순서로 탐색한다.
-                    if (stopAtFirstMatch) return unit;
-                    minWorldDist = dist;
-                    closestTarget = unit;
-                }
-            }
-
-            // 2. 모든 적 건물을 월드 거리 기반으로 탐색
-            foreach (var building in _buildingPlacement.Buildings.Values)
+                TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            try
             {
-#if DETECT_RANGE_COMPARISON
-                if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
-#endif
-                if (building.Team == attacker.Team || !building.IsAlive) continue;
+                IDamageable closestTarget = null;
+                float minWorldDist = float.MaxValue;
 
-                Vector3 targetPos = positions != null
-                    ? positions.GetBuildingWorldPosition(building.Id)
-                    : Vector3.zero;
-
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(building.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= buildingMaxDist && dist < minWorldDist)
+                // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
+                // 기존: foreach (var unit in _unitSpawn.Units.Values)
+                IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
+                foreach (var unit in candidateUnits)
                 {
-                    if (stopAtFirstMatch) return building;
-                    minWorldDist = dist;
-                    closestTarget = building;
-                }
-            }
+#if DETECT_RANGE_COMPARISON
+                    if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
+#endif
+                    if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-            return closestTarget;
+                    Vector3 targetPos = positions != null
+                        ? positions.GetUnitWorldPosition(unit.Id)
+                        : Vector3.zero;
+
+                    // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(unit.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= unitMaxDist && dist < minWorldDist)
+                    {
+                        // 존재 여부만 필요하면 나머지 최근접 후보를 읽지 않는다.
+                        // 실제 타겟을 고르는 호출은 끝까지 기존 순서로 탐색한다.
+                        if (stopAtFirstMatch) return unit;
+                        minWorldDist = dist;
+                        closestTarget = unit;
+                    }
+                }
+
+                // 2. 모든 적 건물을 월드 거리 기반으로 탐색
+                foreach (var building in _buildingPlacement.Buildings.Values)
+                {
+#if DETECT_RANGE_COMPARISON
+                    if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
+#endif
+                    if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                    Vector3 targetPos = positions != null
+                        ? positions.GetBuildingWorldPosition(building.Id)
+                        : Vector3.zero;
+
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(building.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= buildingMaxDist && dist < minWorldDist)
+                    {
+                        if (stopAtFirstMatch) return building;
+                        minWorldDist = dist;
+                        closestTarget = building;
+                    }
+                }
+
+                return closestTarget;
+            }
+            finally
+            {
+                if (ownsCandidates) _combatCandidates.EndUnitCandidates();
+            }
         }
 
         /// <summary>
@@ -1808,57 +1885,68 @@ namespace Hexiege.Application
             // 공격 사거리 기반 판정 거리 계산 (근접/원거리 + 건물 여유 거리 포함)
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: false);
 
-            IDamageable closestTarget = null;
-            float minWorldDist = float.MaxValue;
-
-            // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
-            foreach (var unit in _unitSpawn.Units.Values)
+            IReadOnlyList<UnitData> indexedUnits = null;
+            bool ownsCandidates = TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            try
             {
-                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
+                IDamageable closestTarget = null;
+                float minWorldDist = float.MaxValue;
 
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
-                    : Vector3.zero;
-
-                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(unit.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= unitMaxDist && dist < minWorldDist)
+                // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
+                // 기존: foreach (var unit in _unitSpawn.Units.Values)
+                IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
+                foreach (var unit in candidateUnits)
                 {
-                    // 존재 판정은 첫 유효 후보에서 끝내고, 최근접 선택은 계속 탐색한다.
-                    if (stopAtFirstMatch) return unit;
-                    minWorldDist = dist;
-                    closestTarget = unit;
-                }
-            }
+                    if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-            // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
-            foreach (var building in _buildingPlacement.Buildings.Values)
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                        : Vector3.zero;
+
+                    // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(unit.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= unitMaxDist && dist < minWorldDist)
+                    {
+                        // 존재 판정은 첫 유효 후보에서 끝내고, 최근접 선택은 계속 탐색한다.
+                        if (stopAtFirstMatch) return unit;
+                        minWorldDist = dist;
+                        closestTarget = unit;
+                    }
+                }
+
+                // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
+                foreach (var building in _buildingPlacement.Buildings.Values)
+                {
+                    if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                    Vector3 targetPos = _positionProvider != null
+                        ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                        : Vector3.zero;
+
+                    // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = _mapper.HexToWorld(building.Position);
+
+                    float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                    if (dist <= buildingMaxDist && dist < minWorldDist)
+                    {
+                        if (stopAtFirstMatch) return building;
+                        minWorldDist = dist;
+                        closestTarget = building;
+                    }
+                }
+
+                return closestTarget;
+            }
+            finally
             {
-                if (building.Team == attacker.Team || !building.IsAlive) continue;
-
-                Vector3 targetPos = _positionProvider != null
-                    ? _positionProvider.GetBuildingWorldPosition(building.Id)
-                    : Vector3.zero;
-
-                // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
-                if (targetPos == Vector3.zero)
-                    targetPos = _mapper.HexToWorld(building.Position);
-
-                float dist = Vector3.Distance(attackerWorldPos, targetPos);
-
-                if (dist <= buildingMaxDist && dist < minWorldDist)
-                {
-                    if (stopAtFirstMatch) return building;
-                    minWorldDist = dist;
-                    closestTarget = building;
-                }
+                if (ownsCandidates) _combatCandidates.EndUnitCandidates();
             }
-
-            return closestTarget;
         }
 
         /// <summary>
@@ -2176,9 +2264,24 @@ namespace Hexiege.Application
         /// <param name="immediatePresentation">
         ///   true면 피격 표현 큐가 공격자 타격 프레임을 기다리지 않고 즉시 방출(파도 전용 경로 — 규칙 26).
         /// </param>
+        // [2026-11-16 비활성화 — 휩쓸기 진단 분류 표시를 켜고 끄려고 식 본문을 블록 본문으로 바꿈] 옛 본문:
+        //     => ApplyDamageToVictim(
+        //         attacker, target, immediatePresentation, default);
+        //   이 3-인자 오버로드는 2-인자 오버로드(SpecialAttackContext의 피해 다리 — 도끼병 휩쓸기 전용)에서만 불린다
+        //   (grep: SpecialAttackContext.ApplyDamage 사용처 = SweepAttackBehavior 1곳). 피해 호출 자체는 옛 줄과 같다.
         private void ApplyDamageToVictim(UnitData attacker, IDamageable target, bool immediatePresentation)
-            => ApplyDamageToVictim(
-                attacker, target, immediatePresentation, default);
+        {
+            bool previousSweep = _sweepVictimInProgress;
+            _sweepVictimInProgress = true;
+            try
+            {
+                ApplyDamageToVictim(attacker, target, immediatePresentation, default);
+            }
+            finally
+            {
+                _sweepVictimInProgress = previousSweep;
+            }
+        }
 
         private void ApplyDamageToVictim(
             UnitData attacker,
@@ -2198,7 +2301,11 @@ namespace Hexiege.Application
             int finalDamage = ComputeFinalDamage(attacker, target, rawDamage);
             PistoleerTimingDiagnostics.Event(attacker, "WriterBefore", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
                 $"hp={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
-            target.TakeDamage(finalDamage);
+            // [2026-11-16 비활성화 — 피해 지점 ①을 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(finalDamage);
+            //   헬퍼는 효과가 없으면 finalDamage를 그대로 TakeDamage에 넘긴다(동작 동일). 대지의 갑주가 걸린 유닛이면
+            //   방어 감쇄 뒤 값(finalDamage)에 받는 피해 배율을 곱한다. 아래 진단 줄들의 damage= 는 배율 전 값(종전 의미 그대로)이다.
+            IncomingDamage.Apply(_supportEffects, target, finalDamage, rawDamage, ResolveVictimWriter(presentationWave));
             PistoleerTimingDiagnostics.Event(attacker, "WriterAfter", AttackPresentationScope.FromResultKey(presentationResultKey), double.NaN,
                 $"hp={target.Hp} before={hpBefore} damage={finalDamage} victim={target.Id} kind={(target is UnitData ? 1 : 2)} effect={presentationResultKey.EffectKind} ordinal={presentationResultKey.ResultOrdinal} clock=local-only");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -2295,8 +2402,13 @@ namespace Hexiege.Application
         /// 부유 힐 텍스트를 띄울지 여부. 기본 true(즉발/파도 힐은 종전대로 텍스트 표시).
         /// HoT(지속 회복) 틱은 false로 호출하여 매 틱 텍스트가 뜨는 것을 막는다(HP 적용/동기화는 그대로 진행).
         /// </summary>
+        /// <param name="presentationWave">파도 회복이면 그 파도(파도 표현 진단 · 소유권 키). 다른 회복은 null.</param>
+        /// <param name="ampSource">
+        /// [2026-11-17 단계 B 추가 — 맨 뒤 선택 인자] 회복 출처(재생의 뿌리 「받는 회복 배율」 진단의 Source= 값).
+        /// 계산에는 쓰지 않는다 — 출처와 관계없이 같은 배율을 한 번 곱한다. 기본값이라 다른 호출부는 바꾸지 않아도 컴파일된다.
+        /// </param>
         private void ApplyHealToUnit(UnitData healer, UnitData target, int amount, bool showText = true,
-            ActiveWave presentationWave = null)
+            ActiveWave presentationWave = null, HealAmpSource ampSource = HealAmpSource.Unspecified)
         {
             if (target == null || amount <= 0)
             {
@@ -2312,7 +2424,13 @@ namespace Hexiege.Application
             }
 
             int hpBefore = target.Hp;
-            target.Heal(amount);
+            // [2026-11-17 지원 스킬 새 상태 단계 B — 구현 단위 B-2 · Plan 6-2-4] 회복 지점 ① — 받는 회복 배율(재생의 뿌리).
+            //   자연회복 · BloomFairy 힐(지속 회복 틱) · 파도 회복이 모두 이 줄을 지난다. 대상에 「받는 회복 배율」이 걸려 있으면
+            //   서비스가 「회복량 × 1.5 + 지난 나머지」의 정수를 돌려주고 1 미만 나머지는 그 유닛 몫으로 모아 둔다(소수 이월).
+            //   효과가 없는 유닛 · 서비스 미주입(null)이면 amount 그대로다 → 기존 회복과 정확히 같다(회귀 안전).
+            //   파도 진단(WaveWriterDiagnostic)은 기존대로 요청량(amount)을 남긴다 — 파도는 정령 회복이라 초월 효과와 만나지 않는다.
+            int healAmount = _supportEffects != null ? _supportEffects.AmplifyHeal(target, amount, ampSource) : amount;
+            target.Heal(healAmount);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (presentationWave != null)
                 WaveWriterDiagnostic(presentationWave, target, hpBefore, target.Hp, amount, amount, true, "writer-applied");
@@ -2336,7 +2454,8 @@ namespace Hexiege.Application
         // ====================================================================
         // HoT/DoT 시간 지속 효과 공용 시스템 [핵심 신규]
         //   "유닛에 붙는 시간 지속 효과"를 서버 권위로 관리한다.
-        //   - HoT(회복): BloomFairy가 부상 아군에 3초간 총 20HP 회복 버프를 건다.
+        //   - HoT(회복): BloomFairy가 부상 아군에 3초간 총 200HP 회복 버프를 건다
+        //     (SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「총 20HP」).
         //   - DoT(피해): 후속 QuakeSpirit·MushroomBomber가 동일 구조를 재사용한다
         //               (이번 작업에서는 Heal만 실제 배선, Damage 분기는 구조로 수용).
         //   서버 틱 진입점: 싱글=GameBootstrapper.Update / 멀티=NetworkCombatController(IsServer).
@@ -2365,7 +2484,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// BloomFairy 힐 시전 진입점. 상태머신(UnitView.EnterHealLoopV3)이 힐 타격 타이밍에 호출한다.
-        /// 대상에게 "3초간 총 20HP 회복" HoT를 1회 부여(갱신 규칙 적용 — 아래 ApplyTimedEffect 참조).
+        /// 대상에게 "3초간 총 200HP 회복"(SpecialAttackConfig.asset 값. 2026-11-23 정정 — 직전 「총 20HP」) HoT를 1회 부여(갱신 규칙 적용 — 아래 ApplyTimedEffect 참조).
         ///
         /// 서버 권위: UnitView의 이동/전투 코루틴은 서버(싱글=로컬 서버/멀티=서버)에서만 도므로
         /// 이 메서드도 서버에서만 호출된다. 클라이언트는 HP/치유 텍스트를 NetworkHealthSync로 수신한다.
@@ -2442,8 +2561,10 @@ namespace Hexiege.Application
         ///   - HoT는 매 프레임 조금씩 부드럽게 회복(diff 방식)하고 완료 시 텍스트 1회.
         ///   - DoT는 <b>틱 간격(예: 1초)마다 한 번씩 뚝뚝</b> 피해가 들어가고, 매 틱 데미지 텍스트(남은 체력)가 뜬다.
         ///
-        /// 틱당 피해 = 초당 피해 × 틱 간격을 <b>올림</b>(CeilToInt)한다(예: ceil(2×1)=2).
-        /// 총량 = 초당 피해 × 지속을 반올림해 상한으로 두어(예: 2×3=6), 올림 때문에 총 피해가 6을 넘지 않도록 클램프한다.
+        /// 틱당 피해 = 초당 피해 × 틱 간격을 <b>올림</b>(CeilToInt)한다(예: MushroomBomber ceil(20×1)=20).
+        /// 총량 = 초당 피해 × 지속을 반올림해 상한으로 두어(예: 20×3=60), 올림 때문에 총 피해가 60을 넘지 않도록 클램프한다.
+        /// (MushroomBomber 실제 값 초당 20 · 3초 = SpecialAttackConfig.asset, ×10 스케일.
+        ///  2026-11-23 정정 — 직전 예 「ceil(2×1)=2」·「2×3=6」·「6을 넘지 않도록」은 ×10 스케일 이전 값이었다.)
         /// </summary>
         /// <param name="source">DoT를 건 공격자(없으면 null — attribution만 영향).</param>
         /// <param name="target">DoT를 받을 대상 유닛.</param>
@@ -2460,11 +2581,13 @@ namespace Hexiege.Application
             // 방어적: 틱 간격이 비정상(0 이하)이면 1초로 보정(0 나눗셈/무한 루프 방지).
             float interval = tickInterval > 0.0001f ? tickInterval : 1f;
 
-            // 총량 상한(올림 초과 방지 클램프) = 초당 피해 × 지속(반올림). 예: 2×3=6.
+            // 총량 상한(올림 초과 방지 클램프) = 초당 피해 × 지속(반올림). 예: MushroomBomber 20×3=60.
+            //   (2026-11-23 정정 — 직전 「예: 2×3=6」)
             int totalAmount = Mathf.Max(0, Mathf.RoundToInt(perSecond * duration));
             if (totalAmount <= 0) return;
 
-            // 틱당 피해 = 초당 피해 × 틱 간격(올림). 예: ceil(2×1)=2. 최소 1 보장.
+            // 틱당 피해 = 초당 피해 × 틱 간격(올림). 예: MushroomBomber ceil(20×1)=20. 최소 1 보장.
+            //   (2026-11-23 정정 — 직전 「예: ceil(2×1)=2」)
             int tickAmount = Mathf.Max(1, Mathf.CeilToInt(perSecond * interval));
 
             AddOrRefreshTimedEffect(source, target, TimedEffectKind.Damage, totalAmount, duration,
@@ -2486,8 +2609,8 @@ namespace Hexiege.Application
         /// <summary>
         /// InfernoSpirit 단일 대상 DoT 부여 진입점. SpecialAttackContext.ApplyInfernoDot 델리게이트로 주입되어
         /// InfernoAttackBehavior가 주 타깃(적 유닛 1명)에 대해 호출한다.
-        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 2/3초)와는 "별도" 진입점으로,
-        ///    InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
+        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 20/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「초당 2/3초」)와는 "별도" 진입점으로,
+        ///    InfernoSpirit 자기 튜닝값(초당 50/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-18 정정 — 직전 「초당 5/3초」)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
         ///    재사용하되 초당 피해/지속 값은 완전히 분리되어 서로 영향을 주지 않는다.
         /// </summary>
         /// <param name="attacker">DoT를 건 공격자(지옥불 정령).</param>
@@ -2502,7 +2625,8 @@ namespace Hexiege.Application
         /// 주입되어 QuakeAttackBehavior가 반경 판정으로 고른 각 적(유닛/건물)에 대해 호출한다.
         ///
         /// ⚠️ DoT(ApplyBlastDot/ApplyInfernoDot)와 달리 "즉발 1회 피해"다.
-        ///    스플래시 피해량 = 올림(공격력 × _quakeSplashRatio). 예: 공격력 20 × 0.5 = 10.
+        ///    스플래시 피해량 = 올림(공격력 × _quakeSplashRatio). 예: QuakeSpirit 공격력 200 × 0.5 = 100
+        ///    (UnitStatsConfig.asset type 15 공격력 200. 2026-11-23 정정 — 직전 「공격력 20 × 0.5 = 10」).
         ///    주 타깃은 이미 ExecuteAttack에서 100%(공격력 그대로)를 받았으므로 여기 스플래시에서 제외된다
         ///    (제외는 핸들러 QuakeAttackBehavior가 담당 — 이 메서드는 넘어온 대상에만 피해를 준다).
         /// </summary>
@@ -2546,7 +2670,9 @@ namespace Hexiege.Application
             int hpBefore = target.Hp;
             // 피해 적용(임의 량). 스플래시도 직격과 동일하게 방어력 감쇄(+건물 2배 판정)를 거친다.
             // 방어력 0(Phase 1)이면 ComputeFinalDamage(amount)=amount → 기존과 동일(하위호환).
-            target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
+            // [2026-11-16 비활성화 — 피해 지점 ②를 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
+            IncomingDamage.Apply(_supportEffects, target, ComputeFinalDamage(attacker, target, amount), amount, IncomingDamageWriter.Splash);
 
             Vector3 impactWorld = ResolveWorldPosition(target);
             bool hasImpactPosition = WorldPointXZ.TryCreate(
@@ -2757,7 +2883,9 @@ namespace Hexiege.Application
             }
 
             int finalDamage = DamageCalculator.ApplyDefense(rawDamage, defense);
-            target.TakeDamage(finalDamage);
+            // [2026-11-16 비활성화 — 피해 지점 ③을 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(finalDamage);
+            IncomingDamage.Apply(_supportEffects, target, finalDamage, rawDamage, IncomingDamageWriter.Skill);
 
             // 피격 이벤트 발행 — NetworkHealthSync가 구독해 모든 클라이언트에 HP를 동기화한다.
             //   공격자가 건물이므로 attackerIsUnit=false(피격 표현 큐의 타워형 즉시 방출 경로),
@@ -3092,7 +3220,11 @@ namespace Hexiege.Application
                         //   또한 이 효과가 "실제로 올린 HP"를 누적한다(회복이 MaxHp에서 상한에 걸리면
                         //   실제 증가분은 diff보다 작을 수 있으므로 Heal 전후 Hp 차이로 정확히 잰다).
                         int hpBefore = target.Hp;
-                        ApplyHealToUnit(healer, target, diff, showText: false);
+                        // [2026-11-17 단계 B] 출처를 넘긴다 — 시전자가 BloomFairy면 Bloom, 아니면(시전자 없음 · 다른 유닛) HoT.
+                        //   받는 회복 배율 진단 Source= 값일 뿐 계산은 같다. 증폭되면 실제로 오른 HP(아래 ActualHealed)도 그만큼 커진다
+                        //   — 완료 텍스트가 「실제 회복량」 기준이라 그대로 맞는다.
+                        ApplyHealToUnit(healer, target, diff, showText: false,
+                            ampSource: healer != null && healer.Type == UnitType.BloomFairy ? HealAmpSource.Bloom : HealAmpSource.HoT);
                         effect.ActualHealed += target.Hp - hpBefore;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                         // 실제 writer 뒤 관찰만 한다. 다른 HoT의 default key는 기록하지 않는다.
@@ -3155,11 +3287,13 @@ namespace Hexiege.Application
         /// 힐(HoT)의 "프레임마다 부드러운 diff"와 달리, 누적 시간이 틱 간격(예: 1초)을 넘을 때마다
         /// 그 틱의 피해를 한 번에 적용한다(그때 OnEntityDamaged가 발행되어 남은 체력 텍스트가 뜬다).
         ///
-        /// 총량 정확성(요구 7 — 총 6 정확, 초과 없음):
+        /// 총량 정확성(요구 7 — 총량 정확, 초과 없음. MushroomBomber 실제 값 기준 총 60 = 초당 20 × 3초, SpecialAttackConfig.asset·×10 스케일.
+        ///  2026-11-23 정정 — 직전 「총 6 정확」은 ×10 스케일 이전 값이었다):
         ///   - 정기 틱: 누적 시간이 틱 간격을 넘긴 만큼 TickAmount(올림값)를 적용하되, 남은 총량(TotalAmount−AppliedAmount)을 넘지 않게 클램프.
         ///   - 마지막 정산: 지속시간이 끝났는데 프레임 타이밍상 마지막 틱이 아직 안 들어갔으면(누적 시간이
         ///     틱 간격에 살짝 못 미쳐 정기 틱이 스킵된 경우) 남은 총량을 마지막 한 틱으로 정산한다.
-        ///     → 이렇게 하면 프레임레이트와 무관하게 정확히 3틱(1s/2s/3s 부근)·총 6이 보장된다.
+        ///     → 이렇게 하면 프레임레이트와 무관하게 정확히 3틱(1s/2s/3s 부근)·총 60(MushroomBomber 실제 값)이 보장된다.
+        ///       (2026-11-23 정정 — 직전 「총 6」)
         /// </summary>
         /// <param name="effect">진행할 DoT 레코드(참조 타입이라 필드 변경이 그대로 반영됨).</param>
         /// <param name="target">DoT 대상 유닛(호출부에서 생존 확인 완료).</param>
@@ -3230,7 +3364,9 @@ namespace Hexiege.Application
         {
             if (target == null || !target.IsAlive || amount <= 0) return;
 
-            target.TakeDamage(amount);
+            //   지속 피해는 방어 감쇄가 없으므로(유닛 규칙 44) 감쇄 뒤 값 = 원래 틱 값이다. 대지의 갑주가 걸린 유닛이면
+            //   그 틱 값에 0.7배를 곱한다(최소 1 — 예: 틱 2 → 1). DoT 총량 장부(AppliedAmount)는 원래 틱 값으로 센다(종전과 같다).
+            IncomingDamage.Apply(_supportEffects, target, amount, amount, IncomingDamageWriter.DoT);
 
             int attackerId = attacker != null ? attacker.Id : -1;
             GameEvents.OnEntityDamaged.OnNext(
@@ -3569,7 +3705,9 @@ namespace Hexiege.Application
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                     int before = ally.Hp;
 #endif
-                    ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
+                    // [2026-11-17 단계 B] 출처 Wave를 넘긴다(진단 값 — 정령 파도는 초월 효과와 만나지 않는다). 옛 줄(기록용):
+                    // ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
+                    ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave, ampSource: HealAmpSource.Wave);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                     WaveDiagnosticApplied(wave, "Unit", ally.Id, before, ally.Hp, "heal");
 #endif

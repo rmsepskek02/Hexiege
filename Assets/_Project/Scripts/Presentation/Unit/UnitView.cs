@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitView.cs
 // 유닛의 비주얼(이동, 방향, 애니메이션 상태)을 담당하는 컴포넌트.
 //
@@ -59,6 +59,12 @@ namespace Hexiege.Presentation
         private static readonly Unity.Profiling.ProfilerMarker _disablePostCombatMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.PostCombat");
         private static readonly Unity.Profiling.ProfilerMarker _disableInfernoRetireMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.InfernoRetire");
 #endif
+        private int _combatSpatialBindingId;
+        private void OnDestroy()
+        {
+            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
+        }
+
         private static ulong _nextHealLifetime;
         private ulong _healLifetime, _healSequence;
         private UnitHealCastPresentationCursor _healPresentation = new UnitHealCastPresentationCursor();
@@ -1838,6 +1844,8 @@ _slot = _nextEviction;
                 _soloRecoveryLastReason = "none";
 #endif
             }
+            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
+            _combatSpatialBindingId = gameObject.GetInstanceID();
             _unitData = unitData;
             AttackPresentationAuditEligibility auditEligibility =
                 AttackPresentationAuditEligibility.RequiredButMissing;

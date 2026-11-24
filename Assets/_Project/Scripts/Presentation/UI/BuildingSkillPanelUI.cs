@@ -445,8 +445,23 @@ namespace Hexiege.Presentation
                     // fallback = 시전 건물 위치(화면 중앙이 맵 밖일 때 조준 원 기본 위치).
                     //   조준은 연속 도메인 월드 좌표로 다루므로, 건물 타일(HexCoord)을 도메인 월드로 변환해 넘긴다.
                     Vector3 fallbackDomain = HexMetrics.HexToWorld(_currentBuilding.Position);
-                    _skillAimController.BeginAim(buildingId, slotIndex, skill.Radius,
-                        fallbackDomain, OnAimConfirm, OnAimCancel);
+                    if (skill.Mechanic == SkillMechanicType.LineStrike)
+                    {
+                        // [2026-11-17 공습 Task L-3] 공습(직선 연속 폭격)은 직선 조준으로 들어간다 — 누른 자리 = 시작점,
+                        //   끈 쪽 = 방향, 최소 드래그 미만이면 발사하지 않음(U-2~U-10). 직선 길이 · 폭은 스킬 데이터 값으로 그린다.
+                        //   확정 콜백이 시작점 + 방향을 받아 발동 요청에 방향을 실어 보낸다(싱글 · 멀티 모두 — 아래 OnLineAimConfirm).
+                        //   다른 지점 지정 스킬(포격 · EMP · 서리 감옥 · 수액 늪)은 아래 else 의 기존 원형 조준 그대로다(R-1).
+                        // [2026-11-18 L-7] 폭격 횟수(LineStrikeCount)를 함께 넘긴다 — 조준 표시의 폭격 눈금 · 맞는 타일 하이라이트가
+                        //   서버와 같은 구간 기준으로 그려지게(Plan 14절 UI-2a · UI-2c). 조준 판정 · 발사 로직은 그대로다.
+                        _skillAimController.BeginLineAim(buildingId, slotIndex, skill.Radius,
+                            skill.LineLength, skill.LineWidth, fallbackDomain, OnLineAimConfirm, OnAimCancel,
+                            skill.LineStrikeCount);
+                    }
+                    else
+                    {
+                        _skillAimController.BeginAim(buildingId, slotIndex, skill.Radius,
+                            fallbackDomain, OnAimConfirm, OnAimCancel);
+                    }
                 }
                 else
                 {
@@ -472,6 +487,17 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 공습(직선) 조준 확정 콜백(2026-11-17 L-3) — 시작점(도메인)과 방향(도메인, 정규화)으로 발동하고 패널을 닫는다.
+        /// 방향은 조준 컨트롤러가 시작점 · 손가락 위치를 둘 다 도메인으로 바꾼 뒤 구한 값이다(P-10 — 빨강 화면도 서버와 같은 기준).
+        /// 서버(싱글은 로컬 UseCase)가 방향 0 · NaN 을 다시 거부하고 시작점 맵 경계도 다시 검사한다(P-11 · 규칙 26).
+        /// </summary>
+        private void OnLineAimConfirm(int buildingId, int slotIndex, Vector3 startWorld, Vector3 direction)
+        {
+            ActivateSkill(buildingId, slotIndex, startWorld, true, direction);
+            Close();
+        }
+
+        /// <summary>
         /// 조준 취소(하단 X/무효 위치) 콜백 — 발동하지 않고 패널을 닫는다.
         /// </summary>
         private void OnAimCancel()
@@ -486,19 +512,28 @@ namespace Hexiege.Presentation
         /// <param name="slotIndex">슬롯 번호.</param>
         /// <param name="aimWorld">조준 좌표(도메인 월드 Vector3, 지점 지정에서만 유효).</param>
         /// <param name="hasAim">조준 좌표 유효 여부.</param>
-        private void ActivateSkill(int buildingId, int slotIndex, Vector3 aimWorld, bool hasAim)
+        /// <param name="aimDirection">
+        /// 조준 방향(도메인 월드 — 2026-11-17 공습 Task L-2 추가, 맨 뒤 선택 인자). 공습(직선 연속 폭격)만 쓴다.
+        /// 공습 조준 확정(OnLineAimConfirm — L-3, 2026-11-17)만 이 인자를 넘기고, 그 밖의 호출(원형 조준 · 즉시 발동)은 생략(0 벡터)한다.
+        /// 공습 자산은 L-6에서 「사용 가능」으로 켜졌으므로 공습 버튼 → 직선 조준 → 이 경로로 방향이 실제로 전달된다.
+        /// *(2026-11-18 갱신 — 직전 「공습 자산은 아직 「사용 불가」(자산 켜기 = Plan L-6)라 지금은 그 경로에 들어가지 않는다」)*
+        /// *(2026-11-17 L-3 갱신 — 직전 「지금은 모든 호출이 생략(0 벡터)한다 — … 다음 단계 L-3에서 이 인자로 넘긴다」)*
+        /// </param>
+        // [2026-11-17 공습 Task L-2] 방향 인자를 덧붙였다.
+        private void ActivateSkill(int buildingId, int slotIndex, Vector3 aimWorld, bool hasAim, Vector3 aimDirection = default)
         {
             bool isNetworkMode = _networkSkillController != null && NetworkContext.IsNetworkActive;
 
             if (isNetworkMode)
             {
                 // 서버가 재검증·실행·쿨다운 브로드캐스트를 담당한다(규칙 25·26).
-                _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimWorld, hasAim);
+                _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimWorld, hasAim, aimDirection);
             }
             else
             {
                 // 싱글플레이: 로컬 서버 권위로 직접 발동.
-                _skillActivation?.Activate(buildingId, slotIndex, hasAim ? aimWorld : (Vector3?)null);
+                // 옛 줄(기록용): _skillActivation?.Activate(buildingId, slotIndex, hasAim ? aimWorld : (Vector3?)null);
+                _skillActivation?.Activate(buildingId, slotIndex, hasAim ? aimWorld : (Vector3?)null, aimDirection);
             }
         }
     }

@@ -11,6 +11,7 @@
 //     - 어디에 썼나?                → HasAim / AimWorld (도메인 좌표 그대로 — 화면 변환은 받는 쪽이 한다)
 //     - 몇 번째 발동인가?           → Sequence (같은 건물이 다시 쓴 발동과 늦게 오는 착탄을 짝지을 열쇠)
 //     - 착탄까지 몇 초 걸리나?      → ImpactDelay (0이면 즉발)
+//     - 어느 방향으로 썼나?         → AimDirection (공습만 — 2026-11-17 공습 Task. 다른 스킬은 0 벡터)
 //
 // 왜 반경 · VFX 프리팹은 싣지 않나(Plan 3-1 안 A — 사용자 채택):
 //   받는 쪽이 Team · Slot으로 자기 빌드의 SkillData를 다시 찾으면 반경 · 프리팹을 얻을 수 있다.
@@ -59,12 +60,22 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 발동 순번(이 경기에서 서버가 성공시킨 발동마다 1씩 증가, 1부터 시작).
-        /// 같은 건물의 다음 발동과 늦게 오는 착탄을 짝지을 때 쓴다(메테오 착탄 폭발 등 — 지금은 짝지을 곳이 없다).
+        /// 같은 건물의 다음 발동과 늦게 오는 착탄을 짝지을 때 쓴다(지금은 짝지을 곳이 없다).
+        /// 메테오 착탄 폭발은 이 짝짓기를 쓰지 않는다 — 각 화면이 「받은 시각 + 착탄 지연」으로 스스로 예약하고,
+        /// 메테오 화면 진단 줄은 이 값을 Seq= 로 남긴다(2026-11-18 메테오 Task — SkillActivationVfxPresenter.Meteor.cs).
+        /// (2026-11-18 갱신 — 직전 「(메테오 착탄 폭발 등 — 지금은 짝지을 곳이 없다)」)
         /// </summary>
         public int Sequence { get; }
 
         /// <summary> 발동부터 착탄(피해)까지의 시간(초). 0이면 즉발. </summary>
         public float ImpactDelay { get; }
+
+        /// <summary>
+        /// 조준 방향(도메인 월드, XZ · Y = 0, 길이 1). 공습(LineStrike)만 실린다 — 시작점(AimWorld) → 끝점 쪽.
+        /// 다른 스킬 · 조준 없음 · 잘못된 값(NaN · 무한대)은 0 벡터다. 화면은 이 방향을 자기 화면으로 바꿔 그린다(P-10 — 다음 단계 L-4 · L-5).
+        /// (2026-11-17 공습 Task L-2 — 이 값이 RPC에 실리면서 전투 표현 스키마가 10 → 11로 올랐다.)
+        /// </summary>
+        public Vector3 AimDirection { get; }
 
         /// <summary>
         /// 발동 표현 값 생성.
@@ -76,6 +87,10 @@ namespace Hexiege.Application
         /// <param name="aimWorld">조준 좌표(도메인 월드). hasAim이 false면 무시된다.</param>
         /// <param name="sequence">발동 순번.</param>
         /// <param name="impactDelay">착탄 지연(초). 음수 · NaN은 0으로 고쳐 보관한다(전송 값 방어).</param>
+        /// <param name="aimDirection">
+        /// 조준 방향(2026-11-17 공습 Task 추가 — 맨 뒤 선택 인자, 생략하면 0 벡터). 조준이 없거나 NaN · 무한대가 섞이면 0 벡터로,
+        /// Y 성분은 0으로 고쳐 보관한다(전송 값 방어 — 받는 화면이 잘못된 회전을 만들지 않게).
+        /// </param>
         public SkillActivationPresentation(
             int buildingId,
             TeamId team,
@@ -83,7 +98,8 @@ namespace Hexiege.Application
             bool hasAim,
             Vector3 aimWorld,
             int sequence,
-            float impactDelay)
+            float impactDelay,
+            Vector3 aimDirection = default)
         {
             BuildingId = buildingId;
             Team = team;
@@ -94,6 +110,11 @@ namespace Hexiege.Application
             Sequence = sequence;
             // "0보다 큰 값"만 지연으로 인정한다(NaN > 0 은 false 라서 NaN도 0이 된다).
             ImpactDelay = impactDelay > 0f ? impactDelay : 0f;
+            // 방향(2026-11-17 공습). X · Z가 모두 보통 숫자일 때만 담고(Y는 버린다), 조준이 없으면 0 벡터.
+            //   정규화는 서버(SkillActivationUseCase.Activate)가 이미 했다 — 여기서는 "잘못된 값을 화면으로 흘리지 않기"만 한다.
+            bool finite = !float.IsNaN(aimDirection.x) && !float.IsInfinity(aimDirection.x)
+                       && !float.IsNaN(aimDirection.z) && !float.IsInfinity(aimDirection.z);
+            AimDirection = hasAim && finite ? new Vector3(aimDirection.x, 0f, aimDirection.z) : Vector3.zero;
         }
     }
 }

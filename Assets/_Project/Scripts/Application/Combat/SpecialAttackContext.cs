@@ -55,7 +55,8 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 휩쓸기 전방 부채꼴 판정의 월드 반경(공격자로부터의 XZ 평면 거리 한계).
-        /// SpecialAttackConfig.SweepReach에서 주입(미주입 시 코드 기본값 1.0).
+        /// SpecialAttackConfig.SweepReach에서 주입(미주입 시 코드 기본값 0.75 — SpecialAttackConfig.asset 값과 같음).
+        /// (2026-11-23 정정 — 직전 「코드 기본값 1.0」. UnitCombatUseCase 생성자 기본값을 에셋 값 0.75로 맞췄다.)
         /// </summary>
         public float SweepReach { get; }
 
@@ -123,8 +124,9 @@ namespace Hexiege.Application
 
         // 대상 유닛에 InfernoSpirit 단일 대상 DoT를 부여하는 델리게이트. 인자는 (공격자, 피해 대상).
         // UnitCombatUseCase.ApplyInfernoDot을 그대로 넘겨받는다.
-        // ⚠️ MushroomBomber의 _applyDot(→ApplyBlastDot, 초당 2/3초)와는 "별도" 진입점이다.
-        //    InfernoSpirit은 자기 튜닝값(초당 5/3초)을 써야 하므로 델리게이트를 분리해
+        // ⚠️ MushroomBomber의 _applyDot(→ApplyBlastDot, 초당 20/3초)와는 "별도" 진입점이다.
+        //    InfernoSpirit은 자기 튜닝값(초당 50/3초)을 써야 하므로 델리게이트를 분리해
+        //    (두 값 모두 SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「초당 2/3초」·「초당 5/3초」)
         //    MushroomBomber 값이 섞이지 않도록 한다(값 회귀 방지).
         private readonly Action<UnitData, UnitData> _applyInfernoDot;
 
@@ -244,8 +246,8 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 대상 유닛에 InfernoSpirit 단일 대상 DoT(지속 피해)를 부여한다.
-        /// MushroomBomber의 <see cref="ApplyDot"/>(초당 2/3초)와 값이 다른 "별도" 진입점으로,
-        /// InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 초당 피해/지속/틱 간격은
+        /// MushroomBomber의 <see cref="ApplyDot"/>(초당 20/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-23 정정 — 직전 「초당 2/3초」)와 값이 다른 "별도" 진입점으로,
+        /// InfernoSpirit 자기 튜닝값(초당 50/3초 — SpecialAttackConfig.asset 값, ×10 스케일. 2026-11-18 정정 — 직전 「초당 5/3초」)을 사용한다. 초당 피해/지속/틱 간격은
         /// UnitCombatUseCase 내부에 캡슐화돼 있고, 이 델리게이트는 "누구에게 걸지"만 전달한다.
         /// </summary>
         /// <param name="attacker">DoT를 건 공격자(보통 <see cref="Attacker"/>와 동일).</param>

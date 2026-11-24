@@ -158,6 +158,16 @@
   `SkillZoneVfxPresenter`, `UnitBuffVfxPresenter` split into common core + activation / zone drivers, `[SKILL-ZONE]`,
   slot button text = skill name (`[SKILL-PANEL]`), temporary prefabs emptied, some disabled blocks kept (§4 list).
   *(2026-11-11 updated — was "implemented — user test NOT run"; 3 test logs PASS, unobserved `Path=Exit` · `Reinit`)*
+  §5–§6 (2026-11-16~17, user test PASS) new statuses stage A (Earth Armor · production speed) and stage C (shield · building status VFX,
+  schema 10), `SupportFixtureStatsScope` (suite must not read the global stat tables).
+  §7 (2026-11-17, user test PASS + suite PASS) stage B Roots of Regeneration: `Regen = 9` / `HealAmpMul = 10`, 1 s regen pulses,
+  `AmplifyHeal` with per-target carry at the three heal points, `[SKILL-REGEN]`, and **how to run fixtures headless with a fake
+  `UnityEngine.CoreModule` assembly**. *(2026-11-18 updated — was "implemented, user test NOT run"; topic §7 heading already said PASS)*
+  §8 (2026-11-17~18, user test PASS) Air Strike: touch-Id finger tracker + release cached coordinate, air-strike-only 1e-4 s due
+  epsilon, one shared effective-length function (server · reticle · VFX), comment-text source gates, new `.cs` without `.meta`, schema 11.
+  §9 (2026-11-18, user test PASS) Meteor: burn carried on both type-A bridge branches (delay 0 still burns), `UsesImpactPresentation`
+  predicate, warning playback speed set after `Play` + restored on return, travelling looping body (lease + delay + 0.5 s deadline,
+  view-space start offset, root scale 1), time-scheduled impact VFX, ring outer edge = R0 size lesson, schema 11 unchanged.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
@@ -406,7 +416,7 @@
 - **특수 공격 전략 핸들러 구조(신규 패턴)**: `ISpecialAttackBehavior.Apply(SpecialAttackContext)` + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType→핸들러`, 현재 BattleAxe→`SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요. **신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄**, `ExecuteAttack` 재수정 불필요.
 - **피해 수렴점 단일화**: 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해(피해+이벤트+사망 처리)를 `ApplyDamageToVictim` 헬퍼로 추출 → 주 타깃/AoE가 같은 경로 사용(멀티 HP 동기화 일관). 말미에 특수 공격 훅 1줄.
 - **휩쓸기 판정 = 월드 좌표 전방 부채꼴(SweepAttackBehavior)**: 초기 "전방 5타일 타일 기준"에서 실기 후 변경. forward=공격자→주 타깃 방향(월드 XZ), 각 적 **XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`**이면 피격. Y(UnitYOffset) 무시, 겹친 적(거리≈0) 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표=`IEntityPositionProvider`(서버 권위). 순회 중 사망 컬렉션 변경 회피 위해 대상 선수집 후 일괄 적용.
-- **튜닝 SO `SpecialAttackConfig`(Infrastructure/Config)**: `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 **float로 UnitCombatUseCase 생성자에 주입**(Application→Infrastructure 역참조 회피, 미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화.
+- **튜닝 SO `SpecialAttackConfig`(Infrastructure/Config)**: `sweepReach`(기본 0.75 = 에셋 값)·`sweepArcHalfAngle`(기본 120). *(2026-11-23 갱신 — 직전 「`sweepReach`(기본 1.0, 실기값 0.75)」. 코드 기본값을 에셋 값에 맞췄다: sweepReach 0.75 · waveHeal 100 · bloomHealAmount 200 · blastDotPerSecond 20 · infernoDotPerSecond 50 — `UnitCombatUseCase` 생성자 · `SpecialAttackConfig` 필드 · `GameBootstrapper.Setup` 폴백 세 곳)* GameBootstrapper가 SO값을 **float로 UnitCombatUseCase 생성자에 주입**(Application→Infrastructure 역참조 회피, 미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화.
 - **⚠️ 교훈 — SO 튜닝값은 "에셋 생성 ≠ 씬 배선"**: `SpecialAttackConfig.asset`에 0.75를 넣어도 GameBootstrapper `_specialAttackConfig`에 연결 안 되면 런타임은 폴백(1.0)을 씀 → 값 미반영 함정. 신규 SO 튜닝값은 배선까지 확인(또는 셋업 스크립트로 자동 배선).
 - **⚠️ 교훈 — "리치" 2종 구분**: 유닛 `attackRange`(주 타깃 공격/추격, UnitStatsConfig) vs 특수 AoE `sweepReach`(SpecialAttackConfig)는 별개 값. 혼동 주의. 헥스 인접 타일 중심 간 거리 ≈ 0.9~1.0 월드(FlatTop, TileWidth/Height=1.0)라 상대 유닛 사거리(피스톨러 1.0 등)와의 관계 고려 필요.
 - **AoE 피격 연출 동시 방출**: `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 타격 프레임 수=`_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`. **교훈 — HitPresentationQueue는 "타격 프레임 1개=피해 1건" 전제** → AoE(1프레임 N피해)는 `HitFrameTimes.Length` 분기로 해결. 파일 `Presentation/Effects/HitPresentationQueue.cs`.

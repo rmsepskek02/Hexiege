@@ -17,6 +17,7 @@
 //   2026-11-03: 발동 VFX 프리팹(UnityEngine.GameObject)도 같은 "연출 참조" 이유로 담는다(실행기는 읽지 않는다).
 // ============================================================================
 
+using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
 
@@ -134,10 +135,164 @@ namespace Hexiege.Application
         /// </summary>
         public GameObject ZoneVfxPrefab { get; }
 
+        // ── 2026-11-16 추가: 추가 효과 목록(지원 스킬 새 상태 — 단계 A, Plan S-13) ──
+        //   주 효과(StatusKind · Magnitude) 하나로는 「공격력 + 생산 속도」(전술 지령)처럼 효과 둘 이상을 걸 수 없어서 덧붙였다.
+        //   값은 SkillDefinition의 「추가 효과 목록」 칸에서 복사된다. 칸이 없는 옛 자산은 빈 목록으로 읽혀 동작이 그대로다.
+        //   실행기(GlobalStatusChangeExecutor)가 목록의 줄마다 서버 전용 지원 스킬 효과 서비스로 보낸다.
+
+        /// <summary>
+        /// 추가 효과 목록(주 효과 말고 더 거는 효과들). 비어 있을 수 있지만 null은 아니다(호출자가 null 검사 없이 순회).
+        /// 지속시간 · 대상 팀은 주 효과와 같다(Duration · TargetsAllies).
+        /// </summary>
+        public IReadOnlyList<SkillExtraEffect> ExtraEffects { get; }
+
+        // 빈 목록 하나를 모든 스킬이 함께 쓴다(추가 효과가 없는 스킬마다 빈 배열을 새로 만들지 않게).
+        private static readonly SkillExtraEffect[] NoExtraEffects = new SkillExtraEffect[0];
+
+        // ── 2026-11-16 추가: 건물 상태 VFX(지원 스킬 새 상태 — 단계 C, Plan 6-1-3 · S-10 · S-12) ──
+        //   효과를 받은 건물 위에 효과 시간 동안 반복 재생하는 이펙트(신목의 각성 건물 쉴드 · 단계 B 재생의 뿌리 건물 재생).
+        //   값은 SkillDefinition의 「건물 상태 VFX」 칸에서 복사된다. 실행기 · 서버 판정은 이 값을 읽지 않는다(화면 표현 전용).
+        //   화면 쪽 BuildingStatusVfxPresenter가 발동 표현 이벤트를 받으면 이 프리팹을 대상 건물마다 붙인다.
+
+        /// <summary>
+        /// 효과를 받은 건물 위에 붙일 반복 VFX 프리팹(null 허용 — 이펙트 없이 효과만 건다).
+        /// </summary>
+        public GameObject BuildingStatusVfxPrefab { get; }
+
+        /// <summary>
+        /// 건물 상태 VFX 크기 배율(프리팹 원본 × 이 값 — 건물 종류와 무관한 하나의 배율, S-12). 0 이하 · NaN · 무한대는 1로 고쳐 보관한다.
+        /// </summary>
+        public float BuildingStatusVfxScale { get; }
+
+        /// <summary>
+        /// 건물 상태 VFX 높이 보정(건물 GameObject 위치 기준 Y만, 월드 단위). NaN · 무한대는 0으로 고쳐 보관한다.
+        /// X · Z 보정은 두지 않는다 — 상대 진영 건물은 180° 돌아 있어 X · Z 보정은 모델과 어긋난다(EMP 탑 VFX와 같은 이유).
+        /// </summary>
+        public float BuildingStatusVfxOffsetY { get; }
+
+        // ── 2026-11-17 추가: 직선 연속 폭격(공습 — SkillMechanicType.LineStrike) 칸 ──
+        //   공습 Task(_Tasks/2026-11-17/09_12_support-skill-air-strike) Plan L-1 · P-3 · P-7.
+        //   값은 SkillDefinition의 「직선 연속 폭격」 칸에서 복사된다. LineStrike 실행기만 읽는다(다른 스킬은 무시).
+        //   첫 폭격 지연은 새 칸을 만들지 않고 기존 「착탄 지연」(ImpactDelay)을 쓴다 — 뜻이 같다(발동 → 첫 착탄).
+        //   1회 피해는 기존 「즉발 1회 총 피해」(TotalDamage)를 쓴다 — 한 시전에 대상당 1회만 맞으므로(U-12) 「대상 1개가 받는 피해」다.
+
+        /// <summary> 폭격 횟수 상한(자산 오입력으로 예약이 수천 개 생기는 것을 막는다). 임시 수치 5(P-7)보다 넉넉하다. </summary>
+        public const int MaxLineStrikeCount = 20;
+
+        /// <summary> (공습) 직선 길이(월드 단위). 0보다 크고 유한한 값만 인정, 아니면 0(= 폭격 없음 · 진단 Warn). </summary>
+        public float LineLength { get; }
+
+        /// <summary> (공습) 직선 폭(월드 단위). 직선 양옆으로 폭 ÷ 2까지가 범위다. 0보다 크고 유한한 값만 인정, 아니면 0. </summary>
+        public float LineWidth { get; }
+
+        /// <summary> (공습) 폭격 횟수 = 직선을 나누는 구간 수. 0 ~ MaxLineStrikeCount로 자른다(0 = 폭격 없음 · 진단 Warn). </summary>
+        public int LineStrikeCount { get; }
+
+        /// <summary> (공습) 폭격 사이 간격(초). 0 이상 유한한 값만 인정, 아니면 0(모든 폭격이 첫 폭격과 같은 틱에 떨어진다). </summary>
+        public float LineStrikeInterval { get; }
+
+        // ── 2026-11-17 추가: 공습 VFX 칸(Plan L-5 · P-6) ──
+        //   직선 경고는 기존 ActivationVfxPrefab을 쓰고(회전 + 길이 배율), 폭격 1회분은 StrikeVfxPrefab을 쓴다.
+        //   화면 쪽 SkillActivationVfxPresenter(LineStrike 부분)만 읽는다. 둘 다 비어도 피해(서버)는 그대로다.
+
+        /// <summary>
+        /// (공습) 직선 경고 VFX(ActivationVfxPrefab)가 만들어진 기준 길이(월드 단위). 길이 방향 배율 = 맵 안 유효 길이 ÷ 이 값.
+        /// 0보다 크고 유한한 값만 인정, 아니면 0(= 배율 1로 재생 — EffectManager.ComputeSkillVfxScale 규칙과 같다).
+        /// </summary>
+        public float LineVfxReferenceLength { get; }
+
+        /// <summary> (공습) 폭격 1회분 VFX 프리팹. 폭격마다 그 구간 가운데에 1번 재생한다. null이면 폭격 연출 없음(피해는 그대로). </summary>
+        public GameObject StrikeVfxPrefab { get; }
+
+        // ── 2026-11-18 추가: 착탄 화상(메테오 — 지원 스킬 2-D Task, Plan M-3 · P-2 · P-3 · U-7) ──
+        //   _Tasks/2026-11-18/03_34_support-skill-meteor. 타입 A(즉발 범위 피해)가 착탄 순간 원 안에 「살아 남은 적 유닛」에게
+        //   화상(InfernoSpirit 화상과 같은 장치 · 같은 표시)을 거는 선택 칸 두 개다. 두 값이 모두 0보다 커야 화상이 걸린다.
+        //   0(기본값)이면 화상 없음 → 포격 등 기존 타입 A 스킬은 동작이 같다. 값은 SkillDefinition의 「착탄 화상」 칸에서 복사된다.
+        //   인페르노 설정(SpecialAttackConfig)을 읽지 않는 이유(M-3): 유닛 밸런스를 바꿀 때 스킬 화상이 함께 바뀌지 않게 하기 위해서다.
+
+        /// <summary> (타입 A 착탄 화상) 초당 피해(×10 스케일). 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음). </summary>
+        public float ImpactBurnDamagePerSecond { get; }
+
+        /// <summary> (타입 A 착탄 화상) 지속 시간(초). 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음). </summary>
+        public float ImpactBurnDuration { get; }
+
+        /// <summary> 착탄 화상을 거는 스킬인가(초당 피해와 지속이 모두 0보다 크다). </summary>
+        public bool HasImpactBurn => ImpactBurnDamagePerSecond > 0f && ImpactBurnDuration > 0f;
+
+        // ── 2026-11-18 추가: 착탄 예약 연출(메테오 — 예고 · 떨어지는 몸체 · 착탄 폭발, Plan P-4 · P-5 · P-15 · U-6 · U-10) ──
+        //   예고 = 기존 「발동 VFX」 칸(ActivationVfxPrefab)을 받은 순간 조준점에 1번 재생하되, 재생 속도를 「기준 시간 ÷ 착탄 지연」으로 맞춘다.
+        //   몸체 = 새 「떨어지는 몸체 VFX」 칸(반복 재생)을 하늘 한쪽(시작 위치 보정)에서 조준점까지 착탄 지연 동안 비스듬히 옮긴다.
+        //   착탄 = 새 「착탄 VFX」 칸을 받은 시각 + 착탄 지연에 조준점에서 1번 재생한다.
+        //   화면 쪽 SkillActivationVfxPresenter(메테오 부분)만 읽는다. 서버 판정 · 피해는 이 칸을 읽지 않는다(비어도 피해 · 화상 동작).
+
+        /// <summary>
+        /// 예고 VFX(발동 VFX 칸)가 만들어진 기준 시간(초 — 그 프리팹이 「몇 초 뒤 떨어지는 운석」에 맞춰 만들어졌나).
+        /// 예고 재생 속도 = 이 값 ÷ 착탄 지연. 0 이하 · NaN · 무한대는 0(= 재생 속도 맞춤 안 함 · 배율 1)으로 고쳐 보관한다.
+        /// </summary>
+        public float WarningVfxReferenceTime { get; }
+
+        /// <summary> 떨어지는 몸체 VFX 프리팹(반복 재생 — 상태 이펙트 계약). null이면 몸체 연출 없음(피해는 그대로). </summary>
+        public GameObject FallingBodyVfxPrefab { get; }
+
+        /// <summary>
+        /// 몸체가 출발하는 자리 = 착탄 지점(화면 좌표, 지면 높이 포함) + 이 값(화면 기준 월드 단위 — X 오른쪽 · Y 위 · Z 화면 위쪽).
+        /// 화면 기준이라 Host · Client 어느 화면에서나 같은 쪽 하늘에서 떨어지는 것처럼 보인다. NaN · 무한대가 섞이면 0 벡터.
+        /// </summary>
+        public Vector3 FallingBodyStartOffset { get; }
+
+        /// <summary>
+        /// 몸체 회전 보정(도). 몸체의 앞(로컬 +Z)이 낙하 방향을 보게 돌린 뒤 이 값만큼 더 돌린다(프리팹 모양이 앞을 안 볼 때 맞추는 각도).
+        /// NaN · 무한대가 섞이면 0 벡터.
+        /// </summary>
+        public Vector3 FallingBodyEulerOffset { get; }
+
+        /// <summary> 착탄 VFX 프리팹(1회 재생). null이면 착탄 폭발 연출 없음(피해는 그대로). </summary>
+        public GameObject ImpactVfxPrefab { get; }
+
+        /// <summary>
+        /// 이 스킬이 「착탄 예약 연출」(예고 재생 속도 맞춤 · 몸체 · 착탄 VFX)을 쓰는가.
+        /// 타입 A이고 착탄 지연이 있으며, 세 칸(예고 기준 시간 · 몸체 · 착탄) 중 하나라도 채워진 스킬만 true다.
+        /// 포격(세 칸 모두 비어 있음)은 false → 화면 재생이 예전 원형 재생 그대로다.
+        /// </summary>
+        public bool UsesImpactPresentation =>
+            Mechanic == SkillMechanicType.InstantAreaDamage && ImpactDelay > 0f
+            && (WarningVfxReferenceTime > 0f || FallingBodyVfxPrefab != null || ImpactVfxPrefab != null);
+
+        /// <summary> 예고 재생 속도 하한(아주 긴 착탄 지연에서 예고가 거의 멈춘 것처럼 보이지 않게). </summary>
+        public const float MinWarningPlaybackSpeed = 0.1f;
+
+        /// <summary> 예고 재생 속도 상한(아주 짧은 착탄 지연에서 예고가 한 프레임에 끝나지 않게). </summary>
+        public const float MaxWarningPlaybackSpeed = 10f;
+
+        /// <summary>
+        /// 예고 VFX 재생 속도 배율 = 기준 시간 ÷ 착탄 지연(U-10 · P-15). 예: 기준 1.5초 · 지연 1.5초 → 1(그대로),
+        /// 지연 0.75초 → 2(두 배 빠르게 — 운석이 절반 시간에 떨어지니 예고도 절반 시간에 끝나야 한다).
+        /// 기준 시간 또는 지연이 0 이하 · NaN · 무한대면 1(맞춤 안 함). 결과는 [0.1, 10]으로 자른다.
+        /// </summary>
+        /// <param name="referenceTime">예고 프리팹이 만들어진 기준 시간(초).</param>
+        /// <param name="impactDelay">이번 발동의 착탄 지연(초).</param>
+        /// <returns>파티클 재생 속도에 곱할 배율(항상 0보다 큼).</returns>
+        public static float ComputeWarningPlaybackSpeed(float referenceTime, float impactDelay)
+        {
+            if (!(referenceTime > 0f) || float.IsInfinity(referenceTime)) return 1f;
+            if (!(impactDelay > 0f) || float.IsInfinity(impactDelay)) return 1f;
+            float speed = referenceTime / impactDelay;
+            if (float.IsNaN(speed) || float.IsInfinity(speed)) return 1f;
+            if (speed < MinWarningPlaybackSpeed) return MinWarningPlaybackSpeed;
+            if (speed > MaxWarningPlaybackSpeed) return MaxWarningPlaybackSpeed;
+            return speed;
+        }
+
         /// <summary>
         /// 스킬 값 객체 생성. 모든 값은 데이터(SkillDefinition SO)에서 복사되어 불변으로 보관된다.
         /// 마지막 세 인자(강화 상태 VFX)는 생략하면 "프리팹 없음 · 배율 1 · 보정 0"이다(2026-11-10 추가 — 기존 호출 그대로 컴파일).
         /// 그 뒤 인자(구역 VFX 프리팹, 2026-11-11 추가)도 생략하면 "프리팹 없음"이다.
+        /// 맨 뒤 인자(추가 효과 목록, 2026-11-16 추가)도 생략하면 "추가 효과 없음"이다 — 기존 호출은 고치지 않아도 그대로 컴파일된다.
+        /// 그 뒤 세 인자(건물 상태 VFX — 2026-11-16 단계 C)도 생략하면 "프리팹 없음 · 배율 1 · 높이 보정 0"이다.
+        /// 맨 뒤 네 인자(직선 연속 폭격 — 2026-11-17 공습 Task)도 생략하면 0(공습이 아닌 스킬은 쓰지 않는 칸)이다.
+        /// 그 뒤 두 인자(공습 VFX — 2026-11-17 L-5)도 생략하면 "기준 길이 0(= 배율 1) · 폭격 프리팹 없음"이다.
+        /// 맨 뒤 일곱 인자(메테오 — 2026-11-18: 착탄 화상 2 · 예고 기준 시간 · 몸체 프리팹 · 몸체 시작 보정 · 몸체 회전 보정 · 착탄 프리팹)도
+        /// 생략하면 "화상 없음 · 재생 속도 맞춤 없음 · 프리팹 없음 · 보정 0"이다 — 기존 호출은 고치지 않아도 그대로 컴파일 · 동작한다.
         /// </summary>
         public SkillData(
             Sprite icon,
@@ -160,7 +315,25 @@ namespace Hexiege.Application
             GameObject statusVfxPrefab = null,
             float statusVfxScale = 1f,
             Vector3 statusVfxOffset = default,
-            GameObject zoneVfxPrefab = null)
+            GameObject zoneVfxPrefab = null,
+            IReadOnlyList<SkillExtraEffect> extraEffects = null,
+            GameObject buildingStatusVfxPrefab = null,
+            float buildingStatusVfxScale = 1f,
+            float buildingStatusVfxOffsetY = 0f,
+            float lineLength = 0f,
+            float lineWidth = 0f,
+            int lineStrikeCount = 0,
+            float lineStrikeInterval = 0f,
+            float lineVfxReferenceLength = 0f,
+            GameObject strikeVfxPrefab = null,
+            // [2026-11-18 메테오 Task] 맨 뒤 일곱 인자(위 요약 참고). 모두 생략 가능 — 기존 스킬은 값이 들어오지 않는다.
+            float impactBurnDamagePerSecond = 0f,
+            float impactBurnDuration = 0f,
+            float warningVfxReferenceTime = 0f,
+            GameObject fallingBodyVfxPrefab = null,
+            Vector3 fallingBodyStartOffset = default,
+            Vector3 fallingBodyEulerOffset = default,
+            GameObject impactVfxPrefab = null)
         {
             Icon = icon;
             AimType = aimType;
@@ -193,6 +366,116 @@ namespace Hexiege.Application
 
             // 구역 VFX(2026-11-11). 프리팹 참조만 담는다(크기는 발동 VFX 기준 반경을 공유한다 — Z-13).
             ZoneVfxPrefab = zoneVfxPrefab;
+
+            // 추가 효과 목록(2026-11-16). 받은 목록을 새 배열로 복사해 보관한다 —
+            //   호출자가 나중에 원본 목록을 바꿔도 이 값 객체는 바뀌지 않는다(불변 값 객체 약속).
+            if (extraEffects == null || extraEffects.Count == 0)
+            {
+                ExtraEffects = NoExtraEffects;
+            }
+            else
+            {
+                var copy = new SkillExtraEffect[extraEffects.Count];
+                for (int i = 0; i < copy.Length; i++) copy[i] = extraEffects[i];
+                ExtraEffects = copy;
+            }
+
+            // 건물 상태 VFX(2026-11-16 단계 C). Inspector 오입력 방어는 유닛 상태 VFX와 같은 규칙이다.
+            BuildingStatusVfxPrefab = buildingStatusVfxPrefab;
+            BuildingStatusVfxScale = buildingStatusVfxScale > 0f && !float.IsInfinity(buildingStatusVfxScale) ? buildingStatusVfxScale : 1f;
+            BuildingStatusVfxOffsetY = !float.IsNaN(buildingStatusVfxOffsetY) && !float.IsInfinity(buildingStatusVfxOffsetY)
+                ? buildingStatusVfxOffsetY : 0f;
+
+            // 직선 연속 폭격(2026-11-17 공습). Inspector 오입력 방어 — 잘못된 값은 0(= 폭격 없음)으로 고쳐 두고,
+            //   받는 쪽(SkillActivationUseCase)이 0을 보면 예약하지 않고 진단 Warn 1줄을 남긴다(조용한 무효과를 로그로 드러냄).
+            LineLength = lineLength > 0f && !float.IsInfinity(lineLength) ? lineLength : 0f;
+            LineWidth = lineWidth > 0f && !float.IsInfinity(lineWidth) ? lineWidth : 0f;
+            LineStrikeCount = lineStrikeCount < 0 ? 0 : (lineStrikeCount > MaxLineStrikeCount ? MaxLineStrikeCount : lineStrikeCount);
+            LineStrikeInterval = lineStrikeInterval >= 0f && !float.IsInfinity(lineStrikeInterval) ? lineStrikeInterval : 0f;
+
+            // 공습 VFX(2026-11-17 L-5). 기준 길이는 잘못된 값(0 이하 · NaN · 무한대)을 0으로 고쳐 둔다 — 화면은 0을 보면 배율 1로 재생한다.
+            LineVfxReferenceLength = lineVfxReferenceLength > 0f && !float.IsInfinity(lineVfxReferenceLength) ? lineVfxReferenceLength : 0f;
+            StrikeVfxPrefab = strikeVfxPrefab;
+
+            // 착탄 화상(2026-11-18 메테오). Inspector 오입력 방어 — 0보다 크고 유한한 값만 인정, 아니면 0(= 화상 없음).
+            //   (NaN > 0 은 false라 NaN도 0이 된다.) 둘 중 하나라도 0이면 서버는 화상 단계를 건너뛴다(HasImpactBurn).
+            ImpactBurnDamagePerSecond = impactBurnDamagePerSecond > 0f && !float.IsInfinity(impactBurnDamagePerSecond) ? impactBurnDamagePerSecond : 0f;
+            ImpactBurnDuration = impactBurnDuration > 0f && !float.IsInfinity(impactBurnDuration) ? impactBurnDuration : 0f;
+
+            // 착탄 예약 연출(2026-11-18 메테오). 기준 시간은 잘못된 값을 0(= 재생 속도 맞춤 안 함)으로, 보정 벡터는 0 벡터로 고친다.
+            WarningVfxReferenceTime = warningVfxReferenceTime > 0f && !float.IsInfinity(warningVfxReferenceTime) ? warningVfxReferenceTime : 0f;
+            FallingBodyVfxPrefab = fallingBodyVfxPrefab;
+            FallingBodyStartOffset = IsFiniteVector(fallingBodyStartOffset) ? fallingBodyStartOffset : Vector3.zero;
+            FallingBodyEulerOffset = IsFiniteVector(fallingBodyEulerOffset) ? fallingBodyEulerOffset : Vector3.zero;
+            ImpactVfxPrefab = impactVfxPrefab;
+        }
+
+        /// <summary>
+        /// 이 스킬이 「건물 각각」에 거는 효과를 하나라도 가졌는가(추가 효과 목록의 대상 = 건물).
+        /// 화면의 건물 상태 VFX 장치가 "이 발동에 건물 이펙트를 붙여야 하는가"를 이것으로 판단한다(2026-11-16 단계 C).
+        /// 주 효과는 대상이 언제나 유닛이므로 보지 않는다.
+        /// </summary>
+        /// <returns>건물 대상 효과가 있으면 true.</returns>
+        public bool HasBuildingEffect()
+        {
+            for (int i = 0; i < ExtraEffects.Count; i++)
+                if (ExtraEffects[i].Target == SkillEffectTarget.Building && ExtraEffects[i].Kind != StatusEffectKind.None) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 이 스킬의 건물 대상 효과 가운데 쉴드가 있는가(쉴드 깨짐 알림으로 건물 이펙트를 바로 꺼야 하는가 — 2026-11-16 단계 C).
+        /// </summary>
+        /// <returns>건물 쉴드가 있으면 true.</returns>
+        public bool HasBuildingShield()
+        {
+            for (int i = 0; i < ExtraEffects.Count; i++)
+                if (ExtraEffects[i].Target == SkillEffectTarget.Building && ExtraEffects[i].Kind == StatusEffectKind.Shield) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 이 스킬이 지정한 상태 종류의 효과를 거는지 찾는다(주 효과 먼저, 없으면 추가 효과 목록에서 첫 줄).
+        /// 서버 실행기와 순수 클라이언트 생산 막대 거울(UnitProductionUseCase.MirrorProductionSpeedFromSkill)이
+        /// 같은 규칙으로 값을 찾도록 이 메서드 하나를 함께 쓴다(2026-11-16 추가).
+        /// 주 효과는 대상이 「유닛」이다(타입 C 주 효과는 대상 팀 유닛 각각에 걸린다).
+        /// </summary>
+        /// <param name="kind">찾을 상태 종류.</param>
+        /// <param name="target">찾은 효과의 대상 종류(못 찾으면 Unit).</param>
+        /// <param name="magnitude">찾은 효과의 강도(못 찾으면 0).</param>
+        /// <returns>찾았으면 true.</returns>
+        public bool TryFindEffect(StatusEffectKind kind, out SkillEffectTarget target, out float magnitude)
+        {
+            if (kind != StatusEffectKind.None && (StatusEffectKind)StatusKind == kind)
+            {
+                target = SkillEffectTarget.Unit;
+                magnitude = Magnitude;
+                return true;
+            }
+            for (int i = 0; i < ExtraEffects.Count; i++)
+            {
+                if (ExtraEffects[i].Kind != kind) continue;
+                target = ExtraEffects[i].Target;
+                magnitude = ExtraEffects[i].Magnitude;
+                return true;
+            }
+            target = SkillEffectTarget.Unit;
+            magnitude = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// 시전 팀으로부터 효과를 받을 팀을 정한다 — 아군 대상이면 시전 팀, 적 대상이면 반대 팀
+        /// (실행기 GlobalStatusChangeExecutor · 화면 UnitBuffVfxPresenter와 같은 규칙. Neutral은 그대로).
+        /// </summary>
+        /// <param name="casterTeam">스킬을 쓴 팀.</param>
+        /// <returns>효과를 받을 팀.</returns>
+        public TeamId ResolveTargetTeam(TeamId casterTeam)
+        {
+            if (TargetsAllies) return casterTeam;
+            if (casterTeam == TeamId.Blue) return TeamId.Red;
+            if (casterTeam == TeamId.Red) return TeamId.Blue;
+            return casterTeam;
         }
 
         // 세 축이 모두 유한한 숫자인지(NaN · 무한대가 아닌지).

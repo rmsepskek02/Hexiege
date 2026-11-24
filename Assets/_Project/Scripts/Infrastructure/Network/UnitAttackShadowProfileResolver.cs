@@ -34,7 +34,15 @@ namespace Hexiege.Infrastructure
         //   NetworkSkillController.ZoneMembershipChangedClientRpc(구역 순번, 들어온 유닛 Id 배열, 나간 유닛 Id 배열)가 새로 생겼다
         //   (7 → 8 「새 RPC가 생겼다」 선례와 같은 이유). 이 RPC를 모르는 빌드(스키마 8)와 섞인 경기는 handshake에서 거부한다
         //   — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다. 기존 RPC · 요청 RPC 모양은 그대로다.
-        public const int PresentationContractSchemaRevision = 9;
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 C — 신목의 각성, Plan 6-1-2 S-8] 9 → 10. 쉴드 깨짐 알림 RPC 신설 —
+        //   NetworkSkillController.ShieldBrokenClientRpc(발동 순번, 유닛 Id 배열, 건물 Id 배열)가 새로 생겼다
+        //   (8 → 9 「새 RPC가 생겼다」 선례와 같은 이유). 이 RPC를 모르는 빌드(스키마 9 — 단계 A 테스트 빌드)와 섞인 경기는
+        //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다. 기존 RPC · 요청 RPC 모양은 그대로다.
+        // [2026-11-17 지원 스킬 2-L 공습 Task L-2 — Plan P-4] 10 → 11. 공습의 조준 방향(Vector3 aimDirection)이
+        //   요청 RPC(NetworkSkillController.RequestActivateSkillServerRpc)와 발동 알림 RPC(SkillActivatedClientRpc) 맨 뒤에 붙어
+        //   두 RPC 모양이 바뀌었다(6 → 7 「RPC 모양이 바뀌었다」 선례와 같은 이유). 방향 인자를 모르는 빌드(스키마 10)와 섞인 경기는
+        //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
+        public const int PresentationContractSchemaRevision = 11;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

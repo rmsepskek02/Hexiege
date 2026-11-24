@@ -9,12 +9,19 @@
 //   이 실행기는 스킬 데이터에서 상태 종류·강도·지속·대상을 꺼내 그 경로를 호출하기만 한다
 //   (타입 A·B 실행기가 ctx.ApplyInstantAreaDamage/ApplyAreaDot를 부르는 것과 같은 역할 분담).
 //
+// 2026-11-16 추가(지원 스킬 새 상태 Task 단계 A — 구현 단위 A-1, Plan S-13):
+//   주 효과의 종류가 「서버 전용 새 효과」(받는 피해 배율 · 생산 속도 배율 — SupportSkillEffectSystem.IsServiceKind)면
+//   기존 상태 시스템 다리(ApplyGlobalStatus) 대신 지원 스킬 효과 다리(ApplySupportEffect)로 보낸다.
+//   그리고 스킬 데이터의 「추가 효과 목록」 줄마다 같은 지원 스킬 효과 다리를 한 번씩 부른다(전술 지령의 생산 속도).
+//   기존 종류(공격 배율 · 이동 배율 · 빙결 · 기절 · 회복)는 지금까지와 똑같이 상태 시스템 다리로 간다 → 기존 스킬 동작 무변경.
+//
 // 조준(규칙 15):
 //   타입 C는 전역 즉시라 조준 좌표를 쓰지 않는다(HasAim=false 경로). 좌표를 참조하지 않는다.
 //
 // Application 레이어 — Domain 의존.
 // ============================================================================
 
+using System.Collections.Generic;
 using Hexiege.Domain;
 
 namespace Hexiege.Application
@@ -40,7 +47,10 @@ namespace Hexiege.Application
             // 데이터의 정수 상태 코드(SkillDefinition._statusKind)를 도메인 열거형으로 변환.
             //   int↔enum 값은 StatusEffectKind에서 1:1로 고정돼 있다(데이터 안정성).
             var kind = (StatusEffectKind)skill.StatusKind;
-            if (kind == StatusEffectKind.None) return; // 미설정이면 무효과.
+            // [2026-11-16 비활성화 — 추가 효과 목록 도입] 주 효과가 비어도 추가 효과가 있으면 그것은 걸어야 하므로 조건을 넓혔다.
+            //   추가 효과가 없는 스킬(지금까지의 모든 스킬)은 아래 새 줄에서도 똑같이 여기서 끝난다.
+            // if (kind == StatusEffectKind.None) return; // 미설정이면 무효과.
+            if (kind == StatusEffectKind.None && skill.ExtraEffects.Count == 0) return; // 주 효과 · 추가 효과 모두 없으면 무효과.
 
             // 대상 팀 결정: 아군(긍정 효과)이면 시전 팀, 적(부정 효과)이면 반대 팀(규칙 13·16).
             TeamId targetTeam = skill.TargetsAllies
@@ -48,7 +58,30 @@ namespace Hexiege.Application
                 : OppositeTeam(ctx.CasterTeam);
 
             // 실제 유닛 순회·상태 부여·회복 위임은 UnitCombatUseCase가 담당(서버 권위).
-            ctx.ApplyGlobalStatus(targetTeam, kind, skill.Magnitude, skill.Duration);
+            if (kind != StatusEffectKind.None)
+            {
+                if (SupportSkillEffectSystem.IsServiceKind(kind))
+                {
+                    // 새 효과(받는 피해 배율 등) — 서버 전용 지원 스킬 효과 서비스에 "대상 팀 유닛 각각"으로 건다.
+                    //   기존 상태 시스템 · 상태 RPC(StatusAppliedClientRpc)로는 보내지 않는다(Plan S-13 · 위험 R-7).
+                    ctx.ApplySupportEffect(targetTeam, SkillEffectTarget.Unit, kind, skill.Magnitude, skill.Duration);
+                }
+                else
+                {
+                    // 기존 종류 — 종전과 똑같은 상태 시스템 다리 호출(동작 무변경).
+                    ctx.ApplyGlobalStatus(targetTeam, kind, skill.Magnitude, skill.Duration);
+                }
+            }
+
+            // 추가 효과 목록 — 줄마다 지원 스킬 효과 서비스로 보낸다(지속 · 대상 팀은 주 효과와 같다).
+            //   종류가 비어 있는 줄은 건너뛴다. 서비스가 지원하지 않는 조합(예: 단계 A의 건물 대상)은 서비스가 거부하고 진단 Warn을 남긴다.
+            IReadOnlyList<SkillExtraEffect> extras = skill.ExtraEffects;
+            for (int i = 0; i < extras.Count; i++)
+            {
+                SkillExtraEffect e = extras[i];
+                if (e.Kind == StatusEffectKind.None) continue;
+                ctx.ApplySupportEffect(targetTeam, e.Target, e.Kind, e.Magnitude, skill.Duration);
+            }
         }
 
         /// <summary>

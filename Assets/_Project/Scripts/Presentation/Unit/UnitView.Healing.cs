@@ -201,7 +201,7 @@ namespace Hexiege.Presentation
         ///   1) FindInjuredAllyToHeal로 힐 사거리 내 "가장 급한 부상 아군"을 선택.
         ///      없으면 Walk 애니메이션 재개 후 종료(→ 호출 측이 A* 이동을 재개).
         ///   2) 대상을 향해 회전 + 힐 애니메이션 재생(시전 중 이동 없음).
-        ///   3) 힐 타격 타이밍(HitFrameTimes[0]) 대기 후 대상에 HoT(3초 20HP) 1회 부여(CastHeal).
+        ///   3) 힐 타격 타이밍(HitFrameTimes[0]) 대기 후 대상에 HoT(3초 200HP — SpecialAttackConfig.asset 값. 2026-11-23 정정 — 직전 「3초 20HP」) 1회 부여(CastHeal).
         ///   4) 쿨다운(AttackCooldown, 3초) 대기.
         ///   5) 다시 재탐색(1로 반복). 대상이 풀피/사거리 이탈이면 자연히 다른 부상 아군으로 전환.
         ///

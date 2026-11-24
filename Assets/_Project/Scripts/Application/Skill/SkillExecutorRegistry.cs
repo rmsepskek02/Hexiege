@@ -12,6 +12,7 @@
 //   타입 C(GlobalStatusChange) → GlobalStatusChangeExecutor (Phase 2 — 전역 상태변경)
 //   AreaTowerDisable           → AreaTowerDisableExecutor   (2026-11-04 EMP Task 커밋 1 — 지점 범위 적 방어탑 무력화)
 //   PersistentStatusZone       → PersistentStatusZoneExecutor (2026-11-11 지속 상태 구역 — 서리 감옥 · 수액 늪)
+//   LineStrike                 → LineStrikeExecutor         (2026-11-17 공습 — 직선 연속 폭격)
 //
 // 왜 인스펙터 배선이 아닌 코드 등록인가:
 //   SkillMechanicType 키 매핑이라 ScriptableObject/인스펙터 배선이 필요 없다.
@@ -60,6 +61,13 @@ namespace Hexiege.Application
             //   조준 지점에 구역을 남겨 구역 안 대상 유닛에게 빙결 · 이동 배율을 건다.
             //   실제 구역 보관 · 구성원 판정 · 만료는 SkillActivationContext의 구역 다리를 통해 SkillZoneSystem이 담당한다.
             _executors[SkillMechanicType.PersistentStatusZone] = new PersistentStatusZoneExecutor();
+
+            // 직선 연속 폭격(공습 — 2026-11-17 공습 Task, Plan P-1).
+            //   조준 시작점 + 방향의 직사각형을 시작점 → 끝점 순서로 여러 번 폭격한다(착탄 예약 재사용 — 서버 권위 틱).
+            //   공습 자산은 L-6에서 「사용 가능」 · 메커니즘 LineStrike(5)로 켜져 이 실행기가 실제로 쓰인다.
+            //   *(2026-11-18 갱신 — 직전 「⚠️ 등록만으로 공습이 동작하지는 않는다 — 공습 자산은 Plan L-6 전까지 「사용 불가」 ·
+            //   타입 A 자리표시로 남아 있어 SkillActivationUseCase가 실행기 조회 전에 거부한다(EMP 커밋 1과 같은 순서)」)*
+            _executors[SkillMechanicType.LineStrike] = new LineStrikeExecutor();
         }
 
         /// <summary>

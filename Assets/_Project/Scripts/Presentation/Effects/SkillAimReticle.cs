@@ -24,6 +24,18 @@
 //   루트 GameObject를 X축 90도로 눕혀(지도 XZ 평면에 평행) 자식 SpriteRenderer 3개(Ring/Fill/Dot)를 둔다.
 //   각 SpriteRenderer를 _ringRenderer/_fillRenderer/_dotRenderer에 연결한다(셋업 스크립트가 자동 배선).
 //
+// ── 2026-11-18 공습 Task 단계 L-7 조준 UI 개선(_Tasks/2026-11-17/09_12_support-skill-air-strike, Plan 14절 UI-2b · UI-2d) ──
+//   "조준 원이 밋밋해 어디가 맞는지 · 쏠 수 있는지 한눈에 안 보인다"(사용자 지적)를 고치려고, 위 스프라이트 3겹 대신
+//   코드로 만든 메시(정점 색 그라데이션)로 그린다. 새 그림 · 새 셰이더 없이 같은 지면 데칼 머티리얼(_overlayMaterial)을 복사해 쓴다.
+//     · 채움: 가운데 투명 → 가장자리로 갈수록 진해지는 그라데이션(UI-2b).
+//     · 테두리: 72각형으로 매끈하게, 바깥 끝은 아주 얇게 옅어져 계단이 덜 보인다(UI-2b).
+//     · 바깥 링: 원 바깥으로 천천히 퍼지며 사라지는 링이 반복된다(맥동 — UI-2b).
+//     · 상태 색: 조준 컨트롤러가 SetState 로 알려 준다 — 발사 가능 빨강 / X 위 회색으로 흐려짐(UI-2d). 색은 부드럽게 바뀐다.
+//     · 등장: 조준을 시작해 처음 나타날 때 작게 시작해 커진다(UI-2d).
+//   씬 배선(셋업 스크립트가 만든 Ring/Fill/Dot 스프라이트 · _overlayMaterial · 색 · 크기 칸)은 그대로 둔다(호환 유지).
+//   메시 표시가 준비되면 스프라이트 3겹은 렌더러만 끈다(지우지 않는다). 머티리얼을 만들지 못하면 예전 스프라이트 표시로 돌아간다.
+//   크기 계산(반경 × 2 × _visualMultiplier × _sizeScale — 월드 지름)과 지면 높이 · 가림 관계(규칙 22-1)는 예전과 같다.
+//
 // Presentation 레이어 — Unity MonoBehaviour 의존.
 // ============================================================================
 
@@ -115,6 +127,56 @@ namespace Hexiege.Presentation
         // ====================================================================
         private bool _showRequested;
 
+        // ====================================================================
+        // [2026-11-18 L-7] 메시 표시(그라데이션 채움 · 매끈한 테두리 · 맥동 링) — 런타임 상태(직렬화 안 함)
+        // ====================================================================
+
+        /// <summary> 원 둘레를 몇 조각으로 나눌지(많을수록 매끈 — 72 = 5°마다 한 점). </summary>
+        private const int CircleSegments = 72;
+
+        /// <summary>
+        /// 채움 · 테두리 링의 반지름(반경 1 기준 비율)과 그 자리의 정점 알파(0~1). 가운데(0)는 알파 0 = 완전 투명.
+        ///   0.35 · 0.7 · 0.9 까지 서서히 진해지고(그라데이션), 0.93 ~ 0.985 가 진한 테두리, 1.0 에서 0 으로 빠르게 옅어진다
+        ///   (테두리 바깥 끝을 아주 얇게 흐려 계단을 덜 보이게 — 바깥 끝 = 정확히 착탄 반경, 그 밖으로는 그리지 않는다).
+        /// </summary>
+        private static readonly float[] FillRingRadii = { 0.35f, 0.7f, 0.9f, 0.93f, 0.985f, 1f };
+        private static readonly float[] FillRingAlphas = { 0.03f, 0.14f, 0.36f, 0.95f, 0.95f, 0f };
+
+        /// <summary> 중앙 점 반지름(반경 1 기준)과 알파 — 조준 중심을 짚어 준다(예전 Dot 의 역할). </summary>
+        private const float CenterDotRadius = 0.045f;
+        private const float CenterDotAlpha = 0.9f;
+
+        /// <summary> 맥동 링 모양(반경 1 기준) — 안쪽 0.96(투명) → 1.0(진함) → 1.05(투명)의 얇은 빛 띠. </summary>
+        private static readonly float[] PulseRingRadii = { 0.96f, 1f, 1.05f };
+        private static readonly float[] PulseRingAlphas = { 0f, 1f, 0f };
+
+        /// <summary> 맥동 한 번의 길이(초). 길수록 천천히 맥동한다. </summary>
+        private const float PulsePeriod = 1.4f;
+
+        /// <summary> 맥동 링이 퍼지는 최대 크기(원 대비). </summary>
+        private const float PulseMaxScale = 1.16f;
+
+        /// <summary> 맥동 링의 처음 진하기(퍼지며 0 으로 사라진다). </summary>
+        private const float PulseStartAlpha = 0.7f;
+
+        /// <summary> 겹침 순서 — 채움(1) 아래 맥동 링(… 원 바깥이라 겹침은 테두리 근처뿐), 타일 하이라이트(6)는 위. </summary>
+        private const int MeshFillSortingOrder = 1;
+        private const int MeshPulseSortingOrder = 3;
+
+        private bool _meshVisualReady;          // 메시 표시를 만들었고 머티리얼이 있는가(false 면 예전 스프라이트로 그린다)
+        private bool _meshVisualTried;          // 만들기를 한 번 시도했는가(머티리얼이 없을 때 매 프레임 다시 시도하지 않게)
+        private Transform _meshFillTransform;   // 채움 · 테두리 · 중앙 점 메시 자식
+        private Transform _meshPulseTransform;  // 맥동 링 메시 자식
+        private Mesh _fillMesh;
+        private Mesh _pulseMesh;
+        private Material _fillMaterial;
+        private Material _pulseMaterial;
+        private Vector2 _meshFullDiameter;      // 마지막 Show 의 목표 월드 지름(가로 · 세로) — 등장 · 맥동 크기의 기준
+        private float _appearElapsed = SkillAimVisualStyle.AppearDuration; // 등장 애니메이션 경과(다 지났으면 크기 1)
+        private float _pulseElapsed;            // 맥동 경과
+        private SkillAimVisualState _visualState = SkillAimVisualState.Armed;
+        private Color _currentMainColor;        // 지금 그리고 있는 주색(목표로 부드럽게 따라간다)
+
         private void Awake()
         {
             // 지도(XZ 평면)에 눕도록 X축 90도 회전(스프라이트는 기본 XY 평면 → 눕혀야 바닥에 깔린다).
@@ -135,13 +197,72 @@ namespace Hexiege.Presentation
             // ⚠️ 순서 중요: SetActive(true)가 Awake를 그 자리에서 실행시키므로,
             //    플래그를 반드시 "먼저" 세워야 Awake가 자기 자신을 끄지 않는다.
             _showRequested = true;
+            // [2026-11-18 L-7] 숨겨져 있다가 이번에 나타나는가 — 그렇다면 등장 애니메이션(작게 → 크게)을 처음부터 다시 튼다(UI-2d).
+            bool appearing = !gameObject.activeSelf;
             if (!gameObject.activeSelf) gameObject.SetActive(true);
 
             // 지도에 눕는 회전 보장(Awake를 못 탄 경우 대비) + 위치 갱신.
             transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             transform.position = new Vector3(worldPos.x, _yOffset, worldPos.z);
 
+            if (appearing)
+            {
+                _appearElapsed = 0f;
+                _pulseElapsed = 0f;
+                _currentMainColor = SkillAimVisualStyle.MainColor(_visualState); // 지난 조준의 색이 한 박자 남지 않게 바로 맞춘다
+                SkillAimVisualStyle.SetTint(_fillMaterial, _currentMainColor);   // (메시 표시가 아직 없으면 null 이라 무시된다)
+            }
+
             ApplyVisual(radius);
+        }
+
+        /// <summary>
+        /// 조준 표시 상태(색)를 바꾼다(2026-11-18 L-7 — UI-2d). 원형 조준은 보통 Armed(빨강), 손가락이 X 위면 CancelHover(회색으로 흐려짐).
+        /// 실제 색은 매 프레임 목표 색으로 부드럽게 따라간다. 예전 스프라이트 표시(머티리얼 없음)에서는 색이 바뀌지 않는다.
+        /// </summary>
+        /// <param name="state">조준 표시 상태.</param>
+        public void SetState(SkillAimVisualState state)
+        {
+            _visualState = state;
+        }
+
+        /// <summary>
+        /// [2026-11-18 L-7] 매 프레임 — 등장 크기 · 맥동 링 · 상태 색을 갱신한다(메시 표시일 때만). 할당 없음.
+        /// 조준 연출이라 게임 시간 배속과 무관하게 실제 시간(unscaledDeltaTime)으로 움직인다.
+        /// </summary>
+        private void Update()
+        {
+            if (!_meshVisualReady) return;
+            float dt = Time.unscaledDeltaTime;
+
+            // 등장 애니메이션 — 다 끝났으면 크기 계산을 건너뛴다.
+            if (_appearElapsed < SkillAimVisualStyle.AppearDuration)
+            {
+                _appearElapsed += dt;
+                ApplyMeshScale();
+            }
+
+            // 상태 색 — 목표로 부드럽게.
+            Color target = SkillAimVisualStyle.MainColor(_visualState);
+            if (_currentMainColor != target)
+            {
+                _currentMainColor = SkillAimVisualStyle.TickColor(_currentMainColor, target, dt);
+                SkillAimVisualStyle.SetTint(_fillMaterial, _currentMainColor);
+            }
+
+            // 맥동 링 — 원 가장자리에서 시작해 PulseMaxScale 까지 퍼지며 사라진다. PulsePeriod 마다 반복.
+            _pulseElapsed += dt;
+            if (_pulseElapsed >= PulsePeriod) _pulseElapsed -= PulsePeriod * Mathf.Floor(_pulseElapsed / PulsePeriod);
+            float p = _pulseElapsed / PulsePeriod;               // 0 → 1
+            float ease = 1f - (1f - p) * (1f - p);              // 처음엔 빠르게, 끝에서 천천히 퍼진다(ease-out)
+            float pulseScale = Mathf.Lerp(1f, PulseMaxScale, ease);
+            float appear = SkillAimVisualStyle.AppearScale(_appearElapsed);
+            if (_meshPulseTransform != null)
+                _meshPulseTransform.localScale = new Vector3(_meshFullDiameter.x * 0.5f * pulseScale * appear,
+                                                             _meshFullDiameter.y * 0.5f * pulseScale * appear, 1f);
+            Color pulseColor = _currentMainColor;
+            pulseColor.a *= PulseStartAlpha * (1f - p);          // 퍼질수록 옅어진다
+            SkillAimVisualStyle.SetTint(_pulseMaterial, pulseColor);
         }
 
         /// <summary>
@@ -169,6 +290,18 @@ namespace Hexiege.Presentation
 
             // 가로/세로 목표 지름(타원). 값이 같으면 원.
             Vector2 full = new Vector2(diameter * _sizeScale.x, diameter * _sizeScale.y);
+
+            // [2026-11-18 L-7] 메시 표시(그라데이션 · 매끈한 테두리 · 맥동 링)를 쓸 수 있으면 그것으로 그리고, 스프라이트 3겹은 끈다.
+            //   크기 기준(월드 지름 full)은 위와 같다 — 메시는 반경 1 로 만들어 두었으므로 localScale = 지름 ÷ 2.
+            //   머티리얼을 만들지 못했으면(_meshVisualReady == false) 아래 예전 스프라이트 3겹 표시로 그대로 그린다(안전한 대체 경로).
+            EnsureMeshVisual();
+            if (_meshVisualReady)
+            {
+                _meshFullDiameter = full;
+                ApplyMeshScale();
+                SetSpriteLayersEnabled(false);
+                return;
+            }
 
             // Ring: 전체 크기, 진한 색, 맨 아래. 바깥 림이 테두리로 남는다.
             ApplyRenderer(_ringRenderer, full, _edgeColor, sortingOrder: 0);
@@ -232,6 +365,177 @@ namespace Hexiege.Presentation
             //   긴 축이 범위 밖으로 삐져나와 "실제보다 넓은 착탄 범위"로 오해하게 된다(치명적).
             float d = Mathf.Max(size.x, size.y);
             return d > 0.0001f ? d : 1f;
+        }
+
+        // ====================================================================
+        // [2026-11-18 L-7] 메시 표시 만들기 · 크기 · 정리
+        // ====================================================================
+
+        /// <summary>
+        /// 메시 표시(채움 · 테두리 · 중앙 점 / 맥동 링)를 처음 한 번 만든다. 머티리얼을 못 만들면 예전 스프라이트 표시로 남는다.
+        /// 자식 오브젝트는 이 조준원 루트(X축 90° 눕힘) 아래에 두고 메시를 로컬 XY 평면에 만든다 — 스프라이트 3겹과 같은 방식이라
+        /// 루트 회전 · 위치 · 지면 높이(_yOffset)를 그대로 따른다.
+        /// </summary>
+        private void EnsureMeshVisual()
+        {
+            if (_meshVisualTried) return;
+            _meshVisualTried = true;
+
+            // 씬 배선 머티리얼(_overlayMaterial — 지면 데칼 셰이더)을 복사한다. 없으면 Resources 에셋 → 셰이더 직접 찾기 순.
+            _fillMaterial = SkillAimVisualStyle.CreateOverlayMaterial(_overlayMaterial, nameof(SkillAimReticle),
+                                                                      "SkillAimReticleFillMaterial (runtime)");
+            _pulseMaterial = SkillAimVisualStyle.CreateOverlayMaterial(_overlayMaterial, nameof(SkillAimReticle),
+                                                                       "SkillAimReticlePulseMaterial (runtime)");
+            if (_fillMaterial == null || _pulseMaterial == null)
+            {
+                // 머티리얼이 없으면 메시가 분홍색으로 보일 수 있다 → 메시 표시를 쓰지 않고 예전 스프라이트 3겹으로 그린다.
+                if (_fillMaterial != null) Destroy(_fillMaterial);
+                if (_pulseMaterial != null) Destroy(_pulseMaterial);
+                _fillMaterial = null;
+                _pulseMaterial = null;
+                return;
+            }
+
+            _fillMesh = BuildDiscMesh("SkillAimReticleFill (runtime)", FillRingRadii, FillRingAlphas, true);
+            _pulseMesh = BuildDiscMesh("SkillAimReticlePulse (runtime)", PulseRingRadii, PulseRingAlphas, false);
+            _meshFillTransform = CreateMeshChild("AimFill (runtime)", _fillMesh, _fillMaterial, MeshFillSortingOrder);
+            _meshPulseTransform = CreateMeshChild("AimPulse (runtime)", _pulseMesh, _pulseMaterial, MeshPulseSortingOrder);
+
+            _currentMainColor = SkillAimVisualStyle.MainColor(_visualState);
+            SkillAimVisualStyle.SetTint(_fillMaterial, _currentMainColor);
+            // 맥동 링은 첫 Update 전까지 투명하게 둔다(틴트 흰색 그대로면 한 프레임 흰 링이 번쩍일 수 있다).
+            SkillAimVisualStyle.SetTint(_pulseMaterial, Color.clear);
+            _meshVisualReady = true;
+        }
+
+        /// <summary>
+        /// 메시 자식 하나를 만든다(로컬 위치 0 · 회전 없음 — 루트의 눕힘을 그대로 따른다).
+        /// </summary>
+        private Transform CreateMeshChild(string childName, Mesh mesh, Material material, int sortingOrder)
+        {
+            var go = new GameObject(childName);
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            var filter = go.AddComponent<MeshFilter>();
+            filter.sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sortingOrder = sortingOrder;
+            return go.transform;
+        }
+
+        /// <summary>
+        /// 반경 1 짜리 원판/고리 메시를 만든다(로컬 XY 평면, 정점 색 = 흰색 + 알파 모양). 1회만 만든다(할당은 이때뿐).
+        ///   radii[i] 반지름의 고리마다 CircleSegments 개 정점을 두고, 이웃한 고리 사이를 사각형으로 잇는다.
+        ///   withCenter = true 면 가운데 점(알파 0)에서 첫 고리까지 부채꼴로 잇고(투명한 가운데), 그 위에 작은 중앙 점을 덧붙인다.
+        /// </summary>
+        private static Mesh BuildDiscMesh(string meshName, float[] radii, float[] alphas, bool withCenter)
+        {
+            int rings = radii.Length;
+            int seg = CircleSegments;
+            int dotSeg = 20;
+            int vCount = rings * seg + (withCenter ? 1 + 1 + dotSeg : 0);
+            int triCount = (rings - 1) * seg * 2 + (withCenter ? seg + dotSeg : 0);
+            var verts = new Vector3[vCount];
+            var colors = new Color32[vCount];
+            var tris = new int[triCount * 3];
+
+            // 고리 정점.
+            for (int r = 0; r < rings; r++)
+            {
+                byte a = (byte)Mathf.RoundToInt(Mathf.Clamp01(alphas[r]) * 255f);
+                for (int s = 0; s < seg; s++)
+                {
+                    float ang = s * Mathf.PI * 2f / seg;
+                    verts[r * seg + s] = new Vector3(Mathf.Cos(ang) * radii[r], Mathf.Sin(ang) * radii[r], 0f);
+                    colors[r * seg + s] = new Color32(255, 255, 255, a);
+                }
+            }
+
+            int t = 0;
+            int centerIndex = rings * seg;
+            if (withCenter)
+            {
+                // 가운데(알파 0) → 첫 고리 부채꼴 — 가운데가 투명한 그라데이션의 시작(UI-2b).
+                verts[centerIndex] = Vector3.zero;
+                colors[centerIndex] = new Color32(255, 255, 255, 0);
+                for (int s = 0; s < seg; s++)
+                {
+                    tris[t++] = centerIndex; tris[t++] = s; tris[t++] = (s + 1) % seg;
+                }
+            }
+
+            // 고리 사이 사각형(삼각형 2개씩). 반투명 셰이더는 "삼각형 순서대로" 그리므로 안쪽 → 바깥쪽 순서로 둔다.
+            for (int r = 0; r + 1 < rings; r++)
+            {
+                for (int s = 0; s < seg; s++)
+                {
+                    int s1 = (s + 1) % seg;
+                    int a0 = r * seg + s, a1 = r * seg + s1;
+                    int b0 = (r + 1) * seg + s, b1 = (r + 1) * seg + s1;
+                    tris[t++] = a0; tris[t++] = b0; tris[t++] = a1;
+                    tris[t++] = a1; tris[t++] = b0; tris[t++] = b1;
+                }
+            }
+
+            if (withCenter)
+            {
+                // 중앙 점 — 채움 위에 마지막으로 그려 조준 중심을 짚는다.
+                int dotCenter = centerIndex + 1;
+                byte da = (byte)Mathf.RoundToInt(CenterDotAlpha * 255f);
+                verts[dotCenter] = Vector3.zero;
+                colors[dotCenter] = new Color32(255, 255, 255, da);
+                for (int s = 0; s < dotSeg; s++)
+                {
+                    float ang = s * Mathf.PI * 2f / dotSeg;
+                    verts[dotCenter + 1 + s] = new Vector3(Mathf.Cos(ang) * CenterDotRadius, Mathf.Sin(ang) * CenterDotRadius, 0f);
+                    colors[dotCenter + 1 + s] = new Color32(255, 255, 255, da);
+                }
+                for (int s = 0; s < dotSeg; s++)
+                {
+                    tris[t++] = dotCenter; tris[t++] = dotCenter + 1 + s; tris[t++] = dotCenter + 1 + (s + 1) % dotSeg;
+                }
+            }
+
+            var mesh = new Mesh { name = meshName };
+            mesh.vertices = verts;
+            mesh.colors32 = colors;
+            mesh.triangles = tris;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
+        /// 채움 메시의 크기 = 목표 지름 ÷ 2(반경 1 메시) × 등장 배수. 맥동 링 크기는 Update 가 맥동 배수까지 곱해 정한다.
+        /// </summary>
+        private void ApplyMeshScale()
+        {
+            if (_meshFillTransform == null) return;
+            float appear = SkillAimVisualStyle.AppearScale(_appearElapsed);
+            _meshFillTransform.localScale = new Vector3(_meshFullDiameter.x * 0.5f * appear,
+                                                        _meshFullDiameter.y * 0.5f * appear, 1f);
+        }
+
+        /// <summary>
+        /// 예전 스프라이트 3겹(Ring/Fill/Dot)의 렌더러를 켜거나 끈다(오브젝트 · 배선은 그대로 — 지우지 않는다).
+        /// </summary>
+        private void SetSpriteLayersEnabled(bool enabled)
+        {
+            if (_ringRenderer != null && _ringRenderer.enabled != enabled) _ringRenderer.enabled = enabled;
+            if (_fillRenderer != null && _fillRenderer.enabled != enabled) _fillRenderer.enabled = enabled;
+            if (_dotRenderer != null && _dotRenderer.enabled != enabled) _dotRenderer.enabled = enabled;
+        }
+
+        private void OnDestroy()
+        {
+            // 코드로 만든 메시 · 머티리얼은 씬이 사라져도 자동으로 풀리지 않는다 → 직접 정리(메모리 누수 방지).
+            if (_fillMesh != null) Destroy(_fillMesh);
+            if (_pulseMesh != null) Destroy(_pulseMesh);
+            if (_fillMaterial != null) Destroy(_fillMaterial);
+            if (_pulseMaterial != null) Destroy(_pulseMaterial);
         }
     }
 }

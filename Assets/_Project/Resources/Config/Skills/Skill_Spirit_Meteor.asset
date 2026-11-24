@@ -17,7 +17,7 @@ MonoBehaviour:
   _description: "\uC9C0\uC815\uD55C \uC9C0\uC810\uC5D0 \uC6B4\uC11D\uC774 \uB5A8\uC5B4\uC838,
     \uCC29\uD0C4 \uC21C\uAC04 \uBC94\uC704 \uC548\uC758 \uC801\uC5D0\uAC8C \uD53C\uD574\uC640
     \uD654\uC0C1\uC744 \uC900\uB2E4."
-  _isAvailable: 0
+  _isAvailable: 1
   _aimType: 1
   _cooldown: 10
   _mechanic: 0
@@ -28,6 +28,13 @@ MonoBehaviour:
   _statusKind: 0
   _magnitude: 0
   _targetsAllies: 0
-  _impactDelay: 0
+  _impactDelay: 1.5
   _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
+  _impactBurnDamagePerSecond: 50
+  _impactBurnDuration: 3
+  _warningVfxReferenceTime: 1.5
+  _fallingBodyVfxPrefab: {fileID: 0}
+  _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
+  _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
+  _impactVfxPrefab: {fileID: 0}

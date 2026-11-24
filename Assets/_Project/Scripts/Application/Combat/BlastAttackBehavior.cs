@@ -4,18 +4,20 @@
 //
 // 무엇을 하나(초급자용 설명):
 //   버섯폭격기는 폭탄(포자)을 적에게 던져 착탄 지점에서 폭발시킨다.
-//   - 폭탄을 맞은 딱 1마리(주 타깃)에게는 "직접 10" 피해가 들어간다.
+//   - 폭탄을 맞은 딱 1마리(주 타깃)에게는 "직접 100"(공격력) 피해가 들어간다.
+//   (2026-11-23 정정 — 이 파일의 「직접 100」은 모두 직전 「직접 10」이었다(×10 스케일 이전 값). 100 = MushroomBomber(type 26)
+//    공격력, UnitStatsConfig.asset 기준. 실제로 깎이는 HP는 대상 방어력 감쇄(DamageCalculator.ApplyDefense) 후 값이다.)
 //     → 이 직접 피해는 이 핸들러가 아니라 ExecuteAttack의 "주 타깃 단일 피해" 경로가 담당한다.
 //       (그래서 이 핸들러는 ReplacesPrimaryAttack = false — 단일 피해를 대체하지 않는다.)
 //   - 이 핸들러는 "착탄 지점 주변 반경 안의 적 유닛 전원"에게 DoT(지속 피해)를 부여한다.
-//     주 타깃이 유닛이면 그 유닛도 반경 안(거리 0)이라 DoT를 함께 받는다(직접 10 + DoT).
+//     주 타깃이 유닛이면 그 유닛도 반경 안(거리 0)이라 DoT를 함께 받는다(직접 100 + DoT).
 //
 // 도끼병(SweepAttackBehavior)과의 차이 3가지:
 //   1) 판정 모양 — 도끼병은 "전방 부채꼴"(reach + arc)이지만, 버섯폭격기는
 //      착탄 중심을 기준으로 한 "원형 반경"(arc 없음)이다.
 //   2) 판정 중심 — 도끼병은 "공격자" 위치가 중심이지만, 버섯폭격기는 "주 타깃(착탄 지점)" 위치가 중심.
 //   3) 주 타깃 포함 — 도끼병은 주 타깃을 중복 제외하지만, 버섯폭격기는 주 타깃도 DoT 대상에 포함한다.
-//      (직접 10과 DoT는 서로 다른 경로라, 주 타깃이 직접 10 + DoT를 모두 받는 것이 의도된 동작이다.)
+//      (직접 100과 DoT는 서로 다른 경로라, 주 타깃이 직접 100 + DoT를 모두 받는 것이 의도된 동작이다.)
 //
 // 효과(피해가 아니라 DoT 부여):
 //   각 대상에 ctx.ApplyDot(attacker, victim)을 호출한다. DoT의 초당 피해/지속/틱 간격은
@@ -54,8 +56,8 @@ namespace Hexiege.Application
         private readonly List<UnitData> _victims = new List<UnitData>(8);
 
         /// <summary>
-        /// 착탄 DoT는 "기본 단일 공격(직접 10)에 얹는" 범위 효과이므로 주 타깃 단일 피해를 대체하지 않는다.
-        /// (special-only가 아님 — ExecuteAttack이 주 타깃 직접 10을 먼저 적용한 뒤 이 Apply가 실행됨.)
+        /// 착탄 DoT는 "기본 단일 공격(직접 100)에 얹는" 범위 효과이므로 주 타깃 단일 피해를 대체하지 않는다.
+        /// (special-only가 아님 — ExecuteAttack이 주 타깃 직접 100을 먼저 적용한 뒤 이 Apply가 실행됨.)
         /// </summary>
         public bool ReplacesPrimaryAttack => false;
 
@@ -119,7 +121,7 @@ namespace Hexiege.Application
             {
                 if (unit == null || !unit.IsAlive) continue;
                 if (unit.Team == attacker.Team) continue; // 아군 제외(규칙 16). 공격자 자신도 같은 팀이라 제외됨.
-                // ⚠️ 도끼병과 달리 주 타깃을 제외하지 않는다 — 주 타깃도 DoT 대상에 포함(직접 10 + DoT).
+                // ⚠️ 도끼병과 달리 주 타깃을 제외하지 않는다 — 주 타깃도 DoT 대상에 포함(직접 100 + DoT).
 
                 // 착탄 중심으로부터의 XZ 평면 거리(제곱)로 반경 안/밖 판정.
                 Vector3 rel = Flatten(ctx.WorldPositionOf(unit)) - center;

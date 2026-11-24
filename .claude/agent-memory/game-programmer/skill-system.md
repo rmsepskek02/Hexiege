@@ -154,8 +154,9 @@ unit zone VFX start · Expire · UnitDied stop, `SlotLabels` Name 15/15. **Unobs
   V4 = `UnitBuffVfxPresenter` zone driver (`.ZoneDriver.cs`): entries carry `Driver` + `ZoneRefs`; stop groups log under the driver's
   prefix, so `[SKILL-BUFF]` keys are unchanged. Suite B-8 string gates read only the main presenter file — keep them there.
 - **Self-validation:** `RunUnitActionSelfValidation.SkillZones.cs` (Z-T1~Z-T10). Headless execution of `UnitCombatUseCase` /
-  `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` (reference UnityEngine
-  DLLs) — only the static compile harness works; the suite runs in the Editor.
+  `SkillZoneSystem` outside Unity fails with `TypeLoadException: Internal call method with non_NULL RVA` **when the real reference
+  UnityEngine DLLs are loaded**. *(2026-11-17 corrected — was "only the static compile harness works": it does work with a fake
+  `UnityEngine.CoreModule` assembly — see §7 「Headless fixture run」.)*
 - **Temporary test prefabs (Z-18):** Frost Prison `_zoneVfxPrefab` = `vfx_emp_disabled`, `_statusVfxPrefab` = `vfx_bloomfairy_heal`
   (scale 2, D14 precedent) were used for the test and **emptied after it** (`{fileID: 0}`, scale 1 — 2026-11-11). Every zone VFX
   slot is empty now: nothing is visible until real prefabs are made. Suite Z-T9 checks a filled slot's loop contract only when it
@@ -174,3 +175,160 @@ unit zone VFX start · Expire · UnitDied stop, `SlotLabels` Name 15/15. **Unobs
   (zone pending-resolve not in the reported results); the suite's two old `== 8` schema `Require` lines
   (`RunUnitActionSelfValidation.ServerProjectiles.cs` / `.SupportBuffSkills.cs` — suite run not in the test evidence);
   `SkillDefinition` old header and three old tooltip texts (Inspector text, not checkable by logs — main session to decide).
+
+## 5. Support new statuses stage A — Earth Armor · Tactical Order production speed (2026-11-16 — stage A user test PASS)
+
+Source: `Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses/`. Commits `274311a` · `b11cf4b`; user test PASS
+2026-11-16 (one multi match, Host device archive + Client Editor). Suite run NOT in the evidence (user runs it after stage 2).
+
+- **Temporary prefab emptied (2026-11-16, uncommitted at writing time):** `Skill_Spirit_EarthArmor.asset` `_statusVfxPrefab {fileID: 0}`,
+  `_statusVfxScale 1` (D14 / Z-18 precedent).
+- **Disabled-line cleanup (2026-11-16):** deleted only blocks whose replacement ran in the logs — damage point ⑥ TowerShell
+  (`TowerCombatUseCase`), executor old always-status-bridge line (`GlobalStatusChangeExecutor`), both old `ElapsedTime += deltaTime`
+  lines (`UnitProductionUseCase` server tick + client mirror), setup tool's old field list and two old spec lines. **Kept:** points
+  ② splash · ③ skill · ④ DoT · ⑤ tower instant (not hit in the test); the executor's old `kind == None` return (the widened case
+  "main empty + extras" never ran); Sweep diagnostic old expression body (`UnitCombatUseCase` ~2056, Sweep writer not seen);
+  suite `SkillZones.cs` old `== 8` check (suite not run). **[2026-11-17 follow-up — original kept above: the `== 8` check and point
+  ④'s old line were deleted in the stage C cleanup (suite PASS / DoT absorb observed); ① ② ③ ⑤, executor, Sweep remain — see §6.]**
+- **Trap — point ① cannot be deleted by comment-only cleanup:** suite `RunUnitActionSelfValidation.cs` ~797 ("Actual writer hook
+  ordering") finds the literal `target.TakeDamage(finalDamage)` between `"WriterBefore"` and `"WriterAfter"` with no comment
+  filter — after S-14 that literal exists there **only as the commented old line**. Deleting it makes the next match be point ③'s
+  commented line (after WriterAfter) → the check throws. Change the anchor (e.g. to `IncomingDamage.Apply(`) in the same commit.
+- **Lesson — suite fixtures must not read global stat tables (2026-11-17 suite FAIL "S-T2 ② HP 10 must exceed 55"):** in a menu
+  suite run `UnitStats._data` is null (no bootstrap; SoloTiming ~4385 · Fox ~8250 · ServerProjectiles ~224 restore it to the old
+  null), so `SpawnUnitWithId` gives fallbacks HP 10 / attack 1 / defense 0; `BuildingStats` holds only the Spirit AutoTower row that
+  VfxConnections ~2066 injects without restore (Castle Trans → fallback 200). Fix: `SupportFixtureStatsScope` (`.SupportNewStatuses.cs`,
+  `using var` at the S-T / Sh-T / R-T entry points) **starts from empty tables** and pins Pistoleer atk 60 · Tank HP 10000 def 0 ·
+  Trans Castle 2000 · Trans TrainingCamp/WarAcademy 1000 · Spirit AutoTower atk 100, restores the original references on Dispose.
+  *(2026-11-17 — was "copies both tables"; second suite FAIL "Sh-T5 fixture TrainingCamp must be placed alive": after an Editor Play
+  session the statics keep GameBootstrapper's real config until the next recompile, and the real BuildingStatsConfig has Trans
+  TrainingCamp MaxHp 0 (Human-only building) → HP 0 = not alive; with null tables the fallback 48 passed. Also: VfxConnections does
+  restore in `finally` ~2135 — "without restore" above was wrong.)* B-* / Z-T* passed in that run (they ran before S-T2). Write new
+  HP-based fixtures inside this scope **and add a pinned row for every (type, race) they place**, and never compute a DoT expectation
+  with `ApplyDefense` (DoT skips defense).
+- **Lesson — test a fixture against three global states, not one:** null tables (fresh domain), real config tables (= after Play),
+  and poison tables (every row HP 0/1, attack 0). Only the poison run proves a fixture reads nothing outside its pinned rows.
+  Headless runner with all three modes: scratch `shx/` (Main.cs parses the two config .asset files like `GameBootstrapper.Setup`).
+
+## 6. Stage C — Sacred Tree Awakening shield + building status VFX (2026-11-16 — stage C user test PASS 2026-11-17)
+
+Source: same Task, Plan §6-1 (C-1~C-4, C-L1~C-L16). Commits `1bd5669` · `f29626a` · `3b365fd` · `74e8624`; user test PASS 2026-11-17
+(multi Sacred Tree ×4 Host device + Client Editor, single Tactical Order building VFX) and **regression suite PASS** (errors 0).
+*(2026-11-17 — was "implemented, user test NOT run / uncommitted")*
+
+- **Post-test cleanup (2026-11-17, uncommitted at writing time):** temporary prefabs emptied (see last bullet). Deleted disabled lines
+  whose replacement ran: `IncomingDamage` old `TakeDamage(finalDamage)` / `return finalDamage`; `SupportSkillEffectSystem`
+  old `IsServiceKind` expr, old `IsSupported` unit line, old `Tick` one-line early return; `BuildingStatusVfxPresenter` old skill
+  filter, old building filter, old `LogStarted` call, old `OnBuildingUpgraded` early return, old `BuildingVfxStarted` string;
+  resolver's `= 9` record line; damage point ④ DoT old line (`UnitCombatUseCase`); suite old checks (schema `== 9` ×4 incl.
+  ServerProjectiles/SupportBuffSkills record lines, Z-T10 `== 8`/`== 9`, S-T8 old Sacred-Tree-unavailable, S-T9 two old, S-T2 old
+  `ApplyDefense(20, …)` expectation). **Kept:** `TickStore` old `gone` line (building-gone branch not observed — upgrade/death of a
+  shielded building not run); damage points ① (suite anchor ~797), ② ③ ⑤ (not hit in runtime); executor old `kind == None`;
+  Sweep diagnostic old body; setup tool's old Sacred Tree `InstantPlaceholder` line (tool rerun not evidenced); `SkillDefinition`
+  old tooltip records and `IncomingDamage` old-comment record (text, not logic); pre-stage-C record lines (`== 8` etc.).
+  Static harness run3 54 → 54, identical error set.
+  **[2026-11-17 stage B follow-up — original kept above: the setup tool's Sacred Tree `InstantPlaceholder` line and `= 9` record line
+  were deleted in the stage B cleanup (§7); `TickStore` `gone`, ① ② ③ ⑤, executor, Sweep, tooltips remain.]**
+
+- **Kind `StatusEffectKind.Shield = 8`** (service kind). Unit target = main effect, building target = extra row `{1, 8, 500}`.
+  Building store `_buildingEffects` is separate from unit ids; buildings injected by setter `SetBuildingPlacement` (ctor unchanged).
+- **Absorb order** in `IncomingDamage.Apply`: defense → armor multiplier → `AbsorbShield` → `TakeDamage(hpDamage)`. Buildings get
+  only `AbsorbShield`. No shield record → value returned unchanged. All server building damage goes through the helper (towers hit
+  units only; grep of `.TakeDamage(` outside the helper = client HP sync ×2 + client death packets ×2).
+- **Break notice:** broken shields queue in `_pendingBroken` (sequence + id + isUnit) and are flushed at the **head of the next
+  `Tick`** as `GameEvents.OnShieldBrokenConfirmed` (one per sequence). `Tick`'s old one-line early return was split so the flush
+  runs even when no batch is left. `NetworkSkillController.ShieldBrokenClientRpc(seq, unitIds[], buildingIds[])` → schema 9 → 10
+  (4 suite `== 9` checks, not 3 — stage A added one in `.SupportNewStatuses.cs`). Screens stop only entries whose sequence matches.
+- **S-6 (b) applied:** `NetworkHealthSync` republishes `OnEntityDamaged` when `diff == 0 && serverHp > 0` (unit + building). Evidence:
+  one RPC sender, one RPC per server damage event, heals on separate RPCs, so zero diff only means "server HP unchanged too".
+  Fully absorbed projectile hits: server END `hit` count unchanged (status-based, `applied=0`); under (a) the client would count
+  `emptyRelease`, not a timeout.
+- **Building VFX device:** `BuildingStatusVfxPresenter` (head `[SKILL-BVFX]`, key building id + team + slot). Target scope comes from
+  pure `Application/Skill/BuildingStatusVfxTargetPolicy` (2026-11-17, S-10 user decision "all own production buildings"):
+  `ActivationBuildings` = skills with a Building-target extra row (Sacred Tree shield — activation-time buildings only, S-11);
+  `ProductionBuildings` = Team-target `ProductionSpeedMul` (Tactical Order — `BuildingTypeHelper.IsProductionBuilding`, stages 1-3,
+  plus buildings built/upgraded during the effect via `OnBuildingPlaced` / upgrade `NewBuilding`, attached next Update with the
+  batch's end time, log `BuildingVfxAttachedLate Reason=Built/Upgraded`). `BuildingVfxStarted` gained trailing `Scope=` key.
+  User test PASS 2026-11-17 (Scope=ProductionBuildings, AttachedLate Built 4 / Upgraded 2). *(2026-11-17 — was "Tactical Order's building slot is not used (attach rule undecided)", then "user test NOT run")*
+  Unit shield break stop: `UnitBuffVfxPresenter.ShieldDriver.cs` (Path=ShieldBroken).
+- **Suite:** `RunUnitActionSelfValidation.SupportShield.cs` Sh-T1~Sh-T10 (Sh-T10 = scope policy + presenter source gate). Editor check = copy the four partials + scratch stubs
+  (scratchpad `a4_ed.tree/Ed/EdStubs.cs`, `SetupExtract.cs`) into a tree and run harness2 directly (run3.sh compiles runtime only).
+- **Temporary prefabs (S-17):** Sacred Tree `_statusVfxPrefab` = `vfx_bloomfairy_heal` (scale 2), `_buildingStatusVfxPrefab` =
+  `vfx_emp_disabled` (`{fileID: 2211740768315503964, guid: 32e68fa52406d994fbdbfd8f8d4fcfbf}`, scale 1).
+  Tactical Order `_buildingStatusVfxPrefab` = same `vfx_emp_disabled` ref, scale 1 (added 2026-11-17; the asset had no such keys
+  before). Unit slot stays empty. **Emptied 2026-11-17 after the test:** Sacred Tree `_statusVfxPrefab {fileID: 0}` scale 1,
+  `_buildingStatusVfxPrefab {fileID: 0}` scale 1; Tactical Order `_buildingStatusVfxPrefab {fileID: 0}` (scale 1 / offsetY 0 kept as
+  defaults). Suite Sh-T8 / B-6 / Z-T9 skip empty slots, and the presenter logs `NoPrefab`. *(was "to be emptied after the test")*
+
+## 7. Stage B — Roots of Regeneration: regen channel + heal amplification (2026-11-17 — stage B user test PASS + full suite PASS)
+
+Source: same Task, Plan §6-2 (B-1~B-4, B-L1~B-L18, RB-1~RB-9). Commits `c0c2ae7` · `9d723b7` · `284c8a9`; user test PASS 2026-11-17
+(two multi matches, Host device archive) and full regression suite PASS incl. Editor-only Sh-T8 · Sh-T10 · R-T6~R-T8.
+*(2026-11-17 — was "implemented, user test NOT run / uncommitted")*
+
+- **Post-test cleanup (2026-11-17, uncommitted at writing time):** temporary prefabs emptied (see below). Deleted disabled lines whose
+  replacement ran: `SupportSkillEffectSystem` old `IsServiceKind` expr + old `IsSupported` two lines; Mist heal points ② ③ old
+  `Heal(_healPerTick)`; `UnitCombatUseCase` heal point ① old `Heal(amount)`, Natural and Bloom/HoT old `ApplyHealToUnit` lines; suite
+  old `== 10` setup checks (Z-T10 · S-T9 · Sh-T9), "Roots unavailable" (S-T8 · Sh-T8), `SupportFixtureStatsScope` old copy lines ×2 +
+  old pinned-row check; setup tool old Roots + Sacred Tree `InstantPlaceholder` lines and `ExpectedAvailableCount = 9 / 10` record
+  lines. **Kept:** Wave old `ApplyHealToUnit` line (Wave writer not run); `TickStore` old `gone` line (building-gone not run); damage
+  points ① (suite anchor ~797) ② ③ ⑤; executor `kind == None`; Sweep old body; `SkillDefinition` old tooltips (text); zones-task
+  `== 8` / `= 8` record lines (other task). R-T9 / S-T9 gates use `SupportActiveLineCount` (comments excluded) → unaffected by
+  deleting the commented old heal lines (R-T9 failure-message text still says "old … only as a comment" — message only).
+  Static harness run3 54 → 54, identical error set; headless `shx/` null / real / poison 32 PASS each.
+
+- **Kinds:** `StatusEffectKind.Regen = 9` (magnitude = HP per second) and `HealAmpMul = 10` (received-heal multiplier), both service
+  kinds, unit + building targets (`IsSupported`). Asset = main Regen 20 (unit) + extras `{Building, Regen, 40}`, `{Unit, HealAmpMul, 1.5}`,
+  `{Building, HealAmpMul, 1.5}` → one activation = **4 batches** (4 `RegenApplied` lines with `Kind=` / `Target=`). No executor change.
+- **Regen = 1 s pulses** (`SupportSkillEffectSystem.Regen.cs`, `TickRegen` runs inside `Tick` **before** `TickStore` so the last pulse
+  and its amplification happen before expiry). Why 1 s, not per tick: per-tick heals send one heal-sync RPC per target per server tick
+  (0.1 s → 10/s/unit). Final-slice tolerance 0.001 s makes 8 s give exactly 8 pulses even with 1/60 float sums. Full HP → pulse
+  skipped, record kept (B-L7). Text every 3rd pulse (mist interval 3 precedent). Heal event published by the service itself
+  (`OnEntityHealed`, healer = caster building, `healerIsUnit:false`) → existing `SyncHealClientRpc` / `SyncBuildingHealClientRpc`, schema 10.
+- **Amplification = one public `AmplifyHeal(target, amount, HealAmpSource)`** called right before `Heal` at the three heal points
+  (`ApplyHealToUnit` — new trailing optional `ampSource`; `MistShrineUseCase` unit + building via setter `SetSupportSkillEffectSystem`)
+  and by the regen pulse (which does not go through `ApplyHealToUnit` → amplified once, RB-5). Per-target carry on the HealAmpMul record
+  (`floor(amount × mag + carry)`), reset on replace, dropped with the record. No record / mag == 1 / dead → value returned unchanged.
+- **Diagnostics `[SKILL-REGEN]` (Diag=SkillRegen):** `RegenApplied`, `RegenTickSample` / `BuildingRegenSample` (first real heal per
+  target, `FullSkipsBefore=`), `HealAmpSample` (first per target × source, `Check=`), `NewTargetHealSample`, `RegenEnded` (Regen:
+  Pulses/BaseTotal/AmpTotal/HealedTotal/FullHpSkips; HealAmpMul: per-source Count/Req/Amp + `TotalCheck` with carry-loss bound).
+- **Suite:** `RunUnitActionSelfValidation.SupportRegen.cs` R-T1~R-T9 inside `SupportFixtureStatsScope`; old `== 10` setup checks
+  (Z-T10 · S-T9 · Sh-T9) and "Roots unavailable" checks (S-T8 · Sh-T8) deleted after the suite PASS. Setup tool `ExpectedAvailableCount` 11.
+  *(2026-11-17 — was "commented out")*
+- **Temporary prefabs (S-17):** Roots `_statusVfxPrefab` = `vfx_bloomfairy_heal` (`{fileID: 8266672880827664662, guid: ff068a5e9b80f3043a0517ebb1cfb00f}`,
+  scale 2), `_buildingStatusVfxPrefab` = `vfx_emp_disabled` (scale 1). **Emptied 2026-11-17 after the test:** `_statusVfxPrefab {fileID: 0}`
+  scale 1, `_buildingStatusVfxPrefab {fileID: 0}` scale 1. R-T8 / Sh-T8 / B-6 / Z-T9 / S-T8 skip empty slots. *(was "Empty both after the test")*
+- **Headless fixture run (works — 2026-11-17):** build a fake `UnityEngine.CoreModule` **assembly** (AssemblyName must be exactly
+  that, so UniRx's reference binds to it; a same-namespace source file is not enough — CS0012 on UniRx `AddTo` overloads), compile
+  `Scripts/Domain` + `Scripts/Application` + the editor partials + small stubs (`SkillDefinition`, `SkillLoadoutConfig`, `EffectManager`,
+  setup-tool const, `UnityEditor.AssetDatabase`) as a net8.0 exe, drop the real Unity DLL references, and invoke the private fixture
+  methods by reflection inside `SupportFixtureStatsScope`. R-T1~R-T5 + S-T2/S-T3/S-T4 passed this way in both release and
+  `DEVELOPMENT_BUILD;UNITY_EDITOR` (diagnostic lines printed through GameLog's console fallback). Scratch: `rb_fakeunity/`, `rb_run/`.
+  Asset-reading checks (R-T6~R-T8) still need the Editor.
+
+## 8. Air Strike (2-L) — line strike, direction RPC, two-finger camera, aim UI (2026-11-17~18 — user test PASS)
+
+Task `_Tasks/2026-11-17/09_12_support-skill-air-strike/` (Plan §12 deviations · §16 result). Commits `c7280c4` (L-1~L-6) · `5764b9c` (L-7) + cleanup commit. Rule: Skills 29.
+
+- **Track fingers by touch Id, not `primaryTouch`.** When the first finger lifts while another is down, Unity may report the remaining finger as `primaryTouch` — the old "first finger up = fire" and the release-frame cached coordinate would then be polluted. `SkillAimPointerTracker` (pure state machine, fed `(id, screenPos)` samples each frame) remembers the first finger's Id and caches **only that Id's** coordinate; results Released / ReleasedNoFire(`TrackedLiftedFirst` · `LiftedTogether`). Release-frame position = that cached coordinate (Skills rule 20 — synthetic mouse (0,0) on the release frame). Once a touch is seen in an aim, mouse input is ignored for that aim (`_touchSeenThisAim`). Circle and line aim share the tracker. Self-validation LS-T13 drives it with fake samples.
+- **Line-strike due epsilon is air-strike only:** `LineStrikeDueEpsilon = 1e-4` s (`SkillActivationUseCase.LineStrike.cs` 41) so float accumulation does not push a strike one tick late. Bombardment reservations keep the old comparison — do not "unify" without a separate test.
+- **One pure function for effective length:** server judgement, aim reticle and each screen's VFX all call the same map-clipped length (`LineStrikeWorld.ComputeEffectiveLength` / `LineStrikeGeometry.IsStrikeInRange`); map bounds come in as an injected provider (`SetMapWorldBoundsProvider` — Core helper not reachable from Application). Separate copies would make "visible = hit" drift (Plan R-14). Segments split the original length, half-open `[k·L/N, (k+1)·L/N)`, last closed.
+- **Source gates that grep comment text are fragile:** suite check L7-5 required `aim.Contains("// ShowReticleAtDomain(start);")`; deleting the disabled comment after PASS would fail the suite unless the condition is removed in the same change (done in the cleanup). Same family as B-8 `NoAim` and the 「Actual writer hook ordering」 gate. When writing a gate on a commented-out old line, note that the gate must change when the comment is deleted.
+- **New `.cs` files were added without `.meta`** (e.g. `LineStrikeGeometry.cs`, `SkillAimPointerTracker.cs`, `SkillAimTileHighlight.cs`) — same as the new-statuses task; Unity creates them on next open, GUIDs may differ per machine (Research 13 — reported, not fixed).
+- Warning VFX scales **Z only** (`new Vector3(1f, 1f, zScale)`), strike VFX native size; LS-T9 ⑥ checks no-loop · Hierarchy on **both** slots when filled. Both slots emptied after the test.
+- Kept disabled lines: `InputHandler` 3 tap-suppression old lines (`TapSuppressed` never observed), `BuildingSkillPanelUI` 1 single-path line (single never observed).
+
+## 9. Meteor (2-D) — type A impact burn, warning speed sync, travelling loop body, scheduled impact (2026-11-18 — user test PASS)
+
+Task `_Tasks/2026-11-18/03_34_support-skill-meteor/` (Plan §14 result). Commit `0f9b091` + cleanup commit. Rules: Skills 7 · 11 · 25 (no new rule number — still type A). **Schema stays 11** (no RPC / sync-format change, M-T10).
+
+- **Burn rides on the type-A bridge, both branches.** `SelectInstantAreaDamageBridge(delay, seq, burnDps, burnDuration)` returns the old bridge only when delay = 0 **and** no burn; delay 0 + burn → immediate damage + burn; delay > 0 → `ScheduleImpact(..., burnDps, burnDuration)` stores burn in `PendingImpact`. So setting the delay to 0 never silently drops the burn (Plan R-9). Burn = after the damage, in the same call, to **surviving enemy units in the hit buffer** (`UnitCombatUseCase.ImpactBurn.cs`, source −1, buildings excluded, late entrants excluded). It reuses the one-per-unit `Damage` timed-effect slot → an InfernoSpirit burn is refreshed with the newer value (`Refreshed=1` seen in the field). Different-kind stacking (poison + burn) is a **future extension, not built** — Plan §12, Units rule 34 note.
+- **Which skills take the meteor screen path:** `SkillData.UsesImpactPresentation` = type A · delay > 0 · at least one of the three slots (warning = activation VFX, falling body, impact) filled. Bombardment (three slots empty) keeps the plain circle path — check this predicate before adding a fourth type-A skill.
+- **Warning playback speed:** `SkillData.ComputeWarningPlaybackSpeed(referenceTime, delay)` = reference ÷ delay, clamped 0.1~10, bad input → 1. `EffectManager.PlaySkillActivationVfx(..., playbackSpeed, out applied)` sets the speed **after** `Play` (Play first restores the previous speed); `VfxPoolItem.PlaybackSpeed.cs` restores it on return (R-7). Current value 1.5 ÷ 1.5 = 1, so the field never exercised a non-1 speed — M-T9 covers 0.75 → 2 and restore.
+- **Travelling looping body (new VFX type):** `EffectManager.StartSkillTravelLoopVfx` = loop-contract check (`IsUnitBuffLoopContractSatisfied`) → `Play` with forward travel (distance, duration = delay; facing = travel direction, euler offset only rotates the shape) → `BeginStatusLoop` lease → `SetStatusLoopDeadline(lease, delay + 0.5 s)` (`MeteorBodySafetyExtraSeconds`). Stop **only by lease** (`StopSkillTravelLoopVfx`, tail stop at impact / game end, immediate on reinit). A reused pool item must not keep an old deadline (`ResetStatusLoopDeadline()` — suite source gate). Root scale is fixed 1 (decision 28). Start offset is in **view space** so the flipped Client sees it fall from the same sky side. Field: `BodyStopped Reason=Impact` ×4, `Timeout` 0.
+- **Impact VFX is time-scheduled per screen** (received time + delay, like air-strike `PendingStrikeVfx`), not paired by activation sequence; `Sequence` is only logged as `Seq=`.
+- **Size lesson (user decision 2026-11-18):** the temporary warning ring peaked exactly at R0 = 2 but as a band (half-brightness 1.70~2.31, faint tail 2.75), so it looked bigger than the aim circle (ends 2.00) — code scale was correct. Range-skill VFX must put the **darkest line's outer edge at R0**, tail ≤ R0 × 1.05 (VFXSFXGuide 「코드 계약」 17, `Docs/Assets/SkillVFXDesign.md`). Do not "fix" this by changing code scale.
+- **Field result:** multiplayer (device Host, Editor Client), 4 casts, `MsAfterActivation` 1507~1524 ms, burn granted 3, Client warning → body → impact ×4, no exceptions. Diagnostics `[SKILL-METEOR]` kept as `GameLog.Dev` (user 「그럼 남겨두고」).
+- **Kept disabled lines:** `SkillActivationUseCase` old delay-0 bridge line (delay-0 + burn path never ran in the field), setup tool old `AllFieldNames` list. All three VFX slots emptied; `_warningVfxReferenceTime 1.5` kept → `MeteorVfxSkipped Reason=NoPrefab` per empty slot (normal).
+- **New `.cs` files again without `.meta`** (`SkillActivationUseCase.ImpactBurn.cs`, `UnitCombatUseCase.ImpactBurn.cs`, `SkillActivationVfxPresenter.Meteor.cs`, `VfxPoolItem.PlaybackSpeed.cs`, `RunUnitActionSelfValidation.Meteor.cs`) — same as §8.
+- **Stale comments seen, not fixed (out of scope):** InfernoSpirit DoT 「초당 5/3초」 (actual 50) in `SpecialAttackRegistry.cs` 51, `SpecialAttackContext.cs` 127, `InfernoAttackBehavior.cs` 10 · 17 · 67; MushroomBomber 「초당 2」 (actual 20) in `SpecialAttackContext.cs` 126 · 247, `InfernoAttackBehavior.cs` 17, `UnitCombatUseCase.cs` 2448. `ApplyInfernoDot` summary was corrected in the cleanup.

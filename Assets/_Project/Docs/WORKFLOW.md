@@ -289,7 +289,8 @@ Action의 VfxConnections·ServerProjectiles·ProjectileDeathHold partial·Author
   - **실제 동작 미검증(2026-11-10):** 결정 당시 세션에서는 컴퓨터 사용 기능이 켜져 있지 않아 위 절차를 실제로 실행해 보지 않았다.
 - **테스트 로그 올리기.** 사용자 결정(2026-11-09, 원문): 「앞으로 로그 올릴 때 작업명을 어떻게 해서 올릴지도 같이 안내해 줘. 이 내용도 WORKFLOW에 기록하자」, 「로그는 내가 볼 건 아니고 너가 확인할 거니까 나한테는 테스트 절차를 안내해 줘」.
   - **작업명:** 해당 task 폴더 이름에서 시각(`HH_MM_`)을 뺀 부분이다(예: `03_54_emp-tower-disable` → `emp-tower-disable`). task 문서가 없는 작업은 메인 세션이 테스트 안내 때 정해 준다. 재테스트도 같은 작업명을 쓴다 — 회차는 도구가 붙인다. 형식 제한(영문 소문자·숫자·하이픈, 최대 60자)은 도구가 정규화한다.
-  - **메인 세션은 테스트 안내 끝에 「로그 올리기: 작업명 ○○」를 반드시 적는다.** 사용자는 메뉴 `Hexiege/Logs/Create Log Archive ZIP`에 그 작업명을 넣는다.
+  - **메인 세션은 테스트 안내 끝에 「로그 올리기: 작업명 ○○」를 반드시 적는다.** 사용자는 아래 메뉴에서 ZIP을 만들 때 그 작업명을 넣는다.
+  - **수집 메뉴 — 기기가 끼면 통합 수집:** 멀티(기기 포함) 테스트는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 창에서 세션을 고르고 「선택 앱 로그+Logcat 수집·ZIP」으로 수집해야 기기 쪽 `Dev.Info` 진단이 들어온다(Android Development 빌드의 일반 `Dev.Info`는 기기 앱 로그 파일에만 있고 Logcat에는 없다). 에디터만 쓴 테스트면 `Hexiege/Logs/Advanced/Create Log Archive ZIP`으로 충분하다. 메뉴 동작은 [LogRules](LogRules.md) 「통합 기기 로그·ZIP 메뉴」를 따른다. *(2026-11-17 개정 — 사용자 「2번 추천대로 고치자」. 직전 「사용자는 메뉴 `Hexiege/Logs/Create Log Archive ZIP`에 그 작업명을 넣는다.」 — 메뉴가 `Advanced/` 아래로 옮겨지고 통합 수집 메뉴가 생긴 뒤의 옛 이름)*
   - **매달 첫 업로드:** 도구가 연 이번 달 Release 페이지가 404이면 그 달 Release가 아직 없는 것이다. 제목 「로그 보관 YYYY-MM」, 태그 `logs-YYYY-MM`로 새로 만든 뒤 ZIP과 manifest를 함께 올린다.
   - **로그 판정은 메인 세션이 한다.** 사용자는 테스트 절차만 수행하고 눈으로 본 이상만 알린다.
   - 보관·검증 규칙은 [LogRules](LogRules.md) §1.10 「원시 테스트 로그 공유·보관」을 따르며 이곳에 옮겨 적지 않는다.

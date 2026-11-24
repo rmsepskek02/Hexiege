@@ -47,6 +47,8 @@
 //   BuffVfxStarted(발동 1건 화면 요약 — L11 · L12 · L15) · BuffVfxExtended(재사용 연장 — L6) ·
 //   BuffVfxSkipped(못 붙임 — L10, NoPrefab · LoopContract는 Warn) · BuffVfxPendingResolved(몸을 늦게 찾아 붙임) ·
 //   BuffVfxStopped(정지 — L13, 같은 프레임 · 같은 경로는 1줄로 묶음) · BuffVfxFault(예외 — Warn).
+//   [2026-11-16 단계 C] 신목의 각성 유닛 쉴드도 이 발동 구동기가 붙인다(주 종류 = 쉴드). 쉴드가 깨지면 서버 알림을 받아
+//   그 유닛만 즉시 정지한다(Path=ShieldBroken — UnitBuffVfxPresenter.ShieldDriver.cs).
 //   모두 상태가 바뀌는 순간에만 남기고, 매 프레임 따라가기에는 줄이 없다(LogRules 1.14-8).
 //
 // 2026-11-11 재구성(지속 상태 구역 Task 구현 단위 ④ — 사용자 결정 Z-21 (가)):
@@ -202,6 +204,9 @@ namespace Hexiege.Presentation
             // [2026-11-11 Z-21 (가)] 구역 구성원 구동기 — 이전 경기 구역 기록을 비우고 구성원 변경 두 채널(확정 · 수신)을 구독한다.
             ResetZoneDriver();
             SubscribeZoneDriver();
+
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 C] 쉴드 깨짐 → 그 유닛 쉴드 이펙트만 즉시 정지(ShieldDriver.cs).
+            SubscribeShieldDriver();
         }
 
         /// <summary> 파괴(씬 언로드) 시 정적 이벤트 허브 구독을 해제하고 남은 이펙트를 지운다. </summary>
@@ -224,6 +229,8 @@ namespace Hexiege.Presentation
             _gameEndSubscription = null;
             // [2026-11-11] 구역 구성원 변경 구독 해제(ZoneDriver.cs).
             DisposeZoneDriverSubscriptions();
+            // [2026-11-16 단계 C] 쉴드 깨짐 두 채널 구독 해제(ShieldDriver.cs).
+            DisposeShieldDriverSubscriptions();
         }
 
         // ====================================================================

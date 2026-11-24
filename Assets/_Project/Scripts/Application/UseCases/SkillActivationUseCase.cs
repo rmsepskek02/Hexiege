@@ -42,6 +42,11 @@
 //   새 타입 PersistentStatusZone의 실행기가 컨텍스트의 구역 다리를 부르면, 이 UseCase가 주입받은 SkillZoneSystem
 //   (SetSkillZoneSystem)에 구역을 만든다(구역 순번 = 발동 순번). 권위 틱 TickZones · 경기 종료 CloseZones도 여기를 거친다.
 //
+// 지원 스킬 새 효과(2026-11-16 지원 스킬 새 상태 Task 단계 A — 대지의 갑주 받는 피해 · 전술 지령 생산 속도):
+//   타입 C 실행기가 컨텍스트의 「지원 스킬 효과」 다리를 부르면, 이 UseCase가 주입받은 SupportSkillEffectSystem
+//   (SetSupportSkillEffectSystem)에 효과를 건다(발동 순번 · 슬롯 · 건물 Id를 붙잡아). 권위 틱 TickSupportEffects ·
+//   경기 종료 CloseSupportEffects도 여기를 거친다(IGameServices에 getter를 늘리지 않기 위해 — 구역 서비스와 같은 이유).
+//
 // 진단 로그(2026-11-09, WORKFLOW [4] 「테스트 항목 진단 로그 규칙」 — 모두 개발 축 · 상태가 바뀌는 순간 1줄):
 //   머리 [SKILL-VFX] · Diag=SkillVfx — ActivationConfirmed(발동 확정) · ActivationRejected(사용 불가 거부) ·
 //     ImpactScheduled(착탄 예약) · ImpactApplied(실제 착탄 피해 — 시각 · 대상 수 · 사망 수) · ImpactDropped(경기 종료로 버림).
@@ -49,6 +54,15 @@
 //   (2026-11-10 추가) 머리 [SKILL-BUFF] · Diag=SkillBuff — BuffNoEffect(타입 C가 상태를 걸지 않고 끝남 — Warn, 정상이면 0건).
 //     타입 C 실행 직전 UnitCombatUseCase에 발동 꼬리표(순번 · 슬롯 · 건물)를 걸어 그쪽 BuffApplied 줄에 붙게 한다.
 //   목록 · 계수 조립은 [Conditional] 헬퍼 안에서만 하므로 릴리스 빌드에서는 호출 · 계산 · 문자열 조립이 모두 사라진다.
+//
+// 공습 — 직선 연속 폭격(2026-11-17 지원 스킬 2-L 공습 Task L-1 · L-2):
+//   Activate가 방향을 받아 공습이면 재검증 · 정규화하고(잘못되면 거부 — ActivationRejected Reason=InvalidDirection),
+//   공습 실행기가 컨텍스트의 「직선 연속 폭격 예약」 다리를 부르면 착탄 예약(PendingImpact) N개를 만든다(폭격 1회당 1개).
+//   예약 처리 · 시전당 1회 피해 · 맵 밖 잘라내기 · 경기 종료 정리 · 진단 [SKILL-LINE]은 SkillActivationUseCase.LineStrike.cs에 있다.
+//
+// 메테오 — 타입 A 착탄 화상(2026-11-18 지원 스킬 2-D 메테오 Task):
+//   스킬 데이터의 「착탄 화상」(초당 피해 · 지속)이 있으면 타입 A 다리가 그 값을 붙잡아(즉시 · 예약 둘 다) 착탄 순간 살아 남은
+//   적 유닛에게 화상을 건다. 착탄 처리 선택 · 진단 [SKILL-METEOR] MeteorBurnApplied는 SkillActivationUseCase.ImpactBurn.cs에 있다.
 //
 // Application 레이어 — Domain/Application 의존. Unity.Netcode 직접 참조 없음.
 // ============================================================================
@@ -63,7 +77,10 @@ namespace Hexiege.Application
     /// <summary>
     /// 스킬 발동 재검증·실행·쿨다운을 담당하는 서버 권위 유스케이스.
     /// </summary>
-    public sealed class SkillActivationUseCase
+    // [2026-11-17 공습 Task L-1] 공습(직선 연속 폭격) 코드를 별도 파일(SkillActivationUseCase.LineStrike.cs)에 두려고 partial을 붙였다.
+    //   동작은 같다(partial은 "이 클래스의 코드가 여러 파일에 나뉘어 있다"는 표시일 뿐이다). 옛 선언:
+    // public sealed class SkillActivationUseCase
+    public sealed partial class SkillActivationUseCase
     {
         // ── 의존성(조합 루트에서 주입) ──────────────────────────────────────
         private readonly BuildingPlacementUseCase _buildingPlacement;
@@ -141,6 +158,42 @@ namespace Hexiege.Application
         /// <summary> 주입된 구역 서비스(확인 · 검증용). 없으면 null. </summary>
         public SkillZoneSystem SkillZoneSystem => _zoneSystem;
 
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-1] 지원 스킬 효과 서비스(받는 피해 배율 · 생산 속도 배율 저장소).
+        //   조합 루트가 SetSupportSkillEffectSystem으로 주입한다. 설정자 주입 이유는 위 두 서비스와 같다(생성자 무변경 · null = 무효과).
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — 2026-11-16).
+        /// 주입하지 않으면 받는 피해 배율 · 생산 속도 배율 효과는 발동돼도 걸리지 않는다(무효과 — 진단 Warn 1줄).
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스. 전투 · 탑 · 생산 UseCase에도 같은 인스턴스를 줘야 그 효과를 본다.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
+        /// <summary> 주입된 지원 스킬 효과 서비스(확인 · 검증용). 없으면 null. </summary>
+        public SupportSkillEffectSystem SupportSkillEffectSystem => _supportEffects;
+
+        /// <summary>
+        /// (권위 전용 틱) 지원 스킬 효과의 남은 시간을 줄이고 끝난 효과를 지운다(2026-11-16).
+        /// 반드시 서버 권위 쪽에서만 부른다 — 싱글 = GameBootstrapper.Update(!IsNetworkMode), 멀티 서버 = NetworkCombatController.TickCombat.
+        /// 순수 클라이언트에서는 부르지 않는다(클라이언트에는 효과가 없다 — 이중 틱 금지, 물안개 규칙 21 선례).
+        /// </summary>
+        /// <param name="dt">경과 시간(초).</param>
+        public void TickSupportEffects(float dt)
+        {
+            _supportEffects?.Tick(dt);
+        }
+
+        /// <summary>
+        /// 경기 종료 시 지원 스킬 효과를 모두 지우고 이후 새 효과를 막는다(멱등 — 2026-11-16). 조합 루트가 OnGameEnd에서 부른다.
+        /// </summary>
+        public void CloseSupportEffects()
+        {
+            _supportEffects?.Close();
+        }
+
         /// <summary>
         /// (권위 전용 틱) 지속 상태 구역의 남은 시간 · 구성원을 갱신한다(사용자 결정 Z-4).
         /// 반드시 서버 권위 쪽에서만 부른다 — 싱글 = GameBootstrapper.Update(!IsNetworkMode, 유닛 상태 틱 앞),
@@ -171,8 +224,14 @@ namespace Hexiege.Application
         /// <param name="buildingId">발동한 스킬 건물의 Id.</param>
         /// <param name="skillSlot">발동한 슬롯 번호(0-based, 0~4).</param>
         /// <param name="aimWorld">지점 지정 스킬의 조준 좌표(도메인 월드 Vector3, 연속). 즉시 발동이면 null.</param>
+        /// <param name="aimDirection">
+        /// 조준 방향(도메인 월드 — 2026-11-17 공습 Task L-2 추가, 맨 뒤 선택 인자). 공습(LineStrike)만 읽는다:
+        /// X · Z만 보고 정규화하며, 0 · 너무 짧음 · NaN · 무한대면 발동을 거부한다(쿨다운 없음 — Plan P-11).
+        /// 다른 스킬은 이 값을 읽지 않는다(생략 = 0 벡터 — 기존 호출은 그대로 컴파일 · 동작한다).
+        /// </param>
         /// <returns>발동에 성공하면 true(호출자가 쿨다운 브로드캐스트에 사용), 재검증 실패면 false.</returns>
-        public bool Activate(int buildingId, int skillSlot, Vector3? aimWorld)
+        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 인자를 덧붙였다.
+        public bool Activate(int buildingId, int skillSlot, Vector3? aimWorld, Vector3 aimDirection = default)
         {
             // ① 건물 생존 재검증(규칙 26).
             BuildingData building = _buildingPlacement?.GetBuilding(buildingId);
@@ -220,6 +279,22 @@ namespace Hexiege.Application
                 hasAim = true;
             }
 
+            // ⑤-1 [2026-11-17 공습 Task L-2 — Plan P-11] 공습(직선 연속 폭격)이면 방향도 재검증한다(클라 입력 불신뢰 — 규칙 26).
+            //   방향 = 시작점 → 손가락 쪽(도메인 월드). X · Z만 보고 길이 1로 정규화하고, 0 벡터 · 너무 짧은 벡터 · NaN · 무한대면
+            //   거부한다 — 쿨다운 · 실행기 · 발동 알림이 모두 돌지 않는다(「사용 불가」 거부와 같은 자리 · 같은 진단 줄, 이유만 다르다).
+            //   다른 스킬(포격 · EMP · 구역 · 즉시 발동)은 방향을 쓰지 않으므로 검사하지 않고 0 벡터로 둔다 → 그 스킬들의 동작은 같다.
+            //   끝점은 거부하지 않는다 — 맵 밖 부분은 폭격 예약 때 잘라낸다(U-14 · P-13).
+            Vector3 direction = Vector3.zero;
+            if (skill.Mechanic == SkillMechanicType.LineStrike)
+            {
+                if (!LineStrikeWorld.TryNormalizeDirection(aimDirection, out direction))
+                {
+                    // [진단 L-L15] 잘못된 방향 거부 1줄 — 정상 조작으로는 나오지 않는다(조준 입력이 최소 드래그 미만이면 요청 자체를 안 보낸다).
+                    LogActivationRejected(building, skillSlot, skill, "InvalidDirection");
+                    return false;
+                }
+            }
+
             // ⑥ 실행기 조회 — 스킬의 메커니즘 타입에 맞는 실행기를 레지스트리에서 꺼낸다.
             //    레지스트리에 등록되지 않은 타입이면 바로 아래 null 검사가 false 를 돌려주므로
             //    그 스킬은 발동 자체가 무효가 된다(쿨다운도 돌지 않는다).
@@ -233,7 +308,7 @@ namespace Hexiege.Application
             // ⑦ 실행 — 피해/DoT의 실제 적용은 UnitCombatUseCase가 담당(델리게이트 주입).
             //   타입 A 즉발 피해 다리는 「착탄 지연」에 따라 둘 중 하나를 넘긴다(2026-11-03 포격 — 커밋 4, Plan D1).
             //     - 지연 0(기존 스킬 · 기본값): 지금까지와 같은 즉시 피해 다리 → 동작 변화 없음.
-            //     - 지연 > 0(포격 0.4초 · 이후 메테오 1.5초): 피해를 바로 주지 않고 "착탄 예약"만 저장한다.
+            //     - 지연 > 0(포격 0.4초 · 메테오 1.5초): 피해를 바로 주지 않고 "착탄 예약"만 저장한다.
             //       예약은 권위 전용 틱(TickPendingImpacts)이 남은 시간을 줄여 0 이하가 되는 순간
             //       기존 ApplySkillInstantAreaDamage를 1회 호출한다 → "착탄 순간 범위 안 대상"이 맞는다.
             //   실행기(InstantAreaDamageExecutor)는 바뀌지 않는다 — 실행기는 "피해를 줘"라고만 하고,
@@ -250,12 +325,24 @@ namespace Hexiege.Application
                 buildingId,
                 aim,
                 hasAim,
-                SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence),
+                // [2026-11-18 메테오 Task — Plan P-2] 타입 A 다리에 「착탄 화상」 값(초당 피해 · 지속)도 함께 붙잡게 했다.
+                //   즉시 다리 · 예약 다리 둘 다 화상을 넘기므로 착탄 지연을 0으로 바꿔도 화상이 사라지지 않는다(위험 R-9).
+                //   화상 칸이 0인 스킬(포격 등)은 예전과 같은 다리를 돌려받는다(동작 무변경).
+                //   (2026-11-18 메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 이 줄이 실기 메테오 4회에서 실행됐다.)
+                SelectInstantAreaDamageBridge(skill.ImpactDelay, sequence, skill.ImpactBurnDamagePerSecond, skill.ImpactBurnDuration),
                 ApplyAreaDotBridge,
                 ApplyGlobalStatusBridge,
                 (team, center, radius, duration) => ApplyTowerDisableBridge(team, center, radius, duration, sequence),
                 (team, center, radius, duration, kind, magnitude, allies) =>
-                    CreatePersistentZoneBridge(team, center, radius, duration, kind, magnitude, allies, sequence, skillSlot, buildingId));
+                    CreatePersistentZoneBridge(team, center, radius, duration, kind, magnitude, allies, sequence, skillSlot, buildingId),
+                // [2026-11-16 지원 스킬 새 상태 — A-1] 11번째(마지막) 인자 「지원 스킬 효과 걸기」 다리 — 타입 C 실행기가
+                //   받는 피해 배율 · 생산 속도 배율을 걸 때만 부른다. 발동 순번 · 시전 팀 · 슬롯 · 건물 Id를 붙잡은 람다다.
+                (targetTeam, target, kind, magnitude, duration) =>
+                    ApplySupportEffectBridge(building.Team, targetTeam, target, kind, magnitude, duration, sequence, skillSlot, buildingId),
+                // [2026-11-17 공습 Task L-1 · L-2] 12번째 인자 = 재검증 · 정규화한 방향(공습만 0이 아니다),
+                //   13번째(마지막) 인자 = 「직선 연속 폭격 예약」 다리 — 공습 실행기만 부른다. 발동 순번 · 슬롯 · 건물 Id를 붙잡은 람다다.
+                direction,
+                (team, start, dir, plan) => ScheduleLineStrikeBridge(team, start, dir, plan, sequence, skillSlot, buildingId));
             // [2026-11-10 강화 스킬 진단 [SKILL-BUFF]] 타입 C 실행 전후로 "실제로 상태를 걸었는가"를 본다(에디터 · 개발 빌드 전용 —
             //   릴리스에서는 두 호출이 사라진다). 발동 · 쿨다운 · 확정 흐름은 바꾸지 않는다(Plan 단위 ① 문서 담당 제안 — 거부로 바꾸지 않음).
             DiagBeginSkillBuffActivation(skill, sequence, skillSlot, buildingId);
@@ -270,8 +357,9 @@ namespace Hexiege.Application
             //   GetCooldownTotal(buildingId)을 읽어 클라 쿨다운 미러 값으로 함께 보내기 때문이다.
             //   발동 판정은 이미 끝났으므로, 화면 구독자에서 예외가 나도 발동 결과(true)는 바뀌지 않게 감싼다.
             // [진단 L1] 발동 확정 1줄(화면 VFX 줄보다 먼저 남도록 「확정」 발행 바로 앞에 둔다).
-            LogActivationConfirmed(building.Team, buildingId, skillSlot, skill, hasAim, aim, sequence);
-            PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence);
+            // [2026-11-17 공습 Task L-2] 두 줄 모두 방향을 덧붙였다(공습만 0이 아니다).
+            LogActivationConfirmed(building.Team, buildingId, skillSlot, skill, hasAim, aim, sequence, direction);
+            PublishActivationConfirmed(building.Team, buildingId, skillSlot, hasAim, aim, skill.ImpactDelay, sequence, direction);
             return true;
         }
 
@@ -288,11 +376,12 @@ namespace Hexiege.Application
         /// 발동 표현 값을 만들어 GameEvents.OnSkillActivationConfirmed로 발행한다.
         /// 구독자(멀티 서버 브로드캐스트 · 화면 VFX)에서 예외가 나도 서버 발동 흐름은 계속되게 한다.
         /// </summary>
+        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 인자를 덧붙였다(공습만 0이 아니다 — 발동 알림 RPC로 상대 화면까지 간다).
         private void PublishActivationConfirmed(TeamId team, int buildingId, int slot, bool hasAim, Vector3 aim,
-                                                float impactDelay, int sequence)
+                                                float impactDelay, int sequence, Vector3 direction = default)
         {
             var presentation = new SkillActivationPresentation(
-                buildingId, team, slot, hasAim, aim, sequence, impactDelay);
+                buildingId, team, slot, hasAim, aim, sequence, impactDelay, direction);
             try
             {
                 GameEvents.OnSkillActivationConfirmed.OnNext(presentation);
@@ -363,6 +452,19 @@ namespace Hexiege.Application
             public int Sequence;          // 발동 순번(화면의 발동 표현과 같은 값 — 이후 착탄 연출 짝짓기용)
             public float Remaining;       // 착탄까지 남은 시간(초). 0 이하가 되면 착탄.
             public float Delay;           // 예약할 때의 지연(초). 진단 로그가 "발동 뒤 실제로 몇 ms 만에 맞았나"(Delay − Remaining)를 계산할 때만 쓴다.
+
+            // ── [2026-11-17 공습 Task L-1 — Plan P-3 「PendingImpact 재사용」] 직선 연속 폭격 1회분 표시 ──
+            //   공습 1번 시전 = 이 예약 N개(폭격 1회당 1개). 원 중심 · 반경 대신 "몇 번째 폭격인가"만 담고,
+            //   직선 모양(시작점 · 방향 · 길이 · 폭 · 유효 길이)과 「이미 맞은 대상」 기록은 시전 단위 상태(LineStrikeCast —
+            //   발동 순번 Sequence로 찾는다)에 한 번만 둔다. 포격 예약은 이 두 칸이 기본값(false · 0)이라 동작이 같다.
+            public bool IsLineStrike;     // true면 공습 폭격 1회분(처리 = ProcessLineStrikeImpact), false면 기존 원형 착탄
+            public int StrikeIndex;       // 몇 번째 폭격인가(0부터 — 0이 시작점 쪽 구간)
+
+            // ── [2026-11-18 메테오 Task — Plan P-2 「PendingImpact 재사용」] 착탄 화상 값 ──
+            //   착탄 순간 살아 남은 적 유닛에게 걸 화상(초당 피해 · 지속). 둘 다 0보다 클 때만 화상 단계가 돈다.
+            //   포격 · 공습 예약은 이 두 칸이 기본값 0이라 착탄 처리가 예전과 같다(ApplyPendingImpactDamage).
+            public float BurnPerSecond;   // 화상 초당 피해(×10 스케일)
+            public float BurnDuration;    // 화상 지속 시간(초)
         }
 
         // 아직 착탄하지 않은 예약 목록(예약된 순서대로 들어 있다).
@@ -378,20 +480,37 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="impactDelay">스킬 데이터의 착탄 지연(초). SkillData가 음수 · NaN을 이미 0으로 고쳐 둔 값.</param>
         /// <param name="sequence">이번 발동 순번.</param>
-        private Action<TeamId, Vector3, float, int, int> SelectInstantAreaDamageBridge(float impactDelay, int sequence)
+        /// <param name="burnPerSecond">[2026-11-18 메테오] 착탄 화상 초당 피해. 0이면 화상 없음(생략 가능 — 기존 호출 그대로).</param>
+        /// <param name="burnDuration">[2026-11-18 메테오] 착탄 화상 지속 시간(초). 0이면 화상 없음.</param>
+        // [2026-11-18 메테오 Task — Plan P-2] 맨 뒤에 화상 두 인자를 덧붙였다(생략 = 0 = 예전과 같은 다리).
+        private Action<TeamId, Vector3, float, int, int> SelectInstantAreaDamageBridge(float impactDelay, int sequence,
+                                                                                       float burnPerSecond = 0f, float burnDuration = 0f)
         {
-            if (!(impactDelay > 0f)) return ApplyInstantAreaDamageBridge; // 기존 즉발 그대로(동작 무변경)
+            // 화상 값이 둘 다 0보다 클 때만 「화상 있음」으로 본다(SkillData가 이미 NaN · 음수를 0으로 고쳐 둔 값).
+            bool hasBurn = burnPerSecond > 0f && burnDuration > 0f;
+
+            // [2026-11-18 메테오] 옛 줄(기록용) — 화상이 없으면 아래 새 줄이 같은 일을 한다:
+            // if (!(impactDelay > 0f)) return ApplyInstantAreaDamageBridge; // 기존 즉발 그대로(동작 무변경)
+            if (!(impactDelay > 0f) && !hasBurn) return ApplyInstantAreaDamageBridge; // 기존 즉발 그대로(동작 무변경)
+
+            // [2026-11-18 메테오] 지연 0 + 화상 — 바로 피해 + 화상(착탄 지연을 0으로 바꿔도 화상이 남는다 — 위험 R-9).
+            if (!(impactDelay > 0f))
+                return (team, center, radius, rawDamage, sourceBuildingId) =>
+                    ApplyInstantAreaDamageWithBurnNow(team, center, radius, rawDamage, sourceBuildingId, burnPerSecond, burnDuration, sequence);
 
             // 지연이 있는 스킬만 작은 람다를 하나 만든다(발동은 드문 사건이라 할당 1회는 무시할 수준).
+            // [2026-11-18 메테오] 화상 값을 예약에 함께 싣는다(화상 0이면 예전 람다와 결과 같다).
+            //   (메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 람다를 지웠다 — 이 예약 경로가 실기 메테오 4회에서 실행됐다.)
             return (team, center, radius, rawDamage, sourceBuildingId) =>
-                ScheduleImpact(team, center, radius, rawDamage, sourceBuildingId, impactDelay, sequence);
+                ScheduleImpact(team, center, radius, rawDamage, sourceBuildingId, impactDelay, sequence, burnPerSecond, burnDuration);
         }
 
         /// <summary>
         /// 착탄 예약 1건을 저장한다. 경기 종료로 닫힌 뒤라면 저장하지 않는다(결정 b).
         /// </summary>
+        // [2026-11-18 메테오 Task] 맨 뒤에 화상 두 인자(생략 = 0 = 화상 없음)를 덧붙였다.
         private void ScheduleImpact(TeamId team, Vector3 center, float radius, int rawDamage, int sourceBuildingId,
-                                    float delay, int sequence)
+                                    float delay, int sequence, float burnPerSecond = 0f, float burnDuration = 0f)
         {
             if (_impactsClosed) return;
             _pendingImpacts.Add(new PendingImpact
@@ -403,7 +522,10 @@ namespace Hexiege.Application
                 SourceBuildingId = sourceBuildingId,
                 Sequence = sequence,
                 Remaining = delay,
-                Delay = delay
+                Delay = delay,
+                // [2026-11-18 메테오] 착탄 화상 값(포격은 0 — 착탄 처리가 예전과 같다).
+                BurnPerSecond = burnPerSecond,
+                BurnDuration = burnDuration
             });
             // [진단 L17] 착탄 예약 1줄(포격 시나리오 1 — 예약 지연 값).
             LogImpactScheduled(team, center, radius, rawDamage, sourceBuildingId, delay, sequence);
@@ -426,7 +548,11 @@ namespace Hexiege.Application
             {
                 PendingImpact p = _pendingImpacts[i];
                 p.Remaining -= dt;
-                if (p.Remaining <= 0f) _dueImpactBuffer.Add(p);
+                // [2026-11-17 공습 Task L-1] 공습 폭격만 아주 작은 여유(LineStrikeDueEpsilon)를 두고 "다 됐다"로 본다.
+                //   이유: 0.4초에서 0.1초를 네 번 빼면 float 오차로 0이 아니라 아주 작은 양수가 남아(실측 — 0.4 · 0.6은 한 틱 늦은
+                //   0.5 · 0.7초에 떨어진다) 폭격 간격이 0.2초가 아니게 된다. 여유 0.0001초는 틱 0.1초보다 천 배 작아 다른 틱을 앞당기지 않는다.
+                //   포격 등 기존 원형 착탄은 여유 0 그대로라 착탄 시각이 바뀌지 않는다(Plan LS-T10 — 원형 스킬 무변경).
+                if (p.Remaining <= (p.IsLineStrike ? LineStrikeDueEpsilon : 0f)) _dueImpactBuffer.Add(p);
                 else _pendingImpacts[keep++] = p;
             }
             _pendingImpacts.RemoveRange(keep, _pendingImpacts.Count - keep);
@@ -443,9 +569,19 @@ namespace Hexiege.Application
                     break;
                 }
                 PendingImpact p = _dueImpactBuffer[i];
+                // [2026-11-17 공습 Task L-1] 공습 폭격 1회분이면 직선 처리로 보낸다(원형 착탄 경로 · 진단 줄은 타지 않는다).
+                //   같은 틱에 여러 폭격이 다 돼도 예약된 순서(= 폭격 번호 순서)대로 처리된다 — 목록 순서를 지키기 때문이다.
+                if (p.IsLineStrike)
+                {
+                    ProcessLineStrikeImpact(p);
+                    continue;
+                }
                 // [진단 L18] 착탄 "직전" 원 안 대상을 판정과 같은 기준으로 붙잡아 둔다(피해 뒤 사망 수를 세기 위해).
                 DiagCaptureImpactTargets(p);
-                ApplyInstantAreaDamageBridge(p.Team, p.Center, p.Radius, p.RawDamage, p.SourceBuildingId);
+                // [2026-11-18 메테오 Task — Plan P-3] 착탄 화상이 있는 예약이면 피해 + 화상을 함께 처리한다(SkillActivationUseCase.ImpactBurn.cs).
+                //   화상 칸이 0인 예약(포격)은 아래 메서드 안에서 예전과 같은 ApplyInstantAreaDamageBridge 호출을 한다.
+                //   (메테오 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 이 줄이 실기 메테오 착탄에서 실행됐다.)
+                ApplyPendingImpactDamage(p);
                 // [진단 L18] 실제 착탄 피해 1줄 — 발동 뒤 몇 ms · 맞은 수 · 죽은 수 · 시전 건물 생존 여부.
                 LogImpactApplied(p);
             }
@@ -463,6 +599,9 @@ namespace Hexiege.Application
             if (!_impactsClosed && _pendingImpacts.Count > 0) LogImpactDropped(_pendingImpacts.Count, "GameEnd");
             _impactsClosed = true;
             _pendingImpacts.Clear();
+            // [2026-11-17 공습 Task L-1] 아직 끝나지 않은 공습 시전을 「경기 종료」로 마감한다(남은 폭격 = 버림 · LineStrikeEnded 1줄).
+            //   폭격 처리 도중(그 폭격 피해로 성이 무너져) 여기가 불렸으면, 그 시전은 처리 중인 폭격을 마친 뒤에 마감한다.
+            CloseLineStrikes("GameEnd");
         }
 
         /// <summary> 아직 착탄하지 않은 예약 수(확인 · 검증용). </summary>
@@ -539,6 +678,36 @@ namespace Hexiege.Application
                 return;
             }
             _zoneSystem.CreateZone(sequence, team, slot, buildingId, center, radius, duration, kind, magnitude, targetsAllies);
+        }
+
+        // ====================================================================
+        // 지원 스킬 효과 다리 — 2026-11-16 지원 스킬 새 상태 Task 단계 A(구현 단위 A-1)
+        // ====================================================================
+        //
+        // 실행기(GlobalStatusChangeExecutor) → SupportSkillEffectSystem 다리(델리게이트).
+        //   Activate는 서버에서만 불리므로 이 다리도 서버에서만 돈다(스킬 규칙 25). 효과 알림 RPC는 따로 없다 —
+        //   유닛 상태 VFX는 기존 발동 알림으로, Client 생산 막대는 발동 알림을 받은 순간의 로컬 거울로 맞춘다(Plan S-9 · 스키마 9 유지).
+        private void ApplySupportEffectBridge(TeamId casterTeam, TeamId targetTeam, SkillEffectTarget target, StatusEffectKind kind,
+                                              float magnitude, float duration, int sequence, int slot, int buildingId)
+        {
+            // [진단] 타입 C가 실제로 효과를 걸러 왔다 → BuffNoEffect Warn을 내지 않게 표시한다(상태 시스템 다리와 같은 표시).
+            DiagMarkGlobalStatusBridgeCalled();
+            if (_supportEffects == null)
+            {
+                // [진단] 배선 누락으로 효과가 걸리지 않았다는 Warn 1줄(조용한 무효과를 로그로 드러낸다 — EMP · 구역 선례).
+                LogSupportEffectUnwired(casterTeam, slot, sequence, kind);
+                return;
+            }
+            _supportEffects.Apply(sequence, casterTeam, slot, buildingId, targetTeam, target, kind, magnitude, duration);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogSupportEffectUnwired(TeamId team, int slot, int sequence, StatusEffectKind kind)
+        {
+            GameLog.Dev.Warn("Skill", nameof(SkillActivationUseCase), "[SKILL-SUPPORT] EffectRejected",
+                FormattableString.Invariant(
+                    $"Diag=SkillSupport, DiagRev=1, Event=EffectRejected, Role={DiagRole()}, Seq={sequence}, Team={team}, Slot={slot}, Kind={kind}, Reason=SupportSystemMissing"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
@@ -661,6 +830,8 @@ namespace Hexiege.Application
             _cooldownTotal.Clear();
             // 2026-11-03: 초기화 뒤에 이전 경기의 포탄이 떨어지지 않도록 착탄 예약도 비운다(닫힘 여부는 바꾸지 않는다).
             _pendingImpacts.Clear();
+            // [2026-11-17 공습 Task L-1] 공습 시전 상태(「이미 맞은 대상」 기록 등)도 함께 비운다 — 예약이 사라졌으니 마감 처리(Reason=Cleared).
+            CloseLineStrikes("Cleared");
         }
 
         // ====================================================================
@@ -689,12 +860,14 @@ namespace Hexiege.Application
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        // [2026-11-17 공습 Task L-2] 맨 뒤에 방향 키 두 개(DirXMilli · DirZMilli — 방향 성분 × 1000 정수)를 덧붙였다.
+        //   공습이 아닌 스킬은 0 · 0이다. 기존 키 · 순서는 그대로라 이 줄을 읽는 판정은 바뀌지 않는다.
         private static void LogActivationConfirmed(TeamId team, int buildingId, int slot, SkillData skill, bool hasAim,
-                                                   Vector3 aim, int sequence)
+                                                   Vector3 aim, int sequence, Vector3 direction = default)
         {
             GameLog.Dev.Info("Skill", nameof(SkillActivationUseCase), "[SKILL-VFX] ActivationConfirmed",
                 FormattableString.Invariant(
-                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationConfirmed, Role={DiagRole()}, Team={team}, BuildingId={buildingId}, Slot={slot}, Mechanic={skill.Mechanic}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aim.x)}, AimZmm={DiagMilli(aim.z)}, RadiusMm={DiagMilli(skill.Radius)}, CooldownMs={DiagMilli(skill.Cooldown)}, ImpactDelayMs={DiagMilli(skill.ImpactDelay)}, DurationMs={DiagMilli(skill.Duration)}"));
+                    $"Diag=SkillVfx, DiagRev=1, Event=ActivationConfirmed, Role={DiagRole()}, Team={team}, BuildingId={buildingId}, Slot={slot}, Mechanic={skill.Mechanic}, Sequence={sequence}, HasAim={hasAim}, AimXmm={DiagMilli(aim.x)}, AimZmm={DiagMilli(aim.z)}, RadiusMm={DiagMilli(skill.Radius)}, CooldownMs={DiagMilli(skill.Cooldown)}, ImpactDelayMs={DiagMilli(skill.ImpactDelay)}, DurationMs={DiagMilli(skill.Duration)}, DirXMilli={DiagMilli(direction.x)}, DirZMilli={DiagMilli(direction.z)}"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]

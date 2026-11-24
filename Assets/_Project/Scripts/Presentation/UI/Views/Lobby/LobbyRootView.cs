@@ -48,6 +48,9 @@ namespace Hexiege.Presentation
 
         [SerializeField] private RankingView _rankingView;
 
+        [Tooltip("이 로비의 종족 미리보기 전용 카메라. 메인 카메라는 연결하지 않는다.")]
+        [SerializeField] private Camera _characterPreviewCamera;
+
         [Header("탭 패널")]
         [Tooltip("전투 탭 패널 (BattleRootView 부착 오브젝트)")]
         [SerializeField] private GameObject _battlePanel;
@@ -83,6 +86,10 @@ namespace Hexiege.Presentation
         private CanvasGroup _profilePanelGroup;
         private CanvasGroup _settingPanelGroup;
         private CanvasGroup _rankingPanelGroup;
+        private bool _previewGateReady;
+        private bool _previewOriginallyEnabled;
+        private bool _previewBoundToTabs;
+        private bool _previewBattleSelected = true;
 
         // ====================================================================
         // Unity 생명주기
@@ -99,7 +106,14 @@ namespace Hexiege.Presentation
             _profilePanelGroup = _profilePanel?.GetComponent<CanvasGroup>();
             _settingPanelGroup = _settingPanel?.GetComponent<CanvasGroup>();
             _rankingPanelGroup = _rankingPanel?.GetComponent<CanvasGroup>();
+            _previewGateReady = _characterPreviewCamera != null && _battlePanelGroup != null
+                && _characterPreviewCamera.gameObject.scene == gameObject.scene
+                && _characterPreviewCamera.targetTexture != null;
+            if (_previewGateReady) _previewOriginallyEnabled = _characterPreviewCamera.enabled;
         }
+
+        private void OnEnable() => ApplyPreviewCameraVisibility(isActiveAndEnabled);
+        private void OnDisable() => ApplyPreviewCameraVisibility(false);
 
         private void Start()
         {
@@ -118,6 +132,7 @@ namespace Hexiege.Presentation
                 //   같은 사건에는 같은 축 값을 준다 — 계층마다 판정이 흔들리면 지표가 갈라진다.
                 GameLog.Dev.Warn("Network", nameof(LobbyRootView),
                                  "NetworkGameManager 를 찾을 수 없다 — 로비 기능을 초기화하지 못한다");
+                ApplyPreviewCameraVisibility(isActiveAndEnabled);
                 return;
             }
 
@@ -144,6 +159,9 @@ namespace Hexiege.Presentation
             _lobbyViewModel.CurrentTab
                 .Subscribe(tab =>
                 {
+                    _previewBoundToTabs = true;
+                    _previewBattleSelected = tab == LobbyViewModel.LobbyTab.Battle;
+                    ApplyPreviewCameraVisibility(isActiveAndEnabled);
                     SetPanelVisible(_battlePanelGroup, tab == LobbyViewModel.LobbyTab.Battle);
                     SetPanelVisible(_shopPanelGroup, tab == LobbyViewModel.LobbyTab.Shop);
                     SetPanelVisible(_profilePanelGroup, tab == LobbyViewModel.LobbyTab.Profile);
@@ -171,8 +189,18 @@ namespace Hexiege.Presentation
                 Hexiege.Infrastructure.LobbyReturnPerformanceDiagnostics.Checkpoint.LobbyStartCompleted, measurementTicket);
         }
 
+        // 원래 disabled인 카메라는 켜지 않는다. 패널 표시와 일치할 때만 기존 enabled를 복원한다.
+        private void ApplyPreviewCameraVisibility(bool ownerActive)
+        {
+            if (!_previewGateReady || _characterPreviewCamera == null) return;
+            bool visible = _previewBoundToTabs ? _previewBattleSelected : _battlePanelGroup.alpha > 0f;
+            bool enabled = _previewOriginallyEnabled && ownerActive && visible;
+            if (_characterPreviewCamera.enabled != enabled) _characterPreviewCamera.enabled = enabled;
+        }
+
         private void OnDestroy()
         {
+            ApplyPreviewCameraVisibility(false);
             // 하위 View 구독 해제
             if (_tabBarView != null)
                 _tabBarView.Unbind();

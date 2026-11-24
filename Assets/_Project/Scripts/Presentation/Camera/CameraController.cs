@@ -8,6 +8,10 @@
 //   - 기본 뷰: 고정 각도 탑다운 (Perspective 또는 Orthographic)
 //   - 화면 이동: 한 손가락 드래그 (Pan) — XZ 평면
 //   - 확대/축소: 두 손가락 핀치 또는 마우스 스크롤 (Zoom)
+//   - [2026-11-17 공습 Task L-3 — 사용자 결정 U-11] 두 손가락 = 화면 이동(두 손가락 가운데 점의 이동) + 줌(손가락 사이 거리 변화).
+//     평소와 스킬 조준 중 모두 쓴다. PC(에디터)는 마우스 오른쪽 버튼을 누른 채 끌면 화면 이동(평소 · 조준 중).
+//     조준 중에는 한 손가락 · 왼쪽 버튼 팬만 지금처럼 억제한다(한 손가락은 조준 전용).
+//     진단 로그 [CAM-GESTURE] GestureBegin · GestureEnd(제스처 시작 · 끝에만 1줄).
 //   - 줌 범위: GameConfig에서 설정 (기본 3 ~ 12)
 //   - 이동 제한: 맵 경계 내 (XZ 평면)
 //
@@ -31,6 +35,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using DG.Tweening;
 using Hexiege.Infrastructure;
+using Hexiege.Application; // 2026-11-17 — 진단 로그 GameLog([CAM-GESTURE])
 
 namespace Hexiege.Presentation
 {
@@ -83,6 +88,9 @@ namespace Hexiege.Presentation
             _zoomTween = null;
             if (_cam != null) _targetZoom = _cam.orthographicSize;
             _ignoreGestureUntilReleased = true;
+            // [2026-11-17 L-3] 두 손가락 · 오른쪽 버튼 제스처도 함께 끊는다(진단 GestureEnd 는 남기지 않는다 — 정상 종료가 아니라 UI 전환 정리).
+            _twoFingerActive = false;
+            _isRightDragging = false;
         }
 
 
@@ -229,23 +237,22 @@ namespace Hexiege.Presentation
             }
 
             // --- 모바일 핀치 ---
-            var touchscreen = Touchscreen.current;
-            if (touchscreen != null && UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count == 2)
-            {
-                var touches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
-                Vector2 t0Pos = touches[0].screenPosition;
-                Vector2 t1Pos = touches[1].screenPosition;
-                Vector2 t0Delta = touches[0].delta;
-                Vector2 t1Delta = touches[1].delta;
+            // [2026-11-17 공습 Task L-3 — U-11] 두 손가락 핀치 줌은 「두 손가락 = 화면 이동(중점) + 줌(거리)」 한 처리로 옮겼다
+            //   (HandleTwoFingerGesture — HandlePan 안). 줌 계산식(거리 변화 × 줌 속도 × 0.01)은 그대로 옮겼으므로 줌 크기는 같다(R-13).
 
-                // 이전 프레임과 현재 프레임의 두 터치 사이 거리 비교
-                float prevDist = Vector2.Distance(t0Pos - t0Delta, t1Pos - t1Delta);
-                float currDist = Vector2.Distance(t0Pos, t1Pos);
+            // [2026-11-17] 줌 적용(목표 줌 + DOTween 보간)은 두 손가락 제스처도 함께 쓰도록 ApplyZoomDelta 로 옮겼다(같은 코드).
+            ApplyZoomDelta(zoomDelta, zoomMin, zoomMax);
+        }
 
-                float diff = prevDist - currDist;
-                zoomDelta = diff * zoomSpeed * 0.01f;
-            }
-
+        /// <summary>
+        /// 줌 변화량을 목표 줌에 더하고(min~max 범위로 자름) DOTween 으로 부드럽게 보간한다.
+        /// (2026-11-17 — 옛 HandleZoom 끝 블록을 그대로 옮긴 것. 휠 줌과 두 손가락 줌이 함께 쓴다.)
+        /// </summary>
+        /// <param name="zoomDelta">orthographicSize 변화량(+ = 줌아웃, − = 줌인).</param>
+        /// <param name="zoomMin">최소 orthographicSize.</param>
+        /// <param name="zoomMax">최대 orthographicSize.</param>
+        private void ApplyZoomDelta(float zoomDelta, float zoomMin, float zoomMax)
+        {
             if (Mathf.Abs(zoomDelta) > 0.001f)
             {
                 _targetZoom = Mathf.Clamp(_targetZoom + zoomDelta, zoomMin, zoomMax);
@@ -273,6 +280,8 @@ namespace Hexiege.Presentation
         ///   → 마우스/손가락 아래의 맵 위치가 고정되어 "맵을 끌고 다니는" 느낌
         ///
         /// 2터치(핀치) 중에는 팬을 비활성화하여 줌과 충돌 방지.
+        ///   → [2026-11-17 U-11 갱신] 이제 2터치 = 팬(가운데 점) + 줌(거리)을 함께 처리한다(HandleTwoFingerGesture).
+        ///     PC 는 오른쪽 버튼 끌기도 팬이다(HandleRightDragPan). 조준 중에는 이 둘만 통과하고 한 손가락 · 왼쪽 버튼 팬은 억제한다.
         ///
         /// InputHandler와의 충돌 방지:
         ///   - InputHandler는 터치 release 시 drag 거리 &lt; 10px이면 클릭 처리
@@ -289,29 +298,51 @@ namespace Hexiege.Presentation
         /// </summary>
         private void HandlePan()
         {
-            // 스킬 지점 조준 중에는 카메라 드래그 팬을 억제한다(입력 소유권 — 조준 컨트롤러가 엣지 스크롤로만 이동).
-            // 랠리 모드가 InputHandler 타일 선택을 억제하는 것과 동일한 우선순위 가드다.
-            if (SkillAimController.IsAiming)
-            {
-                _isDragging = false;
-                return;
-            }
+            // [2026-11-17 공습 Task L-3 — U-11] 아래 조준 중 가드를 "뒤로" 옮겼다.
+            //   조준 중에도 두 손가락(화면 이동 + 줌)과 마우스 오른쪽 버튼 끌기(화면 이동)는 통과시키고,
+            //   한 손가락 · 왼쪽 버튼 팬만 지금처럼 억제한다(한 손가락은 조준 전용 — U-9).
 
-            // 2터치(핀치 줌) 중에는 팬 비활성화 (마우스/터치 공통 가드)
+            // [2026-11-17 — U-11] 「2터치 중에는 팬 비활성화」 가드를 없앴다. 이제 두 손가락 = 화면 이동(중점) + 줌(거리)이다
+            //   (아래 HandleTwoFingerGesture — 평소 · 조준 중 모두).
             var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
-            if (activeTouches.Count >= 2)
-            {
-                _isDragging = false;
-                return;
-            }
+            bool aiming = SkillAimController.IsAiming;
 
             float panSpeed = _config != null ? _config.CameraPanSpeed : 1f;
+
+            // 지금 "눌려 있는"(이번 프레임에 끝나지 않은) 손가락 수. activeTouches 에는 이번 프레임에 뗀 손가락도 들어 있어
+            //   그대로 세면 손을 뗀 프레임에 손가락 수가 하나 많게 보인다.
+            int pressedTouches = CountPressedTouches(activeTouches);
+
+            // --- 두 손가락 = 화면 이동 + 줌 (평소 · 조준 중 공통 — 2026-11-17 U-11) ---
+            if (Touchscreen.current != null && pressedTouches >= 2)
+            {
+                HandleTwoFingerGesture(activeTouches, aiming, panSpeed);
+                return;
+            }
+            if (_twoFingerActive)
+            {
+                // 두 손가락 → 한 손가락 / 0 손가락으로 줄었다 → 제스처 끝(1줄 진단).
+                //   한 손가락이 남으면 아래 한 손가락 팬이 _isDragging == false 를 보고 기준점을 "지금 손가락 위치"로 다시 잡는다(R-17 — 튐 방지).
+                EndTwoFingerGesture(pressedTouches, aiming);
+            }
+
+            // --- 마우스 오른쪽 버튼 끌기 = 화면 이동 (PC · 에디터, 평소 · 조준 중 공통 — 2026-11-17 U-11) ---
+            var mouse = Mouse.current;
+            if (mouse != null && activeTouches.Count == 0)
+                HandleRightDragPan(mouse, aiming, panSpeed);
+
+            // 조준 중에는 한 손가락 · 왼쪽 버튼 팬을 억제한다(옛 맨 위 가드와 같은 동작 — 한 손가락은 조준 전용, U-9).
+            if (aiming)
+            {
+                _isDragging = false;
+                return;
+            }
 
             // --- 마우스 팬 (에디터 및 데스크톱) ---
             // activeTouches.Count == 0: 모바일에서 Mouse.current가 null이 아닐 수 있으므로
             // 터치가 없을 때만 마우스 팬 처리 (터치 팬과 충돌 방지)
-            var mouse = Mouse.current;
-            if (mouse != null && activeTouches.Count == 0)
+            // [2026-11-17] `!_isRightDragging` 을 더했다 — 오른쪽 버튼으로 끄는 중에는 왼쪽 버튼 팬이 같은 프레임에 겹쳐 움직이지 않게.
+            if (mouse != null && activeTouches.Count == 0 && !_isRightDragging)
             {
                 // 드래그 시작 (마우스 왼쪽 버튼)
                 if (mouse.leftButton.wasPressedThisFrame)
@@ -339,33 +370,208 @@ namespace Hexiege.Presentation
             // --- 터치 팬 (실제 모바일 디바이스) ---
             // Touchscreen.current != null: 실제 터치스크린 기기에서만 처리
             // (mouse == null 조건은 Android에서 가상 마우스 때문에 항상 false가 될 수 있음)
-            if (Touchscreen.current != null && activeTouches.Count == 1)
+            // [2026-11-17 공습 Task L-3 — 메인 세션 검토 c · R-17] 한 손가락 팬을 아래처럼 고쳤다.
+            //   옛 코드는 기준점(_dragOrigin)을 터치 Began 에서만 잡아서, 두 손가락 → 한 손가락으로 돌아오면 남은 손가락은 Began 이 아니라
+            //   예전 기준점으로 계산되어 화면이 튀었다. 또 activeTouches.Count == 1 조건은 "손을 뗀 프레임의 손가락"까지 세어
+            //   두 손가락 중 하나를 뗀 프레임에는 한 손가락 팬이 돌지 않았다. 그래서 "지금 눌려 있는" 손가락 수로 세고,
+            //   팬이 꺼져 있다가 한 손가락이 되면 그 순간의 손가락 위치를 기준점으로 다시 잡는다.
+            if (Touchscreen.current != null)
             {
-                var touch = activeTouches[0];
-
-                // 터치 시작 — 드래그 원점 기록
-                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
+                if (pressedTouches == 1 && TryGetFirstPressedTouch(activeTouches, out var touch))
                 {
-                    _dragOrigin = ScreenToXZPlane(touch.screenPosition);
-                    _isDragging = true;
+                    if (!_isDragging)
+                    {
+                        // 한 손가락 팬 시작 — 새 터치(Began)든, 두 손가락에서 한 손가락으로 돌아온 경우든
+                        //   "지금 손가락 위치"를 기준점으로 잡는다(기준점 재설정 — 튐 방지, R-17).
+                        _dragOrigin = ScreenToXZPlane(touch.screenPosition);
+                        _isDragging = true;
+                    }
+                    else
+                    {
+                        // 터치 이동 — XZ 평면상 월드 좌표 차이만큼 카메라 이동(옛 코드와 같은 계산)
+                        Vector3 currentPos = ScreenToXZPlane(touch.screenPosition);
+                        Vector3 diff = _dragOrigin - currentPos;
+                        transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
+                    }
                 }
-
-                // 터치 이동 — XZ 평면상 월드 좌표 차이만큼 카메라 이동
-                if (_isDragging && (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved
-                    || touch.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
+                else if (pressedTouches == 0)
                 {
-                    Vector3 currentPos = ScreenToXZPlane(touch.screenPosition);
-                    Vector3 diff = _dragOrigin - currentPos;
-                    transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
-                }
-
-                // 터치 종료
-                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended
-                    || touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
-                {
+                    // 터치 종료(모든 손가락이 떨어짐)
                     _isDragging = false;
                 }
             }
+        }
+
+        // ====================================================================
+        // [2026-11-17 공습 Task L-3 — U-11] 두 손가락 화면 이동 + 줌 · 오른쪽 버튼 끌기 팬
+        // ====================================================================
+
+        // 두 손가락 제스처가 진행 중인가.
+        private bool _twoFingerActive;
+        // 마우스 오른쪽 버튼 끌기 팬이 진행 중인가 + 그 기준점(XZ 평면 월드).
+        private bool _isRightDragging;
+        private Vector3 _rightDragOrigin;
+        // 제스처 하나 동안 카메라가 움직인 거리 합(월드) · 시작 때 목표 줌 — 진단 로그 GestureEnd 1줄용(매 프레임 남기지 않는다).
+        private float _gesturePanWorld;
+        private float _gestureZoomBefore;
+
+        /// <summary> 이번 프레임에 끝나지 않은(눌려 있는) 손가락 수. Ended · Canceled 단계는 세지 않는다. </summary>
+        private static int CountPressedTouches(
+            UnityEngine.InputSystem.Utilities.ReadOnlyArray<UnityEngine.InputSystem.EnhancedTouch.Touch> touches)
+        {
+            int n = 0;
+            for (int i = 0; i < touches.Count; i++)
+                if (IsPressedPhase(touches[i].phase)) n++;
+            return n;
+        }
+
+        private static bool IsPressedPhase(UnityEngine.InputSystem.TouchPhase phase)
+        {
+            return phase == UnityEngine.InputSystem.TouchPhase.Began
+                || phase == UnityEngine.InputSystem.TouchPhase.Moved
+                || phase == UnityEngine.InputSystem.TouchPhase.Stationary;
+        }
+
+        /// <summary> 눌려 있는 첫 손가락을 찾는다(손을 뗀 프레임의 손가락은 건너뛴다). </summary>
+        private static bool TryGetFirstPressedTouch(
+            UnityEngine.InputSystem.Utilities.ReadOnlyArray<UnityEngine.InputSystem.EnhancedTouch.Touch> touches,
+            out UnityEngine.InputSystem.EnhancedTouch.Touch touch)
+        {
+            for (int i = 0; i < touches.Count; i++)
+            {
+                if (IsPressedPhase(touches[i].phase))
+                {
+                    touch = touches[i];
+                    return true;
+                }
+            }
+            touch = default;
+            return false;
+        }
+
+        /// <summary>
+        /// 두 손가락 = 화면 이동(두 손가락 가운데 점의 이동) + 줌(두 손가락 사이 거리 변화) — 지도 앱 방식(U-11).
+        ///   · 줌: 옛 핀치 줌과 같은 식(이전 거리 − 지금 거리) × 줌 속도 × 0.01 → 평소 두 손가락 줌 크기는 전과 같다(R-13).
+        ///   · 이동: "지난 프레임 가운데 점 아래의 지도 지점"이 "지금 가운데 점" 아래로 오도록 카메라를 옮긴다.
+        ///     각 손가락의 이번 프레임 이동량(delta)으로 지난 프레임 위치를 구하므로, 손가락이 바뀌어도(세 번째 손가락 등) 튀지 않는다.
+        /// 눌려 있는 손가락이 3개 이상이면 앞의 2개만 쓴다. 조준 중에도 같다 — 조준 컨트롤러는 첫 손가락 아래 지점을 따라가고
+        /// 엣지 스크롤을 끈다(U-15 · U-18).
+        /// </summary>
+        private void HandleTwoFingerGesture(
+            UnityEngine.InputSystem.Utilities.ReadOnlyArray<UnityEngine.InputSystem.EnhancedTouch.Touch> touches,
+            bool aiming, float panSpeed)
+        {
+            // 눌려 있는 앞의 두 손가락.
+            int found = 0;
+            UnityEngine.InputSystem.EnhancedTouch.Touch t0 = default, t1 = default;
+            for (int i = 0; i < touches.Count && found < 2; i++)
+            {
+                if (!IsPressedPhase(touches[i].phase)) continue;
+                if (found == 0) t0 = touches[i]; else t1 = touches[i];
+                found++;
+            }
+            if (found < 2) return;
+
+            if (!_twoFingerActive)
+            {
+                // 제스처 시작 — 한 손가락 팬 · 오른쪽 버튼 팬은 멈춘다(두 손가락이 끝나면 한 손가락 팬은 기준점을 새로 잡는다).
+                _twoFingerActive = true;
+                _isDragging = false;
+                _isRightDragging = false;
+                _gesturePanWorld = 0f;
+                _gestureZoomBefore = _targetZoom;
+                LogGestureBegin("TwoFinger", aiming);
+            }
+
+            Vector2 p0 = t0.screenPosition, p1 = t1.screenPosition;
+            Vector2 q0 = p0 - t0.delta, q1 = p1 - t1.delta; // 지난 프레임 위치
+
+            // 줌(옛 핀치 줌과 같은 계산).
+            float zoomSpeed = _config != null ? _config.CameraZoomSpeed : 2f;
+            float zoomMin = _config != null ? _config.CameraZoomMin : 3f;
+            float zoomMax = _config != null ? _config.CameraZoomMax : 12f;
+            float prevDist = Vector2.Distance(q0, q1);
+            float currDist = Vector2.Distance(p0, p1);
+            ApplyZoomDelta((prevDist - currDist) * zoomSpeed * 0.01f, zoomMin, zoomMax);
+
+            // 이동(가운데 점 아래 지도 지점을 손가락에 붙인다 — 한 손가락 팬과 같은 "지도를 끌고 다니는" 느낌).
+            Vector2 prevMid = (q0 + q1) * 0.5f;
+            Vector2 mid = (p0 + p1) * 0.5f;
+            Vector3 diff = ScreenToXZPlane(prevMid) - ScreenToXZPlane(mid);
+            Vector3 move = new Vector3(diff.x, 0f, diff.z) * panSpeed;
+            transform.position += move;
+            _gesturePanWorld += move.magnitude;
+        }
+
+        /// <summary> 두 손가락 제스처 끝(손가락이 1개 이하로 줄었다) — 진단 1줄. </summary>
+        private void EndTwoFingerGesture(int pressedTouches, bool aiming)
+        {
+            _twoFingerActive = false;
+            bool nextOneFinger = pressedTouches == 1;
+            // 조준 중이 아니고 한 손가락이 남으면 다음 한 손가락 팬이 기준점을 새로 잡는다(_isDragging 은 제스처 시작 때 false 로 둠).
+            bool originReset = nextOneFinger && !aiming;
+            LogGestureEnd("TwoFinger", aiming, nextOneFinger ? "OneFinger" : "None", originReset);
+        }
+
+        /// <summary>
+        /// 마우스 오른쪽 버튼을 누른 채 끌면 화면 이동(PC · 에디터 — U-11). 왼쪽 버튼 팬과 같은 계산(지도를 끌고 다니는 느낌).
+        /// 조준 중에도 동작한다(조준 컨트롤러는 왼쪽 버튼만 읽으므로 조준점 · 시작점은 움직이지 않는다).
+        /// </summary>
+        private void HandleRightDragPan(Mouse mouse, bool aiming, float panSpeed)
+        {
+            var right = mouse.rightButton;
+            if (right.wasPressedThisFrame && !_twoFingerActive)
+            {
+                _rightDragOrigin = ScreenToXZPlane(mouse.position.ReadValue());
+                _isRightDragging = true;
+                _gesturePanWorld = 0f;
+                _gestureZoomBefore = _targetZoom;
+                LogGestureBegin("RightDrag", aiming);
+            }
+
+            if (_isRightDragging && right.isPressed)
+            {
+                Vector3 currentPos = ScreenToXZPlane(mouse.position.ReadValue());
+                Vector3 diff = _rightDragOrigin - currentPos;
+                Vector3 move = new Vector3(diff.x, 0f, diff.z) * panSpeed;
+                transform.position += move;
+                _gesturePanWorld += move.magnitude;
+            }
+
+            if (_isRightDragging && !right.isPressed)
+            {
+                // 오른쪽 버튼을 뗐다(또는 포커스 이동 등으로 눌림이 풀렸다) → 끝.
+                _isRightDragging = false;
+                LogGestureEnd("RightDrag", aiming, "None", false);
+            }
+        }
+
+        // ── 진단 로그 [CAM-GESTURE] — 개발 축(GameLog.Dev = [Conditional]). 제스처 시작 · 끝에만 1줄(매 프레임 금지) ──
+
+        private static int Milli(float v)
+        {
+            if (float.IsNaN(v) || float.IsInfinity(v)) return 0;
+            return Mathf.RoundToInt(v * 1000f);
+        }
+
+        private static string AimModeLabel(bool aiming)
+        {
+            if (!aiming) return "None";
+            return SkillAimController.IsLineAim ? "Line" : "Circle";
+        }
+
+        private void LogGestureBegin(string input, bool aiming)
+        {
+            GameLog.Dev.Info("Input", nameof(CameraController), "[CAM-GESTURE] GestureBegin",
+                System.FormattableString.Invariant(
+                    $"Diag=CamGesture, DiagRev=1, Event=GestureBegin, Input={input}, Aiming={aiming}, AimMode={AimModeLabel(aiming)}, ZoomMilli={Milli(_targetZoom)}"));
+        }
+
+        private void LogGestureEnd(string input, bool aiming, string nextMode, bool originReset)
+        {
+            GameLog.Dev.Info("Input", nameof(CameraController), "[CAM-GESTURE] GestureEnd",
+                System.FormattableString.Invariant(
+                    $"Diag=CamGesture, DiagRev=1, Event=GestureEnd, Input={input}, Aiming={aiming}, AimMode={AimModeLabel(aiming)}, PanMilli={Milli(_gesturePanWorld)}, ZoomBefore={Milli(_gestureZoomBefore)}, ZoomAfter={Milli(_targetZoom)}, NextMode={nextMode}, OriginReset={originReset}"));
         }
 
         /// <summary>

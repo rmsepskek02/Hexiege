@@ -302,9 +302,12 @@ namespace Hexiege.Bootstrap
                 new PresentationPoseProvider(_unitFactory, _buildingFactory);
 
             // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 float로 읽어 주입.
-            // SO가 연결되지 않았으면 코드 기본값(반경 1.0 / 반각 120°)을 폴백으로 사용하여
+            // SO가 연결되지 않았으면 코드 기본값(반경 0.75 / 반각 120°)을 폴백으로 사용하여
             // 미주입 상태에서도 휩쓸기가 동작하게 한다. (Application이 SO를 직접 참조하지 않음)
-            float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
+            // [2026-11-23 기본값 정정] 폴백 반경을 실제 에셋 값 0.75 로 맞췄다(직전 1.0).
+            //   SO가 연결되어 있으면(Game 씬은 연결돼 있다) 이 폴백은 쓰이지 않으므로 게임 동작은 바뀌지 않는다. 옛 줄(기록용):
+            // float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
+            float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 0.75f;
             float sweepArcHalfAngle = _specialAttackConfig != null ? _specialAttackConfig.SweepArcHalfAngle : 120f;
 
             // TorrentSpirit 파도 튜닝값 — 마찬가지로 SO에서 float로 읽어 주입(미연결 시 코드 폴백).
@@ -427,6 +430,25 @@ namespace Hexiege.Bootstrap
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
 
+            // [2026-11-17 공습 Task L-1 — U-14 · P-13] 공습 직선의 「맵 밖 잘라내기」에 쓸 맵 경계 사각형 함수.
+            //   경계 계산(HexMetrics.ComputeMapWorldBounds — 위 재검증과 같은 사각형)은 Core에 있어 Application이 직접 부르지 못하므로
+            //   여기서 함수로 넣어 준다. 람다가 호출 시점의 _grid를 읽으므로 맵을 다시 불러와도 최신 그리드 크기를 쓴다.
+            //   그리드가 없으면 false → 공습은 잘라내지 않고 원래 길이를 쓴다(진단 MapBounds=Missing).
+            //   공습 자산은 L-6에서 「사용 가능」으로 켜져, 공습 발동 때 서버가 이 함수로 맵 안 유효 길이를 계산한다.
+            //   *(2026-11-18 갱신 — 직전 「⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 공습 자산은 아직 「사용 불가」(Plan L-6에서 켬)라
+            //   이 함수를 부르는 곳이 없다」)*
+            _skillActivation.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
+            {
+                if (_grid == null)
+                {
+                    boundsMin = Vector3.zero;
+                    boundsMax = Vector3.zero;
+                    return false;
+                }
+                HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
+                return true;
+            });
+
             // ────────────────────────────────────────────────────────────
             // [EMP — 2026-11-04 EMP Task 커밋 1] 건물 상태 서비스(방어탑 무력화 저장소, 서버 권위 — Plan 3-2 B1).
             //   맵을 불러올 때마다 새로 만든다(위 상태 시스템 · 스킬 UseCase와 같은 수명) → 이전 경기의 무력화가 남지 않는다.
@@ -477,6 +499,50 @@ namespace Hexiege.Bootstrap
             });
 
             // ────────────────────────────────────────────────────────────
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 A] 지원 스킬 효과 서비스(서버 권위 — Plan S-13).
+            //   대지의 갑주(유닛 받는 피해 배율) · 전술 지령 생산 속도(팀 생산 배율)를 보관한다. 맵마다 새로 만든다(이전 경기 효과 없음).
+            //   같은 인스턴스를 네 곳에 준다(모두 설정자 주입 — 생성자 무변경, Editor fixture 보호):
+            //     [A-1] ① 스킬 UseCase — 타입 C 실행기가 효과를 건다(쓰기) + 권위 틱 TickSupportEffects · 경기 종료 CloseSupportEffects.
+            //     [A-2] ② 전투 UseCase · ③ 탑 UseCase — 피해 지점 6곳의 헬퍼가 「이 유닛의 받는 피해 배율」을 묻는다(읽기).
+            //     [A-3] ④ 생산 UseCase — 아래 생산 UseCase 생성 직후에 준다(팀 생산 배율 읽기).
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 효과가 하나도 없으면 모든 조회가 1(곱하지 않음)이다.
+            // ────────────────────────────────────────────────────────────
+            _supportSkillEffects = new SupportSkillEffectSystem(_unitSpawn);
+            _skillActivation.SetSupportSkillEffectSystem(_supportSkillEffects);   // [A-1]
+            _unitCombat.SetSupportSkillEffectSystem(_supportSkillEffects);        // [A-2]
+            _towerCombat.SetSupportSkillEffectSystem(_supportSkillEffects);       // [A-2]
+
+            // [A-1] 유닛이 죽으면 그 유닛의 지원 스킬 효과를 바로 지운다(묶음의 마지막 대상이면 진단 끝 줄 Reason=AllTargetsGone).
+            //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 효과가 걸리지 않으므로 지울 것이 없다(구역 구독과 같은 패턴).
+            _supportEffectUnitDiedSub?.Dispose();
+            _supportEffectUnitDiedSub = GameEvents.OnUnitDied.Subscribe(e =>
+            {
+                if (e.Unit == null) return;
+                _supportSkillEffects?.NotifyUnitDied(e.Unit.Id);
+            });
+
+            // ────────────────────────────────────────────────────────────
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 C — C-1] 건물 쉴드(신목의 각성)용 배선.
+            //   ① 건물 목록 주입(설정자 — 생성자 무변경): 발동 순간 살아 있는 시전 팀 건물을 모으고, 권위 틱이 사라진 건물을 정리한다.
+            //   ② 건물이 파괴 · 철거되면(OnBuildingDied) 그 건물의 효과를 바로 지운다(사망과 같게 센다).
+            //   ③ 건물이 업그레이드되면(OnBuildingUpgraded — 옛 Id) 옛 건물의 효과를 버린다(새 Id에 넘기지 않는다 — Plan S-11).
+            //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 효과가 걸리지 않으므로 지울 것이 없다(유닛 사망 구독과 같은 패턴).
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 건물 쉴드 기록이 하나도 없으면 피해 헬퍼가 받은 값을 그대로 넘긴다.
+            // ────────────────────────────────────────────────────────────
+            _supportSkillEffects.SetBuildingPlacement(_buildingPlacement);
+            _supportEffectBuildingDiedSub?.Dispose();
+            _supportEffectBuildingDiedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (e.Building == null) return;
+                _supportSkillEffects?.NotifyBuildingRemoved(e.Building.Id, upgraded: false);
+            });
+            _supportEffectBuildingUpgradedSub?.Dispose();
+            _supportEffectBuildingUpgradedSub = GameEvents.OnBuildingUpgraded.Subscribe(e =>
+            {
+                _supportSkillEffects?.NotifyBuildingRemoved(e.OldBuildingId, upgraded: true);
+            });
+
+            // ────────────────────────────────────────────────────────────
             // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
             //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
             //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.
@@ -490,6 +556,9 @@ namespace Hexiege.Bootstrap
                 mistCooldown,
                 mistRadius,
                 mistHealTextInterval);
+            // [2026-11-17 지원 스킬 새 상태 Task 단계 B — B-2] 물안개 회복에도 받는 회복 배율(재생의 뿌리)을 건다 — 위에서 만든 같은 서비스.
+            //   설정자 주입(생성자 무변경). 효과가 없는 대상이면 물안개 회복량은 지금과 같다(곱하지 않음).
+            _mistShrine.SetSupportSkillEffectSystem(_supportSkillEffects);
 
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.
@@ -522,6 +591,29 @@ namespace Hexiege.Bootstrap
             _population = new PopulationUseCase(_grid, _unitSpawn, _buildingPlacement);
             _unitProduction = new UnitProductionUseCase(
                 _grid, _unitSpawn, _resource, _population, _buildingPlacement);
+
+            // [2026-11-16 지원 스킬 새 상태 — A-3] 전술 지령 생산 속도(Plan S-9 안 A).
+            //   서버 · 싱글: 생산 진행이 위 지원 스킬 효과 서비스의 팀 배율을 매 틱 곱한다(배율 없으면 1 — 기존과 같다).
+            _unitProduction.SetProductionSpeedSource(_supportSkillEffects);
+            //   순수 클라이언트: 스킬 발동 알림(OnSkillActivationReceived — 순수 클라에서만 발행된다)을 받은 순간
+            //   자기 빌드의 스킬 데이터에서 생산 배율 · 지속을 찾아 진행 막대 거울에 기록한다(새 RPC 없음 — 스키마 9 유지).
+            //   람다가 호출 시점의 필드를 읽으므로 항상 이번 경기의 UseCase를 쓴다. 블록 본문 람다(진단 [Conditional] 보존 — LogRules 1.7).
+            _productionMirrorActivationSub?.Dispose();
+            _productionMirrorActivationSub = GameEvents.OnSkillActivationReceived.Subscribe(p =>
+            {
+                if (_unitProduction == null || _skillActivation == null) return;
+                try
+                {
+                    SkillData mirrorSkill = _skillActivation.FindSkillData(p.Team, p.Slot);
+                    _unitProduction.MirrorProductionSpeedFromSkill(mirrorSkill, p.Team, p.Sequence, p.Slot, p.BuildingId);
+                }
+                catch (Exception ex)
+                {
+                    // 화면 막대 거울 실패는 게임 결과와 무관하다 — 다른 발동 알림 구독자(VFX)까지 끊기지 않게 여기서 멈춘다.
+                    GameLog.Dev.Warn("Skill", nameof(GameBootstrapper), "[SKILL-PROD] ProdMirrorFault",
+                        $"Diag=SkillProd, DiagRev=1, Event=ProdMirrorFault, Seq={p.Sequence}, Slot={p.Slot}, Error={ex.GetType().Name}");
+                }
+            });
 
             // 게임 종료 판정
             _gameEnd = new GameEndUseCase();
@@ -665,6 +757,34 @@ namespace Hexiege.Bootstrap
                     domain => _grid != null ? HexMetrics.ClampToMapBounds(domain, _grid.Width, _grid.Height) : domain,
                     // 연속 도메인 좌표가 맵 경계 안인지 판정(기본 조준 위치 결정용).
                     domain => _grid == null || HexMetrics.IsWithinMapBounds(domain, _grid.Width, _grid.Height));
+
+                // [2026-11-17 공습 Task L-4 — U-14 · R-14] 공습 조준 표시의 「맵 안 유효 길이」용 맵 경계 사각형 함수.
+                //   서버 판정(_skillActivation.SetMapWorldBoundsProvider — SetupSkill 쪽)과 "같은 계산"(HexMetrics.ComputeMapWorldBounds)을
+                //   넣어야 화면에 그린 직사각형 길이와 서버가 폭격하는 길이가 같다. 람다가 호출 시점의 _grid 를 읽어 맵 재로드에도 최신 크기를 쓴다.
+                //   그리드가 없으면 false → 표시는 잘라내지 않고 원래 길이를 그린다.
+                _skillAimController.SetMapWorldBoundsProvider((out Vector3 boundsMin, out Vector3 boundsMax) =>
+                {
+                    if (_grid == null)
+                    {
+                        boundsMin = Vector3.zero;
+                        boundsMax = Vector3.zero;
+                        return false;
+                    }
+                    HexMetrics.ComputeMapWorldBounds(_grid.Width, _grid.Height, out boundsMin, out boundsMax);
+                    return true;
+                });
+
+                // [2026-11-18 공습 Task L-7 — UI-2a] 조준 중 「맞는 타일」 하이라이트용 모든 타일 중심(도메인 월드).
+                //   서버가 대상 위치로 쓰는 것(_mapper.HexToWorld = HexMetrics.HexToWorld(타일 좌표))과 같은 값이어야
+                //   「보이는 곳 = 맞는 곳」이 된다. 조준 컨트롤러는 조준을 시작할 때 한 번만 부른다(매 프레임 아님).
+                //   람다가 호출 시점의 _grid 를 읽어 맵 재로드(재경기 새 맵)에도 최신 타일을 쓴다. 그리드가 없으면 빈 목록 → 하이라이트 없음.
+                _skillAimController.SetTileCenterSource(list =>
+                {
+                    list.Clear();
+                    if (_grid == null) return;
+                    foreach (var coord in _grid.Tiles.Keys)
+                        list.Add(HexMetrics.HexToWorld(coord));
+                });
             }
         }
 

@@ -153,6 +153,21 @@ namespace Hexiege.Application
         /// </summary>
         public BuildingStatusEffectSystem BuildingStatusSystem => _buildingStatus;
 
+        // [2026-11-16 지원 스킬 새 상태 Task 단계 A — 구현 단위 A-2] 지원 스킬 효과 서비스(대지의 갑주 받는 피해 배율 조회).
+        //   위 건물 상태 서비스와 같은 이유로 생성자가 아니라 설정자로 받는다(5인자 생성자를 Editor 회귀 fixture가 직접 부른다).
+        //   null이면(주입 전 · fixture) 탑 피해 2곳의 헬퍼가 배율을 곱하지 않는다 → 탑 피해가 이 기능이 없던 때와 완전히 같다.
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — UnitCombatUseCase와 같은 인스턴스, 2026-11-16).
+        /// 주입되면 탑 피해(즉발 · 포탄 착탄)가 대지의 갑주가 걸린 유닛에게 받는 피해 배율만큼 줄어든다.
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
         /// <summary>
         /// 매 프레임(싱글) 또는 서버 Tick(멀티)마다 호출.
         /// 모든 타워를 순회하며 쿨다운을 감소시키고, 쿨다운이 끝난 타워는 적을 공격한다.
@@ -424,7 +439,10 @@ namespace Hexiege.Application
                 : target.Defense;
             int damage = DamageCalculator.ApplyDefense(rawDamage, defense);
             int effectHpBefore = target.Hp;
-            target.TakeDamage(damage);
+            // [2026-11-16 비활성화 — 피해 지점 ⑤를 단일 헬퍼로(Plan S-14)] 옛 줄:
+            // target.TakeDamage(damage);
+            //   효과가 없으면 damage 그대로(동작 동일). 아래 표현 스냅샷의 AppliedDamage는 HP 차이로 재므로 줄어든 값이 그대로 실린다.
+            IncomingDamage.Apply(_supportEffects, target, damage, rawDamage, IncomingDamageWriter.Tower);
             // Sound15: tower fire SFX is unspecified. This snapshot has no damage authority.
             try
             {
@@ -490,7 +508,7 @@ namespace Hexiege.Application
                 : target.Defense;
             int damage = DamageCalculator.ApplyDefense(Math.Max(0, attackPowerAtLaunch), defense);
             int hpBefore = target.Hp;
-            target.TakeDamage(damage);
+            IncomingDamage.Apply(_supportEffects, target, damage, Math.Max(0, attackPowerAtLaunch), IncomingDamageWriter.TowerShell);
             int applied = Math.Max(0, hpBefore - target.Hp);
             // [진단 — 2026-11-09 EMP 테스트 진단 로그] 이 착탄을 낸 탑이 지금 무력화 중이면 "무력화 중 착탄" 수를 센다
             //   (무력화 전에 이미 쏜 포탄은 맞아야 한다 — EMP Plan 시나리오 4). 판정 무관 · 개발 빌드 전용 호출.

@@ -152,6 +152,33 @@ namespace Hexiege.Application
         public event Action<int, float> OnMistActivated;
 
         // ====================================================================
+        // [2026-11-17 지원 스킬 새 상태 Task 단계 B — 구현 단위 B-2 · Plan 6-2-4] 지원 스킬 효과 서비스 — 받는 회복 배율(재생의 뿌리).
+        //   물안개 회복이 HP에 들어가는 두 자리(유닛 · 건물)가 회복 직전에 이 서비스에 「이 대상의 받는 회복 배율」을 묻는다.
+        //   설정자로 주입한다 — 생성자를 바꾸면 이 UseCase를 만드는 다른 코드(조합 루트 · Editor 검사)가 함께 깨지므로 생성자는 그대로 둔다.
+        //   미주입(null) · 효과 없는 대상이면 회복량을 곱하지 않는다 → 기존 물안개 회복(틱당 10)과 정확히 같다(회귀 안전).
+        //   물안개 자체의 규칙(1초 주기 · 중첩 해소 · 범위 · 표시 주기)은 바꾸지 않는다 — 배율은 「이 대상이 받는 양」에만 곱한다.
+        // ====================================================================
+        private SupportSkillEffectSystem _supportEffects;
+
+        /// <summary>
+        /// 지원 스킬 효과 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — 전투 · 스킬 UseCase와 같은 인스턴스).
+        /// 미주입(null)이면 받는 회복 배율이 없다 → 기존 물안개 회복과 완전히 같다(하위호환).
+        /// </summary>
+        /// <param name="supportEffects">같은 경기의 지원 스킬 효과 서비스.</param>
+        public void SetSupportSkillEffectSystem(SupportSkillEffectSystem supportEffects)
+        {
+            _supportEffects = supportEffects;
+        }
+
+        // 물안개 1틱 회복량에 받는 회복 배율을 거친 값(배율이 없으면 _healPerTick 그대로).
+        private int AmplifiedMistHeal(IDamageable target)
+        {
+            return _supportEffects != null
+                ? _supportEffects.AmplifyHeal(target, _healPerTick, HealAmpSource.Mist)
+                : _healPerTick;
+        }
+
+        // ====================================================================
         // 생성
         // ====================================================================
 
@@ -571,7 +598,8 @@ namespace Hexiege.Application
             if (target == null || !target.IsAlive) return;
 
             int before = target.Hp;
-            target.Heal(_healPerTick);
+            // [2026-11-17 단계 B — 회복 지점 ②] 받는 회복 배율(재생의 뿌리)을 거친 양으로 회복한다(효과 없으면 _healPerTick 그대로).
+            target.Heal(AmplifiedMistHeal(target));
             // 실제로 회복이 일어난 대상만 이벤트를 발행한다(규칙 5·15 — 풀피 대상은 텍스트도 없다).
             if (target.Hp == before) return;
 
@@ -594,7 +622,8 @@ namespace Hexiege.Application
             if (target == null || !target.IsAlive) return;
 
             int before = target.Hp;
-            target.Heal(_healPerTick);
+            // [2026-11-17 단계 B — 회복 지점 ③] 건물도 받는 회복 배율을 거친다(Plan S-3 「건물 포함」).
+            target.Heal(AmplifiedMistHeal(target));
             if (target.Hp == before) return;
 
             GameEvents.OnEntityHealed.OnNext(

@@ -816,6 +816,14 @@ namespace Hexiege.Infrastructure
             _services?.GetSkillActivationUseCase()?.TickZones(elapsed);
 
             // ────────────────────────────────────────────────────────────────
+            // [2026-11-16 지원 스킬 새 상태 Task 단계 A — A-1] 지원 스킬 효과(대지의 갑주 받는 피해 · 전술 지령 생산 속도)
+            //   남은 시간 감소 — 서버 권위. 구역 틱 바로 뒤 · 유닛 상태 틱 앞. 이 자리는 Update 진입부 가드(IsSpawned · IsServer ·
+            //   _combatStopped)를 통과한 뒤라 서버에서만 돈다. 싱글은 GameBootstrapper.Update가 호출한다(이중 감소 금지 — R-5).
+            //   IGameServices에 getter를 늘리지 않고 스킬 UseCase를 거친다(Editor fixture 대역 구현 보호).
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetSkillActivationUseCase()?.TickSupportEffects(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소 — 서버 권위(규칙 13·25).
             //   쿨다운 틱 바로 옆. 싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
             //   멀티 순수 클라의 상태 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
