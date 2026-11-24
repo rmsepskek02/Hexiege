@@ -129,6 +129,12 @@ eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 
 
 private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
 
-최종 Git merge commit·main 이동·push/원격 확인은 메인 진행 단계로 아직 완료라고 기록하지 않는다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+최종 Git merge commit0ebe909ac191ac05c71cf0d7f7c790c355d1de2c 생성 후 로컬 main fast-forward·origin main push·fetch 검증을 완료했고 local main/origin main/opt3refs가 일치했다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
 
-최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 Git 최종 결과 전 문서 쓰기를 동결한다.
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 제품 통합0ebe909a의 push·원격 확인까지 완료했고 후속 문서 기록은 별도 commit 대상으로 둔다.
+
+## 전체 제품 통합·로그 메뉴 포함·push 완료
+
+제품 통합 커밋 `0ebe909ac191ac05c71cf0d7f7c790c355d1de2c`를 생성해 로컬 main fast-forward·origin main push·fetch 확인을 완료했고 local main/origin main/opt3refs가 일치했다. 현재 작업 branch는 opt로 복귀했다. 기존 최적화·자연회복 UI뿐 아니라 LogArchiveZip 로그 메뉴도 eaf와 최종 제품 통합에 포함됐다. 결과창은 기본2버튼이며 확인은 외부 동작0, 웹페이지 명시 선택은 폴더+페이지를 함께 여는 bool webRequested 경로를 유지한다. 최종 EditorTools 컴파일 오류0이다.
+
+`.utmp/full-main-merge-20261125/FinalRestoration.json`에서 로컬 자동생성3파일의 원래 index/worktree 원문 SHA 복원을 확인했다. backup·stash는 보존했다. 이 기록은 Git 반영과 원본 보존 결과이며 새 native/실기·연구 완료/스탯·FPS 검증은 아니다. 문서 후속 commit의 SHA를 제품 커밋과 혼동하지 않는다.

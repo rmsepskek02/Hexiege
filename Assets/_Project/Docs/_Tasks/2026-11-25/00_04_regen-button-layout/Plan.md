@@ -61,15 +61,15 @@ Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S2
 
 사용자가 이번 UI 수정이 잘됐음을 확인했다. Editor 두 해상도 검증과 사용자 전체 표시 수용을 기록하되 연구 완료/스탯·S22 별도 관측값 등 기존 미검증 범위를 임의로 채우지 않는다.
 
-사용자는 최신 main을 pull·병합·push하고 UI뿐 아니라 기존 최적화 작업도 모두 main에 병합하라고 명시했다. 현재 메인이 Git 백업과 전체 기능 코드 검토를 진행 중이며 원격 main9c012141/현재 HEAD80c03561 기준이다. 전체 병합 승인·검토 단계로 아직 병합/push 완료는 아니다. 이전 선별 제품 반영과 이번 전체 범위를 구분하고 양쪽 기존 작업·staged/dirty 보존을 우선한다.
+사용자는 최신 main을 pull·병합·push하고 UI뿐 아니라 기존 최적화 작업도 모두 main에 병합하라고 명시했다. 승인 직후에는 원격 main9c012141/HEAD80c03561을 기준으로 Git 백업·전체 코드 검토를 진행했고 이후 아래처럼 통합을 완료했다. 전체 병합·검증을 거쳐 제품 통합0ebe909a의 main push·원격 일치까지 완료했다. 이전 선별 제품 반영과 이번 전체 범위를 구분하고 양쪽 기존 작업·staged/dirty 보존을 우선한다.
 
 기존 최적화 문서의 구현 완료와 성능 미검증, 과거 main 미포함 기록을 구분해 조사한다. 다른 Task/상시 문서 수정이 필요하면 범위부터 보고하고 승인받는다. 현재 변경은 이 Task2개뿐이며 문서 담당은 제품·Git를 변경하지 않는다.
 
 ## 전체 최적화·UI 병합 진행 — 2026-11-25
 
-전체 제품+UI 작업을 eaf05db4로 보존했고 local 산출물 원문은 stash27409dce/b068b956에 보존했다. 현재 origin/main9c012141과 no-commit merge 중이며 merge commit/push는 아직 미완이다. main 연막/회피와 opt DoT 출처 wire를 함께 유지해 합성 schema13으로 정합했다. TDD의 기존12/11/10은 시점별 원문으로 보존했다. 실제 코드/검증기·SDK 합성 검증은 아래 결과와 같이 완료했으며 병합 후 새 native/실기 수용은 아직 없다.
+전체 제품+UI 작업을 eaf05db4로 보존했고 local 산출물 원문은 stash27409dce/b068b956에 보존했다. origin/main9c012141과의 병합 검증을 거쳐 최종0ebe909a로 main 반영·push·원격 확인을 완료했다. main 연막/회피와 opt DoT 출처 wire를 함께 유지해 합성 schema13으로 정합했다. TDD의 기존12/11/10은 시점별 원문으로 보존했다. 실제 코드/검증기·SDK 합성 검증은 아래 결과와 같이 완료했으며 병합 후 새 native/실기 수용은 아직 없다.
 
-과거 opt측정판/main선별판 구분은 당시 기록이며 이번 승인은 UI만이 아닌 기존 최적화 전체 통합이다. 기존 기능·실측 한계와 양쪽 작업을 보존하고 최종 병합 영수증 뒤 현행 상태를 갱신한다.
+과거 opt측정판/main선별판 구분은 당시 기록이며 이번 승인은 UI만이 아닌 기존 최적화 전체 통합이다. 기존 기능·실측 한계와 양쪽 작업을 보존하고 최종 통합0ebe909a의 main push·원격 일치를 확인했다.
 
 ## 전체 합성 소스 검증 완료 — 2026-11-25
 
@@ -77,6 +77,12 @@ eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 
 
 private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
 
-최종 Git merge commit·main 이동·push/원격 확인은 메인 진행 단계로 아직 완료라고 기록하지 않는다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+최종 Git merge commit0ebe909ac191ac05c71cf0d7f7c790c355d1de2c 생성 후 로컬 main fast-forward·origin main push·fetch 검증을 완료했고 local main/origin main/opt3refs가 일치했다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
 
-최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 Git 최종 결과 전 문서 쓰기를 동결한다.
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 제품 통합0ebe909a의 push·원격 확인까지 완료했고 후속 문서 기록은 별도 commit 대상으로 둔다.
+
+## 전체 제품 통합·로그 메뉴 포함·push 완료
+
+제품 통합 커밋 `0ebe909ac191ac05c71cf0d7f7c790c355d1de2c`를 생성해 로컬 main fast-forward·origin main push·fetch 확인을 완료했고 local main/origin main/opt3refs가 일치했다. 현재 작업 branch는 opt로 복귀했다. 기존 최적화·자연회복 UI뿐 아니라 LogArchiveZip 로그 메뉴도 eaf와 최종 제품 통합에 포함됐다. 결과창은 기본2버튼이며 확인은 외부 동작0, 웹페이지 명시 선택은 폴더+페이지를 함께 여는 bool webRequested 경로를 유지한다. 최종 EditorTools 컴파일 오류0이다.
+
+`.utmp/full-main-merge-20261125/FinalRestoration.json`에서 로컬 자동생성3파일의 원래 index/worktree 원문 SHA 복원을 확인했다. backup·stash는 보존했다. 이 기록은 Git 반영과 원본 보존 결과이며 새 native/실기·연구 완료/스탯·FPS 검증은 아니다. 문서 후속 commit의 SHA를 제품 커밋과 혼동하지 않는다.
