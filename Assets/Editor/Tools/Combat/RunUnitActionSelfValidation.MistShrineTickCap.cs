@@ -14,18 +14,20 @@
 //
 // 무엇을 확인하는가:
 //   MT-1 상한 값 — 지속시간 10 → 10, 10.5 → 10(소수점 버림), 9.9999995 → 10(여유값), 0 · 음수 → 0.
-//   MT-2 물안개 1회 = 10회 회복 — 고정 dt 0.1초 · 1/60초 × 위상 0 · 0.5 · 0.923 · 0.99(Plan 7절) → 회복 10번 · +100 · 텍스트 3번.
-//        (예외 1칸 — 아래 「알려진 별도 결함」.)
+//   MT-2 물안개 1회 = 10회 회복 — 고정 dt 0.1초 · 1/60초 × 위상 0 · 0.5 · 0.923 · 0.99(Plan 7절) → 8칸 모두 회복 10번 · +100 · 텍스트 3번.
+//   MT-2b 9회 재현 조건(고정 1/60초 · 위상 0) — 이제 10번이고, 10번째 회복이 「허용 오차」 덕분에 일어났음을 직접 확인한다.
 //   MT-3 상한이 실제로 막는다 — 실측 재현(위상 0.923 · dt 0.112초 = 실측 10080ms ÷ 90프레임) → 수정 전이라면 11번이었을 물안개가
 //        회복 10번 · 막힌 발화 1번(진단 칸 DiagTickCapBlocked)으로 끝난다.
 //   MT-4 겹침(Plan 2절 A-4 · 6-1절 ⑦) — 상한에 닿은 물안개 A가 걷히는 그 프레임에, A와 B가 함께 덮는 대상(A가 더 가까움)이
 //        B의 회복을 받는다(가로막히지 않는다). 한 프레임에 한 대상이 두 번 회복받는 일은 없다(중첩 해소 유지).
 //   MT-5 위상 불변식 — 상한에 닿은 물안개도 누적기가 다른 물안개와 똑같다 · 그때 새로 깐 물안개도 같은 위상에서 출발한다.
 //
-// 알려진 별도 결함(이 Task에서 고치지 않음 — Plan 4절 3행 「상한으로는 막지 못한다 … 별도 결함으로 보고한다」):
+// 9회 결함 — 같은 Task 후속으로 수정(2026-11-25, 사용자 결정 「같이 작업해서 테스트」):
 //   정확히 1/60초 고정 dt · 위상 0에서는 float 누적 오차로 「남은 시간」이 「누적기」보다 먼저 0을 넘어,
-//   10번째 회복 직전에 물안개가 걷혀 **9번**이 된다(구현 세션 시뮬레이션: 누적기 0.99999756 · 남은 시간 −0.0000195).
-//   상한은 「많아지는 것」만 막으므로 이 칸은 「상한(10)을 넘지 않는다」만 확인한다. 고칠지는 사용자 결정 사항이다.
+//   10번째 회복 직전에 물안개가 걷혀 **9번**이 됐다(10초째 프레임: 누적기 0.99999756 · 남은 시간 −0.0000195).
+//   수정 = MistShrineUseCase의 「1초가 찼다」 판정에 0.0001초 허용 오차(HealTickFireTolerance).
+//   그래서 이 파일은 그 칸도 다시 「정확히 10번」을 요구하고(MT-2), 재현 조건을 따로 한 번 더 본다(MT-2b).
+//   (이전 회차에는 이 칸만 「10번 이하」로 완화해 두었다 — 그 완화를 되돌렸다.)
 //
 // 실제 씬 · 멀티 전송 · HP 동기화 · 화면 텍스트는 여기서 확인하지 않는다(사용자 실기 항목 — Plan 9절).
 // 모든 fixture는 새 인스턴스를 만든다. 실행 중(Play)에는 돌지 않는다.
@@ -63,9 +65,10 @@ namespace Hexiege.Editor.Combat
 
             ValidateMistCapValue();          // MT-1
             ValidateMistCapTenHeals();       // MT-2
+            ValidateMistCapFloatShortCase(); // MT-2b
             ValidateMistCapBlocksEleventh(); // MT-3
             ValidateMistCapOverlapHandOff(); // MT-4 · MT-5
-            Debug.Log("[UAS-DIAG][MIST-CAP] self-validation PASS: tick cap = floor(duration / 1 s) (10 → 10, 10.5 → 10, 9.9999995 → 10, 0 / negative → 0) (MT-1), one mist heals exactly 10 times (+100, text 3) at fixed 0.1 s and 1/60 s with phase 0 / 0.5 / 0.923 / 0.99 — except the known 1/60 s phase-0 float case (9, reported separately), which only checks ≤ 10 (MT-2), the observed phase 0.923 / 0.112 s case stops at 10 with 1 blocked fire (MT-3), a capped mist leaving in its blocked frame hands the shared target to the overlapping mist (healed once by B, never twice in a frame) (MT-4), capped mists keep the shared phase and a mist cast meanwhile starts on it (MT-5).");
+            Debug.Log("[UAS-DIAG][MIST-CAP] self-validation PASS: tick cap = floor(duration / 1 s) (10 → 10, 10.5 → 10, 9.9999995 → 10, 0 / negative → 0) (MT-1), one mist heals exactly 10 times (+100, text 3) at fixed 0.1 s and 1/60 s with phase 0 / 0.5 / 0.923 / 0.99 (MT-2), the former 9-heal float case (fixed 1/60 s, phase 0) now heals 10 times through the fire tolerance and still expires on frame 600 (MT-2b), the observed phase 0.923 / 0.112 s case stops at 10 with 1 blocked fire (MT-3), a capped mist leaving in its blocked frame hands the shared target to the overlapping mist (healed once by B, never twice in a frame) (MT-4), capped mists keep the shared phase and a mist cast meanwhile starts on it (MT-5).");
         }
 
         // ── fixture ─────────────────────────────────────────────────────
@@ -208,7 +211,7 @@ namespace Hexiege.Editor.Combat
 
         // ── MT-2 ────────────────────────────────────────────────────────
 
-        /// <summary> MT-2 — 고정 dt 0.1초 · 1/60초 × 위상 0 · 0.5 · 0.923 · 0.99 → 회복 10번(알려진 1칸 제외). </summary>
+        /// <summary> MT-2 — 고정 dt 0.1초 · 1/60초 × 위상 0 · 0.5 · 0.923 · 0.99 → 8칸 모두 회복 정확히 10번. </summary>
         private static void ValidateMistCapTenHeals()
         {
             float[] dts = { 0.1f, 1f / 60f };
@@ -220,18 +223,57 @@ namespace Hexiege.Editor.Combat
                     var (heals, gained, texts, mistRef) = MistCapRunOne(phase, dt);
                     string label = "dt " + dt.ToString("R") + ", phase " + phase.ToString("R");
                     int counted = MistCapField<int>(mistRef, "HealTickCount");
-                    Require(heals <= 10 && counted <= 10 && gained == heals * 10,
-                        "MT-2 a mist never heals more than the cap 10 (" + label + ": heals " + heals + ", HealTickCount " + counted + ", +" + gained + ").");
-
-                    // 알려진 별도 결함(파일 머리 설명) — 정확히 1/60초 · 위상 0은 float 오차로 9번. 이 Task 범위 밖이라 「≤ 10」만 본다.
-                    bool knownFloatShortCase = phase == 0f && dt == 1f / 60f;
-                    if (knownFloatShortCase) continue;
-
+                    // 2026-11-25: 1/60초 · 위상 0 칸의 「10번 이하」 완화를 없앴다 — 허용 오차 수정으로 이 칸도 정확히 10번이어야 한다.
                     Require(heals == 10 && gained == 100 && counted == 10,
                         "MT-2 one mist heals exactly 10 times (+100) (" + label + ": heals " + heals + ", +" + gained + ", HealTickCount " + counted + ").");
                     Require(texts == 3, "MT-2 the floating text still shows on heals 3 / 6 / 9 (" + label + ": texts " + texts + ").");
                 }
             }
+        }
+
+        // ── MT-2b ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// MT-2b — 예전에 9번이던 조건(고정 1/60초 · 위상 0 · 물안개 1개)을 그대로 다시 돌린다.
+        /// 확인하는 것:
+        ///   ① 회복 정확히 10번(+100) · 판정 칸 HealTickCount 10.
+        ///   ② 물안개는 여전히 600번째 프레임(= 10초째)에 걷힌다 — 허용 오차는 「발화」만 앞당기고 「소멸 시점」은 바꾸지 않는다.
+        ///   ③ 마지막 회복 뒤 누적기가 0보다 작다(아주 작은 음수) — 10번째 회복이 누적기 0.9999 이상 1 미만, 즉
+        ///      「허용 오차가 없었다면 발화하지 못했을 값」에서 일어났다는 뜻이다. 이것이 0 이상이면 이 검사가 고친 경로를
+        ///      실제로 지나지 않은 것이므로(재현 조건이 아님) 실패로 알린다.
+        /// </summary>
+        private static void ValidateMistCapFloatShortCase()
+        {
+            const float dt = 1f / 60f;
+            var f = new MistCapFixture();
+            f.Shrine(2, 8);
+            UnitData target = f.WoundedTank(9905, 8, 0);
+            f.Cast(2); // 깔린 물안개가 없으니 위상 0에서 출발한다.
+            object mistRef = MistCapFindMist(f.Mist, 2);
+            Require(mistRef != null && MistCapField<float>(mistRef, "TickAccum") == 0f, "MT-2b the lone mist must start on phase 0.");
+
+            int heals = 0, frames = 0;
+            using (var capture = new RegenHealedCapture())
+            {
+                while (frames < 100000 && f.Mist.IsMistActive(2))
+                {
+                    f.Mist.TickMists(dt);
+                    frames++;
+                }
+                foreach (EntityHealedEvent e in capture.Events)
+                {
+                    if (e.IsUnit && e.Entity != null && e.Entity.Id == target.Id) heals++;
+                }
+            }
+
+            float finalAccum = MistCapField<float>(mistRef, "TickAccum");
+            string state = "heals " + heals + ", +" + (target.Hp - 1000) + ", HealTickCount " + MistCapField<int>(mistRef, "HealTickCount")
+                + ", frames " + frames + ", final TickAccum " + finalAccum.ToString("R") + ", final Remaining " + MistCapField<float>(mistRef, "Remaining").ToString("R");
+            Require(heals == 10 && target.Hp - 1000 == 100 && MistCapField<int>(mistRef, "HealTickCount") == 10,
+                "MT-2b the former 9-heal case (fixed 1/60 s, phase 0) now heals exactly 10 times (" + state + ").");
+            Require(frames == 600, "MT-2b the fire tolerance must not change when the mist expires — still frame 600 (" + state + ").");
+            Require(finalAccum < 0f,
+                "MT-2b the 10th heal must have fired through the tolerance (accumulator just below 1 → tiny negative after −1 s); otherwise this case no longer reproduces the float shortfall (" + state + ").");
         }
 
         // ── MT-3 ────────────────────────────────────────────────────────
