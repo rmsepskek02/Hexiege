@@ -19,7 +19,8 @@
 //   Z-T6 사망 정리 — 사망 통보 · 틱 감지 모두 구성원에서 빠지고 다음 틱에 Exited로 알린다.
 //   Z-T7 경기 종료 Close — 전부 해제 · 이후 생성 거부. 시전 건물 Id는 구역 판정에 쓰지 않는다(Z-7 — 시간까지 유지).
 //   Z-T8 실행기 — 조준 · 지속 · 반경 · 종류 조건을 지키고, 맞으면 컨텍스트 구역 다리를 자산 값으로 부른다.
-//   Z-T9 두 자산 계약(Z-10 임시값 · 사용 가능 · 타입 4 · 지점 조준 · 적 대상 · 피해 0 · 로드아웃 슬롯) · 연막탄은 여전히 사용 불가 ·
+//   Z-T9 두 자산 계약(Z-10 임시값 · 사용 가능 · 타입 4 · 지점 조준 · 적 대상 · 피해 0 · 로드아웃 슬롯) ·
+//        연막탄 자산 계약(E-T12 — SmokeBomb.cs. 2026-11-23 연막탄 S-1에서 바꿨다 — 직전 「연막탄은 여전히 사용 불가」) ·
 //        채워진 VFX 칸은 상태 이펙트 계약(Looping · Stop Action None · Hierarchy).
 //   Z-T10 스키마 == 9 · 셋업 도구 기대 수 == 8 · 소스 게이트(틱 자리 · 구독 · RPC).
 //
@@ -64,7 +65,9 @@ namespace Hexiege.Editor.Combat
             ValidateSkillZoneAssets();             // Z-T9
             ValidateSkillZoneSourceGates();        // Z-T10
             // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup expected count 12」를 13으로 바꿨다(문구만 — 검사는 Z-T10).
-            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb still unavailable (Z-T9), schema 12 + setup expected count 13 + tick/subscription/RPC source gates (Z-T10).");
+            // [2026-11-23 연막탄 Task S-1] PASS 문구의 「Smoke Bomb still unavailable」 → 「Smoke Bomb asset contract」, 「13」 → 「14」(문구만).
+            // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 「schema 12」(문구만 — Z-T10 검사는 S-3부터 == 12).
+            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb asset contract (Z-T9 / E-T12), schema 13 + setup expected count 14 + tick/subscription/RPC source gates (Z-T10).");
         }
 
         // 구역 fixture — 새 유닛 목록 · 전투 UseCase · 상태 시스템 · 구역 서비스 + 구성원 알림 수집.
@@ -291,7 +294,7 @@ namespace Hexiege.Editor.Combat
                 "Z-T8 the registry must map PersistentStatusZone (= 4, appended last) to the zone executor.");
         }
 
-        /// <summary> Z-T9 — 두 자산 계약 · 로드아웃 · 연막탄 사용 불가 · 채워진 VFX 칸 계약. </summary>
+        /// <summary> Z-T9 — 두 자산 계약 · 로드아웃 · [2026-11-23] 연막탄 자산 계약(옛: 연막탄 사용 불가) · 채워진 VFX 칸 계약. </summary>
         private static void ValidateSkillZoneAssets()
         {
             const string loadoutPath = "Assets/_Project/Resources/Config/Skills/SkillLoadoutConfig.asset";
@@ -302,9 +305,9 @@ namespace Hexiege.Editor.Combat
             ValidateSkillZoneAsset(loadout, FrostPrisonAssetPath, RaceId.Spirit, 1, StatusEffectKind.Freeze, 0f, 4f);
             ValidateSkillZoneAsset(loadout, SapSwampAssetPath, RaceId.Transcendence, 0, StatusEffectKind.MoveSpeedMul, 0.4f, 6f);
 
-            SkillDefinition smoke = AssetDatabase.LoadAssetAtPath<SkillDefinition>(SmokeBombAssetPath);
-            Require(smoke != null && !smoke.ToSkillData().IsAvailable,
-                "Z-T9 Smoke Bomb must stay unavailable (its evasion is out of scope).");
+            // [2026-11-23 연막탄 Task S-1] 연막탄을 「사용 가능」(아군 대상 지속 상태 구역 · 회피 확률)으로 켰다 →
+            //   「사용 불가 유지」 검사를 연막탄 자산 계약 검사로 바꿨다(검사 본문은 RunUnitActionSelfValidation.SmokeBomb.cs E-T12).
+            ValidateSmokeBombAssetContract(loadout);
         }
 
         private static void ValidateSkillZoneAsset(SkillLoadoutConfig loadout, string path, RaceId race, int slot,
@@ -343,16 +346,17 @@ namespace Hexiege.Editor.Combat
         private static void ValidateSkillZoneSourceGates()
         {
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다.
-            // [2026-11-24 통합] 이전 WIP 기대값은 DoT 출처 단독 schema 10; main의 schema 11과 합쳐 12.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10, the air-strike direction arguments to 11; the independently merged HP RPC DoT provenance field raises it to 12).");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10, the air-strike direction arguments to 11, the smoke-bomb projectile launch RPC arguments to 12).; current merged DoT provenance + smoke evasion require schema 13.");
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다.
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb).");
 
             string net = File.ReadAllText("Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs");
             int zoneTick = net.IndexOf("GetSkillActivationUseCase()?.TickZones(elapsed);", StringComparison.Ordinal);

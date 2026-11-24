@@ -134,10 +134,20 @@ Host 오류0, Editor는 경기 BEGIN18:49:39.735 전18:48:20.979의 NRE1개가 �
 
 2026-11-24 병합 전 계획은 제품9파일 delta 선별·양쪽 작업 보존·의미 충돌 검토였다. 해당 실행을 아래와 같이 완료했으며 main 원격 push는 사용자 승인 후 완료했으며 병합 후 native/실기 검증은 별개다.
 
-로컬 main `17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae`는 최신 main c697382a 기반 제품9파일+문서/meta13파일, 총22파일의 선별 반영을 완료했다. opt HEAD `80c035617e30891f79cb52b9566bf021a37342d9`는 부모 a64b31d와17ef4cee를 합쳐 최신 main을 포함한다. 23:34 재fetch 당시 origin/main은 c697382a이고 미푸시였으나, 이후 사용자의 “푸시도 해” 승인으로 main1commit push를 완료했다. server의 c697382a..17ef4cee main→main 정상 응답(exit0)과 local main/origin main의17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae 일치를 메인이 확인했다. 현재 branch는 codex/android-performance-optimization 그대로이며 opt branch push0·미커밋 작업 보존이다. main 제품판에는 opt 측정/실험·Dev 진단을 넣지 않았고 이전 실기 로그는 opt 측정판 근거다.
+로컬 main `17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae`는 최신 main c697382a 기반 제품9파일+문서/meta13파일, 총22파일의 선별 반영을 완료했다. opt HEAD `80c035617e30891f79cb52b9566bf021a37342d9`는 부모 a64b31d와17ef4cee를 합쳐 최신 main을 포함한다. 23:34 재fetch 당시 origin/main은 c697382a이고 미푸시였으나, 이후 사용자의 “푸시도 해” 승인으로 main1commit push를 완료했다. server의 c697382a..17ef4cee main→main 정상 응답(exit0)과 local main/origin main의17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae 일치를 메인이 확인했다. 이 선별 반영 당시 branch는 codex/android-performance-optimization이고 opt branch push0·미커밋 작업을 보존했다. 당시17ef 선별 제품판에는 opt 측정/실험·Dev 진단을 넣지 않았고 그 실기 로그는 opt 측정판 근거다. 이후 전체 통합 범위는 마지막2026-11-25절을 따른다.
 
 기존 tracked WIP36은 stash066a5b1ab19968bc775407c064471d3c1fb7743e patch3way로 복원하고 원래 untracked13은 사본과 byte exact로 복원했다. docs3/core5/other6 충돌을 해소했고 원래 staging3개(폰트/desktop meta/Burst txt)를 복구했다. 메인은 unmerged0과 기존 staged3 일치를 확인했다. 첫 stash2916의 ignore cleanup 실패 때 원래 index 사본 복구·49원문 exact 검증 후 두 번째066a 보관에 성공했으며 손실은 없었다. 백업·stash2개를 보존하고 Profiler46파일 약6GB와 raw 로그는 삭제·이동하지 않았다.
 
 최종 실제 복원 작업본은 runtime390+Editor34=424 source이며 최신 main386runtime/26Editor와 opt 기존4runtime/8Editor 추가의 누락0을 확인했다. Editor/AndroidDev/Release/Tools4구성 오류0·경고25/28/32/0이다. 컴파일에서 발견한 UnitView 중복 field/OnDestroy2개는 동일 세트1개 제거로 정합했다. main schema11/합성 opt12를 구분한다. 이번 병합 턴의 native/UI·실기·빌드시도는 미실행이므로 이전 opt 실기 관측을 병합 후 새 검증으로 바꾸지 않는다.
 
 근거는 private `.utmp/selective-merge-20261124/final-working/FinalValidationReceipt.json`(SHAAFB66C2F439C9916741E3739BC83342BE66EBB5D988DE2AB2825F02127FEE4CF), SourceInventory.json, SourcePreservationProof.json이다. main17ef에는 선별 문서판이 이미 포함돼 있고 이 작업본의 후속 마감 기록은 opt 미커밋 상태로 남는다. 문서 담당은 제품/Git를 변경하지 않았다. 정확 source·기능 전체·native 성능 수용 한계는 이전 결과 범위를 유지한다.
+
+## 전체 합성 소스 검증 완료 — 2026-11-25
+
+eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 검증을 완료했다. 합성 schema13은 main 신규 연막 wire/토큰과 opt DoT 출처를 함께 보존한다. 신규 main 연막4cs 및 관련 Projectiles/Tower/MistShrinePanel은 origin/main 대비 diff0을 확인했고 Game씬 ARF15줄은 eaf 기준 그대로다.
+
+private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
+
+최종 Git merge commit·main 이동·push/원격 확인은 메인 진행 단계로 아직 완료라고 기록하지 않는다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 Git 최종 결과 전 문서 쓰기를 동결한다.

@@ -168,6 +168,25 @@ namespace Hexiege.Application
             _supportEffects = supportEffects;
         }
 
+        // [2026-11-23 지원 스킬 연막탄 Task 단계 S-4 — Plan P-2 · P-8] 연막 회피 판정 서비스(경기 seed + 연막 확률 조회).
+        //   위 두 서비스와 같은 이유로 생성자가 아니라 설정자로 받는다(5인자 생성자를 Editor 회귀 fixture가 직접 부른다).
+        //   null이면(주입 전 · fixture) 즉발 탑 회피 관문이 판정을 하지 않는다 → 탑 공격이 이 기능이 없던 때와 완전히 같다.
+        //   주입되어 있어도 맞을 유닛이 연막 밖이면(평상시) 확률 0 → 판정 없이 기존 경로 그대로다.
+        private SkillEvasionSystem _skillEvasion;
+
+        /// <summary>
+        /// 연막 회피 판정 서비스를 주입한다(GameBootstrapper에서 맵마다 1회 — UnitCombatUseCase와 같은 인스턴스, 2026-11-23 연막탄 S-4).
+        /// 주입되면 즉발 탑(RuneSpire · VineTower)의 공격이 연막 안 유닛을 노릴 때 회피 판정을 한다. 인간 대포탑 포탄은 투사체 쪽(S-3)이 판정한다.
+        /// </summary>
+        /// <param name="evasion">같은 경기의 회피 판정 서비스.</param>
+        public void SetSkillEvasionSystem(SkillEvasionSystem evasion)
+        {
+            _skillEvasion = evasion;
+        }
+
+        /// <summary> 지금 주입된 회피 판정 서비스(검증 · 진단용, 없으면 null). </summary>
+        public SkillEvasionSystem SkillEvasion => _skillEvasion;
+
         /// <summary>
         /// 매 프레임(싱글) 또는 서버 Tick(멀티)마다 호출.
         /// 모든 타워를 순회하며 쿨다운을 감소시키고, 쿨다운이 끝난 타워는 적을 공격한다.
@@ -429,6 +448,18 @@ namespace Hexiege.Application
             }
             catch (Exception ex) { AttackEffectIdentity.Record("Fault", default, "TowerSnapshot:" + ex.Message); }
             RaceId race = ResolveRace(tower.Team);
+
+            // [2026-11-23 연막탄 단계 S-4 — Plan P-8 · 사용자 결정 U-1 「모든 방어탑 포함」] 즉발 탑 회피 관문(피해 계산 · writer 이전).
+            //   맞을 유닛이 적 팀이고 연막(아군 구역) 안이면 서버가 지금 한 번 결정적 해시로 굴린다(열쇠 = 탑 Id + 그 탑의 판정 순번).
+            //   피했으면 아래 피해 writer(IncomingDamage) · 공격받음 이벤트 · 피해 이벤트 · 사망 처리를 하나도 하지 않고
+            //   「빗나감」 표현 스냅샷만 낸다(Impact = 빗나간 지점, 적용 피해 0) → 피해 · 숫자가 없고, 번개는 대상 옆으로 빗나가 그려진다.
+            //   「빗나간 공격은 아무 효과 없음」 원칙: 즉발 탑에는 피해 외 특수 효과(속박 · 둔화 등) 코드가 없다 — 막을 것이 피해 · 이벤트뿐이다.
+            //   공격 자체는 일어났으므로 true를 돌려주고, Tick이 평소처럼 쿨다운을 시작한다(빗나가도 다음 공격까지 기다린다).
+            //   연막 밖(평상시) · 서비스 미주입이면 판정 자체가 없어 아래 줄은 이 단계 전과 한 글자도 다르지 않게 동작한다.
+            bool evadeRolled = TryRollTowerInstantEvasion(tower, race, target, effectSource, effectImpact, out TowerInstantEvadeGate evade);
+            if (evadeRolled && evade.Evaded)
+                return PublishEvadedTowerInstantAttack(tower, race, target, effectSource, effectTime, evade);
+
             int rawDamage = BuildingStats.GetAttackPower(tower.Type, race);
 
             // 데미지 적용. 타워→유닛 피해도 유닛 방어력 감쇄 대상이다(규칙 44 / 규칙 5).
@@ -444,14 +475,20 @@ namespace Hexiege.Application
             //   효과가 없으면 damage 그대로(동작 동일). 아래 표현 스냅샷의 AppliedDamage는 HP 차이로 재므로 줄어든 값이 그대로 실린다.
             IncomingDamage.Apply(_supportEffects, target, damage, rawDamage, IncomingDamageWriter.Tower);
             // Sound15: tower fire SFX is unspecified. This snapshot has no damage authority.
+            // [연막탄 S-4 진단] 이 공격의 표현 스냅샷 순번(판정 줄 EffectSeq= — 화면 쪽 AttackEffectIdentity 줄과 짝). 판정 무관.
+            ulong effectSeq = 0UL;
             try
             {
                 var visual = _effectIdentity.Create(tower, target, AttackEffectVisual.Tower, race, effectSource, effectImpact, effectTime);
                 visual.AppliedDamage = Mathf.Max(0, effectHpBefore - target.Hp); visual.ResultHp = target.Hp;
+                effectSeq = visual.Sequence;
                 if (visual.IsValid)
                 { AttackEffectIdentity.Record("ServerConfirm", visual, now: effectTime); GameEvents.OnAttackEffectConfirmed.OnNext(visual); }
             }
             catch (Exception ex) { AttackEffectIdentity.Record("Fault", default, "TowerPublish:" + ex.Message); }
+            // [연막탄 S-4 진단 E-L9 · E-L10] 연막 안 대상인데 「명중」으로 판정된 공격 1줄(피해를 적용한 뒤라 HpAfter가 줄어 있다).
+            //   판정이 없었으면(연막 밖) 아무것도 남기지 않는다. [Conditional] — 릴리스 빌드에서는 이 호출이 사라진다.
+            if (evadeRolled) DiagTowerInstantEvadeRoll(tower, race, target, evade, effectHpBefore, effectSeq, writerInvoked: true);
 
             // 공격 이벤트 발행 (공격자=타워, 타겟=유닛).
             // EntityAttackedEvent는 IDamageable 기반이라 건물도 공격자가 될 수 있다.
@@ -533,6 +570,137 @@ namespace Hexiege.Application
             }
             return new AttackDamageObservation(AttackDamageApplyStatus.Applied, applied, Math.Max(0, target.Hp));
         }
+
+        // ====================================================================
+        // [2026-11-23 연막탄 단계 S-4] 즉발 탑(RuneSpire 번개 · VineTower) 회피 — 판정 · 빗나감 스냅샷 · 진단
+        //
+        // [초급자용 설명]
+        //   정령 · 초월 방어탑은 투사체를 쏘지 않고 "공격 순간 바로" 피해를 준다(즉발). 그래서 회피도 공격 순간 한 번 정한다.
+        //   피했으면 피해 writer를 부르지 않고(→ HP · 피해 숫자 · 피격 반응 없음), 화면에는 「빗나간 번개」만 보여 준다.
+        //   번개 끝점은 대상 대신 서버가 고정한 빗나간 지점이다(투사체와 같은 함수 SkillEvasionRoll.ComputeMissPoint — 대상 옆 · 조금 뒤).
+        //   열쇠(같은 공격 한 번을 가리키는 번호) = (탑 Id, 그 탑의 회피 판정 순번) — 싱글 · 멀티 공통이고 결정적이다(열린 항목 O-10 탑 몫).
+        // ====================================================================
+
+        // 즉발 탑 공격 한 번의 회피 판정 기록(빗나감 스냅샷 · 진단에 쓴다).
+        private struct TowerInstantEvadeGate
+        {
+            public ulong Key;               // 공격 열쇠 = (탑 Id, 순번) 해시
+            public ulong Ordinal;           // 그 탑의 회피 판정 순번(1부터)
+            public ulong Roll;              // 64비트 roll
+            public int ChanceBasisPoints;   // 확률(만분율)
+            public bool Evaded;             // 회피했는가
+            public int HpBefore;            // 판정 직전 대상 HP
+            public Vector3 Source;          // 탑 위치(도메인 — 표현 스냅샷 Source와 같은 값)
+            public Vector3 Center;          // 공격 순간 대상 위치(도메인 — 발밑)
+            public float Radius;            // 대상 반경(투사체와 같은 표 — 빗나간 지점의 옆 거리 = 반경 + 0.3)
+            public Vector3 MissPoint;       // 회피면 빗나간 지점(도메인)
+        }
+
+        /// <summary>
+        /// (서버 권위 — 공격 순간) 즉발 탑 회피 관문. 판정 조건이 맞으면 굴려서 gate에 담고 true를 돌려준다.
+        /// 조건이 맞지 않으면(평상시 — 연막 없음 · 서비스 미주입 · 투사체 탑) 아무것도 하지 않고 false — 공격은 기존대로 피해를 준다.
+        /// </summary>
+        /// <param name="tower">공격하는 탑.</param>
+        /// <param name="race">탑 소유 팀의 종족.</param>
+        /// <param name="target">맞을 적 유닛(탑은 유닛만 공격한다 — 방어 타워 규칙 1).</param>
+        /// <param name="source">탑 위치(도메인 — 표현 스냅샷 Source와 같은 값).</param>
+        /// <param name="center">공격 순간 대상 위치(도메인 — 표현 스냅샷 Impact와 같은 값).</param>
+        /// <param name="gate">판정 기록.</param>
+        private bool TryRollTowerInstantEvasion(BuildingData tower, RaceId race, UnitData target, Vector3 source, Vector3 center,
+                                                out TowerInstantEvadeGate gate)
+        {
+            gate = default;
+            if (_skillEvasion == null || tower == null || target == null) return false;
+            // 적의 공격만(탑은 원래 적 유닛만 고르지만, 혹시라도 같은 팀이면 판정하지 않는다).
+            if (target.Team == tower.Team) return false;
+            // 즉발 탑만(정령 RuneSpire · 초월 VineTower). 인간 대포탑 포탄은 발사 순간 투사체 쪽(S-3)이 판정한다
+            //   — 투사체 발사기가 연결되지 않아 인간 탑이 여기까지 온 경우(Editor fixture 전용 상황)는 판정하지 않는다.
+            if (!SkillEvasionRoll.IsTowerInstantEvadableAttacker(tower.Type, race)) return false;
+            // 맞을 유닛이 연막 안인가(M-2) — 연막 밖이면 확률 0 → 판정 없음(평상시 비용 = 조회 없이 바로 0).
+            int chance = SkillEvasionRoll.ToChanceBasisPoints(_skillEvasion.GetEvadeChance(target.Id));
+            if (chance <= 0) return false;
+
+            gate.ChanceBasisPoints = chance;
+            gate.HpBefore = target.Hp;
+            gate.Source = source;
+            gate.Center = center;
+            // 열쇠 = (탑 Id, 그 탑의 회피 판정 순번). 순번은 이 줄에서만 늘어난다(연막 안 대상에게 쏜 판정 1회 = 1).
+            gate.Key = _skillEvasion.NextTowerOrdinalKey(tower.Id, out gate.Ordinal);
+            gate.Evaded = _skillEvasion.Roll(gate.Key, chance, out gate.Roll);
+            if (gate.Evaded)
+            {
+                // 빗나간 지점 — 투사체와 같은 함수 하나(공습 「한 함수」 교훈). 좌우는 같은 roll의 맨 위 비트.
+                gate.Radius = ResolveEvadeTargetRadius(target);
+                gate.MissPoint = SkillEvasionRoll.ComputeMissPoint(source, center, gate.Radius, gate.Roll);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// (서버 권위) 회피한 즉발 탑 공격을 닫는다 — 피해 writer · 공격받음 이벤트 · 피해 이벤트 · 사망 처리를 하지 않고
+        /// 「빗나감」 표현 스냅샷(Evaded = true, Impact = 빗나간 지점, 적용 피해 0)만 낸다. 공격은 일어났으므로 true(쿨다운 시작).
+        /// 멀티: 이 스냅샷은 기존 탑 공격 표현 RPC(AttackEffectClientRpc — 끝에 evaded 칸)로 Client에 간다. HP 동기화 RPC는 나가지 않는다(피해 없음).
+        /// </summary>
+        /// <param name="tower">공격한 탑.</param>
+        /// <param name="race">탑 종족.</param>
+        /// <param name="target">원래 대상 유닛(HP 그대로).</param>
+        /// <param name="effectSource">탑 위치(표현 스냅샷 Source).</param>
+        /// <param name="effectTime">표현 시각(명중 스냅샷과 같은 시계).</param>
+        /// <param name="evade">판정 기록(빗나간 지점 포함).</param>
+        private bool PublishEvadedTowerInstantAttack(BuildingData tower, RaceId race, UnitData target, Vector3 effectSource,
+                                                     double effectTime, TowerInstantEvadeGate evade)
+        {
+            ulong effectSeq = 0UL;
+            // 표현 스냅샷 실패도 공격 흐름(쿨다운)을 막아서는 안 된다 — 명중 경로와 같은 try 보호.
+            try
+            {
+                var visual = _effectIdentity.Create(tower, target, AttackEffectVisual.Tower, race, effectSource, evade.MissPoint, effectTime);
+                visual.AppliedDamage = 0;          // 피해 writer를 부르지 않았다
+                visual.ResultHp = target.Hp;       // HP 그대로
+                visual.Evaded = true;              // 화면: 대상을 따라가지 않고 Impact(빗나간 지점)에 고정
+                effectSeq = visual.Sequence;
+                if (visual.IsValid)
+                {
+                    AttackEffectIdentity.Record("ServerConfirm", visual, "SmokeEvaded", effectTime);
+                    GameEvents.OnAttackEffectConfirmed.OnNext(visual);
+                }
+            }
+            catch (Exception ex) { AttackEffectIdentity.Record("Fault", default, "TowerEvadePublish:" + ex.Message); }
+            // [진단 E-L9 · E-L10] 판정 1줄 + 빗나간 지점 1줄. [Conditional] — 릴리스 빌드에서는 사라진다.
+            DiagTowerInstantEvadeRoll(tower, race, target, evade, evade.HpBefore, effectSeq, writerInvoked: false);
+            return true;
+        }
+
+        /// <summary>
+        /// 빗나간 지점 옆 거리에 쓸 대상 반경 — 투사체(대포탑 포탄 · 유닛 투사체)가 쓰는 같은 표(ProjectileSettings)에서 읽는다.
+        /// 그래서 번개가 빗나가는 거리 = 포탄이 빗나가는 거리(대상 반경 + 0.3)로 같다. 투사체 관리자가 없으면(fixture) 기본 표 값.
+        /// </summary>
+        /// <param name="target">대상 유닛.</param>
+        private float ResolveEvadeTargetRadius(UnitData target)
+            => _projectiles != null
+                ? _projectiles.GetProjectileTargetRadius(target)
+                : ProjectileSettings.CreateDefault().GetTargetRadius(target);
+
+        // [진단 E-L9 · E-L10] 즉발 탑 판정 1줄(+ 회피면 빗나간 지점 1줄). 판정 결과 · 피해를 바꾸지 않는다(읽기만).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagTowerInstantEvadeRoll(BuildingData tower, RaceId race, UnitData target, TowerInstantEvadeGate gate,
+                                               int hpBefore, ulong effectSeq, bool writerInvoked)
+        {
+            if (_skillEvasion == null || tower == null) return;
+            string extra = TowerEvadeRollTail(tower.Id, race, effectSeq, writerInvoked);
+            _skillEvasion.DiagOnRoll(SkillEvasionPath.TowerInstant, SkillEvasionKeySource.TowerOrdinal, gate.Key, gate.Ordinal,
+                gate.Roll, gate.ChanceBasisPoints, gate.Evaded, tower.Id, "tower-" + race, tower.Team, target,
+                hpBefore, target != null ? target.Hp : -1, extra);
+            if (gate.Evaded)
+                _skillEvasion.DiagOnTowerInstantEvade(tower.Id, race, gate.Ordinal, effectSeq, target, gate.Source, gate.Center,
+                    gate.Radius, gate.MissPoint, SkillEvasionRoll.MissSideIsLeft(gate.Roll));
+        }
+
+        // [진단] 판정 줄 끝 칸 — 탑 Id · 종족 · 표현 스냅샷 순번 · 피해 writer 호출 여부(1 = 명중으로 피해 적용, 0 = 회피로 미호출).
+        private static string TowerEvadeRollTail(int towerId, RaceId race, ulong effectSeq, bool writerInvoked)
+            => System.FormattableString.Invariant(
+                $"Tower={towerId}, Race={race}, EffectSeq={effectSeq}, WriterInvoked={(writerInvoked ? 1 : 0)}");
 
         /// <summary>
         /// 팀 → 종족 변환. 주입된 _raceResolver를 사용하되,

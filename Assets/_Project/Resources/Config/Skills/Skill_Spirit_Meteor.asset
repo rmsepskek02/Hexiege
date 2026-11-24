@@ -34,7 +34,8 @@ MonoBehaviour:
   _impactBurnDamagePerSecond: 50
   _impactBurnDuration: 3
   _warningVfxReferenceTime: 1.5
-  _fallingBodyVfxPrefab: {fileID: 0}
+  _fallingBodyVfxPrefab: {fileID: 7663734548862268443, guid: 7e8dfaf7ffa63874c8e9e68e62f58425,
+    type: 3}
   _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
   _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
   _impactVfxPrefab: {fileID: 0}

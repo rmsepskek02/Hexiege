@@ -488,6 +488,22 @@ namespace Hexiege.Bootstrap
             _skillActivation.SetSkillZoneSystem(_skillZoneSystem);
             _unitCombat.SetSkillZoneSystem(_skillZoneSystem);
 
+            // ────────────────────────────────────────────────────────────
+            // [2026-11-23 연막탄 Task 단계 S-1 — Plan P-2 · P-9 · 메인 기본안 M-8 · 열린 항목 O-11] 연막 회피 판정 서비스.
+            //   위 구역 서비스(연막 = 아군 대상 구역 · 회피 확률)를 읽어 "맞을 유닛이 연막 안인가"를 묻고, 경기 seed + 공격 열쇠 해시로
+            //   회피를 판정한다. 맵을 불러올 때마다 새로 만들고, 그때 새 경기 seed를 뽑는다(MapRootSeed.Create — 무작위 맵 root seed와
+            //   같은 뽑기 함수, 값은 별개). 순수 Client도 만들지만 판정은 서버에서만 일어난다(Client의 seed는 쓰이지 않는다).
+            //   같은 인스턴스를 전투 UseCase(총잡이 Hitscan 관문 · 투사체 발사 순간 판정)와 아래 탑 UseCase(즉발 탑)가 함께 쓴다.
+            //   (2026-11-24 정정 — 직전 「지금(S-2)은 … Hitscan 관문만 쓴다. 투사체(S-3) · 즉발 탑(S-4)도 같은 인스턴스를 받게 된다」는 S-2 때 상태였다.)
+            //   ⚠️ 이 배선만으로 게임 동작은 바뀌지 않는다 — 연막 구성원이 없으면 확률 0이라 판정 자체가 없다.
+            // ────────────────────────────────────────────────────────────
+            _skillEvasionSystem = new SkillEvasionSystem(_skillZoneSystem, MapRootSeed.Create());
+            _unitCombat.SetSkillEvasionSystem(_skillEvasionSystem);
+            // [2026-11-23 연막탄 단계 S-4 — Plan P-2 · P-8] 즉발 탑(정령 RuneSpire · 초월 VineTower)도 같은 회피 서비스로 판정한다.
+            //   같은 인스턴스를 주므로 경기 seed · 연막 확률이 투사체 · 총잡이 판정과 같다. 설정자 주입이라 탑 UseCase 생성자는 그대로다
+            //   (Editor 회귀 fixture가 5인자 생성자를 직접 부른다). 인간 대포탑 포탄은 위 전투 UseCase(투사체 발사 순간)가 판정한다.
+            _towerCombat.SetSkillEvasionSystem(_skillEvasionSystem);
+
             // 유닛이 죽으면 구역 구성원에서 바로 뺀다(클라이언트 알림은 다음 권위 틱에 「나감」으로 간다).
             //   서버 가드를 두지 않는 이유: 순수 클라이언트의 서비스에는 구역이 생기지 않으므로(발동은 서버만) 아무 일도 하지 않는다.
             //   람다가 호출 시점의 필드를 읽으므로 항상 이번 경기의 서비스를 정리한다. 재구독 전 Dispose(위 탑 구독과 같은 패턴).

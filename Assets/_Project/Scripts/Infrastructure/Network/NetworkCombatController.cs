@@ -70,28 +70,41 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
         private System.IDisposable _attackEffectSubscription;
+        // [2026-11-23 연막탄 단계 S-4 — Plan P-8 · 메인 기본안 M-12] 탑 공격 표현 RPC 끝에 evaded(연막 회피 여부) 한 칸을 붙였다.
+        //   회피면 스냅샷 Impact가 대상 발밑이 아니라 서버가 고정한 「빗나간 지점」이다(빗나간 지점 칸을 따로 두지 않는다 — Impact 한 칸).
+        //   Client는 회피를 다시 판정하지 않고 받은 값을 그대로 화면에 넘긴다(스킬 규칙 25). RPC 모양이 바뀌었으므로 스키마 12 묶음
+        //   (S-3이 11 → 12로 올렸고, 같은 12 묶음이라 S-4에서 추가로 올리지 않았다 — UnitAttackShadowProfileResolver 주석.
+        //    2026-11-24 정정 — 직전 「아직 커밋 전이라 추가 상향 없음」은 커밋 전 작업 때 문구였다.)
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 보내기 · 받기(evaded 칸 없음)를 지웠다 — 실기 멀티에서 Host가 이 함수로
+        //    탑 공격 표현을 보내고 Client가 받았다(회피 스냅샷 포함 — AttackEffectIdentity Reason=SmokeEvaded).)
         private void PublishAttackEffect(AttackEffectPresentation s)
         {
             if (!IsServer || !IsSpawned || _combatStopped || !s.IsValid) return;
             AttackEffectClientRpc(s.Match, s.Lifetime, s.Sequence, s.AttackerId, s.TargetId, (byte)s.Visual,
                 (int)s.Race, s.Source, s.Impact, s.ImpactTime, s.AppliedDamage, s.ResultHp,
                 s.ResultKey.AttackerInstanceId.Value, s.ResultKey.SequenceId.Value, s.ResultKey.HitIndex,
-                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal);
-            AttackEffectIdentity.Record("Publish", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                s.ResultKey.VictimKind, s.ResultKey.VictimId, s.ResultKey.EffectKind, s.ResultKey.ResultOrdinal,
+                s.Evaded);
+            // [연막탄 S-4] 회피 스냅샷이면 기록 사유에 SmokeEvaded를 남긴다(줄 모양은 그대로 — Reason 칸만 다르다).
+            AttackEffectIdentity.Record("Publish", s, s.Evaded ? "SmokeEvaded" : "None",
+                NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
         }
         [ClientRpc]
         private void AttackEffectClientRpc(ulong match, ulong lifetime, ulong sequence, int attacker, int target,
             byte visual, int race, Vector3 source, Vector3 impact, double time, int applied, int hp,
-            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal)
+            ulong resultInstance, ulong resultSequence, int hit, int victimKind, int victimId, int effectKind, int ordinal,
+            bool evaded)
         {
             if (IsServer || _combatStopped) return;
             var s = new AttackEffectPresentation { Match = match, Lifetime = lifetime, Sequence = sequence,
                 AttackerId = attacker, TargetId = target, Visual = (AttackEffectVisual)visual,
                 Race = (Hexiege.Domain.RaceId)race, Source = source, Impact = impact, ImpactTime = time, AppliedDamage = applied, ResultHp = hp,
-                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal) };
+                ResultKey = new AttackResultKey(new AttackerInstanceId(resultInstance), new AttackSequenceId(resultSequence), hit, victimKind, victimId, effectKind, ordinal),
+                Evaded = evaded };
             if (s.IsValid)
             {
-                AttackEffectIdentity.Record("Receive", s, now: NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
+                AttackEffectIdentity.Record("Receive", s, s.Evaded ? "SmokeEvaded" : "None",
+                    NetworkManager != null ? NetworkManager.ServerTime.Time : double.NaN);
                 try { GameEvents.OnAttackEffectReceived.OnNext(s); }
                 catch (System.Exception ex) { AttackEffectIdentity.Record("Fault", s, "ReceiveSubscriber:" + ex.Message); }
             }
@@ -1410,6 +1423,16 @@ namespace Hexiege.Infrastructure
                     shadowHitIndex,
                     legacyObservation,
                     GetAuthoritativeServerTime());
+                // [2026-11-23 연막탄 S-2 진단 E-L4] 연막 회피한 타격이 C2 결과 「회피」로 닫혔는지 1줄([SKILL-EVADE] EvadeResolved).
+                //   진단 전용([Conditional] — 릴리스에서는 이 호출이 사라진다). 피해 · 결과 · 전송 순서는 바꾸지 않는다.
+                if (legacyResult == AttackDamageApplyStatus.Evaded)
+                    combat.DiagNoteEvadeResolved(
+                        attacker.Id,
+                        attackShadowResult.HasResult,
+                        attackShadowResult.HasResult ? attackShadowResult.Result.Outcome : AttackImpactOutcome.None,
+                        attackShadowResult.CompletionStatus,
+                        attackShadowResult.Reason,
+                        attackShadowResult.HasResult ? attackShadowResult.Result.Key : default);
                 if (attackShadowResult.ShouldPublishSnapshot)
                     PublishAttackShadowPublication(attacker.Id, attackShadowResult.Publication);
                 if (attackShadowResult.HasResult)

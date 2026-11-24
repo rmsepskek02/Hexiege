@@ -265,9 +265,13 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 
 Hitscan은 서버 Impact 시각에 결과가 확정된다. 총구 섬광·트레이서·피격 표현은 같은 `AttackSequenceId + HitIndex`를 재생하며 트레이서 도착을 기다려 서버 결과를 변경하지 않는다.
 
+연막탄으로 피한 Hitscan 타격은 writer 상태 `Evaded`로 닫히고, 코디네이터가 「승인된 명중 + 회피」를 공격 결과 `AttackImpactOutcome.Evaded`(피해 0)로 확정한다(불일치 거절이 아니다). `Evaded`는 시각 결과가 아니라 HP 숫자 · 피격 반응이 없으며, 기존 결과 종류라 전송 모양은 바뀌지 않는다. *(2026-11-24 추가 — 연막탄 Task, [연막탄 Task Plan 13절](../_Tasks/2026-11-23/15_28_support-skill-smoke-bomb/Plan.md#13-final-result))*
+
 ### NET-DELIVERY-PROJECTILE
 
 ProjectileImpact는 서버가 발사 시각, 착탄 시각, 목표 처리 방식과 착탄 위치를 관리한다. 피해와 범위 효과는 권위 착탄 레코드에서만 확정된다. 로컬 투사체는 서버 궤적의 표현이며 로컬 충돌로 피해를 만들지 않는다.
+
+연막탄 회피는 **발사 순간** 서버가 정해 발사 기록에 싣는다(회피 여부 · 빗나간 지점 `MissPoint`). 회피 투사체는 대상을 따라가지 않고 빗나간 지점으로 날아가며, 착탄 시각에 피해 writer를 부르지 않고 착탄 결과 `ProjectileImpactOutcome.Evaded`(착탄 지점 = 빗나간 지점, 적용 피해 0)로 닫는다 — 비행 중 대상이 사라져도 「회피」 그대로다. 화면은 이 결과에 착탄 이펙트만 내고 피해 숫자를 내지 않는다. 회피 판정은 MushroomBomber(착탄 범위 폭발)와 건물 대상에는 하지 않는다. *(2026-11-24 추가 — 연막탄 Task, [연막탄 Task Plan 13절](../_Tasks/2026-11-23/15_28_support-skill-smoke-bomb/Plan.md#13-final-result))*
 
 ### NET-DELIVERY-TRAVELING
 

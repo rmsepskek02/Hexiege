@@ -98,6 +98,8 @@ namespace Hexiege.Presentation
             // [단계 C] 건물 공격자(타워)일 때만 의미가 있다 — 프리셋 선택용.
             public BuildingType TowerType;
             public RaceId TowerRace;
+            // [2026-11-23 연막탄 S-3] 서버가 발사 순간 「회피」로 정한 투사체인가(대상을 따라가지 않고 빗나간 지점으로 날아간다).
+            public bool Evaded;
         }
 
         private readonly ProjectilePresentationCoordinator _coordinator = new ProjectilePresentationCoordinator();
@@ -125,6 +127,8 @@ namespace Hexiege.Presentation
             // [단계 C] 타워 발사 신호(포구 발사 이펙트) 계수 — played = 재생, skippedMidFlight = 중간 복원이라 생략, noPreset = 프리셋 없음.
             public int TowerCuePlayed, TowerCueSkippedMidFlight, TowerCueNoPreset;
             public int FinishHit, FinishLost, ImpactVfxPlayed, ImpactVfxMissing, Aborts, Samples;
+            // [2026-11-23 연막탄 S-3] 화면 착탄 중 결과 「회피」 수(착탄 이펙트만, 숫자 없음) · 회피 발사 기록을 꺼낸 수.
+            public int FinishEvaded, BeginsEvaded;
             public readonly System.Collections.Generic.HashSet<ulong> Sampled = new System.Collections.Generic.HashSet<ulong>();
             // 화면 착탄 지연 = 화면이 착탄을 보여 준 순간의 서버 시각 − 서버 착탄 시각(Client 표시 지연, 초).
             public readonly ProjectileTimeDistribution DisplayLag =
@@ -289,8 +293,21 @@ namespace Hexiege.Presentation
                     visual.Start = attackerView != null
                         ? attackerView.ProjectileLaunchPoint
                         : ViewConverter.ToView(launch.Source) + Vector3.up * FallbackLaunchHeight;
-                ResolveTarget(launch, visual);
-                visual.LastEndpoint = SurfacePoint(visual.Start, visual.LastCenter, launch.TargetRadius);
+                // [2026-11-23 연막탄 단계 S-3 — Plan P-7] 서버가 발사 순간 「회피」로 정한 투사체는 대상을 해석 · 추적하지 않는다.
+                //   끝점 = 서버가 고정한 빗나간 지점(대상 옆 · 조금 뒤)으로 처음부터 정해 두고, 날아가는 동안 바꾸지 않는다.
+                //   그래서 Host · 싱글(화면 지연 0)에서도 착탄 직전에 옆으로 튀는 그림이 없다 — 처음부터 빗나간 쪽으로 날아간다.
+                //   회피가 아니면 아래 else 두 줄(옛 줄 그대로)이 지금까지처럼 대상을 따라간다.
+                if (launch.Evaded)
+                {
+                    visual.Evaded = true;
+                    visual.LastEndpoint = MissEndpoint(launch);
+                    visual.LastCenter = visual.LastEndpoint;
+                }
+                else
+                {
+                    ResolveTarget(launch, visual);
+                    visual.LastEndpoint = SurfacePoint(visual.Start, visual.LastCenter, launch.TargetRadius);
+                }
                 EffectManager effects = EffectManager.Instance;
                 // [2026-10-27 단계 E] 팀별 트레이서(EagleArcher 화살 Blue/Red 머티리얼)를 고르도록 서버 발사 기록의 Team을 넘기고,
                 //   메시 화살이 첫 프레임부터 대상 쪽을 보도록 처음 바라볼 지점(바로 위에서 정한 표면점)도 넘긴다.
@@ -336,6 +353,13 @@ namespace Hexiege.Presentation
             if (!(slot.Visual is Visual visual)) return;
             try
             {
+                // [연막탄 S-3] 회피 투사체 — 고정 끝점(빗나간 지점)으로 진행도만큼 옮긴다(대상을 읽지 않는다).
+                //   서버 결과의 착탄 지점도 같은 빗나간 지점이라 결과 블렌드가 필요 없다(맞출 것이 없다).
+                if (visual.Evaded)
+                {
+                    if (visual.Tracer != null) visual.Tracer.DriveTo(Vector3.Lerp(visual.Start, visual.LastEndpoint, progress));
+                    return;
+                }
                 if (TryReadTargetCenter(visual, out Vector3 center)) visual.LastCenter = center;
                 Vector3 endpoint = SurfacePoint(visual.Start, visual.LastCenter, slot.Launch.TargetRadius);
                 if (slot.HasResult)
@@ -377,6 +401,8 @@ namespace Hexiege.Presentation
                 // 명중이면 이 투사체로 생긴 피격 표현(숫자·피격 VFX·펀치)을 지금 한 번 방출한다(Q7 — 숫자는 착탄 시각 1회).
                 //   [2026-10-21 제안 A] 화면 착탄 지점도 함께 넘긴다. 사망타는 이 순간 대상 오브젝트가 이미 디스폰돼 있을 수 있어
                 //   (Client는 0.10초 늦게 그린다) 큐가 이 지점에 숫자 "0"을 낸다. 대상이 살아 있으면 큐는 이 지점을 쓰지 않는다.
+                //   [연막탄 S-3] 결과 「회피(Evaded)」는 「대상 소실」처럼 위의 착탄 이펙트만 내고 여기서 숫자를 내지 않는다
+                //   (서버가 피해 writer를 부르지 않아 보관된 피해 숫자도 처음부터 없다 — 「MISS」 글자도 띄우지 않는다, 사용자 결정 U-4).
                 if (withResult && slot.Result.Outcome == ProjectileImpactOutcome.Hit)
                     _hits?.ReleaseProjectileImpact(slot.Key, NumberFallbackPoint(slot, visual));
             }
@@ -444,6 +470,31 @@ namespace Hexiege.Presentation
         private static Vector3 SurfacePoint(Vector3 start, Vector3 center, float radius)
             => UnitCombatUseCase.ProjectileSurfacePoint(start, center, radius);
 
+        /// <summary>
+        /// [2026-11-23 연막탄 S-3 — Plan O-7 결정] 회피 투사체의 화면 끝점 = 서버가 보낸 빗나간 지점(도메인 → 이 화면 좌표).
+        /// 높이 = 「명중했다면 닿았을 높이」와 같게 맞춘다 — 발사 순간 대상 화면 pose(유닛 루트 = 발밑 높이)를 읽을 수 있으면 그 Y,
+        ///   못 읽으면(대상 화면이 없음) 서버 좌표의 Y(바닥 기준 대상 중심 높이)를 그대로 쓴다.
+        /// 그래서 빗나간 투사체는 명중 투사체와 같은 높이 면에서 대상 바로 옆 · 조금 뒤 땅에 떨어지는 그림이 된다(사용자 결정 U-4 「대상 옆에 떨어진다」).
+        /// Red 화면(반전)은 ToView가 XZ를 맵 중심 기준으로 뒤집는다 — 대상과 빗나간 지점이 함께 뒤집혀 양쪽 화면에서 같은 쪽 옆에 떨어진다.
+        /// 맵 밖으로 자르지 않는다(Plan O-8 결정 — 빗나간 거리는 대상에서 1m 안쪽이고 화면 표현뿐이라 게임 판정에 영향이 없다).
+        /// </summary>
+        private Vector3 MissEndpoint(ProjectileLaunchPresentation launch)
+        {
+            Vector3 view = ViewConverter.ToView(launch.MissPoint);
+            if (launch.TargetIsUnit && _pose != null && _unitFactory != null)
+            {
+                GameObject go = _unitFactory.GetUnitObject(launch.TargetId);
+                UnitView targetView = go != null ? go.GetComponent<UnitView>() : null;
+                // 같은 객체 확인(ID 재사용 안전) — ResolveTarget과 같은 조건일 때만 그 화면 높이를 빌린다(추적은 하지 않는다).
+                if (targetView != null && targetView.Data != null && targetView.Data.Id == launch.TargetId && go.activeInHierarchy)
+                {
+                    Transform pose = _pose.GetUnitTransform(launch.TargetId);
+                    if (pose != null) view.y = pose.position.y;
+                }
+            }
+            return view;
+        }
+
         // 서버 착탄 지점(도메인 좌표)을 이 화면 좌표로 바꾼다. 높이는 화면 끝점 높이를 쓴다(서버는 바닥 높이만 안다).
         private static Vector3 ServerPoint(ProjectileImpactPresentation result, float height)
         {
@@ -489,6 +540,7 @@ namespace Hexiege.Presentation
             visual.AttackerIsUnit = default;
             visual.TowerType = default;
             visual.TowerRace = default;
+            visual.Evaded = false;   // [연막탄 S-3] 다음 발에 회피 표시가 남지 않게
             if (_visualPool.Count < ProjectilePresentationCoordinator.MaxSlots) _visualPool.Push(visual);
         }
 
@@ -544,6 +596,7 @@ namespace Hexiege.Presentation
             bool tracer, UnitAttackVfxPlaybackStatus cueStatus, bool attackerView, bool chargeUnit, bool towerCue)
         {
             _view.Begins++;
+            if (slot.Launch.Evaded) _view.BeginsEvaded++;   // [연막탄 S-3]
             _view.BeginLag.Add(beginLag);
             if (!tracer) _view.TracerMissing++;
             string cue;
@@ -572,8 +625,9 @@ namespace Hexiege.Presentation
             _view.Samples++;
             _view.Sampled.Add(slot.Key.Id);
             ProjectileLaunchPresentation launch = slot.Launch;
+            // [연막탄 S-3] 아래 begin 표본 줄은 옛 줄 끝(sample=N/24)에 ", evaded=0|1" 한 칸만 붙였다(다른 칸은 그대로).
             GameLog.Dev.Info("Combat", nameof(ProjectilePresentationPresenter), "[PROJECTILE-VIEW]",
-                FormattableString.Invariant($"role={ServerProjectileDiagnostics.RoleName}, stage=begin, projectile={slot.Key}, attacker={launch.AttackerId}, type={launch.AttackerKind}, target={launch.TargetId}, targetIsUnit={launch.TargetIsUnit}, launch={launch.LaunchTime:G17}, impact={launch.ImpactTime:G17}, presentation={_tickPresentationTime:G17}, beginLag={beginLag:F3}, midFlight={(midFlight ? 1 : 0)}, tracer={(tracer ? 1 : 0)}, cue={cue}, local={Time.realtimeSinceStartupAsDouble:F3}, sample={_view.Samples}/{ViewSampleLimit}"));
+                FormattableString.Invariant($"role={ServerProjectileDiagnostics.RoleName}, stage=begin, projectile={slot.Key}, attacker={launch.AttackerId}, type={launch.AttackerKind}, target={launch.TargetId}, targetIsUnit={launch.TargetIsUnit}, launch={launch.LaunchTime:G17}, impact={launch.ImpactTime:G17}, presentation={_tickPresentationTime:G17}, beginLag={beginLag:F3}, midFlight={(midFlight ? 1 : 0)}, tracer={(tracer ? 1 : 0)}, cue={cue}, local={Time.realtimeSinceStartupAsDouble:F3}, sample={_view.Samples}/{ViewSampleLimit}, evaded={(launch.Evaded ? 1 : 0)}"));
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
@@ -583,7 +637,10 @@ namespace Hexiege.Presentation
             double displayLag = double.NaN;
             if (withResult)
             {
+                // [연막탄 S-3] 그전 두 줄은 명중이 아니면 모두 「대상 소실」로 셌다. 회피(Evaded)는 따로 센다.
+                //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 두 줄을 지웠다 — 실기 멀티 양쪽 화면 END 줄에 finish=…|evaded:N이 찍혔다.)
                 if (slot.Result.Outcome == ProjectileImpactOutcome.Hit) _view.FinishHit++;
+                else if (slot.Result.Outcome == ProjectileImpactOutcome.Evaded) _view.FinishEvaded++;
                 else _view.FinishLost++;
                 if (impactVfx) _view.ImpactVfxPlayed++; else _view.ImpactVfxMissing++;
                 displayLag = serverNow - slot.Result.ImpactTime;
@@ -618,18 +675,22 @@ namespace Hexiege.Presentation
             //   형식이 바뀌었으므로 v=1 → v=2. 1줄째 = 개수(받음·그림·착탄·일정표·보관함·숫자 결과), 2줄째 = 시간 분포·marker·verdict.
             //   [2026-10-27 P5 정리] v=2 → v=3: 1줄째 switch= 칸(고정 토큰) 삭제, 2줄째 markers 조각의 path= /l 칸 · legacyTracer= 칸 삭제
             //   (ServerProjectileDiagnostics.DescribeView). 투사체 유닛은 항상 서버 경로라 그 칸들은 늘 같은 값이었다.
+            // [2026-11-23 연막탄 S-3] v=3 → v=4: 1줄째 finish= 칸에 |evaded:N(화면 착탄 중 결과 「회피」 수), begins= 칸에 |evaded:N
+            //   (회피 발사 기록을 꺼낸 수)를 붙였다. 다른 칸은 그대로다.
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 v=3 옛 머리 · begins= · finish= 옛 조각을 지웠다 — v=4 줄이 실기 멀티
+            //    Host · Client 양쪽에서 찍혔다.)
             string head = FormattableString.Invariant(
-                $"side=view v=3 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
+                $"side=view v=4 role={ServerProjectileDiagnostics.RoleName} epoch={_epoch:x16} reason={reason} ");
             string part1 = head + "part=1/2 "
                 + FormattableString.Invariant(
                 $"launch=recv:{v.LaunchReceived}|accepted:{v.LaunchAccepted} result=recv:{v.ResultReceived}|accepted:{v.ResultAccepted} epochResets={v.EpochResets} ")
                 + FormattableString.Invariant(
-                $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing} cue=played:{v.CuePlayed}|vfxStarted:{v.CueVfxStarted}|skippedMidFlight:{v.CueSkippedMidFlight}|noAttackerView:{v.CueNoAttackerView} ")
+                $"begins=all:{v.Begins}|midFlight:{v.BeginsMidFlight}|tracerMissing:{v.TracerMissing}|evaded:{v.BeginsEvaded} cue=played:{v.CuePlayed}|vfxStarted:{v.CueVfxStarted}|skippedMidFlight:{v.CueSkippedMidFlight}|noAttackerView:{v.CueNoAttackerView} ")
                 // [단계 C] 타워 발사 신호 칸(건물 공격자만). 옛 1줄째에는 이 칸이 없었다.
                 + FormattableString.Invariant(
                 $"towerCue=played:{v.TowerCuePlayed}|skippedMidFlight:{v.TowerCueSkippedMidFlight}|noPreset:{v.TowerCueNoPreset} ")
                 + FormattableString.Invariant(
-                $"finish=hit:{v.FinishHit}|lost:{v.FinishLost} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
+                $"finish=hit:{v.FinishHit}|lost:{v.FinishLost}|evaded:{v.FinishEvaded} impactVfx=played:{v.ImpactVfxPlayed}|missing:{v.ImpactVfxMissing} aborts={v.Aborts} faults={_faults} ")
                 + _coordinator.DescribeForDiagnostics()
                 + " hold=" + (_hits != null ? _hits.DescribeProjectileHoldForDiagnostics() : "unavailable")
                 + " text=" + (_hits != null ? _hits.DescribeProjectileTextForDiagnostics() : "unavailable");

@@ -15,7 +15,7 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
 - **Impact timing reuse:** Bombardment shipped with a 0.4 s server-side impact delay (type A, damage at the impact moment to
   whoever is in range then). Meteor is expected to reuse that reservation with a longer delay — design meteor around
   "damage at impact, dodgeable", not "damage at cast".
-- **Unavailable slots:** 2 of the 15 confirmed skills sit in loadouts with "available" off (no effect, no cooldown) — Smoke Bomb · Elemental Resonance; the other **13 are available**. How an
+- **Unavailable slots:** 1 of the 15 confirmed skills sits in a loadout with "available" off (no effect, no cooldown) — Elemental Resonance; the other **14 are available** *(2026-11-24 — was "2 of the 15 … Smoke Bomb · Elemental Resonance; the other 13"; Smoke Bomb added — `_Tasks/2026-11-23/15_28_support-skill-smoke-bomb/` Plan §13)*. How an
   unavailable slot looks is a later UI task (decision 16) — do not design it inside a skill task. The button **text** is now
   the skill name (user request 2026-11-11 — icons / description tab stay in the later UI task). *(2026-11-18 later — was "3 of the 15 … Smoke Bomb · Meteor · Elemental Resonance; the other 12"; Meteor added — `_Tasks/2026-11-18/03_34_support-skill-meteor/` Plan §14)* *(2026-11-18 updated — was "4 of the 15 … Airstrike · Smoke Bomb · Meteor · Elemental Resonance; the other 11"; Air Strike added — `_Tasks/2026-11-17/09_12_support-skill-air-strike/` Plan §16)* *(2026-11-17 later — was "5 of the 15"; Roots of Regeneration added by new-statuses stage B — Plan §14)* *(2026-11-17 updated — was "6 of the 15"; Sacred Tree Awakening added by new-statuses stage C — Plan §13)* *(2026-11-16 updated — was "7 of the 15"; Earth Armor added and Tactical Order now also has production speed — `_Tasks/2026-11-16/01_00_support-skill-new-statuses/` Plan §12)* *(2026-11-11 updated —
   was "9 of the 15" and, before that, "14 of the 15"; available now = Bombardment · EMP · Tactical Order (attack) · Flame
@@ -29,7 +29,7 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
   a zone **multiplies** with other sources of the same kind (tailwind 1.3 × sap 0.4 = 0.52 — user: 「방법 자체는 좋은 것으로
   생각돼」); the zone outlives its caster building; freeze always wins. Still undecided: two **map-wide** skills of the same
   kind overlapping (no such pair exists now). Values temporary (frost r2 · 4 s, sap r2 · ×0.4 · 6 s, cd 15). Frozen units
-  cannot walk out, so "exit releases" is only visible with the sap swamp. Smoke Bomb's dodge (E) is not built.
+  cannot walk out, so "exit releases" is only visible with the sap swamp. Smoke Bomb's dodge (E) is built (2026-11-24): the same zone with allies as the target team, allies inside dodge enemy ranged single attacks (6 projectile units minus MushroomBomber, 3 hitscan, all 3 towers) at 50 % — no damage / burn / number, projectile lands beside the target; judged on the **hit ally**, enemies in the smoke get nothing *(was "Smoke Bomb's dodge (E) is not built.")*.
 - **Map-wide buff skills (2026-11-11, `_Tasks/2026-11-10/04_20_support-buff-skills-status-vfx/` Plan D1~D14 · §11):** a buff
   hits only allies **alive at the activation moment** (units produced during the buff are not buffed — D1, may be revisited
   in balancing); re-use replaces the remaining time, no stacking. Each skill has its **own** buff-status VFX slot, so

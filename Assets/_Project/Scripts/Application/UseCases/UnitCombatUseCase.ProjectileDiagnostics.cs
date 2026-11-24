@@ -15,6 +15,8 @@
 //
 // [END 줄에서 읽는 법 — 다음 실기 분석용]
 //   reserved = launched + cancelled + closedReserved,  launched = hit + targetLost + closedInFlight 이면 balance=ok.
+//   [2026-11-23 연막탄 S-3 — v=2 → v=3] evaded=N 칸 추가 → launched = hit + targetLost + evaded + closedInFlight 이면 balance=ok.
+//     evaded = 발사 순간 연막 회피로 정해져 착탄 때 결과 「회피」로 닫힌 발 수(피해 writer를 부르지 않았다 — 유닛 + 대포탑).
 //   cancel=... 은 취소 사유별 개수다(attacker-dead = 발사 전 공격자 사망, target-dead = 발사 전 대상 사망 등).
 //   flight=... 은 서버 비행 시간 분포(초), dist=... 은 발사 순간 중심 거리 분포(월드 미터)다.
 //   attackerDead=... 은 "발사 뒤 공격자가 죽었는데 착탄"한 발의 수와 사망~착탄 간격(초)이다.
@@ -64,6 +66,8 @@ namespace Hexiege.Application
         {
             public int Reserved, ReserveRefused, Launched, LaunchedAtBuilding;
             public int Hit, HitBuilding, TargetLost, WriterNotApplied;
+            // [2026-11-23 연막탄 S-3] 착탄 때 「회피」로 닫힌 발 수(유닛 + 대포탑). 경로별 · 비행 중 대상 사망 수는 [SKILL-EVADE] 요약이 센다.
+            public int Evaded;
             public int ClosedReserved, ClosedInFlight;
             public int HitAfterAttackerDeath, LostAfterAttackerDeath, AttackerDeathSamples;
             public int DetailOmitted;
@@ -269,6 +273,18 @@ namespace Hexiege.Application
                 FormattableString.Invariant($"epoch={ProjectileEpoch:x16}, id={record.Id}, attacker={record.AttackerId}, type={ProjectileAttackerTypeToken(record)}, target={record.TargetId}, targetIsUnit={record.TargetIsUnit}, launch={record.LaunchTime:G17}, attackerDeadSeenAt={record.AttackerDeadAt:G17}, impact={record.ImpactTime:G17}, gap={gap:F3}, outcome={(hit ? "hit" : "target-lost")}, writer={writerStatus}, applied={applied}, hp={resultingHp}, sample={_projectileDiag.AttackerDeathSamples}/{ProjectileAttackerDeathSampleLimit}"));
         }
 
+        /// <summary>
+        /// [진단 — 2026-11-23 연막탄 S-3] 발사 순간 「회피」로 정한 투사체가 착탄 시각에 결과 「회피」로 닫혔다(피해 writer 미호출).
+        /// 명중(hit) · 대상 소실(targetLost)과 섞지 않고 따로 센다 — 서버 END 수 맞춤이 launched = hit + targetLost + evaded + closedInFlight가 된다.
+        /// 차지 유닛 줄(inferno=/fox=)과 대포탑 줄(byTower=)의 칸은 바꾸지 않는다(두 줄의 수 맞춤은 「≤」라 회피 발이 빠져도 어긋나지 않는다).
+        /// </summary>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        private void DiagProjectileEvadedImpact(ProjectileImpactDiagnosticSnapshot record, double now)
+        {
+            _projectileDiag.ImpactLagMax = Math.Max(_projectileDiag.ImpactLagMax, now - record.ImpactTime);
+            _projectileDiag.Evaded++;
+        }
+
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
         private void DiagProjectileClose(string reason)
         {
@@ -315,11 +331,16 @@ namespace Hexiege.Application
             ProjectileDiagnosticCounters d = _projectileDiag;
             int cancelled = d.CancelledTotal;
             bool reserveBalanced = d.Reserved == d.Launched + cancelled + d.ClosedReserved;
-            bool flightBalanced = d.Launched == d.Hit + d.TargetLost + d.ClosedInFlight;
+            // [2026-11-23 연막탄 S-3] 그전 식(Launched == Hit + TargetLost + ClosedInFlight)에 착탄 결과 「회피」 발 수(evaded)를 더했다.
+            //   연막이 없으면 evaded = 0이라 그전 식과 같다.
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 식을 지웠다 — 실기 멀티 서버 END 줄이 회피 발을 포함해 balance=ok로 닫혔다.)
+            bool flightBalanced = d.Launched == d.Hit + d.TargetLost + d.Evaded + d.ClosedInFlight;
             bool authority = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
             var text = new StringBuilder(900);
             // [2026-10-27 P5 정리] v=1 → v=2: switch= 칸 삭제 · path= 유닛 칸의 /l(기존 경로) 삭제(파일 머리 설명).
-            text.Append("side=server v=2 role=").Append(ServerProjectileDiagnostics.RoleName)
+            // [2026-11-23 연막탄 S-3] v=2 → v=3: targetLost= 바로 뒤에 evaded=N(착탄 때 「회피」로 닫힌 발 수 — 유닛 + 대포탑) 칸 하나를 더했다.
+            //   다른 칸의 이름 · 순서는 그대로다. (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 v=2 옛 머리 줄을 지웠다 — v=3 줄이 실기에서 찍혔다.)
+            text.Append("side=server v=3 role=").Append(ServerProjectileDiagnostics.RoleName)
                 .Append(" authority=").Append(authority ? "local" : "remote")
                 .Append(" epoch=").Append(ProjectileEpoch.ToString("x16", CultureInfo.InvariantCulture))
                 .Append(" reason=").Append(string.IsNullOrEmpty(reason) ? "unknown" : reason)
@@ -330,6 +351,7 @@ namespace Hexiege.Application
                 .Append(" hit=").Append(d.Hit)
                 .Append(" hitBuilding=").Append(d.HitBuilding)
                 .Append(" targetLost=").Append(d.TargetLost)
+                .Append(" evaded=").Append(d.Evaded)   // [연막탄 S-3 — v=3] 착탄 결과 「회피」 발 수(피해 writer 미호출)
                 .Append(" writerNotApplied=").Append(d.WriterNotApplied)
                 .Append(" cancelled=").Append(cancelled)
                 .Append(" cancel=");

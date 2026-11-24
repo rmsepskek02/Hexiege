@@ -63,7 +63,8 @@ namespace Hexiege.Editor.Combat
             ValidateShieldSourceGates();         // Sh-T9
             ValidateBuildingVfxTargetScope();    // Sh-T10 [2026-11-17 S-10 — 전술 지령 건물 이펙트 = 아군 생산 건물 전부]
             Debug.Log("[UAS-DIAG][SKILL-BVFX] self-validation PASS: building status VFX target scope (Sh-T10) — Tactical Order → ProductionBuildings (late built / upgraded production buildings attach), Sacred Tree → ActivationBuildings (activation-time buildings only), Earth Armor / null → None; every production stage 1-3 of all three races is a target, non-production buildings / enemy team / dead buildings are not.");
-            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing (Sh-T8), schema 11 / setup 12 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
+            // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 「schema 12」(연막탄 S-3이 올린 값 — 문구만). 「setup 12」는 이 정리 범위 밖이라 그대로 — 메테오(13) 때부터 실제 값과 달랐다(지금 14).
+            Debug.Log("[UAS-DIAG][SKILL-SHIELD] self-validation PASS: shield absorbs the value after the incoming-damage multiplier (Sh-T1), unit partial absorb / break with remainder to HP / next-tick break notice with sequence and ids / expiry discard / replace on re-apply (Sh-T2), building shield on direct and skill damage with separate building id list (Sh-T3), no-shield targets unchanged (Sh-T4), newcomers / new buildings / upgraded buildings excluded (Sh-T5), death / destruction / tick cleanup (Sh-T6), Close rejects and drops pending notices (Sh-T7), Sacred Tree asset + executor routing (Sh-T8), schema 13 / setup 12 / helper absorb / RPC / zero-diff republish / wiring source gates (Sh-T9).");
         }
 
         // 쉴드 깨짐 「확정」 이벤트를 모으는 도우미(검사 동안만 구독).
@@ -351,14 +352,16 @@ namespace Hexiege.Editor.Combat
         private static void ValidateShieldSourceGates()
         {
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11).");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "Sh-T9 the shield-broken RPC raised the presentation schema to 10 (the air-strike direction arguments then raised it to 11, the smoke-bomb projectile launch RPC arguments to 12).; current merged DoT provenance + smoke evasion require schema 13.");
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(신목의 각성과 무관한 변경).
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor enabled).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "Sh-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
 
             const string root = "Assets/_Project/Scripts/";
             string helper = File.ReadAllText(root + "Application/Combat/IncomingDamage.cs");

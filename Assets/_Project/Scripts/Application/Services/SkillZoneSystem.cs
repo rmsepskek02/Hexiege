@@ -11,6 +11,7 @@
 //     · 만들기   : CreateZone — 실행기(PersistentStatusZoneExecutor)가 발동 순간 부른다. 그 순간 구역 안 유닛이 바로 걸린다.
 //     · 다시 세기: Tick — 권위 틱마다 남은 시간을 줄이고, 구역마다 안에 있는 유닛을 다시 센다(들어옴 · 나감).
 //     · 묻기     : GetMoveSpeedMultiplier · CanAttack — UnitCombatUseCase의 접근자 두 곳이 "이 유닛의 구역 효과"를 묻는다.
+//                  GetEvadeChance — [2026-11-23 연막탄 S-1] 연막(아군 구역) 안 유닛의 회피 확률. 회피 판정 서비스(SkillEvasionSystem)가 묻는다.
 //     · 사망     : NotifyUnitDied — 유닛이 죽으면 구성원에서 바로 뺀다.
 //     · 닫기     : Close — 경기가 끝나면 모든 구역을 풀고, 이후 새 구역을 만들지 않는다(사용자 결정 Z-8).
 //
@@ -27,6 +28,12 @@
 //   Z-6 다른 출처의 같은 종류는 곱한다(순풍 1.3 × 수액 0.4 = 0.52). 빙결은 이동 0 · 공격 불가로 최우선.
 //   Z-7 시전 건물이 파괴 · 철거돼도 구역은 시간이 다 될 때까지 남는다(건물을 보지 않는다).
 //   Z-8 경기 종료 = 모든 구역 해제 + 새 구역 거부.
+//
+// [2026-11-23 연막탄 Task 단계 S-1 — Plan P-1 · P-2 · M-2 · M-5 · M-6 · M-7] 연막탄도 같은 구역 장치를 쓴다.
+//   · 연막 = 「아군 대상」 구역(targetsAllies = true → TargetTeam = 시전 팀) + 새 효과 종류 EvadeChance(강도 = 회피 확률 0~1).
+//   · 구성원 = 연막 안에 선 **시전 팀 유닛만**(적 유닛 · 건물은 구성원이 되지 않는다 — CollectInside가 대상 팀 유닛만 센다).
+//   · 같은 연막 두 개가 겹쳐도 확률은 1번만(Z-5 그대로). 연막은 이동 · 공격에 영향을 주지 않는다(이동 배율 1 · 공격 가능).
+//   · 여기서는 "확률을 들고 있다가 물으면 알려 주기"만 한다. 실제로 주사위를 굴려 피하게 하는 일은 SkillEvasionSystem이 한다.
 //
 // 클라이언트 알림(Z-2 N-B):
 //   구성원이 바뀐 틱에만 GameEvents.OnSkillZoneMembershipConfirmed(구역 순번 · 들어온 Id · 나간 Id)를 발행한다.
@@ -76,8 +83,8 @@ namespace Hexiege.Application
             public float RadiusSqr;           // 반경 제곱(거리 비교용)
             public float Duration;            // 전체 지속(초)
             public float Remaining;           // 남은 시간(초)
-            public StatusEffectKind Kind;     // 효과 종류(빙결 · 이동 배율)
-            public float Magnitude;           // 강도(이동 배율 값 — 빙결이면 쓰지 않는다)
+            public StatusEffectKind Kind;     // 효과 종류(빙결 · 이동 배율 · [연막탄 S-1] 회피 확률)
+            public float Magnitude;           // 강도(이동 배율 값 · 회피 확률 값 — 빙결이면 쓰지 않는다)
             public bool Announced;            // 첫 구성원을 클라이언트에 알렸는가(첫 틱에 알린다 — 위험 R-10)
             public readonly HashSet<int> Members = new HashSet<int>();     // 지금 구역 안(효과를 받는) 유닛 Id
             public readonly List<int> PendingDiedExits = new List<int>(2); // 사망 통보로 뺐지만 아직 알리지 않은 Id
@@ -89,6 +96,8 @@ namespace Hexiege.Application
         {
             public float MoveMultiplier; // 이동 배율(빙결이면 0)
             public bool CanAttack;       // 공격 가능(빙결이면 false)
+            // [2026-11-23 연막탄 S-1] 회피 확률(0~1). 연막 밖이면 0. 새 항목을 만들 때 따로 적지 않아도 구조체 기본값 0이다.
+            public float EvadeChance;
         }
 
         // 지금 살아 있는 구역(만든 순서). 구역 수는 많아야 몇 개라 목록 순회로 충분하다.
@@ -143,8 +152,8 @@ namespace Hexiege.Application
         /// <param name="center">조준 중심(도메인 월드, Y 무시).</param>
         /// <param name="radius">반경(월드). 0 이하 · NaN이면 만들지 않는다.</param>
         /// <param name="duration">지속(초). 0 이하 · NaN이면 만들지 않는다.</param>
-        /// <param name="kind">효과 종류(Freeze · MoveSpeedMul · AttackDisabled만 효과가 있다).</param>
-        /// <param name="magnitude">강도(MoveSpeedMul의 배율). 음수 · NaN이면 만들지 않는다.</param>
+        /// <param name="kind">효과 종류(Freeze · MoveSpeedMul · AttackDisabled · [연막탄 S-1] EvadeChance만 효과가 있다).</param>
+        /// <param name="magnitude">강도(MoveSpeedMul의 배율 · EvadeChance의 확률 0~1). 음수 · NaN이면 만들지 않는다.</param>
         /// <param name="targetsAllies">true면 시전 팀 유닛, false면 상대 팀 유닛이 대상.</param>
         /// <returns>만들었으면 발동 순간 구역 안 유닛 수(0 이상), 만들지 않았으면 -1.</returns>
         public int CreateZone(int sequence, TeamId casterTeam, int slot, int casterBuildingId, Vector3 center,
@@ -349,6 +358,18 @@ namespace Hexiege.Application
             return !_effects.TryGetValue(unitId, out UnitZoneEffect e) || e.CanAttack;
         }
 
+        /// <summary>
+        /// [2026-11-23 연막탄 S-1 — Plan P-2] 이 유닛의 구역 회피 확률(0~1). 연막(아군 구역) 밖이면 0.
+        /// 회피 판정 서비스(SkillEvasionSystem)가 "맞을 유닛(피격자)이 연막 안인가"를 물을 때 쓴다(메인 기본안 M-2).
+        /// 구역 효과를 받는 유닛이 하나도 없으면(평상시) 조회 없이 0 — 기존 전투와 완전히 같다.
+        /// </summary>
+        /// <param name="unitId">맞을 유닛 Id.</param>
+        public float GetEvadeChance(int unitId)
+        {
+            if (_effects.Count == 0) return 0f;
+            return _effects.TryGetValue(unitId, out UnitZoneEffect e) ? e.EvadeChance : 0f;
+        }
+
         /// <summary> 이 유닛이 지금 어느 구역의 구성원인가(확인 · 검증용). </summary>
         /// <param name="unitId">유닛 Id.</param>
         public bool IsInAnyZone(int unitId) => _effects.ContainsKey(unitId);
@@ -398,7 +419,15 @@ namespace Hexiege.Application
                 case StatusEffectKind.AttackDisabled:
                     effect.CanAttack = false;
                     break;
+                case StatusEffectKind.EvadeChance:
+                    // [2026-11-23 연막탄 S-1] 회피 확률. 같은 스킬(연막탄) 겹침은 위 RebuildEffects가 이미 1번으로 막는다(Z-5 · M-6).
+                    //   "다른 스킬"의 회피 구역이 생기면(지금은 없다 — 회피 스킬은 연막탄 하나) 서로 독립인 두 번의 회피로 본다:
+                    //   맞을 확률끼리 곱한다 → 1 − (1 − a)(1 − b). 「다른 출처는 곱한다」(Z-6)를 확률에 맞게 옮긴 것이다.
+                    //   강도는 0~1로 자른다(실행기가 이미 거르지만, 자산 오설정에도 확률이 1을 넘지 않게).
+                    effect.EvadeChance = 1f - (1f - effect.EvadeChance) * (1f - Mathf.Clamp01(magnitude));
+                    break;
                 // 그 밖의 종류(공격 배율 · 회복 · 없음)는 구역 효과로 다루지 않는다(접근자 두 곳만 합성 — Z-1).
+                //   [연막탄 S-1] 회피 확률(EvadeChance)은 위에서 다루고, 세 번째 접근자 GetEvadeChance가 읽는다.
             }
         }
 

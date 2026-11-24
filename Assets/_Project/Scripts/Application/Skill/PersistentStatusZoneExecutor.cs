@@ -10,9 +10,11 @@
 //   (EMP 실행기 AreaTowerDisableExecutor가 ctx.DisableEnemyTowersInArea를 부르는 것과 같은 역할 분담이다.)
 //
 // 지키는 결정:
-//   · 같은 실행기 하나로 서리 감옥 · 수액 늪 · (나중에) 연막탄을 다룬다 — 자산의 값(종류 · 강도 · 아군 여부)만 다르다(Z-16 · 스킬 규칙 7).
+//   · 같은 실행기 하나로 서리 감옥 · 수액 늪 · 연막탄을 다룬다(2026-11-24 정정 — 연막탄 구현으로 직전 「(나중에) 연막탄」) — 자산의 값(종류 · 강도 · 아군 여부)만 다르다(Z-16 · 스킬 규칙 7).
 //   · 새 상태 종류를 만들지 않는다 — 빙결(Freeze)과 이동 배율(MoveSpeedMul)의 뜻을 재사용한다(Z-17).
 //     그 밖의 종류(공격 배율 · 회복 · 없음)는 구역 효과로 다루지 않으므로 구역을 만들지 않는다(자산 오설정 방어).
+//   · [2026-11-23 연막탄 S-1] 예외 하나 — 연막탄의 「회피 확률(EvadeChance)」은 새 종류로 받는다(빙결 · 이동 배율로 표현할 수 없다).
+//     강도 = 확률 0~1, 대상 = 아군(자산 TargetsAllies = true).
 //   · 피해 칸(TotalDamage) · 착탄 지연(ImpactDelay)은 읽지 않는다(지연 장치는 타입 A 다리에만 있다).
 //   · 쿨다운은 이 실행기와 무관하게 SkillActivationUseCase가 발동 순간 시작한다(스킬 규칙 3).
 //
@@ -53,6 +55,12 @@ namespace Hexiege.Application
             if (kind == StatusEffectKind.MoveSpeedMul)
             {
                 if (!(magnitude >= 0f) || float.IsInfinity(magnitude)) return;
+            }
+            // [2026-11-23 연막탄 S-1 — Plan P-1] 회피 확률(연막탄). 확률이라 0 이상 · 1 이하만 받는다(NaN은 첫 비교에서 걸러진다).
+            //   대상(아군)은 자산의 TargetsAllies 칸이 정한다 — 연막탄 자산은 true(시전 팀 유닛이 구성원).
+            else if (kind == StatusEffectKind.EvadeChance)
+            {
+                if (!(magnitude >= 0f) || magnitude > 1f) return;
             }
             else if (kind != StatusEffectKind.Freeze)
             {

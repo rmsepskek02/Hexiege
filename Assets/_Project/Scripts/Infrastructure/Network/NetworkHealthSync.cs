@@ -94,6 +94,10 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync),
                                  "서버 측 OnEntityDamaged/OnEntityHealed 구독 완료");
             }
+
+            // [진단 MIST-DIAG] 경기 종료 때 물안개 건물 회복 동기화 요약 1줄(SyncSummary)을 쓰도록 구독한다(Host · Client 모두).
+            //   개발 빌드가 아니면 호출째 사라져 구독 자체가 생기지 않는다.
+            DiagSubscribeGameEnd();
         }
 
         /// <summary>
@@ -107,6 +111,10 @@ namespace Hexiege.Infrastructure
 
             _healedSubscription?.Dispose();
             _healedSubscription = null;
+
+            // [진단 MIST-DIAG] 경기 종료 요약 구독 해제(개발 빌드가 아니면 처음부터 null이다).
+            _diagGameEndSubscription?.Dispose();
+            _diagGameEndSubscription = null;
         }
 
         // ====================================================================
@@ -202,6 +210,8 @@ namespace Hexiege.Infrastructure
             // 건물 힐(MistShrine 물안개) — 전용 RPC로 분기시키고 아래 유닛 경로는 그대로 지나간다.
             if (!e.IsUnit && e.Entity is BuildingData healedBuilding)
             {
+                // [진단 MIST-DIAG] 회복 주체가 HealShrine(물안개)인 건물 회복 송신만 센다(재생의 뿌리 건물 회복은 제외) — 줄 없음, SyncSummary에 합계.
+                DiagBuildingHealSent(e.HealerId);
                 SyncBuildingHealClientRpc(healedBuilding.Id, e.CurrentHp, e.HealerId, e.ShowText);
                 return;
             }
@@ -484,6 +494,8 @@ namespace Hexiege.Infrastructure
             if (building == null)
             {
                 // 이미 파괴 처리되었거나 아직 배치 전일 수 있음 (조용히 무시)
+                // [진단 MIST-DIAG] 물안개 회복인데 이 Client에 건물이 없으면 BuildingMissing으로 센다(Warn — 상한 있음).
+                DiagBuildingHealMissing(buildingId, healerId, serverHp);
                 return;
             }
 
@@ -493,6 +505,10 @@ namespace Hexiege.Infrastructure
             {
                 building.Heal(diff);
             }
+
+            // [진단 MIST-DIAG] 물안개 건물 회복 수신 집계 + 건물 · 신전별 첫 수신 1줄(BuildingHealReceived). 서버 HP와 어긋나면 Warn.
+            //   (diff는 위에서 「서버 HP − 수신 전 HP」로 계산했으므로 수신 전 HP = serverHp − diff 다.)
+            DiagBuildingHealReceived(building, healerId, serverHp, serverHp - diff);
 
             // (2) 부유 회복 텍스트 — showText가 true일 때만 재발행한다(클라이언트 전용).
             //     힐러는 항상 건물(MistShrine)이므로 healerIsUnit=false로 고정한다.
@@ -561,6 +577,164 @@ namespace Hexiege.Infrastructure
                     immediatePresentation: false,
                     presentationResultKey: presentationResultKey, wavePresentationKey: waveKey,
                     projectilePresentationKey: projectileKey));
+            }
+        }
+        // ====================================================================
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 — 검증 항목 ② 건물 HP 회복 Client 동기화.
+        //   Host: 물안개 건물 회복 송신 수만 센다(줄 없음). Client: 건물 · 신전별 첫 수신 1줄 + 불일치 · 건물 없음 Warn(합쳐 상한 8줄).
+        //   경기 종료 때 양쪽 1줄 SyncSummary(Host BuildingHealSent / Client BuildingHealRecv · BuildingMismatch …, 양쪽 AutoOn).
+        //   🔴 출처 혼재 주의 — 건물이 주는 회복(healerIsUnit=false)은 물안개와 재생의 뿌리 둘 다다.
+        //      그래서 회복 주체 Id(healerId)가 가리키는 건물이 HealShrine일 때만 물안개로 센다(양쪽 같은 기준).
+        //   모든 메서드에 [Conditional] 두 개 → 릴리스에서는 호출 · 문자열 조립 · 구독이 통째로 사라진다(LogRules 1.7). 상태는 읽기만 한다.
+        // ====================================================================
+
+        private const int DiagWarnCap = 8;
+
+        private System.IDisposable _diagGameEndSubscription;  // 경기 종료 요약 구독(개발 빌드에서만 생긴다)
+        private System.Collections.Generic.HashSet<long> _diagFirstRecv; // Client: 첫 수신 줄을 이미 남긴 (건물 · 신전) 키
+        private int _diagBuildingHealSent;     // Host: 물안개 건물 회복 송신 수
+        private int _diagBuildingHealRecv;     // Client: 물안개 건물 회복 수신 수(건물이 있던 것)
+        private int _diagBuildingHealApplied;  // Client: 수신으로 실제로 오른 HP 합
+        private int _diagBuildingMissing;      // Client: 수신했지만 건물이 없던 수
+        private int _diagBuildingMismatch;     // Client: 수신 뒤 HP ≠ 서버 HP 인 수
+        private int _diagWarnLines;            // Client: 남긴 Warn 줄 수(상한 DiagWarnCap)
+        private bool _diagSummaryWritten;      // 경기당 요약 1줄
+
+        private string DiagRole()
+        {
+            return IsServer ? "Host" : "Client";
+        }
+
+        // healerId가 가리키는 건물이 HealShrine(물안개 신전)인가 — 진단 메서드 안에서만 쓴다.
+        private bool DiagIsMistHealer(int healerId)
+        {
+            BuildingData healer = _services?.GetBuildingPlacement()?.GetBuilding(healerId);
+            return healer != null && healer.Type == BuildingType.HealShrine;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagSubscribeGameEnd()
+        {
+            _diagGameEndSubscription?.Dispose();
+            _diagSummaryWritten = false;
+            _diagBuildingHealSent = 0;
+            _diagBuildingHealRecv = 0;
+            _diagBuildingHealApplied = 0;
+            _diagBuildingMissing = 0;
+            _diagBuildingMismatch = 0;
+            _diagWarnLines = 0;
+            _diagFirstRecv?.Clear();
+            // 🔴 블록 본문 람다({ }) — 식 본문이면 [Conditional] 호출이 지워지지 않는다(LogRules 1.7).
+            _diagGameEndSubscription = GameEvents.OnGameEnd.Subscribe(_ => { DiagWriteSyncSummary(); });
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBuildingHealSent(int healerId)
+        {
+            try
+            {
+                if (DiagIsMistHealer(healerId)) _diagBuildingHealSent++;
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBuildingHealMissing(int buildingId, int healerId, int serverHp)
+        {
+            try
+            {
+                if (!DiagIsMistHealer(healerId)) return;
+                _diagBuildingMissing++;
+                if (_diagWarnLines >= DiagWarnCap) return;
+                _diagWarnLines++;
+                GameLog.Dev.Warn("Network", nameof(NetworkHealthSync), "[MIST-DIAG] BuildingHealReceived",
+                    System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={buildingId}, HealerId={healerId}, ServerHp={serverHp}, Check=Missing, MissingCount={_diagBuildingMissing}"));
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        /// <summary>
+        /// Client 물안개 건물 회복 수신 1회 집계. 건물 · 신전별 첫 수신이면 Info 1줄, 서버 HP와 어긋나면(Check=Mismatch) 매번 Warn(상한 8줄).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagBuildingHealReceived(BuildingData building, int healerId, int serverHp, int hpBefore)
+        {
+            try
+            {
+                if (building == null || !DiagIsMistHealer(healerId)) return;
+                int hpAfter = building.Hp;
+                int applied = hpAfter - hpBefore;
+                bool match = hpAfter == serverHp;
+                _diagBuildingHealRecv++;
+                _diagBuildingHealApplied += applied;
+                if (!match) _diagBuildingMismatch++;
+
+                if (_diagFirstRecv == null) _diagFirstRecv = new System.Collections.Generic.HashSet<long>();
+                bool first = _diagFirstRecv.Add(((long)building.Id << 32) | (uint)healerId);
+                if (!first && match) return;
+
+                string data = System.FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={building.Id}, Type={building.Type}, HealerId={healerId}, ServerHp={serverHp}, HpBefore={hpBefore}, Applied={applied}, HpAfter={hpAfter}, MaxHp={building.MaxHp}, First={first}, Check={(match ? "Match" : "Mismatch")}, RecvCount={_diagBuildingHealRecv}");
+                if (match)
+                {
+                    GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[MIST-DIAG] BuildingHealReceived", data);
+                }
+                else if (_diagWarnLines < DiagWarnCap)
+                {
+                    _diagWarnLines++;
+                    GameLog.Dev.Warn("Network", nameof(NetworkHealthSync), "[MIST-DIAG] BuildingHealReceived", data);
+                }
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        /// <summary>
+        /// 경기 종료 요약 1줄(경기당 1회). 판정 ②: Host BuildingHealSent = Client BuildingHealRecv(+BuildingMissing), BuildingMismatch=0.
+        /// 판정 ④ 보조: 양쪽 AutoOn(자동 모드가 켜진 살아 있는 신전 수)이 같아야 한다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagWriteSyncSummary()
+        {
+            if (_diagSummaryWritten) return;
+            _diagSummaryWritten = true;
+            try
+            {
+                int shrines = 0;
+                int autoOn = 0;
+                BuildingPlacementUseCase buildings = _services?.GetBuildingPlacement();
+                MistShrineUseCase mist = _services?.GetMistShrineUseCase();
+                if (buildings != null)
+                {
+                    foreach (BuildingData b in buildings.Buildings.Values)
+                    {
+                        if (b == null || !b.IsAlive || b.Type != BuildingType.HealShrine) continue;
+                        shrines++;
+                        if (mist != null && mist.GetAutoMode(b.Id)) autoOn++;
+                    }
+                }
+
+                string data = IsServer
+                    ? System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=SyncSummary, Role={DiagRole()}, BuildingHealSent={_diagBuildingHealSent}, Shrines={shrines}, AutoOn={autoOn}")
+                    : System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=SyncSummary, Role={DiagRole()}, BuildingHealRecv={_diagBuildingHealRecv}, BuildingHealApplied={_diagBuildingHealApplied}, BuildingMissing={_diagBuildingMissing}, BuildingMismatch={_diagBuildingMismatch}, Shrines={shrines}, AutoOn={autoOn}");
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[MIST-DIAG] SyncSummary", data);
+            }
+            catch (System.Exception)
+            {
             }
         }
     }

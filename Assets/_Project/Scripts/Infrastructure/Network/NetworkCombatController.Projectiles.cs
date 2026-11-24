@@ -13,6 +13,8 @@
 //       (2026-10-20 단계 B: 진단이 스냅샷 수신 수를 셀 수 있도록 추가 — 스키마 4 → 5).
 //   · ProjectileLaunchClientRpc(epoch, id, 공격자, 대상, 위치, 반경, 발사/착탄 시각) : 발사 기록 1건.
 //   · ProjectileImpactClientRpc(epoch, id, 결과, 착탄 지점, 대상, HP, 피해량, 시각)   : 착탄 결과 1건.
+//   · [2026-11-23 연막탄 단계 S-3] 발사 기록 RPC 끝에 evaded(회피 여부) · missPoint(빗나간 지점)가 붙었다(스키마 11 → 12).
+//       착탄 결과의 outcome 값에 3(Evaded — 피해 없음, 착탄 지점 = 빗나간 지점)이 생겼다(RPC 모양은 그대로 byte 1칸).
 //   · RequestProjectileSnapshotServerRpc → 서버가 그 Client에게만 epoch + "지금 비행 중"인 발사 기록을 다시 보낸다(Q14 늦은 접속).
 //   · ProjectileLaunchCancelClientRpc(epoch, id, 공격자, 종류, 사유, 공격 표현 회차, 시각) : [2026-10-21 단계 D] 발사 전 취소 통보 1건.
 //       Client 화면은 이 통보로 차지 VFX를 즉시 끈다(같은 회차일 때만). 스키마 5 → 6.
@@ -220,12 +222,16 @@ namespace Hexiege.Infrastructure
             DiagProjectileTransport(d => d.LaunchesSent++);
         }
 
+        // [2026-11-23 연막탄 단계 S-3 — Plan P-6 · 메인 기본안 M-3 (가)] 발사 기록의 「회피 여부 · 빗나간 지점」 두 칸을 RPC 끝에 실어 보낸다.
+        //   발사 RPC를 보내는 곳은 이 함수 하나뿐이고, 늦은 접속 스냅샷(UpdateProjectileTransport의 스냅샷 반복)도 이 함수를 지나므로
+        //   두 경로 모두 같은 회피 정보가 실린다(늦은 접속 경로는 실기 미관측). RPC 모양이 바뀌었으므로 스키마 11 → 12(UnitAttackShadowProfileResolver).
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 호출(회피 칸 없음)을 지웠다 — 실기 멀티 Host가 이 함수로 회피 발사를 보냈다.)
         private void SendProjectileLaunchRpc(ProjectileLaunchPresentation launch, ClientRpcParams rpc)
         {
             ProjectileLaunchClientRpc(launch.Key.Epoch, launch.Key.Id, launch.AttackerId, launch.AttackerIsUnit,
                 launch.AttackerKind, launch.AttackerRace, (int)launch.Team, launch.TargetId, launch.TargetIsUnit,
                 launch.Source, launch.TargetCenter, launch.TargetRadius, launch.LaunchTime, launch.ImpactTime,
-                launch.Homing, rpc);
+                launch.Homing, launch.Evaded, launch.MissPoint, rpc);
         }
 
         private void SendProjectileImpact(ProjectileImpactPresentation impact)
@@ -303,16 +309,21 @@ namespace Hexiege.Infrastructure
             _projectileSnapshotClients.Add(rpc.Receive.SenderClientId);
         }
 
+        // [2026-11-23 연막탄 단계 S-3] S-2까지의 서명(homing에서 끝남) 뒤에 evaded · missPoint 두 인자를 붙였다(스키마 12).
+        //   받은 쪽은 발사 기록을 다시 만들고 IsValid가 「회피면 빗나간 지점이 유한한 좌표」까지 검사한다(NaN이면 DroppedInvalid로 버린다).
+        //   Client는 회피를 다시 판정하지 않는다 — 서버가 정한 회피 여부 · 지점을 그대로 화면에 넘긴다(스킬 규칙 25).
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 서명 · 받기 줄을 지웠다 — 실기 멀티 Client가 이 RPC로 회피 발사를 받아 그렸다.)
         [ClientRpc]
         private void ProjectileLaunchClientRpc(ulong epoch, ulong id, int attacker, bool attackerIsUnit,
             int attackerKind, int attackerRace, int team, int target, bool targetIsUnit,
             Vector3 source, Vector3 targetCenter, float targetRadius, double launchTime, double impactTime,
-            bool homing, ClientRpcParams rpc = default)
+            bool homing, bool evaded, Vector3 missPoint, ClientRpcParams rpc = default)
         {
             if (IsServer) return;
             var launch = new ProjectileLaunchPresentation(new ProjectileDeliveryKey(epoch, id), attacker,
                 attackerIsUnit, attackerKind, attackerRace, (TeamId)team, target, targetIsUnit,
-                source, targetCenter, targetRadius, launchTime, impactTime, homing);
+                source, targetCenter, targetRadius, launchTime, impactTime, homing,
+                evaded: evaded, missPoint: missPoint);
             DiagProjectileTransport(d => d.LaunchRpcs++);
             if (_projectileSnapshotLaunchesPending > 0)
             {

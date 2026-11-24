@@ -24,13 +24,14 @@
 //   LS-T5  아군 · 직선 밖(옆 · 시작점 뒤 · 끝점 너머) 대상 피해 0.
 //   LS-T6  경기 종료(ClosePendingImpacts) 뒤 남은 폭격 피해 0 · 새 예약 거부 · 폭격 처리 중 닫힘(같은 틱 남은 폭격 버림).
 //   LS-T7  잘못된 방향(0 · NaN · 무한대 · 너무 짧음 · 수직만) 거부 · 쿨다운 없음, 정규화(3, 4 → 0.6, 0.8) · 발동 알림 방향 정리.
-//   LS-T8  스키마 11 + RPC 방향 인자 · 서버 재검증 · 배선 소스 게이트 + 메커니즘 5 · 실행기 등록 · 자산 칸 초기값(P-7).
+//   LS-T8  스키마 12(공습이 11로 올림 → 2026-11-23 연막탄이 12로 올림 — 직전 「스키마 11」) + RPC 방향 인자 · 서버 재검증 · 배선 소스 게이트 + 메커니즘 5 · 실행기 등록 · 자산 칸 초기값(P-7).
 //   LS-T10 원형 스킬 무변경 — 포격(타입 A · 착탄 지연 0.4) 예약 · 피해 1회 · 0.3초 전엔 피해 없음 · 방향 0으로도 발동.
 //   LS-T12 유효 길이 밖 폭격 — 유효 길이 2.5(L의 절반 미만): 구간 3 일부만 판정 · 구간 4 · 5 건너뜀 · 맵 밖 대상 피해 0.
 //
 //   LS-T9  [2026-11-17 L-5 · L-6 추가] 공습 자산 켜기 — 사용 가능 · 지점 지정 · 메커니즘 5 · P-7 임시 수치(길이 6 · 폭 2 · 5회 · 간격 0.2 ·
-//          첫 지연 0.4 · 150 · 쿨 10) · 인간 로드아웃 슬롯 1 · 셋업 기대 수 13 · 셋업 표의 공습 줄(자리표시 아님).
+//          첫 지연 0.4 · 150 · 쿨 10) · 인간 로드아웃 슬롯 1 · 셋업 기대 수 14 · 셋업 표의 공습 줄(자리표시 아님).
 //          *(2026-11-18 메테오 — 셋업 기대 수 12 → 13. 직전 「셋업 기대 수 12」)*
+//          *(2026-11-23 연막탄 — 셋업 기대 수 13 → 14. 직전 「셋업 기대 수 13」)*
 //          덧붙여 L-5: VFX 칸 초기값(기준 길이 6 · 폭격 프리팹 없음) · 기준 길이 정리 · 칸에 든 프리팹의 1회 재생 계약(반복 없음 · Hierarchy) ·
 //          재생 경로 소스 게이트(공습 분기가 원형 「프리팹 없음」 검사보다 앞 · 공용 유효 길이 함수 · 맵 밖 구간 건너뜀 · 회전 재생 · 경계 배선).
 //
@@ -74,7 +75,8 @@ namespace Hexiege.Editor.Combat
             ValidateLineStrikeAssetEnabled();        // LS-T9 (+ L-5 VFX 칸 · 재생 경로 게이트) — 2026-11-17 L-5 · L-6 추가
             // [2026-11-17 L-5 · L-6] PASS 문구 끝에 LS-T9를 덧붙였다(옛 문구는 「… out-of-map strikes skipped (LS-T12).」로 끝났다).
             // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup count 12」를 13으로 바꿨다(메테오를 켜 셋업 기대 수가 13이 됐다 — 문구만).
-            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 11 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 13 / VFX slot contract and playback gates (LS-T9).");
+            // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 12 · 「setup count 13」 → 14(연막탄 S-1 · S-3이 바꾼 값 — 문구만).
+            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 13 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 14 / VFX slot contract and playback gates (LS-T9).");
         }
 
         // ── fixture 전용 스탯 고정 ─────────────────────────────────────────
@@ -572,11 +574,12 @@ namespace Hexiege.Editor.Combat
 
         // ── LS-T8 ───────────────────────────────────────────────────────
 
-        /// <summary> LS-T8 — 스키마 11 · RPC 방향 인자 · 서버 재검증 · 배선 소스 게이트 · 메커니즘 5 · 자산 칸 초기값. </summary>
+        /// <summary> LS-T8 — 스키마 12(2026-11-23 연막탄으로 11 → 12) · RPC 방향 인자 · 서버 재검증 · 배선 소스 게이트 · 메커니즘 5 · 자산 칸 초기값. </summary>
         private static void ValidateLineStrikeSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 11,
-                "LS-T8 the air-strike direction arguments must raise the presentation schema to 11.");
+            // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "LS-T8 the air-strike direction arguments raised the presentation schema to 11 (the smoke-bomb projectile launch RPC arguments then raised it to 12).; current merged DoT provenance + smoke evasion require schema 13.");
             Require((int)SkillMechanicType.LineStrike == 5 && new SkillExecutorRegistry().TryGet(SkillMechanicType.LineStrike) is LineStrikeExecutor,
                 "LS-T8 SkillMechanicType.LineStrike must be 5 (appended last) and registered to LineStrikeExecutor.");
 
@@ -614,23 +617,25 @@ namespace Hexiege.Editor.Combat
                 "LS-T8 SkillData must sanitize bad line values (NaN / negative → 0, count capped at " + SkillData.MaxLineStrikeCount + ").");
         }
 
-        // ── LS-T9 (L-6 자산 켜기 · 셋업 기대 수 13 — 2026-11-18 메테오로 12 → 13) + L-5 VFX 칸 · 재생 경로 게이트 ─────────────
+        // ── LS-T9 (L-6 자산 켜기 · 셋업 기대 수 14 — 2026-11-18 메테오로 12 → 13, 2026-11-23 연막탄으로 13 → 14) + L-5 VFX 칸 · 재생 경로 게이트 ─────────────
 
         private const string AirStrikeAssetPath = "Assets/_Project/Resources/Config/Skills/Skill_Human_AirStrike.asset";
 
         /// <summary>
         /// LS-T9 — 공습 자산이 Plan 값으로 켜졌는지(사용 가능 · 지점 지정 · 메커니즘 5 · P-7 임시 수치) · 인간 로드아웃 슬롯 1 ·
-        /// 셋업 도구 기대 수 13(2026-11-18 메테오로 12 → 13) · 셋업 표의 공습 줄. 덧붙여 L-5(VFX 칸 초기값 · 칸에 든 프리팹의 1회 재생 계약 · 재생 경로 소스 게이트)도 본다.
+        /// 셋업 도구 기대 수 14(2026-11-18 메테오로 12 → 13, 2026-11-23 연막탄으로 13 → 14) · 셋업 표의 공습 줄. 덧붙여 L-5(VFX 칸 초기값 · 칸에 든 프리팹의 1회 재생 계약 · 재생 경로 소스 게이트)도 본다.
         /// </summary>
         private static void ValidateLineStrikeAssetEnabled()
         {
-            // ① 셋업 도구 기대 수 13(다른 스위트 5파일의 같은 검사와 같은 값 — 표와 개수가 어긋나면 도구가 쓰기 전에 멈춘다).
+            // ① 셋업 도구 기대 수 14(다른 스위트 5파일의 같은 검사와 같은 값 — 표와 개수가 어긋나면 도구가 쓰기 전에 멈춘다).
+            //   *(2026-11-23 연막탄 — 직전 「기대 수 13」. 연막탄을 켜 14가 됐다)*
             //   *(2026-11-18 메테오 — 직전 「기대 수 12(다른 스위트 4파일 …)」. 메테오를 켜 13이 됐고 메테오 스위트 M-T8이 같은 검사를 더해 5파일)*
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 13,
-                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 13 (Air Strike enabled, then Meteor).");
+            // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
+            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+                "LS-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Air Strike enabled, then Meteor, then Smoke Bomb).");
 
             // ② 자산 값(Plan P-7 · L-L9 — 시험용 임시값). 칸이 없으면 SkillDefinition 초기값으로 읽히므로 ToSkillData 결과로 본다.
             SkillDefinition def = UnityEditor.AssetDatabase.LoadAssetAtPath<SkillDefinition>(AirStrikeAssetPath);

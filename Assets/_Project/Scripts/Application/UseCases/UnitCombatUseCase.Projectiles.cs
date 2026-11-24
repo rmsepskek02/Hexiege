@@ -32,6 +32,13 @@
 //   다른 점은 착탄 피해 writer 하나뿐이다 — 유닛은 ApplyAttackDamageCore, 타워는 IBuildingProjectileImpactWriter
 //   (= TowerCombatUseCase의 타워 피해 writer). 비행 중 타워가 파괴돼도 맞으면 피해를 준다(공격자 사망과 같음 — U-6).
 //
+// [2026-11-23 연막탄 단계 S-3 — 서버 권위 투사체 회피(Plan P-5 · P-6)]
+//   발사 순간(LaunchProjectile · TryLaunchTowerProjectile) 맞을 유닛이 연막 안이면 서버가 한 번 회피를 판정한다
+//   (유닛 6종 — MushroomBomber 제외 · 인간 대포탑, 대상이 유닛일 때만 — 판정 함수는 UnitCombatUseCase.Evasion.cs).
+//   피했으면 발사 기록에 「회피 + 빗나간 지점」을 싣고 착탄 시각을 그 지점까지의 거리로 다시 고정한다.
+//   착탄 시각이 되면 피해 writer를 부르지 않고 결과 「회피(ProjectileImpactOutcome.Evaded)」만 보낸다(화상도 없다).
+//   연막이 없으면(평상시) 판정이 없어 위 흐름은 이 단계 전과 같다.
+//
 // [왜 50ms 전투 틱이 아니라 매 프레임인가]
 //   멀티 전투 틱(_attackInterval 0.05초)에 묶으면 착탄이 최대 50ms 늦어진다(위험 4).
 //   그래서 TorrentSpirit 발사 예약(TickTorrentLaunches)과 같은 매 프레임 진행에 붙인다.
@@ -101,6 +108,11 @@ namespace Hexiege.Application
             // ── [2026-10-20 단계 B 진단 전용] 발사 뒤 공격자가 처음 죽은 것으로 보인 시각(판정에는 쓰지 않는다) ──
             public bool AttackerDeadObserved;
             public double AttackerDeadAt;
+            // ── [2026-11-23 연막탄 단계 S-3] 발사 순간 회피 판정 결과(UnitCombatUseCase.Evasion.cs) ──
+            //   Evaded = 서버가 발사 순간 「연막 회피」로 정했는가. true면 착탄 때 피해 writer를 부르지 않고 결과 「회피」만 보낸다.
+            //   MissPoint = 빗나간 지점(도메인 월드). 착탄 지점 = 이 점(대상 표면 지점이 아니다).
+            public bool Evaded;
+            public Vector3 MissPoint;
 
             public void Reset()
             {
@@ -110,6 +122,8 @@ namespace Hexiege.Application
                 Due = 0d; HitIndex = 0; LaunchTime = 0d; ImpactTime = 0d; Source = Vector3.zero;
                 LastTargetCenter = Vector3.zero; TargetRadius = 0f; AttackPower = 0; TargetLost = false;
                 Launch = default; AttackerDeadObserved = false; AttackerDeadAt = 0d;
+                // [연막탄 S-3] 재사용 풀에서 꺼낸 기록에 지난 발의 회피 결과가 남지 않게 함께 비운다.
+                Evaded = false; MissPoint = Vector3.zero;
             }
         }
 
@@ -293,6 +307,18 @@ namespace Hexiege.Application
             float travel = Mathf.Max(0f, centerDistance - radius);
             double impactTime = now + travel / Mathf.Max(0.0001f, speed);
 
+            // [2026-11-23 연막탄 단계 S-3 — Plan P-5 · 상위 R-11] 발사 순간 회피 판정(UnitCombatUseCase.Evasion.cs).
+            //   맞을 유닛이 연막(아군 구역) 안이면 서버가 지금 한 번 결정적 해시로 굴린다. 피했으면 빗나간 지점(대상 옆 · 조금 뒤)을
+            //   지금 고정하고, 착탄 시각을 「포구 → 빗나간 지점」 거리 ÷ 속도로 다시 계산한다. 착탄 때는 피해 writer를 부르지 않는다.
+            //   연막 밖(평상시)이면 판정 자체가 없어 아래 줄은 지금까지와 한 글자도 다르지 않게 동작한다.
+            bool evadeRolled = TryRollProjectileEvasion(record, target, source, center, radius, out ProjectileEvadeGate evade);
+            if (evadeRolled && evade.Evaded)
+            {
+                record.Evaded = true;
+                record.MissPoint = evade.MissPoint;
+                impactTime = now + evade.MissTravel / Mathf.Max(0.0001f, speed);
+            }
+
             record.Stage = ProjectileStage.InFlight;
             record.LaunchTime = now;
             record.ImpactTime = impactTime;
@@ -300,12 +326,15 @@ namespace Hexiege.Application
             record.LastTargetCenter = center;
             record.TargetRadius = radius;
             record.AttackPower = attackPower;
+            // [연막탄 S-3] 회피 여부 · 빗나간 지점 두 인자만 끝에 붙였다(회피가 아니면 false · 0 — 그전 기록과 같다).
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 실기 멀티에서 인간 대포탑 포탄 회피가 이 줄로 기록됐다.)
             record.Launch = new ProjectileLaunchPresentation(
                 new ProjectileDeliveryKey(ProjectileEpoch, record.Id), tower.Id, attackerIsUnit: false,
                 attackerKind: (int)tower.Type, attackerRace: (int)race, team: tower.Team,
                 targetId: target.Id, targetIsUnit: true,
                 source: source, targetCenter: center, targetRadius: radius,
-                launchTime: now, impactTime: impactTime, homing: true);
+                launchTime: now, impactTime: impactTime, homing: true,
+                evaded: record.Evaded, missPoint: record.MissPoint);
             if (!record.Launch.IsValid)
             {
                 // 좌표가 비정상이면 착탄 지점을 정할 수 없다 — 피해 없이 취소로 닫는다(fail-closed, 유닛과 같다).
@@ -313,6 +342,8 @@ namespace Hexiege.Application
                 CompactProjectiles();
                 return false;
             }
+            // [연막탄 S-3 진단 E-L5 · E-L8] 판정 1줄(Path=TowerShell) + 회피면 빗나간 지점 1줄. 판정이 없었으면(연막 밖) 아무것도 남기지 않는다.
+            if (evadeRolled) DiagProjectileEvadeRoll(record, evade, source, center, radius, impactTime - now);
             DiagProjectileLaunch(record, now, centerDistance);
             ProjectileLog("launched", record, impactTime,
                 FormattableString.Invariant($"distance={centerDistance:F3}, flight={impactTime - now:F3}"));
@@ -589,6 +620,19 @@ namespace Hexiege.Application
             double launchTime = record.Due;
             double impactTime = launchTime + travel / Mathf.Max(0.0001f, speed);
 
+            // [2026-11-23 연막탄 단계 S-3 — Plan P-5 · 상위 R-11] 발사 순간 회피 판정(UnitCombatUseCase.Evasion.cs).
+            //   대상이 유닛 · 적 팀 · 연막 안이고, 쏘는 유닛이 회피 대상 6종(MushroomBomber 제외)일 때만 굴린다.
+            //   피했으면 빗나간 지점을 지금 고정하고 착탄 시각을 「발사 위치 → 빗나간 지점」 거리 ÷ 속도로 다시 계산한다.
+            //   착탄 때는 피해 writer를 부르지 않는다 → 피해 · InfernoSpirit 화상 · 피해 숫자 모두 없다(사용자 결정 U-3 · U-4).
+            //   연막 밖(평상시)이면 판정 자체가 없어 이 메서드는 지금까지와 한 글자도 다르지 않게 동작한다.
+            bool evadeRolled = TryRollProjectileEvasion(record, target, source, center, radius, out ProjectileEvadeGate evade);
+            if (evadeRolled && evade.Evaded)
+            {
+                record.Evaded = true;
+                record.MissPoint = evade.MissPoint;
+                impactTime = launchTime + evade.MissTravel / Mathf.Max(0.0001f, speed);
+            }
+
             record.Stage = ProjectileStage.InFlight;
             record.LaunchTime = launchTime;
             record.ImpactTime = impactTime;
@@ -605,18 +649,24 @@ namespace Hexiege.Application
                 record.Attacker.Facing = FacingDirection.FromCoords(record.Attacker.Position, target.Position);
 
             int race = 0;
+            // [연막탄 S-3] 회피 여부 · 빗나간 지점 두 인자만 끝에 붙였다(회피가 아니면 false · 0 — 그전 기록과 같다).
+            //   늦은 접속 스냅샷(CopyActiveProjectileLaunches)도 이 기록을 그대로 복사하므로 회피 정보가 함께 실린다(늦은 접속은 실기 미관측).
+            //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 줄을 지웠다 — 실기 멀티에서 유닛 투사체 회피가 이 줄로 기록됐다.)
             record.Launch = new ProjectileLaunchPresentation(
                 new ProjectileDeliveryKey(ProjectileEpoch, record.Id), record.Attacker.Id, attackerIsUnit: true,
                 attackerKind: (int)record.AttackerType, attackerRace: race, team: record.Team,
                 targetId: record.TargetId, targetIsUnit: record.TargetIsUnit,
                 source: source, targetCenter: center, targetRadius: radius,
-                launchTime: launchTime, impactTime: impactTime, homing: true);
+                launchTime: launchTime, impactTime: impactTime, homing: true,
+                evaded: record.Evaded, missPoint: record.MissPoint);
             if (!record.Launch.IsValid)
             {
                 // 좌표가 비정상(NaN 등)이면 착탄 지점을 정할 수 없다 — 피해를 주지 않고 취소로 닫는다(fail-closed).
                 CancelReservation(record, "invalid-launch-geometry", "invalid-launch-geometry");
                 return;
             }
+            // [연막탄 S-3 진단 E-L5] 판정 1줄(Path=Projectile) + 회피면 빗나간 지점 1줄. 판정이 없었으면(연막 밖) 아무것도 남기지 않는다.
+            if (evadeRolled) DiagProjectileEvadeRoll(record, evade, source, center, radius, impactTime - launchTime);
             _projectileCueStates[record.Attacker.Id] = new ProjectileCueState { Attacker = record.Attacker, Cancelled = false };
             DiagProjectileLaunch(record, now, centerDistance);
             DiagChargeUnitStage(record.AttackerType, launched: true);   // [단계 D 진단] 차지 유닛 발사 수
@@ -651,6 +701,15 @@ namespace Hexiege.Application
             // [단계 B 진단] 피해 적용이 게임 종료 닫기로 재진입하면 record가 초기화되므로, 진단에 필요한 값을 먼저 복사해 둔다
             //   (공격자 생사는 이 메서드 맨 앞에서 이번 프레임 기준으로 이미 확인했다 — 같은 프레임 사망 포함).
             ProjectileImpactDiagnosticSnapshot diag = CaptureProjectileImpactDiagnostics(record);
+            // [2026-11-23 연막탄 단계 S-3 — Plan P-5] 발사 순간에 「회피」로 정한 투사체 — 피해 writer를 부르지 않는다.
+            //   (그래서 피해 · 화상 · 피해 이벤트 · 피해 숫자가 모두 없고, 착탄 중 Hitscan 관문도 지나지 않는다 — 이중 판정 없음.)
+            //   결과는 「회피(Evaded)」, 착탄 지점 = 빗나간 지점. 「writer 미적용 = 대상 소실」 갈래(아래)로 보내지 않는다 — 화면 · 진단이 구별된다.
+            //   비행 중 대상이 죽었어도 결과는 「회피」 그대로다(Plan O-6 결정 — 피해가 없기는 같고 화면 그림도 같다).
+            if (record.Evaded)
+            {
+                ResolveEvadedProjectileImpact(record, key, diag, now);
+                return;
+            }
             if (!record.TargetLost)
             {
                 AttackDamageObservation observation = ApplyProjectileImpactDamage(record, key);

@@ -40,7 +40,7 @@ ResearchMatrixView.BuildMatrix의 Regen CreateCell weight를 `_cellWeight`로 �
 
 비교 원본은 [PC-Editor.png](../../../_Reference/img/PC-Editor.png), [Laptop-Editor.png](../../../_Reference/img/Laptop-Editor.png), [S22.jpg](../../../_Reference/img/S22.jpg)로 보존했다. 서로 다른 기기/Editor 화면이며 화면 전체 조건이 같다고 가정하지 않는다. 원래 panel anchorY0~0.5(화면 높이의 절반)와 width 기준 CanvasScaler·행 높이130 고정의 조합이 aspect에 따라 다른 레이아웃을 만든 것이 확인됐다. 특정 기기 결함으로 분류하지 않는다.
 
-최신 origin/main pull은 기존 staged3개(google-services-desktop.json.meta, Maplestory Light SDF.asset, lib_burst_generated.txt)를 보존하기 위해 merge가 거절됐다. 사용자 stash 승인 대기이며 pull/merge 성공이나 기존 작업 손실로 기록하지 않는다. 이번 기록은 비교 조사이고 제품·다른 Task·Git 쓰기는 하지 않았다.
+최신 origin/main pull은 기존 staged3개(google-services-desktop.json.meta, Maplestory Light SDF.asset, lib_burst_generated.txt)를 보존하기 위해 merge가 거절됐다. 그 비교 조사 당시에는 stash 승인 대기로 pull이 거절됐고 이후 사용자 전체 병합 승인에 따라 백업·stash 후 합성 검증을 진행했다. 당시 거절을 작업 손실로 기록하지 않는다. 이번 기록은 비교 조사이고 제품·다른 Task·Git 쓰기는 하지 않았다.
 
 ## 후속 교정 적용·Editor 화면 재검증 완료
 
@@ -52,7 +52,7 @@ ResearchMatrixView.BuildMatrix의 Regen CreateCell weight를 `_cellWeight`로 �
 
 메인이 실제 Unity에서 Login 자동 로그인→초월 선택→싱글 쉬움→연구소 건설→패널 열기 순서로 확인했다.1080×2340에서 panel 비율이 PC 기준과 같이 단축됐고 Gameview를 Mobile1080×1920으로 전환한 같은 패널에서도 전체 비율·버튼/철거의 상대 배치가 일치했다. 자연회복1셀+빈2칸도 유지됐다.1920 화면에서 자연회복 클릭 후 Lv0→1 진행창·진행바·취소 표시를 확인했다. 연구 완료·스탯 적용을 검증한 결과는 아니다.
 
-Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S22는 미검증이다. 이번 후속 turn에는 빌드 요청이 없어 새 빌드시도는 없었다(앞선 초기 버튼 수정의 빌드시도와 구분). 추가 소스코드 수정0이며 Game씬 ARF15줄과 참고 이미지3개/자동 meta가 이번 후속 범위다. pull 실패·stash 승인 대기는 유지하고 새 이미지 push도 하지 않았다. 사운드·다른 기존 dirty·Git 쓰기·원시 로그는 건드리지 않았다.
+Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S22는 미검증이다. 이번 후속 turn에는 빌드 요청이 없어 새 빌드시도는 없었다(앞선 초기 버튼 수정의 빌드시도와 구분). 추가 소스코드 수정0이며 Game씬 ARF15줄과 참고 이미지3개/자동 meta가 이번 후속 범위다. 그 화면 검증 시점에는 pull 실패·stash 승인 대기였고 새 이미지를 push하지 않았다. 이후 병합 현행 상태는 마지막 절을 따른다. 사운드·다른 기존 dirty·Git 쓰기·원시 로그는 건드리지 않았다.
 
 ## 사용자 표시 수용·기존 최적화 전체 병합 승인
 
@@ -61,3 +61,19 @@ Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S2
 사용자는 최신 main을 pull·병합·push하고 UI뿐 아니라 기존 최적화 작업도 모두 main에 병합하라고 명시했다. 현재 메인이 Git 백업과 전체 기능 코드 검토를 진행 중이며 원격 main9c012141/현재 HEAD80c03561 기준이다. 전체 병합 승인·검토 단계로 아직 병합/push 완료는 아니다. 이전 선별 제품 반영과 이번 전체 범위를 구분하고 양쪽 기존 작업·staged/dirty 보존을 우선한다.
 
 기존 최적화 문서의 구현 완료와 성능 미검증, 과거 main 미포함 기록을 구분해 조사한다. 다른 Task/상시 문서 수정이 필요하면 범위부터 보고하고 승인받는다. 현재 변경은 이 Task2개뿐이며 문서 담당은 제품·Git를 변경하지 않는다.
+
+## 전체 최적화·UI 병합 진행 — 2026-11-25
+
+전체 제품+UI 작업을 eaf05db4로 보존했고 local 산출물 원문은 stash27409dce/b068b956에 보존했다. 현재 origin/main9c012141과 no-commit merge 중이며 merge commit/push는 아직 미완이다. main 연막/회피와 opt DoT 출처 wire를 함께 유지해 합성 schema13으로 정합했다. TDD의 기존12/11/10은 시점별 원문으로 보존했다. 실제 코드/검증기·SDK 합성 검증은 아래 결과와 같이 완료했으며 병합 후 새 native/실기 수용은 아직 없다.
+
+과거 opt측정판/main선별판 구분은 당시 기록이며 이번 승인은 UI만이 아닌 기존 최적화 전체 통합이다. 기존 기능·실측 한계와 양쪽 작업을 보존하고 최종 병합 영수증 뒤 현행 상태를 갱신한다.
+
+## 전체 합성 소스 검증 완료 — 2026-11-25
+
+eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 검증을 완료했다. 합성 schema13은 main 신규 연막 wire/토큰과 opt DoT 출처를 함께 보존한다. 신규 main 연막4cs 및 관련 Projectiles/Tower/MistShrinePanel은 origin/main 대비 diff0을 확인했고 Game씬 ARF15줄은 eaf 기준 그대로다.
+
+private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
+
+최종 Git merge commit·main 이동·push/원격 확인은 메인 진행 단계로 아직 완료라고 기록하지 않는다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 Git 최종 결과 전 문서 쓰기를 동결한다.

@@ -230,6 +230,10 @@ namespace Hexiege.Application
         /// <returns>시전에 성공하면 true(호출자가 쿨다운 브로드캐스트에 사용), 재검증 실패면 false.</returns>
         public bool Activate(int buildingId)
         {
+            // [진단 MIST-DIAG] 아래 재검증 ①~③ 중 하나에 막히면 그 사유를 CastResult Result=Reject* 1줄로 남긴다.
+            //   아래 if 문들을 고치지 않으려고, 같은 조건을 「읽기만」 해서 미리 판정한다(개발 빌드 전용 — 릴리스에서는 호출째 사라진다).
+            DiagCastPrecheck(buildingId);
+
             // 서버 전용 가드(2중 방어) — 호출부가 실수로 클라이언트에서 불러도 물안개가 생기지 않는다.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return false;
 
@@ -246,6 +250,8 @@ namespace Hexiege.Application
             // ④ 같은 건물이 만든 이전 물안개가 남아 있으면 정리한다.
             //    지속시간 < 쿨다운(규칙 7)이라 정상적으로는 겹칠 수 없지만, 튜닝값을 잘못 넣어
             //    지속 ≥ 쿨다운이 되더라도 한 건물이 물안개를 두 겹 만들지 않도록 방어한다.
+            // [진단 MIST-DIAG] 지워지기 직전의 이전 물안개가 있으면 MistEnded Reason=Replaced 1줄(정상 설정값에서는 나오지 않는다).
+            DiagEndMistsOfShrine(buildingId, "Replaced");
             RemoveMistsOfShrine(buildingId);
 
             // ⑤ 물안개 생성 — 중심은 시전 건물 타일의 "도메인" 월드 좌표다(규칙 3·10 — 고정 원형, 이동 없음).
@@ -258,6 +264,10 @@ namespace Hexiege.Application
 
             // ⑥ 쿨다운 시작(규칙 21). 시전 비용은 없다(규칙 11 — 골드 소모 없음).
             StartCooldownLocal(buildingId, _cooldown);
+
+            // [진단 MIST-DIAG] 시전 성공 1줄(CastResult Result=Ok · CastNo). 훅(⑦)보다 먼저 남겨 CastNo가 먼저 정해지게 한다
+            //   — 훅을 받는 네트워크 컨트롤러가 ActivateSent 줄에 같은 CastNo를 싣는다.
+            DiagCastOk(buildingId);
 
             // ⑦ 멀티 클라 쿨다운 미러용 훅 발화(싱글은 구독자 없음).
             OnMistActivated?.Invoke(buildingId, _cooldown);
@@ -320,6 +330,8 @@ namespace Hexiege.Application
             }
             _cooldownRemaining[buildingId] = cooldown;
             _cooldownTotal[buildingId] = cooldown;
+            // [진단 MIST-DIAG] 쿨다운 시작 시점의 진단 시계를 적어 둔다(만료 때 ElapsedMs 계산용 — 줄은 남기지 않는다).
+            DiagCooldownStarted(buildingId);
         }
 
         /// <summary>
@@ -331,6 +343,9 @@ namespace Hexiege.Application
         public void TickCooldowns(float dt)
         {
             if (dt <= 0f || _cooldownRemaining.Count == 0) return;
+
+            // [진단 MIST-DIAG] 쿨다운 진단 시계를 이번 dt만큼 진행한다(줄 없음 — 만료 줄의 ElapsedMs 재료).
+            DiagCooldownAdvance(dt);
 
             // 순회 중 제거는 예외를 일으키므로, 키를 모아 두고 값 갱신 → 만료분 일괄 제거 순으로 처리한다.
             _tickKeyBuffer.Clear();
@@ -350,6 +365,8 @@ namespace Hexiege.Application
 
             for (int i = 0; i < _expiredBuffer.Count; i++)
             {
+                // [진단 MIST-DIAG] 만료 1회 = CooldownExpired 1줄. 총 쿨다운 값을 읽어야 하므로 지우기 직전에 부른다.
+                DiagCooldownExpired(_expiredBuffer[i]);
                 _cooldownRemaining.Remove(_expiredBuffer[i]);
                 _cooldownTotal.Remove(_expiredBuffer[i]);
             }
@@ -419,11 +436,15 @@ namespace Hexiege.Application
             // 딕셔너리 순회 순서에 의존하지 않도록 Id 오름차순으로 정렬한다(결정성).
             _autoCastBuffer.Sort();
 
+            // [진단 MIST-DIAG] 이 반복 안의 Activate 호출은 자동 시전이다 → CastResult 줄의 Origin=Auto.
+            //   Activate의 시그니처를 바꾸지 않으려고 진단 전용 깃발 하나로 알린다(반복이 끝나면 바로 내린다).
+            DiagSetAutoOrigin(true);
             for (int i = 0; i < _autoCastBuffer.Count; i++)
             {
                 // Activate 안에서 건물 생존·타입·쿨다운을 다시 확인하므로 여기서 중복 검사하지 않는다.
                 Activate(_autoCastBuffer[i]);
             }
+            DiagSetAutoOrigin(false);
             _autoCastBuffer.Clear();
         }
 
@@ -449,6 +470,10 @@ namespace Hexiege.Application
             // 서버 전용 가드(2중 방어) — 클라이언트에서 돌면 회복이 두 번 적용된다.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
             if (dt <= 0f || _activeMists.Count == 0) return;
+
+            // [진단 MIST-DIAG] 가드를 통과한 호출 1회 기록 — 같은 프레임 2회 통과(이중 틱)면 DoubleTick Warn 첫 1줄,
+            //   물안개마다 받은 dt 합(SumDtMs) 누적. 판정 값(Remaining · TickAccum)은 건드리지 않는다.
+            DiagTickEnter(dt);
 
             // ── 1) 시간 진행 + 이번 틱에 회복을 발화할 물안개 표시 ───────────────
             //    발화 여부를 리스트에 모으지 않고 물안개 자신에게 표시(FiredThisTick)해 두는 이유:
@@ -487,6 +512,9 @@ namespace Hexiege.Application
                 {
                     mist.ShowTextThisTick = false;
                 }
+
+                // [진단 MIST-DIAG] 이 물안개의 발화 1회 기록(Ticks · 발화 간격 · 텍스트 수 — 줄 없음, MistEnded에 합계).
+                DiagMistFired(mist);
             }
 
             // ── 2) 회복 적용(중첩 해소 포함) ─────────────────────────────────────
@@ -496,6 +524,8 @@ namespace Hexiege.Application
             }
 
             // ── 3) 지속시간이 끝난 물안개 제거(뒤에서부터 지워 인덱스가 밀리지 않게 한다) ──
+            // [진단 MIST-DIAG] 아래 반복이 지울 물안개(Remaining ≤ 0)마다 MistEnded Reason=Expire 1줄을 먼저 남긴다.
+            DiagEndExpiredMists();
             for (int i = _activeMists.Count - 1; i >= 0; i--)
             {
                 if (_activeMists[i].Remaining <= 0f)
@@ -603,6 +633,9 @@ namespace Hexiege.Application
             // 실제로 회복이 일어난 대상만 이벤트를 발행한다(규칙 5·15 — 풀피 대상은 텍스트도 없다).
             if (target.Hp == before) return;
 
+            // [진단 MIST-DIAG] 실제로 오른 회복 1회 집계 + 물안개당 대상별 첫 회복이면 HealSample 1줄(상한 있음).
+            DiagHealApplied(target, true, shrineId, before);
+
             // showText=false여도 이벤트는 발행한다 — NetworkHealthSync가 이 이벤트로 HP를 클라에 동기화하기 때문.
             //   (FloatingHpTextSpawner만 ShowText 플래그를 보고 텍스트 표시를 건너뛴다.)
             GameEvents.OnEntityHealed.OnNext(
@@ -625,6 +658,9 @@ namespace Hexiege.Application
             // [2026-11-17 단계 B — 회복 지점 ③] 건물도 받는 회복 배율을 거친다(Plan S-3 「건물 포함」).
             target.Heal(AmplifiedMistHeal(target));
             if (target.Hp == before) return;
+
+            // [진단 MIST-DIAG] 건물 회복 1회 집계 + 물안개당 건물별 첫 회복이면 HealSample Target=Building 1줄.
+            DiagHealApplied(target, false, shrineId, before);
 
             GameEvents.OnEntityHealed.OnNext(
                 new EntityHealedEvent(target, target.Hp, isUnit: false,
@@ -724,6 +760,8 @@ namespace Hexiege.Application
         /// <param name="buildingId">파괴·철거된 MistShrine 건물 Id.</param>
         public void OnShrineDestroyed(int buildingId)
         {
+            // [진단 MIST-DIAG] 신전이 사라져 지워지는 물안개가 있으면 MistEnded Reason=ShrineDestroyed 1줄.
+            DiagEndMistsOfShrine(buildingId, "ShrineDestroyed");
             RemoveMistsOfShrine(buildingId);
             _autoMode.Remove(buildingId);
             _cooldownRemaining.Remove(buildingId);
@@ -733,6 +771,8 @@ namespace Hexiege.Application
         /// <summary> 재경기·맵 전환 시 모든 물안개·자동 모드·쿨다운 상태를 초기화한다. </summary>
         public void ClearAll()
         {
+            // [진단 MIST-DIAG] 남은 물안개를 MistEnded Reason=MapClear로 닫고, 진단 상태(순번 · 시계 · 경기 종료 깃발)를 비운다.
+            DiagClearAll();
             _activeMists.Clear();
             _autoMode.Clear();
             _cooldownRemaining.Clear();
@@ -773,6 +813,408 @@ namespace Hexiege.Application
         private static Vector3 Flatten(Vector3 v)
         {
             return new Vector3(v.x, 0f, v.z);
+        }
+
+        // ====================================================================
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 로그 지점 표.
+        //
+        //   남기는 줄(상태가 바뀔 때 · 물안개당 · 경기당만 — 매 틱 · 매 회복 줄은 없다, LogRules 1.14):
+        //     CastResult      시전 호출 1회당 1줄. Origin=Manual|Auto, Result=Ok|RejectClientGuard|RejectMissing|RejectType|RejectCooldown.
+        //     CooldownExpired 쿨다운 만료 1회당 1줄. CdMs(총 쿨다운) · ElapsedMs(시작 이후 이 기기가 받은 dt 합).
+        //     HealSample      물안개당 대상별 「첫 회복」 1줄(물안개당 상한 16 — 넘으면 SamplesDropped로만 센다).
+        //     DoubleTick      같은 프레임에 TickMists 가드를 두 번 통과한 첫 1회(Warn). 정상이면 0줄이다.
+        //     MistEnded       물안개 1개가 끝날 때 1줄. Reason=Expire|Replaced|ShrineDestroyed|MapClear|GameEnd.
+        //
+        //   지키는 것:
+        //     · 모든 진입 메서드에 [Conditional] 두 개 → 릴리스 빌드에서는 호출 · 인자 계산 · 문자열 조립이 통째로 사라진다(LogRules 1.7).
+        //     · 판정 값(남은 시간 · 누적기 · 쿨다운 사전 · HP · 배율 나머지)을 바꾸지 않는다 — 읽기와 진단 전용 칸만 쓴다.
+        //       (받는 회복 배율은 부작용이 있는 AmplifyHeal을 다시 부르지 않고, 읽기 전용 GetHealAmpMultiplier만 쓴다.)
+        //     · 예외를 밖으로 던지지 않는다 — 서버 회복 경로 안에서 돌기 때문에 각 메서드가 삼킨다.
+        //     · 경기 종료(DiagGameEnd) 뒤에는 줄을 더 남기지 않는다(싱글은 결과 화면 뒤에서도 틱이 계속 돈다).
+        //     · 시간은 모두 「이 기기 기준 상대 ms」다(서버 시각 필드 없음). 기기 사이 대조는 순번 · 개수 · 경과 ms로 한다.
+        // ====================================================================
+
+        /// <summary>물안개 하나가 남길 HealSample 줄 상한.</summary>
+        private const int DiagHealSampleCap = 16;
+
+        /// <summary>같은 대상이 이 시간(초, 물안개 진단 시계) 안에 다시 회복되면 「중복 회복」으로 센다. 정상 주기는 1초다.</summary>
+        private const double DiagDupHealWindow = 0.5;
+
+        // 진단 전용 상태 — 전부 지연 생성(릴리스에서는 null · 0 그대로 남는다). 판정 코드는 이 필드들을 읽지 않는다.
+        private Dictionary<int, int> _diagCastCount;         // 신전 Id → 성공 시전 수(= 마지막 CastNo).
+        private Dictionary<int, double> _diagCdStartClock;   // 신전 Id → 쿨다운 시작 때의 쿨다운 진단 시계 값(초).
+        private Dictionary<long, double> _diagLastHealClock; // 대상 키 → 마지막 물안개 회복 때의 물안개 진단 시계 값(초).
+        private double _diagCdClock;                         // TickCooldowns가 받은 dt 합(초).
+        private double _diagMistClock;                       // TickMists가 받은 dt 합(초).
+        private bool _diagAutoOrigin;                        // true = 지금 Activate 호출은 TickAutoCast에서 왔다.
+        private int _diagLastTickFrame = -1;                 // TickMists 가드를 마지막으로 통과한 프레임 번호.
+        private int _diagTickCallsInFrame;                   // 그 프레임에서 가드를 통과한 횟수.
+        private int _diagDoubleTickFrames;                   // 가드를 2회 이상 통과한 프레임 수(정상이면 0).
+        private bool _diagGameEnded;                         // 경기 종료 정리 뒤에는 줄을 남기지 않는다.
+
+        /// <summary>
+        /// [진단 전용] 신전별 성공 시전 수(= 가장 최근 CastNo)를 돌려준다. 개발 빌드가 아니면 늘 0이다.
+        /// 네트워크 컨트롤러가 ActivateSent 줄에 CastResult와 같은 CastNo를 싣기 위해 읽는다 — 게임 판정에는 쓰지 않는다.
+        /// </summary>
+        /// <param name="buildingId">MistShrine 건물 Id.</param>
+        public int GetDiagCastCount(int buildingId)
+        {
+            return _diagCastCount != null && _diagCastCount.TryGetValue(buildingId, out int n) ? n : 0;
+        }
+
+        /// <summary>
+        /// [진단 전용] 경기 종료 정리 — 아직 깔려 있는 물안개마다 MistEnded Reason=GameEnd 1줄을 쓰고, 이후 진단 줄을 멈춘다.
+        /// 멀티 Host는 경기가 끝나면 전투 틱이 멈춰 물안개가 「끝나지 않은 채」 남기 때문에, 요약을 여기서 한 번 닫아 쓴다.
+        /// GameBootstrapper의 OnGameEnd 구독(블록 본문 람다)이 부른다. 개발 빌드가 아니면 호출째 사라진다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        public void DiagGameEnd()
+        {
+            if (_diagGameEnded) return;
+            for (int i = 0; i < _activeMists.Count; i++)
+                DiagWriteMistEnded(_activeMists[i], "GameEnd");
+            _diagGameEnded = true;
+        }
+
+        // 진단 줄 Role= 값(Single · Host · Client). 다른 진단(SkillVfx · SkillRegen)과 같은 표기.
+        private static string DiagMistRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Host" : "Client";
+        }
+
+        // 초 → 정수 ms(로그 값에 소수점 · 문화권 차이가 끼지 않게).
+        private static long DiagMs(double seconds)
+        {
+            return (long)Math.Round(seconds * 1000.0, MidpointRounding.AwayFromZero);
+        }
+
+        // 「값 없음」(음수)은 -1로, 그 밖에는 ms로.
+        private static long DiagMsOrNone(double seconds)
+        {
+            return seconds < 0 ? -1 : DiagMs(seconds);
+        }
+
+        private string DiagOrigin()
+        {
+            return _diagAutoOrigin ? "Auto" : "Manual";
+        }
+
+        // 신전 Id로 지금 깔려 있는 물안개를 찾는다(신전마다 최대 1개 — Activate ④가 보장). 없으면 null.
+        private ActiveMist DiagFindMist(int shrineId)
+        {
+            for (int i = 0; i < _activeMists.Count; i++)
+            {
+                if (_activeMists[i].SourceBuildingId == shrineId) return _activeMists[i];
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Activate의 재검증 ①~③과 「같은 조건을 같은 순서로 읽기만」 해서, 막히는 경우 그 사유를 CastResult Reject* 1줄로 남긴다.
+        /// ⚠️ Activate의 가드를 바꾸면 이 메서드도 함께 맞춰야 한다(진단 줄이 실제 사유와 달라지지 않게).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCastPrecheck(int buildingId)
+        {
+            if (_diagGameEnded) return;
+            try
+            {
+                string reject = null;
+                float cdRemain = 0f;
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+                {
+                    reject = "RejectClientGuard"; // 순수 Client에서 직접 경로로 불렸다(컨트롤러 배선 누락 신호).
+                }
+                else
+                {
+                    BuildingData b = _buildingPlacement?.GetBuilding(buildingId);
+                    if (b == null || !b.IsAlive) reject = "RejectMissing";
+                    else if (b.Type != BuildingType.HealShrine) reject = "RejectType";
+                    else
+                    {
+                        cdRemain = GetCooldownRemaining(buildingId);
+                        if (cdRemain > 0f) reject = "RejectCooldown";
+                    }
+                }
+                if (reject == null) return; // 통과 — 성공 줄은 DiagCastOk가 남긴다.
+
+                GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CastResult",
+                    FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Origin={DiagOrigin()}, Result={reject}, CastNo={GetDiagCastCount(buildingId)}, CdRemainMs={DiagMs(cdRemain)}"));
+            }
+            catch (Exception)
+            {
+                // 진단 실패가 시전을 막으면 안 된다 — 삼킨다.
+            }
+        }
+
+        /// <summary> 시전 성공 1줄(CastResult Result=Ok) + 새 물안개의 진단 칸 초기화. CastNo는 신전별 1, 2, … 순번이다. </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCastOk(int buildingId)
+        {
+            try
+            {
+                if (_diagCastCount == null) _diagCastCount = new Dictionary<int, int>();
+                _diagCastCount.TryGetValue(buildingId, out int castNo);
+                castNo++;
+                _diagCastCount[buildingId] = castNo;
+
+                ActiveMist mist = DiagFindMist(buildingId);
+                if (mist != null)
+                {
+                    mist.DiagCastNo = castNo;
+                    mist.DiagStartWall = UnityEngine.Time.timeAsDouble;
+                }
+                if (_diagGameEnded) return;
+
+                BuildingData b = _buildingPlacement?.GetBuilding(buildingId);
+                string team = b != null ? b.Team.ToString() : "None";
+                double phase = mist != null ? mist.TickAccum : 0.0;
+                GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CastResult",
+                    FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Team={team}, Origin={DiagOrigin()}, Result=Ok, CastNo={castNo}, CdMs={DiagMs(_cooldown)}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, ActiveMists={_activeMists.Count}, PhaseMs={DiagMs(phase)}"));
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        // TickAutoCast가 자동 시전 반복 앞뒤로 세우고 내린다(CastResult Origin= 값).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagSetAutoOrigin(bool on)
+        {
+            _diagAutoOrigin = on;
+        }
+
+        // 쿨다운 시작(서버 시전 · Client 미러 공통) — 그 순간의 쿨다운 진단 시계를 적어 둔다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCooldownStarted(int buildingId)
+        {
+            if (_diagCdStartClock == null) _diagCdStartClock = new Dictionary<int, double>();
+            _diagCdStartClock[buildingId] = _diagCdClock;
+        }
+
+        // 쿨다운 진단 시계 진행(TickCooldowns가 실제로 감소를 할 때만 불린다 → 쿨다운이 있는 동안의 dt는 빠짐없이 쌓인다).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCooldownAdvance(float dt)
+        {
+            _diagCdClock += dt;
+        }
+
+        /// <summary> 쿨다운 만료 1줄. ElapsedMs ≈ CdMs이면 이 기기의 감소 속도가 정상이다(Host는 전투 틱 간격만큼 늦을 수 있다). </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagCooldownExpired(int buildingId)
+        {
+            try
+            {
+                double start = 0.0;
+                bool known = _diagCdStartClock != null && _diagCdStartClock.TryGetValue(buildingId, out start);
+                if (known) _diagCdStartClock.Remove(buildingId);
+                if (_diagGameEnded) return;
+
+                long elapsedMs = known ? DiagMs(_diagCdClock - start) : -1;
+                GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CooldownExpired",
+                    FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=CooldownExpired, Role={DiagMistRole()}, BuildingId={buildingId}, CdMs={DiagMs(GetCooldownTotal(buildingId))}, ElapsedMs={elapsedMs}"));
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        /// <summary>
+        /// TickMists 가드를 통과한 호출 1회 기록. 같은 프레임에 두 번째로 통과하면 이중 틱이다 → 첫 1회만 DoubleTick Warn.
+        /// 물안개마다 받은 dt 합(SumDt)도 여기서 쌓는다(판정 필드 Remaining과 별개의 진단 칸).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagTickEnter(float dt)
+        {
+            try
+            {
+                int frame = UnityEngine.Time.frameCount;
+                if (frame == _diagLastTickFrame)
+                {
+                    _diagTickCallsInFrame++;
+                    if (_diagTickCallsInFrame == 2)
+                    {
+                        _diagDoubleTickFrames++;
+                        if (_diagDoubleTickFrames == 1 && !_diagGameEnded)
+                        {
+                            GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] DoubleTick",
+                                FormattableString.Invariant(
+                                    $"Diag=MistShrine, DiagRev=1, Event=DoubleTick, Role={DiagMistRole()}, Frame={frame}, Calls={_diagTickCallsInFrame}, ActiveMists={_activeMists.Count}, DtMs={DiagMs(dt)}"));
+                        }
+                    }
+                }
+                else
+                {
+                    _diagLastTickFrame = frame;
+                    _diagTickCallsInFrame = 1;
+                }
+
+                _diagMistClock += dt;
+                for (int i = 0; i < _activeMists.Count; i++)
+                    _activeMists[i].DiagSumDt += dt;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        // 물안개 발화 1회 기록(줄 없음). 발화 간격은 이 기기의 게임 시계(Time.timeAsDouble) 차이다.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagMistFired(ActiveMist mist)
+        {
+            try
+            {
+                double now = UnityEngine.Time.timeAsDouble;
+                mist.DiagTicks++;
+                if (mist.DiagFirstFireSumDt < 0) mist.DiagFirstFireSumDt = mist.DiagSumDt;
+                if (mist.DiagLastFireWall >= 0)
+                {
+                    double gap = now - mist.DiagLastFireWall;
+                    if (mist.DiagMinGap < 0 || gap < mist.DiagMinGap) mist.DiagMinGap = gap;
+                    if (gap > mist.DiagMaxGap) mist.DiagMaxGap = gap;
+                }
+                mist.DiagLastFireWall = now;
+                if (mist.ShowTextThisTick) mist.DiagTexts++;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        /// <summary>
+        /// 실제로 HP가 오른 물안개 회복 1회를 그 물안개에 집계하고, 물안개당 대상별 첫 회복이면 HealSample 1줄을 남긴다.
+        /// Amplified(Heal에 넘긴 양)는 배율이 1이면 Base 그대로, 배율이 있으면 상한에 닿지 않은 경우 Gained와 정확히 같다
+        /// (Heal은 「더한 뒤 최대 체력으로 자른다」뿐이다). 상한에 닿아 알 수 없으면 -1 · Check=Capped.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagHealApplied(IDamageable target, bool isUnit, int shrineId, int hpBefore)
+        {
+            if (_diagGameEnded || target == null) return;
+            try
+            {
+                int hpAfter = target.Hp;
+                int gained = hpAfter - hpBefore;
+                long key = ((isUnit ? 1L : 2L) << 32) | (uint)target.Id;
+
+                // 중복 회복: 같은 대상이 0.5초(물안개 진단 시계) 안에 다시 회복됐다 — 2배 회복(R3)의 직접 신호다.
+                if (_diagLastHealClock == null) _diagLastHealClock = new Dictionary<long, double>();
+                bool dup = _diagLastHealClock.TryGetValue(key, out double last)
+                           && _diagMistClock - last < DiagDupHealWindow;
+                _diagLastHealClock[key] = _diagMistClock;
+
+                ActiveMist mist = DiagFindMist(shrineId);
+                if (mist == null) return; // 물안개 밖 호출(검사 코드의 직접 호출 등) — 집계할 물안개가 없다.
+
+                if (isUnit) mist.DiagUnitHeals++;
+                else mist.DiagBuildingHeals++;
+                mist.DiagBaseTotal += _healPerTick;
+                mist.DiagGainedTotal += gained;
+                if (dup) mist.DiagDupTargetHeals++;
+
+                if (mist.DiagSampled == null) mist.DiagSampled = new HashSet<long>();
+                if (!mist.DiagSampled.Add(key)) return;             // 이 대상은 이미 표본을 남겼다.
+                if (mist.DiagSamples >= DiagHealSampleCap) { mist.DiagSamplesDropped++; return; }
+                mist.DiagSamples++;
+
+                float mul = _supportEffects != null ? _supportEffects.GetHealAmpMultiplier(target.Id, isUnit) : 1f;
+                int amplified = mul == 1f ? _healPerTick : (hpAfter < target.MaxHp ? gained : -1);
+                string check = amplified < 0 ? "Capped"
+                    : (gained == Math.Min(amplified, target.MaxHp - hpBefore) ? "Match" : "Mismatch");
+                string type = target is UnitData u ? u.Type.ToString()
+                    : target is BuildingData bd ? bd.Type.ToString() : "Unknown";
+
+                string data = FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event=HealSample, Role={DiagMistRole()}, ShrineId={shrineId}, CastNo={mist.DiagCastNo}, Target={(isUnit ? "Unit" : "Building")}, Id={target.Id}, Type={type}, Base={_healPerTick}, AmpMulMilli={Mathf.RoundToInt(mul * 1000f)}, Amplified={amplified}, Gained={gained}, HpBefore={hpBefore}, HpAfter={hpAfter}, MaxHp={target.MaxHp}, Tick={mist.DiagTicks}, Dup={dup}, Check={check}");
+                if (check == "Mismatch" || dup)
+                    GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] HealSample", data);
+                else
+                    GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] HealSample", data);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        // 지속시간이 끝나 이번 TickMists 3)에서 지워질 물안개마다 MistEnded Reason=Expire.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagEndExpiredMists()
+        {
+            for (int i = 0; i < _activeMists.Count; i++)
+            {
+                if (_activeMists[i].Remaining <= 0f) DiagWriteMistEnded(_activeMists[i], "Expire");
+            }
+        }
+
+        // 지정 신전의 물안개가 지워지기 직전(재시전 · 신전 파괴)에 MistEnded 1줄.
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagEndMistsOfShrine(int buildingId, string reason)
+        {
+            for (int i = 0; i < _activeMists.Count; i++)
+            {
+                if (_activeMists[i].SourceBuildingId == buildingId) DiagWriteMistEnded(_activeMists[i], reason);
+            }
+        }
+
+        // 맵 정리: 남은 물안개를 MapClear로 닫고 진단 상태를 처음으로 되돌린다(다음 경기의 순번은 1부터).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagClearAll()
+        {
+            for (int i = 0; i < _activeMists.Count; i++)
+                DiagWriteMistEnded(_activeMists[i], "MapClear");
+
+            _diagCastCount?.Clear();
+            _diagCdStartClock?.Clear();
+            _diagLastHealClock?.Clear();
+            _diagCdClock = 0.0;
+            _diagMistClock = 0.0;
+            _diagAutoOrigin = false;
+            _diagLastTickFrame = -1;
+            _diagTickCallsInFrame = 0;
+            _diagDoubleTickFrames = 0;
+            _diagGameEnded = false;
+        }
+
+        /// <summary>
+        /// 물안개 1개의 요약 1줄(MistEnded). ③ 판정의 재료: Ticks · MinGapMs/MaxGapMs(≈1000) · SumDtMs ≈ WallMs · DupTargetHeals=0.
+        /// ② 판정의 재료: BuildingHeals(= 이 물안개가 Host에서 일으킨 건물 회복 수). 물안개마다 한 번만 쓴다(DiagEnded).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagWriteMistEnded(ActiveMist mist, string reason)
+        {
+            if (mist == null || mist.DiagEnded || _diagGameEnded) return;
+            mist.DiagEnded = true;
+            try
+            {
+                double wall = mist.DiagStartWall >= 0 ? UnityEngine.Time.timeAsDouble - mist.DiagStartWall : -1.0;
+                string data = FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event=MistEnded, Role={DiagMistRole()}, ShrineId={mist.SourceBuildingId}, Team={mist.Team}, CastNo={mist.DiagCastNo}, Reason={reason}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, Ticks={mist.DiagTicks}, FirstTickMs={DiagMsOrNone(mist.DiagFirstFireSumDt)}, MinGapMs={DiagMsOrNone(mist.DiagMinGap)}, MaxGapMs={DiagMsOrNone(mist.DiagMaxGap)}, SumDtMs={DiagMs(mist.DiagSumDt)}, WallMs={DiagMsOrNone(wall)}, UnitHeals={mist.DiagUnitHeals}, BuildingHeals={mist.DiagBuildingHeals}, BaseTotal={mist.DiagBaseTotal}, GainedTotal={mist.DiagGainedTotal}, Targets={mist.DiagSamples + mist.DiagSamplesDropped}, Texts={mist.DiagTexts}, DupTargetHeals={mist.DiagDupTargetHeals}, DoubleTickFrames={_diagDoubleTickFrames}, Samples={mist.DiagSamples}, SamplesDropped={mist.DiagSamplesDropped}");
+                if (mist.DiagDupTargetHeals > 0 || _diagDoubleTickFrames > 0)
+                    GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] MistEnded", data);
+                else
+                    GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] MistEnded", data);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         // ====================================================================
@@ -817,6 +1259,26 @@ namespace Hexiege.Application
             /// 중첩 해소는 활성 물안개 전체를 놓고 하되, 실제 회복은 이 값이 true인 물안개에서만 나간다.
             /// </summary>
             public bool FiredThisTick;
+
+            // ── [진단 MIST-DIAG] 진단 전용 칸 — 판정(위 필드들)은 이 칸을 읽지 않는다. 개발 빌드에서만 값이 채워진다. ──
+            public int DiagCastNo;              // 이 물안개를 만든 시전의 신전별 순번(CastResult · ActivateSent와 같은 값).
+            public double DiagStartWall = -1;   // 생성 시각(Time.timeAsDouble, 초). -1 = 진단이 채우지 않음.
+            public double DiagSumDt;            // 이 물안개가 TickMists에서 받은 dt 합(초).
+            public double DiagFirstFireSumDt = -1; // 첫 발화 때까지 받은 dt 합(초). -1 = 아직 발화 안 함.
+            public double DiagLastFireWall = -1;   // 직전 발화 시각(Time.timeAsDouble, 초).
+            public double DiagMinGap = -1;      // 발화 간격 최소(초). -1 = 간격이 아직 없음(발화 2회 미만).
+            public double DiagMaxGap = -1;      // 발화 간격 최대(초).
+            public int DiagTicks;               // 발화 횟수.
+            public int DiagTexts;               // 회복 텍스트 표시 틱 수.
+            public int DiagUnitHeals;           // 실제로 HP가 오른 유닛 회복 횟수.
+            public int DiagBuildingHeals;       // 실제로 HP가 오른 건물 회복 횟수.
+            public long DiagBaseTotal;          // 회복 횟수 × 틱당 기본 회복량 합.
+            public long DiagGainedTotal;        // 실제로 오른 HP 합.
+            public int DiagDupTargetHeals;      // 같은 대상이 0.5초(진단 시계) 안에 다시 회복된 횟수 — 정상이면 0.
+            public int DiagSamples;             // 남긴 HealSample 줄 수.
+            public int DiagSamplesDropped;      // 상한 때문에 남기지 못한 HealSample 수.
+            public HashSet<long> DiagSampled;   // HealSample을 이미 남긴 대상 키(지연 생성 — 릴리스에서는 null 그대로).
+            public bool DiagEnded;              // MistEnded를 이미 남겼는지(경기 종료 정리 뒤 중복 방지).
 
             /// <param name="sourceBuildingId">이 물안개를 만든 MistShrine 건물 Id.</param>
             /// <param name="team">물안개를 만든 팀.</param>

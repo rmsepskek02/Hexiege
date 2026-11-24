@@ -43,7 +43,7 @@ RegenCanonicalGroup/Stat.Regen·비용 로직은 보존한다. ResearchPanelUI�
 2. 표시/내용을 유지하는 최소 교정안을 원인과 함께 정리한다. 사운드·연구 수치/기능 변경으로 확대하지 않는다.
 3. 확정안과 실제 검증 결과 수신 뒤 이 Task의 상태를 갱신한다. 다른 기기의 미관/버튼 동작을 source만으로 PASS 처리하지 않는다.
 
-현재 staged3파일 보존으로 main pull merge가 거절되어 stash 사용자 승인을 기다린다. 기존 dirty·staging을 임의로 해제·보관하거나 Git 작업을 하지 않는다. 검사 도구 실행 가능 여부는 실제 사용 가능한 런타임으로 확인하고 실행 불가라면 미실행으로 명시한다.
+비교 조사 당시 staged3파일 보존으로 pull이 거절되어 stash 승인을 기다렸으나 이후 전체 병합 승인을 받아 백업·stash·합성 검증을 진행했다. 기존 dirty·staging을 임의로 해제·보관하거나 Git 작업을 하지 않는다. 검사 도구 실행 가능 여부는 실제 사용 가능한 런타임으로 확인하고 실행 불가라면 미실행으로 명시한다.
 
 ## 후속 교정 적용·Editor 화면 재검증 완료
 
@@ -55,7 +55,7 @@ RegenCanonicalGroup/Stat.Regen·비용 로직은 보존한다. ResearchPanelUI�
 
 메인이 실제 Unity에서 Login 자동 로그인→초월 선택→싱글 쉬움→연구소 건설→패널 열기 순서로 확인했다.1080×2340에서 panel 비율이 PC 기준과 같이 단축됐고 Gameview를 Mobile1080×1920으로 전환한 같은 패널에서도 전체 비율·버튼/철거의 상대 배치가 일치했다. 자연회복1셀+빈2칸도 유지됐다.1920 화면에서 자연회복 클릭 후 Lv0→1 진행창·진행바·취소 표시를 확인했다. 연구 완료·스탯 적용을 검증한 결과는 아니다.
 
-Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S22는 미검증이다. 이번 후속 turn에는 빌드 요청이 없어 새 빌드시도는 없었다(앞선 초기 버튼 수정의 빌드시도와 구분). 추가 소스코드 수정0이며 Game씬 ARF15줄과 참고 이미지3개/자동 meta가 이번 후속 범위다. pull 실패·stash 승인 대기는 유지하고 새 이미지 push도 하지 않았다. 사운드·다른 기존 dirty·Git 쓰기·원시 로그는 건드리지 않았다.
+Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S22는 미검증이다. 이번 후속 turn에는 빌드 요청이 없어 새 빌드시도는 없었다(앞선 초기 버튼 수정의 빌드시도와 구분). 추가 소스코드 수정0이며 Game씬 ARF15줄과 참고 이미지3개/자동 meta가 이번 후속 범위다. 그 화면 검증 시점에는 pull 실패·stash 승인 대기였고 새 이미지를 push하지 않았다. 이후 병합 현행 상태는 마지막 절을 따른다. 사운드·다른 기존 dirty·Git 쓰기·원시 로그는 건드리지 않았다.
 
 ## 사용자 표시 수용·기존 최적화 전체 병합 승인
 
@@ -64,3 +64,19 @@ Editor 두 해상도의 표시/연구 시작 범위는 확인했지만 실제 S2
 사용자는 최신 main을 pull·병합·push하고 UI뿐 아니라 기존 최적화 작업도 모두 main에 병합하라고 명시했다. 현재 메인이 Git 백업과 전체 기능 코드 검토를 진행 중이며 원격 main9c012141/현재 HEAD80c03561 기준이다. 전체 병합 승인·검토 단계로 아직 병합/push 완료는 아니다. 이전 선별 제품 반영과 이번 전체 범위를 구분하고 양쪽 기존 작업·staged/dirty 보존을 우선한다.
 
 기존 최적화 문서의 구현 완료와 성능 미검증, 과거 main 미포함 기록을 구분해 조사한다. 다른 Task/상시 문서 수정이 필요하면 범위부터 보고하고 승인받는다. 현재 변경은 이 Task2개뿐이며 문서 담당은 제품·Git를 변경하지 않는다.
+
+## 전체 최적화·UI 병합 진행 — 2026-11-25
+
+전체 제품+UI 작업을 eaf05db4로 보존했고 local 산출물 원문은 stash27409dce/b068b956에 보존했다. 현재 origin/main9c012141과 no-commit merge 중이며 merge commit/push는 아직 미완이다. main 연막/회피와 opt DoT 출처 wire를 함께 유지해 합성 schema13으로 정합했다. TDD의 기존12/11/10은 시점별 원문으로 보존했다. 실제 코드/검증기·SDK 합성 검증은 아래 결과와 같이 완료했으며 병합 후 새 native/실기 수용은 아직 없다.
+
+과거 opt측정판/main선별판 구분은 당시 기록이며 이번 승인은 UI만이 아닌 기존 최적화 전체 통합이다. 기존 기능·실측 한계와 양쪽 작업을 보존하고 최종 병합 영수증 뒤 현행 상태를 갱신한다.
+
+## 전체 합성 소스 검증 완료 — 2026-11-25
+
+eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 검증을 완료했다. 합성 schema13은 main 신규 연막 wire/토큰과 opt DoT 출처를 함께 보존한다. 신규 main 연막4cs 및 관련 Projectiles/Tower/MistShrinePanel은 origin/main 대비 diff0을 확인했고 Game씬 ARF15줄은 eaf 기준 그대로다.
+
+private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
+
+최종 Git merge commit·main 이동·push/원격 확인은 메인 진행 단계로 아직 완료라고 기록하지 않는다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 Git 최종 결과 전 문서 쓰기를 동결한다.

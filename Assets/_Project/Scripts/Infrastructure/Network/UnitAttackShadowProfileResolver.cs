@@ -42,10 +42,17 @@ namespace Hexiege.Infrastructure
         //   요청 RPC(NetworkSkillController.RequestActivateSkillServerRpc)와 발동 알림 RPC(SkillActivatedClientRpc) 맨 뒤에 붙어
         //   두 RPC 모양이 바뀌었다(6 → 7 「RPC 모양이 바뀌었다」 선례와 같은 이유). 방향 인자를 모르는 빌드(스키마 10)와 섞인 경기는
         //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
-        // [2026-11-24 main/WIP 통합] 11 → 12. main의 쉴드/공습 RPC 변경과 독립적인 WIP DoT 출처 변경을 합친다.
-        //   이전 WIP 계약: PresentationContractSchemaRevision = 10 (기준 9 → 10).
-        //   NetworkHealthSync.SyncHealthClientRpc 맨 뒤 bool isTimedDamage가 추가되므로 main 스키마 11과 혼합을 거부한다.
-        public const int PresentationContractSchemaRevision = 12;
+        // [2026-11-23 지원 스킬 연막탄 Task 단계 S-3 — 사용자 결정 U-5 · 메인 기본안 M-12] 11 → 12. 서버 권위 투사체의 발사 RPC
+        //   (NetworkCombatController.ProjectileLaunchClientRpc) 맨 뒤에 회피 여부(bool evaded) · 빗나간 지점(Vector3 missPoint)이 붙어
+        //   RPC 모양이 바뀌었고, 착탄 결과 RPC의 결과 값에 3(Evaded)이 생겼다(옛 빌드는 이 값을 수신 검사에서 버린다).
+        //   또 아래 해시 원문에 「회피 대상 분류」 토큰(smoke-evasion=)이 들어간다(메인 기본안 M-11). 스키마 11 빌드와 섞인 경기는
+        //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
+        //   단계 S-4(즉발 탑 회피 — 탑 공격 표현 RPC 인자)도 같은 12 묶음으로 둔다(M-12).
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 11 줄을 지웠다 — 실기 멀티 경기가 c3-schema=12로 시작됐다.)
+        // [2026-11-25 통합] main 연막 회피(12)에 HP RPC의 DoT 출처 bool을 합쳐 13.
+        // 스키마 12 앱에는 isTimedDamage 인자가 없으므로 양쪽 앱을 같은 통합 빌드로 맞춘다.
+        // 이전 값: public const int PresentationContractSchemaRevision = 12;
+        public const int PresentationContractSchemaRevision = 13;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>
@@ -314,6 +321,14 @@ namespace Hexiege.Infrastructure
             //   두 목록의 원소가 같았으므로 문자열("6,7,12,17,21,24,26;tower:human")과 이 해시는 P5 이전 빌드와 같다(스키마 6 유지).
             manifest.Append("|server-projectile=")
                 .Append(Hexiege.Application.ServerProjectileDeliveryPolicy.ManifestToken);
+            // [2026-11-23 연막탄 단계 S-3 — 메인 기본안 M-11] 연막 「회피 대상 분류」 토큰도 해시에 넣는다
+            //   (지금 값 = "hitscan:0,1,2;projectile:6,7,12,17,21,24;tower-shell:human" — SkillEvasionRoll.ManifestToken이 분류 질문으로 계산).
+            //   [2026-11-23 S-4 — 위 줄은 S-3 때 값] 즉발 탑이 회피 대상에 들어가 끝에 ";tower-instant:spirit,transcendence"가 붙었다
+            //   (같은 스키마 12 묶음 — 이 해시가 S-3만 들어간 빌드와 달라져 그런 빌드와는 경기를 시작하지 않는다).
+            //   회피 판정은 Host만 하지만, 어떤 공격이 회피 대상인지 두 빌드가 다르게 알면 Host가 보낸 빗나감과 Client 화면 규칙이 엇갈린다.
+            //   그래서 분류가 다른 빌드끼리는 경기를 시작하지 않는다(투사체 분류 토큰과 같은 안전장치).
+            manifest.Append("|smoke-evasion=")
+                .Append(Hexiege.Application.SkillEvasionRoll.ManifestToken);
             for (int index = 0; index < ManifestTypes.Length; index++)
             {
                 UnitType type = ManifestTypes[index];

@@ -76,7 +76,16 @@ namespace Hexiege.Application
         Hit = 1,
 
         /// <summary>비행 중 원래 대상이 사라졌다(다른 원인으로 사망 등). 화면: 마지막 지점에서 착탄 이펙트만, 피해·숫자 없음(Q4).</summary>
-        TargetLost = 2
+        TargetLost = 2,
+
+        /// <summary>
+        /// [2026-11-23 연막탄 단계 S-3 — Plan P-5] 맞을 아군 유닛이 연막 안이라 서버가 <b>발사 순간</b>에 「피했다」고 정한 투사체.
+        /// 착탄 때 피해 writer를 부르지 않는다 → 피해 · 화상(InfernoSpirit) · 피해 이벤트 · 피해 숫자가 모두 없다.
+        /// 화면: 발사 기록의 빗나간 지점(MissPoint)에 착탄 이펙트만 낸다(TargetLost와 같은 그림, 숫자 없음 — 「MISS」 글자도 없다).
+        /// 날아가는 동안 대상이 죽어도 결과는 이 값 그대로다(Plan O-6 결정 — 어차피 피해가 없고 화면 그림도 같으며, 진단에서 구별이 쉽다).
+        /// 정수 값은 맨 뒤에 붙였다(기존 0~2 무변경). 이 값을 모르는 옛 빌드는 수신 검사에서 버리므로 스키마를 12로 올렸다.
+        /// </summary>
+        Evaded = 3
     }
 
     /// <summary>
@@ -131,23 +140,49 @@ namespace Hexiege.Application
         /// <summary>대상을 따라가는가(Homing). 2026-10-20 결정으로 모든 투사체가 true다(Mushroom 포함).</summary>
         public readonly bool Homing;
 
+        /// <summary>
+        /// [2026-11-23 연막탄 단계 S-3 — Plan P-6 · 메인 기본안 M-3 (가)] 서버가 발사 순간에 「연막 회피」로 정한 투사체인가.
+        /// true면 화면은 대상을 따라가지 않고 <see cref="MissPoint"/>로 곧장 날아가 착탄 이펙트만 낸다(숫자 없음).
+        /// 착탄 시각(ImpactTime)도 서버가 「발사 위치 → 빗나간 지점」 거리로 다시 계산해 넣었다.
+        /// </summary>
+        public readonly bool Evaded;
+
+        /// <summary>
+        /// [연막탄 S-3] 빗나간 지점(도메인 월드 좌표, 바닥 기준 — 높이는 TargetCenter와 같다). Evaded가 false면 의미 없음(0).
+        /// 서버가 발사 순간 한 번 정해 고정한다(SkillEvasionRoll.ComputeMissPoint — 대상 옆 반경 + 0.3, 진행 방향 + 0.5, 좌우 = 난수 비트).
+        /// Client는 다시 계산하지 않고 이 값을 그대로 쓴다(난수는 서버만 뽑는다 — 스킬 규칙 25).
+        /// </summary>
+        public readonly Vector3 MissPoint;
+
+        // [연막탄 S-3] Evaded · MissPoint 칸이 생기면서, 그전 조건은 글자 그대로 두고
+        //   맨 뒤에 「회피면 빗나간 지점이 유한한 좌표여야 한다」 한 조건만 붙였다(회피가 아니면 그전 식과 결과가 같다).
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 검사식을 지웠다 — 실기 멀티에서 회피 발사 기록이 이 검사를 지나
+        //    Client 화면에 그려졌다(PROJECTILE-VIEW begins=…|evaded:N).)
+
         /// <summary>모든 값이 정상 범위인가. 네트워크로 받은 값도 이 검사를 통과해야만 화면에 쓴다.</summary>
         public bool IsValid => Key.IsValid && AttackerId >= 0 && TargetId >= 0
             && (Team == TeamId.Blue || Team == TeamId.Red)
             && Finite(Source) && Finite(TargetCenter) && Finite(TargetRadius) && TargetRadius >= 0f
-            && FiniteTime(LaunchTime) && FiniteTime(ImpactTime) && ImpactTime >= LaunchTime;
+            && FiniteTime(LaunchTime) && FiniteTime(ImpactTime) && ImpactTime >= LaunchTime
+            && (!Evaded || Finite(MissPoint));
 
         /// <summary>발사 기록을 만든다. 값 검사는 IsValid가 한다.</summary>
+        /// <param name="evaded">[연막탄 S-3] 서버가 발사 순간 연막 회피로 정했는가(기본 false — 기존 호출부는 그대로 명중 투사체).</param>
+        /// <param name="missPoint">[연막탄 S-3] 회피일 때 빗나간 지점(도메인 월드). 회피가 아니면 무시(기본 0).</param>
         public ProjectileLaunchPresentation(ProjectileDeliveryKey key, int attackerId, bool attackerIsUnit,
             int attackerKind, int attackerRace, TeamId team, int targetId, bool targetIsUnit,
             Vector3 source, Vector3 targetCenter, float targetRadius,
-            double launchTime, double impactTime, bool homing)
+            double launchTime, double impactTime, bool homing,
+            bool evaded = false, Vector3 missPoint = default)
         {
             Key = key; AttackerId = attackerId; AttackerIsUnit = attackerIsUnit;
             AttackerKind = attackerKind; AttackerRace = attackerRace; Team = team;
             TargetId = targetId; TargetIsUnit = targetIsUnit;
             Source = source; TargetCenter = targetCenter; TargetRadius = targetRadius;
             LaunchTime = launchTime; ImpactTime = impactTime; Homing = homing;
+            // 회피가 아니면 빗나간 지점은 항상 0으로 둔다(쓰레기 값이 화면 · 전송에 섞이지 않게).
+            Evaded = evaded;
+            MissPoint = evaded ? missPoint : Vector3.zero;
         }
 
         /// <summary>float 하나가 NaN/무한대가 아닌가.</summary>
@@ -190,12 +225,20 @@ namespace Hexiege.Application
         /// <summary>서버 착탄 시각.</summary>
         public readonly double ImpactTime;
 
+        // [2026-11-23 연막탄 단계 S-3 — Plan P-5 · E-T11] 그전 검사식은 명중 · 대상 소실 두 결과만 통과시켰다.
+        //   지금 식은 결과 「회피(Evaded = 3)」도 통과시키고, 회피면 적용 피해가 0이어야 한다(피해 writer를 부르지 않았으므로).
+        //   명중 · 대상 소실 조건은 그전 식과 글자 하나 다르지 않다. 4 이상(정의되지 않은 값) · 0(None)은 여전히 거부한다.
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 검사식을 지웠다 — 실기 멀티에서 회피 착탄 결과가 이 검사를 지나
+        //    Client 화면 착탄으로 닫혔다(PROJECTILE-VIEW finish=…|evaded:N).)
+
         /// <summary>값이 정상 범위인가. 네트워크 수신 값도 이 검사를 통과해야 쓴다.</summary>
         public bool IsValid => Key.IsValid
-            && (Outcome == ProjectileImpactOutcome.Hit || Outcome == ProjectileImpactOutcome.TargetLost)
+            && (Outcome == ProjectileImpactOutcome.Hit || Outcome == ProjectileImpactOutcome.TargetLost
+                || Outcome == ProjectileImpactOutcome.Evaded)
             && VictimId >= 0 && ProjectileLaunchPresentation.Finite(ImpactPoint)
             && ProjectileLaunchPresentation.FiniteTime(ImpactTime)
-            && (Outcome != ProjectileImpactOutcome.Hit || (ResultingHp >= 0 && AppliedAmount >= 0));
+            && (Outcome != ProjectileImpactOutcome.Hit || (ResultingHp >= 0 && AppliedAmount >= 0))
+            && (Outcome != ProjectileImpactOutcome.Evaded || AppliedAmount == 0);
 
         /// <summary>착탄 결과를 만든다.</summary>
         public ProjectileImpactPresentation(ProjectileDeliveryKey key, ProjectileImpactOutcome outcome,

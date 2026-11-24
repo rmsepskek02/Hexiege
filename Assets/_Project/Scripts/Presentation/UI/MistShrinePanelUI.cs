@@ -395,6 +395,8 @@ namespace Hexiege.Presentation
 
             // 쿨다운 중에는 시전하지 않는다. (전용 토스트 문구가 아직 없어 조용히 무시한다 —
             //  남은 시간은 버튼 위 쿨다운 오버레이 숫자로 이미 보이고 있다.)
+            // [진단 MIST-DIAG] 바로 아래 줄이 탭을 버릴 때(쿨다운 중)만 UseInput Action=IgnoredCooldown 1줄 — 조건을 읽기만 한다.
+            DiagUseInputIfCooldown(id);
             if (_mistShrine.IsOnCooldown(id)) return;
 
             HandleActivate();
@@ -406,6 +408,9 @@ namespace Hexiege.Presentation
         private void HandleActivate()
         {
             if (_currentBuilding == null) return;
+
+            // [진단 MIST-DIAG] 시전 입력 1회 = UseInput Action=Cast 1줄(Path=Rpc|Direct — 아래 분기와 같은 조건을 읽기만 한다).
+            DiagUseInput("Cast");
 
             if (_networkMistShrine != null && NetworkContext.IsNetworkActive)
                 _networkMistShrine.RequestActivate(_currentBuilding.Id, _currentBuilding.Team);
@@ -420,6 +425,9 @@ namespace Hexiege.Presentation
         {
             if (_currentBuilding == null) return;
 
+            // [진단 MIST-DIAG] 자동 토글 입력 1회 = UseInput Action=ToggleAuto 1줄(LocalAuto = 누르기 전 로컬 상태).
+            DiagUseInput("ToggleAuto");
+
             if (_networkMistShrine != null && NetworkContext.IsNetworkActive)
             {
                 _networkMistShrine.RequestToggleAuto(_currentBuilding.Id, _currentBuilding.Team);
@@ -429,6 +437,43 @@ namespace Hexiege.Presentation
                 bool on = _mistShrine?.ToggleAutoMode(_currentBuilding.Id) ?? false;
                 // 싱글은 즉시 반영(멀티는 브로드캐스트 수신 후 Update가 반영한다).
                 ApplyAutoBorder(on);
+            }
+        }
+        // ====================================================================
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 — 「누른 쪽」 입력 1회당 1줄(UseInput).
+        //   Input=Tap|LongPress, Action=Cast|ToggleAuto|IgnoredCooldown, Path=Rpc(서버 요청)|Direct(UseCase 직접 — 싱글).
+        //   ⚠️ 멀티 Client인데 Path=Direct면 네트워크 컨트롤러 배선이 빠진 것이다(시전이 조용히 막힌다 — CastResult RejectClientGuard와 같이 본다).
+        //   모든 메서드에 [Conditional] 두 개 → 릴리스에서는 호출 · 문자열 조립이 통째로 사라진다(LogRules 1.7). 상태는 읽기만 한다.
+        // ====================================================================
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagUseInputIfCooldown(int buildingId)
+        {
+            if (_mistShrine != null && _mistShrine.IsOnCooldown(buildingId)) DiagUseInput("IgnoredCooldown");
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagUseInput(string action)
+        {
+            try
+            {
+                if (_currentBuilding == null) return;
+                int id = _currentBuilding.Id;
+                // 롱프레스 판정(Update)이 HandleToggleAuto를 부르기 직전에 _longPressTriggered를 세운다 → 그 값으로 입력 종류를 가른다.
+                string input = _longPressTriggered ? "LongPress" : "Tap";
+                string path = (_networkMistShrine != null && NetworkContext.IsNetworkActive) ? "Rpc" : "Direct";
+                string role = !NetworkContext.IsNetworkActive ? "Single" : (NetworkContext.IsNetworkServer ? "Host" : "Client");
+                int cdMs = _mistShrine != null ? Mathf.RoundToInt(_mistShrine.GetCooldownRemaining(id) * 1000f) : -1;
+                bool auto = _mistShrine != null && _mistShrine.GetAutoMode(id);
+                GameLog.Dev.Info("UI", nameof(MistShrinePanelUI), "[MIST-DIAG] UseInput",
+                    System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=UseInput, Role={role}, BuildingId={id}, Team={_currentBuilding.Team}, Input={input}, Action={action}, Path={path}, LocalCdMs={cdMs}, LocalAuto={auto}"));
+            }
+            catch (System.Exception)
+            {
             }
         }
     }

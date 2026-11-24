@@ -25,7 +25,14 @@ namespace Hexiege.Application
         /// 공격자와 커밋 타겟은 살아 있지만 서버 pose source/Transform/sample을 얻지 못해
         /// Impact 공간 판정을 수행할 수 없었다. 정상 Miss나 시간 미도달로 위조하지 않는다.
         /// </summary>
-        PoseUnavailable = 5
+        PoseUnavailable = 5,
+        /// <summary>
+        /// [2026-11-23 연막탄 단계 S-2 — Plan P-4] 공격은 승인됐지만 맞을 아군 유닛이 연막 안이라 서버 회피 판정에서 「피했다」.
+        /// 피해 · 화상 · 피해 이벤트 · 피해 숫자가 모두 없다(writer가 ExecuteAttack을 부르지 않는다).
+        /// C2 코디네이터는 「승인 명중 + 이 값」을 AttackImpactOutcome.Evaded로 닫는다(불일치 거절이 아니다).
+        /// 정수 값은 맨 뒤에 붙였다(기존 값 0~5는 그대로).
+        /// </summary>
+        Evaded = 6
     }
 
     /// <summary>
@@ -100,7 +107,15 @@ namespace Hexiege.Application
         public WorldPointXZ ImpactPosition { get; }
         public bool HasPresentationSnapshot => VictimPresentationType >= 0 && VictimTeam >= 0;
 
-        public bool IsValid => Status == AttackDamageApplyStatus.Applied
+        // [2026-11-23 연막탄 단계 S-2] 맨 앞에 「회피(Evaded)」 갈래를 붙였다(그전 식은 회피 관측을 무효로 봤다).
+        //   회피 관측 = 피해 0 · 결과 HP(지금 HP, 0 이상) · 피해자 종류 · 팀이 있음 · 좌표는 있으면 유효해야 함.
+        //   (적용 · 거절 두 갈래의 판정은 그전 식과 글자 하나 다르지 않다 — 회피 갈래만 앞에 붙였다.)
+        //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 식을 지웠다 — 실기 멀티 Hitscan 회피가 이 식을 지나 C2 「회피」로 닫혔다.)
+        public bool IsValid => Status == AttackDamageApplyStatus.Evaded
+            ? AppliedAmount == 0 && ResultingHp >= 0
+                && HasPresentationSnapshot
+                && (!HasImpactPosition || ImpactPosition.IsValid)
+            : Status == AttackDamageApplyStatus.Applied
             ? AppliedAmount >= 0 && ResultingHp >= 0
                 && HasPresentationSnapshot
                 && HasImpactPosition && ImpactPosition.IsValid

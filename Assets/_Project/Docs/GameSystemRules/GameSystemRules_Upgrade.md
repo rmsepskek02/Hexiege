@@ -184,6 +184,6 @@ Config 직렬화 값이 코드 fallback보다 우선한다. ×10은 저장된 �
 - 조사/계획: `_Tasks/2026-07-22/10_08_unit-upgrade-system/Research.md`, `Plan.md`(하단 "완료 결과" 절에 실제 구현 대비 정정 기록)
 - 전투·데미지·HoT/DoT 규칙: `GameSystemRules_Units.md`(규칙 5·16·18·30·34·40·42·44)
 - 서버 권위·환불: `GameSystemRules_Buildings.md` 건물 철거 시스템 규칙 4·5 / 방어 타워 시스템 규칙 9
-- MistShrine 물안개 힐(자연회복과 별개 효과·중첩 적용, **2026-08-12 구현 완료 / 멀티 미검증**): `GameSystemRules_Buildings.md` **MistShrine 물안개 힐 시스템**
+- MistShrine 물안개 힐(자연회복과 별개 효과·중첩 적용, **2026-08-12 구현 완료 · 2026-11-25 멀티 검증 PASS** *(2026-11-25 갱신 — 종전 「멀티 미검증」)*): `GameSystemRules_Buildings.md` **MistShrine 물안개 힐 시스템**
 - 연구 패널 UI: 규칙 13(`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어). 공통 팝업/닫기 규칙은 `GameSystemRules_UI.md`
 - AI 빌드오더: `GameSystemRules_AI.md` + 종족별 시나리오 문서
