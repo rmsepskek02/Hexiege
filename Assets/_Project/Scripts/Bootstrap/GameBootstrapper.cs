@@ -591,6 +591,11 @@ namespace Hexiege.Bootstrap
             //   경기당 1회만 남기는 중복 방지와 "Client 에서는 남기지 않음"은 DiagArcWriteEnd 안에서 처리한다.
             //   🔴 반드시 블록 본문 람다({ })로 쓴다 — 식 본문이면 [Conditional] 호출이 릴리스에서 지워지지 않는다(LogRules 1.7).
             GameEvents.OnGameEnd.Subscribe(_ => { _towerCombat?.DiagArcWriteEnd("GameEnd"); }).AddTo(this);
+            // [진단 — 2026-11-24 MistShrine 멀티 검증 [MIST-DIAG]] 경기가 끝나면 남은 물안개마다 요약 1줄(MistEnded Reason=GameEnd)을 쓰고
+            //   이후 진단 줄을 멈춘다. 멀티 Host는 경기 종료 뒤 전투 틱이 멈춰 물안개가 끝나지 않은 채 남기 때문이다(싱글 · Host · Client 공통 자리).
+            //   게임 동작(물안개 · 쿨다운)은 바꾸지 않는다 — 진단 전용 메서드이고 개발 빌드가 아니면 호출째 사라진다.
+            //   🔴 반드시 블록 본문 람다({ })로 쓴다 — 식 본문이면 [Conditional] 호출이 릴리스에서 지워지지 않는다(LogRules 1.7).
+            GameEvents.OnGameEnd.Subscribe(_ => { _mistShrine?.DiagGameEnd(); }).AddTo(this);
         }
 
         /// <summary>

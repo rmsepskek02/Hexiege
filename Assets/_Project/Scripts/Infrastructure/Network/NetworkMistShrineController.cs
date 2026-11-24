@@ -166,6 +166,8 @@ namespace Hexiege.Infrastructure
         public void ActivateMistServerRpc(int buildingId, int teamIndex, ServerRpcParams rpcParams = default)
         {
             IGameServices services = ResolveServices();
+            // [진단 MIST-DIAG] 요청 1회 = CastRequest 1줄(Result=Accepted|Reject*). 아래 검증을 고치지 않고 같은 조건을 읽기만 한다.
+            DiagRequest("CastRequest", buildingId, teamIndex, rpcParams, services);
             if (services == null) return;
 
             // 시전 성공 훅 구독 보장(스폰 레이스로 OnNetworkSpawn에서 놓쳤을 경우 여기서 복구).
@@ -188,6 +190,8 @@ namespace Hexiege.Infrastructure
         public void ToggleAutoServerRpc(int buildingId, int teamIndex, ServerRpcParams rpcParams = default)
         {
             IGameServices services = ResolveServices();
+            // [진단 MIST-DIAG] 요청 1회 = ToggleRequest 1줄(Result=Accepted|Reject*).
+            DiagRequest("ToggleRequest", buildingId, teamIndex, rpcParams, services);
             if (services == null) return;
 
             // 자동 모드를 켜면 곧바로 자동 시전이 일어날 수 있으므로, 여기서도 훅 구독을 보장한다.
@@ -199,6 +203,8 @@ namespace Hexiege.Infrastructure
             if (mist == null) return;
 
             bool on = mist.ToggleAutoMode(buildingId);
+            // [진단 MIST-DIAG] 서버 상태가 바뀐 직후 AutoToggled 1줄(On · 신전별 ToggleNo) — Client AutoModeReceived와 1:1로 맞춰 본다.
+            DiagAutoToggled(rpcParams, buildingId, on);
             AutoModeChangedClientRpc(buildingId, on);
         }
 
@@ -257,6 +263,8 @@ namespace Hexiege.Infrastructure
         /// <param name="cooldownTotal">이번 시전으로 걸린 총 쿨다운(초).</param>
         private void OnMistActivatedOnServer(int buildingId, float cooldownTotal)
         {
+            // [진단 MIST-DIAG] 브로드캐스트 송신 1회 = ActivateSent 1줄(CastResult와 같은 CastNo).
+            DiagActivateSent(buildingId, cooldownTotal);
             MistActivatedClientRpc(buildingId, cooldownTotal);
         }
 
@@ -273,6 +281,8 @@ namespace Hexiege.Infrastructure
             if (IsServer) return; // 호스트는 서버 Activate에서 이미 쿨다운을 세웠다.
 
             MistShrineUseCase mist = ResolveServices()?.GetMistShrineUseCase();
+            // [진단 MIST-DIAG] 수신 1회 = ActivateReceived 1줄(신전별 RecvNo · 덮어쓰기 직전 미러 값 PrevMirrorMs). 미러를 세우기 전에 읽는다.
+            DiagActivateReceived(mist, buildingId, cooldownTotal);
             mist?.StartCooldownLocal(buildingId, cooldownTotal);
         }
 
@@ -288,7 +298,164 @@ namespace Hexiege.Infrastructure
             if (IsServer) return; // 호스트는 서버에서 이미 상태를 바꿨다.
 
             MistShrineUseCase mist = ResolveServices()?.GetMistShrineUseCase();
+            // [진단 MIST-DIAG] 수신 1회 = AutoModeReceived 1줄(On · 신전별 AutoRecvNo · 바꾸기 직전 로컬 값 PrevLocal).
+            DiagAutoModeReceived(mist, buildingId, on);
             mist?.SetAutoMode(buildingId, on);
+        }
+        // ====================================================================
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절.
+        //   Host: CastRequest · ToggleRequest(요청 1회) · ActivateSent(브로드캐스트 1회) · AutoToggled(토글 1회).
+        //   Client: ActivateReceived · AutoModeReceived(수신 1회).
+        //   RPC 인자는 하나도 늘리지 않는다 — 기기 사이 대조는 양쪽이 따로 센 신전별 순번(CastNo↔RecvNo, ToggleNo↔AutoRecvNo)으로 한다.
+        //   모든 메서드에 [Conditional] 두 개 → 릴리스에서는 호출 · 문자열 조립이 통째로 사라진다(LogRules 1.7). 게임 상태는 읽기만 한다.
+        // ====================================================================
+
+        private System.Collections.Generic.Dictionary<int, int> _diagRecvNo;      // Client: 신전 Id → 시전 브로드캐스트 수신 수
+        private System.Collections.Generic.Dictionary<int, int> _diagToggleNo;    // Host: 신전 Id → 자동 토글 수
+        private System.Collections.Generic.Dictionary<int, int> _diagAutoRecvNo;  // Client: 신전 Id → 자동 모드 브로드캐스트 수신 수
+
+        private string DiagRole()
+        {
+            return IsServer ? "Host" : "Client";
+        }
+
+        private static int DiagMs(float seconds)
+        {
+            return Mathf.RoundToInt(seconds * 1000f);
+        }
+
+        private static int DiagNext(ref System.Collections.Generic.Dictionary<int, int> map, int buildingId)
+        {
+            if (map == null) map = new System.Collections.Generic.Dictionary<int, int>();
+            map.TryGetValue(buildingId, out int n);
+            n++;
+            map[buildingId] = n;
+            return n;
+        }
+
+        /// <summary>
+        /// 시전 · 토글 요청 1회의 판정 결과를 1줄로 남긴다. ValidateRequest와 「같은 조건을 같은 순서로 읽기만」 한다
+        /// (ValidateRequest를 두 번 부르면 팀 불일치 운영 로그가 두 번 찍히므로 다시 부르지 않는다).
+        /// ⚠️ ValidateRequest의 조건을 바꾸면 이 메서드도 함께 맞춘다.
+        /// 🔴 Reject* 0건은 「재검증 PASS」가 아니라 「거부 경로 미발생」이다 — 정상 Client는 쿨다운 중 탭을 패널에서 먼저 버린다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagRequest(string evt, int buildingId, int teamIndex, ServerRpcParams rpcParams, IGameServices services)
+        {
+            try
+            {
+                ulong sender = rpcParams.Receive.SenderClientId;
+                TeamId expected = (sender == 0) ? TeamId.Blue : TeamId.Red;
+                MistShrineUseCase mist = services?.GetMistShrineUseCase();
+                string result;
+                if (services == null) result = "RejectServices";
+                else if ((TeamId)teamIndex != expected) result = "RejectTeam";
+                else
+                {
+                    BuildingPlacementUseCase buildings = services.GetBuildingPlacement();
+                    BuildingData b = buildings?.GetBuilding(buildingId);
+                    if (buildings == null) result = "RejectNoBuildings";
+                    else if (b == null || !b.IsAlive) result = "RejectMissing";
+                    else if (b.Type != BuildingType.HealShrine) result = "RejectType";
+                    else if (b.Team != expected) result = "RejectOwner";
+                    else if (mist == null) result = "RejectUseCase";
+                    else result = "Accepted";
+                }
+
+                int cdMs = mist != null ? DiagMs(mist.GetCooldownRemaining(buildingId)) : -1;
+                bool autoBefore = mist != null && mist.GetAutoMode(buildingId);
+                string data = System.FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event={evt}, Role={DiagRole()}, Sender={sender}, BuildingId={buildingId}, RequestedTeam={(TeamId)teamIndex}, Result={result}, ServerCdMs={cdMs}, AutoBefore={autoBefore}");
+                if (result == "Accepted")
+                    GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] " + evt, data);
+                else
+                    GameLog.Dev.Warn("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] " + evt, data);
+            }
+            catch (System.Exception)
+            {
+                // 진단 실패가 요청 처리를 막으면 안 된다 — 삼킨다.
+            }
+        }
+
+        /// <summary> Host 시전 브로드캐스트 송신 1줄. CastNo는 UseCase의 CastResult Result=Ok와 같은 값이다(작으면 훅 구독 유실 신호). </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagActivateSent(int buildingId, float cooldownTotal)
+        {
+            try
+            {
+                MistShrineUseCase mist = ResolveServices()?.GetMistShrineUseCase();
+                int castNo = mist != null ? mist.GetDiagCastCount(buildingId) : -1;
+                GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] ActivateSent",
+                    System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=ActivateSent, Role={DiagRole()}, BuildingId={buildingId}, CastNo={castNo}, CdMs={DiagMs(cooldownTotal)}"));
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        /// <summary>
+        /// Client 시전 브로드캐스트 수신 1줄. RecvNo는 이 Client가 이 신전에 대해 센 수신 순번(Host CastNo와 1:1).
+        /// PrevMirrorMs = 덮어쓰기 직전 이 Client의 남은 쿨다운 — 자동 연속 시전이면 작은 양수(전송 지연 + 틱 간격 수준), 수 초면 미러 어긋남.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagActivateReceived(MistShrineUseCase mist, int buildingId, float cooldownTotal)
+        {
+            try
+            {
+                int recvNo = DiagNext(ref _diagRecvNo, buildingId);
+                string data = System.FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event=ActivateReceived, Role={DiagRole()}, BuildingId={buildingId}, RecvNo={recvNo}, CdMs={DiagMs(cooldownTotal)}, PrevMirrorMs={(mist != null ? DiagMs(mist.GetCooldownRemaining(buildingId)) : -1)}, UseCase={(mist != null ? "Ok" : "Missing")}");
+                if (mist != null)
+                    GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] ActivateReceived", data);
+                else
+                    GameLog.Dev.Warn("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] ActivateReceived", data);
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        /// <summary> Host 자동 모드 토글 1줄(바뀐 뒤의 On · 신전별 ToggleNo). </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagAutoToggled(ServerRpcParams rpcParams, int buildingId, bool on)
+        {
+            try
+            {
+                int toggleNo = DiagNext(ref _diagToggleNo, buildingId);
+                GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] AutoToggled",
+                    System.FormattableString.Invariant(
+                        $"Diag=MistShrine, DiagRev=1, Event=AutoToggled, Role={DiagRole()}, Sender={rpcParams.Receive.SenderClientId}, BuildingId={buildingId}, On={on}, ToggleNo={toggleNo}"));
+            }
+            catch (System.Exception)
+            {
+            }
+        }
+
+        /// <summary> Client 자동 모드 수신 1줄. PrevLocal(바꾸기 직전 로컬 값)이 On과 같으면 미러가 이미 어긋났거나 중복 수신이다 → Warn. </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagAutoModeReceived(MistShrineUseCase mist, int buildingId, bool on)
+        {
+            try
+            {
+                int recvNo = DiagNext(ref _diagAutoRecvNo, buildingId);
+                bool prev = mist != null && mist.GetAutoMode(buildingId);
+                string data = System.FormattableString.Invariant(
+                    $"Diag=MistShrine, DiagRev=1, Event=AutoModeReceived, Role={DiagRole()}, BuildingId={buildingId}, On={on}, AutoRecvNo={recvNo}, PrevLocal={prev}, UseCase={(mist != null ? "Ok" : "Missing")}");
+                if (mist != null && prev != on)
+                    GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] AutoModeReceived", data);
+                else
+                    GameLog.Dev.Warn("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] AutoModeReceived", data);
+            }
+            catch (System.Exception)
+            {
+            }
         }
     }
 }
