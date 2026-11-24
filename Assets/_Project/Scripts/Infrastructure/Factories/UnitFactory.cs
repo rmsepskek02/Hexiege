@@ -51,6 +51,15 @@ namespace Hexiege.Infrastructure
         private IEntityPositionProvider _depPositionProvider;
         private bool _hasDependencies;
 
+        private ICombatUnitCandidateSource _combatCandidateSource;
+        public void BindCombatCandidateSource(ICombatUnitCandidateSource source)
+        {
+            if (ReferenceEquals(_combatCandidateSource, source)) return;
+            _combatCandidateSource?.ClearUnitBindings();
+            _combatCandidateSource = source;
+        }
+        public bool IsCombatCandidateSource(ICombatUnitCandidateSource source) => ReferenceEquals(_combatCandidateSource, source);
+
         /// <summary>
         /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
         /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
@@ -299,6 +308,7 @@ namespace Hexiege.Infrastructure
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)
             _unitObjects[unitData.Id] = unitObj;
+            _combatCandidateSource?.UnitBindingChanged(unitData.Id);
         }
 
         /// <summary>
@@ -320,6 +330,7 @@ namespace Hexiege.Infrastructure
         public void RegisterUnitObject(int unitId, GameObject unitObj)
         {
             _unitObjects[unitId] = unitObj;
+            _combatCandidateSource?.UnitBindingChanged(unitId);
         }
 
         /// <summary>
@@ -637,6 +648,7 @@ namespace Hexiege.Infrastructure
             // 클라이언트: NGO가 서버 Despawn 시 자동으로 GameObject를 제거하므로 수동 파괴 불필요
 
             _unitObjects.Clear();
+            _combatCandidateSource?.ClearUnitBindings();
         }
     }
 }

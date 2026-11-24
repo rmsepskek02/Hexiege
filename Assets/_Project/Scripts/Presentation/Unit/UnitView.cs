@@ -47,6 +47,12 @@ namespace Hexiege.Presentation
     // [2026-10-26 수정안 (a)] partial로 바꿨다 — 투사체 사망타 사망 표현 보류(사망 대역) 코드를 UnitView.DeathDeferral.cs에 따로 둔다.
     public partial class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
+        private int _combatSpatialBindingId;
+        private void OnDestroy()
+        {
+            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
+        }
+
         private static ulong _nextHealLifetime;
         private ulong _healLifetime, _healSequence;
         private UnitHealCastPresentationCursor _healPresentation = new UnitHealCastPresentationCursor();
@@ -1805,6 +1811,8 @@ _slot = _nextEviction;
                 _soloRecoveryLastReason = "none";
 #endif
             }
+            _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
+            _combatSpatialBindingId = gameObject.GetInstanceID();
             _unitData = unitData;
             AttackPresentationAuditEligibility auditEligibility =
                 AttackPresentationAuditEligibility.RequiredButMissing;

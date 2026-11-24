@@ -52,6 +52,7 @@ namespace Hexiege.Application
 
         /// <summary> 현재 존재하는 모든 유닛 목록 (읽기 전용). </summary>
         public IReadOnlyDictionary<int, UnitData> Units => _units;
+        public ulong CombatRosterRevision { get; private set; }
 
         public UnitSpawnUseCase(HexGrid grid)
         {
@@ -96,6 +97,7 @@ namespace Hexiege.Application
 
             // 내부 목록에 등록 + 위치 역인덱스 동기화
             _units[unit.Id] = unit;
+            CombatRosterRevision++;
             AddToPositionIndex(unit, position);
 
             // 타일을 유닛의 팀으로 점령
@@ -144,7 +146,10 @@ namespace Hexiege.Application
             {
                 RemoveFromPositionIndex(unit, unit.Position);
             }
-            return _units.Remove(unitId);
+            // 기존: return _units.Remove(unitId);
+            bool removed = _units.Remove(unitId);
+            if (removed) CombatRosterRevision++;
+            return removed;
         }
 
         /// <summary>
@@ -239,6 +244,7 @@ namespace Hexiege.Application
                 UnitStats.GetMoveSpeed(type));
 
             _units[unit.Id] = unit;
+            CombatRosterRevision++;
             // 위치 역인덱스 동기화 (싱글플레이 SpawnUnit과 동일 처리)
             AddToPositionIndex(unit, position);
 

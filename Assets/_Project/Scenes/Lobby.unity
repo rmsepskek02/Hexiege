@@ -8204,6 +8204,7 @@ MonoBehaviour:
   _battleRootView: {fileID: 1921361599}
   _profileView: {fileID: 0}
   _rankingView: {fileID: 0}
+  _characterPreviewCamera: {fileID: 63448771}
   _battlePanel: {fileID: 1921361597}
   _shopPanel: {fileID: 1075408175}
   _profilePanel: {fileID: 576258266}
