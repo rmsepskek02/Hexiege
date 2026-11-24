@@ -576,7 +576,7 @@ namespace Hexiege.Infrastructure
             }
         }
         // ====================================================================
-        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=2 — 개발 축)
         //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 — 검증 항목 ② 건물 HP 회복 Client 동기화.
         //   Host: 물안개 건물 회복 송신 수만 센다(줄 없음). Client: 건물 · 신전별 첫 수신 1줄 + 불일치 · 건물 없음 Warn(합쳐 상한 8줄).
         //   경기 종료 때 양쪽 1줄 SyncSummary(Host BuildingHealSent / Client BuildingHealRecv · BuildingMismatch …, 양쪽 AutoOn).
@@ -651,7 +651,7 @@ namespace Hexiege.Infrastructure
                 _diagWarnLines++;
                 GameLog.Dev.Warn("Network", nameof(NetworkHealthSync), "[MIST-DIAG] BuildingHealReceived",
                     System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={buildingId}, HealerId={healerId}, ServerHp={serverHp}, Check=Missing, MissingCount={_diagBuildingMissing}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={buildingId}, HealerId={healerId}, ServerHp={serverHp}, Check=Missing, MissingCount={_diagBuildingMissing}"));
             }
             catch (System.Exception)
             {
@@ -680,7 +680,7 @@ namespace Hexiege.Infrastructure
                 if (!first && match) return;
 
                 string data = System.FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={building.Id}, Type={building.Type}, HealerId={healerId}, ServerHp={serverHp}, HpBefore={hpBefore}, Applied={applied}, HpAfter={hpAfter}, MaxHp={building.MaxHp}, First={first}, Check={(match ? "Match" : "Mismatch")}, RecvCount={_diagBuildingHealRecv}");
+                    $"Diag=MistShrine, DiagRev=2, Event=BuildingHealReceived, Role={DiagRole()}, BuildingId={building.Id}, Type={building.Type}, HealerId={healerId}, ServerHp={serverHp}, HpBefore={hpBefore}, Applied={applied}, HpAfter={hpAfter}, MaxHp={building.MaxHp}, First={first}, Check={(match ? "Match" : "Mismatch")}, RecvCount={_diagBuildingHealRecv}");
                 if (match)
                 {
                     GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[MIST-DIAG] BuildingHealReceived", data);
@@ -724,9 +724,9 @@ namespace Hexiege.Infrastructure
 
                 string data = IsServer
                     ? System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=SyncSummary, Role={DiagRole()}, BuildingHealSent={_diagBuildingHealSent}, Shrines={shrines}, AutoOn={autoOn}")
+                        $"Diag=MistShrine, DiagRev=2, Event=SyncSummary, Role={DiagRole()}, BuildingHealSent={_diagBuildingHealSent}, Shrines={shrines}, AutoOn={autoOn}")
                     : System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=SyncSummary, Role={DiagRole()}, BuildingHealRecv={_diagBuildingHealRecv}, BuildingHealApplied={_diagBuildingHealApplied}, BuildingMissing={_diagBuildingMissing}, BuildingMismatch={_diagBuildingMismatch}, Shrines={shrines}, AutoOn={autoOn}");
+                        $"Diag=MistShrine, DiagRev=2, Event=SyncSummary, Role={DiagRole()}, BuildingHealRecv={_diagBuildingHealRecv}, BuildingHealApplied={_diagBuildingHealApplied}, BuildingMissing={_diagBuildingMissing}, BuildingMismatch={_diagBuildingMismatch}, Shrines={shrines}, AutoOn={autoOn}");
                 GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "[MIST-DIAG] SyncSummary", data);
             }
             catch (System.Exception)

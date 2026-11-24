@@ -440,7 +440,7 @@ namespace Hexiege.Presentation
             }
         }
         // ====================================================================
-        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=2 — 개발 축)
         //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 — 「누른 쪽」 입력 1회당 1줄(UseInput).
         //   Input=Tap|LongPress, Action=Cast|ToggleAuto|IgnoredCooldown, Path=Rpc(서버 요청)|Direct(UseCase 직접 — 싱글).
         //   ⚠️ 멀티 Client인데 Path=Direct면 네트워크 컨트롤러 배선이 빠진 것이다(시전이 조용히 막힌다 — CastResult RejectClientGuard와 같이 본다).
@@ -470,7 +470,7 @@ namespace Hexiege.Presentation
                 bool auto = _mistShrine != null && _mistShrine.GetAutoMode(id);
                 GameLog.Dev.Info("UI", nameof(MistShrinePanelUI), "[MIST-DIAG] UseInput",
                     System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=UseInput, Role={role}, BuildingId={id}, Team={_currentBuilding.Team}, Input={input}, Action={action}, Path={path}, LocalCdMs={cdMs}, LocalAuto={auto}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=UseInput, Role={role}, BuildingId={id}, Team={_currentBuilding.Team}, Input={input}, Action={action}, Path={path}, LocalCdMs={cdMs}, LocalAuto={auto}"));
             }
             catch (System.Exception)
             {
