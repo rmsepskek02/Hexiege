@@ -92,7 +92,7 @@ namespace Hexiege.Editor.Combat
             }
             ValidateSmokeTowerInstantSourceGates();    // E-T12(S-4 — 관문 자리 · 조합 루트 · RPC evaded · 화면 비추적 · 토큰)
             Debug.Log("[UAS-DIAG][SKILL-EVADE] S-4 self-validation PASS: evaded tower snapshot must be a Tower visual with applied 0 and tower / unit ordinal keys never collide (E-T9 · E-T10), Spirit RuneSpire and Transcendence VineTower attacks at a chance-1.0 smoke unit skip the damage writer, attacked / damaged events and the death workflow while publishing one Evaded snapshot whose Impact is ComputeMissPoint(tower, target, radius, roll) (E-T9), tower keys = (tower id, per-tower roll ordinal) recompute exactly at 0.5 with HP loss = power × hits and independent per tower (E-T9 · E-T10), outside-smoke / enemy-smoke / human tower on the instant fallback never roll and an evaded attack still starts the cooldown (E-T9), source gates for the gate position, composition root, AttackEffectClientRpc evaded argument, the untracked Evaded bolt and the tower-instant handshake token (E-T12).");
-            Debug.Log("[UAS-DIAG][SKILL-EVADE] S-3 self-validation PASS: launch / impact contracts accept Evaded (applied 0) and reject NaN miss points and unknown outcomes (E-T11), miss point = M = C + n(r+0.3) + d·0.5 from the same seed+projectile key on both sides (E-T10), projectile evasion at launch with the writer never invoked, HP and damage events unchanged, outcome Evaded at the fixed miss point and flight = miss distance / speed (E-T5), one roll per launch with 0.5 recomputation (E-T6), InfernoSpirit burn blocked only when evaded (E-T7), MushroomBomber and building targets never rolled even when a smoke unit shares the building id (E-T8), human cannon tower shell evaded with the tower writer not invoked (TowerShell), schema 12 + smoke-evasion handshake token + launch RPC evaded / missPoint source gates (E-T12).");
+            Debug.Log("[UAS-DIAG][SKILL-EVADE] S-3 self-validation PASS: launch / impact contracts accept Evaded (applied 0) and reject NaN miss points and unknown outcomes (E-T11), miss point = M = C + n(r+0.3) + d·0.5 from the same seed+projectile key on both sides (E-T10), projectile evasion at launch with the writer never invoked, HP and damage events unchanged, outcome Evaded at the fixed miss point and flight = miss distance / speed (E-T5), one roll per launch with 0.5 recomputation (E-T6), InfernoSpirit burn blocked only when evaded (E-T7), MushroomBomber and building targets never rolled even when a smoke unit shares the building id (E-T8), human cannon tower shell evaded with the tower writer not invoked (TowerShell), schema 13 + smoke-evasion handshake token + launch RPC evaded / missPoint source gates (E-T12).");
             Debug.Log("[UAS-DIAG][SKILL-EVADE] self-validation PASS: deterministic seed+key hash with boundary 0% / 100% / bucket == chance-1 evades and == chance hits, order-independent, 0.5 sample rate, per-path keys, miss point formula, single fallback key ordinal (E-T10), ally-only smoke membership with no move / attack side effect and executor guards (E-T1), same-skill overlap once and exit / expiry / death / Close release (E-T2), Hitscan evasion on the single writer, the keyed writer and the bundle writer with HP unchanged and zero damage events plus no-roll regressions and 0.5 recomputation (E-T3), no second roll during a projectile impact (E-T6), C2 AuthorizedHit + Evaded closes as Evaded with no observer mismatch while AuthorizedMiss + Evaded is rejected (E-T4), setup table line + source gates (E-T12; asset contract via Z-T9).");
         }
 
@@ -984,8 +984,8 @@ namespace Hexiege.Editor.Combat
         /// <summary> E-T12(S-3) — 스키마 12 · 회피 분류 토큰 · handshake 해시 · 발사 RPC · 늦은 접속 · 화면 · 착탄 갈래 소스 게이트. </summary>
         private static void ValidateSmokeProjectileSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "E-T12 the smoke-bomb projectile launch RPC arguments must raise the presentation schema to 12.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "E-T12 the smoke-bomb projectile launch RPC arguments must raise the presentation schema to 12.; current merged DoT provenance + smoke evasion require schema 13.");
             // [2026-11-23 S-4] S-4가 즉발 탑을 회피 대상에 넣어 토큰 끝에 ";tower-instant:spirit,transcendence"가 붙었다
             //   (S-3 때 기대값은 「…;tower-shell:human」까지) — 새 기대값은 ValidateSmokeTowerInstantSourceGates(E-T9 · E-T12)도 함께 본다.
             //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 S-3 옛 검사를 지웠다 — 이 검사가 회귀 스위트에서 통과했고, 같은 토큰이 든 handshake로 실기 멀티 경기가 시작됐다.)
@@ -993,7 +993,7 @@ namespace Hexiege.Editor.Combat
                 "E-T12 the evasion classification token must be hitscan 0,1,2 · projectile 6,7,12,17,21,24 (no Mushroom 26) · tower-shell human · tower-instant spirit,transcendence: "
                 + SkillEvasionRoll.ManifestToken);
             Require(UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(out string hash, out _) && hash.Length == 64,
-                "E-T12 the handshake hash must still compute with schema 12 and the evasion token.");
+                "E-T12 the handshake hash must still compute with schema 13 and the evasion token.");
 
             const string root = "Assets/_Project/Scripts/";
             string resolver = File.ReadAllText(root + "Infrastructure/Network/UnitAttackShadowProfileResolver.cs");
@@ -1334,8 +1334,8 @@ namespace Hexiege.Editor.Combat
         /// <summary> E-T12(S-4) — 관문 자리(writer 앞) · 조합 루트 주입 · 탑 공격 표현 RPC evaded 칸 · 화면 비추적 · 스냅샷 검사 · 토큰 · 스키마 12. </summary>
         private static void ValidateSmokeTowerInstantSourceGates()
         {
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "E-T12 S-4 tower RPC change stays in the schema 12 bundle (no further bump before commit).");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "E-T12 S-4 tower RPC change stays in the schema 13 bundle (no further bump before commit).; current merged DoT provenance + smoke evasion require schema 13.");
             Require(SkillEvasionRoll.ManifestToken.EndsWith(";tower-instant:spirit,transcendence", StringComparison.Ordinal),
                 "E-T12 the handshake evasion token must end with the tower-instant classification: " + SkillEvasionRoll.ManifestToken);
 

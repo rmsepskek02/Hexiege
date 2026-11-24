@@ -1147,10 +1147,13 @@ namespace Hexiege.EditorTools
             sb.AppendLine($"· 이번 달 Release 가 아직 없으면 페이지가 404 입니다 → 제목 「{ReleaseTitlePrefix}{names.MonthText}」, " +
                           $"태그 {ReleaseTagPrefix}{names.MonthText} 로 새로 만드세요.");
             // 기존: EditorUtility.DisplayDialog(DialogTitle, sb.ToString(), "확인");
-            // 기존 3버튼 경로는 보존한다. cancel에 웹버튼을 배치하면 Escape도 웹열기로 오인하므로 사용하지 않는다.
+            // 이전 3버튼 경로는 아래 주석으로 보존한다.
+            // 기본 2버튼 창의 cancel을 확인으로 둬 Escape/창 닫기는 외부 동작 없이 끝낸다.
+            // 웹페이지 열기가 기본 버튼이므로 Enter는 웹 요청으로 동작하는 Unity 기본 동작을 따른다.
             // int resultChoice = EditorUtility.DisplayDialogComplex(
             //     DialogTitle, sb.ToString(), "확인", "닫기", "웹페이지 열기");
-            int resultChoice = ArchiveResultDialog.ShowResult(sb.ToString()) ? 2 : 0;
+            bool webRequested = EditorUtility.DisplayDialog(
+                DialogTitle, sb.ToString(), "웹페이지 열기", "확인");
 
             Debug.Log($"[LogArchiveZip] 생성 완료: {names.ZipRepoRelative} (파일 {result.Records.Count}개, SHA256={result.ZipSha256})");
 
@@ -1162,58 +1165,10 @@ namespace Hexiege.EditorTools
             // 기존 자동 실행 경로는 보존하되 사용하지 않는다.
             // EditorUtility.RevealInFinder(names.ZipAbsolute);
             // UnityEngine.Application.OpenURL(releaseUrl);
-            if (resultChoice == 2)
+            if (webRequested)
             {
                 EditorUtility.RevealInFinder(names.ZipAbsolute);
                 UnityEngine.Application.OpenURL(releaseUrl);
-            }
-        }
-
-        /// <summary>확인/웹페이지 열기만 있는 결과 창. 닫기·Escape는 외부 동작을 요청하지 않는다.</summary>
-        private sealed class ArchiveResultDialog : EditorWindow
-        {
-            private string _message;
-            private Action _requestWeb;
-            private Vector2 _scroll;
-
-            internal static bool ShowResult(string message)
-            {
-                bool webRequested = false;
-                var dialog = CreateInstance<ArchiveResultDialog>();
-                dialog.titleContent = new GUIContent(DialogTitle);
-                dialog.minSize = new Vector2(560f, 360f);
-                dialog._message = message;
-                // 선택 결과는 창 바깥의 지역 변수에 둔다. X로 창이 파괴되어도 기본값 false다.
-                dialog._requestWeb = () => webRequested = true;
-                dialog.ShowModal();
-                return webRequested;
-            }
-
-            private void OnGUI()
-            {
-                if (Event.current.type == EventType.KeyDown
-                    && (Event.current.keyCode == KeyCode.Escape
-                        || Event.current.keyCode == KeyCode.Return
-                        || Event.current.keyCode == KeyCode.KeypadEnter))
-                {
-                    Event.current.Use();
-                    Close();
-                    return;
-                }
-                _scroll = EditorGUILayout.BeginScrollView(_scroll);
-                float height = EditorStyles.wordWrappedLabel.CalcHeight(
-                    new GUIContent(_message), Mathf.Max(100f, position.width - 36f));
-                EditorGUILayout.SelectableLabel(_message, EditorStyles.wordWrappedLabel, GUILayout.Height(height));
-                EditorGUILayout.EndScrollView();
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("확인", GUILayout.Height(26f))) Close();
-                    if (GUILayout.Button("웹페이지 열기", GUILayout.Height(26f)))
-                    {
-                        _requestWeb?.Invoke();
-                        Close();
-                    }
-                }
             }
         }
 

@@ -30,6 +30,11 @@ namespace Hexiege.Infrastructure
             out AttackResultPresentationInput[] results)
         {
             results = null;
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            bool diagnosticThrew = false;
+            try
+            {
+#endif
             if (attackerUnitId < 0 || primaryResult == null || !primaryResult.Key.IsValid
                 || delivery == AttackDeliveryKind.None || !observation.IsComplete)
                 return false;
@@ -124,8 +129,115 @@ namespace Hexiege.Infrastructure
             Array.Sort(assembled, (left, right) => left.Key.CompareTo(right.Key));
             results = assembled;
             return true;
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            }
+            catch { diagnosticThrew = true; throw; }
+            finally
+            {
+                CombatOptimizationDiagnostics.ObserveBundle(attackerUnitId, primaryResult, delivery,
+                    observation, results, diagnosticThrew, DiagnosticReplay);
+            }
+#endif
         }
 
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+        // 기존 순수 조립 로직을 최대 16표본에서만 비교한다. 피해·전송을 다시 호출하지 않는다.
+        private static readonly CombatOptimizationDiagnostics.BundleReplay DiagnosticReplay = TryCreateDiagnosticBaseline;
+        private static bool TryCreateDiagnosticBaseline(
+            int attackerUnitId,
+            AttackImpactResult primaryResult,
+            AttackDeliveryKind delivery,
+            AttackDamagePresentationBundleObservation observation,
+            out AttackResultPresentationInput[] results)
+        {
+            results = null;
+            if (attackerUnitId < 0 || primaryResult == null || !primaryResult.Key.IsValid
+                || delivery == AttackDeliveryKind.None || !observation.IsComplete)
+                return false;
+
+            AppliedAttackPresentationFact[] facts = observation.Facts;
+            AttackDamageObservation primaryObservation = observation.PrimaryObservation;
+            if (facts.Length + 1 > AuthoritativeAttackPresentationCoordinator.MaximumResultsPerBundle)
+                return false;
+            bool primaryIsVisual = primaryResult.Outcome == AttackImpactOutcome.HitApplied
+                || primaryResult.Outcome == AttackImpactOutcome.StatusEffectApplied;
+            if (primaryIsVisual
+                && (!primaryObservation.HasPresentationSnapshot
+                    || !primaryObservation.HasImpactPosition
+                    || !primaryResult.HasImpactPosition
+                    || !primaryObservation.ImpactPosition.Equals(primaryResult.ImpactPosition)
+                    || primaryObservation.AppliedAmount != primaryResult.AppliedAmount
+                    || primaryObservation.ResultingHp != primaryResult.ResultingHp))
+                return false;
+
+            var assembled = new List<AttackResultPresentationInput>(facts.Length + 1);
+            bool foundPrimaryAppliedFact = false;
+            for (int i = 0; i < facts.Length; i++)
+            {
+                AppliedAttackPresentationFact fact = facts[i];
+                if (!fact.IsValid) return false;
+                bool isPrimary = fact.VictimKind == primaryResult.Key.VictimKind
+                    && fact.VictimId == primaryResult.Key.VictimId
+                    && fact.EffectKind == primaryResult.Key.EffectKind
+                    && fact.ResultOrdinal == primaryResult.Key.ResultOrdinal;
+                if (isPrimary)
+                {
+                    if (foundPrimaryAppliedFact
+                        || primaryResult.Outcome != AttackImpactOutcome.HitApplied
+                        || fact.AppliedAmount != primaryResult.AppliedAmount
+                        || fact.ResultingHp != primaryResult.ResultingHp
+                        || fact.VictimPresentationType != primaryObservation.VictimPresentationType
+                        || fact.VictimTeam != primaryObservation.VictimTeam
+                        || !fact.HasImpactPosition
+                        || !fact.ImpactPosition.Equals(primaryObservation.ImpactPosition))
+                        return false;
+                    foundPrimaryAppliedFact = true;
+                    continue;
+                }
+
+                var key = new AttackResultKey(
+                    primaryResult.Key.AttackerInstanceId,
+                    primaryResult.Key.SequenceId,
+                    primaryResult.Key.HitIndex,
+                    fact.VictimKind,
+                    fact.VictimId,
+                    fact.EffectKind,
+                    fact.ResultOrdinal);
+                var input = new AttackResultPresentationInput(
+                    attackerUnitId,
+                    primaryResult.ActionRevision,
+                    key,
+                    delivery,
+                    primaryResult.ImpactServerTime,
+                    primaryResult.AuthoritativeAimDirection,
+                    fact.HasImpactPosition,
+                    fact.ImpactPosition,
+                    AttackImpactOutcome.HitApplied,
+                    fact.AppliedAmount,
+                    fact.ResultingHp,
+                    fact.VictimPresentationType,
+                    fact.VictimTeam);
+                if (!input.IsValid) return false;
+                for (int j = 0; j < assembled.Count; j++)
+                    if (assembled[j].Key.Equals(key)) return false;
+                assembled.Add(input);
+            }
+
+            if (primaryResult.Outcome == AttackImpactOutcome.HitApplied && !foundPrimaryAppliedFact)
+                return false;
+            if (primaryResult.Outcome != AttackImpactOutcome.HitApplied && facts.Length != 0)
+                return false;
+
+            AttackResultPresentationInput primaryInput = CreatePrimaryInput(
+                attackerUnitId, primaryResult, delivery, primaryObservation);
+            if (!primaryInput.IsValid) return false;
+            assembled.Add(primaryInput);
+
+            assembled.Sort((left, right) => left.Key.CompareTo(right.Key));
+            results = assembled.ToArray();
+            return true;
+        }
+#endif
 
         public static bool TryToNetwork(
             AttackResultPresentationInput[] inputs,

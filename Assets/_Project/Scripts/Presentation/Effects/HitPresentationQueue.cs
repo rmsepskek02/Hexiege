@@ -1871,6 +1871,19 @@ namespace Hexiege.Presentation
             if (!UnitAttackResultPresentationShadowBridge.IsActive
                 || evt.Entity == null || !evt.AttackerIsUnit)
                 return;
+            // [2026-11-17 DoT 출처] 기존에는 모든 유닛 피해를 아래 회차 감사로 전달했다.
+            // 공격자가 이미 제거된 정상 DoT는 attacker=-1이어서 피해 1회의 Enqueued/Emitted가
+            // 각각 invalid가 됐다. writer가 명시한 독립 DoT만 비교 대상에서 분리한다.
+            // 키가 조금이라도 남아 있으면(유효/손상 모두) 정규 공격 감사 경로를 유지하고,
+            // NaN/음수 시간도 기존 invalid 검사를 받게 한다. HP 적용과 Emit은 이 함수 밖에서 그대로 실행된다.
+            double observationTime = Time.realtimeSinceStartupAsDouble;
+            if (evt.IsTimedDamage && evt.IsUnit && evt.ImmediatePresentation
+                && evt.PresentationResultKey.Equals(default(AttackResultKey))
+                && evt.WavePresentationKey.Equals(default(WaveDeliveryKey))
+                && evt.ProjectilePresentationKey.Equals(default(ProjectileDeliveryKey))
+                && !double.IsNaN(observationTime) && !double.IsInfinity(observationTime)
+                && observationTime >= 0d)
+                return;
             UnitAttackResultPresentationShadowBridge.ObserveLegacy(
                 new LegacyPresentationObservation(
                     kind,
@@ -1878,7 +1891,7 @@ namespace Hexiege.Presentation
                     evt.IsUnit ? 1 : 2,
                     evt.Entity.Id,
                     evt.CurrentHp,
-                    Time.realtimeSinceStartupAsDouble,
+                    observationTime,
                     false,
                     default,
                     evt.PresentationResultKey,

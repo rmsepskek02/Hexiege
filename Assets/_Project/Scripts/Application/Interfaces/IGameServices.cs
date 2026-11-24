@@ -25,6 +25,11 @@ using Hexiege.Domain;
 
 namespace Hexiege.Application
 {
+    /// <summary>확정된 맵의 관측용 참조만 읽는다. 인계 홀더를 소비하거나 맵을 변경하지 않는다.</summary>
+    public interface IReadOnlyMapPreparationEvidence
+    {
+        MapPreparationResult GetLastMapPreparation();
+    }
     /// <summary>
     /// GameBootstrapper가 제공하는 UseCase 및 네트워크 생명주기 서비스의 추상화.
     /// Infrastructure/Network 계층이 Bootstrap에 직접 의존하지 않도록 한다.

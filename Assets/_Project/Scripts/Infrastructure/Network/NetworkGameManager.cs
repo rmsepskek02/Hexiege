@@ -403,16 +403,25 @@ namespace Hexiege.Infrastructure
         /// 완료 시 OnHostStarted 이벤트에 Lobby Code 전달.
         /// </summary>
         /// <param name="lobbyName">만들 방 이름.</param>
-        public async Task HostGameAsync(string lobbyName = "Hexiege Room", string matchId = null)
+        public Task HostGameAsync(string lobbyName = "Hexiege Room", string matchId = null)
+            => HostGameAsync(lobbyName, matchId, null);
+
+        internal async Task HostGameAsync(string lobbyName, string matchId, CustomRoomCreationDiagnostics diagnostic)
         {
+            diagnostic ??= CustomRoomCreationDiagnostics.Create();
+            diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.PreparationCleanup, CustomRoomCreationDiagnostics.Outcome.Begin);
             await WaitForPreparationCleanupAsync();
+            diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.PreparationCleanup, CustomRoomCreationDiagnostics.Outcome.Done);
             try
             {
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.HostEntry, CustomRoomCreationDiagnostics.Outcome.Begin);
+                diagnostic?.RecordHostState(IsInitialized);
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager), "HostGame 시작",
                                  $"LobbyName={lobbyName}");
 
                 // 1. Relay 서버 할당 생성 + Join Code 발급
-                string relayJoinCode = await _relayManager.CreateRelayAsync();
+                string relayJoinCode = await _relayManager.CreateRelayAsync(diagnostic);
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.RelayReturned, CustomRoomCreationDiagnostics.Outcome.Returned, !string.IsNullOrEmpty(relayJoinCode));
                 if (string.IsNullOrEmpty(relayJoinCode))
                 {
                     const string errorMsg = "Relay 할당 실패. 네트워크 상태를 확인하세요.";
@@ -444,7 +453,8 @@ namespace Hexiege.Infrastructure
                 }
 
                 // 2. Lobby 생성 (Relay Join Code 를 Data 에 포함)
-                var lobby = await _lobbyManager.CreateLobbyAsync(lobbyName, maxPlayers: 2, relayJoinCode, matchId);
+                var lobby = await _lobbyManager.CreateLobbyAsync(lobbyName, maxPlayers: 2, relayJoinCode, matchId, diagnostic);
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.LobbyReturned, CustomRoomCreationDiagnostics.Outcome.Returned, lobby != null);
                 if (lobby == null)
                 {
                     const string errorMsg = "Lobby 생성 실패. Unity Lobby 서비스를 확인하세요.";
@@ -460,28 +470,38 @@ namespace Hexiege.Infrastructure
                 }
 
                 // 3-1. Client 접속/끊김 감지 콜백 구독 — StartHost() 이전에 등록 (레이스 컨디션 방지)
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkCallbacks, CustomRoomCreationDiagnostics.Outcome.Begin);
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
                 NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkCallbacks, CustomRoomCreationDiagnostics.Outcome.Done);
 
                 // 3. NetworkManager Host 시작
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkHost, CustomRoomCreationDiagnostics.Outcome.Begin);
                 if (!StartNetworkHost())
                 {
+                    diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkHost, CustomRoomCreationDiagnostics.Outcome.Failed, false);
                     // 실패 시 등록한 콜백 해제 후 에러 반환
                     NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
                     NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
                     OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     return;
                 }
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkHost, CustomRoomCreationDiagnostics.Outcome.Done, true);
 
                 // 4. Host Heartbeat 시작 (Lobby 활성 유지)
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.Heartbeat, CustomRoomCreationDiagnostics.Outcome.Begin);
                 StartHeartbeat();
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.Heartbeat, CustomRoomCreationDiagnostics.Outcome.Done);
 
                 GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Host 게임 시작 완료",
                                  $"LobbyCode={lobby.LobbyCode}");
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.HostNotified, CustomRoomCreationDiagnostics.Outcome.Begin);
                 OnHostStarted?.Invoke(lobby.LobbyCode);
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.HostNotified, CustomRoomCreationDiagnostics.Outcome.Done);
             }
             catch (Exception e)
             {
+                diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.HostUnhandled, CustomRoomCreationDiagnostics.Outcome.Failed, error: e);
                 // 이 흐름의 최종 catch 이고, 하위 계층이 분류하지 못한 고유 예외만 여기로 온다
                 // → 원칙 1의 중복이 아니다. 예외 객체를 그대로 넘겨 타입을 집계 축으로 남긴다.
                 GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),

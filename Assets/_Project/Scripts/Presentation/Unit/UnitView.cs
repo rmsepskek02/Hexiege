@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitView.cs
 // 유닛의 비주얼(이동, 방향, 애니메이션 상태)을 담당하는 컴포넌트.
 //
@@ -47,11 +47,25 @@ namespace Hexiege.Presentation
     // [2026-10-26 수정안 (a)] partial로 바꿨다 — 투사체 사망타 사망 표현 보류(사망 대역) 코드를 UnitView.DeathDeferral.cs에 따로 둔다.
     public partial class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
+        // 이 View가 옛 ID를 가진 채 늦게 파괴돼도 새 binding의 index를 변경하지 않는다.
         private int _combatSpatialBindingId;
         private void OnDestroy()
         {
             _combatUseCase?.CombatPoseChanging(_unitData, _combatSpatialBindingId);
         }
+
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private static readonly Unity.Profiling.ProfilerMarker _disableSpawnFacingMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.SpawnFacing");
+        private static readonly Unity.Profiling.ProfilerMarker _disableSoloPlaybackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.SoloPlayback");
+        private static readonly Unity.Profiling.ProfilerMarker _disableSoloPursuitMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.SoloPursuit");
+        private static readonly Unity.Profiling.ProfilerMarker _disableSoloRecoveryMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.SoloRecovery");
+        private static readonly Unity.Profiling.ProfilerMarker _disableTimingUnavailableMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.TimingUnavailable");
+        private static readonly Unity.Profiling.ProfilerMarker _disableHealEndMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.HealEnd");
+        private static readonly Unity.Profiling.ProfilerMarker _disableCasterEffectsMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.CasterEffects");
+        private static readonly Unity.Profiling.ProfilerMarker _disablePostCombatMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.PostCombat");
+        private static readonly Unity.Profiling.ProfilerMarker _disableInfernoRetireMarker = new Unity.Profiling.ProfilerMarker("Hexiege.UnitView.Disable.InfernoRetire");
+#endif
 
         private static ulong _nextHealLifetime;
         private ulong _healLifetime, _healSequence;
@@ -1724,20 +1738,41 @@ _slot = _nextEviction;
         private void OnDisable()
         {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
+            using (_disableSpawnFacingMarker.Auto())
             EndBlockedSpawnFacingTrace("view-disabled");
 #endif
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableSoloPlaybackMarker.Auto())
+#endif
             _combatUseCase?.CloseSoloAttackPlayback(_unitData, terminal: true);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableSoloPursuitMarker.Auto())
+#endif
             EndSoloPursuitEvidence();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableSoloRecoveryMarker.Auto())
+#endif
             EndSoloRecoveryEvidence();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableTimingUnavailableMarker.Auto())
+#endif
             PistoleerTimingDiagnostics.Event(_unitData, "Unavailable", _pistoleerTimingScope,
                 UnitAttackResultPresentationShadowBridge.CurrentServerTime, "reason=view-disable");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableHealEndMarker.Auto())
+#endif
             EndHealPresentation("disable", terminal: true);
             // [2026-10-13 R2-1] 유닛 GameObject가 파괴·디스폰·비활성화되면(= 화면에서 제거) 이 유닛의
             //   기 모으기(charge) 이펙트도 즉시 끈다. 멀티 Client는 사망 시 NetworkUnit 디스폰으로 여기에 온다.
             //   씬 정리 중 EffectManager가 먼저 사라졌으면 Instance가 null이라 아무것도 하지 않는다.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            using (_disableCasterEffectsMarker.Auto())
+#endif
             EffectManager.Instance?.StopCasterOwnedAttackEffects(this, "CasterRemoved");
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
+            using (_disablePostCombatMarker.Auto())
             PostCombatTraceEvent("view-disable", retire: true);
+            using (_disableInfernoRetireMarker.Auto())
             RetireInfernoMotionJumpEvidence();
             ClearInfernoAttackFacingEvidenceState();
 #endif
@@ -1788,6 +1823,7 @@ _slot = _nextEviction;
             _healGameEndSubscription = GameEvents.OnGameEnd.Subscribe(e =>
             {
                 EndHealPresentation("game-end", terminal: true);
+                _combatUseCase?.ObserveCombatSpatialEnd();
             }).AddTo(this);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             PostCombatTraceEvent("view-reinitialize", retire: true);
@@ -1850,6 +1886,7 @@ _slot = _nextEviction;
             _movementPendingCommand = false;
             _movementPendingSegment = false;
             _movementAuthorityReducer = new UnitMovementReducer();
+            ResetCenterCurveRuntime();
             ClearCombatTargetTracking();
             _attackPresentationImpactLease.Close();
             _attackPresentationSourceMarkerLease.Close();

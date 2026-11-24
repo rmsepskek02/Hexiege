@@ -12,7 +12,7 @@
 
 ## 1. 승인과 현재 상태
 
-2026-11-24 사용자가 추천한 두 작업의 동시 진행과 새 Task 작성을 승인했다. 전투7파일·로비2파일 구현과 source/SDK 제한 검증·최종 영수증 대조를 마쳤다. 이번 ZIP 실기 분석에서 직접 작업 감소와 제한된 동등성·숨김 렌더/복귀 관측을 확인했다. 현재 수용 범위와 남은 검증은6절이며 전체 기능·정확 source-build 귀속·CPU/FPS/열 개선은 미확정이다. 기존 dirty 작업은 보존한다.
+2026-11-24 사용자가 추천한 두 작업의 동시 진행과 새 Task 작성을 승인했다. 전투7파일·로비2파일 구현과 source/SDK 제한 검증·최종 영수증 대조를 마쳤다. 이번 ZIP 실기 분석에서 직접 작업 감소와 제한된 동등성·숨김 렌더/복귀 관측을 확인했다. 현재 수용 범위와 남은 검증은6절이며 전체 기능·정확 source-build 귀속·CPU/FPS/열 개선은 미확정이다. 기존 dirty 작업 보존과 로컬 main/opt 통합을 완료했고 사용자 승인 후 main 원격 push도 완료했다(7절).
 
 선정 근거는 [이전 Research5절](../00_09_android-optimization-resume/Research.md#5-물리발열을-포함한-확장-비용-조사--2026-11-24)과 [이전 Plan](../00_09_android-optimization-resume/Plan.md)을 참조한다. 이전 Task의 완료25개 작업과 후보 장부를 덮어쓰거나 다시 구현하지 않는다.
 
@@ -130,18 +130,30 @@ Android raw434의18:47:07.927 off/frame41170부터 raw450의18:47:29.779 on/fram
 
 Host 오류0, Editor는 경기 BEGIN18:49:39.735 전18:48:20.979의 NRE1개가 있다. stack은 UnityEditor.DockArea.WindowMaximizeStateOnDoubleClick/Internal_CallDelayFunctions여서 전투 제품 또는 이번 최적화 원인이라는 근거는 없다. 전체 오류0으로 쓰지 않으며 요청 없이 수정하지 않았다. 이번 단계는 직접 작업 감소·표본 동등성·숨김/복귀 관측의 제한 수용으로 마감한다.
 
-## 7. main 최신 변경과 제품 선별 반영 검토 — 2026-11-24
+## 7. main 제품 반영·opt 통합 및 작업 보존 결과 — 2026-11-24
 
-사용자가 이번 두 최적화를 수용하고 main pull·충돌 확인·main 병합을 지시했으며 필요한 commit/branch 전환을 승인했다. 메인이 fetch로 최신 origin/main `c697382a`를 확인했다. 현재 최적화 HEAD는 `a64b31d16b788ad413739f0b31be809453384f82`와 기존 다수 staged/dirty 작업이 있는 상태이며 원본 보존을 우선한다. 이 문서를 포함하는 선별 반영 커밋은 아래 게시 범위와 검증 결과를 기준으로 한다. 원격 push는 미실행이다.
+2026-11-24 병합 전 계획은 제품9파일 delta 선별·양쪽 작업 보존·의미 충돌 검토였다. 해당 실행을 아래와 같이 완료했으며 main 원격 push는 사용자 승인 후 완료했으며 병합 후 native/실기 검증은 별개다.
 
-이번 제품9파일 delta만 main에 포팅하고 최적화 branch의 측정/실험 도구·Dev 진단은 기존 사용자 결정대로 branch에 유지한다. main의 신규 skill/VFX/UI와 기존 작업을 모두 보존해야 한다. 동시 변경된 UnitCombatUseCase/UnitView/LobbyRootView3파일은 전문 담당이 의미 충돌을 검토한다. 나머지 파일도 baseline 대비 이번 delta와 기존 main 동작 보존을 확인한다.
+로컬 main `17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae`는 최신 main c697382a 기반 제품9파일+문서/meta13파일, 총22파일의 선별 반영을 완료했다. opt HEAD `80c035617e30891f79cb52b9566bf021a37342d9`는 부모 a64b31d와17ef4cee를 합쳐 최신 main을 포함한다. 23:34 재fetch 당시 origin/main은 c697382a이고 미푸시였으나, 이후 사용자의 “푸시도 해” 승인으로 main1commit push를 완료했다. server의 c697382a..17ef4cee main→main 정상 응답(exit0)과 local main/origin main의17ef4ceeb5b22fb0c8a2537a3d4987489b07a9ae 일치를 메인이 확인했다. 이 선별 반영 당시 branch는 codex/android-performance-optimization이고 opt branch push0·미커밋 작업을 보존했다. 당시17ef 선별 제품판에는 opt 측정/실험·Dev 진단을 넣지 않았고 그 실기 로그는 opt 측정판 근거다. 이후 전체 통합 범위는 마지막2026-11-25절을 따른다.
 
-Git 오케스트레이션·commit/branch 전환은 메인 담당이며 문서 담당은 Task 외 제품/Git를 변경하지 않는다. 공용 MEMORY의 기존 작업도 삭제하지 않는다. 상시 문서 수정이 필요하면 별도 범위를 보고하고 승인받으며, 선별 제품판의 실제 포함 범위·컴파일 검증은 아래 게시 기록을 따른다. 원격 push는 미실행이다.
+기존 tracked WIP36은 stash066a5b1ab19968bc775407c064471d3c1fb7743e patch3way로 복원하고 원래 untracked13은 사본과 byte exact로 복원했다. docs3/core5/other6 충돌을 해소했고 원래 staging3개(폰트/desktop meta/Burst txt)를 복구했다. 메인은 unmerged0과 기존 staged3 일치를 확인했다. 첫 stash2916의 ignore cleanup 실패 때 원래 index 사본 복구·49원문 exact 검증 후 두 번째066a 보관에 성공했으며 손실은 없었다. 백업·stash2개를 보존하고 Profiler46파일 약6GB와 raw 로그는 삭제·이동하지 않았다.
 
-제품판 구분: 이 문서의 측정·진단 근거는 opt 측정판에서 확보했다. main 선별 제품판에는 해당 Dev 진단·실험 코드/도구를 포함하지 않으며, opt 전용 원문·private 증거는 제품 산출물이 아니다.
+최종 실제 복원 작업본은 runtime390+Editor34=424 source이며 최신 main386runtime/26Editor와 opt 기존4runtime/8Editor 추가의 누락0을 확인했다. Editor/AndroidDev/Release/Tools4구성 오류0·경고25/28/32/0이다. 컴파일에서 발견한 UnitView 중복 field/OnDestroy2개는 동일 세트1개 제거로 정합했다. main schema11/합성 opt12를 구분한다. 이번 병합 턴의 native/UI·실기·빌드시도는 미실행이므로 이전 opt 실기 관측을 병합 후 새 검증으로 바꾸지 않는다.
 
-## 선별 제품판 게시 범위·검증
+근거는 private `.utmp/selective-merge-20261124/final-working/FinalValidationReceipt.json`(SHAAFB66C2F439C9916741E3739BC83342BE66EBB5D988DE2AB2825F02127FEE4CF), SourceInventory.json, SourcePreservationProof.json이다. main17ef에는 선별 문서판이 이미 포함돼 있고 이 작업본의 후속 마감 기록은 opt 미커밋 상태로 남는다. 문서 담당은 제품/Git를 변경하지 않았다. 정확 source·기능 전체·native 성능 수용 한계는 이전 결과 범위를 유지한다.
 
-이 문서를 포함하는 선별 반영 커밋은 최신 main c697382a를 기반으로 이번 제품9파일과 문서/metadata13파일만 포함한다. opt 측정/실험·Dev 진단은 opt branch에 유지하고 기존 main 기능 원문을 보존한다. 이 문서의 실기 진단 근거는 opt 측정판 자료이며 제품판에 진단 코드가 포함된다는 뜻은 아니다.
+## 전체 합성 소스 검증 완료 — 2026-11-25
 
-선별 main 후보의 runtime386 source Editor/AndroidDev/Release와 EditorTools26 source, 총4구성 컴파일 오류0을 확인했다. 경고는 각각25/28/32/0이며 기존 혼합 opt358 source 결과와 구분한다. 이 컴파일은 native/실기 재검증이나 FPS 보장이 아니다. 원격 push는 미실행이다.
+eaf05db4의 기존 최적화 전체·UI와 origin/main9c012141을 합친 source 검증을 완료했다. 합성 schema13은 main 신규 연막 wire/토큰과 opt DoT 출처를 함께 보존한다. 신규 main 연막4cs 및 관련 Projectiles/Tower/MistShrinePanel은 origin/main 대비 diff0을 확인했고 Game씬 ARF15줄은 eaf 기준 그대로다.
+
+private `.utmp/all-optimization-integration-20261125/final-merge/CompileResults.json`에서 Editor/AndroidDev/Release/EditorTools 오류0·경고25/28/32/0이다. 실제 runtime394·Editor35(합429) source membership 누락0·외부 참조524을 확인했다. 이것은 합성 source/SDK 검증이며 새 native·멀티 실기·표시 전범위·성능 검증은 아니다. main용 설정은 enableFrameTimingStats0/Android define DOTWEEN으로 유지하며 과거 opt 측정 결과를 이 설정의 FPS 효과로 소급하지 않는다.
+
+최종 Git merge commit0ebe909ac191ac05c71cf0d7f7c790c355d1de2c 생성 후 로컬 main fast-forward·origin main push·fetch 검증을 완료했고 local main/origin main/opt3refs가 일치했다. 과거 진단 opt 전용/제품 선별 기록은 당시 범위이며, 이번 승인은 기존 최적화·관련 작업 전체의 통합이다. 백업과 원래 작업·staging 보존을 계속 유지한다.
+
+최종 source freeze 근거는 `.utmp/all-optimization-integration-20261125/final-merge/FinalValidationReceipt.json`이다. 최종 검증9partial 문자열 정합 후 EditorTools 재컴파일 오류0·runtime hash 불변을 확인했다. 독립 정적 검수 blocker0으로 main 연막 manifest·DoT bool·기존 최적화 보존을 확인했고 main ProjectSettings diff0이다. 이 검수는 새 native/실기 PASS가 아니며 제품 통합0ebe909a의 push·원격 확인까지 완료했고 후속 문서 기록은 별도 commit 대상으로 둔다.
+
+## 전체 제품 통합·로그 메뉴 포함·push 완료
+
+제품 통합 커밋 `0ebe909ac191ac05c71cf0d7f7c790c355d1de2c`를 생성해 로컬 main fast-forward·origin main push·fetch 확인을 완료했고 local main/origin main/opt3refs가 일치했다. 현재 작업 branch는 opt로 복귀했다. 기존 최적화·자연회복 UI뿐 아니라 LogArchiveZip 로그 메뉴도 eaf와 최종 제품 통합에 포함됐다. 결과창은 기본2버튼이며 확인은 외부 동작0, 웹페이지 명시 선택은 폴더+페이지를 함께 여는 bool webRequested 경로를 유지한다. 최종 EditorTools 컴파일 오류0이다.
+
+`.utmp/full-main-merge-20261125/FinalRestoration.json`에서 로컬 자동생성3파일의 원래 index/worktree 원문 SHA 복원을 확인했다. backup·stash는 보존했다. 이 기록은 Git 반영과 원본 보존 결과이며 새 native/실기·연구 완료/스탯·FPS 검증은 아니다. 문서 후속 commit의 SHA를 제품 커밋과 혼동하지 않는다.

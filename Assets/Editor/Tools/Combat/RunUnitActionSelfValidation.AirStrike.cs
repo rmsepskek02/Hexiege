@@ -76,7 +76,7 @@ namespace Hexiege.Editor.Combat
             // [2026-11-17 L-5 · L-6] PASS 문구 끝에 LS-T9를 덧붙였다(옛 문구는 「… out-of-map strikes skipped (LS-T12).」로 끝났다).
             // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup count 12」를 13으로 바꿨다(메테오를 켜 셋업 기대 수가 13이 됐다 — 문구만).
             // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 12 · 「setup count 13」 → 14(연막탄 S-1 · S-3이 바꾼 값 — 문구만).
-            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 12 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 14 / VFX slot contract and playback gates (LS-T9).");
+            Debug.Log("[UAS-DIAG][SKILL-LINE] self-validation PASS: line inside / boundary / behind / beyond / diagonal (LS-T1), every point in exactly one half-open segment with the end point in the last (LS-T2), map-clipped effective length incl. boundary-outward 0 and diagonal corner (LS-T11), five strikes at 0.4 / 0.6 / 0.8 / 1.0 / 1.2 s in segment order with cooldown at activation (LS-T3), one hit per target per cast incl. moved units and equal unit / building ids (LS-T4), allies and off-line targets untouched (LS-T5), game-end drop incl. close during a strike and rejection after close (LS-T6), invalid direction rejected without cooldown and normalization (LS-T7), schema 13 / RPC direction / wiring source gates and asset defaults (LS-T8), Bombardment delay path unchanged (LS-T10), out-of-map strikes skipped (LS-T12), Air Strike asset enabled with P-7 values in Human slot 1 / setup count 14 / VFX slot contract and playback gates (LS-T9).");
         }
 
         // ── fixture 전용 스탯 고정 ─────────────────────────────────────────
@@ -578,8 +578,8 @@ namespace Hexiege.Editor.Combat
         private static void ValidateLineStrikeSourceGates()
         {
             // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "LS-T8 the air-strike direction arguments raised the presentation schema to 11 (the smoke-bomb projectile launch RPC arguments then raised it to 12).");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "LS-T8 the air-strike direction arguments raised the presentation schema to 11 (the smoke-bomb projectile launch RPC arguments then raised it to 12).; current merged DoT provenance + smoke evasion require schema 13.");
             Require((int)SkillMechanicType.LineStrike == 5 && new SkillExecutorRegistry().TryGet(SkillMechanicType.LineStrike) is LineStrikeExecutor,
                 "LS-T8 SkillMechanicType.LineStrike must be 5 (appended last) and registered to LineStrikeExecutor.");
 

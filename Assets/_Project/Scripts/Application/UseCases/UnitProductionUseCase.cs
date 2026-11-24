@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // UnitProductionUseCase.cs
 // 배럭별 유닛 생산 큐, 타이머, 자동/수동 모드를 관리하는 핵심 UseCase.
 //
@@ -45,6 +45,53 @@ namespace Hexiege.Application
         private readonly ResourceUseCase _resource;
         private readonly PopulationUseCase _population;
         private readonly BuildingPlacementUseCase _buildingPlacement;
+
+        private object _spawnPreparationOwner;
+        private System.Action<UnitData, HexCoord?, int> _spawnPreparation;
+        private System.Action<int> _spawnPreparationRelease;
+        private readonly System.Action<UnitData> _beforeSpawnPublish;
+        private ProductionState _preparingProduction;
+        private int? _preparingUnitId;
+        private System.Action<UnitData, HexCoord?, int> _scopeSpawnPreparation;
+        private System.Action<int> _scopeSpawnRelease;
+
+        public void SetSpawnPreparation(object owner,
+            System.Action<UnitData, HexCoord?, int> prepare, System.Action<int> release)
+        {
+            _spawnPreparationOwner = owner;
+            _spawnPreparation = prepare;
+            _spawnPreparationRelease = release;
+        }
+
+        public void ClearSpawnPreparation(object owner)
+        {
+            if (!ReferenceEquals(owner, _spawnPreparationOwner)) return;
+            _spawnPreparationOwner = null;
+            _spawnPreparation = null;
+            _spawnPreparationRelease = null;
+        }
+
+        private void PrepareUnitBeforePublish(UnitData unit)
+        {
+            _preparingUnitId = unit.Id;
+            try
+            {
+                _scopeSpawnPreparation?.Invoke(unit,
+                    _preparingProduction.RallyPoint, _preparingProduction.BarracksId);
+            }
+            catch
+            {
+                ReleaseSpawnPreparation(_scopeSpawnRelease, unit.Id);
+                throw; // SpawnUnit가 이 새 준비 실패만 격리하고 원래 Facing으로 생성한다.
+            }
+        }
+
+        private static void ReleaseSpawnPreparation(System.Action<int> release, int unitId)
+        {
+            // 정리 실패가 원래 spawn/생산 이벤트의 예외를 바꾸어서는 안 된다.
+            try { release?.Invoke(unitId); }
+            catch { }
+        }
 
         // 배럭 Id → ProductionState
         private readonly Dictionary<int, ProductionState> _states = new Dictionary<int, ProductionState>();
@@ -120,6 +167,7 @@ namespace Hexiege.Application
             _resource = resource;
             _population = population;
             _buildingPlacement = buildingPlacement;
+            _beforeSpawnPublish = PrepareUnitBeforePublish;
         }
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -492,72 +540,95 @@ namespace Hexiege.Application
         /// </summary>
         private void CompleteProduction(ProductionState state)
         {
-            UnitType type = state.CurrentProducing.Value;
-            bool wasAuto = state.CurrentIsAuto;
-
-            // 스폰 위치 결정 (배럭 인접 이동 가능 타일)
-            HexCoord? spawnTile = FindSpawnTile(state.BarracksPosition);
-            if (!spawnTile.HasValue)
+            ProductionState savedProduction = _preparingProduction;
+            int? savedUnit = _preparingUnitId;
+            var savedPrepare = _scopeSpawnPreparation;
+            var savedRelease = _scopeSpawnRelease;
+            _preparingProduction = state;
+            _preparingUnitId = null;
+            _scopeSpawnPreparation = _spawnPreparation;
+            _scopeSpawnRelease = _spawnPreparationRelease;
+            try
             {
-                // 스폰 불가 시 대기 (다음 프레임에 재시도)
+                UnitType type = state.CurrentProducing.Value;
+                bool wasAuto = state.CurrentIsAuto;
+
+                // 스폰 위치 결정 (배럭 인접 이동 가능 타일)
+                HexCoord? spawnTile = FindSpawnTile(state.BarracksPosition);
+                if (!spawnTile.HasValue)
+                {
+                    // 스폰 불가 시 대기 (다음 프레임에 재시도)
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-                ObserveBlockedSpawnForFacing(state, type);
+                    ObserveBlockedSpawnForFacing(state, type);
 #endif
-                return;
-            }
+                    return;
+                }
 
-            // 유닛 생성
-            UnitData unit = _unitSpawn.SpawnUnit(type, state.Team, spawnTile.Value);
-            if (unit == null)
-            {
-                // 스폰 실패 시 대기
-                return;
-            }
+                // 유닛 생성
+                UnitData unit = _unitSpawn.SpawnUnit(type, state.Team, spawnTile.Value,
+                    _scopeSpawnPreparation != null ? _beforeSpawnPublish : null);
+                if (unit == null)
+                {
+                    // 스폰 실패 시 대기
+                    return;
+                }
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            ObserveReleasedSpawnForFacing(state, unit);
+                ObserveReleasedSpawnForFacing(state, unit);
 #endif
-            // [2026-11-16 진단 [SKILL-PROD] ProdCompleteSample] 생산 1건 완료 표본(효과 중 · 효과 직후만 — 개발 빌드 전용).
-            DiagProductionCompleted(state, type);
-            // 생산 상태 초기화
-            state.CurrentProducing = null;
-            state.CurrentIsAuto = false;
-            state.ElapsedTime = 0f;
-            state.RequiredTime = 0f;
+                // [2026-11-16 진단 [SKILL-PROD] ProdCompleteSample] 생산 1건 완료 표본(효과 중 · 효과 직후만 — 개발 빌드 전용).
+                DiagProductionCompleted(state, type);
+                // 생산 상태 초기화
+                state.CurrentProducing = null;
+                state.CurrentIsAuto = false;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = 0f;
 
-            // 자동 항목이 완료된 경우: 같은 타입을 PendingQueue 끝에 재추가하여 순환을 이어감.
-            // AutoTypes에 해당 타입이 아직 남아있을 때만 재추가(자동 취소된 경우 재추가 안 함).
-            // 이때 미차감(IsCharged=false)으로 넣어서 슬롯에 올라오는 시점에 차감되도록 함.
-            if (wasAuto && state.AutoTypes.Contains(type))
-            {
-                state.PendingQueue.Add(new QueueSlot(type, true, false));
+                // 자동 항목이 완료된 경우: 같은 타입을 PendingQueue 끝에 재추가하여 순환을 이어감.
+                // AutoTypes에 해당 타입이 아직 남아있을 때만 재추가(자동 취소된 경우 재추가 안 함).
+                // 이때 미차감(IsCharged=false)으로 넣어서 슬롯에 올라오는 시점에 차감되도록 함.
+                if (wasAuto && state.AutoTypes.Contains(type))
+                {
+                    state.PendingQueue.Add(new QueueSlot(type, true, false));
+                }
+
+                // [2026-06-05 깜빡임 수정] AddNewAutoSlot의 2026-04-19 수정과 동일한 패턴.
+                // 기존 코드는 여기서 ChargeVisibleSlots + OnProductionQueueChanged를 발행하고,
+                // 실제 다음 항목을 슬롯0으로 올리는 TryStartNext는 다음 프레임에야 실행됐다.
+                // 그 결과 "슬롯1=비어있음, 슬롯2=대기유닛" 상태가 한 프레임 동안 UI에 노출되어
+                // 슬롯2가 1프레임 깜빡이는 버그가 발생했다.
+                //
+                // 해결: CompleteProduction 직후 TryStartNext를 즉시 호출하여 같은 프레임 안에
+                // 슬롯 상태를 정착시킨다.
+                //  - ChargeVisibleSlots는 TryStartNext 내부에서 호출되므로 여기서 제거한다.
+                //  - OnProductionQueueChanged도 TryStartNext 내부에서 발행되므로 여기서 직접 발행하지 않는다.
+                //  - 단, OnUnitProduced(랠리포인트 이동 처리용)는 TryStartNext와 무관하므로 그대로 발행한다.
+                // BarracksId를 함께 전달 — AI(AIOpponentController)가 이 값으로
+                // 어느 배럭에서 유닛이 나왔는지 식별하여 다음 유닛을 재등록한다(규칙 12).
+                GameEvents.OnUnitProduced.OnNext(
+                    new UnitProducedEvent(unit, state.RallyPoint, state.BarracksId));
+
+                TryStartNext(state);
+
+                // TryStartNext가 아무것도 시작하지 않은 경우(큐 비어있음 + 자동 모드 아님)에는
+                // 내부에서 이벤트를 발행하지 않으므로, 여기서 수동으로 발행해 UI를 갱신한다.
+                // (생산이 시작됐다면 CurrentProducing에 값이 들어가고 이벤트도 이미 발행된 상태다.)
+                if (!state.CurrentProducing.HasValue)
+                {
+                    GameEvents.OnProductionQueueChanged.OnNext(
+                        new ProductionQueueChangedEvent(state.BarracksId));
+                }
+
             }
-
-            // [2026-06-05 깜빡임 수정] AddNewAutoSlot의 2026-04-19 수정과 동일한 패턴.
-            // 기존 코드는 여기서 ChargeVisibleSlots + OnProductionQueueChanged를 발행하고,
-            // 실제 다음 항목을 슬롯0으로 올리는 TryStartNext는 다음 프레임에야 실행됐다.
-            // 그 결과 "슬롯1=비어있음, 슬롯2=대기유닛" 상태가 한 프레임 동안 UI에 노출되어
-            // 슬롯2가 1프레임 깜빡이는 버그가 발생했다.
-            //
-            // 해결: CompleteProduction 직후 TryStartNext를 즉시 호출하여 같은 프레임 안에
-            // 슬롯 상태를 정착시킨다.
-            //  - ChargeVisibleSlots는 TryStartNext 내부에서 호출되므로 여기서 제거한다.
-            //  - OnProductionQueueChanged도 TryStartNext 내부에서 발행되므로 여기서 직접 발행하지 않는다.
-            //  - 단, OnUnitProduced(랠리포인트 이동 처리용)는 TryStartNext와 무관하므로 그대로 발행한다.
-            // BarracksId를 함께 전달 — AI(AIOpponentController)가 이 값으로
-            // 어느 배럭에서 유닛이 나왔는지 식별하여 다음 유닛을 재등록한다(규칙 12).
-            GameEvents.OnUnitProduced.OnNext(
-                new UnitProducedEvent(unit, state.RallyPoint, state.BarracksId));
-
-            TryStartNext(state);
-
-            // TryStartNext가 아무것도 시작하지 않은 경우(큐 비어있음 + 자동 모드 아님)에는
-            // 내부에서 이벤트를 발행하지 않으므로, 여기서 수동으로 발행해 UI를 갱신한다.
-            // (생산이 시작됐다면 CurrentProducing에 값이 들어가고 이벤트도 이미 발행된 상태다.)
-            if (!state.CurrentProducing.HasValue)
+            finally
             {
-                GameEvents.OnProductionQueueChanged.OnNext(
-                    new ProductionQueueChangedEvent(state.BarracksId));
+                int? completedUnit = _preparingUnitId;
+                var release = _scopeSpawnRelease;
+                _preparingProduction = savedProduction;
+                _preparingUnitId = savedUnit;
+                _scopeSpawnPreparation = savedPrepare;
+                _scopeSpawnRelease = savedRelease;
+                if (completedUnit.HasValue) ReleaseSpawnPreparation(release, completedUnit.Value);
             }
         }
 

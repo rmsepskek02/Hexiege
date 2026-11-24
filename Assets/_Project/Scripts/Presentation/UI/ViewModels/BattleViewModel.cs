@@ -257,8 +257,14 @@ namespace Hexiege.Presentation
             CmdStartHosting
                 .Subscribe(async _ =>
                 {
-                    try { await StartHosting(); }
-                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; UIManager.Instance?.ShowLoading(false); }
+                    var diagnostic = CustomRoomCreationDiagnostics.Create();
+                    diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.UiRequested, CustomRoomCreationDiagnostics.Outcome.Begin);
+                    try { await StartHosting(diagnostic); }
+                    catch (Exception e)
+                    {
+                        diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.UiUnhandled, CustomRoomCreationDiagnostics.Outcome.Failed, error: e);
+                        ErrorMessage.Value = e.Message; IsConnecting.Value = false; UIManager.Instance?.ShowLoading(false);
+                    }
                 })
                 .AddTo(_disposables);
 
@@ -399,12 +405,14 @@ namespace Hexiege.Presentation
         ///   <item>순서가 거꾸로였다 — <b>화면 전환이 가장 먼저</b> 일어난다(본문 첫 줄).</item>
         /// </list>
         /// </summary>
-        private async Task StartHosting()
+        private async Task StartHosting(CustomRoomCreationDiagnostics diagnostic = null)
         {
             CurrentScreen.Value = BattleScreen.CustomHost;
             IsConnecting.Value = true;
             ErrorMessage.Value = "";
-            await _networkManager.HostGameAsync();
+            diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.UiManagerAvailable, CustomRoomCreationDiagnostics.Outcome.Done, _networkManager != null);
+            await _networkManager.HostGameAsync("Hexiege Room", null, diagnostic);
+            diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.UiReturned, CustomRoomCreationDiagnostics.Outcome.Returned);
         }
 
         /// <summary>

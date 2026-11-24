@@ -67,7 +67,7 @@ namespace Hexiege.Editor.Combat
             // [2026-11-18 메테오 Task S2-4] PASS 문구의 「setup expected count 12」를 13으로 바꿨다(문구만 — 검사는 Z-T10).
             // [2026-11-23 연막탄 Task S-1] PASS 문구의 「Smoke Bomb still unavailable」 → 「Smoke Bomb asset contract」, 「13」 → 「14」(문구만).
             // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 「schema 12」(문구만 — Z-T10 검사는 S-3부터 == 12).
-            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb asset contract (Z-T9 / E-T12), schema 12 + setup expected count 14 + tick/subscription/RPC source gates (Z-T10).");
+            Debug.Log("[UAS-DIAG][SKILL-ZONE] self-validation PASS: no-zone regression exact (Z-T1), tile-centre entry/late entry/exit restore 1.0 with next-tick membership announcements and allies untouched (Z-T2), freeze = move 0 + no attack then exact restore (Z-T3), same-skill overlap applied once and different skills multiply (Z-T4), tailwind 1.3 × sap 0.4 = 0.52 and tailwind kept after exit (Z-T5), death removes membership and announces exit (Z-T6), Close releases all and rejects new zones while the caster building is never consulted (Z-T7), executor guards and bridge values (Z-T8), Frost Prison / Sap Swamp asset contract and Smoke Bomb asset contract (Z-T9 / E-T12), schema 13 + setup expected count 14 + tick/subscription/RPC source gates (Z-T10).");
         }
 
         // 구역 fixture — 새 유닛 목록 · 전투 UseCase · 상태 시스템 · 구역 서비스 + 구성원 알림 수집.
@@ -347,8 +347,8 @@ namespace Hexiege.Editor.Combat
         {
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다.
             // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10, the air-strike direction arguments to 11, the smoke-bomb projectile launch RPC arguments to 12).");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "Z-T10 the persistent-zone membership RPC raised the presentation schema to 9 (the shield-broken RPC then raised it to 10, the air-strike direction arguments to 11, the smoke-bomb projectile launch RPC arguments to 12).; current merged DoT provenance + smoke evasion require schema 13.");
 
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);

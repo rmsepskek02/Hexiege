@@ -1372,6 +1372,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ReturnToLobby()
         {
+            UIManager.Instance?.BeginLobbyReturnPerformanceMeasurement();
             // [진단] 🔴 이 줄이 없으면 「카운트다운이 끝까지 돌았는데도 화면이 그대로다」와
             //   「복귀 처리 중간에서 막혔다」를 구분할 수 없다. 바로 위 CountdownCoroutine 의
             //   만료 줄이 찍혔는데 이 줄이 없으면 그 사이(코루틴 만료 → 이 메서드 진입)가 범인이고,

@@ -15,7 +15,7 @@
 //
 //   [본문 2-레이어] 공통 프레임은 고정, 본문만 두 레이어로 전환(연구소 단위):
 //     (a) 매트릭스 레이어: 행=현재 종족 그룹, 열=공격력/방어력/이동속도. 각 칸=연구 버튼.
-//         초월은 2×3 격자 + 자연회복 전체폭 버튼 1개. (ResearchMatrixView/ResearchCellView가 렌더)
+//         초월은 2×3 격자 + 자연회복 첫 열 버튼 1개(나머지 두 열은 빈 자리). (ResearchMatrixView/ResearchCellView가 렌더)
 //     (b) 진행 레이어: 해당 연구소가 연구 중일 때 표시. 이름 + Lv X→X+1 + 게이지 + 남은 시간 + [취소].
 //         취소 = 연구만 취소(투입 골드 환불, 건물 유지). (ResearchProgressView가 렌더)
 //     레이어 전환은 Open(building) 시점 + 상태 변화 시 UpdateLayerVisibility()로 결정한다.

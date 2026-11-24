@@ -41,7 +41,20 @@ namespace Hexiege.Infrastructure
     /// </summary>
     public static class RuntimeLogger
     {
-
+#if UNITY_EDITOR
+        /// <summary>Editor 관측자가 현재 writer의 경로/위치를 읽는다. flush·재개방·출력 정책은 변경하지 않는다.</summary>
+        public static bool TryGetActiveEditorLogEvidence(out string path, out long offset)
+        {
+            path = null; offset = 0;
+            try
+            {
+                if (_writer?.BaseStream is FileStream file && file.CanWrite)
+                { path = file.Name; offset = file.Position; return true; }
+            }
+            catch { }
+            return false;
+        }
+#endif
 #if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD)
         // 현재 열려 있는 로그 파일에 대한 쓰기 스트림.
         // null이면 아직 BeginSession이 호출되지 않았거나 EndSession으로 닫힌 상태다.
@@ -190,10 +203,12 @@ namespace Hexiege.Infrastructure
                 omitStack, null);
             if (archived && IsFileOnlyInfo(level == LogLevel.Info, data, null))
             {
+                MarkFileOnlyInfo();
                 return;
             }
             if (archived && IsFileOnlyDiagnosticWarning(level == LogLevel.Warn, system, className, message, data, null))
             {
+                MarkFileOnlyDiagnosticWarning();
                 return;
             }
 #endif
@@ -229,7 +244,7 @@ namespace Hexiege.Infrastructure
 #if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
             if (DeviceArchiveFallbackRequired)
             {
-                EmitDeviceConsole(level, className, message, line);
+                using (_deviceFallbackMarker.Auto()) EmitDeviceConsole(level, className, message, line);
             }
             else EmitDeviceConsole(level, className, message, line);
         }
@@ -328,12 +343,19 @@ namespace Hexiege.Infrastructure
         private static long _deviceDiagnosticFailures;
         private static long _deviceConsoleFallbacks;
         private static string _devicePath;
+        private static readonly Unity.Profiling.ProfilerMarker _archiveWriteMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveWrite");
+        private static readonly Unity.Profiling.ProfilerMarker _archiveStackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveCallerStack");
+        private static readonly Unity.Profiling.ProfilerMarker _fileOnlyMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.FileOnlyInfo");
+        private static readonly Unity.Profiling.ProfilerMarker _fileOnlyWarningMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.FileOnlyDiagnosticWarning");
+        private static readonly Unity.Profiling.ProfilerMarker _deviceFallbackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveConsoleFallback");
+        private static readonly Unity.Profiling.ProfilerMarker _archiveFailureMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveFailure");
         internal static bool DeviceArchiveFailed => _deviceFaulted;
         internal static bool DeviceArchiveFallbackRequired => _deviceAttempted && (_deviceFaulted || _deviceWriting || _deviceClosing);
         internal static bool DeviceArchiveActive => _deviceActive && !_deviceWriting && !_deviceClosing;
         internal static bool IsFileOnlyInfo(bool isInfo, string data, Exception exception) => isInfo && exception == null
             && (data == null || !data.StartsWith("Event=", StringComparison.Ordinal));
 
+        internal static void MarkFileOnlyInfo() { using (_fileOnlyMarker.Auto()) { } }
 
         // 성공한 archive만 호출자가 적용한다. 원문/Warning 레벨/호출 스택은 파일에 그대로 남긴다.
         internal static bool IsFileOnlyDiagnosticWarning(bool isWarning, string system, string className,
@@ -420,6 +442,7 @@ namespace Hexiege.Infrastructure
                 && !double.IsInfinity(number) && !double.IsNaN(number);
         }
 
+        internal static void MarkFileOnlyDiagnosticWarning() { using (_fileOnlyWarningMarker.Auto()) { } }
 
         /// <summary>Owner가 앱당 한 번만 연다. 같은 run 폴더/파일을 다시 열거나 덮어쓰지 않는다.</summary>
         internal static void BeginDeviceArchive(string root)
@@ -459,7 +482,7 @@ namespace Hexiege.Infrastructure
         internal static string CaptureDeviceCallerStack(LogType type, bool omitStack)
         {
             if (omitStack || UnityEngine.Application.GetStackTraceLogType(type) == StackTraceLogType.None) return null;
-            return StackTraceUtility.ExtractStackTrace();
+            using (_archiveStackMarker.Auto()) return StackTraceUtility.ExtractStackTrace();
         }
 
         /// <summary>
@@ -484,6 +507,7 @@ namespace Hexiege.Infrastructure
                 if (exception != null) payload += exception + Environment.NewLine;
                 string record = "=== RECORD seq=" + sequence + " utf8Bytes=" + System.Text.Encoding.UTF8.GetByteCount(payload)
                     + " ===" + Environment.NewLine + payload + "=== RECORD-END seq=" + sequence + " ===" + Environment.NewLine;
+                using (_archiveWriteMarker.Auto())
                 {
                     _writer.Write(record);
                     _writer.Flush();
@@ -505,6 +529,7 @@ namespace Hexiege.Infrastructure
 
         private static void FailDeviceArchive(Exception error, string stage)
         {
+            using var failureScope = _archiveFailureMarker.Auto();
             _deviceFaulted = true; _deviceActive = false;
             if (_deviceWarned) return;
             _deviceWarned = true;

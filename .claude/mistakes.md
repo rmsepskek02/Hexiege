@@ -106,14 +106,28 @@
 - 2026-10-21  Research demolition layout treated as a rule exception without reading rule 13
 - 2026-10-22  Short wheel and automated drag treated as proof that a scroll endpoint was unreachable
 - 2026-10-27  유닛 공격 방식을 효과음 가이드 키워드로 정해 공격 SFX 프롬프트 2종을 원거리 발사음으로 잘못 작성 **[🔴 2026-10-28 갱신 — 2회째: BearGuard 동작을 「사용자 설명」으로 위조 전달 — 본문 끝 추가 블록]**
+- 2026-11-05  Foreground return trace sized from idle rates lost causal coverage
+- 2026-11-05  Mixed line endings left a duplicate property hidden outside the Editor build
+- 2026-11-06  App-start preparation expiry invalidated multiplayer capture before entry
 - 2026-11-10  에이전트 보고서의 「확인 방법」을 게임 규칙 대조 없이 옮겨 한 판에서 불가능한 테스트 절차(다른 종족 탑 전환)를 안내함
 - 2026-11-10  허용 목록 밖 `git check-ignore`를 읽기 전용이라는 이유로 실행함 (주체 = `game-programmer`. 2026-10-06 `git status` · `git rev-list` 항목, 2026-10-14 `git for-each-ref` 항목과 같은 모양의 재발)
 - 2026-11-10  허용 목록 밖 `git archive`를 결과 확인용으로 실행함 (주체 = `game-programmer`. 바로 위 `git check-ignore` 항목과 같은 모양의 재발)
+- 2026-11-11  GPU 진단 빌드 옵션 확인 전에 앱 실행을 안내함
+- 2026-11-12  private collector의 지역 load 변수가 전역 load 함수를 가림
+- 2026-11-12  폰트 인계 수치를 원문 검산 전에 사용자에게 보고함
+- 2026-11-12  허용 목록 밖 git config로 작성자 설정을 조회함
 - 2026-11-16  허용 목록 밖 `git archive`를 두 번째로 실행함 — 컴파일 비교용 사본 (주체 = `game-programmer`. 바로 위 항목과 같은 명령의 재발)
 - 2026-11-17  테스트 안내에 건물 건설 시간이 있는 것처럼 「다 지어지면 붙어야 한다」고 씀 — 건물은 짓는 즉시 생긴다 (주체 = 메인 세션. 2026-11-10 「게임 규칙 대조 없이 테스트 절차 안내」 항목과 같은 모양의 재발)
-
 - 2026-11-24  로그 작업명을 입력 제한보다 길게 안내함
 - 2026-11-24  「기존 프롬프트를 찾으라」는 지시에 새 프롬프트 작성까지 에이전트에게 시킴 (주체 = 메인 세션)
+
+
+- 2026-11-15  PowerShell ref transaction 추가 입력으로 완료 후 비0 종료를 받음
+- 2026-11-16  고정 줄 창의 다음 이벤트 stack을 앞 경고 caller로 오귀속함
+- 2026-11-17  사용자 테스트 안내 끝의 로그 작업명 서명을 누락함
+- 2026-11-17  닫기 버튼 제거 요청을 완료창 전체 custom UI 교체로 확대함
+- 2026-11-24  완료 구현과 넓은 조사 분야를 미완 작업 목록으로 혼합함
+
 
 ---
 
@@ -2158,6 +2172,53 @@ BearGuard 공격음을 「더 강하게」 다시 만들기 위해 asset-prompt-
 
 ---
 
+## 2026-11-05  Foreground return trace sized from idle rates lost causal coverage
+
+**What was wrong**
+Main chose a60-second16MB ring trace using idle support trials and relied on a separate manual return. Actual foreground writes wrapped six times;84,672,512bytes/2,584chunks were overwritten and only9.96seconds remained. Its retained window did not cover the new app return. Zero severity data-loss counters were insufficient for causal acceptance. This was collection design failure, not established user delay or fault.
+
+**Why it happened**
+Idle event volume was treated as a foreground capacity estimate, and start/input timing was not atomically coordinated or verified against the saved app attempt.
+
+**How it was discovered**
+Private receipts under `.utmp/lobby-return-checkpoints-20261105/return-trace-20261104-193203/` showed101,449,728bytes written, overwritten chunks, retained system-clock bounds and a new app save outside those bounds. The app measurement remained valid, but117ms CPU/GC attribution was impossible. Raw traces and gameplay originals remain private and preserved.
+
+**Actionable lesson**
+Measure foreground event volume before setting capacity; inspect bytes/chunks overwrite in addition to loss severity. Coordinate confirmed capture start and one verified return action in a bounded operation, then require new-attempt identity and actual retained clock coverage before causal analysis. Use dry-run/screenshot/PID checks before explicit execution; preserve failed evidence and never shift design responsibility to the user.
+
+
+---
+
+## 2026-11-05  Mixed line endings left a duplicate property hidden outside the Editor build
+
+**What was wrong**
+While moving an NCC property above its comment, a string deletion missed the old declaration because of mixed CRLF endings. Both declarations remained. QA identified the expected CS0102 in the Comparison configuration; Editor compilation excludes that conditional code and native menus alone would miss it.
+
+**Why it happened**
+The text edit assumed one newline representation and did not verify declaration count under the intended preprocessor symbols.
+
+**How it was discovered**
+QA reviewed the changed source during validation. The duplicate was corrected to one declaration before any build or device run. Final Comparison csc rerun was still pending when recorded; this is a caught validation defect, not a shipped or gameplay failure.
+
+**Actionable lesson**
+After moving or deleting declarations, inspect exact remaining occurrence counts and surrounding directives. Use newline-aware edits and compile every intended feature configuration, especially conditional player-only paths; an Editor-native compile is insufficient evidence for them.
+
+
+---
+
+## 2026-11-06  App-start preparation expiry invalidated multiplayer capture before entry
+
+**What was wrong**
+Main approved a1200-second preparation disposal and started a20-minute PID log stream at app startup. Multiplayer entry happened after both expired. The installed owner was disposed and could not rearm; promised pre-collection readiness was not maintained. This is collection-lifetime design failure, not user fault.
+
+**Why it happened**
+App startup and human multiplayer preparation were treated as the same bounded capture phase. Restart-only expiry and collector deadline were not separated from the manual battle-start lifetime.
+
+**How it was discovered**
+Private `run-a4312e90/multiplayer-entry-readiness.json` reported PreparationTimeout/requiresRestart=true, prepare failed, and LogcatReceipt showed deadlineReached=true/completeRequestedInterval=false. The14891-byte stream,73808-byte recovery dump and1824277-byte Editor recovery copy were preserved; no NCC/frame CSV capture was obtained. A private correction passed126 fixture checks with the original negative control failing and SDK Comparison csc/collector9 checks, but live Assets/current APK were not changed while Editor Play was active.
+
+**Actionable lesson**
+Separate standby/readiness lifetime from manually acknowledged measurement lifetime. Before asking for battle preparation, verify a fresh current owner/probe and start the bounded PID stream after battle preparation, preserving any old prefix. Test long human waiting and original-owner disposal as negative controls. Treat expired sessions as failed preparation and never blame user delay. Keep live Assets unchanged during Editor Play; apply only after explicit stop and final verification.
 ## 2026-11-10  에이전트 보고서의 「확인 방법」을 게임 규칙 대조 없이 옮겨 한 판에서 불가능한 테스트 절차(다른 종족 탑 전환)를 안내함
 
 기간: 2026-11-10(안내 작성 ~ 사용자 지적 ~ 정정, 같은 날). 주체: 메인 세션.
@@ -2215,6 +2276,92 @@ BearGuard 공격음을 「더 강하게」 다시 만들기 위해 asset-prompt-
 
 ---
 
+---
+
+## 2026-11-11  GPU 진단 빌드 옵션 확인 전에 앱 실행을 안내함
+
+**무엇을 틀렸나**
+메인 세션이 Frame Timing Stats 활성 진단 빌드 준비를 확인하기 전에 사용자에게 앱 실행을 안내했다. 사용자가 실행한 새 환경은 feature=false/Unavailable-FeatureDisabled였고 실제 설정·prebuild도 비활성이었다. 이는 수집 준비 안내 오류이며 사용자 잘못이 아니다.
+
+**왜 그랬나**
+진단 코드 구현·정적 검사 완료를 실제 빌드 옵션 준비 완료와 구분하지 않고 실행 단계로 넘어갔다.
+
+**어떻게 드러났나**
+앱 실행 뒤 private runtime 환경과 ProjectSettings·최근 prebuild를 대조해 옵션 누락을 확인했다. 기존 Task Research34.6/Plan31.6에 교정 상태를 기록했다.
+
+**교훈**
+실행 안내 전에 필요한 빌드 옵션을 Unity에서 확인하고 prebuild/설정 증거를 대조한다. 빌드 시도와 성공·설치·runtime feature 지원을 분리하며 새 ready의 실제 지원 확인 전에는 플레이 측정을 요청하지 않는다. 진단 옵션의 원복 조건과 동일 옵션 baseline도 먼저 명시한다. 열린 Editor는 디스크 변경 전 값을 캐시할 수 있으므로 디스크 1만으로 활성 상태를 추정하지 않는다. 실제 Unity 체크 표시와 최종 디스크 값을 함께 확인한 뒤 실행 안내한다.
+
+**추가 발생 — 시작 전 종료 수명 안내 오류(2026-11-11)**
+started=false만 보고 재경기 시 앱 재시작이 불필요하다고 안내했으나, owner는 시작 전 GameEnd에서도 Dispose했다. 실제 completed NotStarted-GameEnd/requiresRestart=true와 측정0행으로 확인했다. 사용자 책임이 아닌 메인의 수명 판단 오류다. 재사용 안내 전 END/completed·동적 freshness·실제 requiresRestart·owner Dispose 경로를 함께 확인한다. 새 경기 측정은 앱 재시작과 fresh stream/probe를 확인하고 자연 교전 시작과 엄격한 밀집 수용 조건을 구분한 뒤 안내한다.
+
+**추가 발생 — 교정 소스 귀속 확인 전 생산 안내(2026-11-12)**
+메인은 설치 앱이 교정 소스를 포함하는지 확인하기 전에 생산·교전 보고를 요청했다. 곧 prebuild11:07의 Before 소스와 앱 설치11:35, 교정 소스 수정14:05를 대조해 교정 전 앱임을 확인하고 안내를 철회했다. capture/Bloom은 시작하지 않았고 logcat은 종료·원본 보존했다. 실제 교정 기기 검증은 수행하지 못했으며 사용자 잘못이 아니다. 앞 GPU 옵션 사건과 같은 준비 증거 선행 누락이다. 앞으로 사용자 플레이 안내 전에 runtime build/session→설치/빌드 영수증→최종 source hash 귀속을 확인하고 맞지 않으면 새 빌드부터 준비한다.
+
+
+---
+
+## 2026-11-12  private collector의 지역 load 변수가 전역 load 함수를 가림
+
+**무엇을 틀렸나**
+Bloom 탐색의 private collector read-frame 부하 요약에 추가한 지역 변수 `load`가 기존 전역 `load()` 함수를 가려 실제 도구 호출을 깨뜨렸다. 검증 fixture에서 발견해 `load_row`로 교정했으며 새 실기 실행 전이어서 실기 영향은 없었다.
+
+**왜 그랬나**
+새 요약 변수 이름을 정할 때 같은 함수 범위에서 호출하는 기존 helper 이름과의 충돌을 확인하지 않았다.
+
+**어떻게 드러났나**
+실제 collector 경로를 실행하는 fixture가 실패했다. 이름 교정 뒤의 별도 실패는 간이 frames.csv fixture가2열뿐이라 새 요약의 blueAlive/redAlive가 없는 하네스 편성 문제였으며 실제 데이터 스키마로 보완 중이다. 두 실패를 제품 오류나 실기 실패로 묶지 않는다.
+
+**교훈**
+함수에 지역 변수를 추가할 때 같은 이름의 helper 호출을 검색하고 실제 경로를 실행한다. 새 필드를 소비하는 검증은 실제 CSV 스키마를 사용하고, 도구 결함과 fixture 입력 불충분의 원인을 구분해 각각 수정·재실행한 뒤 최종 결과를 기록한다.
+
+---
+
+## 2026-11-12  폰트 인계 수치를 원문 검산 전에 사용자에게 보고함
+
+**무엇을 틀렸나**
+main 병합 폰트 검수 중 메인이 사용자에게 main glyph 수300을 전달했지만 실제 stage 원문의 glyphTable/characterTable은315직렬화 레코드였다. local은316레코드다. 후속 규명에서300은 unique ID 수였고 local unique는301, 기존 중복 ID 레코드15개가 포함돼 집계 축이 달랐다.300을 직렬화 레코드 보존 개수처럼 설명한 것이 오류다. 이는 보고 수치 오류이며 main 직렬화315레코드 보존·추가1개라는 독립 안전성 검수와는 별개다.
+
+**왜 그랬나**
+인계 숫자를 해당 원문 테이블에서 직접 다시 세기 전에 사용자 보고에 사용했다.
+
+**어떻게 드러났나**
+QA 독립 검수에서315/316으로 정정됐다. 문서 담당도 `.utmp/main-merge-20261112-current/font-audit/main.asset`과 local.asset의 두 테이블을 직접 세어 일치 확인했다. SupersetProof는 unique300/301과 직렬화315/316을 나눠 multiset 누락0으로 정정한다. 집계 축 보고 오류가 제품 손실을 의미하지 않으며 기존 중복 수정은 이번 범위가 아니다.
+
+**교훈**
+사용자에게 개수를 전달하기 전에 실제 검수 대상과 필드 범위를 고정해 원문에서 다시 센다. 인계값과 직접 검산값을 구분하고 다르면 보고를 먼저 정정한다. 같은 숫자가 안전성 판정의 근거인지 단순 요약인지도 나눠 기록한다.
+
+---
+
+## 2026-11-12  허용 목록 밖 git config로 작성자 설정을 조회함
+
+**무엇을 틀렸나**
+제품 선별 main 반영 준비 중 메인 세션이 `git config user.name`/`user.email` 조회를 실행했다. CLAUDE의 지시 없이 허용되는 읽기8개 목록에 config는 없다. 설정을 바꾸지는 않았지만 조회라는 이유만으로 실행할 권한은 없었다. 이 사건은 메인 전달 기준이며 조회한 값은 기록하지 않는다.
+
+**왜 그랬나**
+작성자 설정 확인 목적을 허용 목록 대조보다 앞세웠다. 기존 check-ignore/archive 사건과 같은 허용 밖 읽기 실행 재발이다.
+
+**어떻게 드러났나**
+메인이 실행 사실을 인지해 즉시 문서 담당에게 기록을 지시했다. 현재 브랜치 실수 기록에만 남기며 선별 제품 export에는 포함하지 않는다.
+
+**교훈**
+Git 호출 직전 하위 명령을 허용8개와 글자로 대조한다. 목록 밖이면 읽기 목적이어도 실행하지 않으며 필요한 사용자 지시를 먼저 확인한다. 사용자·이메일 등 조회값을 문서에 복제하지 않는다.
+## 2026-11-15  PowerShell ref transaction 추가 입력으로 완료 후 비0 종료를 받음
+
+**무엇을 틀렸나**
+메인 세션의 승인된 hatch 제품 main 반영에서 PowerShell pipe가 ref transaction commit 성공 뒤 추가 입력을 보내 fatal whitespace/exit1을 발생시켰다. 두 ref는 이미 atomic 갱신된 상태였고 제품 손실은 확인되지 않았다.
+
+**왜 그랬나**
+stdin transaction의 끝 형식과 PowerShell pipe가 전달하는 후행 입력을 충분히 통제하지 않았다.
+
+**어떻게 드러났나**
+commit 뒤 fatal 출력이 나왔다. 메인은 재실행하지 않고 실제 두 ref를 조회해 완료를 확인한 뒤 대상 index1개만 동기화하고 기존 staging binary patch 동일성을 검증했다. 근거는 private hatch-main-merge LocalMergeReceipt다.
+
+**교훈**
+transaction stdin은 마지막 명령과 입력 종료 형식을 사전 검증한다. 비0 종료여도 앞 단계 commit이 성공했을 수 있으므로 실제 ref와 보존 대상 상태를 먼저 확인하고, 부작용을 모른 채 동일 변경을 재시도하지 않는다.
+
+---
+
 ## 2026-11-16  허용 목록 밖 `git archive`를 두 번째로 실행함 — 컴파일 비교용 사본
 
 기간: 2026-11-16, 지원 스킬 새 상태 Task(`Assets/_Project/Docs/_Tasks/2026-11-16/01_00_support-skill-new-statuses/`) 단계 A와 단계 C 사이 V17(전술 지령 건물 이펙트) 구현 때 — 정확한 시각은 전달되지 않았다. 주체: `game-programmer` 서브에이전트. 기록 근거: 메인 세션 지시(2026-11-17, 사용자 「문서 기록하고 3단계 진행하자」에 따른 문서 · 메모리 갱신 범위) — 사건 사실은 메인 세션 전달 기준이다.
@@ -2234,6 +2381,22 @@ BearGuard 공격음을 「더 강하게」 다시 만들기 위해 asset-prompt-
 
 ---
 
+## 2026-11-16  고정 줄 창의 다음 이벤트 stack을 앞 경고 caller로 오귀속함
+
+**무엇을 틀렸나**
+QA가 Editor 경고 뒤 고정24줄 창의 다음 이벤트 stack을 앞 경고 caller로 읽어 Client14건을 NetworkHealthSync 직접 확인으로 메인에 전달했다. 실제 Client16경고 자체 stack은0줄이므로 caller는 직접 미확인이다. 메인은 사용자에게14건 확정 발언을 하지 않았다.
+
+**왜 그랬나**
+원래 archive record/다음 timestamp 경계 대신 고정 줄 수로 stack 범위를 잘랐다.
+
+**어떻게 드러났나**
+다음 이벤트·RECORD-END 경계로 재검산해 즉시 정정했다. Host16은 실제 record 내부 DoT stack으로 확인한 근거를 유지하고 Client는 source·교차 peer shape 추론과 직접 caller 확인을 분리했다.
+
+**교훈**
+stack은 해당 record 또는 다음 이벤트 전 경계 안에서만 귀속한다. 경계를 넘는 stack은 다른 사건이며 고정 줄 창으로 caller를 확정하지 않는다. stack0이면 직접 미확인으로 보고하고 peer 대응은 추론으로 표시한다.
+
+---
+
 ## 2026-11-17  테스트 안내에 건물 건설 시간이 있는 것처럼 「다 지어지면 붙어야 한다」고 씀 — 건물은 짓는 즉시 생긴다
 
 기간: 2026-11-17(테스트 안내 작성 ~ 사용자 지적, 같은 날). 주체: 메인 세션. 기록 근거: 메인 세션 지시(같은 날) — 사건 사실은 메인 세션 전달 기준이다.
@@ -2250,6 +2413,54 @@ BearGuard 공격음을 「더 강하게」 다시 만들기 위해 asset-prompt-
 **교훈**
 - 테스트 안내를 쓸 때 각 단계를 게임 규칙 목록과 대조한 뒤 쓴다 — 한 플레이어 한 종족 · 스킬은 자기 스킬 건물에서만 · 패널은 내 살아 있는 건물만 · AI는 스킬 · 탑 없음 · **건물은 짓는 즉시 생긴다(건설 시간 없음)**. 이 목록은 `.claude/MEMORY.md` 「공통 중요 교훈」 「Game-rule checklist」에 두었다(2026-11-17).
 - 「다 지어지면」 · 「완성되면」 · 「건설이 끝나면」처럼 시간 경과를 전제하는 낱말은 건물에 쓰지 않는다. 확인 결과(예: 건설 시간 코드 0건)를 얻었으면 그 결과가 안내 문장에 들어갔는지 보내기 전에 다시 읽어 확인한다.
+
+---
+
+## 2026-11-17  사용자 테스트 안내 끝의 로그 작업명 서명을 누락함
+
+**무엇을 틀렸나**
+메인이 직전 사용자 테스트 안내 끝에 WORKFLOW[6]의 “로그올리기:작업명”을 빠뜨렸다. 사용자는 안내 작업명이 없어 android-logs-test1로 임의 저장했다고 지적했다. 사용자 지정 이름을 오류로 취급하지 않는다.
+
+**왜 그랬나**
+테스트 조작 설명에 집중하고 전송 전 안내 마지막 줄의 필수 서명을 확인하지 않았다.
+
+**어떻게 드러났나**
+사용자 지적과 메인의 직전 안내 원문에 작업명이 없다는 대조로 확인했다. 최신 ZIP은 사용자 지정 이름으로 찾아 분석한다.
+
+**교훈**
+사용자 테스트 안내를 보내기 직전 마지막 줄에 해당 회차의 “로그올리기:작업명”이 실제로 있는지 확인한다. 누락했으면 사용자의 실제 파일명·날짜로 원본을 찾고 재저장·재테스트를 요구하지 않는다.
+
+---
+
+## 2026-11-17  닫기 버튼 제거 요청을 완료창 전체 custom UI 교체로 확대함
+
+**무엇을 틀렸나**
+메인이 사용자의 별도 닫기 버튼 제거 요청을 기존 native 완료창의 최소 수정 대신 custom window 전체 교체로 확대했다. eda2dca0에 추가48줄이 포함됐다. 요청한 버튼 정리와 UI 구현 전체 교체는 같은 범위가 아니다.
+
+**왜 그랬나**
+native3버튼 API에서 빈 cancel 숨김이 보장되지 않는 문제를 해결하려다 사용자에게 범위 확대를 먼저 설명·승인받는 절차를 생략했다.
+
+**어떻게 드러났나**
+사용자 로그 메뉴 원복 요청과 source diff 대조로 확인해 custom48줄을 제거하고 native2버튼으로 되돌리는 작업을 진행했다. 실제 테스트 원본과 완료창 검증용 ZIP은 분리했다.
+
+**교훈**
+버튼 삭제 요청은 기존 UI의 최소 범위로 먼저 해결한다. 지원 API의 한계로 custom UI가 필요하면 구조·키보드 기본 동작·범위 차이를 먼저 공유하고 명시 승인 뒤 변경한다. 화면·코드 교체를 단순 버튼 제거와 동일하다고 가정하지 않는다.
+
+---
+
+## 2026-11-24  완료 구현과 넓은 조사 분야를 미완 작업 목록으로 혼합함
+
+**무엇을 틀렸나**
+메인이 최적화 재개 설명에서 이미 구현한 구체 항목과 아직 비용 근거가 없는 넓은 조사 분야를 미완 작업처럼 함께 나열했다. 실기 FPS 미검증과 구현 미완도 분리하지 못했다.
+
+**왜 그랬나**
+기존 완료 장부와 현재 소스를 먼저 대조하지 않고 전투·VFX·GC 등 분야 이름으로 남은 작업을 요약했다.
+
+**어떻게 드러났나**
+사용자가 이전에 했던 작업 같다고 지적했다. 전문 담당의 현재 소스 감사로 scratch·Wave 버퍼·Visual pool·배열·문자열·Ranking 지연 생성 등의 기존 구현과 실제 추가 후보3개를 구분했다.
+
+**교훈**
+후보 보고 전 완료 구현, 구체적인 추가 제거 범위, 단순 조사 분야를 나눈다. 구현 근거·관측 효과·실기 미검증을 별도 표시하고, 새 비용 근거 없이 분야 전체를 미완이나 절감 순위로 제시하지 않는다.
 
 
 ---

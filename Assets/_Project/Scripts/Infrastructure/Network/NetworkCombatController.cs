@@ -1,3 +1,6 @@
+#if UNITY_ANDROID && !UNITY_EDITOR && !DEVELOPMENT_BUILD && HEXIEGE_DETECT_RANGE_COMPARISON
+#define HOST_BATTLE_CAPTURE
+#endif
 // ============================================================================
 // NetworkCombatController.cs
 // 네트워크 모드에서 유닛 전투 처리를 서버 권위로 수행하고 사망을 모든 클라이언트에 동기화.
@@ -706,6 +709,9 @@ namespace Hexiege.Infrastructure
             TickCombat(realElapsed);
         }
 
+#if HOST_BATTLE_CAPTURE
+        internal int HostMeasurementTargetCount => _unitCombatTargets.Count;
+#endif
         /// <summary>
         /// 살아있는 모든 유닛에 대해 타겟 탐색 + 상태 변화 감지 + 딜레이 데미지 처리.
         ///
@@ -719,6 +725,12 @@ namespace Hexiege.Infrastructure
         /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
         private void TickCombat(float elapsed)
         {
+#if HOST_BATTLE_CAPTURE
+            var measurementTicket = DetectRangePerformanceDiagnostics.BeginHostNccTick(this);
+            try
+            {
+#endif
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             using var tickCombatSample = _tickCombatProfilerMarker.Auto();
 #endif
@@ -1236,6 +1248,11 @@ namespace Hexiege.Infrastructure
                 toRemove?.Clear();
                 if (ownsScratch) _combatTickBuffersInUse = false;
             }
+
+#if HOST_BATTLE_CAPTURE
+            }
+            finally { DetectRangePerformanceDiagnostics.EndHostNccTick(this, measurementTicket); }
+#endif
         }
 
         /// <summary>

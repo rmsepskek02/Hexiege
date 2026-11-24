@@ -1,3 +1,6 @@
+﻿#if UNITY_ANDROID && !UNITY_EDITOR && !DEVELOPMENT_BUILD && HEXIEGE_DETECT_RANGE_COMPARISON
+#define DETECT_RANGE_COMPARISON
+#endif
 // ============================================================================
 // UnitCombatUseCase.cs
 // 유닛 전투(공격/피격/사망)를 처리하는 UseCase.
@@ -25,6 +28,86 @@ namespace Hexiege.Application
     /// </summary>
     public partial class UnitCombatUseCase
     {
+#if DETECT_RANGE_COMPARISON
+        // 출시 기본 빌드에는 없는 읽기 전용 표본 seam이다. 관측 실패는 원래 반환을 바꾸지 않는다.
+        internal static System.Action<UnitCombatUseCase, UnitData, Vector3, bool, bool> DetectComparisonObserver;
+        private void ObserveDetectComparison(UnitData unit, Vector3 candidate, bool useOverride, bool detected)
+        {
+            try { DetectComparisonObserver?.Invoke(this, unit, candidate, useOverride, detected); }
+            catch { /* 측정 실패가 이동/공격 판정으로 전파되지 않게 한다. */ }
+        }
+
+        internal struct DetectComparisonSample
+        {
+            public int status, order, units, buildings, captureQueries, baselineQueries, optimizedQueries,
+                baselineInspections, optimizedInspections;
+            public long captureTicks, baselineTicks, optimizedTicks;
+            public bool baseline, optimized, live, snapshotOverflow;
+        }
+
+        internal sealed class DetectComparisonSnapshot : IEntityPositionProvider
+        {
+            private readonly Dictionary<long, Vector3> _positions = new Dictionary<long, Vector3>(2048);
+            private IEntityPositionProvider _source;
+            private bool _capture;
+            internal int Queries, Inspections, SourceReads;
+            internal bool Overflow;
+            internal void Begin(IEntityPositionProvider source)
+            { _positions.Clear(); _source = source; _capture = true; Queries = Inspections = SourceReads = 0; Overflow = false; }
+            internal void Replay() { _capture = false; Queries = Inspections = 0; }
+            internal void Clear() { _positions.Clear(); _source = null; }
+            private Vector3 Read(int id, bool building)
+            {
+                Queries++;
+                long key = ((building ? 1L : 0L) << 32) | (uint)id;
+                if (_positions.TryGetValue(key, out Vector3 value)) return value;
+                if (!_capture) throw new System.InvalidOperationException("SnapshotMissing");
+                if (_positions.Count >= 2048) { Overflow = true; throw new System.InvalidOperationException("SnapshotCapacity"); }
+                SourceReads++;
+                value = building ? _source.GetBuildingWorldPosition(id) : _source.GetUnitWorldPosition(id);
+                _positions.Add(key, value);
+                return value;
+            }
+            public Vector3 GetUnitWorldPosition(int id) => Read(id, false);
+            public Vector3 GetBuildingWorldPosition(int id) => Read(id, true);
+        }
+
+        internal DetectComparisonSample MeasureDetectComparison(UnitData unit, Vector3 candidate,
+            bool useOverride, bool live, bool optimizedFirst, DetectComparisonSnapshot snapshot)
+        {
+            var result = new DetectComparisonSample { live = live, order = optimizedFirst ? 1 : 0,
+                units = _unitSpawn.Units.Count, buildings = _buildingPlacement.Buildings.Count };
+            // Hex fallback은 별도 의미이므로 이 월드 좌표 쌍의 시간과 섞지 않는다.
+            if (_positionProvider == null) { result.status = 1; return result; }
+            try
+            {
+                snapshot.Begin(_positionProvider);
+                long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                FindFirstEnemyInDetectRange(unit, candidate, useOverride, false, snapshot);
+                result.captureTicks = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+                result.captureQueries = snapshot.SourceReads;
+                if (!useOverride && snapshot.GetUnitWorldPosition(unit.Id) == Vector3.zero)
+                { result.status = 1; return result; }
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    bool early = pass == 0 ? optimizedFirst : !optimizedFirst;
+                    snapshot.Replay();
+                    start = System.Diagnostics.Stopwatch.GetTimestamp();
+                    bool detected = FindFirstEnemyInDetectRange(unit, candidate, useOverride, early, snapshot) != null;
+                    long ticks = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+                    if (early)
+                    { result.optimized = detected; result.optimizedTicks = ticks; result.optimizedQueries = snapshot.Queries; result.optimizedInspections = snapshot.Inspections; }
+                    else
+                    { result.baseline = detected; result.baselineTicks = ticks; result.baselineQueries = snapshot.Queries; result.baselineInspections = snapshot.Inspections; }
+                }
+                result.status = result.baseline == result.optimized && result.optimized == live ? 0 : 2;
+            }
+            catch (System.InvalidOperationException) { result.status = 3; result.snapshotOverflow = snapshot.Overflow; }
+            catch { result.status = 4; }
+            finally { snapshot.Clear(); }
+            return result;
+        }
+#endif
         // 근접 유닛(AttackRange < 1.0) 전용 판정 거리 상수.
         // 유닛 타겟: 두 유닛 메시가 시각적으로 닿아 보이는 최소 거리.
         // 기존 0.483f(AttackRange 0.5 × TileHeight 0.866)에서는 두 유닛 사이에 시각적 여백이 생기므로,
@@ -41,6 +124,12 @@ namespace Hexiege.Application
         private readonly BuildingPlacementUseCase _buildingPlacement;
         private readonly IEntityPositionProvider _positionProvider;
         private readonly ICombatUnitCandidateSource _combatCandidates;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private bool _spatialComparing;
+        private int _spatialComparisonSamples, _spatialLastInspections;
+        private readonly int[] _spatialSampleKinds = new int[8];
+        private bool _spatialLastIndexed;
+#endif
 
         // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
         private readonly IHexCoordinateMapper _mapper;
@@ -961,6 +1050,14 @@ namespace Hexiege.Application
         public (int id, bool isUnit)? TryFindTarget(UnitData attacker)
             => TryFindTarget(attacker, out _);
 
+        // 실제 Root writer가 위치 변경 전/후 호출한다. 원래 provider getter 계약은 불변이다.
+        public void CombatPoseChanging(UnitData unit, int rootInstanceId)
+            => _combatCandidates?.UnitPoseChanging(unit, rootInstanceId);
+        public void CombatPoseChanged(UnitData unit, int rootInstanceId, Vector3 worldPosition)
+            => _combatCandidates?.UnitPoseChanged(unit, rootInstanceId, worldPosition);
+        public void ObserveCombatSpatialEnd() => _combatCandidates?.ObserveCombatIndexEnd();
+
+
         /// <summary>
         /// 기존 타겟 검색 결과와 함께, 사거리 검색이 정상 완료되었는지를 돌려준다.
         /// 적이 없어 null이어도 검색은 끝났으므로 같은 동기 호출에서 재검색할 필요가 없다.
@@ -1441,6 +1538,9 @@ namespace Hexiege.Application
             if (attacker == null || !attacker.IsAlive) return false;
             bool detected = FindFirstEnemyInDetectRange(
                 attacker, default, usePositionOverride: false, stopAtFirstMatch: true) != null;
+#if DETECT_RANGE_COMPARISON
+            ObserveDetectComparison(attacker, default, false, detected);
+#endif
             return detected;
         }
 
@@ -1467,6 +1567,9 @@ namespace Hexiege.Application
                 attackerCandidateWorldPosition,
                 usePositionOverride: true,
                 stopAtFirstMatch: true) != null;
+#if DETECT_RANGE_COMPARISON
+            ObserveDetectComparison(attacker, attackerCandidateWorldPosition, true, detected);
+#endif
             return detected;
         }
 
@@ -1650,18 +1753,6 @@ namespace Hexiege.Application
             return best != null ? (int?)best.Id : null;
         }
 
-        // 실제 Root writer 통지는 검색 인덱스만 갱신한다. 이동/전투 판정은 변경하지 않는다.
-        public void CombatPoseChanging(UnitData unit, int rootInstanceId)
-            => _combatCandidates?.UnitPoseChanging(unit, rootInstanceId);
-        public void CombatPoseChanged(UnitData unit, int rootInstanceId, Vector3 worldPosition)
-            => _combatCandidates?.UnitPoseChanged(unit, rootInstanceId, worldPosition);
-        private bool TryBeginCombatCandidates(Vector3 center, float radius, out IReadOnlyList<UnitData> candidates)
-        {
-            candidates = null;
-            return _combatCandidates != null && _combatCandidates.TryBeginUnitCandidates(
-                _unitSpawn.Units, _unitSpawn.CombatRosterRevision, center, radius, out candidates);
-        }
-
         /// <summary>
         /// 감지 사거리(DetectRange) 기준으로 가장 가까운 적 엔티티(유닛/건물)를 탐색.
         ///
@@ -1671,6 +1762,46 @@ namespace Hexiege.Application
         /// 건물 감지: DetectRange × TileHeight + BuildingDetectionRadius(0.2f)
         ///   (건물 메시가 크므로 조금 더 일찍 감지, 기존 패턴 동일).
         /// </summary>
+        private bool TryBeginCombatCandidates(Vector3 center, float radius, out IReadOnlyList<UnitData> candidates)
+        {
+            candidates = null;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_spatialComparing) return false;
+#endif
+            return _combatCandidates != null && _combatCandidates.TryBeginUnitCandidates(
+                _unitSpawn.Units, _unitSpawn.CombatRosterRevision, center, radius, out candidates);
+        }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void CompareSpatialQuery(UnitData attacker, Vector3 position, bool overridden,
+            bool first, bool detect, IDamageable indexed)
+        {
+            if (_spatialComparing || !_spatialLastIndexed || _spatialComparisonSamples >= 16) return;
+            int category = (detect ? 4 : 0) + (first ? 2 : 0) + (indexed != null ? 1 : 0);
+            if (_spatialSampleKinds[category] >= 2) return;
+            _spatialSampleKinds[category]++;
+            int indexedInspections = _spatialLastInspections;
+            _spatialComparisonSamples++;
+            _spatialComparing = true;
+            IDamageable baseline = null;
+            bool fault = false;
+            try
+            {
+                baseline = detect
+                    ? FindFirstEnemyInDetectRangeCore(attacker, position, overridden, first)
+                    : FindFirstEnemyTargetCore(attacker, position, overridden, first);
+            }
+            catch { fault = true; }
+            finally
+            {
+                _spatialComparing = false;
+                try { _combatCandidates.RecordQueryComparison(ReferenceEquals(indexed, baseline),
+                    indexedInspections, _spatialLastInspections, fault,
+                    indexed != null ? indexed.Id : -1, baseline != null ? baseline.Id : -1, category); } catch { }
+            }
+        }
+#endif
+
         private IDamageable FindFirstEnemyInDetectRange(UnitData attacker)
             => FindFirstEnemyInDetectRange(
                 attacker, default, usePositionOverride: false);
@@ -1680,18 +1811,55 @@ namespace Hexiege.Application
             Vector3 attackerPositionOverride,
             bool usePositionOverride,
             bool stopAtFirstMatch = false
+#if DETECT_RANGE_COMPARISON
+            , DetectComparisonSnapshot comparisonSnapshot = null
+#endif
             )
         {
-            // _positionProvider가 없으면 HexCoord 기반 폴백.
+            IDamageable result = FindFirstEnemyInDetectRangeCore(attacker, attackerPositionOverride, usePositionOverride, stopAtFirstMatch
+#if DETECT_RANGE_COMPARISON
+                , comparisonSnapshot
+#endif
+);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+#if DETECT_RANGE_COMPARISON
+            if (comparisonSnapshot == null)
+#endif
+            CompareSpatialQuery(attacker, attackerPositionOverride, usePositionOverride,
+                stopAtFirstMatch, true, result);
+#endif
+            return result;
+        }
+
+        private IDamageable FindFirstEnemyInDetectRangeCore(
+            UnitData attacker,
+            Vector3 attackerPositionOverride,
+            bool usePositionOverride,
+            bool stopAtFirstMatch = false
+#if DETECT_RANGE_COMPARISON
+            , DetectComparisonSnapshot comparisonSnapshot = null
+#endif
+            )
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _spatialLastIndexed = false;
+            _spatialLastInspections = 0;
+#endif
+#if DETECT_RANGE_COMPARISON
+            IEntityPositionProvider positions = comparisonSnapshot ?? _positionProvider;
+#else
+            IEntityPositionProvider positions = _positionProvider;
+#endif
+            // positions가 없으면 HexCoord 기반 폴백.
             // HexCoord 폴백은 이미 threshold=1로 인접 타일까지 탐색하므로
             // DetectRange(1.0)와 일치 — 별도 폴백 메서드 불필요.
-            if (_positionProvider == null && !usePositionOverride)
+            if (positions == null && !usePositionOverride)
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // 공격자 월드 좌표 취득
             Vector3 attackerWorldPos = usePositionOverride
                 ? attackerPositionOverride
-                : _positionProvider.GetUnitWorldPosition(attacker.Id);
+                : positions.GetUnitWorldPosition(attacker.Id);
 
             // Vector3.zero = GameObject 미등록 상태 → HexCoord 폴백
             if (!usePositionOverride && attackerWorldPos == Vector3.zero)
@@ -1701,21 +1869,34 @@ namespace Hexiege.Application
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: true);
 
             IReadOnlyList<UnitData> indexedUnits = null;
-            bool ownsCandidates = TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            bool ownsCandidates =
+#if DETECT_RANGE_COMPARISON
+                comparisonSnapshot == null &&
+#endif
+                TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            int spatialInspections = 0;
+#endif
             try
             {
                 IDamageable closestTarget = null;
                 float minWorldDist = float.MaxValue;
 
-                // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
+                // 1. 안전 후보군 또는 기존 전체 유닛을 같은 순서/월드 거리 조건으로 탐색
                 // 기존: foreach (var unit in _unitSpawn.Units.Values)
                 IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
                 foreach (var unit in candidateUnits)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    spatialInspections++;
+#endif
+#if DETECT_RANGE_COMPARISON
+                    if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
+#endif
                     if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-                    Vector3 targetPos = _positionProvider != null
-                        ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                    Vector3 targetPos = positions != null
+                        ? positions.GetUnitWorldPosition(unit.Id)
                         : Vector3.zero;
 
                     // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
@@ -1737,10 +1918,16 @@ namespace Hexiege.Application
                 // 2. 모든 적 건물을 월드 거리 기반으로 탐색
                 foreach (var building in _buildingPlacement.Buildings.Values)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    spatialInspections++;
+#endif
+#if DETECT_RANGE_COMPARISON
+                    if (comparisonSnapshot != null) comparisonSnapshot.Inspections++;
+#endif
                     if (building.Team == attacker.Team || !building.IsAlive) continue;
 
-                    Vector3 targetPos = _positionProvider != null
-                        ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                    Vector3 targetPos = positions != null
+                        ? positions.GetBuildingWorldPosition(building.Id)
                         : Vector3.zero;
 
                     if (targetPos == Vector3.zero)
@@ -1760,6 +1947,10 @@ namespace Hexiege.Application
             }
             finally
             {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                _spatialLastIndexed = ownsCandidates;
+                _spatialLastInspections = spatialInspections;
+#endif
                 if (ownsCandidates) _combatCandidates.EndUnitCandidates();
             }
         }
@@ -1788,6 +1979,24 @@ namespace Hexiege.Application
             bool usePositionOverride,
             bool stopAtFirstMatch = false)
         {
+            IDamageable result = FindFirstEnemyTargetCore(attacker, attackerPositionOverride, usePositionOverride, stopAtFirstMatch);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            CompareSpatialQuery(attacker, attackerPositionOverride, usePositionOverride,
+                stopAtFirstMatch, false, result);
+#endif
+            return result;
+        }
+
+        private IDamageable FindFirstEnemyTargetCore(
+            UnitData attacker,
+            Vector3 attackerPositionOverride,
+            bool usePositionOverride,
+            bool stopAtFirstMatch = false)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _spatialLastIndexed = false;
+            _spatialLastInspections = 0;
+#endif
             // _positionProvider가 없으면 기존 HexCoord 기반 판정으로 폴백
             if (_positionProvider == null && !usePositionOverride)
                 return FindFirstEnemyTargetByHexCoord(attacker);
@@ -1805,17 +2014,24 @@ namespace Hexiege.Application
             var (unitMaxDist, buildingMaxDist) = CalculateRangeLimits(attacker, isDetect: false);
 
             IReadOnlyList<UnitData> indexedUnits = null;
-            bool ownsCandidates = TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+            bool ownsCandidates =
+                TryBeginCombatCandidates(attackerWorldPos, unitMaxDist, out indexedUnits);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            int spatialInspections = 0;
+#endif
             try
             {
                 IDamageable closestTarget = null;
                 float minWorldDist = float.MaxValue;
 
-                // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
+                // 1. 안전 후보군 또는 기존 전체 유닛 탐색 (원래 월드 거리/순서 보존)
                 // 기존: foreach (var unit in _unitSpawn.Units.Values)
                 IEnumerable<UnitData> candidateUnits = ownsCandidates ? indexedUnits : _unitSpawn.Units.Values;
                 foreach (var unit in candidateUnits)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    spatialInspections++;
+#endif
                     if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
                     Vector3 targetPos = _positionProvider != null
@@ -1840,6 +2056,9 @@ namespace Hexiege.Application
                 // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
                 foreach (var building in _buildingPlacement.Buildings.Values)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    spatialInspections++;
+#endif
                     if (building.Team == attacker.Team || !building.IsAlive) continue;
 
                     Vector3 targetPos = _positionProvider != null
@@ -1864,6 +2083,10 @@ namespace Hexiege.Application
             }
             finally
             {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                _spatialLastIndexed = ownsCandidates;
+                _spatialLastInspections = spatialInspections;
+#endif
                 if (ownsCandidates) _combatCandidates.EndUnitCandidates();
             }
         }
@@ -3291,7 +3514,9 @@ namespace Hexiege.Application
             GameEvents.OnEntityDamaged.OnNext(
                 new EntityDamagedEvent(target, target.Hp, isUnit: true,
                     attackerId: attackerId, attackerIsUnit: true,
-                    immediatePresentation: true));
+                    // [2026-11-17 DoT 출처] 옛 인자: immediatePresentation: true));
+                    // 피해 1틱의 writer만 출처를 표시한다. 공격자 Id의 부재만으로 출처를 추정하지 않는다.
+                    immediatePresentation: true, presentationResultKey: default, isTimedDamage: true));
 
             // 사망 처리 — ApplyDamageToVictim의 유닛 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
             if (!target.IsAlive)

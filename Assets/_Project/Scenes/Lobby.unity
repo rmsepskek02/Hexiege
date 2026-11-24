@@ -8200,6 +8200,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1cd5373fadf7b4c479a90edfb2febe9e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.LobbyRootView
+  _characterPreviewCamera: {fileID: 63448771}
   _tabBarView: {fileID: 841707196}
   _battleRootView: {fileID: 1921361599}
   _profileView: {fileID: 0}

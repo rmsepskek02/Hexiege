@@ -49,7 +49,10 @@ namespace Hexiege.Infrastructure
         //   handshake에서 거부한다 — 멀티 테스트는 에디터 · 기기 두 빌드를 모두 새로 설치해야 한다.
         //   단계 S-4(즉발 탑 회피 — 탑 공격 표현 RPC 인자)도 같은 12 묶음으로 둔다(M-12).
         //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 11 줄을 지웠다 — 실기 멀티 경기가 c3-schema=12로 시작됐다.)
-        public const int PresentationContractSchemaRevision = 12;
+        // [2026-11-25 통합] main 연막 회피(12)에 HP RPC의 DoT 출처 bool을 합쳐 13.
+        // 스키마 12 앱에는 isTimedDamage 인자가 없으므로 양쪽 앱을 같은 통합 빌드로 맞춘다.
+        // 이전 값: public const int PresentationContractSchemaRevision = 12;
+        public const int PresentationContractSchemaRevision = 13;
         // Native timed target-locked attacks only. Independent waves, charge damage,
         // unresolved projectile policies and the separate heal pipeline stay Legacy.
         public static bool CanUseNativeAttackPhase(UnitType type) =>

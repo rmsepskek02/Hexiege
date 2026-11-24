@@ -145,6 +145,29 @@ namespace Hexiege.Presentation
         // 초기화
         // ====================================================================
 
+        private enum PreparedSpawnMoveKind { None, Rally, Castle }
+        private readonly struct PreparedSpawnMove
+        {
+            internal readonly UnitData Unit;
+            internal readonly HexCoord Start;
+            internal readonly HexCoord? Rally;
+            internal readonly int Barracks;
+            internal readonly ulong Epoch, Revision;
+            internal readonly PreparedSpawnMoveKind Kind;
+            internal readonly List<HexCoord> Path;
+            internal readonly HexCoord? Castle;
+            internal PreparedSpawnMove(UnitData unit, HexCoord? rally, int barracks,
+                ulong epoch, ulong revision, PreparedSpawnMoveKind kind, List<HexCoord> path, HexCoord? castle)
+            {
+                Unit=unit; Start=unit.Position; Rally=rally; Barracks=barracks;
+                Epoch=epoch; Revision=revision; Kind=kind; Path=path; Castle=castle;
+            }
+        }
+        // 같은 동기 생산 호출의 owned 경로만 잠시 전달한다. 소비/생산 finally가 모두 해제한다.
+        private readonly Dictionary<int, PreparedSpawnMove> _preparedSpawnMoves = new Dictionary<int, PreparedSpawnMove>();
+        private ulong _spawnPreparationEpoch, _spawnPathRevision;
+        private bool _spawnPreparationActive;
+
         /// <summary>
         /// GameBootstrapper에서 호출. UseCase 참조 설정 및 이벤트 구독.
         /// </summary>
@@ -159,6 +182,11 @@ namespace Hexiege.Presentation
             CongestionMap congestionMap,
             CongestionAwarePathfinder congestionPathfinder)
         {
+            _productionUseCase?.ClearSpawnPreparation(this);
+            _preparedSpawnMoves.Clear();
+            _spawnPreparationEpoch++;
+            _spawnPathRevision = 0UL;
+            _spawnPreparationActive = true;
             _productionUseCase = production;
             _resourceUseCase = resource;
             _unitMovement = unitMovement;
@@ -172,6 +200,7 @@ namespace Hexiege.Presentation
             _congestionPathfinder = congestionPathfinder;
             _decayTimer = 0f;
 
+            _productionUseCase?.SetSpawnPreparation(this, PrepareSpawnNavigation, ReleaseSpawnNavigation);
             SubscribeEvents();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (_refactoringTickerBinds < int.MaxValue) _refactoringTickerBinds++;
@@ -193,6 +222,19 @@ namespace Hexiege.Presentation
                 _eventSubscriptionsBoundToLifetime = true;
             }
             _eventSubscriptions.Clear();
+            GameEvents.OnGameEnd.Subscribe(_ =>
+            {
+                _spawnPreparationActive = false;
+                _spawnPreparationEpoch++;
+                _preparedSpawnMoves.Clear();
+            }).AddTo(_eventSubscriptions);
+            GameEvents.OnGameStarted.Subscribe(_ =>
+            {
+                _spawnPreparationActive = true;
+                _spawnPreparationEpoch++;
+                _preparedSpawnMoves.Clear();
+            }).AddTo(_eventSubscriptions);
+            GameEvents.OnBuildingRemoved.Subscribe(_ => OnWalkableChanged()).AddTo(_eventSubscriptions);
 
             // 생산 완료 → 랠리포인트 자동 이동
             GameEvents.OnUnitProduced
@@ -256,6 +298,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnWalkableChanged()
         {
+            _spawnPathRevision++;
             // 향후 확장 지점. 현재는 GameBootstrapper.RepathAllAliveUnits가
             // UnitView.OnPathInvalidated()를 통해 모든 유닛 경로를 다시 발급하므로 별도 작업 불요.
         }
@@ -266,6 +309,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnDestroy()
         {
+            _productionUseCase?.ClearSpawnPreparation(this);
+            _spawnPreparationActive = false;
+            _spawnPreparationEpoch++;
+            _preparedSpawnMoves.Clear();
             _eventSubscriptions.Dispose();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             GameLog.Dev.Info("UI", nameof(ProductionTicker), "[REFACTOR-VERIFY]",
@@ -334,6 +381,90 @@ namespace Hexiege.Presentation
         // 이벤트 핸들러
         // ====================================================================
 
+        private void PrepareSpawnNavigation(UnitData unit, HexCoord? rally, int barracks)
+        {
+            if (!_spawnPreparationActive || unit == null || !unit.IsAlive
+                || _unitMovement == null || _unitFactory == null || _grid == null
+                || (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)) return;
+            PreparedSpawnMoveKind kind = PreparedSpawnMoveKind.None;
+            List<HexCoord> path = null;
+            HexCoord? castle = null;
+            bool chooseCastle = !rally.HasValue;
+            if (rally.HasValue)
+            {
+                UnitRallyPathResult result = ResolveRallyPath(unit, rally.Value);
+                if (result.Status == UnitRallyPathStatus.PathFound)
+                {
+                    kind = PreparedSpawnMoveKind.Rally;
+                    path = result.Request.Path as List<HexCoord> ?? new List<HexCoord>(result.Request.Path);
+                }
+                else chooseCastle = result.EndsRally;
+            }
+            if (chooseCastle)
+            {
+                castle = FindEnemyCastlePos(unit.Team);
+                if (castle.HasValue)
+                {
+                    kind = PreparedSpawnMoveKind.Castle;
+                    path = FindInitialCastlePath(unit, castle.Value);
+                }
+            }
+            _preparedSpawnMoves[unit.Id] = new PreparedSpawnMove(unit,rally,barracks,
+                _spawnPreparationEpoch,_spawnPathRevision,kind,path,castle);
+            // 생성할 때 Domain 방향만 정한다. View flip은 이 권위 값에 섞지 않는다.
+            if (path != null && path.Count >= 2 && path[0] == unit.Position
+                && HexCoord.Distance(path[0],path[1]) == 1)
+                unit.Facing = FacingDirection.FromCoords(path[0],path[1]);
+        }
+
+        private void ReleaseSpawnNavigation(int unitId) => _preparedSpawnMoves.Remove(unitId);
+
+        private bool TryConsumeSpawnNavigation(UnitProducedEvent e, out PreparedSpawnMove prepared)
+        {
+            if (!_preparedSpawnMoves.TryGetValue(e.Unit.Id,out prepared)) return false;
+            _preparedSpawnMoves.Remove(e.Unit.Id);
+            if (!_spawnPreparationActive || prepared.Epoch != _spawnPreparationEpoch
+                || prepared.Revision != _spawnPathRevision || !ReferenceEquals(prepared.Unit,e.Unit)
+                || !e.Unit.IsAlive || prepared.Start != e.Unit.Position
+                || prepared.Rally != e.RallyPoint || prepared.Barracks != e.BarracksId) return false;
+            ProductionState state = _productionUseCase?.GetState(e.BarracksId);
+            if (state == null || state.RallyPoint != prepared.Rally) return false;
+            if (prepared.Kind == PreparedSpawnMoveKind.Castle
+                && FindEnemyCastlePos(e.Unit.Team) != prepared.Castle) return false;
+            if (prepared.Path != null)
+            {
+                if (prepared.Path.Count < 2 || prepared.Path[0] != prepared.Start) return false;
+                for (int index = 1; index < prepared.Path.Count; index++)
+                {
+                    HexCoord coord = prepared.Path[index];
+                    if (HexCoord.Distance(prepared.Path[index-1],coord) != 1) return false;
+                    bool terminalCastle = prepared.Kind == PreparedSpawnMoveKind.Castle
+                        && index == prepared.Path.Count-1 && prepared.Castle.HasValue && coord == prepared.Castle.Value;
+                    if (!_unitMovement.IsWalkable(coord) && !terminalCastle) return false;
+                }
+            }
+            return true;
+        }
+
+        private void ApplyPreparedSpawnNavigation(UnitData unit, UnitView unitView, PreparedSpawnMove prepared)
+        {
+            if (prepared.Kind == PreparedSpawnMoveKind.Rally)
+            {
+                unitView.OnMoveComplete = () => MoveTowardEnemyCastle(unit,unitView);
+                unitView.MoveToRally(prepared.Path,prepared.Rally.Value);
+            }
+            else if (prepared.Kind == PreparedSpawnMoveKind.Castle && prepared.Castle.HasValue)
+            {
+                if (prepared.Path != null)
+                {
+                    HexCoord castle = prepared.Castle.Value;
+                    unitView.OnMoveComplete = () => RegisterSiege(unit,castle);
+                    unitView.MoveTo(prepared.Path);
+                }
+                else RegisterSiege(unit,prepared.Castle.Value);
+            }
+        }
+
         /// <summary>
         /// 유닛 생산 완료 시 랠리포인트가 있으면 자동 이동.
         /// 랠리 도착 후 적 Castle 방향으로 자동 이동 (siege 체인).
@@ -356,19 +487,26 @@ namespace Hexiege.Presentation
 #endif
             if (unitView == null || unitView.IsMoving) return;
 
-            if (e.RallyPoint.HasValue)
+            if (TryConsumeSpawnNavigation(e, out PreparedSpawnMove prepared))
+            {
+                ApplyPreparedSpawnNavigation(e.Unit, unitView, prepared);
+                return;
+            }
+            ProductionState liveProduction = _productionUseCase?.GetState(e.BarracksId);
+            HexCoord? rallyPoint = liveProduction != null ? liveProduction.RallyPoint : e.RallyPoint;
+            if (rallyPoint.HasValue)
             {
 
                 // 랠리 칸(또는 그 근처의 걸어갈 수 있는 칸)까지의 경로를 고른다.
                 //   경로가 있으면 → 그 경로로 걸어간 뒤, 도착하면 적 성으로 진군한다.
                 //   현재 권위 타일을 후보로 골랐거나 주변 후보가 없으면 랠리를 생략한다.
                 //   경로 공급 실패는 이 정책과 구별해 정상 완료로 연결하지 않는다.
-                UnitRallyPathResult rally = ResolveRallyPath(e.Unit, e.RallyPoint.Value);
+                UnitRallyPathResult rally = ResolveRallyPath(e.Unit, rallyPoint.Value);
                 if (rally.Status == UnitRallyPathStatus.PathFound)
                 {
                     // 랠리 도착 후 → 적 Castle 방향 이동 콜백 등록
                     unitView.OnMoveComplete = () => MoveTowardEnemyCastle(e.Unit, unitView);
-                    unitView.MoveToRally(new List<HexCoord>(rally.Request.Path), e.RallyPoint.Value);
+                    unitView.MoveToRally(new List<HexCoord>(rally.Request.Path), rallyPoint.Value);
                 }
                 else if (rally.EndsRally)
                 {
@@ -692,6 +830,24 @@ namespace Hexiege.Presentation
             //   - 결과 path가 비어 있거나 null이면 폴백(FindPathToNearestEmptyTile)로 진입.
             //   - 혼잡도 가중치는 _config.CongestionWeight(GameConfig)에서 읽는다.
             // ────────────────────────────────────────────────────────────
+            List<HexCoord> path = FindInitialCastlePath(unit, moveTarget);
+
+            if (path != null)
+            {
+                // 이동 완료 후 siege 등록 콜백 — 성 좌표만 저장.
+                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value);
+                unitView.MoveTo(path);
+            }
+            else
+            {
+                // 경로 없어도 siege 등록 (추후 빈 타일 생기면 이동)
+                RegisterSiege(unit, enemyCastle.Value);
+            }
+        }
+
+        /// <summary>기존 혼잡도 우선/BFS fallback 선택을 생산 전후에서 같은 한 번의 계산으로 공유한다.</summary>
+        private List<HexCoord> FindInitialCastlePath(UnitData unit, HexCoord moveTarget)
+        {
             List<HexCoord> path = null;
             if (_congestionPathfinder != null && _congestionMap != null && _config != null
                 && _unitMovement != null)
@@ -713,17 +869,7 @@ namespace Hexiege.Presentation
             if (path == null)
                 path = FindPathToNearestEmptyTile(unit, moveTarget);
 
-            if (path != null)
-            {
-                // 이동 완료 후 siege 등록 콜백 — 성 좌표만 저장.
-                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value);
-                unitView.MoveTo(path);
-            }
-            else
-            {
-                // 경로 없어도 siege 등록 (추후 빈 타일 생기면 이동)
-                RegisterSiege(unit, enemyCastle.Value);
-            }
+            return path;
         }
 
         /// <summary>

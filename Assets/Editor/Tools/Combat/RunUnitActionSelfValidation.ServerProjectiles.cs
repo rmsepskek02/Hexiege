@@ -264,8 +264,8 @@ namespace Hexiege.Editor.Combat
             //   [2026-11-16 지원 스킬 새 상태 Task 단계 C] 9 → 10 — 쉴드 깨짐 알림 RPC(ShieldBrokenClientRpc)가 새로 생겼다.
             //   [2026-11-17 지원 스킬 2-L 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC 맨 뒤에 붙었다.
             // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC(이 파일이 검사하는 바로 그 RPC)에 회피 여부 · 빗나간 지점이 붙었다.
-            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 12,
-                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11; the smoke-bomb evaded / miss-point launch RPC arguments raise it to 12.");
+            Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
+                "[D-1] The stage D launch-cancel RPC raised the presentation schema to 6; the support-skill activation RPC shape change raised it to 7; the EMP tower-disable RPC raised it to 8; the persistent-zone membership RPC raised it to 9; the shield-broken RPC raised it to 10; the air-strike direction arguments raised it to 11; the smoke-bomb evaded / miss-point launch RPC arguments raise it to 12.; current merged DoT provenance + smoke evasion require schema 13.");
             Require(UnitAttackShadowProfileResolver.TryResolve(UnitType.MushroomBomber, out var mushroom)
                     && mushroom.TargetMode == Hexiege.Application.Combat.Sequencing.AttackTargetMode.TargetLocked
                     && mushroom.Support == Hexiege.Application.Combat.Sequencing.UnitAttackShadowSupport.Unresolved

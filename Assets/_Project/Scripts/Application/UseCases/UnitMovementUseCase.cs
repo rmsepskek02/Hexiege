@@ -748,6 +748,11 @@ namespace Hexiege.Application
                 return qOrder != 0 ? qOrder : left.coord.R.CompareTo(right.coord.R);
             });
 
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && !UNITY_EDITOR
+            // 후보 순서만 비교한다. A*·경로 writer는 재실행하지 않는다.
+            CombatOptimizationDiagnostics.ObserveMovement(_grid, _mapper, nearestTile,
+                finalTarget, unitWorldPosDomain, candidates);
+#endif
 
             for (int index = 0; index < candidates.Count; index++)
             {

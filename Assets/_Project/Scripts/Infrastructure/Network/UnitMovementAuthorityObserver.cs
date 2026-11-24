@@ -1,4 +1,4 @@
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
+﻿#if DEVELOPMENT_BUILD || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -63,6 +63,292 @@ namespace Hexiege.Infrastructure
             ActiveHandoffFailureEpisodes =
                 new UnitAttackEntryHandoffFailureEpisodes();
 
+        // 개발 전용: 실제 꺾임에 처음 참여한 타입별 유닛 순번 1/4/16/64를 고른다.
+        // 경로·위치를 쓰지 않고, 이미 고른 유닛의 첫 꺾임과 제한된 경로 교체만 관측한다.
+        internal const string DirectionTraceSchema = "movement-direction-v1";
+        private sealed class DirectionTypeBudget
+        {
+            internal readonly HashSet<int> Participants = new HashSet<int>();
+            internal int Changes;
+            internal bool InitialHeading;
+        }
+        internal sealed class DirectionTraceState
+        {
+            internal int Unit, Type, LastIndex, FollowCount;
+            internal ulong Command, Segment, Revision;
+            internal IReadOnlyList<HexCoord> Path;
+            internal HexCoord Goal;
+            internal UnitMovementIntentReason Reason;
+            internal long Sample;
+            internal string Follow = "";
+            internal int Phase;
+            internal bool MovementObserved;
+        }
+        internal readonly struct DirectionTraceToken
+        {
+            internal readonly DirectionTraceState State;
+            internal readonly bool First;
+            internal readonly long Sample;
+            internal readonly string Run;
+            internal bool IsActive => State != null;
+            internal DirectionTraceToken(DirectionTraceState state, bool first, long sample, string run)
+            { State = state; First = first; Sample = sample; Run = run; }
+        }
+        private static readonly Dictionary<int, DirectionTypeBudget> DirectionTypes =
+            new Dictionary<int, DirectionTypeBudget>();
+        private static readonly Dictionary<int, DirectionTraceState> DirectionUnits =
+            new Dictionary<int, DirectionTraceState>();
+        // 일반 walkable A*의 최대 이탈 두 건만 값으로 보존한다. 경로 참조는 저장하지 않는다.
+        private struct MotionPeak
+        {
+            internal bool Known, Curve, HasNext, Flip;
+            internal int Frame, Unit, Type, Team, Index, Count;
+            internal ulong Command, Segment, Revision;
+            internal HexCoord Previous, Target, Next, Goal, PathStart, Spatial;
+            internal UnitMovementIntentReason Intent;
+            internal Vector3 Before, After, FromCenter, Desired;
+            internal float YawBefore, YawAfter;
+            internal double Cross;
+            internal string Reason;
+        }
+        private static MotionPeak _curvePeak, _fallbackPeak;
+
+        internal static void ObserveMotionPeak(UnitData unit, IReadOnlyList<HexCoord> path,
+            int index, UnitMovementIntentReason reason, bool cellsWalkable, bool curve,
+            string fallbackReason, ulong command, ulong segment, ulong revision,
+            Vector3 before, Vector3 after, float yawBefore, float yawAfter,
+            Vector3 fromCenter, Vector3 desired, bool flip)
+        {
+            if (!_active || !_isServer || _gameplayEnded || unit == null || !cellsWalkable
+                || (reason != UnitMovementIntentReason.AStarPath && reason != UnitMovementIntentReason.PendingRepath)
+                || path == null || index < 1 || index >= path.Count) return;
+            double dx = desired.x - fromCenter.x, dz = desired.z - fromCenter.z;
+            double length = Math.Sqrt(dx * dx + dz * dz);
+            if (!(length > 0d)) return;
+            double cross = Math.Abs(dx * (after.z - fromCenter.z) - dz * (after.x - fromCenter.x)) / length;
+            if (double.IsNaN(cross) || double.IsInfinity(cross)) return;
+            MotionPeak old = curve ? _curvePeak : _fallbackPeak;
+            if (old.Known && cross <= old.Cross) return;
+            var value = new MotionPeak {
+                Known = true, Curve = curve, Flip = flip, Frame = Time.frameCount, Unit = unit.Id,
+                Type = (int)unit.Type, Team = (int)unit.Team, Index = index, Count = path.Count,
+                Command = command, Segment = segment, Revision = revision,
+                Previous = path[index - 1], Target = path[index], Goal = path[path.Count - 1],
+                PathStart = path[0], Spatial = unit.Position, Intent = reason,
+                HasNext = index + 1 < path.Count, Next = index + 1 < path.Count ? path[index + 1] : default,
+                Before = before, After = after, FromCenter = fromCenter, Desired = desired,
+                YawBefore = yawBefore, YawAfter = yawAfter, Cross = cross, Reason = fallbackReason
+            };
+            if (curve) _curvePeak = value; else _fallbackPeak = value;
+        }
+
+        private static void EmitMotionPeak(MotionPeak value)
+        {
+            if (!value.Known) return;
+            Log(LogLevel.Info, "motion-peak-route", FormattableString.Invariant(
+                $"schema=movement-direction-v1, scope=walkable-AStarPath-or-PendingRepath-END-only, role=ServerOrHost, flip={value.Flip}, curve={value.Curve}, fallbackReason={value.Reason}, f={value.Frame}, unit={value.Unit}, type={value.Type}, team={value.Team}, reason={value.Intent}, index={value.Index}, count={value.Count}, prev={value.Previous.Q}:{value.Previous.R}, target={value.Target.Q}:{value.Target.R}, hasNext={value.HasNext}, next={value.Next.Q}:{value.Next.R}, path0={value.PathStart.Q}:{value.PathStart.R}, goal={value.Goal.Q}:{value.Goal.R}, spatial={value.Spatial.Q}:{value.Spatial.R}, cmd={value.Command}, seg={value.Segment}, rev={value.Revision}"));
+            Log(LogLevel.Info, "motion-peak-pose", FormattableString.Invariant(
+                $"f={value.Frame}, unit={value.Unit}, curve={value.Curve}, before={value.Before.x:R}:{value.Before.z:R}, after={value.After.x:R}:{value.After.z:R}, delta={value.After.x-value.Before.x:R}:{value.After.z-value.Before.z:R}, yawBefore={value.YawBefore:R}, yawAfter={value.YawAfter:R}, fromCenter={value.FromCenter.x:R}:{value.FromCenter.z:R}, desired={value.Desired.x:R}:{value.Desired.z:R}, crossWorld={value.Cross:R}, metric=incoming-center-line-perpendicular, visual=unknown"));
+        }
+
+        private static long _directionSample;
+        private static int _directionLines, _directionSkipped;
+        private static bool _directionBudgetReported;
+
+        internal static DirectionTraceToken BeginDirectionTrace(
+            UnitData unit, IReadOnlyList<HexCoord> path, int index,
+            ulong command, ulong segment, ulong revision, UnitMovementIntentReason reason,
+            IReadOnlyList<HexCoord> pending, HexCoord destination, HexCoord? rally, int phase,
+            Vector3 rootBefore, Vector3 rootForward, Vector3 desiredTarget)
+        {
+            if (!_active || !_isServer || _gameplayEnded || unit == null
+                || path == null || index < 1 || index >= path.Count) return default;
+            string runAtEntry = _runId;
+            int type = (int)unit.Type;
+            if (!DirectionTypes.TryGetValue(type, out DirectionTypeBudget budget))
+            {
+                if (DirectionTypes.Count >= 25) return default;
+                budget = new DirectionTypeBudget();
+                DirectionTypes.Add(type, budget);
+            }
+            bool outgoingCorner = index >= 2
+                && (path[index-1].Q-path[index-2].Q != path[index].Q-path[index-1].Q
+                    || path[index-1].R-path[index-2].R != path[index].R-path[index-1].R);
+            bool first = false;
+            string trigger = "follow";
+            DirectionUnits.TryGetValue(unit.Id, out DirectionTraceState state);
+            // 초기 정렬은 꺾임 표본과 독립 예산이다. 기존 15도 이동 안전 기준을 관측에만 재사용한다.
+            Vector3 toTarget = desiredTarget-rootBefore;
+            bool initialStart = index == 1 && command == 0UL;
+            if (!budget.InitialHeading && index == 1
+                && (initialStart || (ActionDirectionXZ.TryCreate(rootForward.x, rootForward.z, out var bodyDirection)
+                && ActionDirectionXZ.TryCreate(toTarget.x, toTarget.z, out var targetDirection)
+                && !UnitActionAngleHysteresis.AllowsMovement(
+                    UnitActionPoseSample.GetYawDegrees(bodyDirection, targetDirection), true))))
+            {
+                if (state == null)
+                {
+                    state = new DirectionTraceState { Unit=unit.Id, Type=type };
+                    DirectionUnits.Add(unit.Id, state);
+                }
+                budget.InitialHeading = true;
+                first = true;
+                trigger = initialStart ? "initial-start" : "initial-heading";
+            }
+            if (outgoingCorner && !budget.Participants.Contains(unit.Id)
+                && budget.Participants.Count < 64)
+            {
+                budget.Participants.Add(unit.Id);
+                int ordinal = budget.Participants.Count;
+                if (ordinal == 1 || ordinal == 4 || ordinal == 16 || ordinal == 64)
+                {
+                    if (state == null)
+                    {
+                        state = new DirectionTraceState { Unit=unit.Id, Type=type };
+                        DirectionUnits.Add(unit.Id, state);
+                    }
+                    first = true;
+                    trigger = "first-actual-corner";
+                }
+                else
+                {
+                    _directionSkipped++;
+                    if (ordinal == 2 || ordinal == 63) DirectionLog("direction-coverage",
+                        $"schema={DirectionTraceSchema}, type={type}, participant={ordinal}, skipped={_directionSkipped}, reason=type-unit-ordinal-not-selected, selected=1/4/16/64");
+                }
+            }
+            if (state == null) return default;
+            if (!first && state.Path != null
+                && (!ReferenceEquals(state.Path, path) || state.Command != command
+                    || state.Segment != segment || state.Revision != revision
+                    || state.Goal != path[path.Count-1] || state.Reason != reason
+                    || state.Phase != phase))
+            {
+                if (budget.Changes < 2)
+                {
+                    budget.Changes++;
+                    first = true;
+                    trigger = "route-scope-phase-change";
+                }
+                else
+                {
+                    _directionSkipped++;
+                    if (state.FollowCount > 0 && state.FollowCount < 3)
+                        DirectionLog("direction-window", $"sample={state.Sample}, unit={state.Unit}, type={state.Type}, partial=true, reason=route-scope-phase-budget, actualMovementObserved={state.MovementObserved}, {state.Follow}");
+                    state.FollowCount = 3;
+                    state.Follow = "";
+                }
+            }
+            if (first && state.FollowCount > 0 && state.FollowCount < 3)
+                DirectionLog("direction-window", $"sample={state.Sample}, unit={state.Unit}, type={state.Type}, partial=true, actualMovementObserved={state.MovementObserved}, {state.Follow}");
+            state.Path = path;
+            state.Command = command;
+            state.Segment = segment;
+            state.Revision = revision;
+            state.Goal = path[path.Count-1];
+            state.Reason = reason;
+            state.Phase = phase;
+            state.LastIndex = index;
+            long sample = state.Sample;
+            if (first)
+            {
+                state.Sample = ++_directionSample;
+                sample = state.Sample;
+                state.FollowCount = 0;
+                state.Follow = "";
+                state.MovementObserved = false;
+                string next = index+1 < path.Count ? TraceHex(path[index+1]) : "unknown";
+                string older = index >= 2 ? TraceHex(path[index-2]) : "unknown";
+                DirectionLog("direction-route", FormattableString.Invariant(
+                    $"schema={DirectionTraceSchema}, policy=see-step, sample={state.Sample}, f={Time.frameCount}, unit={unit.Id}, type={type}, team={unit.Team}, role={(_networkManager != null && _networkManager.IsHost ? "host" : "server")}, flip={ViewConverter.IsFlipped}, trigger={trigger}, cmdBefore={command}, segBefore={segment}, rev={revision}, reason={reason}, phaseBefore={phase}, index={index}, count={path.Count}, path0={TraceHex(path[0])}, incoming={older}, prev={TraceHex(path[index-1])}, current={TraceHex(path[index])}, next={next}, goal={TraceHex(state.Goal)}, spatial={TraceHex(unit.Position)}, destination={TraceHex(destination)}, pendingKnown={pending != null}, pendingCount={pending?.Count ?? 0}, pendingGoal={(pending != null && pending.Count > 0 ? TraceHex(pending[pending.Count-1]) : "unknown")}, rally={(rally.HasValue ? TraceHex(rally.Value) : "unknown")}, source=authority-input, tileMeshFeet=unknown"));
+            }
+            return first || state.FollowCount < 3
+                ? new DirectionTraceToken(state, first, sample, runAtEntry) : default;
+        }
+
+        internal static void EndDirectionTrace(DirectionTraceToken token,
+            Vector3 before, float yawBefore, Vector3 desired, Vector3? nextDesired, Vector3 candidate,
+            bool candidateKnown, Vector3 after, float yawAfter, Vector3 forward,
+            Vector3 visual, bool visualKnown, bool staged, string verdict,
+            bool committed, bool faulted, int phase, int walkable, int nextWalkable,
+            HexCoord spatialAfter, bool spatialKnown, ulong commandAfter, ulong segmentAfter, float deltaTime, string trajectoryPolicy, string curveStatus)
+        {
+            if (!token.IsActive) return;
+            if (token.Run != _runId) { _directionSkipped++; return; }
+            DirectionTraceState state = token.State;
+            if (state.Sample != token.Sample)
+            {
+                _directionSkipped++;
+                DirectionLog("direction-coverage", $"schema={DirectionTraceSchema}, reason=nested-sample-replaced, unit={state.Unit}, oldSample={token.Sample}, liveSample={state.Sample}, skipped={_directionSkipped}");
+                return;
+            }
+            double dx = after.x-before.x, dz = after.z-before.z;
+            double tx = desired.x-before.x, tz = desired.z-before.z;
+            double length = Math.Sqrt(dx*dx+dz*dz), targetLength = Math.Sqrt(tx*tx+tz*tz);
+            bool angleKnown = length > 0.000001d && targetLength > 0.000001d;
+            state.MovementObserved |= length > 0.000001d;
+            double bodyAngle = targetLength > 0.000001d
+                ? Math.Acos(Math.Max(-1d, Math.Min(1d,
+                    (Math.Sin(yawBefore*Math.PI/180d)*tx+Math.Cos(yawBefore*Math.PI/180d)*tz)/targetLength)))*180d/Math.PI : 0d;
+            double angle = angleKnown ? Math.Acos(Math.Max(-1d, Math.Min(1d,
+                (dx*tx+dz*tz)/(length*targetLength))))*180d/Math.PI : 0d;
+            string step = FormattableString.Invariant(
+                $"f={Time.frameCount};dt={deltaTime:G9};b={TraceXZ(before)};a={TraceXZ(after)};c={(candidateKnown ? TraceXZ(candidate) : "unknown")};d={TraceXZ(desired)};yaw={yawBefore:G9}/{yawAfter:G9};fw={TraceXZ(forward)};delta={dx:G9}:{dz:G9};angle={(angleKnown ? angle.ToString("G9", CultureInfo.InvariantCulture) : "unknown")};bodyTargetAngle={(targetLength > 0.000001d ? bodyAngle.ToString("G9", CultureInfo.InvariantCulture) : "unknown")};v={(visualKnown ? TraceXZ(visual) : "unknown")};phase={phase};stage={(staged ? verdict : "unknown")};cmdAfter={commandAfter};segAfter={segmentAfter};scopeCommit={committed};throw={faulted};tile={(spatialKnown ? TraceHex(spatialAfter) : "unknown")};walk={(walkable < 0 ? "unknown" : walkable.ToString(CultureInfo.InvariantCulture))}/{(nextWalkable < 0 ? "unknown" : nextWalkable.ToString(CultureInfo.InvariantCulture))}");
+            if (token.First)
+                DirectionLog("direction-step", $"sample={state.Sample}, unit={state.Unit}, type={state.Type}, coordinate=authority-root, trajectoryPolicy={trajectoryPolicy}, curveStatus={curveStatus}, visual=readonly-observed-preLateUpdate, nextTarget={(nextDesired.HasValue ? TraceXZ(nextDesired.Value) : "unknown")}, {step}");
+            else
+            {
+                // 후속 두 frame은 위치·목표·각도만 묶는다. route와 첫 표본의 나머지 입력은 sample로 연결한다.
+                string follow = FormattableString.Invariant($"f={Time.frameCount};dt={deltaTime:G9};b={TraceXZ(before)};a={TraceXZ(after)};c={(candidateKnown ? TraceXZ(candidate) : "unknown")};d={TraceXZ(desired)};yaw={yawBefore:G9}/{yawAfter:G9};angle={(angleKnown ? angle.ToString("G9", CultureInfo.InvariantCulture) : "unknown")};stage={(staged ? verdict : "unknown")};throw={faulted}");
+                state.Follow += (state.Follow.Length == 0 ? "" : " | ") + follow;
+            }
+            if (state.Sample != token.Sample) { _directionSkipped++; return; }
+            state.FollowCount++;
+            if (state.FollowCount == 3)
+            {
+                DirectionLog("direction-window", $"sample={state.Sample}, unit={state.Unit}, type={state.Type}, partial=false, actualMovementObserved={state.MovementObserved}, {state.Follow}");
+                state.Follow = "";
+            }
+        }
+
+        internal static void ObserveCenterCurveFrame(bool selected)
+        {
+            if (_active && _isServer && !_gameplayEnded && selected)
+                IncrementBounded(ref _centerCurveFrames);
+        }
+
+        private static string TraceHex(HexCoord point) => $"{point.Q}:{point.R}";
+        private static string TraceXZ(Vector3 point) => FormattableString.Invariant($"{point.x:G9}:{point.z:G9}");
+        private static void DirectionLog(string name, string data)
+        {
+            // 본문 길이와 기존 전체 예산을 모두 지킨다. 예산 초과는 자료 없음이며 성공이 아니다.
+            string full = $"[UAS-MOVE-AUTH] {name} | runId={_runId}, sharedSessionKey={_sessionKey}, startedAt={_startedAt:F6}, {data}";
+            if (_lines >= MaximumNormalLines)
+            { _directionSkipped++; _dropped++; return; }
+            // 마지막 한 줄은 END 없이도 예산 소진을 식별할 수 있게 남겨 둔다.
+            if (_directionLines >= 524)
+            {
+                _directionSkipped++;
+                if (!_directionBudgetReported)
+                {
+                    _directionBudgetReported = true;
+                    _directionLines++;
+                    Log(LogLevel.Info, "direction-budget", $"schema={DirectionTraceSchema}, limit=525, emitted={_directionLines}, skipped={_directionSkipped}, reason=trace-line-cap, globalNormalLimit=736, source={name}");
+                }
+                return;
+            }
+            int bytes = Encoding.UTF8.GetByteCount(full);
+            if (bytes >= MaximumFullLineUtf8BytesExclusive)
+            {
+                _directionSkipped++;
+                _directionLines++;
+                Log(LogLevel.Info, "direction-coverage", $"schema={DirectionTraceSchema}, reason=entry-utf8-limit, source={name}, requiredBytes={bytes}, skipped={_directionSkipped}");
+                return;
+            }
+            _directionLines++;
+            Log(LogLevel.Info, name, data);
+        }
+
         private static NetworkManager _networkManager;
         private static bool _active;
         private static bool _isServer;
@@ -75,6 +361,7 @@ namespace Hexiege.Infrastructure
         private static int _failureDetails;
         private static int _failureEvidenceOverflow;
         private static int _frames;
+        private static int _centerCurveFrames;
         private static int _align;
         private static int _move;
         private static int _noIntent;
@@ -102,6 +389,55 @@ namespace Hexiege.Infrastructure
         private static double _maximumCenterCheckpointErrorWorld;
         private static int _chaseDirectSafeFrames;
         private static int _chasePathFrames;
+        private static int _cornerSpeedFrames, _cornerStarts, _cornerCompleted;
+        private static int _cornerNormalStops, _cornerSafetyStops, _cornerSummaryLines;
+        private static double _cornerMinSpeed = double.PositiveInfinity;
+        private static double _cornerMinRatio = 1d, _cornerMaxCross, _cornerMaxTurnExcess, _cornerSeconds;
+
+        // Root 속도만 관측한다. Animator rate나 실제 게임 결과를 이 진단에서 변경하지 않는다.
+        internal static void ObserveCornerSpeedFrame(int unitId, UnitType type,
+            UnitCornerSpeedState previous, UnitCornerSpeedState current, UnitCornerSpeedProfile profile,
+            Vector3 before, Vector3 after, double dt, double nominalTravel, double cap,
+            double turnDegrees, double maximumTurnDegrees, bool outgoing, bool safetyStop,
+            bool acquired, bool reachedWaypoint)
+        {
+            if (!_active || !_isServer || dt <= 0d || !profile.Valid) return;
+            IncrementBounded(ref _cornerSpeedFrames);
+            bool changed = previous.IsActive && current.IsActive
+                && (previous.ObservedCorner.Corner.X != current.ObservedCorner.Corner.X
+                    || previous.ObservedCorner.Corner.Z != current.ObservedCorner.Corner.Z);
+            if (!previous.IsActive || changed) IncrementBounded(ref _cornerStarts);
+            bool ended = previous.IsActive && (!current.IsActive || changed);
+            bool complete = ended && previous.Outgoing.Valid && nominalTravel > 0d && !acquired;
+            if (complete) IncrementBounded(ref _cornerCompleted);
+            double dx = after.x - before.x;
+            double dz = after.z - before.z;
+            double distance = Math.Sqrt(dx * dx + dz * dz);
+            if (nominalTravel > 0d && !double.IsInfinity(cap))
+                _cornerMinRatio = Math.Min(_cornerMinRatio, cap / nominalTravel);
+            if (!reachedWaypoint && distance > UnitMovementEvaluationAdapter.PositionTolerance)
+                _cornerMinSpeed = Math.Min(_cornerMinSpeed, distance / dt);
+            if (nominalTravel > 0d && !acquired && !reachedWaypoint
+                && distance <= UnitMovementEvaluationAdapter.PositionTolerance)
+            {
+                if (safetyStop) IncrementBounded(ref _cornerSafetyStops);
+                else IncrementBounded(ref _cornerNormalStops);
+            }
+            if (outgoing)
+            {
+                double vx = profile.Next.X - profile.Corner.X;
+                double vz = profile.Next.Z - profile.Corner.Z;
+                double length = Math.Sqrt(vx * vx + vz * vz);
+                if (length > UnitMovementEvaluationAdapter.PositionTolerance)
+                    _cornerMaxCross = Math.Max(_cornerMaxCross,
+                        Math.Abs((after.x - profile.Corner.X) * vz - (after.z - profile.Corner.Z) * vx) / length);
+            }
+            _cornerMaxTurnExcess = Math.Max(_cornerMaxTurnExcess, turnDegrees - maximumTurnDegrees);
+            _cornerSeconds += dt;
+            if (ended && _cornerSummaryLines++ < MaximumDetails)
+                Log(LogLevel.Info, "corner-end",
+                    FormattableString.Invariant($"directionTraceSchema={DirectionTraceSchema}, f={Time.frameCount}, policy={UnitCornerSpeedPolicy.Version}, unitId={unitId}, type={type}, complete={complete}, cornerX={previous.ObservedCorner.Corner.X:G9}, cornerZ={previous.ObservedCorner.Corner.Z:G9}"));
+        }
         private static int _spatialTransitionsPlanned;
         private static int _spatialTransitionsCommitted;
         private static int _spatialNoTransitionPlans;
@@ -160,7 +496,7 @@ namespace Hexiege.Infrastructure
             {
                 Log(LogLevel.Info, "BEGIN",
                     $"role={(_isServer ? "host" : "client")}, observerSchema={ProductionSchema}, " +
-                    $"mode=ReducerAuthoritative, serverTime={_startedAt:F6}");
+                    $"mode=ReducerAuthoritative, serverTime={_startedAt:F6}, directionTraceSchema={DirectionTraceSchema}, directionSampling=type-first-corner-unit-1/4/16/64+2route-phase-changes+1initial-start-or-heading, directionLineCap=525, normalLineCap=736, followCalls=2, clientPath=unknown, curvePolicy={UnitCenterCurvePlan.Version}, cornerMetrics=fallback-only, initialStartOrHeading=independent-shared-budget, motionPeakScope=walkable-AStarPath-or-PendingRepath-END-only, motionPeakCases=curve1/fallback1, budgetOmission=coverage-or-global-drop");
             }
         }
 
@@ -1091,6 +1427,8 @@ namespace Hexiege.Infrastructure
         internal static void EndSession(string reason)
         {
             if (!_active) return;
+            // END 미도달 시 미관측이며 기존 normal 예산만 사용한다.
+            try { EmitMotionPeak(_curvePeak); EmitMotionPeak(_fallbackPeak); } catch { }
             var entries = new List<string>();
             foreach (KeyValuePair<string, Coverage> pair in Coverages)
             {
@@ -1241,7 +1579,8 @@ namespace Hexiege.Infrastructure
                 $"spatialPreflightFailures={_spatialPreflightFailures}, " +
                 $"spatialCommitFailures={_spatialCommitFailures}, " +
                 $"spatialRecoveries={_spatialRecoveries}, " +
-                $"spatialStagesForCommit={_spatialStagesForCommit}"));
+                $"spatialStagesForCommit={_spatialStagesForCommit}, " +
+                FormattableString.Invariant($"cornerMinMovingSpeed={(double.IsPositiveInfinity(_cornerMinSpeed) ? 0d : _cornerMinSpeed):F6}, cornerMinRatio={_cornerMinRatio:F6}, cornerMaxCross={_cornerMaxCross:F6}, cornerMaxTurnExcess={_cornerMaxTurnExcess:F6}, cornerFrameTimeSum={_cornerSeconds:F6}")));
             records.Add(new TerminalRecord(
                 "terminal-summary-spatial-repath",
                 $"spatialFinalRecoverableRepaths={_spatialFinalRecoverableRepaths}, " +
@@ -1249,7 +1588,11 @@ namespace Hexiege.Infrastructure
                 $"spatialFatalPreflights={_spatialFatalPreflights}, " +
                 $"spatialCleanupAfterRecoverable={_spatialCleanupAfterRecoverable}, " +
                 $"spatialSameFrameRetries={_spatialSameFrameRetries}, " +
-                $"spatialStageDivergences={_spatialStageDivergences}"));
+                $"spatialStageDivergences={_spatialStageDivergences}, " +
+                $"cornerPolicy=fallback-v1, curveFrames={_centerCurveFrames}, cornerFrames={_cornerSpeedFrames}, " +
+                $"cornerStarts={_cornerStarts}, cornerCompleted={_cornerCompleted}, " +
+                $"cornerIncomplete={Math.Max(0, _cornerStarts-_cornerCompleted)}, " +
+                $"cornerNormalStops={_cornerNormalStops}, cornerSafetyStops={_cornerSafetyStops}"));
             records.Add(new TerminalRecord(
                 "terminal-summary-replication",
                 $"clientReplicatedSamples={_clientReplicatedSamples}, " +
@@ -1444,6 +1787,13 @@ namespace Hexiege.Infrastructure
 
         private static void Reset()
         {
+            _curvePeak = _fallbackPeak = default;
+            DirectionTypes.Clear();
+            DirectionUnits.Clear();
+            _centerCurveFrames = 0;
+            _directionSample = 0;
+            _directionBudgetReported = false;
+            _directionLines = _directionSkipped = 0;
             Coverages.Clear();
             PhaseTransitions.Clear();
             LastPhases.Clear();
@@ -1474,6 +1824,11 @@ namespace Hexiege.Infrastructure
             _centerCheckpointsReached = 0;
             _maximumCenterCheckpointErrorWorld = 0d;
             _chaseDirectSafeFrames = _chasePathFrames = 0;
+            _cornerSpeedFrames = _cornerStarts = _cornerCompleted = 0;
+            _cornerNormalStops = _cornerSafetyStops = _cornerSummaryLines = 0;
+            _cornerMinSpeed = double.PositiveInfinity;
+            _cornerMinRatio = 1d;
+            _cornerMaxCross = _cornerMaxTurnExcess = _cornerSeconds = 0d;
             _spatialTransitionsPlanned = _spatialTransitionsCommitted = 0;
             _spatialNoTransitionPlans = _spatialTerminalContacts = 0;
             _spatialPreflightFailures = _spatialCommitFailures = 0;
