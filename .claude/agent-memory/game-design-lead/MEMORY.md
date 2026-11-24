@@ -38,6 +38,13 @@ Source: `Assets/_Project/Docs/_Tasks/2026-11-02/14_25_race-support-skills-design
   wind/leaves) and V21 (tailwind buff state) are one effect is still open for VFX design. User visual note: telling ×1.5
   attack by eye was hard (「강화된 구체적인 수치는 육안으로 비교하기 어려웠어」); the values were judged from logs.
 
+## MistShrine mist heal count — settled (2026-11-25)
+
+- **One mist heals exactly duration ÷ 1 s times (floor) — now 10** (heal every 1 s, 10 per tick, 10 ticks total). User decision verbatim: 「원인 파악하고 기획의도한대로 초당 1회 10포 지속 총 10회 발생으로 알맞게 적용되도록 수정하는게 맞는거같다」. Rule: `GameSystemRules_Buildings.md` 「MistShrine 물안개 힐 시스템」 rule 6 (count clause added 2026-11-25, approved as U-4).
+- Written as a **relation, not a number** — heal · duration are temporary values (rule 16); floor (not round) so every mist gets the same count whatever its phase (Plan U-2). If balancing changes the duration, the count follows it.
+- Phase alignment (rule 8-1-a) still pulls the first heal of a later mist forward — that no longer adds an 11th heal. A mist ended early (shrine destroyed — rule 12, or game end) stops at the count it reached.
+- Source: `_Tasks/2026-11-25/01_19_mistshrine-heal-tick-cap/` Plan §8 · §12 (user test PASS).
+
 ## Torrent-only approved launch policy and runtime boundary (2026-10-03)
 
 - **Latest tested subset:**415 waves/VFX matched;200 lost-primary launches included37 unit damage/1 building damage/5 heals, confirming real contacts in this match. Client text1 loss does not revoke observed launch/movement acceptance or HPauthority. Clock/text defect and overallmigration remainOPEN; no new design/rule approval.23_45 Research/Plan §9 records evidence; earlier runtime-pending notes are history.

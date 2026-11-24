@@ -16,7 +16,7 @@
 - **전투 스탯 ×10 스케일**: HP·공격력 동일 배율 → **TTK 불변**(상성·매치업 불변, 강화 그리드만 정규화 — ×10 없이 +8%는 죽은 레벨/불규칙 증가폭 발생). 사거리·이동속도·쿨다운·비용·비율은 불변. 값 SSOT: `StatsReference.md`, old/new 대조: task `BalanceReview.md`.
 - **비용(효과 동일·비용만 배율)**: 표준 트랙 1,000골드(80/120/180/260/360)/15~70초, 그룹 배율 초월 동물 ×2.0·자연회복 ×2.5·(초월 식물 포함) 그 외 ×1.0. 연구소 건설비 200(불변).
 - **확정 쟁점**: F-1 Tank vs Fox/Rabbit 원샷 유지(코스트 상성, TTK 불변, HP 미변경) / F-2 방어 8~40·K=120(대안 80~400/K=1200과 감쇄율 동일) / F-3 초월 식물 비용 ×1.0. **DoT 틱값은 공격력 연구·방어력 감쇄 어느 쪽에도 영향 없는 고정값.** 힐량은 그룹 공격력 트랙 조회(BloomFairy 200→280 식물, TorrentSpirit 100→140 물×0.5).
-- 규칙: `GameSystemRules_Upgrade.md`(구현 계약·규칙 1~13). 후속 보류: AI 연구 사용 실기·UI 레이아웃·MistShrine 힐(미구현).
+- 규칙: `GameSystemRules_Upgrade.md`(구현 계약·규칙 1~13). 후속 보류: AI 연구 사용 실기·UI 레이아웃·MistShrine 힐(미구현). *(2026-11-25 갱신 — MistShrine 힐은 그 뒤 구현됐다: Buildings 「MistShrine 물안개 힐 시스템」, 멀티 검증·회복 횟수 10회 확정 2026-11-25 — `MEMORY.md` 「MistShrine mist heal count」)*
 
 ### 헥스 그리드
 - 좌표계: Cube (Q, R, S=-Q-R)
