@@ -264,7 +264,7 @@ Human CannonTower는 포신이 향한 **정면에서 좌우 60°씩, 합 120° �
 > 독립 파일을 받은 `GameSystemRules_Skills.md`·`GameSystemRules_Upgrade.md`는 건물 하나가 아니라 프레임워크 규모였다.
 > 특수 건물이 하나 더 생기는 순간 이 근거는 무효가 되므로 즉시 분리한다.
 
-MistShrine 물안개 힐의 동작 계약은 아래 규칙1~27을 따른다. 현재 구현·실기 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 멀티 미검증·물안개 VFX/아이콘 제작·밸런싱 확정 등 후속은 [ROADMAP](../ROADMAP.md)를 참조한다. 당시 코드/프리팹·싱글 실기 및 미완 범위 묶음은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-01)이며 전체 완료로 확대하지 않는다.
+MistShrine 물안개 힐의 동작 계약은 아래 규칙1~27을 따른다. 현재 구현·실기 범위는 [PROJECT_STATUS](../PROJECT_STATUS.md), 물안개 1회 회복 횟수 결함 수정·물안개 VFX/아이콘 제작·밸런싱 확정 등 후속은 [ROADMAP](../ROADMAP.md)를 참조한다 *(2026-11-25 갱신 — 종전 「멀티 미검증·물안개 VFX/아이콘 제작·밸런싱 확정 등 후속」, 멀티 4항목 PASS)*. 당시 코드/프리팹·싱글 실기 및 미완 범위 묶음은 [이전 원문](../History/ImplementationVerificationHistory.md#role-maintenance-20261016-round2-rules-buildings-01)이며 전체 완료로 확대하지 않는다.
 
 ---
 

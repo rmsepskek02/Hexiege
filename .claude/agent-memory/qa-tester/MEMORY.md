@@ -4,6 +4,8 @@
 
 - [Server-authoritative projectile checks](patterns.md#server-authoritative-projectile-checks-2026-10-2026) — Host 0-delay masks Client leads, split number/hit/death/DoT channels, death-hold metrics, suite = PASS unless the user reports a failure (2026-10-27 rule, note "no result file"), verify archived log identity by hash.
 
+- [MistShrine multiplayer checks](patterns.md#mistshrine-multiplayer-checks-2026-11-25) — wrong-build round rejection, count-chain verdicts, UI-blocked server reject = not reached, per-mist tick count found the 11-heal boundary bug (next task), Client cooldown mirror after shrine death is normal.
+
 - [Status-effect follow and perimeter VFX checks](patterns.md#status-effect-follow-and-perimeter-vfx-checks-2026-10-2627) — flipped-Client-only follow jump (`PoseCorrected`), role swap between rounds, same-pattern heal left unfixed, width fit off on perimeter prefabs.
 
 - [Anonymous matchmaking acceptance boundaries](patterns.md#anonymous-matchmaking-acceptance-boundaries) — identity axes, accepted normal/deadline/recovery sequence, and separate unobserved auth/cancellation/role-swap boundaries without repeat gates.

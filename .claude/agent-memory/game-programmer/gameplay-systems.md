@@ -52,6 +52,15 @@ UI/마커(전부 Presentation 로컬):
 - UnitView.CalculateAttackAngle: 실제 transform.position → Atan2 → _meshYOffset 보정
 - BuildingFactory.GetBuildingObject(int buildingId) 추가
 
+<a id="mistshrine-mist-tick-boundary--11-heals-open-2026-11-25"></a>
+## MistShrine mist tick boundary — 11 heals OPEN (2026-11-25)
+
+- **Defect (multiplayer log, 1 of 31 mists):** a mist of duration 10 s healed 11 times (`Ticks=11`, `PhaseMs=923`, `FirstTickMs=100`, `SumDtMs=10080`) → 110 instead of 100 per target.
+- **Cause (code, re-read 2026-11-25):** `Assets/_Project/Scripts/Application/UseCases/MistShrineUseCase.cs` `TickMists` does (1) `Remaining -= dt; TickAccum += dt;` and fires when `TickAccum >= 1`, (2) `ApplyHealTick()`, then (3) removes mists with `Remaining <= 0`. Phase alignment (Buildings 「MistShrine 물안개 힐 시스템」 rule 8-1-a — do NOT revert it) can put the first tick right after start, so the 11th falls at ~10.08 s; in a ~0.1 s server frame the fire step wins over the expiry step.
+- **Design intent confirmed by the user (2026-11-25):** one mist = heal every 1 s, **10 ticks total** (「…초당 1회 10포 지속 총 10회 발생으로 알맞게 적용되도록 수정하는게 맞는거같다…」). Fix is the next task (new Task docs first) — ROADMAP 「기획·경제·콘텐츠·UI」.
+- **Diagnostics in place:** `[MIST-DIAG]` (`091d11b`, kept as `개발`) — `MistEnded` carries `Ticks` · `SumDtMs` · `WallMs` · `BuildingHeals` · `DupTargetHeals`; use per-mist `Ticks` to verify the fix. Lines: `Diag=MistShrine, DiagRev=1`. Source of the verdict: `_Tasks/2026-11-24/11_28_mistshrine-multi-diag/Plan.md` §6.
+- Not a defect: the Client cooldown mirror keeps ticking after the shrine dies (one extra `CooldownExpired` line) — display timer only.
+
 ## MistShrine 물안개 힐 — 에디터 셋업 진입점 (2026-08-21 복구)
 
 > 2026-08-17 `675203ae` 로 `MEMORY.md` 「주요 파일 위치」 표에서 소실.
