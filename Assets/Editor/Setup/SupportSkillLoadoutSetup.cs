@@ -264,9 +264,7 @@ namespace Hexiege.EditorTools
         //   피해 0 — 구역 실행기는 피해 칸을 읽지 않지만, 자산을 보는 사람이 "피해가 있는 스킬"로 오해하지 않게 0으로 둔다(EMP 선례).
         //   수치는 시험용 임시값이다(Z-10). 밸런싱 단계에서 확정한다.
         //   🔴 새 칸(구역 VFX · 유닛 상태 VFX 프리팹 · 크기 · 위치)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
-        // 옛 머리(아군 인자 없음 — 대상이 항상 적):
-        // private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
-        //                                         StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown)
+        //   (2026-11-26 주석으로 남겨 둔 옛 머리(아군 인자 없음)와 옛 TargetsAllies = false 줄을 지웠다 — 물결의 가호 테스트에서 이 도구를 다시 실행해 「사용 가능 스킬 15개」 PASS.)
         private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
                                                 StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown,
                                                 bool targetsAllies = false)
@@ -278,7 +276,6 @@ namespace Hexiege.EditorTools
                 AimType = SkillAimType.PointTarget,
                 Mechanic = SkillMechanicType.PersistentStatusZone,
                 Cooldown = cooldown, Radius = radius, Duration = duration, TotalDamage = 0, DamagePerSecond = 0f,
-                // 옛 줄(대상 항상 적): StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = false,
                 StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = targetsAllies,
                 ImpactDelay = 0f, UseBombardmentVfx = false
             };
