@@ -171,6 +171,8 @@
   §10 (2026-11-23~24, user test PASS) Smoke Bomb evasion: `EvadeChance = 11` ally zone, `SkillEvasionSystem` seed + key hash, cut
   **before the writer** on three paths (hitscan gate + C2 `Evaded`, projectile judged at launch + `MissPoint` + outcome `Evaded`,
   instant tower snapshot `evaded`), observer fix outside the plan, schema 11 → 12 + `smoke-evasion` token; single unobserved.
+  §11 (2026-11-25~26, user test PASS) Tide Blessing: data-only skill (setup-table line + count 14 → 15 + suite `== 15` ×6 + TB-T1~T4),
+  no runtime line changed, schema 13; comments that a new skill **falsifies** must be fixed too; setup tool now kept for good.
   🔴 **Read before touching `SkillActivationUseCase` / `NetworkSkillController` / skill VFX.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 

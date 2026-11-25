@@ -357,9 +357,7 @@ namespace Hexiege.Editor.Combat
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
             // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
             // [2026-11-25 물결의 가호 Task T-4] 14 → 15 — 정령 슬롯 5(0부터 4)의 원소 공명(사용 불가) 자리에 물결의 가호(유닛 재생 · 받는 회복 배율)를
-            //   「사용 가능」으로 넣었다. 옛 검사 두 줄은 비활성화(기록용 — 테스트 통과 뒤 삭제 여부를 사용자에게 묻는다):
-            // Require(expected != null && (int)expected.GetRawConstantValue() == 14,
-            //     "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb).");
+            //   「사용 가능」으로 넣었다.
             Require(expected != null && (int)expected.GetRawConstantValue() == 15,
                 "Z-T10 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 15 (six earlier skills + Frost Prison + Sap Swamp + Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb + Tide Blessing).");
 

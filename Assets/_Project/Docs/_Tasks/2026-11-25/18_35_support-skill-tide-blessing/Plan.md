@@ -13,7 +13,7 @@
 
 현재 코드 상태와 근거(파일 · 행)는 [Research.md](Research.md)에 있다.
 
-> **현재 상태 (2026-11-25): Plan 작성 — 구현 전.** 사용자 지시 원문 「task문서 작성하고 구현 진행해」.
+> **현재 상태 (2026-11-26): 완료 — 사용자 테스트 PASS.** 구현 `754e3e7`(셋업 표 · 개수 15 · 회귀 검사 · 주석) → 사용자 자산 재생성 · 멀티 실기 · 회귀 스위트 → 사용자 「다 PASS였어」. 주석으로 남긴 옛 줄은 PASS 뒤 삭제(정리 후속 커밋). 결과는 [11절](#11-final-result). *(2026-11-26 갱신 — 직전 「현재 상태 (2026-11-25): Plan 작성 — 구현 전.」, 사용자 지시 원문 「task문서 작성하고 구현 진행해」)*
 
 **상위 Task:** [종족별 지원 스킬 기획 Plan](../../2026-11-02/14_25_race-support-skills-design/Plan.md) 1-0(슬롯 정렬 규칙) · 1-2 정령 5 · 5-1 결정 15(원소 공명 「이름만 등록」). **본뜨는 Task:** [지원 스킬 새 상태 Task](../../2026-11-16/01_00_support-skill-new-statuses/Plan.md#14-stage-b-result) 단계 B(재생의 뿌리). **자리표시 교체 선례:** [메테오 Task](../../2026-11-18/03_34_support-skill-meteor/Plan.md#14-final-result) · [연막탄 Task](../../2026-11-23/15_28_support-skill-smoke-bomb/Plan.md#13-final-result).
 
@@ -114,6 +114,8 @@ WithExtra(InstantBuff("Skill_Spirit_TideBlessing", s, 4, "물결의 가호",
 | U-5 | 주석 정리 범위 — ① T-5 주석 4곳 교체 ② 셋업 도구 83행 낡은 `= 8` 주석 줄 정리 | ① 한다(이번 변경으로 틀려지는 문장) ② 이번에 14 줄을 주석으로 남길 때 함께 지운다 — 단, 범위 밖이면 기록만 | ①은 이번 작업의 결과, ②는 이전 작업이 남긴 것(CLAUDE.md 규칙 6) |
 
 > U-1~U-5는 구현을 막지 않는다 — 제안대로 진행해도 되돌리기 쉽다(U-1은 코드 무변경 · U-2는 파일을 지우지 않음). 사용자가 다르게 정하면 그 항목만 고친다.
+>
+> **결과 (2026-11-26):** U-1 · U-2 · U-3 · U-5와 4절 D-1은 메인 세션이 **제안대로 진행**했고, 사용자는 이의 없이 테스트 PASS · 병합을 지시했다(명시적 「승인」 문구는 없다). **U-4(V25 · V26 번호와 9절 세트 사양)는 미확정** — VFX 작업 때 정한다. 항목별 결과는 [11-3](#11-3-u-results).
 
 ---
 
@@ -257,8 +259,75 @@ WithExtra(InstantBuff("Skill_Spirit_TideBlessing", s, 4, "물결의 가호",
 
 ---
 
-## 11. 변경 이력
+<a id="11-final-result"></a>
+## 11. 최종 결과 (2026-11-26) — 사용자 테스트 PASS
+
+### 11-1. 무엇을 했나
+
+- **구현 `754e3e7`:** 셋업 도구 정령 슬롯 4 줄을 원소 공명 자리표시 → 물결의 가호(`WithExtra(InstantBuff(…))`)로 교체(옛 두 줄은 주석), `ExpectedAvailableCount` 14 → 15(옛 줄 주석), 완료 문구에 「· 물결의 가호」, 회귀 검사 6곳 `== 14` → `== 15`(옛 줄 주석)와 PASS 문구 3곳, 새 검사 TB-T1 ~ TB-T4(`RunUnitActionSelfValidation.SupportRegen.cs`), 틀리게 된 주석 4곳 교체(T-5 — `UnitCombatUseCase.cs` · `SupportSkillEffectSystem.Regen.cs` · `SupportSkillEffectSystem.RegenDiagnostics.cs`, 실행 줄 무변경). 게임 런타임 실행 줄 · RPC · 스키마(13) 무변경. 진단 최소 추가 D-1(Wave 키)은 넣지 않았다(11-3).
+- **사용자 작업:** 셋업 메뉴로 자산 재생성(새 `Skill_Spirit_TideBlessing.asset` · 로드아웃 교체 — 사용자 PC에서 생성) · 멀티 실기 · 회귀 스위트.
+- **정리(PASS 뒤 — 최상단 표 규칙):** 주석으로 남긴 옛 줄(원소 공명 자리표시 두 줄 · `ExpectedAvailableCount = 14` 줄 · 회귀 검사 `== 14` 6곳)은 game-programmer가 삭제한다(정리 후속 커밋 — 이 문서 작성 시점에 진행 중). 셋업 도구의 더 오래된 `= 8` 주석 줄은 U-5 ②대로 그대로 둔다.
+
+### 11-2. 테스트 판정 (메인 세션 로그 판정 · 사용자 보고)
+
+**구성:** 멀티 1구성 — 에디터 = Host(Blue) · Android = Client(Red), 양쪽 정령, 빌드 `754e3e7`. **로그:** 첫 업로드 `2026-11-26_00_49_support-skill-tide-blessing_01`(Android Client 로그만 — 에디터 일일 로그 누락, 11-5) · 재수집 `2026-11-26_02_00_support-skill-tide-blessing1_01`(에디터 Host 포함 — 사용자가 작업명 끝에 숫자를 붙여 올린 기존 관례). 원시 로그는 저장소에 넣지 않는다([LogRules](../../../LogRules.md) §1.10).
+
+| # | 판정 | 근거(메인 세션 전달) |
+|---|---|---|
+| TB-L0 | PASS | 셋업 도구 「사용 가능 스킬 15개」 — 사용자 보고. 「값이 바뀐 자산 0 · 새로 만든 자산 1」 숫자는 전달된 판정에 없음 |
+| TB-L1 · TB-L11 | PASS | `ActivationConfirmed` `Slot=4` Blue · Red 모두(Client 팀 시전도 서버 확정) · `CooldownMs=15000` · `ActivationRejected` 0 |
+| TB-L2 | PASS | `RegenApplied` 시전당 정확히 2줄 — `Kind=Regen Target=Unit MagMilli=20000 DurationMs=8000` · `Kind=HealAmpMul Target=Unit MagMilli=1250` — 각 30줄, `Target=Building` 0 |
+| TB-L3 | PASS | `RegenTickSample` 244줄 전부 `Base=20 Amplified=25 Check=Match` |
+| TB-L4 | PASS | `BuildingRegenSample` 0 |
+| TB-L5 | PASS (U-1 확인) | `HealAmpSample Source=Wave`(TorrentSpirit 파도) 50줄 전부 `Check=Match` — 파도 회복 1.25배 |
+| TB-L6 | PASS | `RegenEnded Reason=Expire` `ActualMs` 8000 ~ 8101, 재시전 때 `Reason=Replaced` 28(정상 교체), `TotalCheck` 30 전부 `Match` |
+| TB-L9 | PASS | Client `ActivationReceived` `Slot=4` 12건(양 팀) · `BuffVfxSkipped Kind=Regen Reason=NoPrefab`(VFX 미제작 — 예상) |
+| TB-L10 | PASS(부분) | Client 「유닛 힐 동기화」 `AppliedHeal=25`. 같은 유닛의 Client `Hp` = Host `HpAfter` 대조는 전달된 판정에 없음 |
+| TB-L13 | 관측 | `RegenEnded Reason=GameEnd` 4. 「그 뒤 `RegenApplied` 0」은 전달된 판정에 없음 |
+| TB-L14 | 경기 진행 | 두 빌드로 경기가 진행됐다(계약 불일치 언급 없음). 5번 칸 글자 육안 보고는 전달된 판정에 없음 |
+| TB-L15 | PASS | 회귀 스위트 — 사용자 직접 보고 「다 PASS였어」(무언급 간주가 아님). 결과 파일 없음 — Console만 |
+| TB-L7 · TB-L8 · TB-L12 | 전달된 판정에 없음 | 체력 가득 건너뜀(`FullHpSkips`) · 효과 중 새 유닛 제외 · 다른 스킬 회귀(재생의 뿌리는 초월이라 이 구성에 없음). 효과 서비스 경로는 앞 Task 실기와 TB-T1 ~ TB-T4가 덮는다 |
+
+- **ERROR 줄:** 기존 관찰기 `[UAS-MOVE-AUTH] END` · `[UAS-ATTACK-SHADOW]`의 경기 종료 줄 — 이 작업과 무관(공용 메모리 「현재 작업과 무관한 관찰은 진행을 막지 않는다」).
+- **미관측:** 싱글(Host와 같은 서버 경로 — 6절 「선택」) · 늦은 접속. 파도 증폭 합계는 D-1을 넣지 않아 끝 줄에서 `Other`에 섞인다(표본 + `TotalCheck`로 판정).
+
+<a id="11-3-u-results"></a>
+### 11-3. 사용자 확인 항목 결과
+
+| # | 결과 | 상태 |
+|---|---|---|
+| U-1 | 파도 회복 1.25배 **그대로**(코드 무변경) — TB-L5로 확인 | 제안대로 진행 · 사용자 이의 없음 |
+| U-2 | `Skill_Spirit_ElementalResonance.asset` **유지** — 로드아웃에서만 빠짐 | 같음 |
+| U-3 | 설명 문구 「맵 전체 아군 유닛에 체력 재생을 부여하고 받는 회복을 늘린다.」 | 같음 |
+| U-4 | VFX 번호 V25 · V26 · 9절 세트 사양 — **미확정** | VFX 작업 때 결정. [스킬 VFX 기획](../../../Assets/SkillVFXDesign.md)에는 「제안(미확정)」으로만 옮겼다 |
+| U-5 | ① 주석 4곳 교체(T-5) — 했다 · ② 셋업 도구 83행 낡은 `= 8` 주석 — **바꾸지 않음** | 제안대로 진행 · 사용자 이의 없음 |
+| D-1 | `RegenEnded` Wave 키(`WaveCount` · `WaveReq` · `WaveAmp`) **미추가** — `DiagRev=1` 그대로 | 같음 |
+
+### 11-4. 이 작업 뒤 정해진 것 (사용자 결정 2026-11-26)
+
+- **셋업 도구 `SupportSkillLoadoutSetup.cs` 유지.** 이번 작업으로 사용 불가 스킬이 0이 되어 종전 퇴역 조건(사용자 2026-11-03 「작업이 모두 완료된 후에 제거하도록 하자」)이 찼지만, 사용자가 「도구는 이번에만사용하는거야? 앞으로도 사용할여지가있나 ? 그럼 남겨두도록하자」로 남기기로 했다 — 앞으로 쓰는 곳: 밸런싱 수치 변경 · 원소 공명 재추가 · 새 지원 스킬 추가. [PROJECT_STATUS](../../../PROJECT_STATUS.md) 「작업 완료 후 정리할 항목」의 해당 줄을 닫았다.
+- **원소 공명:** 이후 스킬 추가 때로 보류. 스킬 규칙 4 「건물당 최대 5」 때문에 다시 넣으려면 규칙 개정 또는 다른 정령 스킬과 교체가 필요하다(7절 R-5) — [ROADMAP](../../../ROADMAP.md) 보류 행.
+- **푸시 · 병합:** 사용자 「문서갱신하고 푸시 병합도하자」 — 메인 세션이 수행한다.
+
+### 11-5. 관찰 (이 작업 범위 밖 — 기록만)
+
+- **로그 수집 누락:** 첫 업로드(통합 수집 메뉴 `Hexiege/Logs/Collect Device Logs and Create ZIP`)에서 에디터 일일 로그 `_editor/2026-11-26/RuntimeLog.txt`(세션 00:31:56 시작)가 빠졌다 — **원인 미확인.** 메인 세션이 처음 「자정 넘김 때문」이라고 안내했으나 틀린 것으로 확인됐다([`.claude/mistakes.md`](../../../../../../.claude/mistakes.md) 「로그 누락 원인을 코드만 보고 단정해 안내」). 재수집(두 번째 업로드)에서는 포함됐다. 재발 시 압축 창 결과 메시지를 확인한다 — ROADMAP 「관찰 중」 행.
+
+### 11-6. 10절 → 반영
+
+| 문서 | 반영 |
+|---|---|
+| 스킬 규칙 | 자연어 설명 끝 문단(열넷 → 15개 모두 · 원소 공명 보류), 규칙 13 「다른 출처와 겹칠 때」 · 「재생 · 회복 증폭」(물결의 가호 항목 · 파도 회복) · 「수치」, 규칙 25 재생 항목 한 줄, 「추후 데이터로 확정할 항목」 원소 공명 보류. 규칙 번호 신설 · 재배열 없음 |
+| 스킬 VFX 기획 | 3절 표 원소 공명 행 → 물결의 가호 행(번호 V25 · V26 제안 — 미확정), 「원소 공명」 절 → 물결의 가호 절 + 원소 공명 보류 메모, 5절 열린 항목(세트 사양 · 발동 표시 세 개) |
+| VFXSFXList | 「스킬 강화 상태 이펙트」 표에 물결의 가호 행, 「스킬 발동 이펙트」 메모에 물결의 가호 발동 칸 |
+| 상위 기획 Plan | 1-2 정령 5 · 3-4 · 결정 15에 날짜 조각 · 변경 이력 행 |
+| PROJECT_STATUS · ROADMAP · WORK_HISTORY | 현황 행 · 개수 도장 정리 · 셋업 도구 항목 닫음 / 원소 공명 보류 · 로그 수집 관찰 행 / 완료 행 |
+| StatsReference | **반영 안 함** — 이 문서에는 지원 스킬 수치 절이 없다(앞 14개 스킬도 없음). 임시값의 원본은 스킬 규칙 13 「수치」 |
+| 공용 · 에이전트 메모리 | WORKFLOW [9] |
+
+## 12. 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-11-25 | 작성. 사용자 「task문서 작성하고 구현 진행해」. 결정 D-1 · D-2(원문 1-1) · D-3(메인 세션 정리). 코드 · 다른 문서 무변경 |
+| 2026-11-26 | 최종 결과 11절 추가(종전 11절 변경 이력 → 12절). 사용자 「다 PASS였어」 → 「문서갱신하고 푸시 병합도하자 도구는 이번에만사용하는거야? 앞으로도 사용할여지가있나 ? 그럼 남겨두도록하자」. 머리 상태 줄 · 3절 결과 메모 갱신 |
