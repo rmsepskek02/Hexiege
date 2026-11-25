@@ -559,7 +559,6 @@ namespace Hexiege.Application
                 // (위상 불변식이 지켜지는 한 활성 물안개는 전부 함께 통과하거나 전부 함께 여기서 빠진다.)
                 //   2026-11-25: 비교 기준을 「1초」에서 「1초 − 허용 오차(0.0001초)」로 바꿨다(HealTickFireTolerance 주석).
                 //   float 누적 오차로 누적기가 0.99999756처럼 1에 살짝 못 미친 채 물안개가 걷혀 9번만 회복하던 경우를 막는다.
-                //   수정 전 줄(비교용 보존): if (mist.TickAccum < HealTickInterval)
                 if (mist.TickAccum < HealTickInterval - HealTickFireTolerance)
                 {
                     mist.FiredThisTick = false;
