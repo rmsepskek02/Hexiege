@@ -62,7 +62,8 @@ namespace Hexiege.Editor.Combat
             ValidateMeteorSourceAndSetupGates();       // M-T8 · M-T10 · 소스 게이트
             ValidateMeteorAssetContract();             // M-T1
             ValidateMeteorWarningSpeedPoolRestore();   // M-T9(풀 항목 — ParticleSystem)
-            Debug.Log("[UAS-DIAG][SKILL-METEOR] self-validation PASS: Meteor asset available as type A / point / delay 1.5 / burn 50 × 3 / Spirit slot 0 with filled-slot VFX contracts (M-T1), impact exactly at the 15th 0.1 s tick with cooldown at activation (M-T2), circle judged at impact incl. moved-out / moved-in units (M-T3), burn only on surviving enemy units with source −1 and 50 per second for 3 s, none on buildings / killed / allies / outside, delay-0 burn kept (M-T4), existing burn refreshed as one record with the new values (M-T5), impact + burn after caster loss and nothing after game end (M-T6), Bombardment unchanged without burn (M-T7), setup count 14 with the Meteor spec (M-T8), warning playback speed math and pool restore (M-T9), schema 13 (M-T10).");
+            // [2026-11-25 물결의 가호 Task T-4] PASS 문구의 「setup count 14 with the Meteor spec」 → 15(물결의 가호를 켜 셋업 기대 수가 15가 됐다 — 문구만).
+            Debug.Log("[UAS-DIAG][SKILL-METEOR] self-validation PASS: Meteor asset available as type A / point / delay 1.5 / burn 50 × 3 / Spirit slot 0 with filled-slot VFX contracts (M-T1), impact exactly at the 15th 0.1 s tick with cooldown at activation (M-T2), circle judged at impact incl. moved-out / moved-in units (M-T3), burn only on surviving enemy units with source −1 and 50 per second for 3 s, none on buildings / killed / allies / outside, delay-0 burn kept (M-T4), existing burn refreshed as one record with the new values (M-T5), impact + burn after caster loss and nothing after game end (M-T6), Bombardment unchanged without burn (M-T7), setup count 15 with the Meteor spec (M-T8), warning playback speed math and pool restore (M-T9), schema 13 (M-T10).");
         }
 
         /// <summary> 서버 판정 fixture 묶음(M-T2 ~ M-T7)과 순수 계산(M-T9 앞부분). 헤드리스 하네스가 이 메서드만 부른다. </summary>
@@ -454,8 +455,12 @@ namespace Hexiege.Editor.Combat
             FieldInfo expected = typeof(Hexiege.EditorTools.SupportSkillLoadoutSetup).GetField("ExpectedAvailableCount",
                 BindingFlags.NonPublic | BindingFlags.Static);
             // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
-                "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Meteor enabled, then Smoke Bomb).");
+            // [2026-11-25 물결의 가호 Task T-4] 14 → 15 — 정령 슬롯 5(0부터 4)의 원소 공명(사용 불가) 자리에 물결의 가호(유닛 재생 · 받는 회복 배율)를
+            //   「사용 가능」으로 넣었다. 옛 검사 두 줄은 비활성화(기록용 — 테스트 통과 뒤 삭제 여부를 사용자에게 묻는다):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+            //     "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Meteor enabled, then Smoke Bomb).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 15,
+                "M-T8 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 15 (Meteor enabled, then Smoke Bomb + Tide Blessing).");
             string setup = File.ReadAllText("Assets/Editor/Setup/SupportSkillLoadoutSetup.cs");
             Require(SupportActiveLineCount(setup, "PointPlaceholder(\"Skill_Spirit_Meteor\"") == 0
                     && SupportActiveLineCount(setup, "FileName = \"Skill_Spirit_Meteor\", Race = s, Slot = 0,") == 1

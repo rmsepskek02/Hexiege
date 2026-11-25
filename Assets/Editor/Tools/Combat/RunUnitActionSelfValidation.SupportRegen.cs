@@ -28,6 +28,17 @@
 //   R-T9 소스 게이트 — 회복 지점 3곳 증폭 호출 · 남은 직접 Heal 없음 · 출처 전달 · 물안개 주입 · Tick 순서(재생 → 만료) ·
 //        셋업 기대 수 11 · 스키마 10 유지(새 RPC 없음).
 //
+// [2026-11-25 정령 지원 스킬 「물결의 가호」 Task T-4 — Plan 5절] 같은 재생 · 받는 회복 배율 경로를 「유닛만」 쓰는 정령 스킬 검사를 덧붙였다.
+//   Task: Assets/_Project/Docs/_Tasks/2026-11-25/18_35_support-skill-tide-blessing/ (Plan 1-2 · 2절 T-4 · 5절).
+//   TB-T3 증폭 ×1.25 순수 계산 — 재생 20 → 25 · 작은 회복 이월(1 · 1 · 1 · 1 → 1 · 1 · 1 · 2 = 합 5) · 파도 회복도 ×1.25(Plan U-1) ·
+//         건물은 배율 없음 · 1초 재생 주기에 유닛 +25 · 건물 +0.
+//   TB-T2 셋업 표 게이트 — 주석이 아닌 줄에 원소 공명 자리표시 0 · 물결의 가호 줄 1 · 추가 효과 「유닛 · 받는 회복 배율 1.25」 줄 1.
+//         (사용 가능 수 15는 위 R-T9 등 6곳의 같은 검사가 본다.)
+//   TB-T1 자산 계약 — Skill_Spirit_TideBlessing(사용 가능 · 즉시 · 타입 C · 재생 20 · 8초 · 쿨 15 · 아군) · 추가 효과 정확히 1줄 ·
+//         건물 대상 효과 없음(건물 상태 VFX 기준 None) · 정령 로드아웃 슬롯 4 · 채워진 상태 VFX 칸은 상태 이펙트 계약.
+//   TB-T4 실행기 — 물결의 가호 자산이 지원 다리로 정확히 2번(유닛 재생 20 · 유닛 배율 1.25, 8초) · 건물 대상 호출 0 · 상태 다리 0.
+//   🔴 TB-T1 · TB-T4는 자산을 읽는다 — 셋업 메뉴(Create Support Skill Assets And Replace Loadout)를 먼저 한 번 돌려야 자산이 생긴다.
+//
 // 실제 씬 · 멀티 전송 · 이펙트 모양 · 자연회복 연구 · BloomFairy 시전 경로는 여기서 확인하지 않는다(사용자 실기 항목 — Plan 6-2-7).
 // 모든 fixture는 새 인스턴스를 만든다. 실행 중(Play)에는 돌지 않는다.
 // ============================================================================
@@ -67,6 +78,14 @@ namespace Hexiege.Editor.Combat
             ValidateRegenSourceGates();         // R-T9
             // [2026-11-24 연막탄 정리] PASS 문구의 「schema 11」 → 「schema 12」(연막탄 S-3이 올린 값 — 문구만). 「setup 12」는 이 정리 범위 밖이라 그대로 — 메테오(13) 때부터 실제 값과 달랐다(지금 14).
             Debug.Log("[UAS-DIAG][SKILL-REGEN] self-validation PASS: heal amplification ×1.5 with per-target carry (1,1,1,1 → 6) and pass-through without an effect (R-T1), the three heal points amplify exactly once and stay unchanged without the service or the effect (R-T2), regen pulses every 1 s (unit 20 / building 40, amplified once to 30 / 60), exactly 8 pulses in 8 s at 0.1 s and 1/60 s ticks, max-HP clamp, full-HP skip keeps the effect (R-T3), expiry / replace / death / destruction / upgrade / newcomer exclusion / Close / rejection (R-T4), healed events only on real gains with text every 3 pulses (R-T5), executor routing 4 support calls (R-T6), unit VFX not skipped + building scope ActivationBuildings (R-T7), Roots asset contract (R-T8), heal-point / tick-order / injection / setup 12 / schema 13 source gates (R-T9).");
+
+            // [2026-11-25 물결의 가호 Task T-4] 정령 「물결의 가호」 검사(TB-T1 ~ TB-T4). 같은 SupportFixtureStatsScope 안에서 돈다.
+            //   순수 계산(TB-T3) → 셋업 표 글자(TB-T2) → 자산을 읽는 검사(TB-T1 · TB-T4) 순서 — 자산이 없을 때 앞의 두 검사는 이미 끝나 있다.
+            ValidateTideBlessingArithmetic();      // TB-T3
+            ValidateTideBlessingSetupGate();       // TB-T2
+            ValidateTideBlessingAsset();           // TB-T1
+            ValidateTideBlessingExecutorRouting(); // TB-T4
+            Debug.Log("[UAS-DIAG][SKILL-REGEN] tide-blessing self-validation PASS: ×1.25 with carry (1,1,1,1 → 5), regen 20 → 25, wave heal ×1.25 through heal point ①, buildings untouched (TB-T3), setup row replaces Elemental Resonance with one unit-only extra (TB-T2), Tide Blessing asset contract in Spirit slot 4 with no building effect (TB-T1), executor routing exactly 2 unit support calls (TB-T4).");
         }
 
         // ── fixture 도우미 ─────────────────────────────────────────────
@@ -520,12 +539,165 @@ namespace Hexiege.Editor.Combat
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(재생의 뿌리와 무관한 변경).
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
             // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
-                "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
+            // [2026-11-25 물결의 가호 Task T-4] 14 → 15 — 정령 슬롯 5(0부터 4)의 원소 공명(사용 불가) 자리에 물결의 가호(유닛 재생 · 받는 회복 배율)를
+            //   「사용 가능」으로 넣었다. 옛 검사 두 줄은 비활성화(기록용 — 테스트 통과 뒤 삭제 여부를 사용자에게 묻는다):
+            // Require(expected != null && (int)expected.GetRawConstantValue() == 14,
+            //     "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
+            Require(expected != null && (int)expected.GetRawConstantValue() == 15,
+                "R-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 15 (Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled + Tide Blessing).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(재생의 뿌리와 무관한 변경).
             // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,
                 "R-T9 stage B adds no RPC (heal HP uses the existing heal sync); the schema is 13 only because of the air-strike direction arguments (11) and the smoke-bomb projectile launch RPC arguments (12).; current merged DoT provenance + smoke evasion require schema 13.");
+        }
+
+        // ====================================================================
+        // [2026-11-25 정령 지원 스킬 「물결의 가호」 Task T-4] TB-T1 ~ TB-T4
+        // ====================================================================
+        //
+        // [초급 개발자용 설명]
+        //   물결의 가호는 재생의 뿌리와 같은 두 효과(재생 · 받는 회복 배율)를 쓰지만 「유닛만」 대상이고 배율이 1.25다.
+        //   게임 코드는 바꾸지 않았으므로(데이터만 추가) 여기서는 ① 1.25라는 새 숫자로도 소수 이월 계산이 맞는지,
+        //   ② 셋업 표 · 자산이 「유닛만」으로 만들어졌는지, ③ 실행기가 건물에는 아무것도 보내지 않는지를 숫자로 확인한다.
+
+        // 물결의 가호 자산 경로(셋업 도구가 만든다 — 메뉴를 먼저 한 번 돌려야 파일이 생긴다).
+        private const string TideBlessingAssetPath = "Assets/_Project/Resources/Config/Skills/Skill_Spirit_TideBlessing.asset";
+        // 물결의 가호 임시값(Plan 1-2 — 사용자 「수치는 임시로 주고 밸런싱할때 맞추자」). 값을 바꾸면 이 상수와 셋업 표를 함께 고친다.
+        private const float TideRegenPerSecond = 20f;
+        private const float TideHealAmp = 1.25f;
+        private const float TideDuration = 8f;
+        // 정령 로드아웃에서 물결의 가호가 들어가는 슬롯(0부터 — 화면 5번 칸).
+        private const int TideSpiritSlot = 4;
+
+        // 물결의 가호 한 번(실행기가 지원 다리로 보내는 두 줄과 같은 값 — 유닛 재생 · 유닛 받는 회복 배율. 건물 줄은 없다).
+        private static void RegenApplyTideBlessing(SupportSkillEffectSystem fx, int sequence, TeamId team)
+        {
+            fx.Apply(sequence, team, TideSpiritSlot, 78, team, SkillEffectTarget.Unit, StatusEffectKind.Regen, TideRegenPerSecond, TideDuration);
+            fx.Apply(sequence, team, TideSpiritSlot, 78, team, SkillEffectTarget.Unit, StatusEffectKind.HealAmpMul, TideHealAmp, TideDuration);
+        }
+
+        /// <summary> TB-T3 — 증폭 ×1.25 순수 계산(소수 이월 · 재생 · 파도 회복) · 건물은 배율 없음. </summary>
+        private static void ValidateTideBlessingArithmetic()
+        {
+            // (1) 서비스에서 직접 — 1.25는 2진수로 딱 떨어지는 수라 오차 없이 계산된다(20 × 1.25 = 25, 1 × 1.25 = 1.25).
+            var f = new SupportDamageFixture(true);
+            f.Effects.SetBuildingPlacement(f.Buildings);
+            UnitData a = RegenWoundedTank(f, 9880, TeamId.Blue, 1000);
+            BuildingData castle = RegenWoundedCastle(f, 97880, TeamId.Blue, 0, 0, 500);
+            RegenApplyTideBlessing(f.Effects, 81, TeamId.Blue);
+            Require(f.Effects.GetHealAmpMultiplier(a.Id, true) == TideHealAmp && f.Effects.GetHealAmpMultiplier(castle.Id, false) == 1f
+                    && !f.Effects.BuildingHasEffect(castle.Id, StatusEffectKind.Regen),
+                "TB-T3 Tide Blessing puts ×1.25 on the living Blue unit only — the building gets no multiplier and no regen.");
+
+            // 소수 이월 — 1 HP 회복 4번 = 1 · 1 · 1 · 2(1.25 · 1.5 · 1.75 · 2.0의 정수 부분, 합 5 = 4 × 1.25). 나머지는 다시 0.
+            int[] got = new int[4];
+            for (int i = 0; i < 4; i++) got[i] = f.Effects.AmplifyHeal(a, 1, HealAmpSource.Natural);
+            Require(got[0] == 1 && got[1] == 1 && got[2] == 1 && got[3] == 2 && f.Effects.GetHealAmpCarry(a.Id, true) == 0d,
+                "TB-T3 per-target carry at ×1.25: 1,1,1,1 → 1,1,1,2 (sum 5 = 4 × 1.25), carry back to 0 (got " + string.Join(",", got) + ").");
+            Require(f.Effects.AmplifyHeal(a, (int)TideRegenPerSecond, HealAmpSource.SkillRegen) == 25 && f.Effects.GetHealAmpCarry(a.Id, true) == 0d,
+                "TB-T3 the regen amount 20 × 1.25 = 25 exactly (no carry).");
+            Require(f.Effects.AmplifyHeal(castle, 10, HealAmpSource.Mist) == 10, "TB-T3 a building heal is unchanged (Tide Blessing has no building line).");
+
+            // (2) 회복 지점 ①(ApplyHealToUnit) — TorrentSpirit 파도 회복도 이 줄을 지나므로 ×1.25가 된다(Plan U-1 「그대로 둔다」).
+            //     10 → 12.5 → 12(나머지 0.5), 다음 10 → 12.5 + 0.5 = 13 → 13(나머지 0). 합 25 = 20 × 1.25.
+            MethodInfo healToUnit = RegenHealToUnitMethod();
+            var w = new SupportDamageFixture(true);
+            UnitData wu = RegenWoundedTank(w, 9881, TeamId.Blue, 1000);
+            RegenApplyTideBlessing(w.Effects, 82, TeamId.Blue);
+            int wave1 = RegenHealVia(healToUnit, w.Combat, wu, 10, HealAmpSource.Wave);
+            int wave2 = RegenHealVia(healToUnit, w.Combat, wu, 10, HealAmpSource.Wave);
+            Require(wave1 == 12 && wave2 == 13 && w.Effects.GetHealAmpCarry(wu.Id, true) == 0d,
+                "TB-T3 a wave heal of 10 through heal point ① is amplified ×1.25 with carry: 12 then 13 (got " + wave1 + ", " + wave2 + ").");
+
+            // (3) 재생 채널 — 1초 주기마다 유닛 +25(재생에도 배율은 한 번만), 건물은 그대로. 8초 뒤 효과가 끝난다(8주기 = +200).
+            var g = new SupportDamageFixture(true);
+            g.Effects.SetBuildingPlacement(g.Buildings);
+            UnitData gu = RegenWoundedTank(g, 9882, TeamId.Blue, 1000);
+            BuildingData gb = RegenWoundedCastle(g, 97882, TeamId.Blue, 0, 0, 500);
+            RegenApplyTideBlessing(g.Effects, 83, TeamId.Blue);
+            g.Effects.Tick(0.5f);
+            Require(gu.Hp == 1000, "TB-T3 no heal before the first 1 s pulse.");
+            g.Effects.Tick(0.5f);
+            Require(gu.Hp == 1025 && gb.Hp == 500,
+                "TB-T3 the first pulse heals the unit 20 × 1.25 = 25 and leaves the building alone (unit +" + (gu.Hp - 1000) + ", building +" + (gb.Hp - 500) + ").");
+            for (int i = 0; i < 80; i++) g.Effects.Tick(0.1f);
+            Require(gu.Hp == 1200 && gb.Hp == 500 && g.Effects.ActiveBatchCount == 0 && g.Effects.GetHealAmpMultiplier(gu.Id, true) == 1f,
+                "TB-T3 8 s gives exactly 8 pulses (+200), the building stays at 500, and the multiplier is gone afterwards (unit +" + (gu.Hp - 1000) + ").");
+        }
+
+        /// <summary> TB-T2 — 셋업 표 게이트: 원소 공명 자리표시가 물결의 가호(유닛만) 줄로 바뀌었는가. </summary>
+        private static void ValidateTideBlessingSetupGate()
+        {
+            // 주석 줄은 세지 않는다(SupportActiveLineCount) — 옛 자리표시 줄을 기록용 주석으로 남겨 두어도, 나중에 지워도 결과가 같다.
+            string setup = File.ReadAllText("Assets/Editor/Setup/SupportSkillLoadoutSetup.cs");
+            Require(SupportActiveLineCount(setup, "InstantPlaceholder(\"Skill_Spirit_ElementalResonance\"") == 0,
+                "TB-T2 the Elemental Resonance placeholder row must be out of the setup table (kept only as a comment) — Plan T-1.");
+            Require(SupportActiveLineCount(setup, "InstantBuff(\"Skill_Spirit_TideBlessing\", s, 4, \"물결의 가호\",") == 1
+                    && SupportActiveLineCount(setup, "StatusEffectKind.Regen, 20f, 8f)") == 2
+                    && SupportActiveLineCount(setup, "SkillEffectTarget.Unit, StatusEffectKind.HealAmpMul, 1.25f)") == 1,
+                "TB-T2 the setup table must have one Tide Blessing row (Spirit slot 4, regen 20 / 8 s, one unit ×1.25 extra). " +
+                "('Regen, 20f, 8f)' is counted twice: Roots of Regeneration + Tide Blessing.)");
+        }
+
+        /// <summary> TB-T1 — 물결의 가호 자산 계약(값 · 추가 효과 1줄 · 건물 효과 없음 · 정령 슬롯 4 · 채워진 VFX 칸 계약). </summary>
+        private static void ValidateTideBlessingAsset()
+        {
+            SkillDefinition def = AssetDatabase.LoadAssetAtPath<SkillDefinition>(TideBlessingAssetPath);
+            Require(def != null,
+                "TB-T1 " + TideBlessingAssetPath + " must exist — run Hexiege/Setup/Skills/Create Support Skill Assets And Replace Loadout first.");
+            SkillData tide = def.ToSkillData();
+            Require(tide.IsAvailable && tide.AimType == SkillAimType.Instant && tide.Mechanic == SkillMechanicType.GlobalStatusChange
+                    && (StatusEffectKind)tide.StatusKind == StatusEffectKind.Regen && Mathf.Approximately(tide.Magnitude, TideRegenPerSecond)
+                    && Mathf.Approximately(tide.Duration, TideDuration) && Mathf.Approximately(tide.Cooldown, 15f) && tide.TargetsAllies
+                    && tide.DisplayName == "물결의 가호",
+                "TB-T1 Tide Blessing must be available / instant / type C / regen 20 per s / 8 s / cooldown 15 / allies, named 물결의 가호 (Plan 1-2 temporary values).");
+            Require(tide.ExtraEffects.Count == 1
+                    && tide.ExtraEffects[0].Target == SkillEffectTarget.Unit && tide.ExtraEffects[0].Kind == StatusEffectKind.HealAmpMul
+                    && Mathf.Approximately(tide.ExtraEffects[0].Magnitude, TideHealAmp),
+                "TB-T1 Tide Blessing has exactly one extra: unit ×1.25 received heal (no building line).");
+            Require(!tide.HasBuildingEffect() && BuildingStatusVfxTargetPolicy.Resolve(tide) == BuildingStatusVfxScope.None,
+                "TB-T1 Tide Blessing has no building effect, so the building status VFX presenter ignores it (scope None).");
+
+            const string loadoutPath = "Assets/_Project/Resources/Config/Skills/SkillLoadoutConfig.asset";
+            SkillLoadoutConfig loadout = AssetDatabase.LoadAssetAtPath<SkillLoadoutConfig>(loadoutPath);
+            Require(loadout != null, "TB-T1 SkillLoadoutConfig asset must exist.");
+            loadout.ClearCache();
+            var spirit = loadout.GetLoadout(RaceId.Spirit);
+            Require(spirit != null && spirit.Count > TideSpiritSlot && spirit[TideSpiritSlot] != null
+                    && spirit[TideSpiritSlot].DisplayName == tide.DisplayName && spirit[TideSpiritSlot].IsAvailable,
+                "TB-T1 Tide Blessing must be the available skill in Spirit slot 4 (button 5) — Elemental Resonance is out of the loadout.");
+
+            // 유닛 상태 VFX 칸은 지금 비어 있다(VFX는 별도 단계 — Plan 9절). 채워지면 상태 이펙트 계약을 지켜야 한다(R-T8과 같은 방식).
+            if (tide.StatusVfxPrefab != null)
+            {
+                Require(EffectManager.CheckUnitBuffLoopContract(tide.StatusVfxPrefab),
+                    "TB-T1 a filled Tide Blessing status VFX (" + tide.StatusVfxPrefab.name + ") must satisfy the loop contract (Looping ON, Stop Action None).");
+                foreach (ParticleSystem ps in tide.StatusVfxPrefab.GetComponentsInChildren<ParticleSystem>(true))
+                    Require(ps.main.scalingMode == ParticleSystemScalingMode.Hierarchy,
+                        "TB-T1 Tide Blessing status VFX particle '" + ps.name + "' must use Scaling Mode Hierarchy.");
+            }
+        }
+
+        /// <summary> TB-T4 — 실행기: 물결의 가호는 상태 다리 없이 지원 다리로 정확히 2번(유닛만). </summary>
+        private static void ValidateTideBlessingExecutorRouting()
+        {
+            SkillDefinition def = AssetDatabase.LoadAssetAtPath<SkillDefinition>(TideBlessingAssetPath);
+            Require(def != null, "TB-T4 " + TideBlessingAssetPath + " must exist (run the setup menu first).");
+            SkillData tide = def.ToSkillData();
+            var statusCalls = new List<StatusEffectKind>();
+            var supportCalls = new List<(TeamId team, SkillEffectTarget target, StatusEffectKind kind, float mag, float dur)>();
+            var ctx = new SkillActivationContext(tide, TeamId.Blue, 1, Vector3.zero, false,
+                (t, c, r, d, bId) => { }, (t, c, r, dps, dur) => { },
+                (t, k, m, d) => { statusCalls.Add(k); },
+                (t, c, r, d) => { },
+                null,
+                (t, tg, k, m, d) => { supportCalls.Add((t, tg, k, m, d)); });
+            new GlobalStatusChangeExecutor().Execute(ctx);
+            Require(statusCalls.Count == 0 && supportCalls.Count == 2
+                    && supportCalls[0].target == SkillEffectTarget.Unit && supportCalls[0].kind == StatusEffectKind.Regen && Mathf.Approximately(supportCalls[0].mag, TideRegenPerSecond)
+                    && supportCalls[1].target == SkillEffectTarget.Unit && supportCalls[1].kind == StatusEffectKind.HealAmpMul && Mathf.Approximately(supportCalls[1].mag, TideHealAmp)
+                    && supportCalls.TrueForAll(s => Mathf.Approximately(s.dur, TideDuration) && s.team == TeamId.Blue && s.target != SkillEffectTarget.Building),
+                "TB-T4 the executor sends exactly unit regen 20 and unit ×1.25 (8 s) to the caster's own team via the support bridge — no building call, no status system (got " + supportCalls.Count + " support calls).");
         }
     }
 }

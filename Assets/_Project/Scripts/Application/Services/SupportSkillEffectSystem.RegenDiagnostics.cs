@@ -81,7 +81,10 @@ namespace Hexiege.Application
                 return;
             }
 
-            // 받는 회복 배율 묶음 — 출처별 합계와 총 대조. Other = Unspecified + Wave(초월 팀과 만나지 않는 출처 · 넘기지 않은 호출).
+            // 받는 회복 배율 묶음 — 출처별 합계와 총 대조. Other = Unspecified + Wave(TorrentSpirit 파도 회복 · 출처를 넘기지 않은 호출).
+            //   [2026-11-25 물결의 가호 Task T-5] 정령 「물결의 가호」 묶음에서는 파도 회복 증폭이 실제로 Other에 섞여 들어온다
+            //   (따로 세는 키는 두지 않았다 — 사용자 결정 D-1. 파도 증폭은 HealAmpSample Source=Wave 표본과 TotalCheck로 본다).
+            //   종전 괄호 문구 「초월 팀과 만나지 않는 출처」는 정령 쪽에도 받는 회복 배율 스킬이 생겨 맞지 않게 됐다.
             long reqTotal = 0, ampTotal = 0;
             for (int i = 0; i < b.DiagAmpReq.Length; i++) { reqTotal += b.DiagAmpReq[i]; ampTotal += b.DiagAmpOut[i]; }
             double lost = reqTotal * (double)b.Magnitude - ampTotal; // 버려진 나머지 합(대상마다 0 이상 1 미만)
