@@ -629,7 +629,8 @@ namespace Hexiege.Editor.Combat
             // 주석 줄은 세지 않는다(SupportActiveLineCount) — 옛 자리표시 줄을 기록용 주석으로 남겨 두어도, 나중에 지워도 결과가 같다.
             string setup = File.ReadAllText("Assets/Editor/Setup/SupportSkillLoadoutSetup.cs");
             Require(SupportActiveLineCount(setup, "InstantPlaceholder(\"Skill_Spirit_ElementalResonance\"") == 0,
-                "TB-T2 the Elemental Resonance placeholder row must be out of the setup table (kept only as a comment) — Plan T-1.");
+                // [2026-11-26 후속 정리] 실패 메시지 괄호만 고침 — 옛 자리표시 주석 줄은 fa632b4에서 지웠다. 직전 괄호 「(kept only as a comment)」.
+                "TB-T2 the Elemental Resonance placeholder row must be out of the setup table (no active line; comment lines are not counted) — Plan T-1.");
             Require(SupportActiveLineCount(setup, "InstantBuff(\"Skill_Spirit_TideBlessing\", s, 4, \"물결의 가호\",") == 1
                     && SupportActiveLineCount(setup, "StatusEffectKind.Regen, 20f, 8f)") == 2
                     && SupportActiveLineCount(setup, "SkillEffectTarget.Unit, StatusEffectKind.HealAmpMul, 1.25f)") == 1,
