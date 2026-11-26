@@ -292,9 +292,15 @@ namespace Hexiege.Infrastructure
             //    이 핸들러가 호출된다. 즉 정상 종료와 장애가 한 줄을 공유한다.
             //    Error 로 두면 정상 종료마다 거짓 경보가 쌓이고, Info 로 두면 진짜 장애가 묻힌다.
             //    → 중간값인 Warn 으로 두었다. 축 B 가 개발이라 릴리스에는 어차피 남지 않는다.
+            //
+            // [진단 DISC-DIAG ⑦ — 2026-11-26, 인게임 끊김 실측] 메시지·조건·순서는 그대로 두고
+            //   data 앞에 공통 진단 키(Diag=Disconnect, Event=ServerLostRaised, Role, UtcMs, RtMs, MatchSec)만 붙였다.
+            //   같은 콜백의 InGameDisconnectObserver 「PeerDisconnected」 줄은 「끊김을 받았다」, 이 줄은 「그래서
+            //   OnServerDisconnected 를 발행했다」는 다른 사실이다(맵 준비 중이면 위에서 return 해 이 줄이 없다).
+            //   Dev 로그 인자 안에서만 계산되어 릴리스 빌드에서는 함께 사라진다. 원래 키 ClientId 는 그대로 뒤에 이어진다.
             GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
                              "클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행",
-                             $"ClientId={clientId}");
+                             DisconnectDiag.Keys("ServerLostRaised", $"ClientId={clientId}"));
             OnServerDisconnected?.Invoke();
         }
 

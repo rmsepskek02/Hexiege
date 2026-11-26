@@ -473,9 +473,12 @@ namespace Hexiege.Infrastructure
             if (_announced) return;
 
             _announced = true;
+            // [진단 DISC-DIAG ③-c — 2026-11-26, 인게임 끊김 실측] 메시지·조건·순서는 그대로 두고
+            //   data 앞에 공통 진단 키(Diag=Disconnect, Event=ForceWin, Role, UtcMs, RtMs, MatchSec)만 붙였다.
+            //   Dev 로그 인자 안에서만 계산되어 릴리스 빌드에서는 함께 사라진다. 원래 키 WinnerTeamIndex 는 그대로 뒤에 이어진다.
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "ForceWin 호출 — 상대 연결 끊김으로 강제 승리 처리",
-                $"WinnerTeamIndex={winnerTeamIndex}");
+                DisconnectDiag.Keys("ForceWin", $"WinnerTeamIndex={winnerTeamIndex}"));
 
             // ----------------------------------------------------------------
             // [버그 수정 2026-09-21] 호스트(서버) 측 결과 화면 미표시 + 전투 계속 진행 문제 해결

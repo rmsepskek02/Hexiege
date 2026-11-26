@@ -417,6 +417,13 @@ namespace Hexiege.Infrastructure
                 _rootPoseConsistencyObserver.Initialize(NetworkManager, IsServer);
             }
             UnitAttackShadowObserver.BeginSession(NetworkManager, IsServer);
+
+            // [진단 DISC-DIAG ⓪ — 2026-11-26, 인게임 끊김 실측] 기록만 하는 관찰자를 시작한다.
+            //   여기는 Host·Client 양쪽에서 역할(IsServer)이 확정되는 첫 자리라 「경기 시작 기준점(MatchStart)」으로 쓴다.
+            //   관찰자는 NetworkObject 가 아닌 별도 빈 GameObject 에 붙어 이 컴포넌트의 상태·순서를 건드리지 않으며,
+            //   BeginMatch 는 안에서 난 예외를 밖으로 내보내지 않는다(아래 초기화가 그대로 이어진다).
+            //   이 블록(#if)째로 릴리스 빌드에서는 사라진다.
+            InGameDisconnectObserver.BeginMatch(NetworkManager, IsServer, gameObject.scene);
 #endif
 
             // 완료 묶음의 중복/충돌 기억은 한 경기에만 유효하다. Host와 Client가 각각

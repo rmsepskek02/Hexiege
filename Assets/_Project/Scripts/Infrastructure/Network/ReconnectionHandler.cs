@@ -157,8 +157,12 @@ namespace Hexiege.Infrastructure
             //   똑같이 호출되어 코드가 둘을 구분하지 못한다. Error 로 두면 정상 종료마다 거짓 경보가 쌓이고
             //   Info 로 두면 진짜 장애가 묻히므로 그 중간값인 Warn 을 쓴다.
             //   축 B 가 개발인 이유: 에디터 2인 구성에서 클라이언트를 종료시키면 그대로 재현된다(축 B ① 아니오).
+            //   [진단 DISC-DIAG ③-a — 2026-11-26, 인게임 끊김 실측] 메시지·조건·순서는 그대로 두고
+            //   data 앞에 공통 진단 키(Diag=Disconnect, Event=GraceStart, Role, UtcMs, RtMs, MatchSec)만 붙였다.
+            //   DisconnectDiag.Keys 는 이 Dev 로그의 인자 안에서만 계산되므로 릴리스 빌드에서는 함께 사라진다.
+            //   원래 키(ClientId, WaitSeconds)는 같은 글자 그대로 뒤에 이어진다.
             GameLog.Dev.Warn("Network", nameof(ReconnectionHandler), "클라이언트 연결 끊김 — 재접속 대기 시작",
-                             $"ClientId={clientId}, WaitSeconds={_reconnectWaitSeconds}");
+                             DisconnectDiag.Keys("GraceStart", $"ClientId={clientId}, WaitSeconds={_reconnectWaitSeconds}"));
 
             _reconnectCoroutine = StartCoroutine(WaitAndForceWin());
         }
@@ -178,8 +182,9 @@ namespace Hexiege.Infrastructure
                 StopCoroutine(_reconnectCoroutine);
                 _reconnectCoroutine = null;
                 // [개발] 재접속으로 복구된 의도된 흐름 → Info / 개발.
+                // [진단 DISC-DIAG ③-b — 2026-11-26] 공통 진단 키(Event=GraceCancel)만 앞에 붙였다. 동작 무변경.
                 GameLog.Dev.Info("Network", nameof(ReconnectionHandler), "클라이언트 재접속 확인 — 강제 승리 대기 취소",
-                                 $"ClientId={clientId}");
+                                 DisconnectDiag.Keys("GraceCancel", $"ClientId={clientId}"));
             }
         }
 
@@ -217,8 +222,13 @@ namespace Hexiege.Infrastructure
             //         — "복구되었나?"라는 축 A 질문 자체가 성립하지 않는 정상 흐름이다.
             //   축 B: 에디터 2인 구성에서 클라이언트를 종료한 뒤 대기하면 그대로 재현된다(축 B ① 아니오).
             //         결과는 게임 종료 화면으로 플레이어에게 그대로 표시된다(축 B ② 아니오).
+            //   [진단 DISC-DIAG ③-c — 2026-11-26] 공통 진단 키(Event=GraceExpired)와 GraceElapsedSec 만 붙였다. 동작 무변경.
+            //   GraceElapsedSec = 마지막 「상대 끊김」 콜백부터 지금까지 실제로 걸린 초(앱 시작 후 실제 시간 기준).
+            //     30초 대기는 그 콜백 안에서 시작되므로 「대기 시작부터 걸린 초」와 같다.
+            //     WaitForSeconds 는 게임 시간으로 재므로, 앱이 내려가 멈춰 있던 시간이 섞이면 30 보다 크게 나온다.
             GameLog.Dev.Info("Network", nameof(ReconnectionHandler), "재접속 타임아웃 — 강제 승리 처리",
-                             $"WinnerTeam={(TeamId)winnerTeamIndex}");
+                             DisconnectDiag.Keys("GraceExpired",
+                                 $"WinnerTeam={(TeamId)winnerTeamIndex}, GraceElapsedSec={DisconnectDiag.SinceLastPeerDisconnectText()}"));
 
             // NetworkGameEndController를 통해 모든 클라이언트에 결과 전파.
             // OnNetworkSpawn에서 미리 캐시해 둔 참조를 사용 (매번 씬 탐색하지 않음).

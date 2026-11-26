@@ -1182,6 +1182,13 @@ namespace Hexiege.Presentation
             }
 
             ShowResultWithInputBlock();
+
+            // [진단 DISC-DIAG ⑧ — 2026-11-26, 인게임 끊김 실측] 결과 화면이 뜬 순간을 1줄 남긴다(Event=ResultShown, IsWin).
+            //   상대가 끊긴 뒤 「몇 초 만에 결과 화면이 떴는가」를 재기 위한 기록일 뿐, 화면·시간 흐름은 바꾸지 않는다.
+            //   이 메서드에는 [Conditional] 이 붙어 있어 릴리스 빌드에서는 호출 자체가 사라지고,
+            //   안에서 난 예외는 밖으로 나오지 않는다. 멀티 경기 중일 때만 기록한다(싱글은 아무 일도 없음).
+            DisconnectDiag.ReportResultShown(nameof(GameEndUI), isWin);
+
             // 게임 일시정지
             Time.timeScale = 0f;
 
