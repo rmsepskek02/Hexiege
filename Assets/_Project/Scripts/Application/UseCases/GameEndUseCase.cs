@@ -40,12 +40,35 @@ namespace Hexiege.Application
 
         private readonly IDisposable _subscription;
 
+        /// <summary>
+        /// [2026-11-26 인게임 이탈 판정 — Plan X-3] 「결과가 이미 정해졌다」를 듣는 구독 해제용.
+        /// </summary>
+        private readonly IDisposable _gameEndLockSubscription;
+
         public GameEndUseCase()
         {
             // 건물 전용 사망 이벤트만 구독 — Castle 파괴 외엔 게임 종료와 무관하므로
             // 유닛 사망(OnUnitDied)은 구독하지 않는다.
             _subscription = GameEvents.OnBuildingDied
                 .Subscribe(OnBuildingDied);
+
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 이탈 판정 — Plan X-3] 경기 결과가 **어떤 경로로든** 정해지면 IsGameOver 를 잠근다.
+            //
+            // [초급자용 설명] 왜 필요한가
+            //   지금까지 IsGameOver 는 이 클래스가 성 파괴를 직접 봤을 때만 켜졌다. 그래서 결과가
+            //   네트워크로 전달된 경우(Client 가 받은 승패 발표)나 연결 판정·포기로 정해진 경우에는
+            //   꺼진 채로 남아, 그 뒤에 내 화면에서 성이 무너지면 **결과를 한 번 더 낼 여지**가 있었다
+            //   (Research 2-1 — game-programmer 조사). 이번 작업은 연결 판정으로 결과를 낸 뒤에도
+            //   씬이 잠시 남으므로 그 여지를 막아야 한다.
+            //
+            // 🔴 이 구독은 **잠그기만** 한다 — 이벤트를 발행하지 않고 다른 값도 바꾸지 않는다.
+            //    이 클래스 스스로 발행한 OnGameEnd 도 여기로 돌아오지만, 이미 true 인 값을 true 로
+            //    한 번 더 넣을 뿐이라 부작용이 없다. 싱글플레이 동작(성 파괴·포기)도 그대로다 —
+            //    거기서도 IsGameOver 는 OnGameEnd 발행 직전에 이미 true 가 된다.
+            // ----------------------------------------------------------------
+            _gameEndLockSubscription = GameEvents.OnGameEnd
+                .Subscribe(_ => { IsGameOver = true; });
         }
 
         /// <summary>
@@ -116,6 +139,7 @@ namespace Hexiege.Application
         public void Dispose()
         {
             _subscription?.Dispose();
+            _gameEndLockSubscription?.Dispose();
         }
     }
 }

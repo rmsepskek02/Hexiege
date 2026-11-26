@@ -264,6 +264,26 @@ namespace Hexiege.Presentation
         private const float OpponentLeftCountdownSeconds = 30f;
 
         /// <summary>
+        /// [2026-11-26 인게임 이탈 판정 — U-7 · Plan 2-6 · 개정안 C-5] <b>이 기기가 끊긴 쪽</b>일 때 상태 줄 문구 형식.
+        /// <c>{0}</c> 자리에 남은 초가 들어간다. 「내 이탈」 판정 · 앱 정지 스스로 패배 · 연결 없는 포기 세 경우가 쓴다.
+        ///
+        /// <para>
+        /// 🔴 줄바꿈 규약은 <see cref="OpponentLeftCountdownFormat"/> 과 같다 — 사건을 알리는 문장 뒤에서 줄을 나누고
+        /// 남은 초를 둘째 줄에 둔다(사건을 함께 알리는 문구의 개행 규약). 🔴 이 문자열은 코드 전체에 이 한 곳에만 둔다.
+        /// </para>
+        /// ⚠️ 정확한 문장·줄바꿈은 테스트 후 규칙 개정안 C-5 로 확정된다(Plan 9-2) — 바뀌면 이 상수 하나만 고친다.
+        /// </summary>
+        private const string SelfDisconnectedCountdownFormat = "연결이 끊겼습니다.\n{0}초 뒤 로비로 이동합니다.";
+
+        /// <summary>
+        /// [2026-11-26 인게임 이탈 판정 — U-8 · Plan 2-1] 연결 판정으로 끝난 결과 화면의 자동 복귀 길이(초).
+        /// 남은 쪽 · 끊긴 쪽 모두 처음부터 이 길이로 시작한다(평시 60초가 아니다 — 개정안 D-4 「판정 결과 화면은 30초」).
+        /// ⚠️ 값은 결과 화면 상대 이탈 재시작(<see cref="OpponentLeftCountdownSeconds"/>)과 같은 30초지만
+        ///    <b>다른 규정</b>이라 상수를 공유하지 않는다(한쪽만 바뀔 때 다른 쪽이 조용히 끌려가지 않게).
+        /// </summary>
+        private const float LinkVerdictCountdownSeconds = 30f;
+
+        /// <summary>
         /// 상대 이탈 알림 팝업의 타이틀 (공통 UI 규칙 D-6 2항).
         /// </summary>
         private const string OpponentLeftAlertTitle = "알림";
@@ -512,6 +532,14 @@ namespace Hexiege.Presentation
         /// 이탈 뒤에 재경기 버튼이 다시 켜지지 않게 막는 데도 쓴다(규칙 D-2).
         /// </summary>
         private bool _opponentLeft;
+
+        /// <summary>
+        /// [2026-11-26 인게임 이탈 판정 — U-7] 이 기기가 <b>끊긴 쪽</b>으로 결과가 났는가
+        /// (「내 이탈」 판정 · 앱 정지 스스로 패배 · 연결 없는 포기). 켜지면 승패 글자를 비우고
+        /// 상태 줄을 <see cref="SelfDisconnectedCountdownFormat"/> 로, 다시하기를 비활성으로 둔다.
+        /// 🔴 내리는 자리는 <c>Initialize()</c> 하나뿐이다(새 판). 같은 판 안에서는 되돌리지 않는다 — 판정은 뒤집지 않는다.
+        /// </summary>
+        private bool _selfDisconnected;
 
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
@@ -775,7 +803,11 @@ namespace Hexiege.Presentation
         /// 기다릴 상대가 있어 60초/30초 규정(규칙 D-4 · M-3)이 그대로 유효하다.
         /// </para>
         /// </summary>
-        private bool ShouldStartAutoReturnCountdown => NetworkContext.IsNetworkActive;
+        // ⚠️ [2026-11-26 인게임 이탈 판정 — Plan 3절 9단계] 「멀티 경기 씬」 판별을 하나 더 OR 로 붙였다.
+        //   연결이 끊겨 NetworkContext 의 「네트워크 활성」이 이미 꺼진 뒤에 결과가 나도 카운트다운이 돌아야 하기 때문이다
+        //   (NetworkLinkState.IsMultiplayerMatch 는 Game 씬이 내려갈 때까지 유지된다). 싱글은 둘 다 false 라 종전과 같다.
+        //   옛 줄(기록용): private bool ShouldStartAutoReturnCountdown => NetworkContext.IsNetworkActive;
+        private bool ShouldStartAutoReturnCountdown => NetworkContext.IsNetworkActive || NetworkLinkState.IsMultiplayerMatch;
 
         /// <summary>
         /// 「재경기 준비 중」 상태의 맵 준비 한도 코루틴. null 이면 돌고 있지 않다.
@@ -915,6 +947,9 @@ namespace Hexiege.Presentation
             // 새 판이 시작되므로 지난 판의 이탈 상태를 지운다.
             // (이 플래그가 남아 있으면 새 결과 화면이 처음부터 이탈 문구로 뜬다)
             _opponentLeft = false;
+
+            // [2026-11-26 인게임 이탈 판정] 끊긴 쪽 표시도 같은 자리에서 지운다(같은 이유 — 새 판).
+            _selfDisconnected = false;
 
             // 🔴 [실패 깃발 내리는 자리] 지난 판의 실패가 새 결과 화면까지 따라오면 안 된다.
             _rematchFailed = false;
@@ -1167,10 +1202,40 @@ namespace Hexiege.Presentation
             if (_panel == null) return;
 
             // 멀티플레이면 LocalPlayerTeam.Current(자신의 팀)과 비교, 싱글이면 Blue 기본.
-            TeamId localTeam = NetworkContext.IsNetworkActive ? LocalPlayerTeam.Current : TeamId.Blue;
+            // ⚠️ [2026-11-26] 판별에 NetworkLinkState.IsMultiplayerMatch 를 OR 로 붙였다 — 연결이 끊긴 뒤의 결과에서도
+            //    내 팀을 멀티 방식으로 읽게 하기 위함이다(위 ShouldStartAutoReturnCountdown 과 같은 이유).
+            //   옛 줄(기록용): TeamId localTeam = NetworkContext.IsNetworkActive ? LocalPlayerTeam.Current : TeamId.Blue;
+            bool isNetworkMatch = NetworkContext.IsNetworkActive || NetworkLinkState.IsMultiplayerMatch;
+            TeamId localTeam = isNetworkMatch ? LocalPlayerTeam.Current : TeamId.Blue;
             bool isWin = (e.Winner == localTeam);
 
-            if (_resultText != null)
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 이탈 판정 — Plan 2-6 · U-7 · U-8] 연결 판정으로 끝났는지 본다.
+            //   사유는 감시기가 OnGameEnd 발행 **직전에** NetworkLinkState 에 적어 둔다(그래서 여기서 한 번에 그린다).
+            //   - OpponentLeft(남은 쪽)          : 「승리」 + 기존 상대 이탈 문구(_opponentLeft 재사용) · 다시하기 비활성
+            //   - SelfDisconnected/SelfPause/
+            //     OfflineForfeit(끊긴 쪽)        : 승패 글자 없음 + 「연결이 끊겼습니다」 · 다시하기 비활성
+            //   - Normal(그 밖)                  : 종전 그대로
+            //   🔴 싱글플레이에서는 사유가 항상 Normal 이다(감시기가 없다).
+            // ----------------------------------------------------------------
+            MatchEndCause endCause = isNetworkMatch ? NetworkLinkState.MatchEndCause : MatchEndCause.Normal;
+            bool endedByLinkVerdict = endCause != MatchEndCause.Normal;
+            if (endCause == MatchEndCause.OpponentLeft)
+            {
+                _opponentLeft = true;   // 상태 줄 문구(D-7 상대 이탈)와 다시하기 비활성(D-2)을 기존 깃발 그대로 쓴다
+            }
+            else if (endedByLinkVerdict)
+            {
+                _selfDisconnected = true;
+                isWin = false;          // 진단 로그 IsWin 용 — 끊긴 쪽은 승리가 아니다(화면에는 승패 글자를 쓰지 않는다)
+            }
+
+            if (_resultText != null && _selfDisconnected)
+            {
+                // 🔴 U-7 「승패 글자 없이」 — 결과 글자를 비운다. 최종 승패는 다음 task(전적)에서 로비 팝업으로 알린다.
+                _resultText.text = string.Empty;
+            }
+            else if (_resultText != null)
             {
                 _resultText.text = isWin ? "승리!" : "패배!";
                 // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
@@ -1187,7 +1252,19 @@ namespace Hexiege.Presentation
             //   상대가 끊긴 뒤 「몇 초 만에 결과 화면이 떴는가」를 재기 위한 기록일 뿐, 화면·시간 흐름은 바꾸지 않는다.
             //   이 메서드에는 [Conditional] 이 붙어 있어 릴리스 빌드에서는 호출 자체가 사라지고,
             //   안에서 난 예외는 밖으로 나오지 않는다. 멀티 경기 중일 때만 기록한다(싱글은 아무 일도 없음).
-            DisconnectDiag.ReportResultShown(nameof(GameEndUI), isWin);
+            //   [2026-11-26 DiagRev=2] 사유(Cause)와 카운트다운 길이(Countdown)를 함께 싣는다(Plan 6절 T-7).
+            float countdownSeconds = endedByLinkVerdict ? LinkVerdictCountdownSeconds : _autoReturnSeconds;
+            DisconnectDiag.ReportResultShown(nameof(GameEndUI), isWin, endCause.ToString(),
+                ShouldStartAutoReturnCountdown ? Mathf.RoundToInt(countdownSeconds) : -1);
+
+            // [2026-11-26 인게임 이탈 판정 — D-2 · U-7 · U-8] 연결 판정으로 끝났으면 다시하기를 끈다.
+            //   이 경로에서는 승자 발표(AnnounceWinnerClientRpc)가 오지 않아 SetupRematchButton 이 불리지 않는다 —
+            //   그대로 두면 다시하기 버튼에 싱글용 리스너(OnRestartClicked)가 남아 **눌리면 혼자 맵을 다시 불러온다.**
+            //   RestoreRematchButton 이 _opponentLeft / _selfDisconnected 를 보고 interactable 을 끈다(로비 버튼은 켠다 — D-3).
+            if (endedByLinkVerdict)
+            {
+                RestoreRematchButton();
+            }
 
             // 게임 일시정지
             Time.timeScale = 0f;
@@ -1200,7 +1277,9 @@ namespace Hexiege.Presentation
             //    즉 이것은 코드를 지우는 것이 아니라 **조건부 실행**이다.
             if (ShouldStartAutoReturnCountdown)
             {
-                _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+                // [2026-11-26] 연결 판정 결과 화면은 처음부터 30초(U-8 · 개정안 D-4). 그 밖은 종전 그대로(전체 길이).
+                //   옛 줄(기록용): _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+                _countdownCoroutine = StartCoroutine(CountdownCoroutine(countdownSeconds));
             }
             else
             {
@@ -1422,7 +1501,12 @@ namespace Hexiege.Presentation
             UIManager.Instance?.ShowLoading(true, "로비로 이동 중...");
 
             // 멀티플레이 활성 + NGM 주입되어 있으면 NGM에 위임 (BackToLobby가 내부에서 씬 전환까지 처리)
-            if (NetworkContext.IsNetworkActive && _networkGameManager != null)
+            // ⚠️ [2026-11-26 인게임 이탈 판정 — Plan 3절 9단계] 「멀티 경기 씬」 판별을 OR 로 붙였다.
+            //   연결이 끊겨 「네트워크 활성」이 꺼진 뒤에도 BackToLobby 의 정리(Lobby 퇴장 · 맵 인계 홀더(MapHandoff) 비우기 ·
+            //   맵 전송 상태 비우기 · 끊김 처리기 해제)를 건너뛰지 않게 하기 위함이다(Research 2-5 「끊긴 뒤 로비 정리」).
+            //   BackToLobby 는 연결이 이미 내려가 있어도 안전하다 — 퇴장 통보와 Shutdown 은 IsListening 을 보고 건너뛴다.
+            //   옛 줄(기록용): if (NetworkContext.IsNetworkActive && _networkGameManager != null)
+            if ((NetworkContext.IsNetworkActive || NetworkLinkState.IsMultiplayerMatch) && _networkGameManager != null)
             {
                 _networkGameManager.BackToLobby("Lobby");
                 return;
@@ -1584,8 +1668,12 @@ namespace Hexiege.Presentation
                     //    아래 세 분기의 조건식 · 우선순위 · 문구 상수는 한 글자도 바뀌지 않았다.
                     //    상태 줄에 글씨를 쓰는 자리를 하나로 모으는 변경이며(싱글도 같은 통로를
                     //    쓴다), 그 근거는 SetStatusLineText 의 주석에 있다.
+                    // 🔴 [2026-11-26 인게임 이탈 판정] 맨 앞에 「끊긴 쪽」 분기를 더했다 — 우선순위 「끊김 > 이탈 > 실패 > 평시」.
+                    //    끊긴 쪽 결과 화면에서는 재경기·상대 이탈이 애초에 일어날 수 없지만(연결이 이미 내려갔다),
+                    //    사건의 원인이 「내 연결」이므로 가장 앞에 둔다. 나머지 세 분기는 한 글자도 바뀌지 않았다.
                     SetStatusLineText(
-                          _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
+                          _selfDisconnected ? string.Format(SelfDisconnectedCountdownFormat, seconds)
+                        : _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
                         : _rematchFailed ? string.Format(SelectRematchFailedFormat(), seconds)
                         :                  string.Format(NormalCountdownFormat, seconds));
                 }
@@ -2460,8 +2548,11 @@ namespace Hexiege.Presentation
             //
             //    ⚠️ !_opponentLeft 는 **제거하지 않고 AND 로 좁혔을 뿐**이다(규칙 D-2 유지) —
             //       거절·맵 실패 통보가 이탈 통보보다 늦게 도착하는 경우가 실제로 있다.
+            // ⚠️ [2026-11-26 인게임 이탈 판정] 「끊긴 쪽」(_selfDisconnected)을 AND 로 하나 더 좁혔다 — 연결이 없으니
+            //    재경기를 요청할 상대도 통로도 없다(개정안 D-2 「내가 끊김」 추가). 기존 두 항은 그대로다.
+            //   옛 줄(기록용): _restartButton.interactable = !_opponentLeft && !IsRematchFailedByOpponentDisconnected;
             if (_restartButton != null)
-                _restartButton.interactable = !_opponentLeft && !IsRematchFailedByOpponentDisconnected;
+                _restartButton.interactable = !_opponentLeft && !_selfDisconnected && !IsRematchFailedByOpponentDisconnected;
 
             // ③ 로비 복귀 버튼은 언제나 켠다(규칙 D-3 「어떤 상태에서도 비활성화하지 않는다」).
             if (_backToLobbyButton != null)

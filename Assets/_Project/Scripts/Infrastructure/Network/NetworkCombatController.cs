@@ -325,6 +325,16 @@ namespace Hexiege.Infrastructure
         ///   OnNetworkSpawn(서버 분기)과 OnNetworkDespawn 양쪽에서 false로 되돌린다.
         /// </summary>
         private bool _combatStopped = false;
+
+        /// <summary>
+        /// [2026-11-26 인게임 이탈 판정 — Plan X-2] 이번 경기 결과(OnGameEnd)를 이미 봤는가 — Host·Client 양쪽.
+        /// 디스폰 때 이 값이 false 면 「경기 중 예상 밖 디스폰」(연결이 갑자기 내려감)으로 보고
+        /// NetworkContext.Reset 을 Game 씬이 내려갈 때로 미룬다(혼자 진행 모드 입구 막기).
+        /// </summary>
+        private bool _matchEndObserved;
+
+        /// <summary>[Plan X-2] 위 깃발을 세우는 OnGameEnd 구독(양쪽 공통). 디스폰에서 해제한다.</summary>
+        private System.IDisposable _matchEndObservedSubscription;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         // 게임 종료 뒤 실제 입구 차단을 관측한다. 매 프레임 출력하지 않고 경기당 네 줄만 남긴다.
         private int _refactoringStoppedEntries;
@@ -364,6 +374,18 @@ namespace Hexiege.Infrastructure
             // UnitCombatUseCase가 NetworkManager에 직접 의존하지 않도록
             // Application 레이어용 정적 홀더를 업데이트.
             NetworkContext.Set(isServer: IsServer, isActive: true);
+
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 이탈 판정 — Plan X-2] 미뤄 둔 Reset 이 남아 있으면 취소한다
+            //   (바로 위 Set 이 「멀티 경기 중」을 새로 켰으므로 지난 디스폰의 Reset 이 나중에 이것을 꺼 버리면 안 된다).
+            //   그리고 이번 경기 결과를 봤는지 세는 깃발을 새로 시작한다 — Host·Client 양쪽(IsServer 블록 밖).
+            //   🔴 블록 본문 람다로 쓴다(안에 로그가 없어도 같은 관례 — LogRules §1.7).
+            // ----------------------------------------------------------------
+            NetworkContextResetDeferral.CancelForRespawn(nameof(NetworkCombatController));
+            _matchEndObserved = false;
+            _matchEndObservedSubscription?.Dispose();
+            _matchEndObservedSubscription = GameEvents.OnGameEnd.Subscribe(_ => { _matchEndObserved = true; });
+
 
             // ⚠️ 아래 한 줄은 "이관"이 아니라 "비활성화" 처리한 자리다. 사용자 승인 대기 중.
             //
@@ -425,6 +447,18 @@ namespace Hexiege.Infrastructure
             //   이 블록(#if)째로 릴리스 빌드에서는 사라진다.
             InGameDisconnectObserver.BeginMatch(NetworkManager, IsServer, gameObject.scene);
 #endif
+
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 이탈 판정 — Plan 3절 3단계] 인게임 연결 감시기를 시작한다.
+            //   🔴 바로 위 개발 빌드 전용 블록(#if) **밖**이다 — 판정은 릴리스 빌드에서도 동작해야 한다(Research 2-10).
+            //   여기는 Host·Client 양쪽에서 역할(IsServer)이 확정되는 첫 자리라 「경기 시작」 기준점으로 쓴다
+            //   (측정 관찰자 InGameDisconnectObserver 와 같은 자리 선택). 감시기는 NetworkObject 가 아닌 별도 빈
+            //   GameObject 에 붙어 디스폰과 무관하게 씬이 내려갈 때까지 살며, BeginMatch 는 예외를 밖으로 내보내지 않는다.
+            //   🔴 싱글플레이에서는 이 컴포넌트가 스폰되지 않으므로 감시기도 만들어지지 않는다.
+            //   ⚠️ 위치: 측정 관찰자 시작(#if 블록) **뒤**에 둔다 — 관찰자가 진단 공통 키의 Role=Host|Client 를 정하므로,
+            //      그보다 먼저 시작하면 LinkWatchStart 줄이 Role=- 로 남는다(개발 빌드의 로그 순서만의 문제다).
+            // ----------------------------------------------------------------
+            InGameLinkWatch.BeginMatch(NetworkManager, IsServer, gameObject.scene);
 
             // 완료 묶음의 중복/충돌 기억은 한 경기에만 유효하다. Host와 Client가 각각
             // 자기 수신 경계를 같은 규칙으로 분류할 수 있도록 역할 분기 전에 초기화한다.
@@ -589,8 +623,33 @@ namespace Hexiege.Infrastructure
             //   바로 위 _attackTimer / _lastCarry 가 이미 정확히 같은 이유로 두 자리에서 리셋되고 있다.
             _combatStopped = false;
 
-            // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
-            NetworkContext.Reset();
+            // ----------------------------------------------------------------
+            // ⚠️ [2026-11-26 Plan X-2 — 시점 변경] 「경기 중 예상 밖 디스폰」일 때만 Reset 을 Game 씬이 내려갈 때로 미룬다.
+            //
+            // [초급자용 설명] 왜 미루는가
+            //   이 Reset 이 「멀티 경기 중」 표시를 끄는 유일한 자리다. 연결이 갑자기 끊겨 NGO 가 이 컴포넌트를
+            //   디스폰하면 여기서 표시가 꺼지고, 그 순간부터 게임 곳곳의 싱글플레이 분기가 켜져 Client 가 **혼자
+            //   게임을 진행**했다(직전 측정 문제 2 — Research 2-1). 그래서 경기 결과가 아직 안 났는데 디스폰되면
+            //   표시를 켜 둔 채로 연결 판정 → 결과 화면 → 로비로 가게 하고, 씬이 내려갈 때 반드시 끈다.
+            //
+            // 🔴 정상 경로는 종전과 같은 시점이다 — 결과가 난 뒤의 디스폰(결과 화면 → 로비 · 재경기 · 판정 뒤 연결 종료)은
+            //    _matchEndObserved 가 true 라 곧바로 Reset 한다.
+            // 🔴 「미룬 사실」과 「실행한 사실」은 진단 로그 SoloModeBlocked / NetworkContextReset 으로 남는다(Plan 6절 T-8).
+            //   옛 줄(기록용 — 아래 else 갈래가 같은 한 줄을 그대로 실행한다):
+            // // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
+            // NetworkContext.Reset();
+            // ----------------------------------------------------------------
+            _matchEndObservedSubscription?.Dispose();
+            _matchEndObservedSubscription = null;
+            if (!_matchEndObserved && NetworkContext.IsNetworkActive)
+            {
+                NetworkContextResetDeferral.Defer(gameObject.scene, nameof(NetworkCombatController));
+            }
+            else
+            {
+                // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화(종전 그대로)
+                NetworkContext.Reset();
+            }
             UnitAttackResultPresentationShadowBridge.EndMatch();
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR

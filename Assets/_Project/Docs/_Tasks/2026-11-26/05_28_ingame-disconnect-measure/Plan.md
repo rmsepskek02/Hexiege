@@ -11,10 +11,12 @@
 
 전적 기록은 이 측정이 끝난 뒤 **별도 작업**으로 진행합니다.
 
+> *(2026-11-26 추가)* 실제 측정은 「기기 두 대」가 아니라 **에디터 1 + 실기기 1대**로 했습니다(사용자 결정, 5-1). 측정은 끝났고, 결과는 [9절](#9-구현측정-결과-2026-11-26)과 [Research 8절](Research.md#8-측정-결과-2026-11-26)에 있습니다. 고치는 방향은 아직 정하지 않았습니다.
+
 > 🔴 **기존 로직 제거/비활성화: 없음.** 측정은 **현재 동작 그대로** 재야 하므로, 30초 대기·강제 승리·끊김 처리 등 어떤 기존 처리도 끄거나 바꾸지 않는다. 추가되는 것은 기록(로그) 줄과, 기록만 하는 받는 자리(앱 일시정지·복귀 등)뿐이다. 기존 로그 줄에 값(`key=value`)을 덧붙이는 경우도 **조건문·호출 순서·반환은 그대로** 둔다.
 
 - 구현 담당: **game-programmer**(이 문서는 설계표만 정한다. 실제 수정 파일·API 사용 가능 여부는 game-programmer가 코드를 보고 보고한다).
-- 상태: **Plan 작성 — 사용자 승인 대기** (2026-11-26).
+- 상태: **구현 완료 · 측정 완료 — 교정 방향 논의 중(미확정)** (2026-11-26). 구현 커밋 `b86b29e`(브랜치 `claude/ingame-disconnect-measure` — 메인 세션 전달값, 이 문서에서 git으로 재확인하지 않음). *(2026-11-26 갱신 — 종전 「Plan 작성 — 사용자 승인 대기」)*
 
 ---
 
@@ -55,18 +57,19 @@
 | # | 기록할 순간 | 위치(후보) | 역할 | Event · 핵심 키 | 새 줄 / 기존 줄 | 심각도 |
 |---|---|---|---|---|---|---|
 | ⓪ | 경기 시작 — 측정 기준점 | 게임 씬 네트워크 시작 직후 1회(위치는 game-programmer 결정) | 양쪽 | `MatchStart` `MatchNo`(앱 실행 후 몇 번째 경기), `DisconnectTimeoutMs`, `HeartbeatTimeoutMs`, `MaxConnectAttempts`(실제 실행 중 Transport 값), `RunInBackground`, `AppVersion` | 새 줄 | Info |
-| ① | 연결 끊김 콜백 | `NetworkManager.OnClientDisconnectCallback`을 구독하는 **기록 전용 관찰자**(Host·Client 양쪽에서 동작) | 양쪽 | `PeerDisconnected` `ClientId`, `LocalClientId`, `IsSelf`, `Reason`(NGO `DisconnectReason`), `MatchSec`, `SincePeerSignalSec`(⑥이 가능할 때), `LastRttMs`, `PausedRecently`(직전 일시정지 이후 복귀 몇 초 이내인지), `DisconnectNo` | 새 줄 | Warn |
-| ② | 전송 계층 실패 | `NetworkManager.OnTransportFailure` 구독(같은 관찰자) | 양쪽 | `TransportFailure` `MatchSec`, `SincePeerSignalSec` | 새 줄 | Warn |
+| ① | 연결 끊김 콜백 | `NetworkManager.OnClientDisconnectCallback`을 구독하는 **기록 전용 관찰자**(Host·Client 양쪽에서 동작) | 양쪽 | `PeerDisconnected` `ClientId`, `LocalClientId`, `IsSelf`, `Reason`(NGO `DisconnectReason`), `MatchSec`, `SincePeerSignalSec`(⑥이 가능할 때), `LastRttMs`, `PausedRecently`(직전 일시정지 이후 복귀 몇 초 이내인지), `DisconnectNo` *(2026-11-26 구현 차이 — `PausedRecently` 대신 `SinceResumeSec`(마지막 복귀 뒤 몇 초), `SincePeerSignalSec` 키는 없음(⑥ 미구현))* | 새 줄 | Warn |
+| ② | 전송 계층 실패 | `NetworkManager.OnTransportFailure` 구독(같은 관찰자) | 양쪽 | `TransportFailure` `MatchSec`, `SincePeerSignalSec` *(2026-11-26 구현 차이 — `SincePeerSignalSec` 키 없음)* | 새 줄 | Warn |
 | ③-a | 30초 대기 시작 | `Infrastructure/Network/ReconnectionHandler.cs` `OnClientDisconnected`의 「클라이언트 연결 끊김 — 재접속 대기 시작」 | Host | `GraceStart` `ClientId`, `WaitSeconds`, `MatchSec` | **기존 줄** | Warn(기존 그대로) |
 | ③-b | 30초 대기 취소 | 같은 파일 `OnClientReconnected`의 「클라이언트 재접속 확인 — 강제 승리 대기 취소」 | Host | `GraceCancel` `ClientId`, `MatchSec` | **기존 줄** | Info |
 | ③-c | 30초 대기 만료 → 강제 승리 | 같은 파일 `WaitAndForceWin`의 「재접속 타임아웃 — 강제 승리 처리」 + `Infrastructure/Network/NetworkGameEndController.cs` `ForceWin`의 「ForceWin 호출 — …」 | Host | `GraceExpired` `WinnerTeam`, `GraceElapsedSec`(대기 시작부터 실제 걸린 초 — 백그라운드로 멈춘 시간이 섞였는지 보기 위함), `MatchSec` / `ForceWin` `WinnerTeamIndex` | **기존 줄** | Info |
 | ④ | 연결(재접속) 콜백 | `NetworkManager.OnClientConnectedCallback`(①과 같은 관찰자, 경기 시작 이후에만) | 양쪽 | `PeerConnected` `ClientId`, `IsSelf`, `SameAsLastDisconnected`(Host: 마지막으로 끊긴 ClientId와 같은가), `MatchSec` | 새 줄 | Info |
 | ⑤ | 앱 일시정지·복귀·포커스 | 게임 씬에 **기록만 하는 받는 자리 신설**(`OnApplicationPause(bool)` · `OnApplicationFocus(bool)`) | 양쪽 | `AppPause` `Paused=True\|False`, `MatchSec`, 복귀 때 `PausedForSec`(`UtcMs` 차), `IsListening`, `IsConnectedClient`, `ConnectedCount` / `AppFocus` `Focused` | 새 줄 | Info |
-| ⑥ | 상대 신호 끊김·회복 | **방법 미정 — game-programmer 확인 항목**(아래 3-1) | 양쪽 | `PeerSilenceStart` `MatchSec`, `LastRttMs` / `PeerSilenceEnd` `SilenceSec` | 새 줄 | Info |
+| ⑥ | 상대 신호 끊김·회복 | **구현하지 않음**(아래 3-1) *(2026-11-26 — 판정 불가: RTT 값으로는 「상대가 조용함」과 「보낼 것이 없어 안 보냄」을 구별할 수 없고, 경기 중 주기적으로 오가는 기존 메시지도 없다. 종전 「방법 미정 — game-programmer 확인 항목」)* | 양쪽 | `PeerSilenceStart` `MatchSec`, `LastRttMs` / `PeerSilenceEnd` `SilenceSec` | 새 줄 | Info |
 | ⑦ | Client 쪽 서버 끊김 감지 | `Infrastructure/Network/NetworkGameManager.cs` `HandleClientDisconnected`의 「클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행」 | Client | `ServerLostRaised` `ClientId`, `MatchSec` | **기존 줄** | Warn(기존 그대로) |
 | ⑧ | 결과 화면이 뜬 순간 | `Presentation/UI/GameEndUI.cs` `OnGameEnd`(결과 표시 직후) | 양쪽 | `ResultShown` `IsWin`, `MatchSec` | 새 줄 | Info |
 | ⑨ | 경기 요약 | 게임 씬을 떠날 때 1회(위치는 game-programmer 결정) | 양쪽 | `MatchSummary` `DisconnectNo`, `ConnectNo`, `PauseNo`, `TransportFailureNo`, `ResultShown=True\|False`, `MatchSec` | 새 줄 | Info |
 
+- *(2026-11-26 구현에서 추가)* `ObserverError` — 관찰자 자신의 기록이 예외로 실패했을 때 남는 Warn 줄(`Stage=` 어느 단계에서인지, `Exception=` 예외 종류 이름). `Infrastructure/Network/InGameDisconnectObserver.cs`에서 확인.
 - ①과 ⑦은 Client에서 같은 콜백에서 나온다. ①은 「끊김을 받았다」, ⑦은 「그 결과 `OnServerDisconnected`를 발행했다」(맵 준비 중이면 ⑦ 대신 맵 준비 실패로 간다)라 사실이 다르다. game-programmer가 보고 사실상 같은 순간이면 ⑦을 ①에 합치고 보고한다.
 - ①의 Host 쪽과 ③-a도 같은 순간이지만 ③-a는 「대기를 시작했다」(이미 강제 승리가 났으면 시작하지 않음)라 다른 사실이다.
 - 관찰자의 구독·해제는 기존 처리기의 구독 순서·해제에 영향을 주지 않게 별도로 한다. 관찰자가 예외를 던져도 다른 처리기가 계속 돌도록 본문을 `try`로 감싸는 것을 권장(game-programmer 판단).
@@ -83,6 +86,7 @@
 
 - 셋 다 안전하지 않으면 ⑥은 넣지 않고, 4절 표에 「로그로 판정 불가 — 끊김 콜백 시각과 조작 시각으로만 잰다」로 적은 뒤 사용자에게 알린다.
 - `SincePeerSignalSec`(① · ②)는 ⑥이 가능할 때만 채운다. 불가능하면 `-`.
+- **결과 (2026-11-26):** 셋 다 쓸 수 없다고 판단돼 ⑥은 넣지 않았다. B — RTT는 상대의 침묵과 「보낼 것이 없음」을 구별하지 못한다. C — 경기 중 주기적으로 오가는 기존 메시지가 없다. A의 공개 API 유무는 이 문서에 전달되지 않았다. `SincePeerSignalSec`는 `-`로 채우는 대신 **키 자체가 없다.** 4절 표의 해당 행은 「로그로 판정 불가 — 끊김 콜백 시각과 조작 시각으로 잰다」로 고쳤다.
 
 ### 3-2. 수정 파일 후보 (확정은 game-programmer 보고)
 
@@ -94,6 +98,8 @@
 | `Infrastructure/Network/NetworkGameManager.cs` | ⑦ 기존 줄에 키 덧붙이기 |
 | `Presentation/UI/GameEndUI.cs` | ⑧ 새 줄 |
 | `Scenes/Game.unity` | 관찰자를 씬에 둬야 하는 방식이면 배치(Inspector 작업이 생기면 WORKFLOW [5-2] 절차). 코드만으로 붙일 수 있으면 씬 수정 없음 — game-programmer가 방식과 함께 보고 |
+
+- *(2026-11-26 구현 결과)* 관찰자는 `Infrastructure/Network/InGameDisconnectObserver.cs`(공용 형식 `DisconnectDiag.cs`와 함께)로 만들어졌고, **`Infrastructure/Network/NetworkCombatController.cs` `OnNetworkSpawn`에서 시작**한다(`InGameDisconnectObserver.BeginMatch` 호출) — 위 후보 표에 없던 파일이다. 전체 수정 파일 목록은 구현 커밋 `b86b29e`(9절)를 본다.
 
 ---
 
@@ -107,9 +113,9 @@
 | (1) 남은 쪽이 끊김을 아는 시각 | 남은 쪽 `PeerDisconnected` · `TransportFailure` · `ServerLostRaised`(Client) | 콜백 발생 1회 | `남은 쪽 UtcMs − 끊긴 쪽 t=0 UtcMs` = 몇 초(약 10초 근처인가, 60초 근처인가). `Reason` 문자열 |
 | (1) Host가 남았을 때 강제 승리까지 | `GraceStart` → `GraceExpired` → `ForceWin` → `ResultShown` | 각 1회 | `GraceStart − t=0`, `GraceElapsedSec`(30 근처인가), `ResultShown − t=0`(총 몇 초 만에 결과 화면) |
 | (1)·(4) Client가 남았을 때 (Host 끊김) | Client `PeerDisconnected` · `ServerLostRaised` · `ResultShown` 유무 | 각 1회 | 끊김 통보 시각, **`ResultShown` 줄이 있는가**(Research 1-4대로라면 없을 것으로 보이나 미확인), `MatchSummary ResultShown=` |
-| (2) 10초 넘게 끊겼다 돌아온 쪽 | 돌아온 쪽 `AppPause Paused=False`의 `PausedForSec`·`IsListening`·`IsConnectedClient` → 그 뒤 `PeerDisconnected`(IsSelf) · `TransportFailure` · `PeerSilenceEnd` | 복귀·콜백 각 1회 | 복귀 직후 아직 연결로 보이는가, 복귀 후 몇 초에 끊김을 받는가, 끊기지 않고 이어지면 `PeerSilenceEnd SilenceSec` |
+| (2) 10초 넘게 끊겼다 돌아온 쪽 | 돌아온 쪽 `AppPause Paused=False`의 `PausedForSec`·`IsListening`·`IsConnectedClient` → 그 뒤 `PeerDisconnected`(IsSelf) · `TransportFailure` · `PeerSilenceEnd` | 복귀·콜백 각 1회 | 복귀 직후 아직 연결로 보이는가, 복귀 후 몇 초에 끊김을 받는가, 끊기지 않고 이어지면 `PeerSilenceEnd SilenceSec` — *(2026-11-26: `PeerSilenceEnd` 부분은 로그로 판정 불가 — 끊김 콜백 시각과 조작 시각으로 잰다. ⑥ 미구현, 3-1)* |
 | (2) 재접속 취소가 일어나는가 | Host `PeerConnected` · `GraceCancel` | 각 1회 | `PeerConnected`가 오는가, `SameAsLastDisconnected`(새 ClientId면 False), `GraceCancel` 0줄인가 |
-| (3) 백그라운드 시 실제 끊김 시점 | 내린 쪽 `AppPause` / 남은 쪽 `PeerSilenceStart` · `PeerDisconnected` | 각 1회 | 5초·20초·70초 각각에서 남은 쪽이 끊김을 받았는가, 받았다면 `t=0` 뒤 몇 초인가 |
+| (3) 백그라운드 시 실제 끊김 시점 | 내린 쪽 `AppPause` / 남은 쪽 `PeerSilenceStart` · `PeerDisconnected` | 각 1회 | 5초·20초·70초 각각에서 남은 쪽이 끊김을 받았는가, 받았다면 `t=0` 뒤 몇 초인가 — *(2026-11-26: `PeerSilenceStart` 부분은 로그로 판정 불가 — 끊김 콜백 시각과 조작 시각으로 잰다. ⑥ 미구현, 3-1)* |
 | (4) 역할별 비교 | 위 전부 `Role` 필드 | — | 같은 시나리오의 Host 끊김 회차와 Client 끊김 회차 값을 나란히 비교 |
 | 측정이 동작을 바꾸지 않았는가 | `MatchSummary` + 기존 로그 | 경기 1회 | 기존 ReconnectionHandler 줄의 순서·횟수가 진단 추가 전과 같은 형태인가(`GraceStart` 1회 → `GraceExpired` 1회). 경기당 `Diag=Disconnect` 줄 수가 수십 줄 이하인가 |
 | S1 앱 강제 종료의 `t=0` | (로그로 정밀 판정 불가) | — | 🔴 밀어서 종료하면 `OnApplicationQuit`가 불리지 않는다(공식 문서). 종료 직전 `AppPause Paused=True` 줄이 남으면 그 `UtcMs`를 `t=0`으로 쓰고, 남지 않으면 끊긴 쪽 **마지막 로그 줄의 시각**을 근사값으로 쓴다(1초 안팎 오차). 사용자에게 이 한계를 알린다 |
@@ -121,6 +127,8 @@
 ## 5. 기기 2대 테스트 시나리오
 
 ### 5-1. 준비
+
+> *(2026-11-26 측정 구성 변경 — 사용자 결정)* 실제 측정은 **에디터 1 + 실기기 1대**로 했다. 끊는 쪽은 **항상 실기기**. 1회차는 실기기 = Host, 2회차는 실기기 = Client. 커스텀 방. 1회차는 S1~S6, 2회차는 S1~S5(2회차 S6은 S5 판으로 갈음 — 사용자 판단). 앱 내리기 S2~S4는 한 경기 안에서 이어서 했다. 아래 「기기 A·B」 안내는 계획 당시 문구로 남긴다. 결과는 9절.
 
 - 기기 A·B 둘 다 이번 빌드(Development 빌드)를 설치한다. 두 기기 모두 시계 자동 설정을 켠다.
 - **역할을 고정하기 위해 커스텀 방으로 경기한다.** 코드상 방을 만드는 쪽(`NetworkGameManager.HostGameAsync`)이 Host, 방 코드로 들어가는 쪽(`JoinGameAsync`)이 Client다. 랜덤 매칭은 누가 Host가 될지 고를 수 없다. 커스텀과 랜덤 매칭은 둘 다 같은 Relay 접속 경로(`RelayManager.CreateRelayAsync` / `JoinRelayAsync`)와 같은 전송 설정을 쓰므로 측정 결과를 랜덤 매칭에도 적용할 수 있다고 보지만, 그 밖의 차이는 미확인이다. 로그의 `Role`로 실제 역할을 다시 확인한다.
@@ -149,6 +157,7 @@
 - 기기가 끼는 테스트이므로 **통합 수집 메뉴** `Hexiege/Logs/Collect Device Logs and Create ZIP` 창에서 세션을 고르고 「선택 앱 로그+Logcat 수집·ZIP」으로 수집한다 — 그래야 기기 쪽 `Dev.Info` 진단(이번 로그 전부)이 들어온다(WORKFLOW [6] 「테스트 로그 올리기」). **기기 A·B 둘 다** 수집해야 한다.
 - 재테스트도 같은 작업명을 쓴다(회차는 도구가 붙인다). 매달 첫 업로드 처리와 보관 규칙은 WORKFLOW [6]과 LogRules §1.10을 따른다.
 - 로그 판정은 메인 세션이 한다. 사용자는 위 조작을 하고 눈으로 본 이상만 알린다.
+- *(2026-11-26 실제)* 사용자가 올린 작업명은 `android-logs`였다(위 안내 이름과 다름 — 사실로만 기록). 파일은 `2026-11-26_17_36_android-logs_02.zip`. 통합 수집 ZIP에 **에디터 일별 로그도 함께 들어 있어** 별도 에디터 ZIP은 필요 없었다(Research 8-1).
 
 ---
 
@@ -159,6 +168,9 @@
 | R1 끊김 확정 시간 | 4절 (1)·(3)의 「남은 쪽이 끊김을 아는 시각」 분포, (2)의 「돌아와서 이어질 수 있는 최대 시간」 |
 | R4 규칙 2 확정 E 문구 | `t<60` 동안 연결이 실제로 붙들려 있었는가(S3·S5에서 이어졌는가), `t=60` 통보가 실제로 60초에 오는가 |
 | 진단 로그 존속 | 사용자가 `개발` 유지 / `임시`(제거) 중 선택 |
+| 드러난 문제(Research 8-5)의 교정 | **교정 방향 논의 중 — 미확정** *(2026-11-26 추가)* |
+
+- *(2026-11-26)* 측정은 끝났다. 위 세 항목 모두 **아직 결정되지 않았다.**
 
 규칙 문서(`GameSystemRules_Network.md` 규칙 1·2)의 수정은 이 결정 뒤 후속 task에서 한다(R3 「앱 정상 종료」 행 합치기 포함 — Research 6절).
 
@@ -187,3 +199,46 @@
 3. Client가 Host 끊김을 받을 때 콜백의 `clientId` 값(자기 ID인가, 서버 ID인가) — 로그로도 남는다.
 4. 관찰자 배치 방식(코드만 / 씬 배치)과 `Scenes/Game.unity` 수정 여부.
 5. 실제 수정 파일 목록, 테스트 항목별 로그 이름·검색어(`Diag=Disconnect`)·읽을 값 — 메인 세션이 [6] 테스트 안내에 옮긴다(WORKFLOW [4]).
+
+> *(2026-11-26 답 — 이 문서에 전달된 것만)* 1: 끊김 줄의 `Reason`에 `ProtocolTimeout`이 찍혔다(측정한 모든 판). `TransportFailure`가 찍혔다는 보고는 없다. 2: ⑥ 구현 안 함(3-1). 3: 이 문서에 전달되지 않음. 4: 코드로 시작 — `NetworkCombatController.OnNetworkSpawn`(3-2). 5: 커밋 `b86b29e`.
+
+---
+
+## 9. 구현·측정 결과 (2026-11-26)
+
+### 쉬운 요약
+
+- 기록용 로그를 넣은 판을 **에디터 1 + 실기기 1대**로 11판 재 봤습니다.
+- 어떻게 끊겨도 남은 쪽은 **약 60초 뒤**에 끊김을 알았습니다. 「중계 서버 10초」는 관측되지 않았습니다.
+- 앱을 40초 이내로 내리면 이어졌고, 70초 넘게 내리면 이어지지 않았습니다. 재접속은 0건이었습니다.
+- 방장(Host)이 남았을 때만 계획대로(60초 + 30초 뒤 승리) 끝났고, 그 밖에는 **남은 쪽이 지거나, 한 기기에서만 결과가 나거나, 로비로 못 돌아가는** 문제가 나왔습니다.
+- 자세한 시각·판별 흐름은 [Research 8절](Research.md#8-측정-결과-2026-11-26)에 있습니다. 고치는 방향은 아직 정하지 않았습니다(6절).
+
+### 9-1. 구현이 이 Plan과 달라진 점
+
+| 항목 | Plan | 실제 구현 |
+|---|---|---|
+| ⑥ `PeerSilenceStart`/`End` | 방법 미정 | **구현 안 함** — 판정 불가(3-1). 4절 해당 행 「로그로 판정 불가 — 끊김 콜백 시각과 조작 시각으로 잰다」 |
+| ① `PausedRecently` | 직전 일시정지 이후 복귀 몇 초 이내인지 | **`SinceResumeSec`** — 마지막 복귀 뒤 몇 초 |
+| ①·② `SincePeerSignalSec` | ⑥이 가능할 때만 채움 | **키 없음** |
+| `ObserverError` | 없음 | **추가** — 관찰자 기록 실패 Warn 줄(3절 표 아래) |
+| 관찰자 시작 위치 | 3-2 후보(신설 관찰자) | `NetworkCombatController.OnNetworkSpawn`에서 시작 — 후보 표 밖 파일(3-2) |
+| 구현 커밋 | — | `b86b29e`, 브랜치 `claude/ingame-disconnect-measure`(메인 세션 전달값) |
+| 측정 구성 | 기기 2대, 6 × 2 = 12판 | **에디터 1 + 실기기 1대**, 1회차 6판 + 2회차 5판(5-1) |
+| 작업명 | `ingame-disconnect-measure` | `android-logs`(5-3) |
+
+### 9-2. 측정 결과 요약 (값의 출처: Research 8-1)
+
+| 판 | 남은 쪽 | 남은 쪽이 안 시각(조작 뒤) | 결말 |
+|---|---|---|---|
+| 1회차 S1 강제 종료 | 에디터 Client | 59.7초 | 혼자 진행 모드 → 에디터에서만 패배 화면(안내 문구 없음) |
+| 1회차 S2~S4 내리기 5.3·5.5·18.3초 | 에디터 Client | — | 이어짐 |
+| 1회차 S4 내리기 73.2초 | 에디터 Client | 59.6초(실기기 Host는 복귀 뒤 60.2초) | 양쪽 각자 진행. 실기기 Host가 성을 잃고 패배, 에디터도 패배 화면 |
+| 1회차 S5 와이파이 약 20초(시각 추정) | 에디터 Client | 17:21:26.84 — 끈 시각을 이 값에서 60초를 빼 추정했으므로 걸린 초로 쓸 수 없다 | Host 사용자가 먼저 포기. 에디터는 포기가 처리되지 않아 재실행 |
+| 1회차 S6 와이파이 70초 | 에디터 Client | 에디터 17:24:41.63 / 실기기 17:24:42.02 | 30초 대기 중 Host 성 파괴로 Host 패배. 에디터 결과 없음 |
+| 2회차 S1 강제 종료 | 에디터 Host | 59.6초 | 30초 대기 → 강제 승리. 총 89.6초 |
+| 2회차 S2~S4 내리기 10.8·39.8·5.0초 | 에디터 Host | — | 이어짐 |
+| 2회차 S4 내리기 70.1초 | 에디터 Host | 59.6초 | 에디터 강제 승리. 실기기는 연결된 줄 알고 멈춤, 로비 복귀 불가 |
+| 2회차 S5 와이파이 약 6~10초 여러 번 + 약 11초 | 에디터 Host | 마지막 끄기 뒤 양쪽 동시 끊김(17:35:51) | 짧은 끄기는 복구, 마지막은 복구 안 됨. 에디터 사용자 포기로 종료 |
+
+- 드러난 문제 4가지(+4-b)는 [Research 8-5](Research.md#8-5-드러난-문제)에 있다.

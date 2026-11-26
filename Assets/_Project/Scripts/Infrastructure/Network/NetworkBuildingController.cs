@@ -87,6 +87,11 @@ namespace Hexiege.Infrastructure
         /// <param name="r">배치 좌표 R.</param>
         public void RequestBuild(BuildingType buildingType, TeamId team, int q, int r)
         {
+            // [2026-11-26 인게임 이탈 판정 — U-5 · Plan 3절 7단계, 2차 방어] 연결 지연·판정 중이면 요청을 보내지 않는다.
+            //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
+            //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
+            if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestBuild))) return;
+
             RequestBuildServerRpc((int)buildingType, (int)team, q, r);
         }
 
@@ -97,6 +102,11 @@ namespace Hexiege.Infrastructure
         /// <param name="buildingId">업그레이드할 건물 Id.</param>
         public void RequestUpgrade(int buildingId)
         {
+            // [2026-11-26 인게임 이탈 판정 — U-5 · Plan 3절 7단계, 2차 방어] 연결 지연·판정 중이면 요청을 보내지 않는다.
+            //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
+            //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
+            if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestUpgrade))) return;
+
             RequestUpgradeServerRpc(buildingId);
         }
 
@@ -107,6 +117,11 @@ namespace Hexiege.Infrastructure
         /// <param name="buildingId">철거할 건물 Id.</param>
         public void RequestDemolish(int buildingId)
         {
+            // [2026-11-26 인게임 이탈 판정 — U-5 · Plan 3절 7단계, 2차 방어] 연결 지연·판정 중이면 요청을 보내지 않는다.
+            //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
+            //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
+            if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestDemolish))) return;
+
             RequestDemolishServerRpc(buildingId);
         }
 

@@ -736,9 +736,24 @@ namespace Hexiege.Bootstrap
         {
             // 게임 UI 수명은 한 곳에서 판정하고 각 독립 입력 경로에 같은 판정을 전달한다.
             System.Func<bool> isGameplayBlocked = () => _uiManager != null && _uiManager.BlocksGameplayInput;
-            _inputHandler?.SetGameplayInputGate(isGameplayBlocked);
-            _skillAimController?.SetGameplayInputGate(isGameplayBlocked);
-            _cameraController?.SetGameplayInputGate(isGameplayBlocked);
+
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 이탈 판정 — U-5 · Plan 2-6] 「월드 입력」(타일 탭 · 카메라 이동 · 스킬 조준)은
+            //   연결 지연·판정 중에도 막는다. 지연 덮개가 화면 터치를 1차로 막지만, 카메라 드래그·줌과 스킬 조준은
+            //   UI 히트 판정을 거치지 않고 터치를 직접 읽을 수 있어 덮개만으로는 막히지 않는다.
+            //   🔴 설정 창(_inGameSettingsUI)에는 **넘기지 않는다** — 지연 중에도 설정·포기는 할 수 있어야 한다(U-5
+            //      「설정 버튼만 오버레이 위에 남겨 사용 가능」). 그래서 판정 함수를 둘로 나눴다.
+            //   🔴 NetworkLinkState.BlocksPlayerCommands 는 멀티 경기 씬의 지연·판정 중에만 true 다 — 싱글은 늘 false 라
+            //      종전 동작 그대로다.
+            //   옛 줄(기록용 — 세 입력 경로가 아래 isWorldInputBlocked 를 받기 전):
+            //   _inputHandler?.SetGameplayInputGate(isGameplayBlocked);
+            //   _skillAimController?.SetGameplayInputGate(isGameplayBlocked);
+            //   _cameraController?.SetGameplayInputGate(isGameplayBlocked);
+            // ----------------------------------------------------------------
+            System.Func<bool> isWorldInputBlocked = () => isGameplayBlocked() || NetworkLinkState.BlocksPlayerCommands;
+            _inputHandler?.SetGameplayInputGate(isWorldInputBlocked);
+            _skillAimController?.SetGameplayInputGate(isWorldInputBlocked);
+            _cameraController?.SetGameplayInputGate(isWorldInputBlocked);
             _inGameSettingsUI?.SetGameplayInputGate(isGameplayBlocked);
             if (_uiManager != null)
             {

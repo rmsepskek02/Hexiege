@@ -222,6 +222,11 @@ namespace Hexiege.Infrastructure
         // [2026-11-17 공습 Task L-2] 방향 인자를 덧붙였다.
         public void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim, Vector3 aimDirection = default)
         {
+            // [2026-11-26 인게임 이탈 판정 — U-5 · Plan 3절 7단계, 2차 방어] 연결 지연·판정 중이면 요청을 보내지 않는다.
+            //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
+            //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
+            if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestActivateSkill))) return;
+
             // NGO 2.9.2는 Vector3를 기본 직렬화하므로 연속 좌표 · 방향을 그대로 전송한다(정수 분해 불필요).
             RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim, aimDirection);
         }

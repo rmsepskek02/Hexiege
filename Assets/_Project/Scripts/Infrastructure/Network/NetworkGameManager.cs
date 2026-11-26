@@ -280,6 +280,9 @@ namespace Hexiege.Infrastructure
             }
 
             // 서버(Host)는 OnServerDisconnected 발행 대상이 아님 (상대 클라 끊김은 ReconnectionHandler 담당)
+            // ⚠️ [2026-11-26 정정 — 윗줄 괄호는 옛 사실] ReconnectionHandler 의 구독은 Plan X-1 로 꺼졌고,
+            //    경기 중 상대 끊김은 이제 InGameLinkWatch(Host·Client 공통 감시기)가 같은 콜백을 따로 받아 처리한다.
+            //    이 줄의 동작(서버면 여기서 끝)은 바뀌지 않았다.
             if (NetworkManager.Singleton.IsServer) return;
 
             // 클라이언트 측: 서버(=자기 자신 또는 ServerClientId) 끊김 처리
@@ -302,6 +305,69 @@ namespace Hexiege.Infrastructure
                              "클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행",
                              DisconnectDiag.Keys("ServerLostRaised", $"ClientId={clientId}"));
             OnServerDisconnected?.Invoke();
+        }
+
+        // ====================================================================
+        // [2026-11-26 U-16] OnClientDisconnectCallback 구독 누적 수정
+        //
+        // [초급자용 설명] 무엇이 문제였나
+        //   이 매니저는 DontDestroyOnLoad 라 앱이 켜져 있는 동안 계속 산다. 방 만들기 · 참가 · 랜덤 매칭마다
+        //   HandleClientDisconnected 를 「+=」로 붙이는데, 결과 화면 → 로비 버튼(BackToLobby) 경로는 그것을
+        //   떼지 않았다(Research 2-3). 그래서 판을 거듭할수록 같은 처리기가 한 번씩 더 붙어, 끊김 1번에
+        //   「서버 연결 끊김 감지」 줄이 2~3번 찍혔다(측정 task 1절).
+        //
+        // 고친 방법 두 가지(둘 다 필요하다):
+        //   ① 붙이기 전에 먼저 뗀다 — C# 이벤트에서 붙지 않은 처리기를 떼는 것은 아무 일도 없는 안전한 동작이고,
+        //      「떼고 붙이기」를 하면 몇 번을 불러도 처리기는 정확히 하나만 남는다.
+        //   ② 로비 복귀(BackToLobby)에서도 뗀다 — 다음 방에 들어갈 때 ①이 다시 붙인다.
+        //
+        // 🔴 맵 준비 실패 감지는 영향이 없다: 맵 준비는 방 만들기/참가/매칭 **뒤에** 일어나고, 그 시작 함수들이
+        //    StartHost/StartClient 직전에 ①로 처리기를 붙이므로 맵 준비 동안에는 항상 정확히 하나가 붙어 있다.
+        //    떼는 자리를 하나 더 만든 BackToLobby 는 경기가 끝나 로비로 돌아가는 길이라 맵 준비 구간이 아니다.
+        //
+        // ⚠️ 로그의 Count 는 「이 매니저가 붙여 둔 개수」(0 또는 1)다. NGO 이벤트의 실제 구독자 목록은 밖에서 읽을 수
+        //    없어(C# event 는 소유 클래스 밖에서 목록을 볼 수 없다) 직접 셀 수 없다. 대신 ①의 「떼고 붙이기」가
+        //    1개를 보장하고, 실제 효과는 끊김 1회당 ServerLostRaised 줄 수(최대 1줄)로 확인한다(Plan 6절 T-13).
+        // ====================================================================
+
+        /// <summary>HandleClientDisconnected 를 붙여 둔 NetworkManager(없으면 null). Count 로그와 이중 구독 방지용.</summary>
+        private NetworkManager _disconnectHandlerOwner;
+
+        /// <summary>
+        /// HandleClientDisconnected 를 붙인다 — 먼저 떼고 붙여서 항상 하나만 남게 한다.
+        /// </summary>
+        /// <param name="network">대상 NetworkManager. null 이면 아무것도 안 한다.</param>
+        /// <param name="site">부른 자리 이름(로그용 — CreateRoom 등).</param>
+        private void AttachDisconnectHandler(NetworkManager network, string site)
+        {
+            if (network == null) return;
+            // 다른 NetworkManager 에 붙어 있던 것이 있으면 그쪽부터 뗀다(인스턴스가 바뀐 경우의 방어).
+            if (_disconnectHandlerOwner != null && _disconnectHandlerOwner != network)
+                _disconnectHandlerOwner.OnClientDisconnectCallback -= HandleClientDisconnected;
+            network.OnClientDisconnectCallback -= HandleClientDisconnected; // ① 먼저 뗀다(붙어 있지 않으면 아무 일 없음)
+            network.OnClientDisconnectCallback += HandleClientDisconnected;
+            _disconnectHandlerOwner = network;
+            // DisconnectCallbackSub — 구독(Plan 6절 T-13). 정상: 매 판 Count=1.
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), DisconnectDiag.MessagePrefix + " DisconnectCallbackSub",
+                DisconnectDiag.Keys("DisconnectCallbackSub", $"Op=Add, Site={site}, Count=1"));
+        }
+
+        /// <summary>
+        /// HandleClientDisconnected 를 뗀다. 붙어 있지 않아도 안전하다.
+        /// </summary>
+        /// <param name="network">대상 NetworkManager. null 이면 기억해 둔 대상에서 뗀다.</param>
+        /// <param name="site">부른 자리 이름(로그용).</param>
+        private void DetachDisconnectHandler(NetworkManager network, string site)
+        {
+            bool wasAttached = _disconnectHandlerOwner != null;
+            if (network != null) network.OnClientDisconnectCallback -= HandleClientDisconnected;
+            if (_disconnectHandlerOwner != null && _disconnectHandlerOwner != network)
+                _disconnectHandlerOwner.OnClientDisconnectCallback -= HandleClientDisconnected;
+            _disconnectHandlerOwner = null;
+            // DisconnectCallbackSub — 해제. 붙어 있지 않던 상태에서의 해제(WasAttached=False)도 남긴다(어느 경로가 떼는지 보기 위함).
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), DisconnectDiag.MessagePrefix + " DisconnectCallbackSub",
+                DisconnectDiag.Keys("DisconnectCallbackSub",
+                    $"Op=Remove, Site={site}, Count=0, WasAttached={(wasAttached ? "True" : "False")}"));
         }
 
         /// <summary>
@@ -346,7 +412,9 @@ namespace Hexiege.Infrastructure
             if (NetworkManager.Singleton != null)
             {
                 NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                DetachDisconnectHandler(NetworkManager.Singleton, "OnDestroy");
             }
 
             StopHeartbeat();
@@ -478,7 +546,9 @@ namespace Hexiege.Infrastructure
                 // 3-1. Client 접속/끊김 감지 콜백 구독 — StartHost() 이전에 등록 (레이스 컨디션 방지)
                 diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkCallbacks, CustomRoomCreationDiagnostics.Outcome.Begin);
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                AttachDisconnectHandler(NetworkManager.Singleton, "CreateRoom");
                 diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkCallbacks, CustomRoomCreationDiagnostics.Outcome.Done);
 
                 // 3. NetworkManager Host 시작
@@ -488,7 +558,9 @@ namespace Hexiege.Infrastructure
                     diagnostic?.Record(CustomRoomCreationDiagnostics.Stage.NetworkHost, CustomRoomCreationDiagnostics.Outcome.Failed, false);
                     // 실패 시 등록한 콜백 해제 후 에러 반환
                     NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
-                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                    // NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    DetachDisconnectHandler(NetworkManager.Singleton, "CreateRoomStartHostFailed");
                     OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     return;
                 }
@@ -597,11 +669,15 @@ namespace Hexiege.Infrastructure
                 }
 
                 // 4. NetworkManager Client 시작 — 끊김 콜백을 StartClient 이전에 등록 (레이스 컨디션 방지)
-                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                AttachDisconnectHandler(NetworkManager.Singleton, "JoinRoom");
 
                 if (!StartNetworkClient())
                 {
-                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                    // NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    DetachDisconnectHandler(NetworkManager.Singleton, "JoinRoomStartClientFailed");
                     OnError?.Invoke("NetworkManager.StartClient() 실패.");
                     return;
                 }
@@ -650,7 +726,9 @@ namespace Hexiege.Infrastructure
             if (network != null)
             {
                 network.OnClientConnectedCallback -= HandleClientConnected;
-                network.OnClientDisconnectCallback -= HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // network.OnClientDisconnectCallback -= HandleClientDisconnected;
+                DetachDisconnectHandler(network, "DisconnectSession");
             }
 
             // NetworkManager 종료
@@ -1027,13 +1105,17 @@ namespace Hexiege.Infrastructure
 
                 // 3. Client 접속/끊김 감지 콜백 — StartHost() 이전에 등록 (레이스 컨디션 방지)
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
-                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                AttachDisconnectHandler(NetworkManager.Singleton, "RandomHost");
 
                 // 4. NetworkManager Host 시작
                 if (!StartNetworkHost())
                 {
                     NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
-                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                    // NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    DetachDisconnectHandler(NetworkManager.Singleton, "RandomHostStartFailed");
                     // OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     FailRandomMatchPreparation(preparation, "StartHostFailed");
                     return;
@@ -1108,11 +1190,15 @@ namespace Hexiege.Infrastructure
                 if (!relayJoined) { FailRandomMatchPreparation(preparation, "RelayJoinFailed"); return; }
 
                 // 3. NetworkManager Client 시작 — 끊김 콜백을 StartClient 이전에 등록
-                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                // NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+                AttachDisconnectHandler(NetworkManager.Singleton, "RandomClient");
 
                 if (!StartNetworkClient())
                 {
-                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    // [2026-11-26 U-16 구독 누적 수정] 아래 헬퍼로 바꿨다(중복 구독 방지 + DisconnectCallbackSub 로그). 옛 줄(기록용):
+                    // NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    DetachDisconnectHandler(NetworkManager.Singleton, "RandomClientStartFailed");
                     // OnError?.Invoke("StartClient() 실패.");
                     FailRandomMatchPreparation(preparation, "StartClientFailed");
                     return;
@@ -1801,6 +1887,12 @@ namespace Hexiege.Infrastructure
             {
                 NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
             }
+
+            // 1-0. [2026-11-26 U-16 구독 누적 수정] 끊김 처리기도 여기서 뗀다 — 다음 방에 들어갈 때 다시 붙는다.
+            //      🔴 4번 ShutdownNetworkManager() **앞**에서 뗀다: 내가 스스로 연결을 내릴 때 NGO 가 보내는 끊김 콜백이
+            //         「서버 연결 끊김 감지」(ServerLostRaised)로 잘못 찍히지 않게 하기 위함이다(의도적인 퇴장이다).
+            //      ⚠️ 연결 판정으로 이미 연결이 내려간 뒤에 이 메서드가 불려도 안전하다(떼기만 한다).
+            DetachDisconnectHandler(NetworkManager.Singleton, "BackToLobby");
 
             // 1-A. 무작위 맵 3단계 I: 맵 준비 상태와 확정 맵을 함께 비운다.
             //      규칙 14 *"로비 복귀 또는 연결 종료 시 폐기"* — 남겨 두면 다음 판에서

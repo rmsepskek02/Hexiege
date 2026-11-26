@@ -1523,6 +1523,19 @@ namespace Hexiege.Application
         public static readonly Subject<Unit> OnNetworkOpponentLeft = new Subject<Unit>();
 
         /// <summary>
+        /// [2026-11-26 인게임 이탈 판정] 경기 중 「상대와의 연결 상태」가 바뀌었음을 알린다
+        /// (대기 → 정상 → 지연 → 판정 중 → 종료, 「연결 복구 중」 표시 여부).
+        /// 발행: <see cref="NetworkLinkState.SetPhase"/>(쓰는 쪽은 Infrastructure 감시기 InGameLinkWatch 하나뿐)
+        /// 구독: NetworkLagOverlayUI(지연 덮개 표시·문구 전환)
+        ///
+        /// 🔴 현재 값은 언제든 <see cref="NetworkLinkState"/> 에서 읽을 수 있다 — 이 채널은 「바뀐 순간」만 알린다.
+        ///    늦게 구독한 쪽은 구독 직후 NetworkLinkState 를 한 번 읽어 현재 상태를 맞춘다.
+        /// 🔴 Netcode 타입을 싣지 않는다(Application 레이어 — 아키텍처 핵심 제약).
+        /// </summary>
+        public static readonly Subject<NetworkLinkStateChangedEvent> OnNetworkLinkStateChanged
+            = new Subject<NetworkLinkStateChangedEvent>();
+
+        /// <summary>
         /// 네트워크 게임 종료 후 로비로 복귀할 때 발행하는 이벤트.
         /// 발행: NetworkGameManager.BackToLobby (NGO Shutdown 완료 직후)
         /// 구독: GameEndUI (SceneLoader.Load 호출)

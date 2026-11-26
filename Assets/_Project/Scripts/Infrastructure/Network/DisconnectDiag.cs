@@ -19,7 +19,10 @@
 //
 // [공통 키 — 모든 진단 줄의 맨 앞에 붙는다 (Plan 2절)]
 //   Diag=Disconnect  검색어. 이 한 단어로 이번 측정 줄이 전부 잡힌다.
-//   DiagRev=1        진단 내용 버전. 키·의미를 바꾸면 올린다.
+//   DiagRev=2        진단 내용 버전. 키·의미를 바꾸면 올린다.
+//                    (2026-11-26 1→2: 인게임 이탈 판정 task 가 새 이벤트(Link*, OfflineForfeit, CommandBlocked …)를
+//                     더하고 ResultShown 에 Cause·Countdown 을 붙였다. 측정 task 의 기존 이벤트 이름·키는 그대로다 —
+//                     _Tasks/2026-11-26/10_31_ingame-leave-judgment/Plan.md 5절.)
 //   Event=…          무슨 일이 일어났는지(MatchStart, PeerDisconnected …). 한 번 정하면 바꾸지 않는다.
 //   Role=Host|Client 이 기기의 역할. 경기 시작(MatchStart) 때 정해 둔 값. 경기 밖이면 `-`.
 //   UtcMs            기기 시계(1970-01-01 UTC 기준 ms). 🔴 두 기기를 비교할 때는 이 값의 차를 쓴다.
@@ -57,7 +60,7 @@ namespace Hexiege.Infrastructure
         public const string MessagePrefix = "[DISC-DIAG]";
 
         /// <summary>진단 내용 버전(DiagRev). 키 이름이나 의미를 바꾸면 이 값을 올린다.</summary>
-        public const int DiagRevision = 1;
+        public const int DiagRevision = 2; // [2026-11-26] 1 → 2 (인게임 이탈 판정 task — 머리말 참조)
 
         /// <summary>자유 문장 값(DisconnectReason)을 자르는 최대 글자 수(Plan 2절 「값 표기」).</summary>
         private const int ReasonMaxLength = 120;
@@ -202,16 +205,28 @@ namespace Hexiege.Infrastructure
         /// </summary>
         /// <param name="className">로그 카테고리의 Class 이름(부른 쪽 — GameEndUI).</param>
         /// <param name="isWin">이 기기 기준 승리 여부.</param>
+        /// <param name="cause">
+        /// [2026-11-26 DiagRev=2 추가] 결과 사유(Normal / OpponentLeft / SelfDisconnected / SelfPauseDefeat /
+        /// OfflineForfeit). 기존 호출(인자 2개)과 호환되도록 기본값 "Normal" 을 둔다.
+        /// </param>
+        /// <param name="countdownSeconds">
+        /// [2026-11-26 DiagRev=2 추가] 결과 화면 자동 복귀 카운트다운 길이(초). 카운트다운이 없으면(싱글) -1 → "-" 로 남긴다.
+        /// </param>
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        public static void ReportResultShown(string className, bool isWin)
+        public static void ReportResultShown(string className, bool isWin, string cause = "Normal", int countdownSeconds = -1)
         {
             try
             {
                 if (!s_matchActive) return;
                 s_resultShown = true;
+                // [2026-11-26 DiagRev=2] IsWin 뒤에 Cause · Countdown 을 붙였다(Plan 5절 「ResultShown(기존 확장)」).
+                //   IsWin 키는 같은 글자·같은 자리 그대로다(DiagRev=1 로그와 같은 검색어로 잡힌다).
                 GameLog.Dev.Info("Network", className, MessagePrefix + " ResultShown",
-                                 Keys("ResultShown", "IsWin=" + (isWin ? "True" : "False")));
+                                 Keys("ResultShown", "IsWin=" + (isWin ? "True" : "False")
+                                     + ", Cause=" + (string.IsNullOrEmpty(cause) ? None : cause)
+                                     + ", Countdown=" + (countdownSeconds >= 0
+                                         ? countdownSeconds.ToString(CultureInfo.InvariantCulture) : None)));
             }
             catch (Exception)
             {

@@ -219,6 +219,24 @@ namespace Hexiege.Infrastructure
 #endif
 
         // ====================================================================
+        // 인게임 연결 판정 — 상태 (2026-11-26, _Tasks/2026-11-26/10_31_ingame-leave-judgment)
+        // ====================================================================
+
+        /// <summary>
+        /// 🔴 <b>이 기기가 연결 판정(또는 연결 없는 포기)으로 이미 결과를 냈는가.</b>
+        /// 낸 뒤에 늦게 도착한 승자 발표(AnnounceWinnerClientRpc)가 결과 화면을 한 번 더 띄우지 않게 막는다
+        /// (Plan 2-2 「중복 깃발 하나로 먼저 난 결론만 쓴다」 · T-9 「기기당 ResultShown 1줄」).
+        /// ⚠️ Host 쪽 중복은 기존 <see cref="_announced"/> 가 막는다(로컬 결론도 그 깃발을 함께 세운다).
+        /// </summary>
+        private bool _localConclusionDone;
+
+        /// <summary>
+        /// 인게임 신호 전송 실패를 이미 로그로 남겼는가(판당 1줄 — LogRules 1.14 금지 8).
+        /// 결과 화면 신호의 <see cref="_heartbeatSendFailureLogged"/> 와 <b>다른 신호</b>라 깃발도 따로 둔다.
+        /// </summary>
+        private bool _presenceSendFailureLogged;
+
+        // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
 
@@ -235,6 +253,12 @@ namespace Hexiege.Infrastructure
             // "[Network]" 접두사와 클래스 이름을 메시지에서 뺀 이유:
             // GameLog 가 [System/Class] 카테고리를 앞에 붙여 주므로 중복이다(LogRules.md 1.4 형식).
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "네트워크 스폰", $"IsServer={IsServer}");
+
+            // [2026-11-26 인게임 연결 판정] 이번 경기의 로컬 결론 · 신호 실패 깃발을 비운다.
+            //   (재경기는 씬을 다시 불러와 새 오브젝트가 생기지만, 같은 오브젝트가 다시 스폰되는 경우에도
+            //    지난 판의 결론이 따라오지 않게 스폰마다 비운다.)
+            _localConclusionDone = false;
+            _presenceSendFailureLogged = false;
 
             if (IsServer)
             {
@@ -404,6 +428,18 @@ namespace Hexiege.Infrastructure
         {
             TeamId winnerTeam = (TeamId)winnerTeamIndex;
 
+            // [2026-11-26 인게임 연결 판정] 이 기기가 연결 판정으로 이미 결과를 냈다면 늦게 온 발표는 버린다.
+            //   🔴 판정은 뒤집지 않는다(Plan 2-3 5번). 받아들이면 결과 화면이 한 번 더 그려지고
+            //      (ResultShown 2줄 — T-9 위반) 승패가 바뀔 수도 있다.
+            //   ⚠️ 이 가드는 결과가 정해지기 **전에** 도착한 정상 발표는 막지 않는다 — 정상 종료가 우선이다(U-10).
+            if (_localConclusionDone)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "AnnounceWinnerClientRpc 무시 — 이 기기는 연결 판정으로 이미 결과를 냈다",
+                    DisconnectDiag.Keys("LinkVerdictSkipped", $"Existing={NetworkLinkState.MatchEndCause}, Late=AnnounceWinner, WinnerTeam={winnerTeam}"));
+                return;
+            }
+
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "AnnounceWinnerClientRpc 수신",
                 $"WinnerTeam={winnerTeam}, LocalTeam={LocalPlayerTeam.Current}, IsRandomMatch={isRandomMatch}");
@@ -467,6 +503,11 @@ namespace Hexiege.Infrastructure
         /// 상대 부재로 재경기 요청 자체가 성립하지 않음.
         /// </summary>
         /// <param name="winnerTeamIndex">강제 승리할 팀의 TeamId 정수값 (Blue=1, Red=2)</param>
+        // ⚠️ [2026-11-26 Plan X-4 — 호출되지 않게 됨, 메서드는 남김]
+        //   유일한 호출부였던 ReconnectionHandler 의 30초 유예가 X-1 로 꺼져(구독 주석 처리) 이 메서드를 부르는 곳이
+        //   없어졌다(스크립트 · Editor 전체 grep 으로 확인: 호출부는 ReconnectionHandler.WaitAndForceWin 한 곳뿐이었다).
+        //   같은 역할(상대 끊김 → 남은 쪽 승리)은 이제 역할 무관 로컬 결론 ConcludeMatchLocally 가 맡는다.
+        //   최종 삭제는 사용자 테스트 통과 뒤 승인을 받아 한다(WORKFLOW [4] 기존 로직 제거 규칙).
         public void ForceWin(int winnerTeamIndex)
         {
             if (!IsServer) return;
@@ -533,8 +574,98 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void RequestForfeit()
         {
+            // ----------------------------------------------------------------
+            // [2026-11-26 인게임 연결 판정 — Plan 2-7, U-9] 연결이 없으면 서버 대답을 기다리지 않고 이 기기에서 끝낸다.
+            //
+            // [초급자용 설명] 왜 필요한가
+            //   지금까지는 포기가 항상 ServerRpc 로 서버(Host)에 「나 포기한다」를 보냈다. 그런데 Host 와 끊긴
+            //   Client 에서는 받을 서버가 없어 **아무 일도 일어나지 않았다** — 설정 창만 닫히고 경기에 갇혔다
+            //   (측정 task 8-2 S5·S6 — 「포기 요청 전송」 줄만 남음). 그래서 연결이 없다고 판단되면 그 자리에서
+            //   「내 이탈(포기)」로 결론을 내고 결과 화면 → 로비로 보낸다. 상대 쪽은 신호가 끊긴 것을 보고 15초 뒤
+            //   스스로 판정해 승리한다 — 결과(포기한 쪽 패배)는 같다(SettingsUI 규칙 4).
+            //
+            // 🔴 연결이 있으면 **종전 그대로**다(아래 ForfeitServerRpc 줄은 한 글자도 바뀌지 않았다).
+            // ----------------------------------------------------------------
+            string offlineReason = GetOfflineForfeitReason();
+            if (offlineReason != null)
+            {
+                ConcludeOfflineForfeit(offlineReason);
+                return;
+            }
+
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "포기 요청 전송");
-            ForfeitServerRpc();
+
+            // [2026-11-26] 보내다 예외가 나면(연결이 내려가는 바로 그 순간) 같은 「연결 없는 포기」로 끝낸다.
+            //   예외가 InGameSettingsUI.OnForfeitConfirmed 까지 올라가면 그 뒤의 Hide() 가 실행되지 않아
+            //   설정 창이 닫히지 않고, 사용자는 포기를 눌렀는데 아무 일도 없는 화면에 남는다(Research 2-6).
+            try
+            {
+                ForfeitServerRpc();
+            }
+            catch (System.Exception e)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "포기 요청을 서버로 보내지 못했다 — 연결 없는 포기로 이 기기에서 끝낸다",
+                    DisconnectDiag.Keys("OfflineForfeitFallback", $"Exception={e.GetType().Name}"));
+                ConcludeOfflineForfeit("SendFailed");
+            }
+        }
+
+        /// <summary>
+        /// [2026-11-26 Plan 2-7] 지금 「연결 없음」으로 보고 포기를 이 기기에서 처리해야 하는지, 그 이유를 돌려준다.
+        /// 연결이 있으면 null.
+        ///
+        /// <para>
+        /// 판단 순서(앞에서 걸리면 그 이유를 쓴다):
+        /// <list type="number">
+        ///   <item><c>Delay</c> — 감시기가 지연 중(U-9 「지연 중 포함」 원문). 실제로 RPC 가 닿을 수도 있지만,
+        ///         그래도 이 기기에서 끝낸다 — 상대는 15초 판정으로 승리하므로 결과는 같다(Plan 2-7 아래 설명).</item>
+        ///   <item><c>Judging</c> — 감시기가 판정 중.</item>
+        ///   <item><c>NotSpawned</c> — 이 컨트롤러가 이미 디스폰됐다(연결이 내려갔다).</item>
+        ///   <item><c>NotListening</c> — NGO 가 돌고 있지 않다.</item>
+        ///   <item><c>NotConnected</c> — Client 인데 서버와 연결돼 있지 않다.</item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        /// <returns>연결 없음의 이유. 연결이 있으면 null.</returns>
+        private string GetOfflineForfeitReason()
+        {
+            if (NetworkLinkState.IsMultiplayerMatch)
+            {
+                if (NetworkLinkState.Phase == InGameLinkPhase.Delayed) return "Delay";
+                if (NetworkLinkState.Phase == InGameLinkPhase.Judging) return "Judging";
+            }
+
+            try
+            {
+                if (!IsSpawned) return "NotSpawned";
+                NetworkManager nm = NetworkManager.Singleton;
+                if (nm == null || !nm.IsListening) return "NotListening";
+                if (!nm.IsServer && !nm.IsConnectedClient) return "NotConnected";
+            }
+            catch (System.Exception)
+            {
+                // 이 오브젝트가 이미 파괴되는 중이면 IsSpawned 읽기도 실패할 수 있다 — 연결 없음으로 본다.
+                return "NotSpawned";
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// [2026-11-26 Plan 2-7] 연결 없는 포기 — 이 기기에서 즉시 「내 이탈(포기)」로 결론을 낸다.
+        /// 승자는 상대 팀이고, 결과 화면은 끊긴 쪽 화면(승패 글자 없음 · 「연결이 끊겼습니다」)이다(U-9 · U-7).
+        /// </summary>
+        /// <param name="reason">연결 없음의 이유(로그 Reason 값).</param>
+        private void ConcludeOfflineForfeit(string reason)
+        {
+            // OfflineForfeit — 연결 없는 포기(T-11). 이 줄 다음에 ResultShown Cause=OfflineForfeit 가 와야 정상이다.
+            GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                DisconnectDiag.MessagePrefix + " OfflineForfeit",
+                DisconnectDiag.Keys("OfflineForfeit", $"Reason={reason}"));
+
+            TeamId myTeam = LocalPlayerTeam.Current;
+            TeamId winner = (myTeam == TeamId.Blue) ? TeamId.Red : TeamId.Blue;
+            ConcludeMatchLocally(winner, MatchEndCause.OfflineForfeit);
         }
 
         /// <summary>
@@ -1694,6 +1825,201 @@ namespace Hexiege.Infrastructure
                 _networkGameManager = FindFirstObjectByType<Hexiege.Infrastructure.NetworkGameManager>();
             }
             return _networkGameManager;
+        }
+
+        // ====================================================================
+        // 인게임 연결 감시 — 「나 여기 있다」 신호 (2026-11-26, Plan 3절 2단계 · U-15)
+        //
+        // [초급자용 설명]
+        //   경기 중 두 기기는 1초마다 서로에게 신호를 보낸다. 신호를 언제 보내고 받은 신호로 무엇을 판단하는지는
+        //   감시기(InGameLinkWatch — 일반 MonoBehaviour)가 정하고, 여기서는 **실제 RPC 배달만** 한다.
+        //   RPC 는 NetworkBehaviour 에서만 선언·호출할 수 있기 때문이다.
+        //
+        // 🔴 결과 화면 신호(ResultScreenHeartbeat*)와는 **다른 신호**다 — 그쪽은 한 글자도 바꾸지 않았다(규칙 17 유지).
+        //    이름 앞머리(Presence / ResultScreen)로 구분한다.
+        //
+        // 🔴 신호에 싣는 값 셋 (RTT 계산용 — 두 기기의 시계를 서로 비교하지 않는다):
+        //    sentAt        : 보내는 쪽 시계의 송신 시각(초). 받는 쪽은 비교하지 않고 다음 신호에 되돌려 주기만 한다.
+        //    echoPeerSentAt: 보내는 쪽이 마지막으로 받은 「상대 신호」의 sentAt(상대 시계). 없으면 -1.
+        //    echoHoldSec   : 그 상대 신호를 받은 뒤 이 신호를 보내기까지 쥐고 있던 시간(초).
+        //    → 받는 쪽: RTT = (지금 - 내가 보냈던 sentAt) - echoHoldSec  (전부 자기 시계)
+        //
+        // ⚠️ 전송 방식: NGO 기본값(신뢰 전송)을 쓴다. 비신뢰(손실 허용) 지정 속성은 이 패키지 버전(NGO 2.9.2)에서
+        //    로컬 소스로 확인하지 못해 쓰지 않았다(CLAUDE.md 규칙 10 — 근거 없는 API 금지, Plan 11절 2번 보고).
+        //    신뢰 전송은 회선이 나쁠 때 재전송으로 늦게 도착하는데, 그 늦음이 그대로 「지연」으로 보이므로
+        //    판정 목적에는 문제가 없다.
+        // ====================================================================
+
+        /// <summary>
+        /// [양쪽 공통 — 감시기가 1초마다 부른다] 내 「나 여기 있다」 신호를 상대에게 보낸다.
+        /// 스폰돼 있지 않거나 보내다 실패하면 false(예외는 밖으로 던지지 않는다 — 감시 틱을 지키기 위함).
+        /// </summary>
+        /// <param name="sentAt">내 시계의 송신 시각(초).</param>
+        /// <param name="echoPeerSentAt">마지막으로 받은 상대 신호의 송신 시각(상대 시계). 없으면 음수.</param>
+        /// <param name="echoHoldSec">그 상대 신호를 받은 뒤 지금까지 쥐고 있던 시간(초).</param>
+        /// <returns>보냈으면 true.</returns>
+        public bool SendPresenceHeartbeat(double sentAt, double echoPeerSentAt, double echoHoldSec)
+        {
+            try
+            {
+                if (!IsSpawned) return false;
+                // 🔴 역할로 갈리는 것은 배달 방향뿐이다(결과 화면 신호 SendResultScreenHeartbeat 와 같은 구조).
+                if (IsServer) PresenceHeartbeatClientRpc(sentAt, echoPeerSentAt, echoHoldSec);
+                else PresenceHeartbeatServerRpc(sentAt, echoPeerSentAt, echoHoldSec);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                // 연결이 내려가는 도중에 보내면 NGO 가 예외를 던진다. 감시는 계속해야 하므로 삼키되,
+                // 삼킨 예외를 기록 없이 두지 않도록 판당 첫 1번만 남긴다(LogRules 원칙 4 · 1.14 금지 8).
+                if (!_presenceSendFailureLogged)
+                {
+                    _presenceSendFailureLogged = true;
+                    GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                        "인게임 연결 신호 전송 실패 — 감시는 계속한다(판당 1줄)",
+                        DisconnectDiag.Keys("PresenceSendFailed", $"Exception={e.GetType().Name}"));
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// [서버에서 실행] Client 가 보낸 인게임 「나 여기 있다」 신호.
+        /// 🔴 NGO 명명 규약상 ServerRpc 메서드 이름은 반드시 <c>ServerRpc</c> 로 끝나야 한다.
+        /// RequireOwnership=false 인 이유는 이 파일의 다른 ServerRpc 들과 같다(서버 소유 오브젝트).
+        /// 🔴 여기서 로그를 남기지 않는다 — 1초마다 오는 정상 신호다(LogRules 1.14 금지 8).
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void PresenceHeartbeatServerRpc(double sentAt, double echoPeerSentAt, double echoHoldSec,
+            ServerRpcParams rpcParams = default)
+        {
+            // 내가 보낸 것이 나에게 돌아온 경우는 상대 신호가 아니다(지금 구조에서 Host 는 이 RPC 를 보내지 않지만,
+            // 자기 신호를 상대 신호로 세면 침묵을 영원히 감지하지 못하므로 값싼 방어를 둔다 — 결과 화면 신호와 같은 이유).
+            if (NetworkManager.Singleton != null &&
+                rpcParams.Receive.SenderClientId == NetworkManager.Singleton.LocalClientId) return;
+
+            InGameLinkWatch.ReceivePresenceHeartbeat(sentAt, echoPeerSentAt, echoHoldSec);
+        }
+
+        /// <summary>
+        /// [클라이언트에서 실행] Host 가 보낸 인게임 「나 여기 있다」 신호.
+        /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ClientRpc]
+        private void PresenceHeartbeatClientRpc(double sentAt, double echoPeerSentAt, double echoHoldSec)
+        {
+            // Host 는 자기가 보낸 ClientRpc 본문을 자기도 실행한다 — 그것은 상대 신호가 아니므로 반드시 거른다
+            // (거르지 않으면 Host 는 영원히 침묵을 감지하지 못한다 — 결과 화면 신호와 같은 이유).
+            if (IsServer) return;
+
+            InGameLinkWatch.ReceivePresenceHeartbeat(sentAt, echoPeerSentAt, echoHoldSec);
+        }
+
+        // ====================================================================
+        // 인게임 연결 판정 — 로컬 결론 (2026-11-26, Plan 2-4 · 3절 4단계)
+        //
+        // [초급자용 설명]
+        //   감시기가 「상대가 나갔다(내 승리)」 또는 「내가 끊겼다(내 이탈)」로 판정했거나, 연결 없는 상태에서
+        //   포기했을 때, 그 결론을 **이 기기 안에서** 경기 결과로 만드는 자리다. 서버에 묻지 않는다 —
+        //   묻는 통로(연결)가 바로 문제이기 때문이다. Host 든 Client 든 같은 메서드, 같은 순서다(최상위 원칙).
+        //
+        //   순서(결과 화면 감시의 「알림 → 연결 종료」 선례 — Research 2-4):
+        //     1. 중복 깃발 — 이미 결과가 났으면 아무것도 하지 않는다(정상 종료가 우선 — U-10).
+        //     2. 결과 사유를 NetworkLinkState 에 적는다 → 결과 화면이 이 값을 보고 문구를 고른다.
+        //     3. GameEvents.OnGameEnd 발행 — 멀티 표시(NetworkContext)가 켜진 상태에서(Plan 2-4 2번).
+        //     4. NetworkGameManager.ShutdownNetwork() 로 연결을 내린다.
+        //        🔴 NetworkBehaviour 안에서 NetworkManager.Shutdown() 을 직접 부르지 않는다(디스폰 타이밍 문제 —
+        //           ConfirmOpponentLeftAfterSilence 와 같은 이유). 연결 종료가 먼저면 디스폰으로 뒤 코드가 끊길 수 있어 맨 뒤다.
+        //     5. 결과 화면 30초 카운트다운 → 로비(GameEndUI 가 맡는다).
+        //
+        // ⚠️ Plan 2-4 는 「3. 결과 사유 이벤트 발행」을 OnGameEnd **뒤**에 적었다. 구현은 사유를 OnGameEnd **앞**에
+        //    정적 홀더로 적는 방식으로 바꿨다 — 결과 화면이 OnGameEnd 를 받는 순간 한 번에 올바르게 그려지고
+        //    (「패배!」가 잠깐 보였다 바뀌는 깜빡임 없음), 진단 ResultShown 도 사유와 함께 1줄로 남게 하기 위함이다.
+        // ====================================================================
+
+        /// <summary>
+        /// [양쪽 공통] 연결 판정·연결 없는 포기의 결론을 이 기기에서 경기 결과로 만든다.
+        /// 이미 결과가 났으면(정상 종료·포기·먼저 낸 결론) 아무것도 하지 않고 false.
+        /// </summary>
+        /// <param name="winner">승리 팀(내 승리면 내 팀, 내 이탈이면 상대 팀).</param>
+        /// <param name="cause">결과 화면 사유.</param>
+        /// <returns>이번 호출로 결과를 냈으면 true.</returns>
+        public bool ConcludeMatchLocally(TeamId winner, MatchEndCause cause)
+        {
+            // 1. 중복 깃발 — 세 겹이다.
+            //    _announced            : Host 가 이미 정상 종료·포기를 발표했다(서버에서만 세워진다).
+            //    _localConclusionDone  : 이 기기가 이미 로컬 결론을 냈다.
+            //    IsMatchResultDecided  : 어떤 경로든 OnGameEnd 가 이미 발행됐다(Client 의 정상 발표 수신 포함).
+            if (_announced || _localConclusionDone || NetworkLinkState.IsMatchResultDecided)
+            {
+                GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                    DisconnectDiag.MessagePrefix + " LinkVerdictSkipped",
+                    DisconnectDiag.Keys("LinkVerdictSkipped",
+                        $"Existing={NetworkLinkState.MatchEndCause}, WouldBe={cause}, Announced={_announced}, " +
+                        $"LocalDone={_localConclusionDone}, Decided={NetworkLinkState.IsMatchResultDecided}"));
+                return false;
+            }
+
+            // Host 에서는 이 깃발이 서버 쪽 OnGameEndServer 의 재발표(AnnounceWinnerClientRpc)와 늦게 온 포기
+            // ServerRpc 를 막는다. Client 에서는 원래 쓰이지 않는 깃발이라 세워도 부작용이 없다.
+            _announced = true;
+            _localConclusionDone = true;
+
+            // ⚠️ 여기서는 IsServer 같은 NetworkBehaviour 속성을 읽지 않는다 — 이 메서드는 연결이 끊겨 디스폰된 뒤에도
+            //    불리므로(감시기가 부른다), 디스폰 뒤 그 값들이 어떻게 동작하는지 패키지 소스로 확인하지 못했다.
+            //    역할은 공통 진단 키의 Role= 로 이미 남는다.
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                DisconnectDiag.MessagePrefix + " LocalConclusion",
+                DisconnectDiag.Keys("LocalConclusion", $"WinnerTeam={winner}, LocalTeam={LocalPlayerTeam.Current}, Cause={cause}"));
+
+            PublishLocalConclusion(winner, cause, ResolveNetworkGameManager());
+            return true;
+        }
+
+        /// <summary>
+        /// [정적 — 공통 순서] 사유 기록 → OnGameEnd 발행 → 연결 종료.
+        /// <see cref="ConcludeMatchLocally"/> 가 쓰고, 컨트롤러가 이미 파괴된 경우 감시기가 직접 쓴다.
+        /// 예외를 밖으로 던지지 않는다 — 결과 화면 쪽 구독자의 예외가 연결 종료를 막지 않게 하기 위함.
+        /// </summary>
+        /// <param name="winner">승리 팀.</param>
+        /// <param name="cause">결과 화면 사유.</param>
+        /// <param name="ngm">연결을 내릴 NetworkGameManager(없으면 연결 종료를 건너뛴다).</param>
+        internal static void PublishLocalConclusion(TeamId winner, MatchEndCause cause,
+            Hexiege.Infrastructure.NetworkGameManager ngm)
+        {
+            // 2. 사유 — OnGameEnd 를 받는 결과 화면이 이 값을 읽는다(반드시 발행 전).
+            NetworkLinkState.SetMatchEndCause(cause);
+
+            // 3. 결과 발행. 🔴 UniRx Subject 는 앞 구독자가 예외를 던지면 뒤 구독자를 부르지 않고 예외가 여기로 올라온다.
+            //    그래도 4번(연결 종료)은 반드시 해야 하므로 감싼다.
+            try
+            {
+                GameEvents.OnGameEnd.OnNext(new GameEndEvent(winner));
+            }
+            catch (System.Exception e)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "로컬 결론의 OnGameEnd 발행 중 구독자 예외 — 연결 종료는 계속한다",
+                    DisconnectDiag.Keys("LocalConclusionFault", $"Exception={e.GetType().Name}"));
+            }
+
+            // 4. 연결 종료 — 판정 결과를 확정하는 일이다(남겨 두면 「나갔다고 표시했는데 신호가 뒤늦게 오는」 상태가 생긴다).
+            if (ngm == null)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "로컬 결론 — NetworkGameManager 를 찾지 못해 연결 종료를 건너뛴다");
+                return;
+            }
+            try
+            {
+                ngm.ShutdownNetwork();
+            }
+            catch (System.Exception e)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "로컬 결론 — 연결 종료 중 예외",
+                    DisconnectDiag.Keys("LocalConclusionFault", $"Stage=Shutdown, Exception={e.GetType().Name}"));
+            }
         }
 
         // ====================================================================

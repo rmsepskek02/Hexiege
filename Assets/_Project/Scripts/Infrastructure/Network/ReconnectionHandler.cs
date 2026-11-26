@@ -20,6 +20,16 @@
 //   Host 시작 시 자동 스폰.
 //
 // Infrastructure 레이어 — NetworkBehaviour 사용 허용.
+//
+// ⚠️ [2026-11-26 Plan X-1 — 비활성화] 30초 재접속 유예를 껐다(사용자 결정 U-11).
+//   OnNetworkSpawn 의 두 구독(+=)과 OnNetworkDespawn 의 두 해제(-=)를 주석 처리했다 → 이 컴포넌트는
+//   스폰은 되지만 끊김 콜백을 받지 않아 아래 대기·ForceWin 경로가 실행되지 않는다.
+//   왜: ① 측정에서 재접속 취소가 0건이었고(_Tasks/2026-11-26/05_28_ingame-disconnect-measure Research 8-4)
+//       ② 이 30초가 「남은 Host 가 지는」 시간창이었다(같은 Research 8-2). ③ 같은 역할(상대 끊김 → 남은 쪽 승리)은
+//       역할 무관 감시기 InGameLinkWatch 가 15초 판정으로 대신한다.
+//   클래스 · 컴포넌트 · Game.unity 오브젝트 · 직렬화 값(_reconnectWaitSeconds: 30)은 그대로 둔다(씬 참조가 깨지지 않게).
+//   최종 삭제는 사용자 테스트 통과 뒤 승인을 받아 한다(WORKFLOW [4] 기존 로직 제거 규칙).
+//   확인 로그: 스폰 때 `[DISC-DIAG] GraceDisabled Disabled=True` 1줄, `GraceStart` 0줄이면 정상(Plan 6절 T-2).
 // ============================================================================
 
 using System.Collections;
@@ -89,15 +99,24 @@ namespace Hexiege.Infrastructure
             // WaitAndForceWin 코루틴에서 매번 탐색하지 않도록 미리 보관.
             _networkGameEndController = FindFirstObjectByType<NetworkGameEndController>();
 
-            // 서버: 연결/연결 끊김 콜백 등록
-            NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            NetworkManager.OnClientConnectedCallback += OnClientReconnected;
+            // ⚠️ [2026-11-26 Plan X-1 — 비활성화] 30초 재접속 유예 제거(U-11). 아래 두 구독을 주석 처리했다.
+            //   이유와 대체 경로(InGameLinkWatch)는 파일 머리말의 같은 날짜 블록 참조. 옛 줄(기록용):
+            // // 서버: 연결/연결 끊김 콜백 등록
+            // NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            // NetworkManager.OnClientConnectedCallback += OnClientReconnected;
 
-            // [개발] 축 A=Info(의도된 흐름) / 축 B=개발.
-            //   축 B ① "플레이어 기기에서만 벌어지는가"가 "아니오"다 — 에디터 2인 구성으로 그대로 재현된다.
-            //   (선례: LogAudit.md §3-8 NetworkGameManager:692 "Client 접속 감지" → Info / 개발)
-            GameLog.Dev.Info("Network", nameof(ReconnectionHandler), "서버 모드로 재접속 감시 시작",
-                             $"WaitSeconds={_reconnectWaitSeconds}");
+            // ⚠️ [2026-11-26 Plan X-1] 「재접속 감시 시작」 로그도 함께 껐다 — 구독을 끈 뒤에는 사실이 아닌 문장이 되기 때문이다.
+            //   옛 줄(기록용):
+            // // [개발] 축 A=Info(의도된 흐름) / 축 B=개발.
+            // //   축 B ① "플레이어 기기에서만 벌어지는가"가 "아니오"다 — 에디터 2인 구성으로 그대로 재현된다.
+            // //   (선례: LogAudit.md §3-8 NetworkGameManager:692 "Client 접속 감지" → Info / 개발)
+            // GameLog.Dev.Info("Network", nameof(ReconnectionHandler), "서버 모드로 재접속 감시 시작",
+            //                  $"WaitSeconds={_reconnectWaitSeconds}");
+
+            // [진단 DISC-DIAG GraceDisabled — 2026-11-26, Plan 5절 · T-2] 유예가 꺼져 있음을 스폰 때 1줄 남긴다.
+            //   WaitSeconds 는 씬에 남아 있는 직렬화 값(쓰이지 않음)을 그대로 보여 준다 — 「값은 남았지만 꺼졌다」를 로그로 확인.
+            GameLog.Dev.Info("Network", nameof(ReconnectionHandler), DisconnectDiag.MessagePrefix + " GraceDisabled",
+                             DisconnectDiag.Keys("GraceDisabled", $"Disabled=True, WaitSeconds={_reconnectWaitSeconds}"));
         }
 
         /// <summary>
@@ -109,8 +128,9 @@ namespace Hexiege.Infrastructure
 
             if (!IsServer) return;
 
-            NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-            NetworkManager.OnClientConnectedCallback -= OnClientReconnected;
+            // ⚠️ [2026-11-26 Plan X-1 — 비활성화] 스폰 때 구독하지 않으므로 해제할 것도 없다. 옛 줄(기록용):
+            // NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+            // NetworkManager.OnClientConnectedCallback -= OnClientReconnected;
 
             if (_reconnectCoroutine != null)
             {

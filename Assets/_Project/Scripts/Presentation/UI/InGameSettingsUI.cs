@@ -252,6 +252,14 @@ namespace Hexiege.Presentation
         // 표시 / 숨김
         // ====================================================================
 
+        /// <summary>
+        /// [2026-11-26 인게임 이탈 판정] 설정 팝업이 지금 열려 있는가(읽기 전용).
+        /// 지연 덮개(NetworkLagOverlayUI)가 「설정이 열려 있는 동안에는 설정 여는 버튼을 덮개 위로 올리지 않는다」를
+        /// 판단하는 데 쓴다 — 열린 상태에서 그 버튼이 다시 눌려 Show() 가 두 번 불리면 공용 막 점유가 어긋난다
+        /// (Hide 주석의 「중복 호출에 완전히 안전하지는 않다」 참조).
+        /// </summary>
+        public bool IsShown => _panel != null && _panel.IsVisible;
+
         private System.Func<bool> _gameplayInputBlocked;
         /// <summary>결과 화면에서 설정이 다시 열리지 않도록 같은 입력 판정을 주입한다.</summary>
         public void SetGameplayInputGate(System.Func<bool> isBlocked) => _gameplayInputBlocked = isBlocked;
