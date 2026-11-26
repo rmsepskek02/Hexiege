@@ -343,6 +343,7 @@ namespace Hexiege.Infrastructure
         private static long _deviceDiagnosticFailures;
         private static long _deviceConsoleFallbacks;
         private static string _devicePath;
+        internal static string CurrentDeviceArchivePath => _devicePath;
         private static readonly Unity.Profiling.ProfilerMarker _archiveWriteMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveWrite");
         private static readonly Unity.Profiling.ProfilerMarker _archiveStackMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.ArchiveCallerStack");
         private static readonly Unity.Profiling.ProfilerMarker _fileOnlyMarker = new Unity.Profiling.ProfilerMarker("Hexiege.Log.FileOnlyInfo");

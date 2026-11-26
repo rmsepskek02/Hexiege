@@ -26,6 +26,7 @@ namespace Hexiege.EditorTools
         private string _lastDeletionResult;
         private string _collectionStatus, _taskName = "android-logs";
         private bool _lastLogcatEmpty;
+        private readonly Dictionary<string, DateTime> _localUsage = new Dictionary<string, DateTime>(StringComparer.Ordinal);
         private GUIStyle _deleteButtonStyle;
         private readonly List<Entry> _entries = new List<Entry>();
         private sealed class Entry { internal string session, local, status; internal long bytes; internal bool selected; }
@@ -56,7 +57,7 @@ namespace Hexiege.EditorTools
 
         private void OnGUI()
         {
-            EditorGUILayout.HelpBox("선택한 앱 로그와 현재 Logcat 버퍼를 함께 PC로 수집·검증하고 ZIP을 만듭니다. 세션은 앱 실행 1회이며 여러 경기를 포함할 수 있습니다. ZIP에는 오늘의 아직 보관하지 않은 기존 로그도 포함됩니다. 자동 삭제·업로드는 하지 않습니다.", MessageType.Info);
+            EditorGUILayout.HelpBox("선택한 앱 로그와 현재 Logcat 버퍼를 함께 PC로 수집·검증하고 ZIP을 만듭니다. 세션은 앱 실행 1회이며 여러 경기를 포함할 수 있습니다. ZIP에는 오늘의 아직 보관하지 않은 기존 로그도 포함됩니다. 이 버튼은 삭제·업로드를 실행하지 않습니다. 개발 Android 앱은 시작 시 30일 미사용 원본만 자동 정리합니다.", MessageType.Info);
             if (GUILayout.Button("기기 선택 · 세션 목록 읽기")) Safe(RefreshSessions);
             EditorGUILayout.LabelField("기기", _deviceLabel ?? "선택되지 않음");
             _taskName = EditorGUILayout.TextField("ZIP 작업명 (영문)", _taskName);
@@ -86,9 +87,9 @@ namespace Hexiege.EditorTools
                     _deleteButtonStyle.onActive.textColor = Color.red;
                     _deleteButtonStyle.onFocused.textColor = Color.red;
                 }
-                if (GUILayout.Button("PC 검증된 종료 세션 선택 삭제…", _deleteButtonStyle)) Safe(DeleteSelected);
+                if (GUILayout.Button("PC 동일 보관본 기기 로그 삭제…", _deleteButtonStyle)) Safe(DeleteSelected);
             }
-            EditorGUILayout.HelpBox("수집·ZIP 생성 후에도 기기 원본은 그대로 유지됩니다. 삭제는 별도 정리 버튼에서만 수동으로 실행합니다. 활성·변경 중 파일 및 정상 종료 확인 기록이 없는 강제 종료 로그는 삭제할 수 없습니다. 업로드는 직접 수행합니다.", MessageType.None);
+            EditorGUILayout.HelpBox("수집·ZIP은 즉시 삭제하지 않습니다. 수동 삭제는 앱 종료 후 PC 동일 바이트 보관본이 있는 항목만 한 번 확인하며, 부적격은 사유를 표시하고 건너뜁니다. 정상 종료 기록은 필수가 아닙니다. 개발 앱은 30일 미사용 로그를 별도 정리합니다. 사용 중 잠금이 남으면 보호됩니다. 업로드는 직접 수행합니다.", MessageType.None);
         }
 
         private void Safe(Action action)
@@ -102,17 +103,104 @@ namespace Hexiege.EditorTools
             if (!LogcatCapture.TryResolveAdb(out _adb) || !LogcatCapture.TryResolveDevice(_adb, out _serial, out _deviceLabel)) return;
             if (!Regex.IsMatch(_serial, @"^[A-Za-z0-9._:\-]+$")) throw new IOException("지원하지 않는 기기 식별자입니다.");
             EnsureDevice();
-            string output = Shell("if [ -d '" + RemoteRoot + "' ] && [ ! -L '" + RemoteRoot + "' ]; then for d in '" + RemoteRoot + "'/*; do if [ -d \"$d\" ] && [ ! -L \"$d\" ] && [ -f \"$d/RuntimeLog.txt\" ] && [ ! -L \"$d/RuntimeLog.txt\" ]; then basename \"$d\"; fi; done; fi");
+            // One bounded-output listing command; listing never hashes or reads raw logs.
+            string usageName = Hexiege.Infrastructure.DevelopmentLogRetention.UsageName;
+            string output = Shell("if [ -d '" + RemoteRoot + "' ] && [ ! -L '" + RemoteRoot + "' ]; then for d in '" + RemoteRoot + "'/*; do if [ -d \"$d\" ] && [ ! -L \"$d\" ] && [ -f \"$d/RuntimeLog.txt\" ] && [ ! -L \"$d/RuntimeLog.txt\" ]; then printf '%s\\t%s\\t' \"${d##*/}\" \"$(stat -c %s \"$d/RuntimeLog.txt\")\"; m=\"$d/" + usageName + "\"; if [ -e \"$m\" ]; then if [ -f \"$m\" ] && [ ! -L \"$m\" ] && [ \"$(stat -c %s \"$m\")\" -le 128 ]; then cat \"$m\"; else printf INVALID; fi; fi; printf '\\n'; fi; done; fi");
+            var local = BuildLocalIndex();
             _entries.Clear();
-            foreach (string session in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            var sync = new StringBuilder();
+            foreach (string line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!ValidSession(session)) continue;
-                var info = Stat(session);
-                var row = new Entry { session = session, bytes = info.bytes };
-                row.local = FindLocal(session);
-                row.status = row.local == null ? "미회수" : "PC 보관본 있음. 삭제 직전에 원문·PID·원격 hash를 다시 검증합니다.";
+                string[] fields = line.Split('\t');
+                if (fields.Length != 3 || !ValidSession(fields[0]) || !long.TryParse(fields[1], out long bytes) || bytes < 0) continue;
+                local.TryGetValue(fields[0], out string raw);
+                var row = new Entry { session = fields[0], bytes = bytes, local = raw,
+                    status = raw == null ? "미회수" : "PC 보관 후보 있음(목록에서는 미검증). 삭제 직전에 동일 원문을 검증합니다." };
                 _entries.Add(row);
+                if (_localUsage.TryGetValue(row.session, out DateTime used))
+                {
+                    if (TryUsageUtc(fields[2], out DateTime? remote) && (!remote.HasValue || used > remote.Value))
+                        sync.Append(BuildUsageScript(row.session, used, fields[2])).Append(';');
+                    else if (!TryUsageUtc(fields[2], out _)) row.status += " 기기 사용 시각 불명: 자동 정리 보호.";
+                }
             }
+            // One metadata synchronization command, never N raw reads or N ADB launches.
+            if (sync.Length != 0) Shell(sync.ToString());
+        }
+        private Dictionary<string, string> BuildLocalIndex()
+        {
+            var index = new Dictionary<string, string>(StringComparer.Ordinal);
+            _localUsage.Clear();
+            string project = Path.GetDirectoryName(UnityEngine.Application.dataPath), root = Path.Combine(project, PrivateRelative);
+            if (!Directory.Exists(root)) return index;
+            CheckLocalPath(project, root);
+            foreach (string date in Directory.EnumerateDirectories(root).OrderByDescending(x => x, StringComparer.Ordinal))
+            {
+                if (!ValidDate(Path.GetFileName(date))) continue;
+                CheckLocalPath(project, date);
+                foreach (string sessionDir in Directory.EnumerateDirectories(date))
+                {
+                    string session = Path.GetFileName(sessionDir);
+                    if (!ValidSession(session)) continue;
+                    CheckLocalPath(project, sessionDir);
+                    foreach (string collection in Directory.EnumerateDirectories(sessionDir).OrderByDescending(x => x, StringComparer.Ordinal))
+                    {
+                        if (!ValidSession(Path.GetFileName(collection))) continue;
+                        string raw = Path.Combine(collection, RawName), receiptPath = Path.Combine(collection, ReceiptName);
+                        try
+                        {
+                            CheckLocalPath(project, collection); CheckLocalPath(project, raw); CheckLocalPath(project, receiptPath);
+                            if (!File.Exists(raw) || !File.Exists(receiptPath)) continue;
+                            Receipt receipt = JsonUtility.FromJson<Receipt>(Encoding.UTF8.GetString(BoundedRead(receiptPath, MaxReceiptBytes)));
+                            if (receipt != null && receipt.package == Package && receipt.session == session && receipt.serial == _serial)
+                            {
+                                if (!index.ContainsKey(session)) index[session] = raw;
+                                string usage = Path.Combine(collection, Hexiege.Infrastructure.DevelopmentLogRetention.UsageName);
+                                CheckLocalPath(project, usage);
+                                if (File.Exists(usage) && new FileInfo(usage).Length <= 128 && TryUsageUtc(File.ReadAllText(usage).Trim(), out DateTime? used)
+                                    && used.HasValue && (!_localUsage.TryGetValue(session, out DateTime old) || used.Value > old)) _localUsage[session] = used.Value;
+                            }
+                        }
+                        catch (IOException) { }
+                    }
+                }
+            }
+            return index;
+        }
+        internal static void MarkPrivateLogUsed(string raw)
+        {
+            string project = Path.GetDirectoryName(UnityEngine.Application.dataPath);
+            CheckPrivateRawPath(project, raw);
+            string marker = Path.Combine(Path.GetDirectoryName(raw), Hexiege.Infrastructure.DevelopmentLogRetention.UsageName);
+            CheckLocalPath(project, marker);
+            File.WriteAllText(marker, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture), new UTF8Encoding(false));
+        }
+        internal static bool TryUsageUtc(string text, out DateTime? used)
+        {
+            used = null;
+            if (text == "") return true;
+            if (text.Length > 128 || !DateTime.TryParseExact(text, "O", CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out DateTime value) || value.Kind != DateTimeKind.Utc || value > DateTime.UtcNow) return false;
+            used = value; return true;
+        }
+        internal static string BuildUsageScript(string session, DateTime requested, string expected)
+        {
+            if (!TryUsageUtc(expected, out DateTime? old) || requested.Kind != DateTimeKind.Utc || requested > DateTime.UtcNow)
+                throw new IOException("사용 시각이 불명확합니다. 기존 원문을 보호합니다.");
+            if (old.HasValue && old.Value >= requested) return "true";
+            string directory = RemoteRoot + "/" + session;
+            string marker = directory + "/" + Hexiege.Infrastructure.DevelopmentLogRetention.UsageName;
+            string claim = directory + "/" + Hexiege.Infrastructure.DevelopmentLogRetention.LockName;
+            return "(set -e; " + RemoteGuard(session) + " || exit 70; test ! -L '" + claim + "'; (set -C; : > '" + claim + "') || exit 73; "
+                + "trap \"rm -- '" + claim + "'\" EXIT; test ! -L '" + marker + "'; "
+                + "if [ -e '" + marker + "' ]; then test -f '" + marker + "'; test \"$(stat -c %s '" + marker + "')\" -le 128; test \"$(cat '" + marker + "')\" = '" + expected + "'; else test '" + expected + "' = ''; fi; "
+                + "printf '%s' '" + requested.ToString("O", CultureInfo.InvariantCulture) + "' > '" + marker + "')";
+        }
+        private void TouchRemoteUsage(string session, DateTime used)
+        {
+            string marker = RemoteRoot + "/" + session + "/" + Hexiege.Infrastructure.DevelopmentLogRetention.UsageName;
+            string old = Shell(RemoteGuard(session) + " && test ! -L '" + marker + "' && if [ -e '" + marker + "' ]; then test -f '" + marker + "' && test \"$(stat -c %s '" + marker + "')\" -le 128 && cat '" + marker + "'; fi");
+            Shell(BuildUsageScript(session, used, old));
         }
         private void EnsureDevice()
         {
@@ -153,6 +241,8 @@ namespace Hexiege.EditorTools
             EnsureDevice();
             foreach (var row in _entries.Where(x => x.selected))
             {
+                TouchRemoteUsage(row.session, DateTime.UtcNow);
+                row.status = "사용 시각을 기기에 갱신했습니다. 복사 실패 시에도 원문은 유지되며 사용 시각은 갱신된 상태입니다.";
                 var before = Stat(row.session);
                 if (before.bytes > MaxRawBytes) throw new IOException("256 MiB 도구 읽기 한도를 넘습니다. 기기 원본은 유지됩니다.");
                 string project = Path.GetDirectoryName(UnityEngine.Application.dataPath);
@@ -179,8 +269,9 @@ namespace Hexiege.EditorTools
                 File.WriteAllText(receiptTemp, JsonUtility.ToJson(receipt, true), new UTF8Encoding(false));
                 File.Move(receiptTemp, Path.Combine(directory, ReceiptName));
                 row.local = target;
-                row.status = stable && parsed.complete ? "PC 원문/hash/기록·정상 종료 검증 완료. 활성 PID이면 삭제는 계속 차단됩니다."
-                    : "진단 snapshot 보존. 활성/변경 중/미완전 파일: 삭제 불가. " + parsed.error;
+                MarkPrivateLogUsed(target);
+                row.status = stable && parsed.complete ? "PC 원문/hash/정상 종료 기록 검증 완료. 수동 삭제는 앱 종료 후 가능합니다."
+                    : "진단 snapshot 보존(분석 완결성 별도). 원문이 PC와 동일하고 앱이 종료되면 수동 삭제 가능합니다. " + parsed.error;
             }
         }
 
@@ -265,7 +356,7 @@ namespace Hexiege.EditorTools
             }
             return null;
         }
-        [Serializable] private sealed class DeletionAudit { public string serial, utc; public int selected; public List<string> deleted; }
+        [Serializable] private sealed class DeletionAudit { public string serial, utc; public int selected; public List<string> deleted, skipped; }
         private sealed class DeletePlan { internal Entry row; internal string localSha, receiptSha; internal long bytes; internal int pid; }
         private DeletePlan CheckDelete(Entry row)
         {
@@ -277,41 +368,55 @@ namespace Hexiege.EditorTools
             byte[] raw = BoundedRead(row.local, MaxRawBytes), receiptBytes = BoundedRead(receiptFile, MaxReceiptBytes);
             Receipt receipt = ValidatePair(raw, receiptBytes, row.session);
             Parsed parsed = Parse(raw); // PID는 receipt가 아닌 원문에서 얻는다.
-            if (receipt.serial != _serial || !receipt.remoteStable || !parsed.complete)
-                throw new IOException("활성 snapshot/미완전·정상 종료 확인이 없는 로그/다른 기기 보관본은 삭제하지 않습니다.");
+            if (receipt.serial != _serial)
+                throw new IOException("같은 기기의 PC 동일 바이트 보관본이 없어 삭제하지 않습니다.");
             var remote = Stat(row.session);
             if (remote.bytes != raw.LongLength || remote.sha != Sha(raw)) throw new IOException("회수 뒤 원격 파일이 변경되었습니다. 삭제하지 않습니다.");
-            string pids = Shell("ps -A -o PID");
+            string pids = Shell("ps -A -o PID,NAME && printf '\\nPROCESS-LIST-END\\n'");
             ValidateDeleteState(receipt, parsed, remote, Sha(raw), raw.LongLength, pids);
             return new DeletePlan { row = row, localSha = remote.sha, receiptSha = Sha(receiptBytes), bytes = remote.bytes, pid = parsed.pid };
         }
         internal static void ValidateDeleteState(Receipt receipt, Parsed parsed, RemoteInfo remote, string localSha, long localBytes, string pids)
         {
-            if (!receipt.remoteStable || !parsed.complete || remote.sha != localSha || remote.bytes != localBytes)
-                throw new IOException("검증된 종료 보관본/동일 원격 파일이 아닙니다.");
-            if (!PidAbsent(pids ?? "", parsed.pid)) throw new IOException("원문 PID가 아직 존재하거나 상태가 불명확합니다. PID 재사용도 보호합니다.");
+            if (remote.sha != localSha || remote.bytes != localBytes)
+                throw new IOException("PC 동일 바이트 보관본/동일 원격 파일이 아닙니다.");
+            if (!AppStopped(pids ?? "")) throw new IOException("앱이 실행 중이거나 프로세스 조회가 불명확합니다. 앱을 종료한 뒤 다시 시도하세요.");
         }
         private void DeleteSelected()
         {
             EnsureDevice();
-            var plans = _entries.Where(x => x.selected).Select(CheckDelete).ToList();
-            if (plans.Count == 0) return;
+            if (!AppStopped(Shell("ps -A -o PID,NAME && printf '\\nPROCESS-LIST-END\\n'")))
+                throw new IOException("앱이 실행 중이거나 조회가 불명확합니다. 앱을 종료한 뒤 삭제하세요. 원문 검증/삭제는 시작하지 않았습니다.");
+            var chosen = _entries.Where(x => x.selected).ToList();
+            var plans = new List<DeletePlan>();
+            foreach (var row in chosen)
+            {
+                try { plans.Add(CheckDelete(row)); }
+                catch (IOException e) { row.status = "보호/건너뜀: " + e.Message; }
+            }
+            if (plans.Count == 0) { _lastDeletionResult = "적격 0개. 선택 항목의 보호 사유를 확인하세요."; return; }
             string list = string.Join("\n", plans.Select(x => x.row.session + "  " + x.bytes + " bytes"));
-            if (!EditorUtility.DisplayDialog("종료 로그 선택 확인", list + "\n\nPC 보관본은 유지합니다. 기기 RuntimeLog.txt만 삭제할까요?", "다음", "취소")) return;
-            if (!EditorUtility.DisplayDialog("기기 로그 삭제 최종 확인", "선택 " + plans.Count + "개 / " + plans.Sum(x => x.bytes) + " bytes\n되돌릴 수 없는 기기 파일 삭제입니다. 폴더와 PC 원본은 삭제하지 않습니다.", "선택 파일 삭제", "취소")) return;
+            if (!EditorUtility.DisplayDialog("기기 로그 삭제 확인", list + "\n\n적격 " + plans.Count + "개 / " + plans.Sum(x => x.bytes)
+                + " bytes. 기기 원문만 삭제하며 PC 원문·ZIP은 유지합니다. 부적격 항목은 건너뜁니다.", "적격 파일 삭제", "취소")) return;
             var deleted = new List<string>();
             try
             {
             foreach (var plan in plans)
             {
+                try
+                {
+                EnsureDevice();
                 var current = CheckDelete(plan.row);
                 if (current.localSha != plan.localSha || current.receiptSha != plan.receiptSha || current.pid != plan.pid || current.bytes != plan.bytes)
-                    throw new IOException("확인 중 보관본이 변경되었습니다. 남은 삭제를 중단합니다.");
+                    throw new IOException("확인 중 보관본이 변경되었습니다. 이 항목을 건너뜁니다.");
                 string script = BuildDeleteScript(plan.row.session, plan.localSha, plan.bytes, plan.pid);
-                if (Shell(script).Trim() != "DELETED") throw new IOException("삭제 결과를 확인하지 못했습니다. 남은 작업을 중단합니다.");
+                if (Shell(script).Trim() != "DELETED") throw new IOException("삭제 결과를 확인하지 못했습니다. 이 항목은 결과 미확인으로 표시합니다.");
                 plan.row.status = "기기 로그 파일 삭제 완료. PC 원문·CollectionReceipt 보존됨.";
                 plan.row.selected = false;
                 deleted.Add(plan.row.session + " sha256=" + plan.localSha + " bytes=" + plan.bytes);
+                }
+                catch (IOException e) { plan.row.status = "변경/보호로 건너뜀: " + e.Message; }
+
             }
             }
             finally
@@ -323,7 +428,7 @@ namespace Hexiege.EditorTools
                 string audit = Path.Combine(directory, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".json");
                 using (var file = new FileStream(audit, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
                 using (var writer = new StreamWriter(file, new UTF8Encoding(false)))
-                    writer.Write(JsonUtility.ToJson(new DeletionAudit { serial = _serial, utc = DateTime.UtcNow.ToString("O"), selected = plans.Count, deleted = deleted }, true));
+                    writer.Write(JsonUtility.ToJson(new DeletionAudit { serial = _serial, utc = DateTime.UtcNow.ToString("O"), selected = chosen.Count, deleted = deleted, skipped = chosen.Where(x => x.selected).Select(x => x.session + " " + x.status).ToList() }, true));
             }
         }
         internal static bool PidAbsent(string output, int pid)
@@ -339,19 +444,36 @@ namespace Hexiege.EditorTools
             }
             return init;
         }
+        internal static bool AppStopped(string output)
+        {
+            string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length < 3 || !Regex.IsMatch(lines[0].Trim(), @"^PID\s+NAME$") || lines[lines.Length - 1] != "PROCESS-LIST-END") return false;
+            bool init = false; var seen = new HashSet<int>();
+            foreach (string value in lines.Skip(1).Take(lines.Length - 2))
+            {
+                var match = Regex.Match(value.Trim(), @"^([1-9]\d*)\s+(.+)$");
+                if (!match.Success || !int.TryParse(match.Groups[1].Value, out int pid) || !seen.Add(pid)) return false;
+                string name = match.Groups[2].Value.Trim();
+                if (pid == 1 && (name == "init" || name == "/system/bin/init")) init = true;
+                if (name.Length == 0 || name == Package || name.StartsWith(Package + ":", StringComparison.Ordinal)) return false;
+            }
+            return init;
+        }
         internal static string BuildDeleteScript(string session, string sha, long bytes, int pid)
         {
-            if (!Regex.IsMatch(sha ?? "", @"^[a-f0-9]{64}$") || bytes < 0 || pid <= 0) throw new IOException("잘못된 삭제 검증값입니다.");
+            if (!Regex.IsMatch(sha ?? "", @"^[a-f0-9]{64}$") || bytes < 0) throw new IOException("잘못된 삭제 검증값입니다.");
             string file = RemoteFile(session);
-            // 같은 shell에서 canonical path·크기·hash·전체 PID를 재확인한다. PID 종료 파일만 대상으로 좁힌다.
-            return "set -e; " + RemoteGuard(session) + " || exit 70; pids=$(ps -A -o PID); "
-                + "printf '%s\\n' \"$pids\" | awk -v target=" + pid.ToString(CultureInfo.InvariantCulture)
-                + " 'NR==1 {gsub(/[[:space:]]/,\"\"); if($0!=\"PID\") exit 72; next} "
-                + "{gsub(/^[[:space:]]+|[[:space:]]+$/,\"\"); if($0 !~ /^[1-9][0-9]*$/ || $0>2147483647 || seen[$0]++ || $0==target) exit 72; if($0==1) init=1; n++} "
-                + "END {if(!init || n<1) exit 72}'; "
-                + "test ! -d /proc/" + pid + "; test \"$(stat -c %s '" + file + "')\" = '" + bytes.ToString(CultureInfo.InvariantCulture) + "'; "
+            string directory = RemoteRoot + "/" + session;
+            string claim = directory + "/" + Hexiege.Infrastructure.DevelopmentLogRetention.LockName;
+            string marker = directory + "/" + Hexiege.Infrastructure.DevelopmentLogRetention.UsageName;
+            return "set -e; " + RemoteGuard(session) + " || exit 70; test ! -L '" + claim + "'; (set -C; : > '" + claim + "') || exit 73; trap \"rm -- '" + claim + "'\" EXIT; " + RemoteGuard(session) + " || exit 70; names=$(ps -A -o PID,NAME && printf '\\nPROCESS-LIST-END\\n'); "
+                + "printf '%s\\n' \"$names\" | awk -v pkg='" + Package + "' 'NR==1 {if($1!=\"PID\" || $2!=\"NAME\" || NF!=2) exit 72; next} "
+                + "{if(NF==0) next; if($0==\"PROCESS-LIST-END\") {done=1; next} if(done || $1 !~ /^[1-9][0-9]*$/ || $1>2147483647 || seen[$1]++) exit 72; pid=$1; sub(/^[[:space:]]*[0-9]+[[:space:]]+/,\"\"); gsub(/[[:space:]]+$/,\"\"); if($0==\"\" || $0==pkg || index($0,pkg\":\")==1) exit 72; if(pid==1 && ($0==\"init\" || $0==\"/system/bin/init\")) init=1; n++} END {if(n<1 || !init || !done) exit 72}'; "
+                + "test \"$(stat -c %s '" + file + "')\" = '" + bytes.ToString(CultureInfo.InvariantCulture) + "'; "
                 + "test \"$(sha256sum '" + file + "' | cut -c 1-64)\" = '" + sha + "'; "
-                + RemoteGuard(session) + " || exit 71; rm -- '" + file + "'; test ! -e '" + file + "'; printf DELETED";
+                + RemoteGuard(session) + " || exit 71; rm -- '" + file + "'; test ! -e '" + file + "'; "
+                + "if [ -f '" + marker + "' ] && [ ! -L '" + marker + "' ]; then rm -- '" + marker + "'; fi; "
+                + "rm -- '" + claim + "'; trap - EXIT; rmdir -- '" + directory + "' 2>/dev/null || true; printf DELETED";
         }
 
         internal static bool ValidDate(string name) => DateTime.TryParseExact(name, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);

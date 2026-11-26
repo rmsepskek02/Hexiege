@@ -582,6 +582,12 @@ namespace Hexiege.EditorTools
                 Directory.CreateDirectory(names.OutputFolderAbsolute);
                 MoveBothOrNothing(tempZip, names.ZipAbsolute, tempManifest, names.ManifestAbsolute);
                 createdOutputFolder = false; // 성공했으니 아래 정리에서 폴더를 지우지 않는다.
+                foreach (SourceRecord source in records)
+                {
+                    if (source.Kind != SourceKind.AndroidDevelopmentArchive) continue;
+                    try { AndroidDevelopmentLogArchive.MarkPrivateLogUsed(Path.Combine(paths.ProjectRootAbsolute, source.RepoRelativePath)); }
+                    catch (IOException) { /* ZIP is already safely published; usage sync failure cannot undo it. */ }
+                }
                 return result;
             }
             catch (OperationCanceledException)

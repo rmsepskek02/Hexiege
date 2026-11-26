@@ -437,7 +437,7 @@ C# 컴파일러가 `[Conditional]` 로 지우는 것은 **문(statement) 자리�
 
 **적용 범위는 Development Android nonEditor다.** 기존 RuntimeLogger writer로 모든 GameLog 원문·순서·필요callerstack/예외정보를private보존하고, 파일기록성공한 일반Dev.Info 및 아래 정확두종류 진단Warning만 중복Console출력을생략한다. Ops `Event=`·Exception객체는예외선택에서제외하며 다른Warning/Error/Exception과Editor/Release의기존콘솔/객체/스택은유지한다. 파일성공 대상이Logcat에없어지는것은의도된출력정책변경이다.
 
-LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 유지하고 Application.quitting에서 닫는다. 파일고장시 현재로그까지 Consolefallback하고 고장을 latch한다. 고장알림은 재귀에 안전해야 한다. queue/worker/throttle·자동삭제는 도입하지 않는다. 기본 `Application.GetStackTraceLogType`의 None을 존중하고 기존 선택NoStack은 stack을 만들지 않는다. 필요한 managed caller정보를 보존하되 Unity Debug native wrapper까지 이전콘솔과 바이트동일한 stack을 보장하지 않는다.
+LogSessionOwner 한곳이 실행별 고유세션을 소유하며 씬을 건너 유지하고 Application.quitting에서 닫는다. 파일고장시 현재로그까지 Consolefallback하고 고장을 latch한다. 고장알림은 재귀에 안전해야 한다. 로그 writer의 queue/worker/throttle는 도입하지 않는다. 단,2026-11-26 사용자가 승인한 Android Dev 앱 시작1회 보관 정리 worker는 별도 수명 작업으로 허용한다(아래1.10). 기본 `Application.GetStackTraceLogType`의 None을 존중하고 기존 선택NoStack은 stack을 만들지 않는다. 필요한 managed caller정보를 보존하되 Unity Debug native wrapper까지 이전콘솔과 바이트동일한 stack을 보장하지 않는다.
 
 이 계약의 구현/검증은 해당 Task에 기록하며 Android 파일I/O·IL2CPP 실기는 별도 판정한다. OS/전송 내부지연 원인은 미확정이고 파일I/O·프로세스kill의 완전무손실을 보장하지 않는다. 이전정책 원문은 [LogHistory H15](LogHistory.md#h15)에 보존했다.
 
@@ -573,10 +573,10 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 | 환경 | 자동 파일 기록 | 삭제·용량 관리 |
 |---|---|---|
 | Editor | 기존 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` 일별 이어쓰기 | 자동 삭제 없음. 기존 수동 Editor 정리 메뉴만 적용 |
-| Android Development nonEditor | `persistentDataPath/DevelopmentLogs/<UTC-GUID>/RuntimeLog.txt` 실행별 기록 | 자동 삭제·진행 중 파일 자동 정리·Android 크기 quota 없음 |
+| Android Development nonEditor | `persistentDataPath/DevelopmentLogs/<UTC-GUID>/RuntimeLog.txt` 실행별 기록 | 현재/사용 중 세션 보호·크기 quota 없음. 승인된30일 미사용 세션의 앱 시작1회 자동 정리와 PC 동일 byte 확인 후 수동 정리(아래 정책, source/fixture 검증 완료·실제 기기 정리 미검증) |
 | 일반 Release 앱 | 이 archive 경로의 앱 파일 기록 없음; 기존 콘솔 경로 유지 | Dev archive 보관 정책을 Release 파일 존재로 오인하지 않음 |
 
-자동 기록은 자동 회수·업로드·삭제를 뜻하지 않는다. 파일의 동기 기록/flush는 디스크 I/O 비용이 있으므로 무료 최적화가 아니며, 실패 fallback·완결 prefix와 close 판정은 위 archive 계약을 따른다. 사용자는 PC 복사·검증 후 종료 세션을 선택 삭제하는 정책을 확정했다. 기간/용량 자동 정리는 도입하지 않는다. 아래 기존 사용자 승인·회수 검증·수동 정리 경계를 유지한다.
+자동 기록은 자동 회수·업로드를 뜻하지 않는다. 삭제는 아래 승인된 Android 수동/30일 미사용 자동 정리 범위에 한정한다. 파일의 동기 기록/flush는 디스크 I/O 비용이 있으므로 무료 최적화가 아니며, 실패 fallback·완결 prefix와 close 판정은 위 archive 계약을 따른다. 사용자는2026-11-26 PC 동일 byte 보관·앱 종료 후 적격 세션의 수동 선택 삭제와30일 미사용 Android 세션의 자동 정리를 승인했다. 크기 quota와 PC/ZIP 자동 정리는 도입하지 않는다. 아래 기존 사용자 승인·회수 검증·수동 정리 경계를 유지한다.
 
 ### Android Development private 세션과 보관
 
@@ -584,9 +584,17 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 
 ### Android 종료 세션의 PC 검증 후 선택 삭제
 
-사용자 선택 정책: 먼저 기기 원본을 PC로 복사하고 원문 hash와 record의 seq/UTF-8길이/END 완결성을 검증한다. 그 뒤 종료·비활성으로 확인된 세션만 사용자가 대상 목록을 선택하고 확인한 경우 기기 원본을 삭제할 수 있다. 미회수·진행 중·종료 여부 불명·검증 실패 세션은 보호하며 자동 삭제하지 않는다. PC 원본의 정리는 아래 기존 private 업로드·다운로드 검증과 별도 로컬 삭제 승인 계약을 유지한다.
+2026-11-26 승인된 수동 정책: 기기 원본과 동일한 byte의 PC 사본이 실제로 존재하고 앱이 종료된 적격 세션만 선택 삭제한다. PC 원문·원격 원문의 size/SHA를 실제 확인하며 receipt만 읽어 검증을 대신하지 않는다. 과거 receipt.remoteStable=false나 footer 부재 자체는 현재 삭제의 거절 사유가 아니다. 같은 기기·원문/영수증의 출처 및 hash 일관성·현재 PC/remote 전체 byte 일치·앱 종료는 계속 실제 검증한다. 정상 종료 footer가 없어도 byte 사본/앱 종료/안전 조건을 충족하면 삭제 적격으로 볼 수 있다. 적격 목록·용량을 제시해1회 확인하고 부적격 대상은 건너뛴다. 취소·현재/사용 중·종료 여부 불명·경로/링크 위험·원본 변경·검증 실패는 보호한다. PC 원본의 정리는 기존 private 업로드·다운로드 검증과 별도 로컬 삭제 승인 계약을 유지한다.
 
-이 정책 선택은 지금 기기 파일 삭제나 업로드를 실행하라는 승인이 아니다. 실제 대상·검증 결과·종료 상태를 제시한 선택 확인과 실행 근거를 구분한다. 회수·선택 정리 지원 메뉴는 아래1.12를 따른다. 실제 삭제·업로드 실행 여부와 수집/ZIP 검증은 별도로 판정한다. 새 보관일수·용량 quota·자동 정리는 없다.
+이 정책 선택은 지금 기기 파일 삭제나 업로드를 실행하라는 승인이 아니다. 실제 대상·검증 결과·종료 상태를 제시한 선택 확인과 실행 근거를 구분한다. 회수·선택 정리 지원 메뉴는 아래1.12를 따른다. 실제 삭제·업로드 실행 여부와 수집/ZIP 검증은 별도로 판정한다. Android30일 미사용 자동 정리만2026-11-26 승인 범위로 허용하며 새 용량 quota·PC/ZIP 자동 정리는 없다.
+
+### Android30일 미사용 자동 정리 — 2026-11-26 승인
+
+이 정책의 구현·source fixture/SDK 검증은 완료했고 개발자 수행 실제 기기 삭제·앱 시작 자동 정리는 미검증이다. 이후 사용자는 수동 삭제 정상 동작을 수용했으며 범위·한계는 [해당 Task](_Tasks/2026-11-26/01_34_device-log-retention/Research.md)를 따른다. Development Android 앱 시작 때 worker1회로 오래된 private 세션을 검사한다. lastUsedUTC는 앱 원본 수집·ZIP 사용 때 갱신하며, 없으면 생성 시각과 최근 mtime을 함께 고려해 최근 파일을 보호한다.30일 미사용으로 안전하게 확인된 세션은 PC 미보관이어도 자동 정리할 수 있다. 현재 세션·링크·미래 시각·불명/파싱 실패는 보호한다. 삭제 범위는 해당 세션의 raw 원문·구현에서 허용한 sidecar·그 후 빈 디렉터리뿐이며 PC 사본·ZIP은 건드리지 않는다. 허용 사용 시각 metadata는 `LastUsedUtc.txt`다. `.Retention.lock`은 사용 시각 갱신·삭제의 공유 claim이며 사고로 남은 claim은 자동 회수하지 않고 보호한다. worker는 보호 폴더도 lazy 열거하지만 한 실행의 적격 삭제 시도는 최대32회이며 남은 대상은 다음 앱 시작에 검사한다. DevelopmentLogs 루트의 `RetentionAudit.txt`에는 최근 요약을 고정 파일로 기록한다.
+
+PC가 offline일 때 ZIP 사용은 PC에 먼저 기록하고 다음 기기 연결 때 동기화한다. 동기화 전에는 그 offline 사용 기록이 기기 expiry를 늦춘다고 보장할 수 없다. 이 한계는 사용자에게 설명했으며30일 정책 승인은 기기 private 세션에만 적용된다.
+
+목록 표시는 bulk metadata/size로 준비하고 목록 조회만으로 원문 SHA 검증을 끝냈다고 쓰지 않는다. 수동 삭제 시 실제 PC/기기 byte를 별도 검증한다. 목록의 metadata/size 조회와 원문 SHA·내용 검증을 구분하고, 단일 조회 시간을 이전 방식 대비 속도 향상률로 바꾸지 않는다. source/fixture 검증과 실제 목록 UI는 확인했으나 개발자의 실제 기기 원문 수집·삭제 및 앱 시작 자동 정리 실행은 없다. 사용자 수동 삭제 수용은 해당 Task의 별도 관측이며 자동 정리 실증으로 확대하지 않는다.
 
 ### 파일 누적 관리 방침
 
@@ -651,11 +659,11 @@ Android Development nonEditor의 private 파일은 Editor 일별파일과 구분
 
 기존 공유/ignore 제목 앵커는 위 H13과 현행 정책으로 연결되는 호환 앵커이며 이전 방침을 계속 적용한다는 뜻이 아닙니다.
 
-### 자동 삭제하지 않는다
+### PC·Editor 원본은 자동 삭제하지 않는다
 
 개정 전 방식(폐기): ~~"날짜 폴더 단위로 보존 기간(기본 7일) 초과분을 자동 삭제한다"~~
 
-보존 기간 기반 자동 삭제를 **철회한다.** 근거는 둘이다.
+PC·Editor 원본의 보존 기간 기반 자동 삭제 철회는 유지한다.2026-11-26 승인된 Android private30일 미사용 정리는 위 별도 범위의 예외이며 이 PC/Editor 원칙을 확장하지 않는다. 과거 철회 근거는 둘이다.
 
 - **커밋한 파일을 자동으로 지우면 `git status`에 삭제로 잡힌다.** 공유하려고 커밋해 둔 파일이
   며칠 뒤 도구에 의해 조용히 사라지면, 사용자는 자기가 지우지 않은 삭제 목록을 마주하게 된다.
@@ -734,19 +742,19 @@ Editor는 기존 파일 기록을 유지한다. Android Development nonEditor는
 | `Maintenance/Clean Old Editor Logs (Deletes Assets)` | 1.10의 `_Logs/_editor`30일/90일 수동 정리 | Android 앱 파일·회수 사본 정리 |
 | `Advanced/Create Log Archive ZIP` | 기존 `Assets/_Project/Docs/_Logs` 후보·고정 Android 회수 root 원문/receipt2파일·고정 private Logcat 파일 | 기기 DevelopmentLogs 직접 pull·임의 `.utmp` 스캔 |
 
-따라서 별도 ADB로 앱 파일을 회수한 성공은 위 메뉴가 앱 원본까지 자동 회수·ZIP 포함했다는 증거가 아니다. Dev 원문과 Logcat을 각각 확보하고 private 보관·완결/hash 확인 후 업로드 범위를 검증한다. 종료 세션 삭제는1.10의 PC 복사·검증 후 선택 삭제 계약을 따른다. Android Dev 회수 메뉴와 ZIP의 고정 회수 root 연결을 지원한다. 원격 삭제·업로드는 별도 사용자 확인/실행을 따른다. 보관일수·quota·자동 정리는 추가하지 않는다.
+따라서 별도 ADB로 앱 파일을 회수한 성공은 위 메뉴가 앱 원본까지 자동 회수·ZIP 포함했다는 증거가 아니다. Dev 원문과 Logcat을 각각 확보하고 private 보관·완결/hash 확인 후 업로드 범위를 검증한다. 종료 세션 삭제는1.10의 PC 복사·검증 후 선택 삭제 계약을 따른다. Android Dev 회수 메뉴와 ZIP의 고정 회수 root 연결을 지원한다. 원격 삭제·업로드는 별도 사용자 확인/실행을 따른다. Android30일 미사용 자동 정리와 수동 삭제 완화는1.10의2026-11-26 승인 범위를 따른다. PC/ZIP 자동 정리·크기 quota는 추가하지 않는다.
 
 ### 통합 기기 로그·ZIP 메뉴
 
-일반 수집 입구는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 하나다. 창 이름은 Device Logs and ZIP이고 단독 앱 원문 PC 복사는 접기 없이 항상 표시한다. 기기 원본 삭제 버튼의 글자는 빨간색으로 표시해 수집·복사와 구분한다. 같은 창의 옛 Android Development Logs alias 메뉴는 비활성이다. 세션은 앱 실행1회이며 여러 경기를 포함할 수 있다. Logcat은 수집 시점 현재 버퍼의 필터 snapshot으로 과거 선택 세션 당시 Logcat 복원이 아니다. 삭제·업로드는 자동 실행하지 않는다.
+일반 수집 입구는 `Hexiege/Logs/Collect Device Logs and Create ZIP` 하나다. 창 이름은 Device Logs and ZIP이고 단독 앱 원문 PC 복사는 접기 없이 항상 표시한다. 기기 원본 삭제 버튼의 글자는 빨간색으로 표시해 수집·복사와 구분한다. 같은 창의 옛 Android Development Logs alias 메뉴는 비활성이다. 세션은 앱 실행1회이며 여러 경기를 포함할 수 있다. Logcat은 수집 시점 현재 버퍼의 필터 snapshot으로 과거 선택 세션 당시 Logcat 복원이 아니다. 이 수집 버튼은 삭제·업로드를 자동 실행하지 않는다. 앱 시작의 별도30일 미사용 정리와 구분한다.
 
 
 통합 수집은 같은 창의 「선택 앱 로그+Logcat 수집·ZIP」 버튼을 사용한다. 선택 session 원문 회수→동일 기기 Logcat snapshot→기존 ZIP 생성 순서이며 선택0은 중단한다. Logcat 명령 실패/부분 수집 실패는 ZIP을 중단하고 회수된 원문을 보존한다. 명령 성공·현재 수집 필터에 일치하는0건은 오류가 아니므로0건 상태를 명시한 파일을 남겨 앱 원문과 ZIP에 포함한다. 이는 전체 Android 버퍼가 비었다는 증거가 아니다. Logcat은 `.utmp/raw-logs/_Logs/Logcat/<YYYY-MM-DD>/<collection-id>/RuntimeLog_device.txt`에 두며 삭제는 통합 버튼과 별도다.
 
 
-`Hexiege/Logs/Collect Device Logs and Create ZIP`에서 기기 세션 목록→선택 원문 PC 복사·검증→종료 세션 선택 정리를 수행한다. PC 경로는 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`이며 RuntimeLog.txt와 CollectionReceipt.json만 둔다. 기존 ZIP 도구는 이 고정 root의 두 파일과 고정 private Logcat root의 RuntimeLog_device.txt를 기존 Assets 후보와 함께 포함한다. ZIP 기본 날짜 범위의 아직 보관하지 않은 다른 회수 사본도 포함할 수 있으므로 선택한1회만 들어간다고 가정하지 않는다. 실제 업로드는 자동화하지 않고 기존 private 검증·사용자 수동 업로드 계약을 따른다.
+`Hexiege/Logs/Collect Device Logs and Create ZIP`에서 기기 세션 목록→선택 원문 PC 복사·검증→종료 세션 선택 정리를 수행한다. PC 경로는 `.utmp/raw-logs/_Logs/Android/<KST날짜>/<session>/<collection-id>/`이며 RuntimeLog.txt·CollectionReceipt.json과 작은 사용 시각 metadata `LastUsedUtc.txt`를 둔다. 기존 ZIP 도구는 이 고정 root의 raw+receipt 두 파일만 대상으로 하고 사용 시각 metadata는 ZIP 원문 쌍에 넣지 않는다. 이 두 파일과 고정 private Logcat root의 RuntimeLog_device.txt를 기존 Assets 후보와 함께 포함한다. ZIP 기본 날짜 범위의 아직 보관하지 않은 다른 회수 사본도 포함할 수 있으므로 선택한1회만 들어간다고 가정하지 않는다. 실제 업로드는 자동화하지 않고 기존 private 검증·사용자 수동 업로드 계약을 따른다.
 
-기기 전후/PC size·SHA와 record seq/UTF-8길이/END를 검사하고 정상 footer가 없는 활성/강제 종료 원본은 SnapshotIncomplete로 보존·분석할 수 있으나 삭제하지 않는다. 삭제는 PC 검증과 원격 재대조·종료/비활성·PID 부재·경로/심볼릭 방어를 모두 통과한 RuntimeLog.txt만 목록 선택과2단계 확인 후 수행한다. 폴더를 삭제하지 않는다. 취소·unknown·검증 실패는 보호한다.
+수집은 기기 전후/PC size·SHA와 record seq/UTF-8길이/END를 검사한다. footer 없는 원본도 SnapshotIncomplete로 보존·분석할 수 있다. 수동 삭제는 정상 footer 유무와 별개로 실제 PC 동일 byte 사본·원격 재대조·앱 종료·경로/링크 안전을 확인한 적격 세션을 목록/용량 제시 후1회 확인으로 처리하고 나머지는 건너뛴다. 현재/사용 중·unknown·검증 실패는 보호한다. 자동 정리 및 raw/허용 sidecar/빈 디렉터리의 삭제 범위는1.10의30일 정책을 따른다. 구현·fixture·실기 삭제 결과는 각각 구분한다.
 
 원문256MiB·receipt64KiB는 도구가 읽는 안전 상한이며 앱 보관 quota나 자동 삭제 기준이 아니다. 상한 밖 파일을 임의로 자르거나 지우지 않는다. 메뉴 수집·ZIP 실행 검증과 안전 core/삭제 모의 검증, 실제 삭제·업로드 검증을 구분하며 실제 결과는 기존 Task에 기록한다.
 

@@ -231,6 +231,8 @@ namespace Hexiege.Infrastructure
 #if UNITY_ANDROID && DEVELOPMENT_BUILD
             // 개발 Android만 전체 원문을 고유 run 폴더에 보존한다. 씬 변경으로 다시 열지 않는다.
             RuntimeLogger.BeginDeviceArchive(System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "DevelopmentLogs"));
+            DevelopmentLogRetention.Schedule(System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "DevelopmentLogs"),
+                RuntimeLogger.CurrentDeviceArchivePath);
 #endif
             _logConsoleSink = new ConsoleSink();
             Hexiege.Application.GameLog.AddSink(_logConsoleSink);
