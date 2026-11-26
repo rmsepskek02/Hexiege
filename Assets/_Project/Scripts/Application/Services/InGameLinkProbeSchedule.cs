@@ -119,6 +119,12 @@ namespace Hexiege.Application
         /// <summary>경기 안 끊김 구간 번호(1부터). 구간이 없었으면 0.</summary>
         public int EpisodeNo { get; private set; }
 
+        /// <summary>
+        /// [2026-11-26 2차 보완] 지금(또는 마지막) 끊김 구간이 시작된 시각(초).
+        /// 「구간 시작 뒤 몇 초째 확인 결과가 없나」를 재는 데 쓴다(InGameLinkBlockPolicy 의 ProbeTimeout 규칙).
+        /// </summary>
+        public double EpisodeStartedAt { get; private set; }
+
         /// <summary>지금 확인이 돌고 있는가(동시에 하나만).</summary>
         public bool InFlight { get; private set; }
 
@@ -166,6 +172,7 @@ namespace Hexiege.Application
             if (EpisodeActive) return false;
             EpisodeActive = true;
             EpisodeNo++;
+            EpisodeStartedAt = now; // [2026-11-26 2차 보완] ProbeTimeout 규칙용 구간 시작 시각
             StartedCount = 0;
             CompletedCount = 0;
             FailedCount = 0;
@@ -269,7 +276,9 @@ namespace Hexiege.Application
     ///   <item>RTT 만 느린 지연(신호는 옴, 판정 전) → Banner / Rtt (지연이 크다는 이유로 조작을 막지 않는다 — 사양 ③)</item>
     ///   <item>이번 끊김 동안 내 인터넷 확인이 한 번이라도 실패 → Overlay / SelfProbeFailed (내 쪽 문제)</item>
     ///   <item>내가 Client 다(Host 신호가 끊김 — 양쪽 게임이 멈춤, 악용 대상 아님) → Overlay / HostLost</item>
-    ///   <item>내가 Host 이고 아직 확인 결과가 없다 → Banner / PendingProbe (실패하면 4번으로 바뀐다)</item>
+    ///   <item>[2026-11-26 2차 보완] 내가 Host 이고 구간 시작 뒤 <see cref="PendingProbeBannerMaxSec"/>(2.0초)가 지났는데
+    ///         아직 확인 결과가 하나도 없다 → Overlay / ProbeTimeout (「상대 쪽 문제」라는 확인 전에는 내 쪽 문제로 본다)</item>
+    ///   <item>내가 Host 이고 아직 확인 결과가 없다(구간 시작 뒤 2.0초 미만) → Banner / PendingProbe (실패하면 4번으로 바뀐다)</item>
     ///   <item>내가 Host 이고 확인이 모두 성공 → Banner / PeerSide (상대 쪽 문제 — 내 게임은 계속 진행)</item>
     /// </list>
     /// 🔴 역할(Host/Client)로 갈리는 것은 「게임이 멈추는가」의 차이 때문이다(P2P — 게임을 돌리는 쪽이 Host).
@@ -279,6 +288,25 @@ namespace Hexiege.Application
     /// </summary>
     public static class InGameLinkBlockPolicy
     {
+        /// <summary>
+        /// [2026-11-26 2차 보완 — 사용자 승인 2026-11-26] Host 가 「확인 결과 없음」 상태로 띠(Banner / PendingProbe)를
+        /// 보여도 되는 최대 시간(초). 이 시간이 지나도 이번 끊김 구간의 확인 결과가 하나도 없으면 덮개(Overlay / ProbeTimeout)로 바꾼다.
+        /// <para>
+        /// [왜 필요한가 — 초급자용] 와이파이는 붙어 있는데 실제 인터넷이 안 되는 경우, 인터넷 확인 요청은 실패 응답이 오기까지
+        /// 최대 10초까지 늦을 수 있다. 2차 규칙은 그 10초 동안 Host 를 「상대 쪽 문제(띠 — 조작 가능)」로 두었기 때문에,
+        /// Host 가 일부러 인터넷을 끊어 놓고 그동안 혼자 조작하는 악용이 가능했다(Plan 12-10 한계 1).
+        /// 그래서 「상대 쪽 문제라는 확인(성공 결과)이 오기 전에는 내 쪽 문제로 본다」 — 확인이 성공으로 오면 다시 띠로 내려간다.
+        /// 정상 인터넷이면 확인은 보통 1초 안에 끝나므로(1차 실측 수백 ms) 피해 쪽 Host 는 2초 안에 띠(PeerSide)로 넘어간다.
+        /// </para>
+        /// RTT 만 느린 지연(Banner / Rtt)은 이 규칙의 대상이 아니다(신호는 오므로 끊김 구간이 아니다).
+        /// </summary>
+        public const double PendingProbeBannerMaxSec = 2.0;
+
+        // [2026-11-26 2차 보완] 옛 메서드(구간 경과 시간 인자 없음 — 기록용). 새 메서드는 바로 아래.
+        //   ProbeTimeout 규칙(PendingProbeBannerMaxSec)을 넣기 위해 인자 episodeElapsedSec 를 추가했다.
+        // public static InGameLinkBlockMode Decide(bool isHost, InGameLinkPhase phase, InGameLinkDelayTrigger trigger,
+        //     bool isRecovering, bool anyProbeFailed, int completedProbes, out InGameLinkBlockReason reason)
+
         /// <summary>지금 화면을 막는 방식을 고른다.</summary>
         /// <param name="isHost">이 기기가 Host 인가.</param>
         /// <param name="phase">감시 상태.</param>
@@ -286,10 +314,14 @@ namespace Hexiege.Application
         /// <param name="isRecovering">「연결 복구 중」 표시 중인가.</param>
         /// <param name="anyProbeFailed">이번 끊김 구간에서 인터넷 확인이 한 번이라도 실패했는가.</param>
         /// <param name="completedProbes">이번 끊김 구간에서 끝난 확인 수.</param>
+        /// <param name="episodeElapsedSec">
+        /// [2026-11-26 2차 보완] 이번 끊김 구간이 시작된 뒤 지난 시간(초). 끊김 구간이 아니면 0 을 넣는다.
+        /// </param>
         /// <param name="reason">고른 이유.</param>
         /// <returns>화면을 막는 방식.</returns>
         public static InGameLinkBlockMode Decide(bool isHost, InGameLinkPhase phase, InGameLinkDelayTrigger trigger,
-            bool isRecovering, bool anyProbeFailed, int completedProbes, out InGameLinkBlockReason reason)
+            bool isRecovering, bool anyProbeFailed, int completedProbes, double episodeElapsedSec,
+            out InGameLinkBlockReason reason)
         {
             bool delayed = phase == InGameLinkPhase.Delayed;
             if (!delayed && phase != InGameLinkPhase.Judging)
@@ -317,7 +349,21 @@ namespace Hexiege.Application
                 reason = InGameLinkBlockReason.HostLost;
                 return InGameLinkBlockMode.Overlay;
             }
-            reason = completedProbes <= 0 ? InGameLinkBlockReason.PendingProbe : InGameLinkBlockReason.PeerSide;
+            // [2026-11-26 2차 보완] 옛 줄(기록용 — 확인 결과가 없는 동안 시간 제한 없이 띠):
+            // reason = completedProbes <= 0 ? InGameLinkBlockReason.PendingProbe : InGameLinkBlockReason.PeerSide;
+            if (completedProbes <= 0)
+            {
+                // 아직 확인 결과가 하나도 없다. 2.0초까지는 띠로 기다리고(정상 인터넷이면 이 안에 성공 결과가 온다),
+                // 그 뒤에도 없으면 「내 쪽 문제」로 보고 덮개로 막는다(악용 방지 — PendingProbeBannerMaxSec 설명).
+                if (episodeElapsedSec >= PendingProbeBannerMaxSec)
+                {
+                    reason = InGameLinkBlockReason.ProbeTimeout;
+                    return InGameLinkBlockMode.Overlay;
+                }
+                reason = InGameLinkBlockReason.PendingProbe;
+                return InGameLinkBlockMode.Banner;
+            }
+            reason = InGameLinkBlockReason.PeerSide;
             return InGameLinkBlockMode.Banner;
         }
     }

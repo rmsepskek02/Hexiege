@@ -591,6 +591,9 @@ namespace Hexiege.Infrastructure
             // 🔴 연결이 있으면 **종전 그대로**다(아래 ForfeitServerRpc 줄은 한 글자도 바뀌지 않았다).
             // ----------------------------------------------------------------
             string offlineReason = GetOfflineForfeitReason();
+            // [2026-11-26 2차 보완] ForfeitRoute — 포기가 어느 경로로 갔는지 1줄(Route=Offline | ServerRpc).
+            //   띠 상태(연결 정상)에서 누른 포기는 Route=ServerRpc 여야 정상이다(Plan 12-10 한계 5 수정).
+            LogForfeitRoute(offlineReason);
             if (offlineReason != null)
             {
                 ConcludeOfflineForfeit(offlineReason);
@@ -623,7 +626,10 @@ namespace Hexiege.Infrastructure
         /// 판단 순서(앞에서 걸리면 그 이유를 쓴다):
         /// <list type="number">
         ///   <item><c>Delay</c> — 감시기가 지연 중(U-9 「지연 중 포함」 원문). 실제로 RPC 가 닿을 수도 있지만,
-        ///         그래도 이 기기에서 끝낸다 — 상대는 15초 판정으로 승리하므로 결과는 같다(Plan 2-7 아래 설명).</item>
+        ///         그래도 이 기기에서 끝낸다 — 상대는 15초 판정으로 승리하므로 결과는 같다(Plan 2-7 아래 설명).
+        ///         [2026-11-26 2차 보완] 지연 중이라도 <b>덮개(조작 차단) 상태일 때만</b> 여기에 걸린다.
+        ///         알림 띠 상태(Host 상대 쪽 문제 · RTT 만 느림 — 서버와 연결은 정상)는 걸리지 않고 아래 NGO 검사로 간다
+        ///         → 연결이 있으면 종전 ServerRpc 포기(결과 화면 일반 패배). 띠 상태 포기가 「연결이 끊겼습니다」로 나오던 문제(Plan 12-10 한계 5).</item>
         ///   <item><c>Judging</c> — 감시기가 판정 중.</item>
         ///   <item><c>NotSpawned</c> — 이 컨트롤러가 이미 디스폰됐다(연결이 내려갔다).</item>
         ///   <item><c>NotListening</c> — NGO 가 돌고 있지 않다.</item>
@@ -636,7 +642,12 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkLinkState.IsMultiplayerMatch)
             {
-                if (NetworkLinkState.Phase == InGameLinkPhase.Delayed) return "Delay";
+                // [2026-11-26 2차 보완] 옛 줄(기록용 — 지연 중이면 띠 상태라도 연결 없는 포기):
+                // if (NetworkLinkState.Phase == InGameLinkPhase.Delayed) return "Delay";
+                //   2차에서 지연 중 화면이 덮개(조작 차단)와 띠(조작 가능 — 연결 정상)로 나뉘었으므로, 덮개일 때만 「연결 없음」으로 본다.
+                if (NetworkLinkState.Phase == InGameLinkPhase.Delayed
+                    && NetworkLinkState.BlockMode == InGameLinkBlockMode.Overlay) return "Delay";
+                // 판정 중은 종전 그대로 「연결 없음」(차단 방식과 무관 — 15초 무응답 · 끊김 통보로 결론을 기다리는 중).
                 if (NetworkLinkState.Phase == InGameLinkPhase.Judging) return "Judging";
             }
 
@@ -653,6 +664,38 @@ namespace Hexiege.Infrastructure
                 return "NotSpawned";
             }
             return null;
+        }
+
+        /// <summary>
+        /// [2026-11-26 2차 보완] ForfeitRoute — 포기 버튼이 어느 경로로 처리되는지 남긴다(진단 로그, 포기 1회당 1줄).
+        /// Route=Offline(연결 없는 포기 — 결과 화면 「연결이 끊겼습니다」) 또는 Route=ServerRpc(종전 포기 — 결과 화면 일반 패배).
+        /// Why 는 Offline 이면 GetOfflineForfeitReason 의 이유, ServerRpc 면 Connected.
+        /// 감시 상태(Phase) · 차단 방식(BlockMode · BlockReason)을 함께 남겨 「띠 상태인데 Offline」 같은 잘못을 가려낸다.
+        /// 🔴 로그 실패가 포기를 막지 않도록 예외를 삼킨다.
+        /// </summary>
+        /// <param name="offlineReason">GetOfflineForfeitReason 결과(null = 연결 있음).</param>
+        private void LogForfeitRoute(string offlineReason)
+        {
+            try
+            {
+                NetworkManager nm = NetworkManager.Singleton;
+                string ngo = nm == null ? "None"
+                    : (!nm.IsListening ? "NotListening"
+                        : (nm.IsServer ? "Server" : (nm.IsConnectedClient ? "ConnectedClient" : "NotConnected")));
+                GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                    DisconnectDiag.MessagePrefix + " ForfeitRoute",
+                    DisconnectDiag.Keys("ForfeitRoute",
+                        "Route=" + (offlineReason != null ? "Offline" : "ServerRpc")
+                        + ", Why=" + (offlineReason ?? "Connected")
+                        + ", Phase=" + NetworkLinkState.Phase
+                        + ", BlockMode=" + NetworkLinkState.BlockMode
+                        + ", BlockReason=" + NetworkLinkState.BlockReason
+                        + ", Ngo=" + ngo));
+            }
+            catch (System.Exception)
+            {
+                // 진단 로그 실패는 무시한다(포기 처리 자체가 우선).
+            }
         }
 
         /// <summary>

@@ -10,7 +10,7 @@
 | X-2 | `Scripts/Infrastructure/Network/NetworkCombatController.cs` `OnNetworkDespawn`의 `NetworkContext.Reset()` | **경기 중 예상 밖 디스폰일 때만** 실행을 Game 씬이 내려갈 때로 **미룬다.** 정상 경로(결과 화면 → 로비, 재경기)는 종전과 같은 시점에 `Reset` | ① 혼자 진행 모드(문제 2)의 직접 원인(Research 2-1). ② 미루는 동안의 처리는 판정 경로가 결과 화면 → 로비로 끝낸다. ③ 씬 전환 때 반드시 `Reset`되므로 다음 경기·싱글에 「멀티 표시」가 남지 않는다 — 이 점을 `SoloModeBlocked`·`LinkWatchStop` 줄로 확인 |
 | X-3 | 혼자 진행 분기 — `Bootstrap/GameBootstrapper.cs` `Update`의 싱글 분기, `Application/UseCases/GameEndUseCase.cs` `OnBuildingDied`의 싱글 발행, `Presentation/Unit/UnitView.*` 싱글 경로 | **코드 분기는 고치지 않는다.** X-2로 「멀티 표시」가 경기 중 꺼지지 않게 해서 이 분기들로 들어가지 않게 막는다. 추가로 `GameEndUseCase`는 `OnGameEnd`를 받으면 `IsGameOver`를 잠근다(결과 확정 뒤 로컬 재판정 방지) | ① 분기가 218줄에 걸쳐 있어 하나씩 바꾸면 놓칠 위험이 크다(Research 2-1). ② 들어가는 입구 하나(X-2)만 막으면 분기 자체는 싱글에서 종전대로 쓰인다 |
 | X-4 | `Scripts/Infrastructure/Network/NetworkGameEndController.cs` `ForceWin`(Host 전용 강제 승리) | 호출하던 곳(X-1)이 꺼져 **호출되지 않게 된다.** 메서드 자체는 남긴다. 새 「로컬 결론」 메서드가 같은 역할을 역할 무관으로 맡는다 | X-1과 같음. 다른 호출부가 있는지는 game-programmer가 확인해 보고(11절) |
-| X-5 **[2026-11-26 2차 추가]** | 2차 수정 비활성화 — `InGameLinkWatch`·`NetworkLinkState`·`InGameLinkMonitor`·`DisconnectDiag`·`NetworkLagOverlaySetup`의 옛 줄. 상세는 [12-9](#12-9-2차-비활성화-2026-11-26-game-programmer-2차-보고--주석-처리-삭제-없음) | **주석으로 비활성화**(삭제 없음) | ① 동작은 2차 새 로직(12-2~12-6)으로 대체된다. ② 옛 줄은 주석으로 보존한다. ③ 최종 삭제는 사용자 테스트 통과 뒤 사용자 승인으로 한다 |
+| X-5 **[2026-11-26 2차 추가]** | 2차 수정 비활성화 — `InGameLinkWatch`·`NetworkLinkState`·`InGameLinkMonitor`·`DisconnectDiag`·`NetworkLagOverlaySetup`의 옛 줄. 상세는 [12-9](#12-9-2차-비활성화-2026-11-26-game-programmer-2차-보고--주석-처리-삭제-없음) | **주석으로 비활성화**(삭제 없음). **[2026-11-26 2차 보완 포함]** `InGameLinkBlockPolicy` 옛 `Decide` 시그니처·`PendingProbe`/`PeerSide` 한 줄, `InGameLinkWatch.SyncAndPublish`의 옛 `Decide` 호출, `NetworkGameEndController.GetOfflineForfeitReason`의 지연 단계 한 줄(12-9) | ① 동작은 2차 새 로직(12-2~12-6)으로 대체된다. 보완분은 2초 확인 대기 규칙·포기 경로 분기(12-3·12-7)로 대체된다. ② 옛 줄은 주석으로 보존한다. ③ 최종 삭제는 사용자 테스트 통과 뒤 사용자 승인으로 한다 |
 
 ---
 
@@ -119,7 +119,7 @@
 | 연결 상태 | 처리 |
 |---|---|
 | 연결 있음(정상 상태) | **종전 그대로** — `ForfeitServerRpc` → 결과 화면(패배) |
-| 연결 없음(감시기가 지연·판정 중이거나, `!IsSpawned` · `!IsListening` · Client인데 `!IsConnectedClient`) | 그 기기에서 즉시 「로컬 결론(내 이탈)」 → 2-4 순서 → 끊긴 쪽 화면 → 로비. 상대 쪽은 신호가 끊긴 것으로 보고 15초 뒤 판정 → 승리 |
+| 연결 없음(감시기가 지연·판정 중이거나, `!IsSpawned` · `!IsListening` · Client인데 `!IsConnectedClient`) **[2026-11-26 2차 보완: 지연 중은 덮개(오버레이)일 때만 연결 없음으로 본다. 띠 상태 지연은 연결 검사로 넘어가 정상이면 종전 포기 — 12-7 「포기 경로」]** | 그 기기에서 즉시 「로컬 결론(내 이탈)」 → 2-4 순서 → 끊긴 쪽 화면 → 로비. 상대 쪽은 신호가 끊긴 것으로 보고 15초 뒤 판정 → 승리 |
 
 - *지연 중 포기를 「연결 없음」으로 보는 것은 U-9 「연결 없는 상태(지연 중 포함)의 포기」 원문을 따른다.* 지연 중이지만 실제로는 RPC가 닿는 경우, 상대에게 정상 포기 통보가 가지 않으므로 상대는 15초 판정으로 승리한다 — 결과(포기한 쪽 패배)는 같다.
 
@@ -287,8 +287,8 @@ game-programmer가 아래 순서로 진행하고 단계마다 컴파일 확인. 
 | S2 | 5초 백그라운드 | 복귀 때 「연결 복구 중」 → 이어서 진행 | 오버레이 → 신호가 오면 바로 사라지고 이어짐 |
 | S3 | 10초 백그라운드 | S2와 같음 | S2와 같음 |
 | S4 | 20초 백그라운드 | 복귀 즉시 「연결이 끊겼습니다」 → 로비 | 오버레이 → 15초 판정 「승리」 → 로비 |
-| S5 | 와이파이·데이터 끄고 5초 뒤 켬 | 인터넷 확인 실패 → **오버레이**. 켠 뒤 신호가 오면 사라지고 이어짐. 🔴 1차 S5 첫 시도처럼 게임 연결이 돌아오지 않으면 끊긴 동안 확인이 실패했으므로 「승리」가 아니라 「연결이 끊겼습니다」여야 한다 | 오버레이 → 사라지고 이어짐(연결이 안 돌아오면 15초 판정 「승리」) |
-| S6 | 와이파이·데이터 끄고 30초 | 오버레이 → 「연결이 끊겼습니다」 → 로비 | 오버레이 → 15초 판정 「승리」 → 로비 |
+| S5 | 와이파이·데이터 끄고 5초 뒤 켬 | 인터넷 확인 실패 → **오버레이** **[2026-11-26 2차 보완: 띠로 시작해 2초 안에 오버레이 — 확인 실패가 먼저 오면 `SelfProbeFailed`, 2초가 먼저 지나면 `ProbeTimeout` 뒤 `SelfProbeFailed`]**. 켠 뒤 신호가 오면 사라지고 이어짐. 🔴 1차 S5 첫 시도처럼 게임 연결이 돌아오지 않으면 끊긴 동안 확인이 실패했으므로 「승리」가 아니라 「연결이 끊겼습니다」여야 한다 | 오버레이 → 사라지고 이어짐(연결이 안 돌아오면 15초 판정 「승리」) |
+| S6 | 와이파이·데이터 끄고 30초 | 오버레이 **[2026-11-26 2차 보완: 띠 → 2초 안에 오버레이, S5와 같음]** → 「연결이 끊겼습니다」 → 로비 | 오버레이 → 15초 판정 「승리」 → 로비 |
 | S7 | 와이파이·데이터 끄고 오버레이에서 설정 → 포기 → 확인 | 즉시 「연결이 끊겼습니다」 → 로비 | 오버레이 → 15초 판정 「승리」 |
 | S8 | 와이파이·데이터 끄고 오버레이 상태에서 건물·생산 조작 시도 후 5초 안에 켬 | 오버레이가 터치를 막음, 조작이 반영되지 않음 | — |
 | S10 | 끊기기 **직전 1초 안에** 조작(건설·생산 등)을 하고 바로 와이파이·데이터를 끈 뒤 5초 뒤 켬 | **확인 대상** — 그 조작이 늦게라도 처리되는지, 언제 처리되는지(`CommandSent`·`CommandApplied` 시각 차) | 같은 조작이 화면에 반영되는지 |
@@ -309,7 +309,7 @@ game-programmer가 아래 순서로 진행하고 단계마다 컴파일 확인. 
 | S10 | 1회차 S10과 같음 | 1회차 S10과 같음 | 실기기 조작이 늦게라도 Host에서 처리되는지(`CommandApplied`) |
 
 - 표의 「약 1초」는 12-4 값(무응답 1.0초)에서 나온 기대치다. 실측은 `LinkDelayEnter`로 본다.
-- **[2026-11-26 2차 보고 반영]** 1회차 S5·S6처럼 **Host가 자기 인터넷을 잃은 경우**, 첫 인터넷 확인 결과가 나오기 전까지는 Host 화면도 막지 않는 띠(`Banner/PendingProbe`)로 시작하고, 확인이 실패하면 오버레이(`Overlay/SelfProbeFailed`)로 바뀐다. 그 사이에는 Host 조작이 막히지 않는다(12-10 한계 1).
+- **[2026-11-26 2차 보고 반영]** 1회차 S5·S6처럼 **Host가 자기 인터넷을 잃은 경우**, 첫 인터넷 확인 결과가 나오기 전까지는 Host 화면도 막지 않는 띠(`Banner/PendingProbe`)로 시작하고, 확인이 실패하면 오버레이(`Overlay/SelfProbeFailed`)로 바뀐다. **[2026-11-26 2차 보완: 띠는 최대 2.0초까지만 — 2초 안에 확인 결과가 없으면 오버레이(`Overlay/ProbeTimeout`)로 막고, 실패 결과가 오면 `SelfProbeFailed`, 성공 결과가 오면 띠(`PeerSide`)로 풀린다. 그래서 Host 조작이 막히지 않는 시간은 최대 약 2초다(12-3, 12-10 한계 1 해결). 종전 「그 사이에는 Host 조작이 막히지 않는다」는 2초 한도로 바뀌었다]**
 - **[2026-11-26 2차 보고 반영]** 로그로 보는 정상 값은 12-7 표에 있다(T-17·T-19·T-20, 1차 기준 변경 T-3·T-4·T-10).
 - S10은 정답을 정해 둔 시나리오가 아니라 **실제로 어떻게 되는지 보는 시나리오**다. 결과를 보고 사용자가 정한다.
 - 1차에서 원인을 찾지 못한 S4 판 결과 화면 직후 `UAS-SOLO` 66줄(Research 9-4)은 2차 로그에서도 다시 본다.
@@ -344,7 +344,7 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 - **규칙 2:**
   - 확정 D에 「Client 혼자 진행 금지」.
   - 확정 E 제목을 「인게임 판정 시점은 마지막 상대 신호로부터 t=N(15초)이며 30초 유예는 없앤다」로. 재접속 미지원 명시. N=15의 대가(백그라운드 15초 초과 시 패배) 명시.
-  - 신규 **확정 F** 지연 중에도 게임은 진행, 지연 중 조작 미반영·재전송 없음, 양쪽 표시. **[2026-11-26 2차: 「지연 중 조작 미반영」 → 「문제가 생긴 쪽만 조작 차단」. 내 인터넷 확인 실패 쪽과 Host 신호가 끊긴 Client(양쪽 게임이 멈춤)는 오버레이·차단, 내 인터넷이 정상인 Host는 막지 않는 띠. RTT 지연만으로는 차단하지 않음 — 12-3]**
+  - 신규 **확정 F** 지연 중에도 게임은 진행, 지연 중 조작 미반영·재전송 없음, 양쪽 표시. **[2026-11-26 2차: 「지연 중 조작 미반영」 → 「문제가 생긴 쪽만 조작 차단」. 내 인터넷 확인 실패 쪽과 Host 신호가 끊긴 Client(양쪽 게임이 멈춤)는 오버레이·차단, 내 인터넷이 정상인 Host는 막지 않는 띠. RTT 지연만으로는 차단하지 않음 — 12-3]** **[2026-11-26 2차 보완: Host의 「확인 결과 전 띠」는 최대 2초 — 그 안에 결과가 없으면 차단, 성공 결과가 오면 해제. 와이파이는 붙었지만 인터넷이 안 되는 Host가 그동안 혼자 조작하는 것을 막기 위함 — 12-3]**
   - **[2026-11-26 2차 추가] 「🔴 최상위 원칙」 해석:** 승패·판정·결과 화면은 역할과 무관하게 같다. 지연 중 화면(오버레이인가 띠인가)은 역할이 아니라 **문제가 어느 쪽에 있는가와 게임이 멈췄는가**에 따른다 — 사용자 우려(12-1) 원문 근거. **확정 G** 돌아온 기기 자기 판정(정지 13초 이상 → 스스로 패배). **확정 H** Host 백그라운드 정지 수용(P2P 한계, 악의 없음 전제). **확정 I** 연결 없는 상태의 포기.
 
 ### 9-2. `GameSystemRules_MatchFlowUI.md` — 신규 절 「인게임 연결 상태 UI」
@@ -354,7 +354,7 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | C-1 | 지연 표시 조건(2-1 값)과 모양 — 반투명 오버레이 + 가운데 「네트워크 지연」 **[2026-11-26 2차: 신호 0.5초 간격, 무응답 1.0초에 표시, 신호가 다시 오면 즉시 해제 — 12-4]** |
 | C-2 | 설정 버튼만 오버레이 위, 그 밖의 게임 조작 입력 차단 **[2026-11-26 2차: 오버레이·차단은 문제가 생긴 쪽(내 인터넷 확인 실패, Host 신호가 끊긴 Client)에만 — 12-3]** |
 | C-3 | 「연결 복구 중」(13초 미만 복귀, 최소 0.5초) **[2026-11-26 2차: 2차 수치(12-4)와의 관계는 game-programmer 구현 보고 후 맞춘다]** **[2026-11-26 2차 보고로 정정: 「연결 복구 중」은 1차 그대로 — 최소 0.5초, 1초 안정, 오버레이(`ExitBy=ResumeHold`). 무응답·RTT 지연의 최소 표시만 없앴다 — 12-4]** |
-| C-7 **[2026-11-26 2차 신설]** | 피해 쪽 Host(내 인터넷 정상)와 RTT 지연만 있는 경우: 화면 위쪽에 조작을 막지 않는 알림 띠 「상대 연결 지연」. 첫 인터넷 확인 결과가 나오기 전의 Host도 띠로 시작 — 12-3 |
+| C-7 **[2026-11-26 2차 신설]** | 피해 쪽 Host(내 인터넷 정상)와 RTT 지연만 있는 경우: 화면 위쪽에 조작을 막지 않는 알림 띠 「상대 연결 지연」. 첫 인터넷 확인 결과가 나오기 전의 Host도 띠로 시작 — 12-3 **[2026-11-26 2차 보완: 단, 띠는 최대 2초 — 2초 안에 확인 결과가 없으면 오버레이·차단, 이후 성공 결과면 띠로 돌아감. RTT 지연 띠는 해당 없음 — 12-3]** |
 | C-4 | 판정 결과 화면 — 남은 쪽: 「승리」 + 「상대방이 떠났습니다」 |
 | C-5 | 끊긴 쪽: 승패 없이 「연결이 끊겼습니다」 + 「n초 뒤 로비로 이동합니다」 |
 | C-6 | 연결 없는 포기 흐름 |
@@ -390,7 +390,7 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | **[2026-11-26 1차 실기]** 양쪽 승리 실측 | S5 첫 시도에서 와이파이 복구 후 인터넷은 되지만 게임 연결은 끊긴 채 양쪽 `Probe=Reachable` → 양쪽 「승리」(Research 9-2) | 12-2 ① 확인 반복 |
 | **[2026-11-26 1차 실기]** 결과 화면 직후 `UAS-SOLO` 66줄 | S4 판, 경기 종료 후 0.05초 동안. 원인 미확인(Research 9-4) | 2차 로그에서 재관찰(7-4) |
 | **[2026-11-26 1차 실기]** 표시 순서 | 오버레이가 게임 정지보다 1.4~2초 늦게 뜨고, 재개보다 1.2~1.8초 늦게 사라짐 | 12-4 ③ |
-| **[2026-11-26 2차 보고]** 2차 알려진 한계·미확인 7개 | Host 자기 인터넷 상실 시 첫 확인 전 띠(조작 안 막힘) · 도장/조작 RPC 도착 순서 가정 · Cloud Save 요청 제한 미확인 · 띠 위치 계산 미확인 · 띠 상태 포기 문구 「연결이 끊겼습니다」(범위 밖) · 짧은 지연 표시 잦음 가능 · `UAS-SOLO` 진단 미추가 | [12-10](#12-10-2차-알려진-한계미확인-2026-11-26-game-programmer-2차-보고) |
+| **[2026-11-26 2차 보고]** 2차 알려진 한계·미확인 7개 **[2026-11-26 2차 보완: 8개 — 1번 해결, 5번 부분 해결, 8번 신규]** | Host 자기 인터넷 상실 시 첫 확인 전 띠(조작 안 막힘) **[2026-11-26 2차 보완: 2초 규칙으로 해결]** · 도장/조작 RPC 도착 순서 가정 · Cloud Save 요청 제한 미확인 · 띠 위치 계산 미확인 · 띠 상태 포기 문구 「연결이 끊겼습니다」(범위 밖) · 짧은 지연 표시 잦음 가능 · `UAS-SOLO` 진단 미추가 | [12-10](#12-10-2차-알려진-한계미확인-2026-11-26-game-programmer-2차-보고) |
 
 ---
 
@@ -457,7 +457,7 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | 내 인터넷 확인 실패(역할 무관) | 반투명 오버레이 + 「네트워크 지연」 | **차단**(설정만 허용) |
 | Client이고 Host 신호가 끊김 — 양쪽 게임이 함께 멈추는 경우 | 오버레이 유지 | 차단(설정만 허용) |
 | Host이고 내 인터넷 정상 — 상대 쪽 문제 | 화면 위쪽의 알림 띠 「상대 연결 지연」 | **막지 않음** |
-| Host이고 첫 인터넷 확인 결과가 아직 없음 | 막지 않는 띠로 시작 | 막지 않음 |
+| Host이고 첫 인터넷 확인 결과가 아직 없음 | 막지 않는 띠로 시작 **[2026-11-26 2차 보완: 2.0초까지만. 그 뒤에도 결과가 없으면 오버레이]** | 막지 않음 **[2026-11-26 2차 보완: 2.0초 뒤 결과가 없으면 차단]** |
 | RTT 지연만 있음(신호는 옴) | 막지 않는 띠 | 막지 않음 |
 
 - 근거: 「🔴 최상위 원칙」 — 승패·판정·결과 화면은 역할과 무관하게 같다. **지연 중 화면은 역할이 아니라 문제가 어느 쪽에 있는가, 게임이 멈췄는가에 따른다**(9-1 해석 추가). Network 확정 F 개정안도 이에 맞춰 바꾼다(9-1 날짜 조각).
@@ -472,10 +472,17 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | 2 | RTT만 느린 지연 | 띠 | `Rtt` |
 | 3 | 끊김 구간 중 인터넷 확인이 한 번이라도 실패 | 오버레이 | `SelfProbeFailed` |
 | 4 | Client(Host 신호가 끊김) | 오버레이 | `HostLost` |
-| 5 | Host, 확인 결과가 아직 없음 | 띠 | `PendingProbe` |
+| 5 | Host, 확인 결과가 아직 없음 **[2026-11-26 2차 보완: 띠가 된 지 2.0초 미만일 때만]** | 띠 | `PendingProbe` |
+| 5-보완 **[2026-11-26 2차 보완]** | Host, `PendingProbe` 띠로 **2.0초**(`PendingProbeBannerMaxSec`)가 지났는데 이번 끊김 구간의 확인 결과가 아직 없음 | **오버레이**(조작 차단) | `ProbeTimeout` |
 | 6 | Host, 확인이 모두 성공 | 띠 | `PeerSide` |
 
 - 조작 차단(월드 입력과 12개 입구)은 **오버레이일 때만** 걸린다. 띠일 때는 막지 않는다.
+- **[2026-11-26 2차 보완 — 사용자 승인 「둘다 고치고」, game-programmer 보완 구현(컴파일 미실행, Python 시뮬레이션 P1~P6 PASS)] 5-보완 줄의 뜻:**
+  - **왜:** 와이파이는 붙었는데 인터넷이 안 되는 경우 확인 응답이 최대 10초 늦을 수 있고, 종전 규칙(5번 줄)으로는 그동안 Host 혼자 조작할 수 있었다(12-10 한계 1). 일부러 끊어 유리하게 만드는 행동을 막는다는 12-1 목적에 맞추려고 띠 상태를 2초로 묶었다.
+  - **이후:** `ProbeTimeout` 뒤 실패 결과가 오면 `SelfProbeFailed`(3번 줄, 계속 차단), 성공 결과가 오면 `PeerSide`(6번 줄, 띠로 돌아가 차단 해제).
+  - **대상 아님:** RTT만 느린 지연의 띠(2번 줄)는 2초 규칙을 적용하지 않는다.
+  - 차단 방식은 **판정 중에도 매 프레임 다시 계산한다.**
+  - 줄 번호(1~6)는 바꾸지 않았다 — 「5-보완」은 5번과 6번 사이에서 검사된다.
 - 띠: `NetworkLagBannerUI`, 정렬 205, 입력 통과(글자·배경이 터치를 받지 않고 레이캐스터도 없음), 문구 「상대 연결 지연」. 덮개·설정 버튼·설정 창 정렬은 1차 값 210 / 211 / 212 그대로(9-3).
 
 ### 12-4. ③ 표시 시점 — 덮개를 먼저
@@ -513,14 +520,15 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 
 | Event | 주요 키 | 확인하려는 것 |
 |---|---|---|
-| `LinkWatchStart` | `HeartbeatSec=0.5`, `DelaySilenceSec=1.0`, `JudgeSec=15.0`, `SelfPauseSec=13.0`, `ProbeIntervalSec=4.0`, `ProbeMinGapSec=1.0`, `FreezeDetectSec=2.0`, `DelayRttMs=800`, `DelayRttHoldSec=3.0` | 2차 값으로 돌고 있는지 |
+| `LinkWatchStart` | `HeartbeatSec=0.5`, `DelaySilenceSec=1.0`, `JudgeSec=15.0`, `SelfPauseSec=13.0`, `ProbeIntervalSec=4.0`, `ProbeMinGapSec=1.0`, `FreezeDetectSec=2.0`, `DelayRttMs=800`, `DelayRttHoldSec=3.0` **[2026-11-26 2차 보완: + `PendingProbeBannerMaxSec=2.000`]** | 2차 값으로 돌고 있는지 |
 | `LinkDelayEnter` | `SilenceSec`(1.0~1.1 예상), `DelayNo`, `SinceLastExitMs` | ③ 무응답 1초에 바로 떴는지, 직전 해제와의 간격 |
 | `LinkDelayExit` | `ExitBy=Signal`(또는 `RttRecovered`·`ResumeHold`), `SignalGapMs`, `ShownMs`, `Mode` | ③ 신호가 오자마자 해제됐는지 |
 | `LinkDelaySummary` | `ShortDelayCount` 등 | 짧은 지연이 자주 깜빡이는지 관찰(12-10 한계 6) |
 | `LinkProbeStart` / `LinkProbeResult` | `Seq`, `Kind=Entry\|Periodic\|Judge`, `AnyFailed`, `Stale` | ① 여러 번 확인했는지, 한 번이라도 실패했는지, 구간이 끝난 뒤 온 결과인지 |
 | `LinkGapEpisode` | `Op=Begin\|End` | 끊김 구간의 시작·끝 |
 | `LinkVerdict`(확장) | 기존 키 + `ProbeCompleted`, `ProbeFailed`, `EpisodeNo`, `Mode` | ① 결론이 확인 결과와 맞는지 |
-| `LinkBlockMode` | `Mode`(Overlay/Banner), `Reason`(12-3 표) | ② 누가 왜 막혔는지 |
+| `LinkBlockMode` | `Mode`(Overlay/Banner), `Reason`(12-3 표) **[2026-11-26 2차 보완: + `EpisodeSec`(끊김 구간 시작부터 지난 초), `Reason=ProbeTimeout` 추가]** | ② 누가 왜 막혔는지 |
+| `ForfeitRoute` **[2026-11-26 2차 보완 신규]** | `Route=Offline\|ServerRpc`, `Why=Delay\|Judging\|NotSpawned\|NotListening\|NotConnected\|Connected`, `Phase`, `BlockMode`, `BlockReason`, `Ngo` | 포기가 어느 경로로 갔고 왜인지(12-7 「포기 경로」) |
 | `LagBannerShow` / `LagBannerHide` | `Reason`, `BlocksInput=False`, `NextMode` | ② 피해 쪽 Host가 띠만 봤는지 |
 | `LagOverlayShow`(확장) | 기존 키 + `Reason` | ② 오버레이가 뜬 이유 |
 | `CommandSent` / `CommandApplied` | 보낸 쪽 / Host 처리 — `Seq`, `RecvSeq`, `DelayMs`, `Phase`, `Clock` | ④ 늦게 처리되는지 |
@@ -544,8 +552,9 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | 테스트 항목 | 로그 이름 | 정상 판정 값 |
 |---|---|---|
 | T-16 인터넷 확인 반복 | `LinkProbeStart`, `LinkProbeResult`, `LinkVerdict` | 끊김 구간 1회에 `Kind=Entry` → `Periodic`(4초 간격) → `Judge` 순으로 여러 줄, `Seq` 증가. 실패가 있으면 `AnyFailed=True` → `LinkVerdict Verdict=SelfLeft`. 구간이 끝난 뒤 온 결과는 `Stale=True` |
-| T-17 문제 쪽만 차단 | `LinkBlockMode` | 1회차: 실기기 Host(와이파이 끔) `Mode=Banner Reason=PendingProbe` → `Mode=Overlay Reason=SelfProbeFailed`, 에디터 Client `Mode=Overlay Reason=HostLost`. 2회차: 에디터 Host `Mode=Banner Reason=PendingProbe` → `Mode=Banner Reason=PeerSide`, 에디터 Host에 Overlay **0줄** |
-| T-18 띠 표시 | `LagBannerShow` / `LagBannerHide` | 2회차 에디터(Host)에 표시·숨김 짝, `BlocksInput=False`. 1회차는 실기기 Host가 첫 확인 전 잠깐 띠를 보일 수 있다(T-17 1회차) |
+| T-17 문제 쪽만 차단 | `LinkBlockMode` | 1회차: 실기기 Host(와이파이 끔) `Mode=Banner Reason=PendingProbe` → `Mode=Overlay Reason=SelfProbeFailed`, 에디터 Client `Mode=Overlay Reason=HostLost`. 2회차: 에디터 Host `Mode=Banner Reason=PendingProbe` → `Mode=Banner Reason=PeerSide`, 에디터 Host에 Overlay **0줄**. **[2026-11-26 2차 보완 — 정상 값 3가지:]** ⓐ Host 무인터넷(확인이 늦는 경우): `PendingProbe` → 약 2.0초 뒤 `Mode=Overlay Reason=ProbeTimeout`(`EpisodeSec` 2.0~2.1, 그 시점 `ProbeCompleted=0`) → `Reason=SelfProbeFailed`. 확인 실패가 2초 전에 오면 `ProbeTimeout` 없이 바로 `SelfProbeFailed`. ⓑ Host 인터넷 정상: `PendingProbe` → `PeerSide`, Overlay **0줄**. ⓒ 확인이 2초를 넘긴 뒤 성공: `PendingProbe` → `ProbeTimeout` → `PeerSide`(12-10 한계 8) |
+| T-18 띠 표시 | `LagBannerShow` / `LagBannerHide` | 2회차 에디터(Host)에 표시·숨김 짝, `BlocksInput=False`. 1회차는 실기기 Host가 첫 확인 전 잠깐 띠를 보일 수 있다(T-17 1회차) **[2026-11-26 2차 보완: 그 띠는 최대 약 2초 — 2초가 지나면 `LagBannerHide` 뒤 오버레이(`ProbeTimeout`). 2회차 에디터 Host도 확인이 2초를 넘기면 같은 전환이 생길 수 있다(T-17 ⓒ)]** |
+| T-11 보완 — 포기 경로 **[2026-11-26 2차 보완 신규]** | `ForfeitRoute`, `OfflineForfeit`, `ResultShown` | 띠 상태에서 포기: `ForfeitRoute Route=ServerRpc Why=Connected BlockMode=Banner`, `OfflineForfeit` **0줄** → 결과 화면 일반 패배. 덮개 상태에서 포기: `ForfeitRoute Route=Offline Why=Delay` → `OfflineForfeit Reason=Delay`. 판정 중 포기: 종전대로 `Route=Offline Why=Judging`(아래 「포기 경로」) |
 | T-19 피해 쪽 Host 조작 처리 (S9) | `CommandSent` / `CommandApplied`, `CommandBlocked` | 에디터 Host에서 `Phase=Delayed\|Judging`, `Mode=Banner`인 `CommandSent` 다음에 같은 `Seq`의 `CommandApplied`(`Clock=Local`). `CommandBlocked` **0줄** |
 | T-20 끊기기 직전 조작 (S10) | `CommandSent` / `CommandApplied` | 정답 미정 — `Seq`·`RecvSeq`·`DelayMs`·`Phase`를 기록해 사용자가 판단 |
 | T-21 덮개 먼저 | `LinkDelayEnter`, `LinkDelayExit`, `LinkDelaySummary` | 진입 `SilenceSec` 1.0~1.1, 해제 `ExitBy=Signal`(신호 수신 직후, `SignalGapMs`). 깜빡임은 `ShortDelayCount`로 관찰 |
@@ -566,6 +575,10 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | T-3·T-10 (1차) | — | 6절 날짜 조각대로 2차 값으로 읽는다 |
 
 - 시나리오는 7-4, 로그 올리기는 7-3.
+- **[2026-11-26 2차 보완] 포기 경로(T-11 보완, 2-7 보완):**
+  - **지연 중:** 덮개(오버레이)일 때만 연결 없는 포기(`Why=Delay`). 띠 상태는 그 다음의 NGO 연결 검사(`NotSpawned`·`NotListening`·`NotConnected`)로 넘어가고, 모두 정상이면 일반 `ServerRpc` 포기(`Why=Connected`) → 결과 화면 일반 패배.
+  - **판정 중:** 종전대로 연결 없는 포기(`Why=Judging`).
+  - **남은 사례(미확인·관찰 항목):** Host가 판정 중이면서 띠 상태일 때 포기하면 여전히 「연결이 끊겼습니다」 문구가 나온다. 판정 중이면 최대 약 10초 뒤 경기가 끝나므로 이번에는 유지한다(12-10 한계 5).
 
 ### 12-8. game-programmer 확인 항목 (2차 구현 보고에 포함)
 
@@ -588,15 +601,21 @@ game-design-lead 개정안 요지입니다. **이번에는 문서를 고치지 �
 | `InGameLinkMonitor` | 옛 상수 3줄, `ResumeHold` 옛 본문 |
 | `DisconnectDiag` | `DiagRevision=2` |
 | `NetworkLagOverlaySetup` | 옛 `return` 줄 |
+| `InGameLinkBlockPolicy` **[2026-11-26 2차 보완]** | 옛 `Decide` 시그니처, `PendingProbe`/`PeerSide`를 고르던 한 줄(2초 규칙 없는 판단) |
+| `InGameLinkWatch` **[2026-11-26 2차 보완]** | `SyncAndPublish`의 옛 `Decide` 호출 |
+| `NetworkGameEndController` **[2026-11-26 2차 보완]** | `GetOfflineForfeitReason`의 `if (Phase == Delayed) return "Delay";`(지연이면 띠 상태에서도 연결 없는 포기로 보던 줄) |
+
+- **[2026-11-26 2차 보완] 보완 수정 파일:** `InGameLinkProbeSchedule.cs`, `NetworkLinkState.cs`, `InGameLinkWatch.cs`, `NetworkGameEndController.cs`(game-programmer 보고. 컴파일 미실행, Python 시뮬레이션 P1~P6 PASS).
 
 ### 12-10. 2차 알려진 한계·미확인 (2026-11-26 game-programmer 2차 보고)
 
-1. **Host가 자기 인터넷을 잃은 경우**, 첫 확인 결과(최대 10초)가 나오기 전까지 Host 화면은 막지 않는 띠다 — 그동안 Host 조작이 막히지 않는다. 1차 S6에서 와이파이를 끈 경우 확인 실패는 57ms로 빨랐지만, 「와이파이는 붙었는데 인터넷이 안 되는」 경우는 느릴 수 있다. **개선 여부는 메인 세션이 사용자에게 확인 중.**
+1. **Host가 자기 인터넷을 잃은 경우**, 첫 확인 결과(최대 10초)가 나오기 전까지 Host 화면은 막지 않는 띠다 — 그동안 Host 조작이 막히지 않는다. 1차 S6에서 와이파이를 끈 경우 확인 실패는 57ms로 빨랐지만, 「와이파이는 붙었는데 인터넷이 안 되는」 경우는 느릴 수 있다. ~~개선 여부는 메인 세션이 사용자에게 확인 중.~~ **[2026-11-26 2차 보완: 해결 — 사용자 승인 「둘다 고치고」. 띠는 최대 2.0초, 그 안에 결과가 없으면 오버레이(`ProbeTimeout`) — 12-3 5-보완 줄. 남는 대가는 한계 8]**
 2. 도장 RPC와 조작 RPC의 도착 순서는 NGO 동작에 기댄 가정이다(`RecvSeq`로 대조).
 3. Cloud Save 요청 제한 수치는 확인하지 못했다(최소 쉼 1.0초로 완화).
 4. 띠 위치 계산(에디터 additive 씬)은 확인하지 못했다.
-5. 포기 때 띠 상태(Host 연결은 정상)여도 「연결 없는 포기」로 처리돼 문구가 「연결이 끊겼습니다」가 된다(결과는 같음) — **범위 밖 발견**.
+5. 포기 때 띠 상태(Host 연결은 정상)여도 「연결 없는 포기」로 처리돼 문구가 「연결이 끊겼습니다」가 된다(결과는 같음) — **범위 밖 발견**. **[2026-11-26 2차 보완: 부분 해결 — 지연 중 띠 상태 포기는 일반 `ServerRpc` 포기로 간다(`ForfeitRoute`). 남은 사례: Host 판정 중 + 띠 상태 포기는 그대로 「연결이 끊겼습니다」(판정 중은 최대 약 10초 뒤 끝나므로 유지, 미확인·관찰 항목) — 12-7 「포기 경로」]**
 6. 신호 0.5초 간격·무응답 1초 기준이라 짧은 지연 표시가 잦을 수 있다(`ShortDelayCount`로 관찰).
 7. `UAS-SOLO` 66줄을 가려낼 진단은 이번에 추가하지 않았다.
+8. **[2026-11-26 2차 보완 신규]** 2초 규칙의 대가: 인터넷은 정상이지만 느려서 확인이 2초를 넘기면, 피해 쪽 Host도 잠깐 오버레이로 막혔다가 성공 결과가 오면 띠로 풀린다(T-17 ⓒ `PendingProbe` → `ProbeTimeout` → `PeerSide`).
 
-- 보고에서는 이 7개를 「10절 위험에 추가」로 분류했다. 이번 반영 범위가 12·7-4·9-3절이라 10절 표에는 아직 넣지 않았다. **[2026-11-26 정정: 10절 표에 이 절을 가리키는 행을 추가했다]**
+- 보고에서는 이 7개 **[2026-11-26 2차 보완: 8번은 보완 보고에서 추가]** 를 「10절 위험에 추가」로 분류했다. 이번 반영 범위가 12·7-4·9-3절이라 10절 표에는 아직 넣지 않았다. **[2026-11-26 정정: 10절 표에 이 절을 가리키는 행을 추가했다]**

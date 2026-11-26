@@ -92,14 +92,25 @@ namespace Hexiege.Application
         /// <summary>내가 Client 이고 Host 신호가 끊겼다 — 양쪽 게임이 멈춘다 → 덮개(악용 대상 아님 — 사용자 결정).</summary>
         HostLost = 3,
 
-        /// <summary>내가 Host 이고 아직 첫 인터넷 확인 결과가 없다 → 알림 띠로 시작(실패하면 덮개로 바뀐다).</summary>
+        /// <summary>
+        /// 내가 Host 이고 아직 첫 인터넷 확인 결과가 없다 → 알림 띠로 시작(실패하면 덮개로 바뀐다).
+        /// [2026-11-26 2차 보완] 끊김 구간 시작 뒤 2.0초까지만 — 그 뒤에도 결과가 없으면 <see cref="ProbeTimeout"/>.
+        /// </summary>
         PendingProbe = 4,
 
         /// <summary>신호는 오지만 왕복 시간(RTT)만 느리다 → 알림 띠(지연이 크다는 이유로 조작을 막지 않는다).</summary>
         Rtt = 5,
 
         /// <summary>내 앱이 잠깐(13초 미만) 멈췄다가 돌아왔다 → 「연결 복구 중」 덮개(1차 그대로).</summary>
-        Recovering = 6
+        Recovering = 6,
+
+        /// <summary>
+        /// [2026-11-26 2차 보완 — 사용자 승인] 내가 Host 이고 끊김 구간 시작 뒤 2.0초(InGameLinkBlockPolicy.PendingProbeBannerMaxSec)가
+        /// 지났는데 인터넷 확인 결과가 하나도 없다 → 덮개(조작 차단). 「상대 쪽 문제라는 확인 전에는 내 쪽 문제로 본다」 —
+        /// 와이파이는 붙었는데 인터넷이 안 되면 확인 응답이 최대 10초까지 늦어, 그동안 Host 가 혼자 조작하는 악용을 막는다.
+        /// 이후 확인이 성공으로 오면 <see cref="PeerSide"/>(띠)로 내려간다.
+        /// </summary>
+        ProbeTimeout = 7
     }
 
     /// <summary>

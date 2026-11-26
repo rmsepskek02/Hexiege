@@ -347,6 +347,8 @@ namespace Hexiege.Infrastructure
                     // [2026-11-26 2차 — DiagRev=3] 새 값: 확인 간격 · 최소 쉼 · 앱 정지 감지 기준 · RTT 진입 기준
                     + ", ProbeIntervalSec=" + Sec(InGameLinkProbeSchedule.ProbeIntervalSec)
                     + ", ProbeMinGapSec=" + Sec(InGameLinkProbeSchedule.ProbeMinGapSec)
+                    // [2026-11-26 2차 보완] Host 「확인 결과 없음」 띠 최대 시간(이 뒤 Overlay / ProbeTimeout)
+                    + ", PendingProbeBannerMaxSec=" + Sec(InGameLinkBlockPolicy.PendingProbeBannerMaxSec)
                     + ", FreezeDetectSec=" + Sec(InGameLinkMonitor.FreezeDetectSec)
                     + ", DelayRttMs=" + Ms(InGameLinkMonitor.DelayEnterRttMs)
                     + ", DelayRttHoldSec=" + Sec(InGameLinkMonitor.DelayEnterRttHoldSec)
@@ -452,6 +454,14 @@ namespace Hexiege.Infrastructure
                 if (_monitor != null && _monitor.Phase != InGameLinkPhase.Ended)
                 {
                     PumpProbes(now);
+                }
+
+                // [2026-11-26 2차 보완] 판정 중에는 위 ③(Apply → SyncAndPublish)이 돌지 않는다. 그래서 「시간이 지나서」 바뀌는
+                //   차단 방식(Host 「확인 결과 없음」 띠 2.0초 → 덮개 ProbeTimeout)이 판정 중에도 제때 반영되도록 여기서 한 번 더 맞춘다.
+                //   (지연 중에는 ③에서 이미 매 프레임 불린다. 바뀐 것이 없으면 SetLinkState 가 곧바로 돌아가 비용은 작다.)
+                if (_monitor != null && _monitor.Phase == InGameLinkPhase.Judging)
+                {
+                    SyncAndPublish(now);
                 }
 
                 // ⑤ 신호 송신(판정 중에도 보낸다 — 판정은 뒤집지 않지만, 상대가 아직 듣고 있다면 상대 쪽 오판을 줄인다).
@@ -942,8 +952,13 @@ namespace Hexiege.Infrastructure
 
             bool anyFailed = _probeSchedule != null && _probeSchedule.EpisodeActive && _probeSchedule.AnyFailed;
             int completed = _probeSchedule != null && _probeSchedule.EpisodeActive ? _probeSchedule.CompletedCount : 0;
+            // [2026-11-26 2차 보완] 옛 호출(기록용 — 구간 경과 시간 없음):
+            // InGameLinkBlockMode mode = InGameLinkBlockPolicy.Decide(_isServer, phase, _monitor.DelayTrigger,
+            //     _monitor.IsRecovering, anyFailed, completed, out InGameLinkBlockReason reason);
+            //   Host 가 「확인 결과 없음」 띠를 2.0초 넘게 보이지 않도록(ProbeTimeout — 악용 방지) 구간 경과 시간을 함께 넘긴다.
+            double episodeElapsed = EpisodeElapsedSec(now);
             InGameLinkBlockMode mode = InGameLinkBlockPolicy.Decide(_isServer, phase, _monitor.DelayTrigger,
-                _monitor.IsRecovering, anyFailed, completed, out InGameLinkBlockReason reason);
+                _monitor.IsRecovering, anyFailed, completed, episodeElapsed, out InGameLinkBlockReason reason);
 
             if (mode != _blockMode || reason != _blockReason)
             {
@@ -961,6 +976,17 @@ namespace Hexiege.Infrastructure
             NetworkLinkState.SetLinkState(phase, _monitor.IsRecovering, mode, reason);
         }
 
+        /// <summary>
+        /// [2026-11-26 2차 보완] 이번 끊김 구간이 시작된 뒤 지난 시간(초). 끊김 구간이 아니면 0.
+        /// InGameLinkBlockPolicy 의 ProbeTimeout 규칙(Host 「확인 결과 없음」 띠는 2.0초까지)에 넘긴다.
+        /// </summary>
+        private double EpisodeElapsedSec(double now)
+        {
+            if (_probeSchedule == null || !_probeSchedule.EpisodeActive) return 0d;
+            double elapsed = now - _probeSchedule.EpisodeStartedAt;
+            return elapsed > 0d ? elapsed : 0d;
+        }
+
         /// <summary>LinkBlockMode — 차단 방식이 바뀔 때 1줄(DiagRev=3). Mode=Overlay|Banner|None, Reason=… .</summary>
         private void LogBlockMode(InGameLinkBlockMode mode, InGameLinkBlockReason reason, double now)
         {
@@ -972,7 +998,10 @@ namespace Hexiege.Infrastructure
                     + ", BlocksInput=" + (mode == InGameLinkBlockMode.Overlay ? "True" : "False")
                     + ", ProbeCompleted=" + (_probeSchedule != null ? _probeSchedule.CompletedCount : 0).ToString(CultureInfo.InvariantCulture)
                     + ", AnyFailed=" + (_probeSchedule != null && _probeSchedule.AnyFailed ? "True" : "False")
-                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))));
+                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))
+                    // [2026-11-26 2차 보완] EpisodeSec = 이번 끊김 구간 시작 뒤 경과(초, 구간 밖이면 0.000).
+                    //   Reason=ProbeTimeout 줄은 EpisodeSec 2.0~2.1 · ProbeCompleted=0 이어야 정상.
+                    + ", EpisodeSec=" + Sec(EpisodeElapsedSec(now))));
         }
 
         /// <summary>LinkGapEpisode — 끊김 구간 시작/끝 1줄(DiagRev=3). 끝날 때 그 구간의 확인 집계를 함께 남긴다.</summary>
