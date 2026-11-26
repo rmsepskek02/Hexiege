@@ -31,6 +31,11 @@ namespace Hexiege.Infrastructure
             int teamIndex,
             ServerRpcParams rpcParams = default)
         {
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — Host 가 이 요청을 처리하기 시작한 순간(CommandApplied).
+            //   보낸 쪽 CommandSent 와 같은 번호(Seq)로 짝을 맞춰 「보낸 뒤 몇 ms 만에 처리됐나 · 처리 당시 연결 상태」를 남긴다.
+            //   진단 전용 — 아래 검증 · 처리는 한 글자도 바뀌지 않는다. 감시기가 없으면(에디터 검증 도구 등) 아무것도 하지 않는다.
+            InGameLinkWatch.NoteCommandApplied(nameof(NetworkProductionController), nameof(RequestEnqueue), rpcParams.Receive.SenderClientId);
+
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
             GameLog.Dev.Info("Network", nameof(NetworkProductionController), "유닛 생산 큐 요청 수신",
@@ -179,6 +184,11 @@ namespace Hexiege.Infrastructure
             int teamIndex,
             ServerRpcParams rpcParams = default)
         {
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — Host 가 이 요청을 처리하기 시작한 순간(CommandApplied).
+            //   보낸 쪽 CommandSent 와 같은 번호(Seq)로 짝을 맞춰 「보낸 뒤 몇 ms 만에 처리됐나 · 처리 당시 연결 상태」를 남긴다.
+            //   진단 전용 — 아래 검증 · 처리는 한 글자도 바뀌지 않는다. 감시기가 없으면(에디터 검증 도구 등) 아무것도 하지 않는다.
+            InGameLinkWatch.NoteCommandApplied(nameof(NetworkProductionController), nameof(RequestCancelSlot), rpcParams.Receive.SenderClientId);
+
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
             // 팀 소유권 검증: Host(ClientId=0)=Blue, 그 외=Red
@@ -263,6 +273,11 @@ namespace Hexiege.Infrastructure
             int teamIndex,
             ServerRpcParams rpcParams = default)
         {
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — Host 가 이 요청을 처리하기 시작한 순간(CommandApplied).
+            //   보낸 쪽 CommandSent 와 같은 번호(Seq)로 짝을 맞춰 「보낸 뒤 몇 ms 만에 처리됐나 · 처리 당시 연결 상태」를 남긴다.
+            //   진단 전용 — 아래 검증 · 처리는 한 글자도 바뀌지 않는다. 감시기가 없으면(에디터 검증 도구 등) 아무것도 하지 않는다.
+            InGameLinkWatch.NoteCommandApplied(nameof(NetworkProductionController), nameof(RequestSetRallyPoint), rpcParams.Receive.SenderClientId);
+
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
             // ----------------------------------------------------------------
@@ -351,6 +366,11 @@ namespace Hexiege.Infrastructure
             int teamIndex,
             ServerRpcParams rpcParams = default)
         {
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — Host 가 이 요청을 처리하기 시작한 순간(CommandApplied).
+            //   보낸 쪽 CommandSent 와 같은 번호(Seq)로 짝을 맞춰 「보낸 뒤 몇 ms 만에 처리됐나 · 처리 당시 연결 상태」를 남긴다.
+            //   진단 전용 — 아래 검증 · 처리는 한 글자도 바뀌지 않는다. 감시기가 없으면(에디터 검증 도구 등) 아무것도 하지 않는다.
+            InGameLinkWatch.NoteCommandApplied(nameof(NetworkProductionController), nameof(RequestToggleAuto), rpcParams.Receive.SenderClientId);
+
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
             // 팀 소유권 검증

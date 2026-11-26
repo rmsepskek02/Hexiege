@@ -28,10 +28,21 @@
 //
 // [로그 빈도 — LogRules §1.14 금지 8] 신호 송수신마다 남기지 않는다. 상태가 바뀔 때만 1줄.
 //
+// [2026-11-26 2차 수정 — 사용자 확정 사양 ①~⑥ (Plan 「2차 수정」 절)]
+//   ① 인터넷 확인 반복: 끊김 구간 동안 「진입 직후 · 일정 간격 · 판정 시점」에 확인한다(InGameLinkProbeSchedule).
+//      한 번이라도 실패하면 판정은 「내 이탈(SelfLeft)」 — 판정 시점에 성공해도 마찬가지. 모두 성공이면 OpponentLeft.
+//      (1차: 판정 시점 1회만 — 와이파이를 껐다 켠 기기가 판정 시점에 인터넷이 돌아와 「양쪽 승리」가 났다.)
+//   ② 조작 차단 기준: 「문제가 생긴 쪽만 막고 피해 쪽은 막지 않는다」 — InGameLinkBlockPolicy 가 덮개(Overlay)/알림 띠(Banner)를 고른다.
+//   ③ 표시 시점: 신호 0.5초 · 무응답 1.0초 · 신호가 오면 즉시 해제(InGameLinkMonitor).
+//   ④ 조작 처리 확인 진단: CommandSent(보낸 쪽) ↔ CommandApplied(Host 처리) — 「조작 도장」(CommandStamp)으로 Seq · 보낸 시각을 잇는다.
+//   ⑥ 진단 로그 DiagRev=3 — LinkProbeStart/Result(Seq · Kind · AnyFailed), LinkBlockMode, LinkGapEpisode, LinkDelaySummary,
+//      LinkDelayEnter/Exit 의 깜빡임 관찰 키(DelayNo · SinceLastExitMs · SignalGapMs · ShownMs · ExitBy), CommandSent/CommandApplied.
+//
 // Infrastructure 레이어 — Unity.Netcode 사용 허용.
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -97,6 +108,49 @@ namespace Hexiege.Infrastructure
         // ── 조작 차단(2차 방어) 집계 ─────────────────────────────────────
         private string _lastBlockedCommand;              // 이번 지연 동안 마지막으로 막은 명령 이름
         private int _blockedCommandCount;                // 이번 지연 동안 막은 명령 수
+
+        // ── [2026-11-26 2차] 인터넷 확인 반복(사양 ①) · 차단 방식(사양 ②) ─────────
+        private InGameLinkProbeSchedule _probeSchedule;  // 끊김 구간 동안의 확인 일정 · 결과 집계(순수 C#)
+        private string _lastJudgeProbeText = DisconnectDiag.None; // 판정 시점 확인 결과 글자(LinkVerdict Probe= 값 — 1차 키 유지)
+        private InGameLinkBlockMode _blockMode;          // 지금 감시기가 정한 차단 방식(바뀔 때만 LinkBlockMode 로그)
+        private InGameLinkBlockReason _blockReason;      // 그 이유
+        private bool _bannerMissingWarned;               // 「알림 띠가 씬에 없다」 경고를 남겼는가(경기당 1회)
+
+        // ── [2026-11-26 2차] 깜빡임 관찰 집계(LinkDelaySummary — 감시 끝에 1줄) ─────
+        private int _shortDelayCount;                    // ShortDelaySec(1.0초)보다 짧게 떴다 사라진 지연 수
+        private double _totalDelaySec;                   // 지연 표시 시간 합(초)
+        private double _maxDelaySec;                     // 가장 길었던 지연 표시(초)
+        private int _bannerShownCount;                   // 차단 방식이 None/Overlay → Banner 로 바뀐 횟수
+        private int _overlayShownCount;                  // 차단 방식이 None/Banner → Overlay 로 바뀐 횟수
+
+        // ── [2026-11-26 2차] 조작 처리 확인 진단(사양 ④) ────────────────────────
+        private int _commandSentSeq;                     // 이 기기가 보낸 조작 번호(경기마다 1부터)
+        private readonly Dictionary<ulong, Queue<CommandStamp>> _commandStamps
+            = new Dictionary<ulong, Queue<CommandStamp>>(); // [Host] 보낸 쪽별 「아직 처리 안 된 조작 도장」
+        private readonly Dictionary<ulong, int> _commandRecvSeq
+            = new Dictionary<ulong, int>();              // [Host] 보낸 쪽별 처리한 조작 수(순서 대조용 RecvSeq)
+
+        /// <summary>도장을 보관하는 최대 수(보낸 쪽마다). 짝 없는 도장이 쌓여 메모리가 늘지 않게 하는 상한.</summary>
+        private const int MaxPendingStamps = 32;
+
+        /// <summary>
+        /// [2026-11-26 2차] 「조작 도장」 — 보낸 쪽이 조작 RPC 바로 앞에 따로 보내는 (번호, 보낸 시각).
+        /// 조작 RPC 12개의 인자를 바꾸지 않고(에디터 자체 검증 도구가 그 RPC 들을 지금 인자 그대로 직접 부른다)
+        /// Host 가 「몇 번째 조작이 몇 ms 뒤에 처리됐나」를 알 수 있게 한다.
+        /// </summary>
+        private readonly struct CommandStamp
+        {
+            public readonly int Seq;          // 보낸 쪽 조작 번호
+            public readonly long SentUtcMs;   // 보낸 쪽 기기 시계(UtcMs)
+            public readonly bool Local;       // Host 자신의 조작인가(같은 시계 — 지연은 사실상 0)
+
+            public CommandStamp(int seq, long sentUtcMs, bool local)
+            {
+                Seq = seq;
+                SentUtcMs = sentUtcMs;
+                Local = local;
+            }
+        }
 
         // ====================================================================
         // 진입점 — NetworkCombatController.OnNetworkSpawn 에서 1회 (🔴 #if 밖 — 릴리스에서도)
@@ -179,6 +233,49 @@ namespace Hexiege.Infrastructure
             return true;
         }
 
+        /// <summary>
+        /// [2026-11-26 2차 — 사양 ④] [조작 입구 12곳이 「차단 검사를 통과한 뒤 · RPC 를 보내기 직전」에 부른다]
+        /// 조작 하나를 보낸다고 기록한다(CommandSent). Client 면 Host 에 「조작 도장」(번호 · 보낸 시각)을 먼저 보내고,
+        /// Host 면 자기 조작 도장을 바로 보관한다 — Host 가 처리할 때(CommandApplied) 같은 번호로 짝을 맞춘다.
+        /// 감시기가 없으면(싱글 · 에디터 검증 도구) 아무것도 하지 않는다. 예외를 밖으로 던지지 않는다.
+        /// </summary>
+        /// <param name="owner">조작을 보내는 컨트롤러 이름(같은 조작 이름이 두 컨트롤러에 있어 구분용 — 예: RequestToggleAuto).</param>
+        /// <param name="command">조작 이름(예: RequestBuild — CommandBlocked 와 같은 이름).</param>
+        public static void NoteCommandSent(string owner, string command)
+        {
+            InGameLinkWatch watch = s_current;
+            if (watch == null) return;
+            watch.OnCommandSent(owner, command);
+        }
+
+        /// <summary>
+        /// [2026-11-26 2차 — 사양 ④] [Host 의 조작 ServerRpc 12곳이 맨 앞에서 부른다] 조작 요청을 처리하기 시작한다고 기록한다
+        /// (CommandApplied — 「요청이 Host 에 도착해 처리 코드에 들어왔다」. 검증 통과 · 거부 결과는 각 RPC 의 기존 로그가 남긴다).
+        /// 감시기가 없거나 Host 가 아니면 아무것도 하지 않는다. 예외를 밖으로 던지지 않는다.
+        /// </summary>
+        /// <param name="owner">컨트롤러 이름.</param>
+        /// <param name="command">조작 이름(보낸 쪽 CommandSent 와 같은 이름).</param>
+        /// <param name="senderClientId">보낸 기기의 NGO ClientId(Host 자신이면 0).</param>
+        public static void NoteCommandApplied(string owner, string command, ulong senderClientId)
+        {
+            InGameLinkWatch watch = s_current;
+            if (watch == null) return;
+            watch.OnCommandApplied(owner, command, senderClientId);
+        }
+
+        /// <summary>
+        /// [2026-11-26 2차 — 사양 ④] [NetworkGameEndController.CommandStampServerRpc 가 부른다] Client 의 조작 도장이 Host 에 도착했다.
+        /// </summary>
+        /// <param name="senderClientId">보낸 Client 의 NGO ClientId.</param>
+        /// <param name="seq">보낸 쪽 조작 번호.</param>
+        /// <param name="sentUtcMs">보낸 쪽 기기 시계(UtcMs).</param>
+        public static void ReceiveCommandStamp(ulong senderClientId, int seq, long sentUtcMs)
+        {
+            InGameLinkWatch watch = s_current;
+            if (watch == null) return;
+            watch.StoreCommandStamp(senderClientId, new CommandStamp(seq, sentUtcMs, false));
+        }
+
         // ====================================================================
         // 감시 시작 / 끝
         // ====================================================================
@@ -204,6 +301,21 @@ namespace Hexiege.Infrastructure
             _updateErrorLogged = false;
             _lastBlockedCommand = null;
             _blockedCommandCount = 0;
+
+            // [2026-11-26 2차] 확인 일정 · 차단 방식 · 깜빡임 집계 · 조작 진단을 새 경기 기준으로 비운다.
+            _probeSchedule = new InGameLinkProbeSchedule();
+            _lastJudgeProbeText = DisconnectDiag.None;
+            _blockMode = InGameLinkBlockMode.None;
+            _blockReason = InGameLinkBlockReason.None;
+            _bannerMissingWarned = false;
+            _shortDelayCount = 0;
+            _totalDelaySec = 0d;
+            _maxDelaySec = 0d;
+            _bannerShownCount = 0;
+            _overlayShownCount = 0;
+            _commandSentSeq = 0;
+            _commandStamps.Clear();
+            _commandRecvSeq.Clear();
 
             NetworkLinkState.BeginMatch();
 
@@ -232,6 +344,12 @@ namespace Hexiege.Infrastructure
                     + ", DelaySilenceSec=" + Sec(InGameLinkMonitor.DelayEnterSilenceSec)
                     + ", JudgeSec=" + Sec(InGameLinkMonitor.JudgeSilenceSec)
                     + ", SelfPauseSec=" + Sec(InGameLinkMonitor.SelfPauseDefeatSec)
+                    // [2026-11-26 2차 — DiagRev=3] 새 값: 확인 간격 · 최소 쉼 · 앱 정지 감지 기준 · RTT 진입 기준
+                    + ", ProbeIntervalSec=" + Sec(InGameLinkProbeSchedule.ProbeIntervalSec)
+                    + ", ProbeMinGapSec=" + Sec(InGameLinkProbeSchedule.ProbeMinGapSec)
+                    + ", FreezeDetectSec=" + Sec(InGameLinkMonitor.FreezeDetectSec)
+                    + ", DelayRttMs=" + Ms(InGameLinkMonitor.DelayEnterRttMs)
+                    + ", DelayRttHoldSec=" + Sec(InGameLinkMonitor.DelayEnterRttHoldSec)
                     + ", IsServer=" + (isServer ? "True" : "False")
                     + ", DisconnectTimeoutMs=" + ReadDisconnectTimeoutText(networkManager)));
         }
@@ -247,6 +365,7 @@ namespace Hexiege.Infrastructure
                     GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkWatchStop",
                         DisconnectDiag.Keys("LinkWatchStop", "Reason=" + reason
                             + ", Phase=" + _monitor.Phase + ", Concluded=" + (_concluded ? "True" : "False")));
+                    LogDelaySummary(reason);
                 }
             }
             catch (Exception)
@@ -285,6 +404,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 매 프레임: ① 앱 정지 검사(🔴 침묵 검사보다 먼저 — Plan 2-5) ② NGO 정지 검사
         /// ③ 상태기계 틱 ④ 판정 중이면 도달 확인 결과 확인 ⑤ 1초마다 신호 송신.
+        /// [2026-11-26 2차] ④는 「상태와 무관하게 인터넷 확인 처리(PumpProbes)」로 바뀌었고, ⑤는 0.5초마다다.
         /// 예외를 밖으로 던지지 않는다.
         /// </summary>
         private void Update()
@@ -302,11 +422,18 @@ namespace Hexiege.Infrastructure
                 if (_monitor == null || _monitor.Phase == InGameLinkPhase.Ended) return;
                 double now = Now();
 
-                if (_monitor.Phase == InGameLinkPhase.Judging)
-                {
-                    PollProbe(now);
-                }
-                else
+                // [2026-11-26 2차] 1차 구조(기록용 — 판정 중에만 도달 확인을 보던 갈래):
+                // if (_monitor.Phase == InGameLinkPhase.Judging)
+                // {
+                //     PollProbe(now);
+                // }
+                // else
+                // {
+                //     ... (아래 ② · ③ 과 같음)
+                // }
+                //   2차는 인터넷 확인이 「지연 진입 직후 · 일정 간격 · 판정 시점」에 모두 일어나므로(사양 ①),
+                //   확인 처리(④ PumpProbes)를 상태와 무관하게 매 프레임 돌린다.
+                if (_monitor.Phase != InGameLinkPhase.Judging)
                 {
                     // ② NGO 가 이미 내려가 있으면(내 전송 실패 · 상대가 연결을 내림 등) 곧바로 판정 중.
                     //    끊김 콜백이 먼저 오면 그쪽에서 이미 판정 중이 된다 — 어느 쪽이 먼저든 한 번만 들어간다.
@@ -319,6 +446,12 @@ namespace Hexiege.Infrastructure
                         // ③ 시간 경과 검사(침묵 · 느림 · 해제).
                         Apply(_monitor.Tick(now), now);
                     }
+                }
+
+                // ④ [2026-11-26 2차] 인터넷 확인 — 끝난 결과 받기 · 다음 확인 시작 · 판정 시점 결과가 나왔으면 결론.
+                if (_monitor != null && _monitor.Phase != InGameLinkPhase.Ended)
+                {
+                    PumpProbes(now);
                 }
 
                 // ⑤ 신호 송신(판정 중에도 보낸다 — 판정은 뒤집지 않지만, 상대가 아직 듣고 있다면 상대 쪽 오판을 줄인다).
@@ -493,23 +626,49 @@ namespace Hexiege.Infrastructure
                 else
                 {
                     // LinkDelayEnter — 지연 진입(T-3). SilenceSec 은 마지막 상대 신호 후 경과, RttMs 는 최근 RTT.
+                    //   [2026-11-26 2차 — 깜빡임 관찰] DelayNo(이번 경기 몇 번째 지연) · SinceLastExitMs(직전 해제 후 몇 ms 만에
+                    //   다시 떴나 — 짧으면 깜빡임, 첫 지연이면 "-")를 덧붙였다. 1차 키(Trigger · SilenceSec · RttMs)는 그대로다.
                     GameLog.Dev.Warn(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkDelayEnter",
                         DisconnectDiag.Keys("LinkDelayEnter",
                             "Trigger=" + _monitor.DelayTrigger
                             + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))
-                            + ", RttMs=" + Ms(_monitor.LatestRttMs)));
+                            + ", RttMs=" + Ms(_monitor.LatestRttMs)
+                            + ", DelayNo=" + _monitor.DelayCount.ToString(CultureInfo.InvariantCulture)
+                            + ", SinceLastExitMs=" + MsFromSec(_monitor.SinceLastExitAtEnterSeconds)));
                 }
                 WarnIfOverlayMissing();
+            }
+
+            if ((change & InGameLinkChange.DelayTriggerChanged) != 0)
+            {
+                // [2026-11-26 2차] LinkDelayEnter(계기 변경) — RTT 지연 중에 신호마저 1.0초 끊겼다 → 끊김 구간 시작(인터넷 확인 시작).
+                //   같은 지연 표시가 이어지는 중이므로 DelayNo 는 늘지 않는다. From=Rtt 로 구분한다.
+                GameLog.Dev.Warn(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkDelayEnter",
+                    DisconnectDiag.Keys("LinkDelayEnter",
+                        "Trigger=" + _monitor.DelayTrigger + ", From=Rtt"
+                        + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))
+                        + ", RttMs=" + Ms(_monitor.LatestRttMs)
+                        + ", DelayNo=" + _monitor.DelayCount.ToString(CultureInfo.InvariantCulture)));
             }
 
             if ((change & InGameLinkChange.DelayExited) != 0)
             {
                 // LinkDelayExit — 지연 해제(T-4). ShownSec 은 덮개가 떠 있던 시간.
+                //   [2026-11-26 2차 — 즉시 해제 확인] ShownMs(표시 시간 ms) · SignalGapMs(해제를 부른 신호와 그 직전 신호의 간격 —
+                //   「끊겼던 시간」과 거의 같으면 신호가 오자마자 풀렸다는 뜻) · ExitBy(Signal | RttRecovered | ResumeHold) · DelayNo ·
+                //   Mode(해제 직전 차단 방식)를 덧붙였다. 1차 키(ShownSec · RttMs · BlockedCommands)는 그대로다.
+                double shown = _monitor.LastShownSeconds;
                 GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkDelayExit",
                     DisconnectDiag.Keys("LinkDelayExit",
-                        "ShownSec=" + Sec(_monitor.LastShownSeconds)
+                        "ShownSec=" + Sec(shown)
                         + ", RttMs=" + Ms(_monitor.LatestRttMs)
-                        + ", BlockedCommands=" + _blockedCommandCount.ToString(CultureInfo.InvariantCulture)));
+                        + ", BlockedCommands=" + _blockedCommandCount.ToString(CultureInfo.InvariantCulture)
+                        + ", ShownMs=" + MsFromSec(shown)
+                        + ", SignalGapMs=" + (_monitor.LastExitBy == "Signal" ? MsFromSec(_monitor.LastSignalGapSeconds) : DisconnectDiag.None)
+                        + ", ExitBy=" + _monitor.LastExitBy
+                        + ", DelayNo=" + _monitor.DelayCount.ToString(CultureInfo.InvariantCulture)
+                        + ", Mode=" + _blockMode));
+                NoteDelayShown(shown);
                 ResetBlockedCommands();
             }
 
@@ -522,10 +681,14 @@ namespace Hexiege.Infrastructure
                         + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))
                         + ", HasFirstSignal=" + (_monitor.HasFirstSignal ? "True" : "False")));
                 WarnIfOverlayMissing();
-                StartProbe(now);
+                // [2026-11-26 2차] 확인 시작은 PumpProbes 가 맡는다(판정 시점 확인 Kind=Judge — 다른 확인이 돌고 있으면 끝난 뒤 순차로).
+                // 옛 줄(1차): StartProbe(now);
             }
 
-            NetworkLinkState.SetPhase(_monitor.Phase, _monitor.IsRecovering);
+            // [2026-11-26 2차] 상태 반영을 SyncAndPublish 로 옮겼다 — 끊김 구간 시작/끝 · 차단 방식(덮개/띠)까지 함께 정한다.
+            //   신호 수신 · 끊김 콜백처럼 Update 밖에서 불려도 곧바로 반영돼, 신호가 돌아오면 그 순간 화면이 풀린다(사양 ③).
+            // 옛 줄(1차): NetworkLinkState.SetPhase(_monitor.Phase, _monitor.IsRecovering);
+            SyncAndPublish(now);
         }
 
         // ====================================================================
@@ -582,6 +745,13 @@ namespace Hexiege.Infrastructure
         // 판정 — 인터넷 도달 확인 → 결론 (Plan 2-3)
         // ====================================================================
 
+        // --------------------------------------------------------------------
+        // [2026-11-26 2차 — 사양 ①] 1차의 「판정 시점 1회 확인」 두 메서드를 주석으로 비활성화한다(삭제 금지 규칙).
+        //   이유: 1차 실기 (가) — 와이파이를 껐다 켠 기기가 판정 시점에만 확인해 「내 인터넷 됨 → 내 승리」로 판정,
+        //   상대도 승리로 판정해 양쪽 모두 승리가 났다. 2차는 끊김 동안 여러 번 확인하고 한 번이라도 실패하면 내 이탈로 본다.
+        //   대신하는 코드: 아래 PumpProbes / StartProbeTask / HandleProbeCompleted (+ 순수 C# InGameLinkProbeSchedule).
+        // --------------------------------------------------------------------
+        /*
         /// <summary>인터넷 도달 확인을 시작한다(최대 10초 — 확인기 내부 한도).</summary>
         private void StartProbe(double now)
         {
@@ -630,6 +800,195 @@ namespace Hexiege.Infrastructure
                      reachable ? MatchEndCause.OpponentLeft : MatchEndCause.SelfDisconnected,
                      probeText, now);
         }
+        */
+
+        // ====================================================================
+        // [2026-11-26 2차 — 사양 ①] 인터넷 확인 반복 — 끊김 구간 동안 「진입 직후 · 간격 · 판정 시점」
+        // ====================================================================
+
+        /// <summary>
+        /// 매 프레임: ① 돌고 있는 확인이 끝났으면 결과를 센다 ② 다음 확인을 시작할 때면 시작한다(동시에 하나만)
+        /// ③ 판정 중이고 판정 시점 확인 결과가 나왔으면 결론을 낸다.
+        /// 🔴 결론: 이번 끊김 구간에서 확인이 한 번이라도 실패했으면 「내 이탈」, 모두 성공이면 「상대 이탈(내 승리)」.
+        /// </summary>
+        private void PumpProbes(double now)
+        {
+            if (_monitor == null || _probeSchedule == null) return;
+
+            // ① 끝난 확인 받기
+            if (_probeTask != null && _probeTask.IsCompleted)
+            {
+                HandleProbeCompleted(now);
+                SyncAndPublish(now); // 결과로 차단 방식이 바뀔 수 있다(예: Host 알림 띠 → 실패 → 덮개)
+            }
+
+            if (_monitor == null || _monitor.Phase == InGameLinkPhase.Ended) return;
+            bool judging = _monitor.Phase == InGameLinkPhase.Judging;
+
+            // ② 다음 확인 시작
+            if (_probeTask == null && _probeSchedule.ShouldStart(now, judging))
+            {
+                StartProbeTask(now, judging);
+            }
+
+            // ③ 결론 — 판정 시점 확인 결과가 나온 뒤에만(판정 시점 결과를 기다리는 구조 유지)
+            if (judging && _probeSchedule.VerdictReady && !_concluded)
+            {
+                bool selfLeft = _probeSchedule.AnyFailed;
+                Conclude(selfLeft: selfLeft,
+                         selfLeft ? MatchEndCause.SelfDisconnected : MatchEndCause.OpponentLeft,
+                         _lastJudgeProbeText, now);
+            }
+        }
+
+        /// <summary>확인 하나를 시작한다(최대 10초 — 확인기 내부 한도). 시작조차 못 하면 「실패」로 끝난 확인으로 다룬다.</summary>
+        private void StartProbeTask(double now, bool judging)
+        {
+            int seq = _probeSchedule.Start(now, judging);
+            _probeStartedAt = now;
+            try
+            {
+                if (_probe == null) _probe = new InternetReachabilityProbe();
+                _probeTask = _probe.CheckAsync();
+            }
+            catch (Exception e)
+            {
+                // 확인기를 시작조차 못 했다 → 「확인 실패」와 같게 다룬다(U-3 · Plan 2-3 4번 — 1차와 같은 처리).
+                SafeWarn("도달 확인 시작 실패 — 확인 실패로 본다", "LinkWatchError", "Stage=ProbeStart, Exception=" + e.GetType().Name);
+                _probeTask = Task.FromResult(InternetReachabilityResult.Unreachable);
+            }
+
+            // LinkProbeStart — 확인 시작(DiagRev=3). Seq 는 이번 끊김 구간 안 번호, Kind 는 Entry | Periodic | Judge.
+            GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkProbeStart",
+                DisconnectDiag.Keys("LinkProbeStart",
+                    "Seq=" + seq.ToString(CultureInfo.InvariantCulture)
+                    + ", Kind=" + _probeSchedule.InFlightKind
+                    + ", EpisodeNo=" + _probeSchedule.EpisodeNo.ToString(CultureInfo.InvariantCulture)
+                    + ", Phase=" + _monitor.Phase
+                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))));
+        }
+
+        /// <summary>끝난 확인의 결과를 일정표에 넣고 LinkProbeResult 를 남긴다.</summary>
+        private void HandleProbeCompleted(double now)
+        {
+            string probeText;
+            bool reachable;
+            if (_probeTask.IsFaulted || _probeTask.IsCanceled)
+            {
+                probeText = "Faulted";   // Plan 2-3 4번 — 예외는 도달 불가와 같게
+                reachable = false;
+            }
+            else
+            {
+                InternetReachabilityResult result = _probeTask.Result;
+                probeText = result.ToString(); // Reachable / Unreachable / Skipped
+                reachable = result == InternetReachabilityResult.Reachable; // Skipped 는 도달 불가(U-13)
+            }
+            _probeTask = null;
+
+            InGameLinkProbeOutcome outcome = _probeSchedule.Complete(now, reachable);
+            if (!outcome.Stale && outcome.Kind == InGameLinkProbeKind.Judge) _lastJudgeProbeText = probeText;
+
+            // LinkProbeResult — 확인 끝(T-5). ProbeMs 는 확인에 걸린 시간(1차 키 유지).
+            //   [2026-11-26 2차 — DiagRev=3] Seq · Kind · AnyFailed(이번 구간 한 번이라도 실패) · Completed · Failed ·
+            //   Stale(이미 끝난 지난 구간의 확인 — 판정에 세지 않음) · EpisodeNo · Phase · SilenceSec 을 덧붙였다.
+            GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkProbeResult",
+                DisconnectDiag.Keys("LinkProbeResult",
+                    "Probe=" + probeText + ", ProbeMs=" + Ms(outcome.DurationSec * 1000d)
+                    + ", Seq=" + outcome.Seq.ToString(CultureInfo.InvariantCulture)
+                    + ", Kind=" + outcome.Kind
+                    + ", AnyFailed=" + (_probeSchedule.AnyFailed ? "True" : "False")
+                    + ", Completed=" + _probeSchedule.CompletedCount.ToString(CultureInfo.InvariantCulture)
+                    + ", Failed=" + _probeSchedule.FailedCount.ToString(CultureInfo.InvariantCulture)
+                    + ", Stale=" + (outcome.Stale ? "True" : "False")
+                    + ", EpisodeNo=" + outcome.EpisodeNo.ToString(CultureInfo.InvariantCulture)
+                    + ", Phase=" + _monitor.Phase
+                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))));
+        }
+
+        // ====================================================================
+        // [2026-11-26 2차 — 사양 ②] 끊김 구간 · 차단 방식 반영
+        // ====================================================================
+
+        /// <summary>
+        /// 상태기계 상태로 ① 끊김 구간을 시작/끝내고 ② 차단 방식(덮개/알림 띠/없음)을 정해 ③ NetworkLinkState 에 적는다.
+        /// 끊김 구간 = 무응답 지연(Silence) · 「연결 복구 중」(Resume) · 판정 중. RTT 만 느린 지연은 끊김이 아니다(신호는 온다).
+        /// </summary>
+        private void SyncAndPublish(double now)
+        {
+            if (_monitor == null) return;
+            InGameLinkPhase phase = _monitor.Phase;
+            if (phase == InGameLinkPhase.Ended) return; // 결과가 정해진 뒤는 OnMatchResultDecided 가 맡는다
+
+            bool delayed = phase == InGameLinkPhase.Delayed;
+            bool gap = phase == InGameLinkPhase.Judging
+                || (delayed && (_monitor.DelayTrigger == InGameLinkDelayTrigger.Silence
+                                || _monitor.DelayTrigger == InGameLinkDelayTrigger.Resume));
+
+            if (_probeSchedule != null)
+            {
+                if (gap && !_probeSchedule.EpisodeActive)
+                {
+                    _probeSchedule.BeginEpisode(now);
+                    LogGapEpisode("Begin", now);
+                }
+                else if (!gap && _probeSchedule.EpisodeActive && phase != InGameLinkPhase.Judging)
+                {
+                    // 판정 중에는 끝내지 않는다(판정은 뒤집지 않는다). 여기 오는 것은 지연이 풀렸을 때뿐이다.
+                    LogGapEpisode("End", now);
+                    _probeSchedule.EndEpisode();
+                }
+            }
+
+            bool anyFailed = _probeSchedule != null && _probeSchedule.EpisodeActive && _probeSchedule.AnyFailed;
+            int completed = _probeSchedule != null && _probeSchedule.EpisodeActive ? _probeSchedule.CompletedCount : 0;
+            InGameLinkBlockMode mode = InGameLinkBlockPolicy.Decide(_isServer, phase, _monitor.DelayTrigger,
+                _monitor.IsRecovering, anyFailed, completed, out InGameLinkBlockReason reason);
+
+            if (mode != _blockMode || reason != _blockReason)
+            {
+                LogBlockMode(mode, reason, now);
+                if (mode == InGameLinkBlockMode.Banner && _blockMode != InGameLinkBlockMode.Banner)
+                {
+                    _bannerShownCount++;
+                    WarnIfBannerMissing();
+                }
+                if (mode == InGameLinkBlockMode.Overlay && _blockMode != InGameLinkBlockMode.Overlay) _overlayShownCount++;
+                _blockMode = mode;
+                _blockReason = reason;
+            }
+
+            NetworkLinkState.SetLinkState(phase, _monitor.IsRecovering, mode, reason);
+        }
+
+        /// <summary>LinkBlockMode — 차단 방식이 바뀔 때 1줄(DiagRev=3). Mode=Overlay|Banner|None, Reason=… .</summary>
+        private void LogBlockMode(InGameLinkBlockMode mode, InGameLinkBlockReason reason, double now)
+        {
+            GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkBlockMode",
+                DisconnectDiag.Keys("LinkBlockMode",
+                    "Mode=" + mode + ", Reason=" + reason
+                    + ", PrevMode=" + _blockMode + ", PrevReason=" + _blockReason
+                    + ", Phase=" + _monitor.Phase + ", Trigger=" + _monitor.DelayTrigger
+                    + ", BlocksInput=" + (mode == InGameLinkBlockMode.Overlay ? "True" : "False")
+                    + ", ProbeCompleted=" + (_probeSchedule != null ? _probeSchedule.CompletedCount : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", AnyFailed=" + (_probeSchedule != null && _probeSchedule.AnyFailed ? "True" : "False")
+                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))));
+        }
+
+        /// <summary>LinkGapEpisode — 끊김 구간 시작/끝 1줄(DiagRev=3). 끝날 때 그 구간의 확인 집계를 함께 남긴다.</summary>
+        private void LogGapEpisode(string op, double now)
+        {
+            GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkGapEpisode",
+                DisconnectDiag.Keys("LinkGapEpisode",
+                    "Op=" + op
+                    + ", EpisodeNo=" + _probeSchedule.EpisodeNo.ToString(CultureInfo.InvariantCulture)
+                    + ", Phase=" + _monitor.Phase + ", Trigger=" + _monitor.DelayTrigger
+                    + ", ProbeStarted=" + _probeSchedule.StartedCount.ToString(CultureInfo.InvariantCulture)
+                    + ", ProbeCompleted=" + _probeSchedule.CompletedCount.ToString(CultureInfo.InvariantCulture)
+                    + ", AnyFailed=" + (_probeSchedule.AnyFailed ? "True" : "False")
+                    + ", ProbeInFlight=" + (_probeSchedule.InFlight ? "True" : "False")
+                    + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(now))));
+        }
 
         /// <summary>
         /// 결론을 낸다 — 내 승리(상대 이탈) 또는 내 이탈. 이미 결과가 정해졌으면 아무것도 하지 않는다(U-10).
@@ -659,7 +1018,14 @@ namespace Hexiege.Infrastructure
                     "Verdict=" + (selfLeft ? "SelfLeft" : "OpponentLeft")
                     + ", Cause=" + cause
                     + ", Probe=" + probeText
-                    + ", SinceLastSignalSec=" + Sec(_monitor != null ? _monitor.SilenceSeconds(now) : double.NaN)));
+                    + ", SinceLastSignalSec=" + Sec(_monitor != null ? _monitor.SilenceSeconds(now) : double.NaN)
+                    // [2026-11-26 2차 — DiagRev=3] 결론의 근거: 이번 끊김 구간 확인 집계(사양 ① — 한 번이라도 실패면 SelfLeft).
+                    //   Probe= 는 판정 시점(Judge) 확인 결과다(1차와 같은 뜻 · 같은 키). 스스로 패배 경로는 "-".
+                    + ", AnyFailed=" + (_probeSchedule != null && _probeSchedule.AnyFailed ? "True" : "False")
+                    + ", ProbeCompleted=" + (_probeSchedule != null ? _probeSchedule.CompletedCount : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", ProbeFailed=" + (_probeSchedule != null ? _probeSchedule.FailedCount : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", EpisodeNo=" + (_probeSchedule != null ? _probeSchedule.EpisodeNo : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", Mode=" + _blockMode));
 
             TeamId myTeam = LocalPlayerTeam.Current;
             TeamId winner = selfLeft ? Opponent(myTeam) : myTeam;
@@ -697,7 +1063,10 @@ namespace Hexiege.Infrastructure
                         DisconnectDiag.Keys("LinkWatchStop", "Reason=MatchEnd, Concluded=" + (_concluded ? "True" : "False")
                             + ", Cause=" + NetworkLinkState.MatchEndCause));
                 }
-                NetworkLinkState.SetPhase(InGameLinkPhase.Ended, false);
+                // [2026-11-26 2차] 차단 방식까지 함께 내린다. 옛 줄: NetworkLinkState.SetPhase(InGameLinkPhase.Ended, false);
+                _blockMode = InGameLinkBlockMode.None;
+                _blockReason = InGameLinkBlockReason.None;
+                NetworkLinkState.SetLinkState(InGameLinkPhase.Ended, false, InGameLinkBlockMode.None, InGameLinkBlockReason.None);
             }
             catch (Exception e)
             {
@@ -746,6 +1115,162 @@ namespace Hexiege.Infrastructure
                      "LagOverlayMissing", "Menu=Hexiege/Setup/Network Lag Overlay - Place In Game Scene");
         }
 
+        /// <summary>
+        /// [2026-11-26 2차] 알림 띠 UI 가 씬에 없으면 경기당 한 번 경고한다. 띠가 없어도 게임은 예외 없이 돈다 —
+        /// 띠는 조작을 막지 않으므로 「화면에 안내가 안 보인다」 외의 차이는 없다(사양 ⑤).
+        /// </summary>
+        private void WarnIfBannerMissing()
+        {
+            if (_bannerMissingWarned || NetworkLinkState.HasLagBanner) return;
+            _bannerMissingWarned = true;
+            SafeWarn("알림 띠(NetworkLagBannerUI)가 씬에 없다 — 안내 표시 없이 진행한다(조작은 막지 않는다)",
+                     "LagBannerMissing", "Menu=Hexiege/Setup/Network Lag Banner - Place In Game Scene");
+        }
+
+        // ====================================================================
+        // [2026-11-26 2차] 깜빡임 관찰 집계 — 감시가 끝날 때 LinkDelaySummary 1줄
+        // ====================================================================
+
+        /// <summary>지연 한 번이 끝났다 — 표시 시간을 집계한다.</summary>
+        private void NoteDelayShown(double shownSec)
+        {
+            if (double.IsNaN(shownSec) || shownSec < 0d) return;
+            _totalDelaySec += shownSec;
+            if (shownSec > _maxDelaySec) _maxDelaySec = shownSec;
+            if (shownSec < InGameLinkMonitor.ShortDelaySec) _shortDelayCount++;
+        }
+
+        /// <summary>
+        /// LinkDelaySummary — 이번 경기 지연 표시 요약(깜빡임 관찰용). ShortDelayCount 가 많으면 짧게 떴다 사라지기를 반복했다는 뜻.
+        /// </summary>
+        private void LogDelaySummary(string reason)
+        {
+            if (_monitor == null) return;
+            GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " LinkDelaySummary",
+                DisconnectDiag.Keys("LinkDelaySummary",
+                    "Reason=" + reason
+                    + ", DelayCount=" + _monitor.DelayCount.ToString(CultureInfo.InvariantCulture)
+                    + ", ShortDelayCount=" + _shortDelayCount.ToString(CultureInfo.InvariantCulture)
+                    + ", ShortDelaySec=" + Sec(InGameLinkMonitor.ShortDelaySec)
+                    + ", TotalDelaySec=" + Sec(_totalDelaySec)
+                    + ", MaxDelaySec=" + Sec(_maxDelaySec)
+                    + ", BannerCount=" + _bannerShownCount.ToString(CultureInfo.InvariantCulture)
+                    + ", OverlayCount=" + _overlayShownCount.ToString(CultureInfo.InvariantCulture)
+                    + ", ProbeStartedTotal=" + (_probeSchedule != null ? _probeSchedule.TotalStarted : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", ProbeFailedTotal=" + (_probeSchedule != null ? _probeSchedule.TotalFailed : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", EpisodeCount=" + (_probeSchedule != null ? _probeSchedule.EpisodeNo : 0).ToString(CultureInfo.InvariantCulture)
+                    + ", CommandSentCount=" + _commandSentSeq.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        // ====================================================================
+        // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — CommandSent ↔ CommandApplied
+        //
+        // [초급자용 설명]
+        //   「끊기기 직전에 보낸 조작이 늦게라도 Host 에서 처리되는가」를 보려면, 보낸 쪽 기록과 Host 의 처리 기록을
+        //   같은 번호(Seq)로 이어야 한다. 조작 RPC 12개에 번호 인자를 붙이면 RPC 모양이 바뀌고, 에디터 자체 검증 도구
+        //   (RunUnitActionSelfValidation.VerificationRuntime.cs)가 그 RPC 들을 지금 인자 그대로 직접 불러 컴파일이 깨진다.
+        //   그래서 조작 RPC 바로 앞에 「조작 도장」 RPC 하나(번호 · 보낸 시각)를 따로 보낸다.
+        //   Host 는 도장을 보낸 쪽별 줄(큐)에 넣어 두고, 조작이 처리될 때 가장 오래된 도장을 꺼내 짝을 맞춘다.
+        //   ⚠️ 도장 RPC(NetworkGameEndController)와 조작 RPC(각 컨트롤러)는 서로 다른 오브젝트의 RPC 라서
+        //      「보낸 순서대로 도착한다」는 것은 NGO 내부 동작에 기대는 가정이다(미확인). 그래서 Host 쪽 처리 순번 RecvSeq 를
+        //      함께 남긴다 — 정상이면 Seq 와 RecvSeq 가 같다. 다르면 순서가 바뀌었거나 도장이 빠진 것이다.
+        //   ⚠️ DelayMs 는 「Host 시계 − 보낸 쪽 시계」라 두 기기 시계 차가 섞인다(Clock=CrossDevice). 자동 시간 설정 기기면
+        //      보통 수십~수백 ms 안이다. Host 자신의 조작은 같은 시계(Clock=Local)다.
+        // ====================================================================
+
+        /// <summary>조작 하나를 보낸다 — CommandSent 를 남기고 도장을 보낸다(또는 Host 면 보관한다).</summary>
+        private void OnCommandSent(string owner, string command)
+        {
+            try
+            {
+                if (_monitor == null) return;
+                int seq = ++_commandSentSeq;
+                long sentUtc = DisconnectDiag.UtcMsNow();
+
+                // CommandSent — 보낸 쪽 기록(사양 ④). 현재 Phase · 차단 방식도 함께(지연 중 보낸 조작인지 보기 위함).
+                GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " CommandSent",
+                    DisconnectDiag.Keys("CommandSent",
+                        "Owner=" + owner + ", Command=" + command
+                        + ", Seq=" + seq.ToString(CultureInfo.InvariantCulture)
+                        + ", SentUtcMs=" + sentUtc.ToString(CultureInfo.InvariantCulture)
+                        + ", Phase=" + _monitor.Phase + ", Mode=" + _blockMode
+                        + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(Now()))));
+
+                if (_isServer)
+                {
+                    ulong localId = _networkManager != null ? _networkManager.LocalClientId : 0UL;
+                    StoreCommandStamp(localId, new CommandStamp(seq, sentUtc, true));
+                }
+                else
+                {
+                    NetworkGameEndController controller = ResolveController();
+                    if (controller != null) controller.SendCommandStamp(seq, sentUtc);
+                }
+            }
+            catch (Exception)
+            {
+                // 진단 실패는 조작 자체에 영향이 없다(조작 RPC 는 부른 쪽이 이어서 보낸다).
+            }
+        }
+
+        /// <summary>[Host] 도장을 보낸 쪽별 줄에 넣는다(상한을 넘으면 가장 오래된 것을 버린다).</summary>
+        private void StoreCommandStamp(ulong senderClientId, CommandStamp stamp)
+        {
+            try
+            {
+                if (!_commandStamps.TryGetValue(senderClientId, out Queue<CommandStamp> queue))
+                {
+                    queue = new Queue<CommandStamp>();
+                    _commandStamps[senderClientId] = queue;
+                }
+                if (queue.Count >= MaxPendingStamps) queue.Dequeue();
+                queue.Enqueue(stamp);
+            }
+            catch (Exception)
+            {
+                // 진단 실패는 무시한다.
+            }
+        }
+
+        /// <summary>[Host] 조작 요청이 처리 코드에 들어왔다 — 도장과 짝을 맞춰 CommandApplied 를 남긴다.</summary>
+        private void OnCommandApplied(string owner, string command, ulong senderClientId)
+        {
+            try
+            {
+                if (_monitor == null || !_isServer) return;
+
+                _commandRecvSeq.TryGetValue(senderClientId, out int recvSeq);
+                recvSeq++;
+                _commandRecvSeq[senderClientId] = recvSeq;
+
+                string seqText = DisconnectDiag.None;
+                string delayText = DisconnectDiag.None;
+                string clockText = DisconnectDiag.None;
+                if (_commandStamps.TryGetValue(senderClientId, out Queue<CommandStamp> queue) && queue.Count > 0)
+                {
+                    CommandStamp stamp = queue.Dequeue();
+                    seqText = stamp.Seq.ToString(CultureInfo.InvariantCulture);
+                    delayText = (DisconnectDiag.UtcMsNow() - stamp.SentUtcMs).ToString(CultureInfo.InvariantCulture);
+                    clockText = stamp.Local ? "Local" : "CrossDevice";
+                }
+
+                // CommandApplied — Host 처리 기록(사양 ④). Seq=- 면 짝 도장이 없었다(도장 유실 · 순서 바뀜 — 미확인 가정 위반).
+                GameLog.Dev.Info(LogSystem, nameof(InGameLinkWatch), DisconnectDiag.MessagePrefix + " CommandApplied",
+                    DisconnectDiag.Keys("CommandApplied",
+                        "Owner=" + owner + ", Command=" + command
+                        + ", FromClientId=" + senderClientId.ToString(CultureInfo.InvariantCulture)
+                        + ", Seq=" + seqText
+                        + ", RecvSeq=" + recvSeq.ToString(CultureInfo.InvariantCulture)
+                        + ", DelayMs=" + delayText + ", Clock=" + clockText
+                        + ", Phase=" + _monitor.Phase + ", Mode=" + _blockMode
+                        + ", SilenceSec=" + Sec(_monitor.SilenceSeconds(Now()))));
+            }
+            catch (Exception)
+            {
+                // 진단 실패는 조작 처리에 영향이 없다.
+            }
+        }
+
         // ====================================================================
         // 보조
         // ====================================================================
@@ -771,6 +1296,10 @@ namespace Hexiege.Infrastructure
         /// <summary>ms 값을 정수로(NaN 이면 "-").</summary>
         private static string Ms(double ms)
             => double.IsNaN(ms) ? DisconnectDiag.None : ((long)Math.Round(ms)).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>[2026-11-26 2차] 초 값을 정수 ms 로(NaN 이면 "-").</summary>
+        private static string MsFromSec(double seconds)
+            => double.IsNaN(seconds) ? DisconnectDiag.None : Ms(seconds * 1000d);
 
         /// <summary>실행 중 UnityTransport 의 끊김 시간 직렬화 값을 읽는다(읽기 전용). 못 읽으면 "-".</summary>
         private static string ReadDisconnectTimeoutText(NetworkManager networkManager)

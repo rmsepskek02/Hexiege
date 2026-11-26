@@ -29,6 +29,11 @@
 //   `Hexiege/Setup/Network Lag Overlay - Place In Game Scene`(Assets/Editor/Tools/NetworkLagOverlaySetup.cs)가 만든다.
 //   🔴 덮개가 씬에 없어도 게임은 예외 없이 돈다 — 감시기가 조작 차단 · 판정을 그대로 하고 경고 로그만 남긴다.
 //
+// [2026-11-26 2차 수정 — 사양 ②] 이 덮개는 이제 「차단 방식 Overlay」일 때만 뜬다(NetworkLinkState.ShowsLagOverlay 가 그 뜻으로 바뀌었다).
+//   Host 가 상대 쪽 문제로 지연을 볼 때 · RTT 만 느릴 때는 덮개 대신 조작을 막지 않는 알림 띠(NetworkLagBannerUI)가 뜬다.
+//   덮개 자체의 코드(켜기 · 끄기 · 설정 버튼 올리기)는 바뀌지 않았다. 1차의 「최소 표시 1초」는 상태기계 쪽에서 없어졌으므로
+//   신호가 돌아오면 덮개도 그 순간 내려간다(사양 ③).
+//
 // Presentation 레이어 — Unity 의존(MonoBehaviour). Unity.Netcode 참조 없음.
 // ============================================================================
 
@@ -220,6 +225,8 @@ namespace Hexiege.Presentation
                 DisconnectDiag.Keys("LagOverlayShow",
                     "Text=" + (recovering ? "Recovering" : "Delay")
                     + ", Phase=" + NetworkLinkState.Phase
+                    // [2026-11-26 2차 — DiagRev=3] 덮개를 고른 이유(SelfProbeFailed · HostLost · Recovering)
+                    + ", Reason=" + NetworkLinkState.BlockReason
                     + ", HasSettingsButton=" + (_settingsButton != null ? "True" : "False")
                     + ", HasSettingsPanelCanvas=" + (_settingsPanelCanvas != null ? "True" : "False")));
         }

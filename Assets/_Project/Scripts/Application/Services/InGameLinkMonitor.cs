@@ -28,7 +28,21 @@
 //   값 1.0(DelayExitSilenceSec)은 그대로이고, 신호 간격만큼의 여유(DelayExitSilenceAllowanceSec)를 더했다.
 //   진입 기준(마지막 신호 후 2.0초 이상)은 Plan 그대로다. 사용자 확인 필요 항목으로 보고한다.
 //
-// task: Assets/_Project/Docs/_Tasks/2026-11-26/10_31_ingame-leave-judgment/Plan.md 2-1 · 2-2 · 2-5
+// [2026-11-26 2차 수정 — 사양 ③ 표시 시점 (사용자 확정)]
+//   1차 실기에서 「게임은 바로 멈추는데 덮개는 1.4~2초 뒤에 뜨고, 게임은 바로 움직이는데 덮개는 1.2~1.8초 뒤에 사라진다」가
+//   관찰됐다(1차 로그 2026-11-26_23_52 (나)). 원인은 값 자체다 — 신호 간격 1.0초 + 무응답 기준 2.0초라 뜨는 데 2초,
+//   해제는 「1초 안정 확인 + 최소 표시 1초」라 사라지는 데 1초 이상이 걸렸다. 그래서:
+//     · 신호 간격           1.0 → 0.5초
+//     · 무응답 표시 기준     2.0 → 1.0초
+//     · 무응답(Silence)으로 들어간 지연은 **신호가 다시 오는 그 순간 즉시 해제** — 1초 안정 확인 · 최소 표시 시간 없음
+//     · RTT 기준(800ms 이상이 3초 연속)은 그대로. RTT 로 들어간 지연은 RTT 가 500ms 미만이 되는 그 신호에서 즉시 해제.
+//       (RTT 로만 들어간 지연은 「조작을 막지 않는 띠」로 보인다 — 그 결정은 InGameLinkBlockPolicy 가 한다.)
+//     · RTT 지연 중에 신호가 1.0초 끊기면 계기를 Silence 로 바꾼다(DelayTriggerChanged) — 「끊김 구간」이 시작된 것이므로
+//       감시기가 인터넷 확인을 시작해야 한다.
+//     · 「연결 복구 중」(Resume)의 해제 규칙은 **1차 그대로**다(사양 ② 「돌아온 기기 연결 복구 중은 기존 그대로」).
+//   위의 「Plan 과 다른 점」(해제 무응답 해석)은 이제 Resume 해제에만 쓰인다.
+//
+// task: Assets/_Project/Docs/_Tasks/2026-11-26/10_31_ingame-leave-judgment/Plan.md 2-1 · 2-2 · 2-5 (+ 「2차 수정」 절)
 // Application 레이어 — 순수 C#. UnityEngine · Unity.Netcode 참조 없음.
 // ============================================================================
 
@@ -94,7 +108,12 @@ namespace Hexiege.Application
         JudgeStarted = 8,
 
         /// <summary>첫 신호 없이 판정 시간(15초)이 지났다 — 진단용 알림(판정하지 않는다).</summary>
-        WaitingLong = 16
+        WaitingLong = 16,
+
+        /// <summary>
+        /// [2026-11-26 2차] 지연 계기가 RTT 에서 Silence 로 바뀌었다(느린 신호마저 1.0초 끊김) — 끊김 구간 시작.
+        /// </summary>
+        DelayTriggerChanged = 32
     }
 
     /// <summary>
@@ -108,10 +127,12 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>신호 간격(초). 두 기기가 이 간격으로 서로에게 신호를 보낸다.</summary>
-        public const double HeartbeatIntervalSec = 1.0;
+        // [2026-11-26 2차 — 사양 ③] 1.0 → 0.5. 옛 줄: public const double HeartbeatIntervalSec = 1.0;
+        public const double HeartbeatIntervalSec = 0.5;
 
         /// <summary>지연 진입 — 마지막 상대 신호 후 이만큼(초) 넘게 아무것도 없으면 지연.</summary>
-        public const double DelayEnterSilenceSec = 2.0;
+        // [2026-11-26 2차 — 사양 ③] 2.0 → 1.0. 옛 줄: public const double DelayEnterSilenceSec = 2.0;
+        public const double DelayEnterSilenceSec = 1.0;
 
         /// <summary>지연 진입 — 이 RTT(ms) 이상이 계속되면 「느림」으로 본다.</summary>
         public const double DelayEnterRttMs = 800.0;
@@ -132,10 +153,20 @@ namespace Hexiege.Application
         public const double DelayExitRttMs = 500.0;
 
         /// <summary>지연 해제 — 두 조건을 함께 이만큼(초) 유지해야 해제.</summary>
+        /// <remarks>[2026-11-26 2차] 이제 「연결 복구 중」(Resume) 해제에만 쓴다. Silence · RTT 지연은 즉시 해제(사양 ③).</remarks>
         public const double DelayExitHoldSec = 1.0;
 
         /// <summary>지연 표시를 켰으면 최소 이만큼(초)은 보인다(깜빡임 방지).</summary>
+        /// <remarks>
+        /// [2026-11-26 2차] 더 이상 쓰지 않는다(사양 ③ 「최소 표시 시간 제거」). 1차 기록 · 로그 비교용으로 값만 남긴다.
+        /// 「연결 복구 중」의 최소 표시는 RecoveringMinShownSec(0.5초)가 따로 맡는다(1차 그대로).
+        /// </remarks>
         public const double DelayMinShownSec = 1.0;
+
+        /// <summary>
+        /// [2026-11-26 2차] 깜빡임 관찰 기준(초) — 지연 표시가 이보다 짧게 떴다 사라지면 「짧은 지연」으로 센다(진단 로그 전용).
+        /// </summary>
+        public const double ShortDelaySec = 1.0;
 
         /// <summary>판정 시작 N(초) — 마지막 상대 신호부터.</summary>
         public const double JudgeSilenceSec = 15.0;
@@ -151,7 +182,13 @@ namespace Hexiege.Application
         /// 이보다 크면 앱 정지로 본다. 지연 진입 기준(2.0초)과 같은 값 — 그보다 짧은 멈춤은
         /// 상대에게도 지연으로 보이지 않을 만큼 짧아서 따로 처리할 이유가 없다.
         /// </summary>
-        public const double FreezeDetectSec = DelayEnterSilenceSec;
+        /// <remarks>
+        /// [2026-11-26 2차] 지연 진입 기준이 2.0 → 1.0 으로 바뀌었지만 이 값은 <b>2.0 그대로</b> 둔다.
+        /// 「돌아온 기기 『연결 복구 중』은 기존 그대로」(사양 ②) — 1~2초짜리 프레임 멈춤까지 「연결 복구 중」 덮개(최소 0.5초 +
+        /// 1초 안정 확인)로 보이면 오히려 오래 막힌다. 그런 짧은 멈춤은 무응답 지연(즉시 해제)으로 처리된다.
+        /// 옛 줄: public const double FreezeDetectSec = DelayEnterSilenceSec;
+        /// </remarks>
+        public const double FreezeDetectSec = 2.0;
 
         // ====================================================================
         // 상태
@@ -195,7 +232,29 @@ namespace Hexiege.Application
         /// <summary>직전 지연 해제 때 덮개가 떠 있던 시간(초). 해제 로그 ShownSec 용.</summary>
         public double LastShownSeconds { get; private set; } = double.NaN;
 
-        /// <summary>지금 플레이어 조작을 막아야 하는가(지연·판정 중).</summary>
+        /// <summary>[2026-11-26 2차] 이번 경기에서 지연에 들어간 횟수(깜빡임 관찰용 — DelayNo).</summary>
+        public int DelayCount { get; private set; }
+
+        /// <summary>[2026-11-26 2차] 직전 지연 해제 시각(초). 해제한 적이 없으면 NaN. 「해제 후 얼마 만에 다시 떴나」 로그용.</summary>
+        public double LastDelayExitedAt { get; private set; } = double.NaN;
+
+        /// <summary>[2026-11-26 2차] 이번 지연 진입 시점의 「직전 해제 후 경과(초)」. 첫 지연이면 NaN. 짧을수록 깜빡임.</summary>
+        public double SinceLastExitAtEnterSeconds { get; private set; } = double.NaN;
+
+        /// <summary>
+        /// [2026-11-26 2차] 가장 최근 신호가 도착했을 때 「그 직전 신호와의 간격(초)」. 즉시 해제 확인용(LinkDelayExit SignalGapMs).
+        /// 첫 신호 전이면 NaN.
+        /// </summary>
+        public double LastSignalGapSeconds { get; private set; } = double.NaN;
+
+        /// <summary>[2026-11-26 2차] 직전 지연 해제를 일으킨 것(Signal / RttRecovered / ResumeHold). 해제 로그 ExitBy 용.</summary>
+        public string LastExitBy { get; private set; } = "-";
+
+        /// <summary>
+        /// 지금 플레이어 조작을 막아야 하는가(지연·판정 중).
+        /// ⚠️ [2026-11-26 2차] 이 값은 「지연 · 판정 중인가」라는 상태 사실일 뿐이다. 실제 조작 차단은 이제
+        ///    NetworkLinkState.BlocksPlayerCommands(차단 방식 Overlay 일 때만)가 정한다. 이 속성을 읽는 곳은 없다(기록용으로 둔다).
+        /// </summary>
         public bool BlocksPlayerCommands =>
             Phase == InGameLinkPhase.Delayed || Phase == InGameLinkPhase.Judging;
 
@@ -248,6 +307,10 @@ namespace Hexiege.Application
                 if (Phase == InGameLinkPhase.Waiting) Phase = InGameLinkPhase.Normal;
             }
 
+            // [2026-11-26 2차] 이 신호와 직전 신호의 간격 — 「신호가 다시 오는 순간 즉시 해제」를 로그로 확인하기 위함(SignalGapMs).
+            //   첫 신호면 직전 신호가 없으므로 NaN.
+            LastSignalGapSeconds = double.IsNaN(LastSignalAt) ? double.NaN : now - LastSignalAt;
+
             LastSignalAt = now;
             if (!double.IsNaN(rttMs))
             {
@@ -261,6 +324,16 @@ namespace Hexiege.Application
                 {
                     _slowRttSince = double.NaN; // 빠른 신호가 하나라도 오면 「연속 느림」이 끊긴다
                 }
+            }
+
+            // [2026-11-26 2차 — 사양 ③] 무응답(Silence)으로 들어간 지연은 신호가 다시 오는 바로 이 순간 해제한다.
+            //   1차의 「1초 안정 확인 + 최소 표시 1초」를 거치지 않는다. 바로 return 하는 이유: 같은 호출 안에서
+            //   Evaluate 가 RTT 지연으로 다시 들어가 「해제 + 진입」이 한꺼번에 나오면 로그 순서가 헷갈린다 —
+            //   RTT 재진입 여부는 다음 프레임 Tick 이 본다(해제 때 느림 집계를 지우므로 곧바로 다시 들어가지도 않는다).
+            if (Phase == InGameLinkPhase.Delayed && DelayTrigger == InGameLinkDelayTrigger.Silence)
+            {
+                ExitDelay(now, "Signal");
+                return change | InGameLinkChange.DelayExited;
             }
 
             return change | Evaluate(now);
@@ -314,6 +387,7 @@ namespace Hexiege.Application
             DelayTrigger = InGameLinkDelayTrigger.Resume;
             IsRecovering = true;
             DelayEnteredAt = now;             // 최소 표시(0.5초)를 지금부터 센다
+            if (!wasShown) NoteDelayEntered(now); // [2026-11-26 2차] 깜빡임 관찰용 집계(새로 켰을 때만)
             return wasShown ? InGameLinkChange.None : InGameLinkChange.DelayEntered;
         }
 
@@ -369,9 +443,39 @@ namespace Hexiege.Application
                 return InGameLinkChange.None;
             }
 
+            // ----------------------------------------------------------------
+            // [2026-11-26 2차 — 사양 ③] 지연 해제 규칙을 계기별로 나눴다.
+            //   Silence : 여기서는 해제하지 않는다 — 신호가 오는 순간 OnSignal 이 즉시 해제한다.
+            //   Rtt     : ⓐ 신호가 1.0초 끊기면 계기를 Silence 로 바꾼다(끊김 구간 시작 — 인터넷 확인 시작 신호)
+            //             ⓑ RTT 가 500ms 미만이 되면 즉시 해제(1초 유지 · 최소 표시 없음)
+            //   Resume  : 1차 규칙 그대로(아래 ③ — 「연결 복구 중」은 기존 그대로, 사양 ②)
+            // ----------------------------------------------------------------
+            if (Phase == InGameLinkPhase.Delayed && DelayTrigger == InGameLinkDelayTrigger.Silence)
+            {
+                return InGameLinkChange.None;
+            }
+
+            if (Phase == InGameLinkPhase.Delayed && DelayTrigger == InGameLinkDelayTrigger.Rtt)
+            {
+                if (silence >= DelayEnterSilenceSec)
+                {
+                    // 느린 신호마저 끊겼다 — 화면에 뜬 시간(DelayEnteredAt)은 처음 RTT 로 들어간 때부터 그대로 센다.
+                    DelayTrigger = InGameLinkDelayTrigger.Silence;
+                    return InGameLinkChange.DelayTriggerChanged;
+                }
+                if (!double.IsNaN(LatestRttMs) && LatestRttMs < DelayExitRttMs)
+                {
+                    ExitDelay(now, "RttRecovered");
+                    return InGameLinkChange.DelayExited;
+                }
+                return InGameLinkChange.None;
+            }
+
             if (Phase == InGameLinkPhase.Delayed)
             {
                 // ③ 지연 해제 — 「신호가 제때 온다」 AND 「RTT 가 빠르다」를 함께 1초 유지 + 최소 표시.
+                //    [2026-11-26 2차] 이 블록은 이제 Resume(「연결 복구 중」)에만 온다 — 위 두 분기가 Silence · Rtt 를 먼저 가져간다.
+                //    1차에는 세 계기 모두 이 블록으로 해제됐다(그것이 「복구 때 덮개가 1.2~1.8초 늦게 사라짐」의 원인).
                 bool silenceGood = silence < DelayExitSilenceSec + DelayExitSilenceAllowanceSec;
                 bool rttGood = !double.IsNaN(LatestRttMs) && LatestRttMs < DelayExitRttMs;
                 if (!(silenceGood && rttGood))
@@ -384,11 +488,13 @@ namespace Hexiege.Application
                 double minShown = IsRecovering ? RecoveringMinShownSec : DelayMinShownSec;
                 if (now - _exitGoodSince >= DelayExitHoldSec && now - DelayEnteredAt >= minShown)
                 {
-                    LastShownSeconds = now - DelayEnteredAt;
-                    Phase = InGameLinkPhase.Normal;
-                    IsRecovering = false;
-                    _exitGoodSince = double.NaN;
-                    _slowRttSince = double.NaN;
+                    // [2026-11-26 2차] 해제 처리를 ExitDelay 하나로 모았다(해제 시각 · 계기를 함께 적기 위함). 옛 본문(기록용):
+                    // LastShownSeconds = now - DelayEnteredAt;
+                    // Phase = InGameLinkPhase.Normal;
+                    // IsRecovering = false;
+                    // _exitGoodSince = double.NaN;
+                    // _slowRttSince = double.NaN;
+                    ExitDelay(now, "ResumeHold");
                     return InGameLinkChange.DelayExited;
                 }
             }
@@ -404,6 +510,29 @@ namespace Hexiege.Application
             IsRecovering = false;
             DelayEnteredAt = now;
             _exitGoodSince = double.NaN;
+            NoteDelayEntered(now); // [2026-11-26 2차] 깜빡임 관찰용 집계
+        }
+
+        /// <summary>[2026-11-26 2차] 지연 진입 횟수 · 「직전 해제 후 경과」를 적는다(깜빡임 관찰 — 로그 전용, 판단에 쓰지 않는다).</summary>
+        private void NoteDelayEntered(double now)
+        {
+            DelayCount++;
+            SinceLastExitAtEnterSeconds = double.IsNaN(LastDelayExitedAt) ? double.NaN : now - LastDelayExitedAt;
+        }
+
+        /// <summary>
+        /// [2026-11-26 2차] 지연에서 나온다(평소 화면으로). 세 해제 경로(Signal · RttRecovered · ResumeHold)가 함께 쓴다.
+        /// 느림 집계를 지워, 해제 직후 같은 느림으로 곧바로 다시 들어가지 않게 한다(1차 해제와 같은 처리).
+        /// </summary>
+        private void ExitDelay(double now, string exitBy)
+        {
+            LastShownSeconds = now - DelayEnteredAt;
+            Phase = InGameLinkPhase.Normal;
+            IsRecovering = false;
+            _exitGoodSince = double.NaN;
+            _slowRttSince = double.NaN;
+            LastDelayExitedAt = now;
+            LastExitBy = exitBy;
         }
 
         /// <summary>판정 중에 들어간다. 덮개가 아직 꺼져 있었으면 지금부터 켠 것으로 본다.</summary>

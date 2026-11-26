@@ -226,6 +226,9 @@ namespace Hexiege.Infrastructure
             //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
             //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
             if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestActivateSkill))) return;
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 차단 검사를 통과해 「실제로 보내는」 조작만 기록한다(CommandSent).
+            //   Client 면 이 안에서 「조작 도장」(번호 · 보낸 시각)을 Host 로 먼저 보낸다. 진단 전용 — 실패해도 아래 RPC 는 그대로 나간다.
+            InGameLinkWatch.NoteCommandSent(nameof(NetworkSkillController), nameof(RequestActivateSkill));
 
             // NGO 2.9.2는 Vector3를 기본 직렬화하므로 연속 좌표 · 방향을 그대로 전송한다(정수 분해 불필요).
             RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim, aimDirection);
@@ -247,6 +250,11 @@ namespace Hexiege.Infrastructure
         public void RequestActivateSkillServerRpc(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim,
             Vector3 aimDirection, ServerRpcParams rpcParams = default)
         {
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — Host 가 이 요청을 처리하기 시작한 순간(CommandApplied).
+            //   보낸 쪽 CommandSent 와 같은 번호(Seq)로 짝을 맞춰 「보낸 뒤 몇 ms 만에 처리됐나 · 처리 당시 연결 상태」를 남긴다.
+            //   진단 전용 — 아래 검증 · 처리는 한 글자도 바뀌지 않는다. 감시기가 없으면(에디터 검증 도구 등) 아무것도 하지 않는다.
+            InGameLinkWatch.NoteCommandApplied(nameof(NetworkSkillController), nameof(RequestActivateSkill), rpcParams.Receive.SenderClientId);
+
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
             IGameServices services = ResolveServices();

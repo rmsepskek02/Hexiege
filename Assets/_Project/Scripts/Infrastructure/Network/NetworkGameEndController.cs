@@ -236,6 +236,9 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private bool _presenceSendFailureLogged;
 
+        /// <summary>[2026-11-26 2차] 조작 도장 전송 실패를 이미 로그로 남겼는가(판당 1줄).</summary>
+        private bool _commandStampSendFailureLogged;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -259,6 +262,7 @@ namespace Hexiege.Infrastructure
             //    지난 판의 결론이 따라오지 않게 스폰마다 비운다.)
             _localConclusionDone = false;
             _presenceSendFailureLogged = false;
+            _commandStampSendFailureLogged = false; // [2026-11-26 2차]
 
             if (IsServer)
             {
@@ -1831,7 +1835,8 @@ namespace Hexiege.Infrastructure
         // 인게임 연결 감시 — 「나 여기 있다」 신호 (2026-11-26, Plan 3절 2단계 · U-15)
         //
         // [초급자용 설명]
-        //   경기 중 두 기기는 1초마다 서로에게 신호를 보낸다. 신호를 언제 보내고 받은 신호로 무엇을 판단하는지는
+        //   경기 중 두 기기는 1초마다 서로에게 신호를 보낸다([2026-11-26 2차] 0.5초로 줄었다 — 간격 값은
+        //   InGameLinkMonitor.HeartbeatIntervalSec 이 단일 소스다). 신호를 언제 보내고 받은 신호로 무엇을 판단하는지는
         //   감시기(InGameLinkWatch — 일반 MonoBehaviour)가 정하고, 여기서는 **실제 RPC 배달만** 한다.
         //   RPC 는 NetworkBehaviour 에서만 선언·호출할 수 있기 때문이다.
         //
@@ -1913,6 +1918,56 @@ namespace Hexiege.Infrastructure
             if (IsServer) return;
 
             InGameLinkWatch.ReceivePresenceHeartbeat(sentAt, echoPeerSentAt, echoHoldSec);
+        }
+
+        // ====================================================================
+        // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 「조작 도장」 RPC
+        //
+        // [초급자용 설명]
+        //   Client 가 건설 · 생산 같은 조작 RPC 를 보내기 바로 앞에, 이 RPC 로 「몇 번째 조작인가(seq) · 언제 보냈나(sentUtcMs)」를
+        //   Host 에 따로 보낸다. Host 의 감시기(InGameLinkWatch)는 이것을 보관해 두었다가, 실제 조작 요청이 처리될 때
+        //   짝을 맞춰 「몇 번 조작이 보낸 뒤 몇 ms 만에 처리됐나」(CommandApplied)를 남긴다.
+        //   🔴 조작 RPC 12개의 인자는 한 글자도 바꾸지 않았다 — 에디터 자체 검증 도구가 그 RPC 들을 지금 인자 그대로 부르기 때문이다.
+        //   🔴 진단 전용이다. 게임 판정 · 조작 처리에 쓰지 않는다. 결과 화면 신호 · 인게임 연결 신호와도 별개다.
+        //   ⚠️ 전송 방식은 NGO 기본값(신뢰 전송)이다. 도장과 조작이 「보낸 순서대로」 Host 에 도착하는지는 NGO 내부 동작에
+        //      기대는 가정이다(미확인) — 감시기가 Host 쪽 처리 순번(RecvSeq)을 함께 남겨 대조할 수 있게 했다.
+        // ====================================================================
+
+        /// <summary>
+        /// [Client 전용 — 감시기가 조작 RPC 직전에 부른다] 조작 도장을 Host 에 보낸다. Host 에서는 아무것도 하지 않는다
+        /// (Host 자신의 조작 도장은 감시기가 직접 보관한다). 예외를 밖으로 던지지 않는다 — 뒤이은 조작 RPC 를 막지 않기 위함.
+        /// </summary>
+        /// <param name="seq">이 기기의 조작 번호(경기마다 1부터).</param>
+        /// <param name="sentUtcMs">이 기기 시계의 보낸 시각(UtcMs).</param>
+        public void SendCommandStamp(int seq, long sentUtcMs)
+        {
+            try
+            {
+                if (!IsSpawned || IsServer) return;
+                CommandStampServerRpc(seq, sentUtcMs);
+            }
+            catch (System.Exception e)
+            {
+                // 연결이 내려가는 도중이면 NGO 가 예외를 던진다. 판당 첫 1번만 남긴다(LogRules 1.14 금지 8).
+                if (!_commandStampSendFailureLogged)
+                {
+                    _commandStampSendFailureLogged = true;
+                    GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                        "조작 도장 전송 실패 — 진단만 빠지고 조작은 그대로 보낸다(판당 1줄)",
+                        DisconnectDiag.Keys("CommandStampSendFailed", $"Exception={e.GetType().Name}, Seq={seq}"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// [서버에서 실행] Client 가 보낸 조작 도장. 감시기에 넘기기만 한다.
+        /// 🔴 NGO 명명 규약상 ServerRpc 메서드 이름은 반드시 <c>ServerRpc</c> 로 끝나야 한다.
+        /// 🔴 여기서 로그를 남기지 않는다 — 짝이 맞춰지는 CommandApplied 한 줄에 함께 남는다.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void CommandStampServerRpc(int seq, long sentUtcMs, ServerRpcParams rpcParams = default)
+        {
+            InGameLinkWatch.ReceiveCommandStamp(rpcParams.Receive.SenderClientId, seq, sentUtcMs);
         }
 
         // ====================================================================

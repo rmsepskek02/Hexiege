@@ -23,6 +23,9 @@
 //                    (2026-11-26 1→2: 인게임 이탈 판정 task 가 새 이벤트(Link*, OfflineForfeit, CommandBlocked …)를
 //                     더하고 ResultShown 에 Cause·Countdown 을 붙였다. 측정 task 의 기존 이벤트 이름·키는 그대로다 —
 //                     _Tasks/2026-11-26/10_31_ingame-leave-judgment/Plan.md 5절.)
+//                    (2026-11-26 2→3: 같은 task 의 2차 수정이 LinkProbeStart · LinkBlockMode · LinkGapEpisode · LinkDelaySummary ·
+//                     LagBannerShow/Hide · CommandSent/CommandApplied 를 더하고, LinkProbeResult · LinkVerdict · LinkDelayEnter ·
+//                     LinkDelayExit · LinkWatchStart 에 키를 덧붙였다. 기존 키 이름 · 뜻은 그대로다 — 같은 Plan 「2차 수정」 절.)
 //   Event=…          무슨 일이 일어났는지(MatchStart, PeerDisconnected …). 한 번 정하면 바꾸지 않는다.
 //   Role=Host|Client 이 기기의 역할. 경기 시작(MatchStart) 때 정해 둔 값. 경기 밖이면 `-`.
 //   UtcMs            기기 시계(1970-01-01 UTC 기준 ms). 🔴 두 기기를 비교할 때는 이 값의 차를 쓴다.
@@ -60,7 +63,8 @@ namespace Hexiege.Infrastructure
         public const string MessagePrefix = "[DISC-DIAG]";
 
         /// <summary>진단 내용 버전(DiagRev). 키 이름이나 의미를 바꾸면 이 값을 올린다.</summary>
-        public const int DiagRevision = 2; // [2026-11-26] 1 → 2 (인게임 이탈 판정 task — 머리말 참조)
+        // [2026-11-26] 1 → 2 (인게임 이탈 판정 task — 머리말 참조). 옛 줄: public const int DiagRevision = 2;
+        public const int DiagRevision = 3; // [2026-11-26 2차] 2 → 3 (인게임 이탈 판정 2차 수정 — 머리말 참조)
 
         /// <summary>자유 문장 값(DisconnectReason)을 자르는 최대 글자 수(Plan 2절 「값 표기」).</summary>
         private const int ReasonMaxLength = 120;

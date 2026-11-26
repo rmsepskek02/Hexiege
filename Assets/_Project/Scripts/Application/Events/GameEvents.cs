@@ -1527,6 +1527,8 @@ namespace Hexiege.Application
         /// (대기 → 정상 → 지연 → 판정 중 → 종료, 「연결 복구 중」 표시 여부).
         /// 발행: <see cref="NetworkLinkState.SetPhase"/>(쓰는 쪽은 Infrastructure 감시기 InGameLinkWatch 하나뿐)
         /// 구독: NetworkLagOverlayUI(지연 덮개 표시·문구 전환)
+        /// [2026-11-26 2차] 발행처는 <see cref="NetworkLinkState.SetLinkState"/>(차단 방식 BlockMode 까지 함께 — SetPhase 는 그 호환 래퍼)이고,
+        ///   구독에 NetworkLagBannerUI(조작을 막지 않는 상단 알림 띠)가 더해졌다. 차단 방식만 바뀌어도(띠 → 덮개) 발행된다.
         ///
         /// 🔴 현재 값은 언제든 <see cref="NetworkLinkState"/> 에서 읽을 수 있다 — 이 채널은 「바뀐 순간」만 알린다.
         ///    늦게 구독한 쪽은 구독 직후 NetworkLinkState 를 한 번 읽어 현재 상태를 맞춘다.

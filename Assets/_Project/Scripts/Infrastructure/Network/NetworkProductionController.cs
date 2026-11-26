@@ -189,6 +189,9 @@ namespace Hexiege.Infrastructure
             //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
             //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
             if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestEnqueue))) return;
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 차단 검사를 통과해 「실제로 보내는」 조작만 기록한다(CommandSent).
+            //   Client 면 이 안에서 「조작 도장」(번호 · 보낸 시각)을 Host 로 먼저 보낸다. 진단 전용 — 실패해도 아래 RPC 는 그대로 나간다.
+            InGameLinkWatch.NoteCommandSent(nameof(NetworkProductionController), nameof(RequestEnqueue));
 
             RequestEnqueueServerRpc(barracksId, (int)unitType, (int)team);
         }
@@ -206,6 +209,9 @@ namespace Hexiege.Infrastructure
             //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
             //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
             if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestCancelSlot))) return;
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 차단 검사를 통과해 「실제로 보내는」 조작만 기록한다(CommandSent).
+            //   Client 면 이 안에서 「조작 도장」(번호 · 보낸 시각)을 Host 로 먼저 보낸다. 진단 전용 — 실패해도 아래 RPC 는 그대로 나간다.
+            InGameLinkWatch.NoteCommandSent(nameof(NetworkProductionController), nameof(RequestCancelSlot));
 
             CancelSlotServerRpc(barracksId, slotIndex, (int)team);
         }
@@ -224,6 +230,9 @@ namespace Hexiege.Infrastructure
             //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
             //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
             if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestSetRallyPoint))) return;
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 차단 검사를 통과해 「실제로 보내는」 조작만 기록한다(CommandSent).
+            //   Client 면 이 안에서 「조작 도장」(번호 · 보낸 시각)을 Host 로 먼저 보낸다. 진단 전용 — 실패해도 아래 RPC 는 그대로 나간다.
+            InGameLinkWatch.NoteCommandSent(nameof(NetworkProductionController), nameof(RequestSetRallyPoint));
 
             SetRallyPointServerRpc(barracksId, q, r, (int)team);
         }
@@ -241,6 +250,9 @@ namespace Hexiege.Infrastructure
             //   지연 덮개가 1차로 터치를 막지만, 덮개가 뜨기 직전에 열려 있던 경로 등으로 여기까지 오면 서버로 보내지 않고 끝낸다.
             //   🔴 「반영하지 않고 재전송하지 않는다」(U-5) — 나중에 다시 보내는 대기열을 두지 않는다. 막은 사실은 CommandBlocked 로그로 남는다.
             if (InGameLinkWatch.TryBlockPlayerCommand(nameof(RequestToggleAuto))) return;
+            // [2026-11-26 2차 — 사양 ④] 조작 처리 확인 진단 — 차단 검사를 통과해 「실제로 보내는」 조작만 기록한다(CommandSent).
+            //   Client 면 이 안에서 「조작 도장」(번호 · 보낸 시각)을 Host 로 먼저 보낸다. 진단 전용 — 실패해도 아래 RPC 는 그대로 나간다.
+            InGameLinkWatch.NoteCommandSent(nameof(NetworkProductionController), nameof(RequestToggleAuto));
 
             ToggleAutoServerRpc(barracksId, (int)unitType, (int)team);
         }
