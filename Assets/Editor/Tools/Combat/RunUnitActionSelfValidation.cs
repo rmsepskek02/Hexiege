@@ -1055,6 +1055,7 @@ namespace Hexiege.Editor.Combat
             ValidateSupportNewStatusesStageA(); // [2026-11-16 지원 스킬 새 상태 단계 A(대지의 갑주 · 전술 지령 생산 속도) — S-T1~S-T9]
             ValidateSupportShieldStageC(); // [2026-11-16 지원 스킬 새 상태 단계 C(신목의 각성 쉴드 · 건물 상태 VFX · 깨짐 RPC) — Sh-T1~Sh-T9]
             ValidateSupportRegenStageB(); // [2026-11-17 지원 스킬 새 상태 단계 B(재생의 뿌리 — 재생 · 받는 회복 배율) — R-T1~R-T9]
+            ValidateMistShrineHealTickCap(); // [2026-11-25 MistShrine 물안개 회복 횟수 10회 고정(상한 · 겹침 인계 · 위상 불변식) — MT-1~MT-5]
             ValidateAirStrikeLineStrike(); // [2026-11-17 지원 스킬 2-L 공습 L-1 · L-2(직선 연속 폭격 서버 판정 · 방향 전송 · 스키마 11) — LS-T1~T12 (L-5 · L-6 자산 켜기 LS-T9 포함)]
             ValidateAirStrikeAimInput(); // [2026-11-17 지원 스킬 2-L 공습 L-3 · L-4(조준 입력 떼는 순서 · 터치 Id · 뷰 변환 방향) — LS-T13 · P-10]
             ValidateMeteorSkill(); // [2026-11-18 지원 스킬 2-D 메테오(타입 A 착탄 화상 · 착탄 예약 연출 · 자산 켜기) — M-T1~M-T10]

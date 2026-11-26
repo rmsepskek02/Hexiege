@@ -40,6 +40,10 @@
 //   - 실행하면 값을 쓰기 전에 "표와 다른 칸"을 자산마다 로그로 먼저 남긴다(값이 바뀌는 자산 · 그대로인 자산 개수).
 //     EMP 줄만 바꾼 뒤 처음 다시 실행하면 Skill_Human_Emp 하나만 "바뀜"으로 나와야 정상이다.
 //   - 가칭 이름(화염의 축복 · 대지의 갑주)은 사용자 결정 Q6대로 그대로 쓴다.
+//   - [2026-11-25 물결의 가호 Task T-1 — 사용자 결정 D-1 · D-2] 정령 슬롯 4(화면 5번 칸)의 「원소 공명」(이름만 있던 사용 불가 자리표시)을
+//     물 원소 아군 강화 스킬 「물결의 가호」(Skill_Spirit_TideBlessing — 유닛 재생 초당 20 · 받는 회복 1.25배 · 8초 · 쿨 15, 모두 임시값)로 바꿨다.
+//     파일 이름이 달라 새 자산이 하나 생기고, 옛 Skill_Spirit_ElementalResonance.asset 은 지우지 않는다(로드아웃 참조만 빠진다 — 옛 임시 자산과 같은 처리).
+//     Task: Assets/_Project/Docs/_Tasks/2026-11-25/18_35_support-skill-tide-blessing/Plan.md 1-2 · 2절.
 //
 // 사용 후 정리:
 //   실행 · 확인이 끝나면 이 파일(과 .meta)을 지운다(WORKFLOW [5-2] · [4] 절차 — 삭제는 사용자 승인 후).
@@ -97,8 +101,11 @@ namespace Hexiege.EditorTools
         //   [2026-11-23 지원 스킬 연막탄 Task — Plan S-1(메인 세션 결정: 「사용 가능」을 S-1부터 켬)] 13 → 14.
         //   연막탄을 「사용 가능」(타입 4 지속 상태 구역 · 아군 대상 · 회피 확률 0.5)으로 켠 표와 개수를 맞춘다.
         //   (2026-11-24 연막탄 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 13 줄을 지웠다 — 회귀 스위트 6곳이 이 상수 14를 읽어 통과했다.)
+        //   [2026-11-25 물결의 가호 Task T-2] 14 → 15. 원소 공명(사용 불가) 자리에 물결의 가호를 「사용 가능」으로 넣은 표와 개수를 맞춘다.
+        //   이제 15개 모두 사용 가능하다(사용 불가 0). 회귀 스위트 6곳이 이 상수를 읽어 15인지 본다(같은 Task T-4에서 함께 바꿨다).
+        //   (2026-11-25 물결의 가호 테스트 PASS 뒤 주석으로 남겨 둔 옛 값 14 줄을 지웠다 — 회귀 스위트 6곳이 이 상수 15를 읽어 통과했다.)
         // private const int ExpectedAvailableCount = 8;
-        private const int ExpectedAvailableCount = 14;
+        private const int ExpectedAvailableCount = 15;
 
         // ── SkillDefinition 의 직렬화 칸 이름(private 필드 이름과 같아야 한다) ──
         //   SerializedObject로 private 칸에 값을 넣기 때문에 이름이 틀리면 값이 안 들어간다.
@@ -257,9 +264,7 @@ namespace Hexiege.EditorTools
         //   피해 0 — 구역 실행기는 피해 칸을 읽지 않지만, 자산을 보는 사람이 "피해가 있는 스킬"로 오해하지 않게 0으로 둔다(EMP 선례).
         //   수치는 시험용 임시값이다(Z-10). 밸런싱 단계에서 확정한다.
         //   🔴 새 칸(구역 VFX · 유닛 상태 VFX 프리팹 · 크기 · 위치)은 이 도구가 쓰지 않는다 — 다시 실행해도 넣은 프리팹이 지워지지 않는다.
-        // 옛 머리(아군 인자 없음 — 대상이 항상 적):
-        // private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
-        //                                         StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown)
+        //   (2026-11-26 주석으로 남겨 둔 옛 머리(아군 인자 없음)와 옛 TargetsAllies = false 줄을 지웠다 — 물결의 가호 테스트에서 이 도구를 다시 실행해 「사용 가능 스킬 15개」 PASS.)
         private static SkillSpec PersistentZone(string file, RaceId race, int slot, string name, string desc,
                                                 StatusEffectKind kind, float magnitude, float duration, float radius, float cooldown,
                                                 bool targetsAllies = false)
@@ -271,7 +276,6 @@ namespace Hexiege.EditorTools
                 AimType = SkillAimType.PointTarget,
                 Mechanic = SkillMechanicType.PersistentStatusZone,
                 Cooldown = cooldown, Radius = radius, Duration = duration, TotalDamage = 0, DamagePerSecond = 0f,
-                // 옛 줄(대상 항상 적): StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = false,
                 StatusKind = (int)kind, Magnitude = magnitude, TargetsAllies = targetsAllies,
                 ImpactDelay = 0f, UseBombardmentVfx = false
             };
@@ -404,9 +408,21 @@ namespace Hexiege.EditorTools
                 // [2026-11-16 지원 스킬 새 상태 Task 단계 A — Plan S-1] 대지의 갑주 — 받는 피해 0.7배 · 8초 · 쿨 15(시험용 임시값).
                 InstantBuff("Skill_Spirit_EarthArmor", s, 3, "대지의 갑주",
                     "맵 전체 아군 유닛이 받는 피해를 줄인다.", StatusEffectKind.IncomingDamageMul, 0.7f, 8f),
-                // 원소 공명 — 기능 보류 · 이름만 등록(상위 결정 15). 대상이 정해지지 않아 targetsAllies=false.
-                InstantPlaceholder("Skill_Spirit_ElementalResonance", s, 4, "원소 공명",
-                    "기능 기획 보류 중인 스킬이다(이름만 등록).", allies: false),
+                // [2026-11-25 물결의 가호 Task T-1] 이 칸(정령 슬롯 4)은 원래 원소 공명 자리표시(기능 보류 · 이름만 등록 — 상위 결정 15)였다.
+                //   사용자 결정 D-1 「원소 공명은 다음에 추가로 스킬 넣을때 하도록하고 … 물도 하나넣도록하자」 — 원소 공명은 다음 스킬 추가 때로 보류한다.
+                //   건물당 칸이 5개뿐이라(스킬 규칙 4 · SlotsPerRace = 5) 다시 넣으려면 규칙을 고치거나 다른 정령 스킬과 바꿔야 한다(Plan 위험 R-5).
+                //   (2026-11-25 물결의 가호 테스트 PASS 뒤 주석으로 남겨 둔 옛 자리표시 줄 InstantPlaceholder(…) 를 지웠다 — 아래 줄로 켠 자산이 실기에서 시전됐고,
+                //    회귀 스위트 TB-T1 · TB-T2가 이 표 줄과 자산 계약을 확인한다. 다시 넣을 때는 InstantPlaceholder 함수를 그대로 쓸 수 있다.)
+                // [2026-11-25 물결의 가호 Task T-1 — 사용자 결정 D-2] 물결의 가호 — 물 원소 아군 강화(불 = 화염의 축복 · 흙 = 대지의 갑주와 짝).
+                //   주 효과 = 유닛 재생 초당 20 · 8초 · 쿨 15(InstantBuff 기본값), 추가 효과 = 「유닛 각각 · 받는 회복 배율 1.25」 한 줄.
+                //   재생의 뿌리(초월)와 같은 두 효과 종류를 쓰지만 건물 줄이 없어 건물에는 걸리지 않는다(사용자 「유닛만 적용」).
+                //   두 스킬은 종족이 달라 한 유닛에 함께 걸리지 않는다(한 플레이어 = 한 종족, 둘 다 아군 대상 — Plan 위험 R-1).
+                //   수치는 모두 시험용 임시값이다(사용자 「수치는 임시로 주고 밸런싱할때 맞추자」).
+                //   자기 재생도 받는 회복 배율을 받으므로 실제 회복은 1초마다 20 × 1.25 = 25다. TorrentSpirit 파도 회복도 1.25배가 된다(Plan U-1).
+                //   🔴 유닛 상태 VFX · 발동 VFX 칸은 이번에 비워 둔다(VFX는 별도 단계 — Plan 9절). 유닛 상태 VFX 칸은 이 도구가 쓰지 않는다.
+                WithExtra(InstantBuff("Skill_Spirit_TideBlessing", s, 4, "물결의 가호",
+                    "맵 전체 아군 유닛에 체력 재생을 부여하고 받는 회복을 늘린다.", StatusEffectKind.Regen, 20f, 8f),
+                    SkillEffectTarget.Unit, StatusEffectKind.HealAmpMul, 1.25f),
 
                 // ── 초월(race 2) — WillowShrine ──
                 // [2026-11-11 Z-10 · Z-20] 수액 늪 — 이동 0.4배 구역 · 반경 2 · 6초 · 쿨 15.
@@ -534,9 +550,10 @@ namespace Hexiege.EditorTools
                 // [2026-11-17 공습 L-6] 11개 → 12개 — 괄호 안에 공습을 더했다(옛 문구는 「… · 신목의 각성 · 재생의 뿌리)」).
                 // [2026-11-18 메테오 S2-4] 12개 → 13개 — 괄호 안에 메테오를 더했다(옛 문구는 「… · 재생의 뿌리 · 공습)」).
                 // [2026-11-23 연막탄 S-1] 13개 → 14개 — 괄호 안에 연막탄을 더했다(옛 문구는 「… · 공습 · 메테오)」).
+                // [2026-11-25 물결의 가호 T-2] 14개 → 15개 — 괄호 안에 물결의 가호를 더했다(옛 문구는 「… · 메테오 · 연막탄)」).
                 Debug.Log($"{LogPrefix} 완료 — 새로 만든 자산 {created}개 · 값을 다시 쓴 자산 {updated}개 · " +
                           $"로드아웃 3종족 × {SlotsPerRace}슬롯 교체 · 사용 가능 스킬 {ExpectedAvailableCount}개" +
-                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오 · 연막탄). " +
+                          "(포격 지원 · EMP · 전술 지령 · 화염의 축복 · 숲의 포효 · 숲의 순풍 · 서리 감옥 · 수액 늪 · 대지의 갑주 · 신목의 각성 · 재생의 뿌리 · 공습 · 메테오 · 연막탄 · 물결의 가호). " +
                           "기존 임시 스킬 자산 18개는 그대로 남아 있다.");
             }
             else

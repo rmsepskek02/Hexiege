@@ -53,12 +53,23 @@ UI/마커(전부 Presentation 로컬):
 - BuildingFactory.GetBuildingObject(int buildingId) 추가
 
 <a id="mistshrine-mist-tick-boundary--11-heals-open-2026-11-25"></a>
-## MistShrine mist tick boundary — 11 heals OPEN (2026-11-25)
+<a id="mistshrine-mist-tick-count--fixed-2026-11-25"></a>
+## MistShrine mist tick count — 11 (and 9) heals FIXED (2026-11-25)
 
+*(2026-11-25 updated — heading was "MistShrine mist tick boundary — 11 heals OPEN"; the old anchor id is kept above because `.claude/MEMORY.md` and older links use it.)*
+
+- **Fix as built (`_Tasks/2026-11-25/01_19_mistshrine-heal-tick-cap/` Plan §11 · §12, user test PASS):** all in `MistShrineUseCase.cs`, no RPC / schema change.
+  - **Cap** (`bb2088e`): `_healTickCap = FloorToInt(duration / HealTickInterval + 1e-4)` (now 10), per-mist decision counter `HealTickCount` (separate from the dev-only `DiagTicks`, so it works in release). In `TickMists` the 1 s is **subtracted first** (shared phase / `TickAccum` invariant kept), then a capped mist does not fire (`FiredThisTick = false`, no text accumulation). In `ApplyHealTick` ownership, a mist that is **capped AND did not fire this frame** is skipped (`HealTickCount >= _healTickCap && !FiredThisTick`) — not `Remaining <= 0`, which would drop the 10th heal of a phase-0 mist.
+  - **Fire tolerance** (`efc261a`): fire when `TickAccum >= 1 − HealTickFireTolerance` (1e-4 s). Without it a lone phase-0 mist at fixed 1/60 s reached the expiry frame with `TickAccum = 0.99999756` / `Remaining = −0.0000195` → **9 heals** (simulation ~1 in 2000 jittered-60 fps runs; never seen on device). The tolerance only moves a fire earlier; any extra fire is caught by the cap. The old comparison is kept as a one-line comment (`// 수정 전 줄(비교용 보존)`).
+  - Cap and tolerance are a pair: cap = never more than duration ÷ 1 s, tolerance = never fewer for a mist that lasts its full duration. Rule: Buildings 「MistShrine 물안개 힐 시스템」 rule 6 (count clause added 2026-11-25).
+- **Diagnostics now `DiagRev=2`** in all four `[MIST-DIAG]` files (UseCase · `NetworkMistShrineController` · `NetworkHealthSync` · `MistShrinePanelUI`); `MistEnded` adds `TickCap` · `TickCapBlocked` (blocked fires are not counted in `Ticks`; `Ticks + TickCapBlocked` = pre-fix count). Still `개발`.
+- **Regression:** `Assets/Editor/Tools/Combat/RunUnitActionSelfValidation.MistShrineTickCap.cs` MT-1 (cap value) · MT-2 (10 heals at 0.1 s and 1/60 s × phase 0 / 0.5 / 0.923 / 0.99) · MT-2b (former 9-heal case) · MT-3 (observed 0.923 / 0.112 s case blocked once) · MT-4 (capped mist hands an overlapped target to the other mist) · MT-5 (phase invariant). Suite PASS reported by the user.
+- **Device result (one multiplayer match, Editor Host · Android Client, build `efc261a`):** 18 `Reason=Expire` mists all `Ticks=10`, one `TickCapBlocked=1`; destroyed-shrine / game-end mists stop early (6 / 5 ticks) as expected.
+- *Original defect record (cause analysis, 2026-11-25 before the fix) — kept below:*
 - **Defect (multiplayer log, 1 of 31 mists):** a mist of duration 10 s healed 11 times (`Ticks=11`, `PhaseMs=923`, `FirstTickMs=100`, `SumDtMs=10080`) → 110 instead of 100 per target.
 - **Cause (code, re-read 2026-11-25):** `Assets/_Project/Scripts/Application/UseCases/MistShrineUseCase.cs` `TickMists` does (1) `Remaining -= dt; TickAccum += dt;` and fires when `TickAccum >= 1`, (2) `ApplyHealTick()`, then (3) removes mists with `Remaining <= 0`. Phase alignment (Buildings 「MistShrine 물안개 힐 시스템」 rule 8-1-a — do NOT revert it) can put the first tick right after start, so the 11th falls at ~10.08 s; in a ~0.1 s server frame the fire step wins over the expiry step.
-- **Design intent confirmed by the user (2026-11-25):** one mist = heal every 1 s, **10 ticks total** (「…초당 1회 10포 지속 총 10회 발생으로 알맞게 적용되도록 수정하는게 맞는거같다…」). Fix is the next task (new Task docs first) — ROADMAP 「기획·경제·콘텐츠·UI」.
-- **Diagnostics in place:** `[MIST-DIAG]` (`091d11b`, kept as `개발`) — `MistEnded` carries `Ticks` · `SumDtMs` · `WallMs` · `BuildingHeals` · `DupTargetHeals`; use per-mist `Ticks` to verify the fix. Lines: `Diag=MistShrine, DiagRev=1`. Source of the verdict: `_Tasks/2026-11-24/11_28_mistshrine-multi-diag/Plan.md` §6.
+- **Design intent confirmed by the user (2026-11-25):** one mist = heal every 1 s, **10 ticks total** (「…초당 1회 10포 지속 총 10회 발생으로 알맞게 적용되도록 수정하는게 맞는거같다…」). Fixed 2026-11-25 — see the fix bullets above *(2026-11-25 updated — was "Fix is the next task (new Task docs first) — ROADMAP 「기획·경제·콘텐츠·UI」.")*
+- **Diagnostics in place:** `[MIST-DIAG]` (`091d11b`, kept as `개발`) — `MistEnded` carries `Ticks` · `SumDtMs` · `WallMs` · `BuildingHeals` · `DupTargetHeals`; use per-mist `Ticks` to verify the fix. Lines: `Diag=MistShrine, DiagRev=2` *(2026-11-25 updated — was `DiagRev=1`, bumped by the tick-cap fix)*. Source of the verdict: `_Tasks/2026-11-24/11_28_mistshrine-multi-diag/Plan.md` §6.
 - Not a defect: the Client cooldown mirror keeps ticking after the shrine dies (one extra `CooldownExpired` line) — display timer only.
 
 ## MistShrine 물안개 힐 — 에디터 셋업 진입점 (2026-08-21 복구)

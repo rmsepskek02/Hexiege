@@ -4,7 +4,9 @@
 
 - [Server-authoritative projectile checks](patterns.md#server-authoritative-projectile-checks-2026-10-2026) — Host 0-delay masks Client leads, split number/hit/death/DoT channels, death-hold metrics, suite = PASS unless the user reports a failure (2026-10-27 rule, note "no result file"), verify archived log identity by hash.
 
-- [MistShrine multiplayer checks](patterns.md#mistshrine-multiplayer-checks-2026-11-25) — wrong-build round rejection, count-chain verdicts, UI-blocked server reject = not reached, per-mist tick count found the 11-heal boundary bug (next task), Client cooldown mirror after shrine death is normal.
+- [MistShrine multiplayer checks](patterns.md#mistshrine-multiplayer-checks-2026-11-25) — wrong-build round rejection, count-chain verdicts, UI-blocked server reject = not reached, per-mist tick count found the 11-heal boundary bug (fixed 2026-11-25 — cap + fire tolerance; how to verify a count fix whose rare side is not seen on device), Client cooldown mirror after shrine death is normal. *(2026-11-25 updated — was "(next task)")*
+
+- [Tide Blessing multiplayer checks](patterns.md#tide-blessing-multiplayer-checks-2026-11-26) — identify by team + `Slot=4` + `Kind` (「Tide」 also hits TideSpirit), 2 unit lines per cast = units only, wave amp only in samples (`Other` in totals), `Replaced` on re-cast is normal, collect both peers' logs first.
 
 - [Status-effect follow and perimeter VFX checks](patterns.md#status-effect-follow-and-perimeter-vfx-checks-2026-10-2627) — flipped-Client-only follow jump (`PoseCorrected`), role swap between rounds, same-pattern heal left unfixed, width fit off on perimeter prefabs.
 

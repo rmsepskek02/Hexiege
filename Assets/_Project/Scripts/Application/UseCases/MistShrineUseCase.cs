@@ -48,6 +48,23 @@
 //          이번 틱에 발화했을 때만 회복한다. ①이 지켜지는 한 두 집합은 항상 같지만, 혹시라도 위상이
 //          어긋나더라도 "먼저 틱한 물안개가 이긴다" 같은 순서 의존 판정이나 이중 회복이 생기지 않는다.
 //
+//   ⚠️ 2026-11-25 버그 수정 — 위상 정렬 때문에 물안개 1개가 가끔 **11번** 회복하던 문제
+//     (Task `_Tasks/2026-11-25/01_19_mistshrine-heal-tick-cap` — Research 3절 · Plan 2절 추천안 A)
+//     증상: 멀티 Host(서버 틱 0.1초)에서 물안개 31개 중 1개가 10번이 아니라 11번 회복(대상당 100이 아니라 110).
+//     원인: 위 ①(위상 정렬)로 새 물안개가 「이미 0.9초 넘게 차 있는 누적기」를 받으면 첫 회복이 시작 직후에 온다.
+//           그러면 11번째 회복 차례가 지속시간이 끝나는 마지막 프레임과 같은 프레임에 들어오는데,
+//           TickMists는 「회복 발화 판정」을 「소멸 판정」보다 먼저 하므로 한 번 더 회복해 버렸다.
+//     수정: 물안개마다 「실제로 회복한 횟수」를 세고, **지속시간 ÷ 1초(소수점 버림, 지금 10)** 번을 채우면
+//           남은 시간이 있어도 더는 회복하지 않는다(상한). 사용자 확정 기획: 「1초마다 10 회복, 모두 10번」.
+//           위상 정렬(①)과 소유권 판정(②)은 **그대로 둔다** — 되돌리면 2026-08-12의 2배 회복이 재발한다.
+//           · 상한에 닿은 물안개도 누적기는 다른 물안개와 똑같이 진행·차감한다(위상 불변식 유지 — TickMists 주석).
+//           · 상한에 닿았고 이번 프레임에 회복하지 않은 물안개는 사실상 「이미 걷힌 물안개」로 보고
+//             소유권 후보에서 뺀다(ApplyHealTick) — 그 물안개가 겹친 대상을 붙잡고 다른 물안개의 회복을 막지 않게.
+//     후속(같은 Task): 반대 방향 결함 — float 누적 오차로 **9번**만 회복하던 경우도 막는다.
+//       고정 1/60초 · 위상 0에서 10초째 프레임에 누적기 0.99999756(1 미만 → 발화 안 함)인데 남은 시간 −0.0000195(소멸)라
+//       10번째 회복 전에 물안개가 걷혔다. 「1초가 찼다」 판정에 0.0001초 허용 오차를 둔다(HealTickFireTolerance).
+//       소멸 시점(Remaining ≤ 0)은 그대로 — 물안개가 보이는 시간은 바뀌지 않는다. 늘어나는 쪽은 위 상한이 막는다.
+//
 // ── 서버 권위(규칙 22) ──
 //   시전 판정·대상 수집·회복 적용·자동 시전은 서버(싱글=로컬 서버 / 멀티=서버)에서만 실행한다.
 //   멀티 클라이언트는 쿨다운 미러·자동 모드 미러·HP 수신만 한다.
@@ -77,6 +94,29 @@ namespace Hexiege.Application
         /// </summary>
         private const float HealTickInterval = 1.0f;
 
+        /// <summary>
+        /// 「1초가 찼다」 판정의 허용 오차(초). 누적기(TickAccum)가 <c>HealTickInterval - HealTickFireTolerance</c>
+        /// (= 0.9999초) 이상이면 1초가 찬 것으로 본다(2026-11-25 — Task `_Tasks/2026-11-25/01_19_mistshrine-heal-tick-cap`).
+        ///
+        /// 왜 필요한가(유니티 초급자용 설명):
+        ///   컴퓨터의 float(소수) 덧셈은 아주 작은 오차가 생긴다. 예를 들어 1/60초를 60번 더해도 정확히 1.0이 아니라
+        ///   0.99999756처럼 1보다 살짝 작게 나올 수 있다. 그런데 물안개의 「남은 시간」(Remaining)도 같은 dt로 줄어들면서
+        ///   반대쪽 오차가 쌓여, 10초째 프레임에 남은 시간은 −0.0000195(이미 0 이하 = 소멸)인데 누적기는 0.99999756(1 미만 =
+        ///   아직 발화 안 함)이 되는 일이 실제로 생겼다(고정 1/60초 · 위상 0). 그러면 10번째 회복을 하기 전에 물안개가 걷혀
+        ///   **9번**만 회복한다. 기획은 「1초마다, 모두 10번」이므로 이것도 결함이다.
+        ///   그래서 「1초에서 0.0001초 모자라도 1초가 찬 것으로 친다」는 여유를 둔다. 0.0001초는 사람 눈에도, 게임 진행에도
+        ///   보이지 않을 만큼 작지만, float 누적 오차(위 예에서 0.0000025 정도)보다는 충분히 크다.
+        ///
+        /// 지키는 것:
+        ///   · 차감은 그대로 정확히 1초(<c>TickAccum -= HealTickInterval</c>)다. 그래서 누적기가 아주 작은 음수
+        ///     (최소 −0.0001)가 될 수 있는데, 다음 발화는 그만큼(최대 0.0001초) 늦게 올 뿐이라 박자가 밀려 쌓이지 않는다
+        ///     (다음 판정도 같은 여유로 하므로 오차가 매번 0 근처로 되돌아온다).
+        ///   · 모든 물안개가 같은 기준·같은 차감을 쓰므로 위상 불변식(활성 물안개의 TickAccum이 서로 같다)이 그대로 유지된다.
+        ///   · 여유 때문에 발화가 「더 많아지는」 쪽은 회복 횟수 상한(_healTickCap, 지금 10)이 막으므로 11번은 생기지 않는다.
+        ///   · 물안개가 걷히는 시점(Remaining ≤ 0)은 바꾸지 않는다 — 물안개가 존재하는 시간은 그대로다.
+        /// </summary>
+        private const float HealTickFireTolerance = 1e-4f;
+
         // ====================================================================
         // 의존성(조합 루트 GameBootstrapper에서 생성자 주입)
         // ====================================================================
@@ -102,6 +142,26 @@ namespace Hexiege.Application
 
         /// <summary>1초 틱 1회당 실제 적용할 회복량(HP, 정수). 소수점은 올림한다(DoT 틱 관례와 동일).</summary>
         private readonly int _healPerTick;
+
+        /// <summary>
+        /// 물안개 1개가 회복할 수 있는 최대 횟수(= 지속시간 ÷ 회복 간격 1초, 소수점 버림). 생성 시 1회 계산한다.
+        ///
+        /// 왜 필요한가(유니티 초급자용 설명, 2026-11-25):
+        ///   기획은 「물안개 1회 = 1초마다 회복, 모두 (지속시간 ÷ 1초)번」이다(지금 임시값으로 10초 → 10번).
+        ///   그런데 새 물안개는 이미 깔린 물안개와 박자를 맞추느라(위상 정렬) 첫 회복이 시작 직후에 올 수 있고,
+        ///   그러면 마지막 프레임에 한 번 더(11번째) 회복하는 경우가 생겼다. 그래서 횟수 자체에 상한을 둔다.
+        ///
+        /// 왜 반올림이 아니라 버림인가:
+        ///   지속시간이 10.5초처럼 소수이면, 위상 0으로 시작한 물안개는 10번밖에 회복하지 못한다(10.5초 안에 1초가 10번).
+        ///   반올림(11)을 쓰면 위상에 따라 10번 · 11번이 갈리지만, 버림(10)이면 모든 물안개가 같은 횟수가 된다.
+        /// </summary>
+        private readonly int _healTickCap;
+
+        /// <summary>
+        /// 상한 계산의 부동소수 여유값. 예: 지속시간이 설정 파일에서 9.9999995처럼 읽혀도
+        /// 10 ÷ 1 = 9.99… → 버림 9가 되지 않도록 아주 작은 값을 더한 뒤 버린다.
+        /// </summary>
+        private const float HealTickCapEpsilon = 1e-4f;
 
         // ====================================================================
         // 상태(전부 private — 서버 권위. 쿨다운/자동 모드만 멀티 클라 미러로도 쓰인다)
@@ -217,6 +277,9 @@ namespace Hexiege.Application
             _radiusSqr = Mathf.Max(0f, radius) * Mathf.Max(0f, radius);
             // 틱 간격이 정확히 1초이므로 "초당 회복량 = 틱당 회복량"이다. 소수점은 올림(DoT 틱과 같은 관례).
             _healPerTick = Mathf.Max(0, Mathf.CeilToInt(healPerSecond));
+            // 물안개 1개의 회복 횟수 상한 = 지속시간 ÷ 1초의 소수점 버림(지금 10초 → 10번).
+            //   지속시간이 0 이하(또는 잘못된 값)이면 0 → 그 물안개는 회복하지 않는다(음수 상한 방지로 Max(0, …)).
+            _healTickCap = Mathf.Max(0, Mathf.FloorToInt(mistDuration / HealTickInterval + HealTickCapEpsilon));
         }
 
         // ====================================================================
@@ -463,6 +526,12 @@ namespace Hexiege.Application
         ///   활성 물안개들의 TickAccum은 항상 서로 같다. 아래 루프가 모든 물안개에 **같은 dt**를 더하고
         ///   같은 프레임에 똑같이 1초를 빼며, 새 물안개도 생성 시 같은 위상에서 출발하기 때문이다(Activate ⑤).
         ///   이 불변식 덕분에 활성 물안개는 전부 같은 프레임에 발화하고, 중첩 해소가 실제로 동작한다.
+        ///
+        /// 회복 횟수 상한(2026-11-25):
+        ///   물안개 1개는 최대 _healTickCap번(지속시간 ÷ 1초, 지금 10번)만 회복한다. 상한에 닿은 물안개는
+        ///   남은 시간이 있어도 회복을 「발화」하지 않지만, **누적기 진행과 1초 차감은 다른 물안개와 똑같이 한다**.
+        ///   그래야 위 위상 불변식이 깨지지 않는다(GetSharedTickPhase가 Id가 가장 작은 물안개 하나만 읽기 때문 —
+        ///   그 물안개가 상한에 닿은 물안개일 수도 있다).
         /// </summary>
         /// <param name="dt">경과 시간(초).</param>
         public void TickMists(float dt)
@@ -488,7 +557,9 @@ namespace Hexiege.Application
 
                 // 아직 1초가 차지 않았으면 이번 프레임에는 회복하지 않는다.
                 // (위상 불변식이 지켜지는 한 활성 물안개는 전부 함께 통과하거나 전부 함께 여기서 빠진다.)
-                if (mist.TickAccum < HealTickInterval)
+                //   2026-11-25: 비교 기준을 「1초」에서 「1초 − 허용 오차(0.0001초)」로 바꿨다(HealTickFireTolerance 주석).
+                //   float 누적 오차로 누적기가 0.99999756처럼 1에 살짝 못 미친 채 물안개가 걷혀 9번만 회복하던 경우를 막는다.
+                if (mist.TickAccum < HealTickInterval - HealTickFireTolerance)
                 {
                     mist.FiredThisTick = false;
                     mist.ShowTextThisTick = false;
@@ -496,7 +567,29 @@ namespace Hexiege.Application
                 }
 
                 // 1초가 찼다 — 누적분에서 정확히 1초만 뺀다(이월분 보존).
+                //   허용 오차로 통과한 경우(누적기 0.9999 이상 1 미만) 차감 뒤 값은 아주 작은 음수(최소 −0.0001)가 된다.
+                //   일부러 0으로 맞추지 않는다 — 다음 dt가 그대로 더해져 다음 발화가 그만큼만 늦게 오고(최대 0.0001초),
+                //   모든 물안개가 같은 값을 갖게 되므로 위상 불변식도 깨지지 않는다.
+                //   ⚠️ 이 차감은 아래 「회복 횟수 상한」 검사보다 **반드시 먼저** 한다(2026-11-25).
+                //   상한에 닿은 물안개만 차감을 건너뛰면 그 물안개의 누적기가 다른 물안개와 달라져
+                //   위상 불변식이 깨지고, 그 물안개가 목록 맨 앞([0])이면 새 물안개가 틀린 위상을 받는다.
                 mist.TickAccum -= HealTickInterval;
+
+                // 회복 횟수 상한(2026-11-25 — 규칙 6 · 8, Plan 2절 A-3).
+                //   이미 상한(지금 10번)만큼 회복한 물안개는 남은 시간이 있어도 이번 회복을 발화하지 않는다.
+                //   텍스트 주기 누적기(TextAccum)도 쌓지 않는다 — 「실제로 회복한 시간」만 세는 누적기이기 때문이다(규칙 15).
+                if (mist.HealTickCount >= _healTickCap)
+                {
+                    mist.FiredThisTick = false;
+                    mist.ShowTextThisTick = false;
+                    // [진단 MIST-DIAG] 상한 때문에 막은 발화 1회 기록(줄 없음 — MistEnded의 TickCapBlocked 합계).
+                    DiagMistCapBlocked(mist);
+                    continue;
+                }
+
+                // 상한 아래 — 회복 횟수를 1 올리고 이번 프레임에 회복을 발화한다.
+                //   (진단 칸 DiagTicks와 별개인 「판정용」 칸이다 — 릴리스 빌드에서도 동작해야 하므로.)
+                mist.HealTickCount++;
                 mist.FiredThisTick = true;
                 anyFired = true;
 
@@ -562,6 +655,15 @@ namespace Hexiege.Application
             for (int m = 0; m < _activeMists.Count; m++)
             {
                 ActiveMist mist = _activeMists[m];
+
+                // 회복 횟수 상한에 닿았고 이번 프레임에 회복하지 않은 물안개는 소유자 후보에서 뺀다(2026-11-25 — Plan 2절 A-4).
+                //   이런 물안개는 더 이상 아무도 회복시키지 않으므로 사실상 「이미 걷힌 물안개」다. 후보로 남겨 두면,
+                //   그 물안개가 겹친 대상의 「가장 가까운 물안개」가 되어 같은 대상을 덮고 있는 다른 물안개의 회복까지 막는다
+                //   (그 대상 입장에서 회복 간격이 한 번 2초가 된다 — 규칙 8-1-a 「대상 입장의 회복 간격 1초 유지」 위반).
+                //   ⚠️ 기준을 「남은 시간 ≤ 0」으로 잡으면 안 된다: 위상 0으로 시작한 물안개는 10번째 회복이 정확히
+                //   소멸 프레임에 오므로, 그 프레임에 후보에서 빼면 10번째 회복을 잃는다.
+                //   그래서 「상한 도달 **그리고** 이번 프레임 미발화」 두 조건을 함께 본다 — 이번 프레임에 10번째를 발화한 물안개는 후보로 남는다.
+                if (mist.HealTickCount >= _healTickCap && !mist.FiredThisTick) continue;
 
                 // ② 아군 유닛 수집.
                 CollectAllyUnitsInRadius(mist.Team, mist.CenterWorld, _unitBuffer, _unitDistBuffer);
@@ -816,7 +918,7 @@ namespace Hexiege.Application
         }
 
         // ====================================================================
-        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=2 — 개발 축)
         //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절 로그 지점 표.
         //
         //   남기는 줄(상태가 바뀔 때 · 물안개당 · 경기당만 — 매 틱 · 매 회복 줄은 없다, LogRules 1.14):
@@ -825,6 +927,12 @@ namespace Hexiege.Application
         //     HealSample      물안개당 대상별 「첫 회복」 1줄(물안개당 상한 16 — 넘으면 SamplesDropped로만 센다).
         //     DoubleTick      같은 프레임에 TickMists 가드를 두 번 통과한 첫 1회(Warn). 정상이면 0줄이다.
         //     MistEnded       물안개 1개가 끝날 때 1줄. Reason=Expire|Replaced|ShrineDestroyed|MapClear|GameEnd.
+        //                     2026-11-25(DiagRev=2): TickCap(회복 횟수 상한) · TickCapBlocked(상한 때문에 막은 발화 수) 키 추가.
+        //                     정상 판정: Reason=Expire 줄은 Ticks=TickCap(지금 10). 막힌 발화는 Ticks에 세지 않는다.
+        //
+        //   DiagRev(진단 세대 번호): 1 → 2 (2026-11-25 회복 횟수 상한 수정 — Task `_Tasks/2026-11-25/01_19_mistshrine-heal-tick-cap`).
+        //     같은 [MIST-DIAG] 줄을 쓰는 4개 파일(이 파일 · NetworkMistShrineController · NetworkHealthSync · MistShrinePanelUI)이
+        //     함께 올린다 — 한 경기 로그에서 Host · Client 어느 쪽 줄로도 「수정 뒤 빌드인지」를 가를 수 있게.
         //
         //   지키는 것:
         //     · 모든 진입 메서드에 [Conditional] 두 개 → 릴리스 빌드에서는 호출 · 인자 계산 · 문자열 조립이 통째로 사라진다(LogRules 1.7).
@@ -944,7 +1052,7 @@ namespace Hexiege.Application
 
                 GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CastResult",
                     FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Origin={DiagOrigin()}, Result={reject}, CastNo={GetDiagCastCount(buildingId)}, CdRemainMs={DiagMs(cdRemain)}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Origin={DiagOrigin()}, Result={reject}, CastNo={GetDiagCastCount(buildingId)}, CdRemainMs={DiagMs(cdRemain)}"));
             }
             catch (Exception)
             {
@@ -977,7 +1085,7 @@ namespace Hexiege.Application
                 double phase = mist != null ? mist.TickAccum : 0.0;
                 GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CastResult",
                     FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Team={team}, Origin={DiagOrigin()}, Result=Ok, CastNo={castNo}, CdMs={DiagMs(_cooldown)}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, ActiveMists={_activeMists.Count}, PhaseMs={DiagMs(phase)}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=CastResult, Role={DiagMistRole()}, BuildingId={buildingId}, Team={team}, Origin={DiagOrigin()}, Result=Ok, CastNo={castNo}, CdMs={DiagMs(_cooldown)}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, ActiveMists={_activeMists.Count}, PhaseMs={DiagMs(phase)}"));
             }
             catch (Exception)
             {
@@ -1024,7 +1132,7 @@ namespace Hexiege.Application
                 long elapsedMs = known ? DiagMs(_diagCdClock - start) : -1;
                 GameLog.Dev.Info("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] CooldownExpired",
                     FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=CooldownExpired, Role={DiagMistRole()}, BuildingId={buildingId}, CdMs={DiagMs(GetCooldownTotal(buildingId))}, ElapsedMs={elapsedMs}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=CooldownExpired, Role={DiagMistRole()}, BuildingId={buildingId}, CdMs={DiagMs(GetCooldownTotal(buildingId))}, ElapsedMs={elapsedMs}"));
             }
             catch (Exception)
             {
@@ -1052,7 +1160,7 @@ namespace Hexiege.Application
                         {
                             GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] DoubleTick",
                                 FormattableString.Invariant(
-                                    $"Diag=MistShrine, DiagRev=1, Event=DoubleTick, Role={DiagMistRole()}, Frame={frame}, Calls={_diagTickCallsInFrame}, ActiveMists={_activeMists.Count}, DtMs={DiagMs(dt)}"));
+                                    $"Diag=MistShrine, DiagRev=2, Event=DoubleTick, Role={DiagMistRole()}, Frame={frame}, Calls={_diagTickCallsInFrame}, ActiveMists={_activeMists.Count}, DtMs={DiagMs(dt)}"));
                         }
                     }
                 }
@@ -1093,6 +1201,16 @@ namespace Hexiege.Application
             catch (Exception)
             {
             }
+        }
+
+        // 회복 횟수 상한 때문에 막은 발화 1회 기록(줄 없음 — MistEnded의 TickCapBlocked). 판정 칸(HealTickCount 등)은 건드리지 않는다.
+        //   정상 동작에서 이 값이 1이 되는 것은 「위상이 큰(첫 회복이 시작 직후에 온) 물안개의 마지막 프레임」뿐이다(Research 5절).
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void DiagMistCapBlocked(ActiveMist mist)
+        {
+            if (mist == null) return;
+            mist.DiagTickCapBlocked++;
         }
 
         /// <summary>
@@ -1139,7 +1257,7 @@ namespace Hexiege.Application
                     : target is BuildingData bd ? bd.Type.ToString() : "Unknown";
 
                 string data = FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event=HealSample, Role={DiagMistRole()}, ShrineId={shrineId}, CastNo={mist.DiagCastNo}, Target={(isUnit ? "Unit" : "Building")}, Id={target.Id}, Type={type}, Base={_healPerTick}, AmpMulMilli={Mathf.RoundToInt(mul * 1000f)}, Amplified={amplified}, Gained={gained}, HpBefore={hpBefore}, HpAfter={hpAfter}, MaxHp={target.MaxHp}, Tick={mist.DiagTicks}, Dup={dup}, Check={check}");
+                    $"Diag=MistShrine, DiagRev=2, Event=HealSample, Role={DiagMistRole()}, ShrineId={shrineId}, CastNo={mist.DiagCastNo}, Target={(isUnit ? "Unit" : "Building")}, Id={target.Id}, Type={type}, Base={_healPerTick}, AmpMulMilli={Mathf.RoundToInt(mul * 1000f)}, Amplified={amplified}, Gained={gained}, HpBefore={hpBefore}, HpAfter={hpAfter}, MaxHp={target.MaxHp}, Tick={mist.DiagTicks}, Dup={dup}, Check={check}");
                 if (check == "Mismatch" || dup)
                     GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] HealSample", data);
                 else
@@ -1206,7 +1324,7 @@ namespace Hexiege.Application
             {
                 double wall = mist.DiagStartWall >= 0 ? UnityEngine.Time.timeAsDouble - mist.DiagStartWall : -1.0;
                 string data = FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event=MistEnded, Role={DiagMistRole()}, ShrineId={mist.SourceBuildingId}, Team={mist.Team}, CastNo={mist.DiagCastNo}, Reason={reason}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, Ticks={mist.DiagTicks}, FirstTickMs={DiagMsOrNone(mist.DiagFirstFireSumDt)}, MinGapMs={DiagMsOrNone(mist.DiagMinGap)}, MaxGapMs={DiagMsOrNone(mist.DiagMaxGap)}, SumDtMs={DiagMs(mist.DiagSumDt)}, WallMs={DiagMsOrNone(wall)}, UnitHeals={mist.DiagUnitHeals}, BuildingHeals={mist.DiagBuildingHeals}, BaseTotal={mist.DiagBaseTotal}, GainedTotal={mist.DiagGainedTotal}, Targets={mist.DiagSamples + mist.DiagSamplesDropped}, Texts={mist.DiagTexts}, DupTargetHeals={mist.DiagDupTargetHeals}, DoubleTickFrames={_diagDoubleTickFrames}, Samples={mist.DiagSamples}, SamplesDropped={mist.DiagSamplesDropped}");
+                    $"Diag=MistShrine, DiagRev=2, Event=MistEnded, Role={DiagMistRole()}, ShrineId={mist.SourceBuildingId}, Team={mist.Team}, CastNo={mist.DiagCastNo}, Reason={reason}, DurationMs={DiagMs(_mistDuration)}, HealPerTick={_healPerTick}, Ticks={mist.DiagTicks}, TickCap={_healTickCap}, TickCapBlocked={mist.DiagTickCapBlocked}, FirstTickMs={DiagMsOrNone(mist.DiagFirstFireSumDt)}, MinGapMs={DiagMsOrNone(mist.DiagMinGap)}, MaxGapMs={DiagMsOrNone(mist.DiagMaxGap)}, SumDtMs={DiagMs(mist.DiagSumDt)}, WallMs={DiagMsOrNone(wall)}, UnitHeals={mist.DiagUnitHeals}, BuildingHeals={mist.DiagBuildingHeals}, BaseTotal={mist.DiagBaseTotal}, GainedTotal={mist.DiagGainedTotal}, Targets={mist.DiagSamples + mist.DiagSamplesDropped}, Texts={mist.DiagTexts}, DupTargetHeals={mist.DiagDupTargetHeals}, DoubleTickFrames={_diagDoubleTickFrames}, Samples={mist.DiagSamples}, SamplesDropped={mist.DiagSamplesDropped}");
                 if (mist.DiagDupTargetHeals > 0 || _diagDoubleTickFrames > 0)
                     GameLog.Dev.Warn("Combat", nameof(MistShrineUseCase), "[MIST-DIAG] MistEnded", data);
                 else
@@ -1260,6 +1378,15 @@ namespace Hexiege.Application
             /// </summary>
             public bool FiredThisTick;
 
+            /// <summary>
+            /// 이 물안개가 지금까지 회복을 발화한 횟수(**판정용** — 2026-11-25 회복 횟수 상한).
+            /// TickMists가 상한(_healTickCap, 지금 10)과 비교해 그 이상이면 더 발화하지 않고,
+            /// ApplyHealTick이 「상한 도달 + 이번 프레임 미발화」 물안개를 소유자 후보에서 뺄 때 읽는다.
+            /// 아래 진단 칸 DiagTicks와 값이 같아 보이지만 별개다 — DiagTicks는 개발 빌드에서만 채워지고,
+            /// 이 칸은 릴리스 빌드에서도 게임 규칙으로 동작해야 하기 때문이다.
+            /// </summary>
+            public int HealTickCount;
+
             // ── [진단 MIST-DIAG] 진단 전용 칸 — 판정(위 필드들)은 이 칸을 읽지 않는다. 개발 빌드에서만 값이 채워진다. ──
             public int DiagCastNo;              // 이 물안개를 만든 시전의 신전별 순번(CastResult · ActivateSent와 같은 값).
             public double DiagStartWall = -1;   // 생성 시각(Time.timeAsDouble, 초). -1 = 진단이 채우지 않음.
@@ -1268,7 +1395,8 @@ namespace Hexiege.Application
             public double DiagLastFireWall = -1;   // 직전 발화 시각(Time.timeAsDouble, 초).
             public double DiagMinGap = -1;      // 발화 간격 최소(초). -1 = 간격이 아직 없음(발화 2회 미만).
             public double DiagMaxGap = -1;      // 발화 간격 최대(초).
-            public int DiagTicks;               // 발화 횟수.
+            public int DiagTicks;               // 발화 횟수(상한 때문에 막힌 발화는 세지 않는다 — 아래 DiagTickCapBlocked).
+            public int DiagTickCapBlocked;      // 회복 횟수 상한 때문에 막은 발화 수(2026-11-25). DiagTicks + 이 값 = 수정 전이라면 나왔을 횟수.
             public int DiagTexts;               // 회복 텍스트 표시 틱 수.
             public int DiagUnitHeals;           // 실제로 HP가 오른 유닛 회복 횟수.
             public int DiagBuildingHeals;       // 실제로 HP가 오른 건물 회복 횟수.
@@ -1299,6 +1427,7 @@ namespace Hexiege.Application
                 TextAccum = 0f;
                 ShowTextThisTick = false;
                 FiredThisTick = false;
+                HealTickCount = 0; // 새 물안개는 아직 한 번도 회복하지 않았다.
             }
         }
 

@@ -66,7 +66,10 @@ namespace Hexiege.Application
         HoT = 4,
         /// <summary> 재생의 뿌리 자신의 재생. </summary>
         SkillRegen = 5,
-        /// <summary> TorrentSpirit 파도 회복(정령 — 초월 팀과 만나지 않는다). </summary>
+        /// <summary>
+        /// TorrentSpirit 파도 회복(정령 유닛). 정령 지원 스킬 「물결의 가호」의 받는 회복 배율이 걸린 유닛이면 이 회복에도 배율이 곱해진다.
+        /// [2026-11-25 물결의 가호 Task T-5] 종전 문구 「정령 — 초월 팀과 만나지 않는다」는 정령 쪽에도 받는 회복 배율 스킬이 생겨 맞지 않게 됐다.
+        /// </summary>
         Wave = 6
     }
 

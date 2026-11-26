@@ -2570,7 +2570,10 @@ namespace Hexiege.Application
             //   자연회복 · BloomFairy 힐(지속 회복 틱) · 파도 회복이 모두 이 줄을 지난다. 대상에 「받는 회복 배율」이 걸려 있으면
             //   서비스가 「회복량 × 1.5 + 지난 나머지」의 정수를 돌려주고 1 미만 나머지는 그 유닛 몫으로 모아 둔다(소수 이월).
             //   효과가 없는 유닛 · 서비스 미주입(null)이면 amount 그대로다 → 기존 회복과 정확히 같다(회귀 안전).
-            //   파도 진단(WaveWriterDiagnostic)은 기존대로 요청량(amount)을 남긴다 — 파도는 정령 회복이라 초월 효과와 만나지 않는다.
+            //   파도 진단(WaveWriterDiagnostic)은 기존대로 요청량(amount)을 남긴다.
+            //   [2026-11-25 물결의 가호 Task T-5] 정령 「물결의 가호」가 받는 회복 배율을 걸기 때문에 파도 회복도 이 줄에서 배율이 곱해질 수 있다.
+            //   그래서 파도 진단의 요청량은 실제로 오른 회복량과 다를 수 있다 — 실제 HP 변화는 같은 진단의 회복 전 · 후 HP(hpBefore · target.Hp)로 본다.
+            //   (종전 문구 「파도는 정령 회복이라 초월 효과와 만나지 않는다」는 정령 쪽에도 받는 회복 배율 스킬이 생겨 맞지 않게 됐다.)
             int healAmount = _supportEffects != null ? _supportEffects.AmplifyHeal(target, amount, ampSource) : amount;
             target.Heal(healAmount);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -3849,7 +3852,9 @@ namespace Hexiege.Application
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                     int before = ally.Hp;
 #endif
-                    // [2026-11-17 단계 B] 출처 Wave를 넘긴다(진단 값 — 정령 파도는 초월 효과와 만나지 않는다). 옛 줄(기록용):
+                    // [2026-11-17 단계 B] 출처 Wave를 넘긴다(진단 값 — 회복 계산에는 쓰지 않는다).
+                    //   [2026-11-25 물결의 가호 Task T-5] 정령 「물결의 가호」가 걸린 아군이면 이 파도 회복에도 받는 회복 배율이 곱해진다
+                    //   (종전 괄호 문구 「정령 파도는 초월 효과와 만나지 않는다」는 맞지 않게 됐다). 옛 줄(기록용):
                     // ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave);
                     ApplyHealToUnit(wave.Caster, ally, wave.Heal, presentationWave: wave, ampSource: HealAmpSource.Wave);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

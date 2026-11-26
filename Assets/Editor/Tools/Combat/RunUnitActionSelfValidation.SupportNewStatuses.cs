@@ -595,8 +595,10 @@ namespace Hexiege.Editor.Combat
             // [2026-11-17 공습 Task L-6] 11 → 12 — 공습(직선 연속 폭격)을 「사용 가능」으로 켰다(지원 스킬 새 상태와 무관한 변경).
             // [2026-11-18 메테오 Task S2-4] 12 → 13 — 메테오(타입 A · 착탄 지연 · 착탄 화상)를 「사용 가능」으로 켰다.
             // [2026-11-23 연막탄 Task S-1] 13 → 14 — 연막탄(지속 상태 구역 · 아군 대상 · 회피 확률)을 「사용 가능」으로 켰다.
-            Require(expected != null && (int)expected.GetRawConstantValue() == 14,
-                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 14 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled).");
+            // [2026-11-25 물결의 가호 Task T-4] 14 → 15 — 정령 슬롯 5(0부터 4)의 원소 공명(사용 불가) 자리에 물결의 가호(유닛 재생 · 받는 회복 배율)를
+            //   「사용 가능」으로 넣었다.
+            Require(expected != null && (int)expected.GetRawConstantValue() == 15,
+                "S-T9 SupportSkillLoadoutSetup.ExpectedAvailableCount must be 15 (Earth Armor + Sacred Tree Awakening + Roots of Regeneration + Air Strike + Meteor + Smoke Bomb enabled + Tide Blessing).");
             // [2026-11-17 공습 Task L-2] 10 → 11 — 공습 조준 방향이 요청 · 발동 알림 RPC에 붙었다(지원 스킬 새 상태와 무관한 변경).
             // [2026-11-23 연막탄 Task 단계 S-3] 11 → 12 — 서버 권위 투사체 발사 RPC에 회피 여부 · 빗나간 지점이 붙었다(이 검사 대상과 무관한 변경).
             Require(UnitAttackShadowProfileResolver.PresentationContractSchemaRevision == 13,

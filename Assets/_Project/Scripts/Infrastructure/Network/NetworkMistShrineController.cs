@@ -303,7 +303,7 @@ namespace Hexiege.Infrastructure
             mist?.SetAutoMode(buildingId, on);
         }
         // ====================================================================
-        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=1 — 개발 축)
+        // [진단 MIST-DIAG] MistShrine 멀티 검증용 개발 진단 로그 (Diag=MistShrine, DiagRev=2 — 개발 축)
         //   2026-11-24 task `_Tasks/2026-11-24/11_28_mistshrine-multi-diag` Plan 2절.
         //   Host: CastRequest · ToggleRequest(요청 1회) · ActivateSent(브로드캐스트 1회) · AutoToggled(토글 1회).
         //   Client: ActivateReceived · AutoModeReceived(수신 1회).
@@ -367,7 +367,7 @@ namespace Hexiege.Infrastructure
                 int cdMs = mist != null ? DiagMs(mist.GetCooldownRemaining(buildingId)) : -1;
                 bool autoBefore = mist != null && mist.GetAutoMode(buildingId);
                 string data = System.FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event={evt}, Role={DiagRole()}, Sender={sender}, BuildingId={buildingId}, RequestedTeam={(TeamId)teamIndex}, Result={result}, ServerCdMs={cdMs}, AutoBefore={autoBefore}");
+                    $"Diag=MistShrine, DiagRev=2, Event={evt}, Role={DiagRole()}, Sender={sender}, BuildingId={buildingId}, RequestedTeam={(TeamId)teamIndex}, Result={result}, ServerCdMs={cdMs}, AutoBefore={autoBefore}");
                 if (result == "Accepted")
                     GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] " + evt, data);
                 else
@@ -390,7 +390,7 @@ namespace Hexiege.Infrastructure
                 int castNo = mist != null ? mist.GetDiagCastCount(buildingId) : -1;
                 GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] ActivateSent",
                     System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=ActivateSent, Role={DiagRole()}, BuildingId={buildingId}, CastNo={castNo}, CdMs={DiagMs(cooldownTotal)}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=ActivateSent, Role={DiagRole()}, BuildingId={buildingId}, CastNo={castNo}, CdMs={DiagMs(cooldownTotal)}"));
             }
             catch (System.Exception)
             {
@@ -409,7 +409,7 @@ namespace Hexiege.Infrastructure
             {
                 int recvNo = DiagNext(ref _diagRecvNo, buildingId);
                 string data = System.FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event=ActivateReceived, Role={DiagRole()}, BuildingId={buildingId}, RecvNo={recvNo}, CdMs={DiagMs(cooldownTotal)}, PrevMirrorMs={(mist != null ? DiagMs(mist.GetCooldownRemaining(buildingId)) : -1)}, UseCase={(mist != null ? "Ok" : "Missing")}");
+                    $"Diag=MistShrine, DiagRev=2, Event=ActivateReceived, Role={DiagRole()}, BuildingId={buildingId}, RecvNo={recvNo}, CdMs={DiagMs(cooldownTotal)}, PrevMirrorMs={(mist != null ? DiagMs(mist.GetCooldownRemaining(buildingId)) : -1)}, UseCase={(mist != null ? "Ok" : "Missing")}");
                 if (mist != null)
                     GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] ActivateReceived", data);
                 else
@@ -430,7 +430,7 @@ namespace Hexiege.Infrastructure
                 int toggleNo = DiagNext(ref _diagToggleNo, buildingId);
                 GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] AutoToggled",
                     System.FormattableString.Invariant(
-                        $"Diag=MistShrine, DiagRev=1, Event=AutoToggled, Role={DiagRole()}, Sender={rpcParams.Receive.SenderClientId}, BuildingId={buildingId}, On={on}, ToggleNo={toggleNo}"));
+                        $"Diag=MistShrine, DiagRev=2, Event=AutoToggled, Role={DiagRole()}, Sender={rpcParams.Receive.SenderClientId}, BuildingId={buildingId}, On={on}, ToggleNo={toggleNo}"));
             }
             catch (System.Exception)
             {
@@ -447,7 +447,7 @@ namespace Hexiege.Infrastructure
                 int recvNo = DiagNext(ref _diagAutoRecvNo, buildingId);
                 bool prev = mist != null && mist.GetAutoMode(buildingId);
                 string data = System.FormattableString.Invariant(
-                    $"Diag=MistShrine, DiagRev=1, Event=AutoModeReceived, Role={DiagRole()}, BuildingId={buildingId}, On={on}, AutoRecvNo={recvNo}, PrevLocal={prev}, UseCase={(mist != null ? "Ok" : "Missing")}");
+                    $"Diag=MistShrine, DiagRev=2, Event=AutoModeReceived, Role={DiagRole()}, BuildingId={buildingId}, On={on}, AutoRecvNo={recvNo}, PrevLocal={prev}, UseCase={(mist != null ? "Ok" : "Missing")}");
                 if (mist != null && prev != on)
                     GameLog.Dev.Info("Network", nameof(NetworkMistShrineController), "[MIST-DIAG] AutoModeReceived", data);
                 else
