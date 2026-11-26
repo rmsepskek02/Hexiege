@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 481bb32f24e95304ca0d1e9c0c0f3cb0, type: 3}
+  m_Name: Skill_Spirit_TideBlessing
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.SkillDefinition
+  _icon: {fileID: 0}
+  _displayName: "\uBB3C\uACB0\uC758 \uAC00\uD638"
+  _description: "\uB9F5 \uC804\uCCB4 \uC544\uAD70 \uC720\uB2DB\uC5D0 \uCCB4\uB825
+    \uC7AC\uC0DD\uC744 \uBD80\uC5EC\uD558\uACE0 \uBC1B\uB294 \uD68C\uBCF5\uC744 \uB298\uB9B0\uB2E4."
+  _isAvailable: 1
+  _aimType: 0
+  _cooldown: 15
+  _mechanic: 2
+  _radius: 0
+  _duration: 8
+  _totalDamage: 0
+  _damagePerSecond: 0
+  _statusKind: 9
+  _magnitude: 20
+  _targetsAllies: 1
+  _impactDelay: 0
+  _activationVfxPrefab: {fileID: 0}
+  _vfxReferenceRadius: 2
+  _zoneVfxPrefab: {fileID: 0}
+  _statusVfxPrefab: {fileID: 0}
+  _statusVfxScale: 1
+  _statusVfxOffset: {x: 0, y: 0, z: 0}
+  _extraEffects:
+  - target: 0
+    statusKind: 10
+    magnitude: 1.25
+  _buildingStatusVfxPrefab: {fileID: 0}
+  _buildingStatusVfxScale: 1
+  _buildingStatusVfxOffsetY: 0
+  _lineLength: 6
+  _lineWidth: 2
+  _lineStrikeCount: 5
+  _lineStrikeInterval: 0.2
+  _lineVfxReferenceLength: 6
+  _strikeVfxPrefab: {fileID: 0}
+  _impactBurnDamagePerSecond: 0
+  _impactBurnDuration: 0
+  _warningVfxReferenceTime: 0
+  _fallingBodyVfxPrefab: {fileID: 0}
+  _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
+  _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
+  _impactVfxPrefab: {fileID: 0}

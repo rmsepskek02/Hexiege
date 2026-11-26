@@ -26,7 +26,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: ef0c54049dc9faf4e94abbc1410dc7b0, type: 2}
     - {fileID: 11400000, guid: c3a062e2600192f41a3d38053d54c60c, type: 2}
     - {fileID: 11400000, guid: b4beb4b7763dc4649ac74594631c8afa, type: 2}
-    - {fileID: 11400000, guid: d14cfa3bd92d58c47b4817508c7ce372, type: 2}
+    - {fileID: 11400000, guid: 4f5cb5ada04a1454584dd1df2de1f2f5, type: 2}
   - race: 2
     skills:
     - {fileID: 11400000, guid: e520218f289b08340b7eaa9cc5ec97a9, type: 2}

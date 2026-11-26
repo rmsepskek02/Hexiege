@@ -31,11 +31,24 @@ MonoBehaviour:
   _impactDelay: 1.5
   _activationVfxPrefab: {fileID: 0}
   _vfxReferenceRadius: 2
+  _zoneVfxPrefab: {fileID: 0}
+  _statusVfxPrefab: {fileID: 0}
+  _statusVfxScale: 1
+  _statusVfxOffset: {x: 0, y: 0, z: 0}
+  _extraEffects: []
+  _buildingStatusVfxPrefab: {fileID: 0}
+  _buildingStatusVfxScale: 1
+  _buildingStatusVfxOffsetY: 0
+  _lineLength: 6
+  _lineWidth: 2
+  _lineStrikeCount: 5
+  _lineStrikeInterval: 0.2
+  _lineVfxReferenceLength: 6
+  _strikeVfxPrefab: {fileID: 0}
   _impactBurnDamagePerSecond: 50
   _impactBurnDuration: 3
   _warningVfxReferenceTime: 1.5
-  _fallingBodyVfxPrefab: {fileID: 7663734548862268443, guid: 7e8dfaf7ffa63874c8e9e68e62f58425,
-    type: 3}
+  _fallingBodyVfxPrefab: {fileID: 7663734548862268443, guid: 7e8dfaf7ffa63874c8e9e68e62f58425, type: 3}
   _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
   _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
   _impactVfxPrefab: {fileID: 0}

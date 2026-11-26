@@ -41,3 +41,16 @@ MonoBehaviour:
   _buildingStatusVfxPrefab: {fileID: 0}
   _buildingStatusVfxScale: 1
   _buildingStatusVfxOffsetY: 0
+  _lineLength: 6
+  _lineWidth: 2
+  _lineStrikeCount: 5
+  _lineStrikeInterval: 0.2
+  _lineVfxReferenceLength: 6
+  _strikeVfxPrefab: {fileID: 0}
+  _impactBurnDamagePerSecond: 0
+  _impactBurnDuration: 0
+  _warningVfxReferenceTime: 0
+  _fallingBodyVfxPrefab: {fileID: 0}
+  _fallingBodyStartOffset: {x: -3, y: 6, z: 2}
+  _fallingBodyEulerOffset: {x: 0, y: 0, z: 0}
+  _impactVfxPrefab: {fileID: 0}
