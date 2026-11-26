@@ -68,4 +68,10 @@ metadata는 LastUsedUtc.txt, 공유 claim은 .Retention.lock, 루트 최근 요�
 
 사용자가 “삭제 잘 되는 것 같아”라고 수동 삭제의 정상 동작을 확인하고 main 병합·push를 요청했다. 문서 반영은 “기존 문서에 반영”을 선택했으므로 이 Task에서 기록한다. 삭제 개수·대상, PC/ZIP 실물 검증,30일 자동 정리의 기기 실행, 목록 속도 전후 수치는 보고되지 않아 확정하지 않는다. 수동 사용자의 전체 정상 수용과 개발자의 실제 삭제 실행0을 구분한다.
 
-현재 HEAD25a04c2c/최신 origin/main14dc0c2a 기준으로 메인이 제품5cs+helper meta의 commit·main 병합·push를 준비한다. 이 문장은 승인/진행 상태이며 아직 병합·원격 반영 완료가 아니다. 기존 dirty와 원본·검증 한계를 보존하고 최종 Git 결과 수신 뒤 현행 상태만 갱신한다. 추가 메모리·제품·Git 변경은 문서 담당이 수행하지 않는다.
+승인 당시 HEAD25a04c2c/최신 origin/main14dc0c2a 기준으로 제품5cs+helper meta의 반영을 준비했고 이후 아래와 같이 main 병합·push를 완료했다. 기존 dirty와 원본·검증 한계를 보존하고 최종 Git 결과는 아래 완료 기록을 따른다. 추가 메모리·제품·Git 변경은 문서 담당이 수행하지 않는다.
+
+## 제품 main 반영·push 완료 — 2026-11-26
+
+제품 commit04d12455를 최신 main14dc0c2a와 충돌0으로 병합해 `bb8f48360c1e818a1c13e91dfa0876719953b674`를 만들고 local main fast-forward·push·fetch로 origin/main/main/opt3refs 일치를 확인했다. 현재 opt branch로 복귀했다. 생성 파일3개의 기존 staged/working 원문 해시 복원은 private `.utmp/log-retention-merge-20261126/Restoration.json`에서 모두 true다. raw/ZIP/Profiler/scratch는 push 대상에서 제외했다.
+
+합성 runtime395/Editor36(총431source)의4구성 컴파일 오류0·경고25/28/32/0, source 변화0과 로그 제품6SHA가 사용자 확인본과 같음을 확인했다. 근거는 `.utmp/log-retention-merge-20261126/validation/MergeValidationReceipt.json`(SHA1FBDBE38DC4D99190681EB7E392785993E1653D67FE757C603A9DCD6ABC24FB6)이다. Git 반영 완료는 새 native/실기 삭제 검증이 아니다. 사용자 수동 삭제 수용만 확인됐고 자동30일 정리의 실제 Android 실행·속도 전후 실측·개별 삭제 수량/대상·PCZIP 실물 수용은 미확인으로 유지한다. 문서 후속 commit은 제품 통합 commit과 별개다.
