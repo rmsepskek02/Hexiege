@@ -40,7 +40,7 @@
 | Firebase Authentication SDK | 로그인 시스템 전체 (계정 생성, 인증, 세션 관리) |
 | Google Play Games Plugin for Unity | Google 사용자 인증 및 Firebase 인증에 사용할 Server Auth Code 발급 |
 
-현재 프로젝트의 SDK 로컬 Import/제외 방침은 유지하며 기준 SDK는 Firebase Unity13.11.0·GooglePlayGames2.1.0이다. SDK 존재는 Import 자체로 판단하고 별도 Firebase 컴파일 심볼 게이트를 두지 않는다. Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`을 참조한다. SDK/EDM 버전 관리의 후속 결정과 초기화 실패의 현재 상태는 [ROADMAP](ROADMAP.md)·[PROJECT_STATUS](PROJECT_STATUS.md), 과거 stub 제거·커밋·관측 경위는 [이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-sdk-receipt)을 따른다.
+기준 SDK는 Firebase Unity13.11.0·GooglePlayGames2.1.0이다. Firebase SDK는 로컬 Import·저장소 제외를 유지하며, 클라우드 세션에서는 `Tools/cloud_setup.sh`가 자동 설치한다. GooglePlayGames는 저장소에 포함한다(사용자 결정 2026-11-27). SDK 존재는 Import 자체로 판단하고 별도 Firebase 컴파일 심볼 게이트를 두지 않는다. Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`을 참조한다. SDK/EDM 버전 관리의 후속 결정과 초기화 실패의 현재 상태는 [ROADMAP](ROADMAP.md)·[PROJECT_STATUS](PROJECT_STATUS.md), 과거 stub 제거·커밋·관측 경위는 [이력](History/ImplementationVerificationHistory.md#role-maintenance-20261016-r2-auth-sdk-receipt)을 따른다.
 
 ### 레이어별 구성
 

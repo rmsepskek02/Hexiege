@@ -18,13 +18,7 @@ Assets/Plugins/iOS/Firebase.meta
 Assets/Plugins/tvOS/Firebase/
 Assets/Plugins/tvOS/Firebase.meta
 
-# Google Play Games Plugin for Unity (용량 대형 - 로컬 임포트로 재설치)
-Assets/GooglePlayGames/
-Assets/GooglePlayGames.meta
-
-# GPGS가 설치하는 Android 매니페스트 라이브러리
-Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/
-Assets/Plugins/Android/GooglePlayGamesManifest.androidlib.meta
+# GPGS(Google Play Games Plugin)는 클라우드 환경 자동 구성을 위해 저장소에 포함한다 (2026-11-27 사용자 결정)
 
 # EDM4U(External Dependency Manager) — 기기마다 .meta가 달라져 충돌 유발
 Assets/ExternalDependencyManager/
