@@ -10240,6 +10240,8 @@ CompleteProduction(state)
 
 ````
 
+> **[🔴 2026-11-27 correction — original kept]** 위 사본의 「두 SDK 모두 git에 커밋하지 않는다」는 2026-07-13 당시 방침이다. 사용자 결정(2026-11-27)으로 Google Play Games Plugin 2.1.0은 저장소 포함으로 바뀌었고(`.gitignore`의 GPGS 제외 항목 제거), Firebase Unity SDK 13.11.0은 로컬 Import·저장소 제외를 유지하며 클라우드 세션에서는 `Tools/cloud_setup.sh`가 자동 설치한다. 현행 기준은 [AuthSystemRules.md](../AuthSystemRules.md)다. 위 사본과 SHA256은 원문 그대로 보존한다.
+
 <a id="role-maintenance-20261016-r2-auth-old-init"></a>
 
 ### > **참고 (기존 로직 비활성화)**
